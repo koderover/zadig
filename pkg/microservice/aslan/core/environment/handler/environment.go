@@ -234,13 +234,6 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	// !!! [ZADIG] FOR DEBUG.
-	args.ShareEnv = commonmodels.ProductShareEnv{
-		Enable:  true,
-		IsBase:  false,
-		BaseEnv: "dev",
-	}
-
 	args.UpdateBy = ctx.UserName
 	ctx.Err = service.CreateProduct(
 		ctx.UserName, ctx.RequestID, args, ctx.Logger,

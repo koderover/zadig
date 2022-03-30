@@ -107,7 +107,7 @@ type EnvResp struct {
 	BaseName    string   `json:"base_name"`
 	IsExisted   bool     `json:"is_existed"`
 
-	// New Since v1.10.0
+	// New Since v1.11.0
 	ShareEnvEnable  bool   `json:"share_env_enable"`
 	ShareEnvIsBase  bool   `json:"share_env_is_base"`
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
@@ -134,6 +134,11 @@ type ProductResp struct {
 	IsExisted   bool                       `json:"is_existed"`
 	Source      string                     `json:"source"`
 	RegisterID  string                     `json:"registry_id"`
+
+	// New Since v1.11.0
+	ShareEnvEnable  bool   `json:"share_env_enable"`
+	ShareEnvIsBase  bool   `json:"share_env_is_base"`
+	ShareEnvBaseEnv string `json:"share_env_base_env"`
 }
 
 type ProductParams struct {
@@ -2009,6 +2014,15 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 			log.Errorf("delete resource of service %s error:%v", name, err)
 		}
 	}
+
+	if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
+		err = ensureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
+		if err != nil {
+			log.Errorf("Failed to ensure gray env config: %s", err)
+			return fmt.Errorf("failed to ensure gray env config: %s", err)
+		}
+	}
+
 	return nil
 }
 

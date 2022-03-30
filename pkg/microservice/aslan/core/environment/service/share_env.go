@@ -119,7 +119,7 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	}
 
 	// 3. Ensure `VirtualService` (subsets are not required) in current namespace.
-	err = ensureVirtualServices(ctx, kclient, istioClient, ns)
+	err = ensureVirtualServices(ctx, prod, kclient, istioClient)
 	if err != nil {
 		return fmt.Errorf("failed to ensure VirtualServices in namespace `%s`: %s", ns, err)
 	}
@@ -426,33 +426,68 @@ func checkPodsWithIstioProxyAndReady(ctx context.Context, kclient client.Client,
 	return allHaveIstioProxy, allPodsReady, nil
 }
 
-func ensureVirtualServices(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
+func ensureVirtualServices(ctx context.Context, env *commonmodels.Product, kclient client.Client, istioClient versionedclient.Interface) error {
 	svcs := &corev1.ServiceList{}
-	err := kclient.List(ctx, svcs, client.InNamespace(ns))
+	err := kclient.List(ctx, svcs, client.InNamespace(env.Namespace))
 	if err != nil {
-		return fmt.Errorf("failed to list svcs in ns `%s`: %s", ns, err)
+		return fmt.Errorf("failed to list svcs in ns `%s`: %s", env.Namespace, err)
 	}
 
 	for _, svc := range svcs.Items {
 		vsName := genVirtualServiceName(&svc)
-		err := ensureVirtualService(ctx, istioClient, ns, vsName, svc.Name)
+		err := ensureVirtualService(ctx, kclient, istioClient, env, &svc, vsName)
 		if err != nil {
-			return fmt.Errorf("failed to ensure VirtualService `%s` in ns `%s`: %s", vsName, ns, err)
+			return fmt.Errorf("failed to ensure VirtualService `%s` in ns `%s`: %s", vsName, env.Namespace, err)
 		}
 	}
 
 	return nil
 }
 
-func ensureVirtualService(ctx context.Context, istioClient versionedclient.Interface, ns, vsName, svcName string) error {
-	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
+func ensureVirtualService(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, env *commonmodels.Product, svc *corev1.Service, vsName string) error {
+	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Get(ctx, vsName, metav1.GetOptions{})
 	if err == nil {
-		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, ns)
+		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, env.Namespace)
 		return nil
 	}
 
 	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", vsName, ns, err)
+		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", vsName, env.Namespace, err)
+	}
+
+	matchedEnvs := []MatchedEnv{}
+	if env.ShareEnv.Enable && env.ShareEnv.IsBase {
+		subEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			ShareEnvEnable:  getBoolPointer(true),
+			ShareEnvIsBase:  getBoolPointer(false),
+			ShareEnvBaseEnv: getStrPointer(env.EnvName),
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, subEnv := range subEnvs {
+			pods := &corev1.PodList{}
+			err = kclient.List(ctx, pods, &client.ListOptions{
+				Namespace:     subEnv.Namespace,
+				LabelSelector: labels.SelectorFromSet(labels.Set(svc.Spec.Selector)),
+			})
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+
+			if len(pods.Items) == 0 {
+				continue
+			}
+
+			matchedEnvs = append(matchedEnvs, MatchedEnv{
+				EnvName:   subEnv.EnvName,
+				Namespace: subEnv.Namespace,
+			})
+		}
 	}
 
 	vsObj.Name = vsName
@@ -462,21 +497,45 @@ func ensureVirtualService(ctx context.Context, istioClient versionedclient.Inter
 	}
 	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 
-	vsObj.Spec = networkingv1alpha3.VirtualService{
-		Hosts: []string{svcName},
-		Http: []*networkingv1alpha3.HTTPRoute{
-			&networkingv1alpha3.HTTPRoute{
-				Route: []*networkingv1alpha3.HTTPRouteDestination{
-					&networkingv1alpha3.HTTPRouteDestination{
-						Destination: &networkingv1alpha3.Destination{
-							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, ns),
+	routes := []*networkingv1alpha3.HTTPRoute{}
+	for _, matchedEnv := range matchedEnvs {
+		grayRoute := &networkingv1alpha3.HTTPRoute{
+			Match: []*networkingv1alpha3.HTTPMatchRequest{
+				&networkingv1alpha3.HTTPMatchRequest{
+					Headers: map[string]*networkingv1alpha3.StringMatch{
+						zadigMatchXEnv: &networkingv1alpha3.StringMatch{
+							MatchType: &networkingv1alpha3.StringMatch_Exact{
+								Exact: matchedEnv.EnvName,
+							},
 						},
 					},
 				},
 			},
-		},
+			Route: []*networkingv1alpha3.HTTPRouteDestination{
+				&networkingv1alpha3.HTTPRouteDestination{
+					Destination: &networkingv1alpha3.Destination{
+						Host: fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, matchedEnv.Namespace),
+					},
+				},
+			},
+		}
+		routes = append(routes, grayRoute)
 	}
-	_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Create(ctx, vsObj, metav1.CreateOptions{})
+	routes = append(routes, &networkingv1alpha3.HTTPRoute{
+		Route: []*networkingv1alpha3.HTTPRouteDestination{
+			&networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host: fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, env.Namespace),
+				},
+			},
+		},
+	})
+
+	vsObj.Spec = networkingv1alpha3.VirtualService{
+		Hosts: []string{svc.Name},
+		Http:  routes,
+	}
+	_, err = istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Create(ctx, vsObj, metav1.CreateOptions{})
 	return err
 }
 
@@ -614,7 +673,7 @@ func buildEnvoyStoreCacheOperation() (*types.Struct, error) {
     "cache",
     {
       [":method"] = "POST",
-      [":path"] = string.format("/api/v1/%s/%s", requestID, env),
+      [":path"] = string.format("/api/cache/%s/%s", requestID, env),
       [":authority"] = "cache",
     },
     "",
@@ -640,7 +699,7 @@ func buildEnvoyGetCacheOperation() (*types.Struct, error) {
     "cache",
     {
       [":method"] = "GET",
-      [":path"] = string.format("/api/v1/%s", requestID),
+      [":path"] = string.format("/api/cache/%s", requestID),
       [":authority"] = "cache",
     },
     "",
@@ -1013,7 +1072,7 @@ func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcN
 		}
 	}
 
-	vsObjInBase.Spec.Http = append(vsObjInBase.Spec.Http, &networkingv1alpha3.HTTPRoute{
+	grayRoute := &networkingv1alpha3.HTTPRoute{
 		Match: []*networkingv1alpha3.HTTPMatchRequest{
 			&networkingv1alpha3.HTTPMatchRequest{
 				Headers: map[string]*networkingv1alpha3.StringMatch{
@@ -1032,7 +1091,17 @@ func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcN
 				},
 			},
 		},
-	})
+	}
+
+	numRoutes := len(vsObjInBase.Spec.Http)
+	if numRoutes == 0 {
+		vsObjInBase.Spec.Http = append(vsObjInBase.Spec.Http, grayRoute)
+	} else {
+		routes := make([]*networkingv1alpha3.HTTPRoute, 1, numRoutes+1)
+		routes[0] = grayRoute
+		routes = append(routes, vsObjInBase.Spec.Http...)
+		vsObjInBase.Spec.Http = routes
+	}
 
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, vsObjInBase, metav1.UpdateOptions{})
 	return err
@@ -1086,7 +1155,7 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 
 	if env.ShareEnv.IsBase {
 		// 1. Create VirtualService in the base environment.
-		err = ensureVirtualService(ctx, istioClient, env.Namespace, vsName, svcName)
+		err = ensureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
 		if err != nil {
 			return err
 		}

@@ -92,6 +92,23 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/callback"},
 	},
+	// !!! THE FOLLOWING IS FOR DEBUG.
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/environment/environments/?*/check/workloads/k8services"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/environment/environments/?*/check/sharenv/enable/ready"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/environment/environments/?*/check/sharenv/disable/ready"},
+	},
+	{
+		Methods:   []string{"POST", "DELETE"},
+		Endpoints: []string{"api/aslan/environment/environments/?*/share/enable"},
+	},
 }
 
 // actions which are allowed for system admins only.

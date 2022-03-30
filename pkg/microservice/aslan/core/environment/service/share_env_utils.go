@@ -231,7 +231,7 @@ func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, 
 	for _, env := range envs {
 		log.Infof("Begin to ensure Services in subenv %s of prouduct %s.", env.EnvName, env.ProductName)
 
-		err = ensureVirtualService(ctx, istioClient, env.Namespace, vsName, svc.Name)
+		err = ensureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
 		if err != nil {
 			return err
 		}

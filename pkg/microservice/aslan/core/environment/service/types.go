@@ -190,3 +190,8 @@ const (
 	ShareEnvEnable  ShareEnvOp = "enable"
 	ShareEnvDisable ShareEnvOp = "disable"
 )
+
+type MatchedEnv struct {
+	EnvName   string
+	Namespace string
+}
