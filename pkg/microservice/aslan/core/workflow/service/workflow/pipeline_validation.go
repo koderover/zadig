@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	appsv1 "k8s.io/api/apps/v1"
 	"regexp"
 	"sort"
 	"strconv"
@@ -29,6 +28,9 @@ import (
 	"time"
 
 	"github.com/google/go-github/v35/github"
+	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -48,12 +50,12 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"go.uber.org/zap"
 )
 
 const (
 	NameSpaceRegexString   = "[^a-z0-9.-]"
 	defaultNameRegexString = "^[a-zA-Z0-9-_]{1,50}$"
+	InterceptCommitID      = 8
 )
 
 var (
@@ -514,6 +516,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		reg             = regexp.MustCompile(`[^\w.-]`)
 		customImageRule *template.CustomRule
 		customTarRule   *template.CustomRule
+		commitID        = first.CommitID
 	)
 
 	if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
@@ -523,9 +526,13 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		customTarRule = project.CustomTarRule
 	}
 
+	if len(commitID) > InterceptCommitID {
+		commitID = commitID[0:InterceptCommitID]
+	}
+
 	candidate := &candidate{
 		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
-		CommitID:    first.CommitID,
+		CommitID:    commitID,
 		PR:          first.PR,
 		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
 		EnvName:     envName,
