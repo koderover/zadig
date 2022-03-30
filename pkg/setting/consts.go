@@ -590,6 +590,15 @@ const (
 	Abnormal     K8SClusterStatus = "abnormal"
 )
 
+type PMHostStatus string
+
+const (
+	PMHostStatusNormal   PMHostStatus = "normal"
+	PMHostStatusAbnormal PMHostStatus = "abnormal"
+)
+
+const PMHostDefaultPort int64 = 22
+
 type ResetImagePolicyType string
 
 const (

@@ -193,6 +193,8 @@ var (
 	ErrUpdateService = NewHTTPError(6092, "更新服务失败")
 	// ErrListPodEvents ...
 	ErrListPodEvents = NewHTTPError(6093, "列出服务事件失败")
+	// ErrLoginPm ...
+	ErrLoginPm = NewHTTPError(6099, "登陆主机失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// it report APIs Range: 6100 - 6199
