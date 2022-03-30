@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	appsv1 "k8s.io/api/apps/v1"
 	"regexp"
 	"sort"
 	"strconv"
@@ -42,14 +43,12 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -704,6 +703,11 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		return "", err
 	}
 
+	serviceInfo, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+	})
+
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return "", err
@@ -713,34 +717,34 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		return findCurrentlyUsingImage(product, serviceName, container)
 	}
 
-	var selector labels.Selector
-	//helm和托管类型的服务查询所有标签的pod
-	if product.Source != setting.SourceFromHelm && product.Source != setting.SourceFromExternal {
-		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
-		//selector = builder.BuildSelector()
-	}
-
-	pods, err := getter.ListPods(product.Namespace, selector, kubeClient)
-	if err != nil {
-		return "", fmt.Errorf("[%s] ListPods %s/%s error: %v", product.Namespace, productName, serviceName, err)
-	}
-
-	for _, p := range pods {
-		pod := wrapper.Pod(p).Resource()
-		for _, c := range pod.ContainerStatuses {
-			if c.Name == container || commonservice.ExtractImageName(c.Image) == container {
+	switch serviceInfo.WorkloadType {
+	case setting.StatefulSet:
+		var statefulSet *appsv1.StatefulSet
+		statefulSet, _, err = getter.GetStatefulSet(product.Namespace, serviceName, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, c := range statefulSet.Spec.Template.Spec.Containers {
+			if c.Name == container {
 				return c.Image, nil
 			}
 		}
-	}
-	log.Errorf("[%s]container %s not found", product.Namespace, container)
-
-	return "", &ContainerNotFound{
-		ServiceName: serviceName,
-		Container:   container,
-		EnvName:     envName,
-		ProductName: productName,
+		return "", errors.New("no container in statefulset found")
+	case setting.Deployment:
+		var deployment *appsv1.Deployment
+		deployment, _, err = getter.GetDeployment(product.Namespace, serviceName, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, c := range deployment.Spec.Template.Spec.Containers {
+			if c.Name == container {
+				return c.Image, nil
+			}
+		}
+		return "", errors.New("no container in deployment found")
+	default:
+		log.Errorf("The type of workload is not supported: %s", serviceInfo.WorkloadType)
+		return "", errors.New("the type of workload is not supported")
 	}
 }
 
