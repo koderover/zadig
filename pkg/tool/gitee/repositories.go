@@ -73,7 +73,6 @@ type Hook struct {
 	MergeRequestsEvents bool      `json:"merge_requests_events"`
 }
 
-//func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.Hook) (gitee.Hook, error) {
 func (c *Client) CreateHook(accessToken, owner, repo string, hook *git.Hook) (*Hook, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
@@ -88,8 +87,8 @@ func (c *Client) CreateHook(accessToken, owner, repo string, hook *git.Hook) (*H
 		TagPushEvents       string `json:"tag_push_events"`
 		MergeRequestsEvents string `json:"merge_requests_events"`
 	}{accessToken, hook.URL, hook.Secret, "true", "true", "true"}), httpclient.SetResult(&hookInfo))
+	fmt.Println(fmt.Sprintf("hook.Secret:%s", hook.Secret))
 	if err != nil {
-		fmt.Println(fmt.Sprintf("PostV5ReposOwnerRepoHooks err:%+v", err))
 		return nil, err
 	}
 	return hookInfo, nil
