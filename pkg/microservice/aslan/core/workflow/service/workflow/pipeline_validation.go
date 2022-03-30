@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"regexp"
 	"sort"
 	"strconv"
@@ -753,8 +754,35 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		}
 		return "", errors.New("no container in deployment found")
 	default:
-		log.Errorf("The type of workload is not supported: %s", serviceInfo.WorkloadType)
-		return "", errors.New("the type of workload is not supported")
+		// since in some version of the service, there are no workload type, we need to do something with this
+		selector := labels.Set{setting.ProductLabel: product.ProductName, setting.ServiceLabel: serviceName}.AsSelector()
+		var deployments []*appsv1.Deployment
+		deployments, err = getter.ListDeployments(product.Namespace, selector, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		var statefulSets []*appsv1.StatefulSet
+		statefulSets, err = getter.ListStatefulSets(product.Namespace, selector, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, deploy := range deployments {
+			for _, c := range deploy.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+		for _, sts := range statefulSets {
+			for _, c := range sts.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+
+		log.Errorf("No workload found with container: %s", container)
+		return "", errors.New("no workload found with container")
 	}
 }
 
