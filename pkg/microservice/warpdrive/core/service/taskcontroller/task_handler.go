@@ -26,6 +26,7 @@ import (
 	"github.com/nsqio/go-nsq"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
@@ -295,30 +296,69 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 
 	// Task is struct for worker
 	var tasks []*Task
+	//tasks been preprocessed, map[serviceName]=[]Tasks
+	preProcessedTasks := make(map[string]*Task)
+	// helm deploy plugins map[fullServiceName]=>HelmDeployPlugin
+	helmDeployPlugins := make(map[string]*plugins.HelmDeployTaskPlugin, 0)
+
+	// preprocess subTasks, make batchTask with multiple subTasks
+	// eg: multiple deploys of same helm chart
+	if stage.TaskType == config.TaskDeploy {
+		for fullServiceName, subTask := range stage.SubTasks {
+			deployTask, err := plugins.ToDeployTask(subTask)
+			if err != nil {
+				xl.Infof("failed to get deplot task, err: %s", err)
+				continue
+			}
+			if deployTask.ServiceType != setting.HelmDeployType {
+				continue
+			}
+			workerConcurrency = 1
+			pluginInstance := plugins.InitializeHelmDeployTaskPlugin(config.TaskDeploy)
+			pluginInstance.Task = deployTask
+			batchTask := NewTask(ctx, h.executeTask, pluginInstance, subTask, stagePosition, fullServiceName, xl)
+			if _, ok := preProcessedTasks[deployTask.ServiceName]; !ok {
+				xl.Infof("new batch sub task of service name: %s, type: %s", fullServiceName, stage.TaskType)
+				preProcessedTasks[deployTask.ServiceName] = batchTask
+			}
+			helmDeployPlugins[fullServiceName] = pluginInstance
+		}
+	}
 
 	// 每个SubTask会initiate一个plugin instance来执行
+	preProcessedServices := sets.NewString()
 	for serviceName, subTask := range stage.SubTasks {
+		xl.Infof("new sub task of service name: %s, type: %s", serviceName, stage.TaskType)
+		if deployPlugin, ok := helmDeployPlugins[serviceName]; ok {
+			svcName := deployPlugin.Task.ServiceName
+			preProcessedTasks[svcName].AddRelatedTasks(helmDeployPlugins[serviceName])
+			if !preProcessedServices.Has(svcName) {
+				tasks = append(tasks, preProcessedTasks[svcName])
+			}
+			preProcessedServices.Insert(svcName)
+			continue
+		}
+
 		var pluginInstance plugins.TaskPlugin
 		xl.Infof("new sub task of service name: %s, type: %s", serviceName, stage.TaskType)
 		pluginInstance = pluginInitiator(stage.TaskType)
-		//xl.Errorf("%v", ctx.Value(CtxKeyBuildInfos))
-		tasks = append(tasks, NewTask(ctx, h.executeTask, pluginInstance, subTask, stagePosition, serviceName, xl))
-	}
-	// 判断subTask是否是deploy，如果是的话判断是否是helm类型的服务，
-	//todo helm类型的服务的部署暂时只支持串行执行
-	for _, subTask := range stage.SubTasks {
-		if deploy, err := plugins.ToDeployTask(subTask); err == nil {
-			if deploy.ServiceType == "helm" {
-				workerConcurrency = 1
-				break
-			}
-		}
+		taskObj := NewTask(ctx, h.executeTask, pluginInstance, subTask, stagePosition, serviceName, xl)
+		tasks = append(tasks, taskObj)
 	}
 
 	// 设置WorkPool来控制最大并发数和并发执行
 	workerPool := NewPool(tasks, workerConcurrency)
 	// 发起workerConcurrency个并发执行，等待所有Task执行完成并返回
 	workerPool.Run()
+
+	// set related task status
+	for _, helmDeployPlugin := range helmDeployPlugins {
+		if len(helmDeployPlugin.ContentPlugins) == 0 {
+			continue
+		}
+		updatePluginSubTask(helmDeployPlugin, pipelineTask, stagePosition, helmDeployPlugin.Task.ContainerName, xl)
+	}
+
 	// Worker is completed
 	xl.Info("execution completed of subtasks in stage")
 	stageStatus := getStageStatus(workerPool.Tasks, xl)
@@ -480,11 +520,11 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	// 清除上一次错误信息
 	plugin.ResetError()
 
-	updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+	updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 	h.SendAck()
 
 	plugin.SetAckFunc(func() {
-		updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+		updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 		h.SendAck()
 	})
 
@@ -504,14 +544,14 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 		xl.Infof("task status: %s", plugin.Status())
 
 		plugin.SetEndTime()
-		updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+		updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 		return plugin.Status(), fmt.Errorf("pipeline task failed: task_handler:308")
 	}
 
 	xl.Infof("task status: %s", plugin.Status())
 
 	// 等待完成前, 更新 SubTask 执行结果到 PipelineTask
-	updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+	updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 	h.SendAck()
 
 	// 等待 SubTask 结束
@@ -528,7 +568,7 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	}
 	// 更新 SubTask 执行结果到 PipelineTask
 	plugin.SetEndTime()
-	updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+	updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 	h.SendAck()
 
 	xl.Infof("end sub task [%s:%s]", plugin.Type(), plugin.Status())

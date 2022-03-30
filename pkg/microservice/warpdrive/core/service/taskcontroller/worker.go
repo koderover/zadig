@@ -105,6 +105,14 @@ func NewTask(ctx context.Context, taskExecutorFunc taskOperater, plugin plugins.
 	}
 }
 
+func (t *Task) AddRelatedTasks(helmDeployPlugin *plugins.HelmDeployTaskPlugin) {
+	plugin, ok := t.plugin.(*plugins.HelmDeployTaskPlugin)
+	if !ok || plugin == nil {
+		return
+	}
+	plugin.ContentPlugins = append(plugin.ContentPlugins, helmDeployPlugin)
+}
+
 // Run runs a Task and does appropriate accounting via a
 // given sync.WorkGroup.
 func (t *Task) Run(wg *sync.WaitGroup) {
