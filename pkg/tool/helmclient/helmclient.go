@@ -543,6 +543,8 @@ func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.C
 	}
 }
 
+// UpdateChartRepo works like executing `helm repo update`
+// environment `HELM_REPO_USERNAME` and `HELM_REPO_PASSWORD` are only required for ali acr repos
 func (hClient *HelmClient) UpdateChartRepo(repoEntry *repo.Entry) (string, error) {
 	chartRepo, err := repo.NewChartRepository(repoEntry, hClient.Providers)
 	if err != nil {
@@ -590,6 +592,10 @@ func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFil
 	return repoIndex, err
 }
 
+// DownloadChart works like executing `helm pull repoName/chartName --version=version'
+// since pulling from OCI Registry is still considered as an EXPERIMENTAL feature
+// we DO NOT support pulling charts by pulling OCI Artifacts from OCI Registry
+// NOTE consider using os.execCommand('helm pull') to reduce code complexity of offering compatibility since third-party plugins CANNOT be used as SDK
 func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
