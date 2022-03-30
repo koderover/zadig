@@ -61,7 +61,7 @@ type RenderChartArg struct {
 	OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
 	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
 	ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
-	YamlData       *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
 
 func (args *RenderChartArg) ToOverrideValueString() string {
