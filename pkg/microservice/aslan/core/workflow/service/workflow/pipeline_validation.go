@@ -27,9 +27,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/go-github/v35/github"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 
-	"github.com/google/go-github/v35/github"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -49,12 +50,12 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"go.uber.org/zap"
 )
 
 const (
 	NameSpaceRegexString   = "[^a-z0-9.-]"
 	defaultNameRegexString = "^[a-zA-Z0-9-_]{1,50}$"
+	InterceptCommitID      = 8
 )
 
 var (
@@ -525,8 +526,8 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		customTarRule = project.CustomTarRule
 	}
 
-	if len(commitID) > 8 {
-		commitID = commitID[0:8]
+	if len(commitID) > InterceptCommitID {
+		commitID = commitID[0:InterceptCommitID]
 	}
 
 	candidate := &candidate{
