@@ -707,6 +707,9 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		ServiceName: serviceName,
 		ProductName: productName,
 	})
+	if err != nil {
+		return "", err
+	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
