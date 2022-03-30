@@ -87,7 +87,6 @@ func (c *Client) CreateHook(accessToken, owner, repo string, hook *git.Hook) (*H
 		TagPushEvents       string `json:"tag_push_events"`
 		MergeRequestsEvents string `json:"merge_requests_events"`
 	}{accessToken, hook.URL, hook.Secret, "true", "true", "true"}), httpclient.SetResult(&hookInfo))
-	fmt.Println(fmt.Sprintf("hook.Secret:%s", hook.Secret))
 	if err != nil {
 		return nil, err
 	}
