@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -149,6 +150,7 @@ type EnvRenderChartArg struct {
 
 type EnvRendersetArg struct {
 	DefaultValues string                          `json:"defaultValues"`
+	ValuesData    *commonservice.ValuesDataArgs   `json:"valuesData"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 }
 
@@ -158,6 +160,7 @@ type CreateHelmProductArg struct {
 	Namespace     string                          `json:"namespace"`
 	ClusterID     string                          `json:"clusterID"`
 	DefaultValues string                          `json:"defaultValues"`
+	ValuesData    *commonservice.ValuesDataArgs   `json:"valuesData"`
 	RegistryID    string                          `json:"registry_id"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 	BaseEnvName   string                          `json:"baseEnvName"`
@@ -919,6 +922,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 			UpdateBy:      userName,
 			IsDefault:     false,
 			DefaultValues: defaultValuesYaml,
+			YamlData:      geneYamlData(arg.ValuesData),
 			ChartInfos:    productObj.ChartInfos,
 		}, log)
 		if err != nil {
@@ -1345,6 +1349,31 @@ func checkOverrideValuesChange(source *templatemodels.RenderChart, args *commons
 	return false
 }
 
+func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml {
+	if args == nil {
+		return nil
+	}
+	var repoData *models.CreateFromRepo = nil
+	if args.GitRepoConfig != nil {
+		repoData = &models.CreateFromRepo{
+			GitRepoConfig: &templatemodels.GitRepoConfig{
+				CodehostID: args.GitRepoConfig.CodehostID,
+				Owner:      args.GitRepoConfig.Owner,
+				Repo:       args.GitRepoConfig.Repo,
+				Branch:     args.GitRepoConfig.Branch,
+			},
+		}
+		if len(args.GitRepoConfig.ValuesPaths) > 0 {
+			repoData.LoadPath = args.GitRepoConfig.ValuesPaths[0]
+		}
+	}
+	ret := &templatemodels.CustomYaml{
+		Source:       args.YamlSource,
+		SourceDetail: repoData,
+	}
+	return ret
+}
+
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -1374,6 +1403,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		}
 		productRenderset.DefaultValues = args.DefaultValues
 	}
+	productRenderset.YamlData = geneYamlData(args.ValuesData)
 
 	for _, requestRenderChart := range args.ChartValues {
 		// update renderset info
@@ -1382,6 +1412,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 				continue
 			}
 			if !checkOverrideValuesChange(curRenderChart, requestRenderChart) {
+				requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
 				continue
 			}
 			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
@@ -1426,6 +1457,7 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 			ProductTmpl:   productName,
 			UpdateBy:      username,
 			DefaultValues: renderset.DefaultValues,
+			YamlData:      renderset.YamlData,
 			ChartInfos:    renderset.ChartInfos,
 		},
 		log,

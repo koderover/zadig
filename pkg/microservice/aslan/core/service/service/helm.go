@@ -111,6 +111,7 @@ type helmServiceCreationArgs struct {
 	GerritPath       string
 	GerritCodeHostID int
 	ChartRepoName    string
+	ValuesSource     *commonservice.ValuesDataArgs
 }
 
 type ChartTemplateData struct {
@@ -539,6 +540,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			HelmTemplateName: templateArgs.TemplateName,
 			ValuesYaml:       templateArgs.ValuesYAML,
 			Variables:        templateArgs.Variables,
+			ValuesSource:     args.ValuesData,
 		},
 		logger,
 	)
@@ -550,7 +552,8 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	}
 
 	compareHelmVariable([]*templatemodels.RenderChart{
-		{ServiceName: args.Name,
+		{
+			ServiceName:  args.Name,
 			ChartVersion: svc.HelmChart.Version,
 			ValuesYaml:   svc.HelmChart.ValuesYaml,
 		},
@@ -886,7 +889,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer wg.Done()
-			renderChart, err := handleSingleService(projectName, repoConfig, path, from, args.CreatedBy, templateChartData, logger)
+			renderChart, err := handleSingleService(projectName, repoConfig, path, from, args.CreatedBy, templateChartData, args.ValuesData, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
@@ -924,7 +927,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 }
 
 func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath, createBy string,
-	templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
+	templateChartData *ChartTemplateData, valuesData *commonservice.ValuesDataArgs, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
 
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
@@ -1011,6 +1014,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			HelmTemplateName: templateChartData.TemplateName,
 			ValuePaths:       []string{path},
 			ValuesYaml:       string(valuesYAML),
+			ValuesSource:     valuesData,
 		},
 		logger,
 	)
@@ -1104,6 +1108,21 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 				Key:   variable.Key,
 				Value: variable.Value,
 			})
+		}
+		if args.ValuesSource != nil && args.ValuesSource.GitRepoConfig != nil {
+			yamlData.Source = args.ValuesSource.YamlSource
+			repoData := &models.CreateFromRepo{
+				GitRepoConfig: &templatemodels.GitRepoConfig{
+					CodehostID: args.ValuesSource.GitRepoConfig.CodehostID,
+					Owner:      args.ValuesSource.GitRepoConfig.Owner,
+					Repo:       args.ValuesSource.GitRepoConfig.Repo,
+					Branch:     args.ValuesSource.GitRepoConfig.Branch,
+				},
+			}
+			if len(args.ValuesSource.GitRepoConfig.ValuesPaths) > 0 {
+				repoData.LoadPath = args.ValuesSource.GitRepoConfig.ValuesPaths[0]
+			}
+			yamlData.SourceDetail = repoData
 		}
 		return &models.CreateFromChartTemplate{
 			YamlData:     yamlData,

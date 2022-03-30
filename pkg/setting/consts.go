@@ -508,9 +508,6 @@ const (
 
 // helm related
 const (
-	ValuesYamlSourceFreeEdit = "freeEdit"
-	ValuesYamlSourceGitRepo  = "gitRepo"
-
 	// components used to search image paths from yaml
 	PathSearchComponentRepo  = "repo"
 	PathSearchComponentImage = "image"
