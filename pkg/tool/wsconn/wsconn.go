@@ -82,10 +82,12 @@ func (sshCli *SshClient) ConnectWs(ws *websocket.Conn) {
 		for {
 			_, p, err := ws.ReadMessage()
 			if err != nil {
+				log.Error(err)
 				return
 			}
 			_, err = sshCli.sshChan.Write(p)
 			if err != nil {
+				log.Error(err)
 				return
 			}
 		}

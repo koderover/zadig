@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 
@@ -34,6 +35,10 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip string,
 	if resp.Status != setting.PMHostStatusNormal {
 		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s status %s,is not normal", ip, resp.Status))
 	}
+	sDec, err := base64.StdEncoding.DecodeString(resp.PrivateKey)
+	if err != nil {
+		log.Errorf("base64 decode failure ip:%s, error:%s", ip, err)
+	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -43,21 +48,19 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip string,
 	if resp.Port == 0 {
 		resp.Port = setting.PMHostDefaultPort
 	}
-	sshCli, err := toolssh.NewSshCli([]byte(resp.PrivateKey), resp.UserName, resp.IP, resp.Port)
+	sshCli, err := toolssh.NewSshCli(sDec, resp.UserName, resp.IP, resp.Port)
 	if err != nil {
+		log.Error(err)
 		conn.WriteMessage(1, []byte(err.Error()))
 		conn.Close()
 		return e.ErrLoginPm.AddErr(err)
 	}
 	sshClient := &wsconn.SshClient{
-		// Username:   resp.UserName,
-		// PrivateKey: resp.PrivateKey,
-		// Ip:         resp.IP,
-		// Port:       resp.Port,
 		SshCli: sshCli,
 	}
 
 	if err := sshClient.GenerateWebTerminal(150, 40); err != nil {
+		log.Error(err)
 		conn.WriteMessage(1, []byte(err.Error()))
 		conn.Close()
 	}
