@@ -32,7 +32,7 @@ import (
 
 type DefaultValuesResp struct {
 	DefaultValues string                     `json:"defaultValues"`
-	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	YamlData      *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
 
 type YamlContentRequestArg struct {
