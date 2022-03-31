@@ -304,12 +304,12 @@ type DeployEnv struct {
 func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, error) {
 	resp := make([]*PreSetResp, 0)
 	targets := make(map[string][]DeployEnv)
-	//productTmpl, err := template.NewProductColl().Find(productName)
-	//if err != nil {
-	//	log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
-	//	return resp, e.ErrGetTemplate.AddDesc(err.Error())
-	//}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct("")
+	productTmpl, err := template.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
+		return resp, e.ErrGetTemplate.AddDesc(err.Error())
+	}
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productTmpl.ProductName)
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
