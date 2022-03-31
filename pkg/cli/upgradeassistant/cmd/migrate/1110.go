@@ -38,7 +38,7 @@ func roleAddPodDebug() error {
 	var res []*models.Role
 	cursor, err := newRoleColl().Find(ctx, bson.M{})
 	if err != nil {
-		log.Errorf("Failed to Find Policies, err: %s", err)
+		log.Errorf("Failed to find roles, err: %s", err)
 		return err
 	}
 	err = cursor.All(ctx, &res)
@@ -47,7 +47,7 @@ func roleAddPodDebug() error {
 		return err
 	}
 	for _, role := range res {
-		log.Infof("start to check role:%s\n", role.Name)
+		log.Infof("start to check role:%s", role.Name)
 		toUpdate := false
 		for i, rule := range role.Rules {
 			verbsSet := sets.NewString(rule.Verbs...)
@@ -66,7 +66,7 @@ func roleAddPodDebug() error {
 			}}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {
-				log.Errorf("err update%s\n", err)
+				log.Errorf("fail to update,err:%s", err)
 				return err
 			}
 		}
@@ -79,7 +79,7 @@ func roleDeletePodDebug() error {
 	var res []*models.Role
 	cursor, err := newRoleColl().Find(ctx, bson.M{})
 	if err != nil {
-		log.Errorf("Failed to Find Policies, err: %s", err)
+		log.Errorf("Fail to find roles, err: %s", err)
 		return err
 	}
 	err = cursor.All(ctx, &res)
@@ -99,7 +99,7 @@ func roleDeletePodDebug() error {
 		}
 		if toUpdate {
 			// start to update
-			log.Infof("find role:%s has verb:debug_pod ,start to update the role\n", role.Name)
+			log.Infof("find role:%s has verb:debug_pod ,start to update the role", role.Name)
 			query := bson.M{"name": role.Name}
 			change := bson.M{"$set": bson.M{
 				"rules": role.Rules,
