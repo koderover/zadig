@@ -45,6 +45,7 @@ type DeliveryArtifactArgs struct {
 	PerPage           int    `json:"per_page"`
 	Page              int    `json:"page"`
 	IsFuzzyQuery      bool   `json:"is_fuzzy_query"`
+	OnlyCount         bool   `json:"only_count"`
 	PackageStorageURI string `json:"package_storage_uri"`
 }
 
@@ -120,6 +121,11 @@ func (c *DeliveryArtifactColl) List(args *DeliveryArtifactArgs) ([]*models.Deliv
 	if err != nil {
 		return nil, 0, fmt.Errorf("find artifact err:%v", err)
 	}
+
+	if args.OnlyCount {
+		return nil, int(count), nil
+	}
+
 	opt := options.Find().
 		SetSort(bson.D{{"created_time", -1}}).
 		SetSkip(int64(args.PerPage * (args.Page - 1))).
