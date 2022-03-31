@@ -168,13 +168,20 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
 	} else if pipelineTask.Type == config.ServiceType {
+		// Note:
+		// In cloud host scenarios, this type of task is performed when creating the environment.
+		// This type of task does not occur in other scenarios.
+
 		envName := pipelineTask.ServiceTaskArgs.Namespace
 		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
 	}
 
-	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "WORKFLOW", Value: pipelineTask.WorkflowArgs.WorkflowName})
-	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "PROJECT", Value: pipelineTask.WorkflowArgs.ProductTmplName})
+	// Note: When 'pipelinetask.type == config.ServiceType', it may be `nil`.
+	if pipelineTask.WorkflowArgs != nil {
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "WORKFLOW", Value: pipelineTask.WorkflowArgs.WorkflowName})
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "PROJECT", Value: pipelineTask.WorkflowArgs.ProductTmplName})
+	}
 
 	taskIDVar := &task.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(pipelineTask.TaskID, 10), IsCredential: false}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, taskIDVar)
