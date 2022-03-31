@@ -40,12 +40,12 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip string, cols, rows int, log *zap.SugaredLogger) error {
+func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
 	resp, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
-		Address: ip,
+		ID: hostId,
 	})
 	if err != nil {
-		log.Errorf("PrivateKey.Find ip %s error: %s", ip, err)
+		log.Errorf("PrivateKey.Find ip %s id %s error: %s", ip, hostId, err)
 		return e.ErrGetPrivateKey
 	}
 	if resp.Status != setting.PMHostStatusNormal {
