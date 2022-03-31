@@ -378,16 +378,9 @@ const (
 
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
-	serviceKey := jobLabel.ServiceName
-	if len(serviceKey) > 63 {
-		serviceKey = serviceKey[:63]
-		serviceKey = strings.TrimRight(serviceKey, "_")
-		serviceKey = strings.TrimRight(serviceKey, "-")
-	}
-
 	retMap := map[string]string{
 		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
-		jobLabelServiceKey: strings.ToLower(serviceKey),
+		jobLabelServiceKey: strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),
 		jobLabelSTypeKey:   strings.Replace(jobLabel.TaskType, "_", "-", -1),
 		jobLabelPTypeKey:   jobLabel.PipelineType,
 	}
