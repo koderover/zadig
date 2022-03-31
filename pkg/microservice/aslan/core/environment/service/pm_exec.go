@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -24,7 +25,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip string, log *zap.SugaredLogger) error {
+func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip string, cols, rows int, log *zap.SugaredLogger) error {
 	resp, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Address: ip,
 	})
@@ -35,35 +36,43 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip string,
 	if resp.Status != setting.PMHostStatusNormal {
 		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s status %s,is not normal", ip, resp.Status))
 	}
-	sDec, err := base64.StdEncoding.DecodeString(resp.PrivateKey)
-	if err != nil {
-		log.Errorf("base64 decode failure ip:%s, error:%s", ip, err)
-	}
-
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Error(err)
-		return e.ErrLoginPm.AddErr(err)
-	}
 	if resp.Port == 0 {
 		resp.Port = setting.PMHostDefaultPort
 	}
-	sshCli, err := toolssh.NewSshCli(sDec, resp.UserName, resp.IP, resp.Port)
+
+	sDec, err := base64.StdEncoding.DecodeString(resp.PrivateKey)
 	if err != nil {
-		log.Error(err)
-		conn.WriteMessage(1, []byte(err.Error()))
-		conn.Close()
-		return e.ErrLoginPm.AddErr(err)
-	}
-	sshClient := &wsconn.SshClient{
-		SshCli: sshCli,
+		log.Errorf("base64 decode failed ip:%s, error:%s", ip, err)
+		return e.ErrLoginPm.AddDesc(fmt.Sprintf("base64 decode failed ip:%s, error:%s", ip, err))
 	}
 
-	if err := sshClient.GenerateWebTerminal(150, 40); err != nil {
-		log.Error(err)
-		conn.WriteMessage(1, []byte(err.Error()))
-		conn.Close()
+	sshCli, err := toolssh.NewSshCli(sDec, resp.UserName, resp.IP, resp.Port)
+	if err != nil {
+		log.Errorf("NewSshCli err:%s", err)
+		return e.ErrLoginPm.AddErr(err)
 	}
-	sshClient.ConnectWs(conn)
+
+	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli)
+	if err != nil {
+		log.Errorf("NewSshConn err:%s", err)
+		return e.ErrLoginPm.AddErr(err)
+	}
+	defer sshConn.Close()
+
+	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Errorf("ws upgrade err:%s", err)
+		return e.ErrLoginPm.AddErr(err)
+	}
+	defer ws.Close()
+
+	stopChan := make(chan bool, 3)
+	var logBuff = new(bytes.Buffer)
+
+	go sshConn.ReadWsMessage(ws, logBuff, stopChan)
+	go sshConn.SendWsWriteMessage(ws, stopChan)
+	go sshConn.SessionWait(stopChan)
+
+	<-stopChan
 	return nil
 }

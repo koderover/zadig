@@ -1,9 +1,11 @@
 package wsconn
 
 import (
-	"bufio"
+	"bytes"
+	"encoding/json"
+	"io"
+	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
@@ -11,140 +13,163 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-type ptyReqParam struct {
-	Term     string
-	Cols     uint32
-	Rows     uint32
-	Width    uint32
-	Height   uint32
-	Modelist string
+type wsOperationType string
+
+const (
+	wsMsgStdout wsOperationType = "stdout"
+	wsMsgStdin  wsOperationType = "stdin"
+	wsMsgResize wsOperationType = "resize"
+)
+
+type wsMessage struct {
+	Operation wsOperationType `json:"operation"`
+	Data      string          `json:"data"`
+	Rows      int             `json:"rows"`
+	Cols      int             `json:"cols"`
 }
 
-type SshClient struct {
+type wsBufferWriter struct {
+	buffer bytes.Buffer
+	mu     sync.Mutex
+}
+
+func (w *wsBufferWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buffer.Write(p)
+}
+
+type SshConn struct {
+	Stdin      io.WriteCloser
+	WsWriter   *wsBufferWriter
 	SshSession *ssh.Session
-	SshCli     *ssh.Client
-	sshChan    ssh.Channel
 }
 
-func (sshCli *SshClient) GenerateWebTerminal(cols, rows uint32) error {
-	session, err := sshCli.SshCli.NewSession()
+func NewSshConn(cols, rows int, sshClient *ssh.Client) (*SshConn, error) {
+	sshSession, err := sshClient.NewSession()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	sshCli.SshSession = session
-	channel, inRequests, err := sshCli.SshCli.OpenChannel("session", nil)
+
+	stdin, err := sshSession.StdinPipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	sshCli.sshChan = channel
-	go func() {
-		for req := range inRequests {
-			if req.WantReply {
-				req.Reply(false, nil)
-			}
-		}
-	}()
-	termModes := ssh.TerminalModes{
+
+	wsWriter := new(wsBufferWriter)
+	sshSession.Stdout = wsWriter
+	sshSession.Stderr = wsWriter
+
+	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,
 		ssh.TTY_OP_ISPEED: 14400,
 		ssh.TTY_OP_OSPEED: 14400,
 	}
-	var termModesList []byte
-	for k, v := range termModes {
-		kv := struct {
-			Key byte
-			Val uint32
-		}{k, v}
-		termModesList = append(termModesList, ssh.Marshal(&kv)...)
+
+	if err := sshSession.RequestPty("xterm", rows, cols, modes); err != nil {
+		return nil, err
 	}
-	termModesList = append(termModesList, 0)
-	reqParam := ptyReqParam{
-		Term:     "xterm",
-		Cols:     cols,
-		Rows:     rows,
-		Width:    uint32(cols * 8),
-		Height:   uint32(cols * 8),
-		Modelist: string(termModesList),
+	if err := sshSession.Shell(); err != nil {
+		return nil, err
 	}
-	ok, err := channel.SendRequest("pty-req", true, ssh.Marshal(&reqParam))
-	if !ok || err != nil {
-		return err
-	}
-	ok, err = channel.SendRequest("shell", true, nil)
-	if !ok || err != nil {
-		return err
-	}
-	return nil
+	return &SshConn{Stdin: stdin, WsWriter: wsWriter, SshSession: sshSession}, nil
 }
 
-func (sshCli *SshClient) ConnectWs(ws *websocket.Conn) {
-	go func() {
-		for {
-			_, p, err := ws.ReadMessage()
+func (ssConn *SshConn) ReadWsMessage(wsConn *websocket.Conn, logBuff *bytes.Buffer, stopCh chan bool) {
+	defer setStop(stopCh)
+	for {
+		select {
+		case <-stopCh:
+			return
+		default:
+			_, wsData, err := wsConn.ReadMessage()
 			if err != nil {
-				log.Error(err)
+				log.Errorf("read ws message err:%s", err)
 				return
 			}
-			_, err = sshCli.sshChan.Write(p)
-			if err != nil {
-				log.Error(err)
+			var wsMsgObj wsMessage
+			if err := json.Unmarshal(wsData, &wsMsgObj); err != nil {
+				log.Error("ReceiveWsMessage Unmarshal err:", string(wsData), err)
 				return
 			}
-		}
-	}()
 
-	go func() {
-		bufferReader := bufio.NewReader(sshCli.sshChan)
-		buffer := []byte{}
-		ticker := time.NewTimer(time.Microsecond * 100)
-		defer ticker.Stop()
-
-		rChan := make(chan rune)
-		go func() {
-			defer sshCli.SshCli.Close()
-			defer sshCli.sshChan.Close()
-
-			for {
-				r, size, err := bufferReader.ReadRune()
-				if err != nil {
-					log.Error(err)
-					ws.WriteMessage(1, []byte("\033[31m websocket is closed\033[0m"))
-					ws.Close()
-					return
-				}
-				if size > 0 {
-					rChan <- r
-				}
-			}
-		}()
-
-		for {
-			select {
-			case <-ticker.C:
-				if len(buffer) != 0 {
-					err := ws.WriteMessage(websocket.TextMessage, buffer)
-					buffer = []byte{}
-					if err != nil {
-						log.Error(err)
-						return
+			switch wsMsgObj.Operation {
+			case wsMsgResize:
+				if wsMsgObj.Cols > 0 && wsMsgObj.Rows > 0 {
+					if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
+						log.Error("resize windows err:", err)
 					}
 				}
-				ticker.Reset(time.Microsecond * 100)
-			case dRune := <-rChan:
-				if dRune != utf8.RuneError {
-					byt := make([]byte, utf8.RuneLen(dRune))
-					utf8.EncodeRune(byt, dRune)
-					buffer = append(buffer, byt...)
-				} else {
-					buffer = append(buffer, []byte("@")...)
+			case wsMsgStdin:
+				decodeBytes := []byte(wsMsgObj.Data)
+				if _, err := ssConn.Stdin.Write(decodeBytes); err != nil {
+					log.Error("ws stdin write to ssh.stdin err:", err)
+					setStop(stopCh)
 				}
+				// if _, err := logBuff.Write(decodeBytes); err != nil {
+				// 	log.Error("write received cmd into log buffer err:", err)
+				// }
 			}
 		}
-	}()
+	}
+}
 
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error(err)
+func (ssConn *SshConn) SendWsWriteMessage(wsConn *websocket.Conn, stopCh chan bool) {
+	defer setStop(stopCh)
+	tick := time.NewTicker(time.Millisecond * time.Duration(12))
+	pingTick := time.NewTimer(10 * time.Second)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-tick.C:
+			if err := flushWsWriter(ssConn.WsWriter, wsConn); err != nil {
+				log.Error("ssh sending output to webSocket err:", err)
+				return
+			}
+		case <-pingTick.C:
+			if err := wsConn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+				log.Error("ssh sending ping to webSocket err:", err)
+				return
+			}
+		case <-stopCh:
+			return
 		}
-	}()
+	}
+}
+
+func (ssConn *SshConn) SessionWait(stopChan chan bool) {
+	if err := ssConn.SshSession.Wait(); err != nil {
+		log.Error("ssh session wait err:", err)
+		setStop(stopChan)
+	}
+}
+
+func (s *SshConn) Close() {
+	if s.SshSession != nil {
+		s.SshSession.Close()
+	}
+}
+
+func setStop(ch chan bool) {
+	ch <- true
+}
+
+func flushWsWriter(w *wsBufferWriter, wsConn *websocket.Conn) error {
+	if w.buffer.Len() != 0 {
+		msg, err := json.Marshal(wsMessage{
+			Operation: wsMsgStdout,
+			Data:      string(w.buffer.Bytes()),
+		})
+		if err != nil {
+			log.Errorf("write parse message err: %s", err)
+			return err
+		}
+		err = wsConn.WriteMessage(websocket.TextMessage, msg)
+		if err != nil {
+			return err
+		}
+		w.buffer.Reset()
+	}
+	return nil
 }

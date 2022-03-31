@@ -23,7 +23,7 @@ func NewSshCli(privateKey []byte, user, host string, port int64) (*ssh.Client, e
 	clientConfig = &ssh.ClientConfig{
 		User:    user,
 		Auth:    auth,
-		Timeout: 20 * time.Second,
+		Timeout: 5 * time.Second,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
