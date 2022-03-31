@@ -2,7 +2,6 @@ package migrate
 
 import (
 	"context"
-	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -59,14 +58,14 @@ func roleAddPodDebug() error {
 		}
 		if toUpdate {
 			// start to update
-			fmt.Printf("find role:%s has verb:manage_environment ,start to update the role\n", role.Name)
+			log.Infof("find role:%s has verb:manage_environment ,start to update the role\n", role.Name)
 			query := bson.M{"name": role.Name}
 			change := bson.M{"$set": bson.M{
 				"rules": role.Rules,
 			}}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {
-				fmt.Printf("err update%s\n", err)
+				log.Errorf("err update%s\n", err)
 				return err
 			}
 		}
@@ -98,14 +97,14 @@ func roleDeletePodDebug() error {
 		}
 		if toUpdate {
 			// start to update
-			fmt.Printf("find role:%s has verb:debug_pod ,start to update the role\n", role.Name)
+			log.Infof("find role:%s has verb:debug_pod ,start to update the role\n", role.Name)
 			query := bson.M{"name": role.Name}
 			change := bson.M{"$set": bson.M{
 				"rules": role.Rules,
 			}}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {
-				fmt.Printf("err update%s\n", err)
+				log.Errorf("err update%s\n", err)
 				return err
 			}
 		}
