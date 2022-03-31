@@ -28,8 +28,22 @@ type PolicyMeta struct {
 }
 
 type Role struct {
-	Name      string `bson:"name"      json:"name"`
-	Namespace string `bson:"namespace" json:"namespace"`
+	Name      string  `bson:"name"      json:"name"`
+	Namespace string  `bson:"namespace" json:"namespace"`
+	Rules     []*Rule `bson:"rules"     json:"rules"`
+}
+
+type Rule struct {
+	// Verbs is a list of http methods or resource actions that apply to ALL the Resources contained in this rule. '*' represents all methods.
+	Verbs           []string         `bson:"verbs"               json:"verbs"`
+	Resources       []string         `bson:"resources"           json:"resources"`
+	Kind            string           `bson:"kind"                json:"kind"`
+	MatchAttributes []MatchAttribute `bson:"match_attributes"    json:"match_attributes"`
+}
+
+type MatchAttribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type RoleBinding struct {

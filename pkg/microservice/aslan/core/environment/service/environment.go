@@ -332,10 +332,10 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 
 	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		modifiedByENV := make(map[string][]*serviceInfo)
-		for _, env := range envNames {
-			p, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: env})
+		for _, arg := range args {
+			p, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: arg.EnvName})
 			if err != nil {
-				log.Errorf("Failed to get product %s in %s, error: %v", productName, env, err)
+				log.Errorf("Failed to get product %s in %s, error: %v", productName, arg.EnvName, err)
 				continue
 			}
 
@@ -346,8 +346,14 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 			}
 
 			modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(p.Namespace, kubeClient))
-			if len(modifiedServices) > 0 {
-				modifiedByENV[env] = modifiedServices
+			var specifyModifiedServices []*serviceInfo
+			for _, modifiedService := range modifiedServices {
+				if util.InStringArray(modifiedService.Name, arg.ServiceNames) {
+					specifyModifiedServices = append(specifyModifiedServices, modifiedService)
+				}
+			}
+			if len(specifyModifiedServices) > 0 {
+				modifiedByENV[arg.EnvName] = specifyModifiedServices
 			}
 		}
 		if len(modifiedByENV) > 0 {
@@ -375,7 +381,7 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 	}
 
 	for _, arg := range args {
-		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, false, arg.Vars, log)
+		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, force, arg.Vars, log)
 		if err != nil {
 			log.Errorf("AutoUpdateProduct UpdateProductV2 err:%v", err)
 			return envStatuses, err
@@ -706,8 +712,14 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	}
 	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(exitedProd.Namespace, kubeClient))
-		if len(modifiedServices) > 0 {
-			data, err := json.Marshal(modifiedServices)
+		var specifyModifiedServices []*serviceInfo
+		for _, modifiedService := range modifiedServices {
+			if util.InStringArray(modifiedService.Name, serviceNames) {
+				specifyModifiedServices = append(specifyModifiedServices, modifiedService)
+			}
+		}
+		if len(specifyModifiedServices) > 0 {
+			data, err := json.Marshal(specifyModifiedServices)
 			if err != nil {
 				log.Errorf("Marshal failure: %v", err)
 			}

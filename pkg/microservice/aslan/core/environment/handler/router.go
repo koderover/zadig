@@ -127,6 +127,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/share/enable", EnableBaseEnv)
 		environments.DELETE("/:name/share/enable", DisableBaseEnv)
 		environments.GET("/:name/check/sharenv/:op/ready", CheckShareEnvReady)
+
+		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
 	}
 
 	// ---------------------------------------------------------------------------------------
