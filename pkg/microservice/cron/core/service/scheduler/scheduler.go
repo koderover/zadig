@@ -72,6 +72,8 @@ const (
 	SystemCapacityGC = "SystemCapacityGC"
 
 	InitHealthCheckScheduler = "InitHealthCheckScheduler"
+
+	InitHealthCheckPmHostScheduler = "InitHealthCheckPmHostScheduler"
 )
 
 // NewCronClient ...
@@ -155,6 +157,8 @@ func (c *CronClient) Init() {
 	c.InitPullSonarStatScheduler()
 	// 定时初始化健康检查
 	c.InitHealthCheckScheduler()
+	// Timing probe host status
+	c.InitHealthCheckPmHostScheduler()
 }
 
 func (c *CronClient) InitCleanJobScheduler() {
@@ -253,4 +257,13 @@ func (c *CronClient) InitHealthCheckScheduler() {
 	c.Schedulers[InitHealthCheckScheduler].Every(10).Seconds().Do(c.UpsertEnvServiceScheduler, c.log)
 
 	c.Schedulers[InitHealthCheckScheduler].Start()
+}
+
+func (c *CronClient) InitHealthCheckPmHostScheduler() {
+
+	c.Schedulers[InitHealthCheckPmHostScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[InitHealthCheckPmHostScheduler].Every(10).Seconds().Do(c.UpdatePmHostStatusScheduler, c.log)
+
+	c.Schedulers[InitHealthCheckPmHostScheduler].Start()
 }
