@@ -43,6 +43,7 @@ func roleAddPodDebug() error {
 	}
 	err = cursor.All(ctx, &res)
 	if err != nil {
+		log.Errorf("get roles err:%s", err)
 		return err
 	}
 	for _, role := range res {
@@ -83,6 +84,7 @@ func roleDeletePodDebug() error {
 	}
 	err = cursor.All(ctx, &res)
 	if err != nil {
+		log.Errorf("get roles err:%s", err)
 		return err
 	}
 	for _, role := range res {
