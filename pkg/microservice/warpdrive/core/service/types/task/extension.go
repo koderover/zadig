@@ -24,20 +24,23 @@ import (
 )
 
 type Extension struct {
-	TaskType     config.TaskType  `bson:"type"                       json:"type"`
-	Enabled      bool             `bson:"enabled"                    json:"enabled"`
-	TaskStatus   config.Status    `bson:"status"                     json:"status"`
-	URL          string           `bson:"url"                        json:"url"`
-	Path         string           `bson:"path,omitempty"             json:"path,omitempty"`
-	IsCallback   bool             `bson:"is_callback"                json:"is_callback"`
-	Headers      []*models.KeyVal `bson:"headers,omitempty"          json:"headers"`
-	Payload      string           `bson:"payload"                    json:"payload"`
-	ServiceInfos []*ServiceInfo   `bson:"service_infos"              json:"service_infos"`
-	Timeout      int              `bson:"timeout"                    json:"timeout,omitempty"`
-	IsRestart    bool             `bson:"is_restart"                 json:"is_restart"`
-	Error        string           `bson:"error,omitempty"            json:"error,omitempty"`
-	StartTime    int64            `bson:"start_time"                 json:"start_time,omitempty"`
-	EndTime      int64            `bson:"end_time"                   json:"end_time,omitempty"`
+	TaskType       config.TaskType  `bson:"type"                       json:"type"`
+	Enabled        bool             `bson:"enabled"                    json:"enabled"`
+	TaskStatus     config.Status    `bson:"status"                     json:"status"`
+	URL            string           `bson:"url"                        json:"url"`
+	Path           string           `bson:"path,omitempty"             json:"path,omitempty"`
+	IsCallback     bool             `bson:"is_callback"                json:"is_callback"`
+	WorkflowStatus config.Status    `bson:"workflow_status"            json:"workflow_status"`
+	Headers        []*models.KeyVal `bson:"headers,omitempty"          json:"headers"`
+	Payload        string           `bson:"payload"                    json:"payload"`
+	Response       string           `bson:"response,omitempty"         json:"response,omitempty"`
+	ResponseStatus int              `bson:"response_status"            json:"response_status"`
+	ServiceInfos   []*ServiceInfo   `bson:"service_infos"              json:"service_infos"`
+	Timeout        int              `bson:"timeout"                    json:"timeout,omitempty"`
+	IsRestart      bool             `bson:"is_restart"                 json:"is_restart"`
+	Error          string           `bson:"error,omitempty"            json:"error,omitempty"`
+	StartTime      int64            `bson:"start_time"                 json:"start_time,omitempty"`
+	EndTime        int64            `bson:"end_time"                   json:"end_time,omitempty"`
 }
 
 type ServiceInfo struct {

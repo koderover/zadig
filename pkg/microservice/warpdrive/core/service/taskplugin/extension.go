@@ -118,6 +118,7 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	}()
 	p.pipelineName = pipelineTask.PipelineName
 	p.taskId = pipelineTask.TaskID
+	p.Task.WorkflowStatus = getPipelineStatus(pipelineTask)
 	p.Log.Infof("succeed to create extension task %s", p.JobName)
 	_, p.cancel = context.WithCancel(context.Background())
 	httpClient := httpclient.New(
@@ -136,19 +137,31 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	if err != nil {
 		return
 	}
+
 	p.Task.Payload = string(body)
 	headers := make(map[string]string)
 	for _, header := range p.Task.Headers {
 		headers[header.Key] = header.Value
 	}
 	headers[ZadigEvent] = EventName
-	_, err = httpClient.Post(url, httpclient.SetHeaders(headers), httpclient.SetBody(body))
+	response, err := httpClient.Post(url, httpclient.SetHeaders(headers), httpclient.SetBody(body))
 	if err != nil {
 		return
 	}
+	p.Task.Response = string(response.Body())
+	p.Task.ResponseStatus = response.StatusCode()
 	if !p.Task.IsCallback {
 		p.SetExtensionStatusCompleted(config.StatusPassed)
 	}
+}
+
+func getPipelineStatus(pipelineTask *task.Task) config.Status {
+	for _, stage := range pipelineTask.Stages {
+		if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
+			return stage.Status
+		}
+	}
+	return config.StatusPassed
 }
 
 // Wait ...
