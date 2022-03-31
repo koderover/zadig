@@ -34,6 +34,7 @@ func V1110ToV1100() error {
 }
 
 func roleAddPodDebug() error {
+	log.Info("start to scan role")
 	ctx := context.Background()
 	var res []*models.Role
 	cursor, err := newRoleColl().Find(ctx, bson.M{})
@@ -46,6 +47,7 @@ func roleAddPodDebug() error {
 		return err
 	}
 	for _, role := range res {
+		log.Infof("start to check role:%s\n", role.Name)
 		toUpdate := false
 		for i, rule := range role.Rules {
 			verbsSet := sets.NewString(rule.Verbs...)

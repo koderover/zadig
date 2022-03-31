@@ -36,6 +36,15 @@ type Role struct {
 type Rule struct {
 	// Verbs is a list of http methods or resource actions that apply to ALL the Resources contained in this rule. '*' represents all methods.
 	Verbs []string `bson:"verbs"         json:"verbs"`
+	// Resources is a list of resources this rule applies to. '*' represents all resources.
+	Resources       []string         `bson:"resources" json:"resources"`
+	Kind            string           `bson:"kind"     json:"kind"`
+	MatchAttributes []MatchAttribute `bson:"match_attributes" json:"match_attributes"`
+}
+
+type MatchAttribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type RoleBinding struct {
