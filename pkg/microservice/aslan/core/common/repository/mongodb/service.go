@@ -142,6 +142,8 @@ type serviceID struct {
 	ProductName string `bson:"product_name"`
 }
 
+func (c *ServiceColl) ListMaxRe
+
 func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.ServiceInfo, serviceType string) ([]*models.Service, error) {
 	var srs []bson.D
 	for _, s := range services {
