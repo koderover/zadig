@@ -19,6 +19,7 @@ func init() {
 func V1100ToV1110() error {
 	// iterate all roles , if the role contains manage env , add debug_pod
 	if err := roleAddPodDebug(); err != nil {
+		log.Errorf("roleAddPodDebug err:%s", err)
 		return err
 	}
 
@@ -27,6 +28,7 @@ func V1100ToV1110() error {
 
 func V1110ToV1100() error {
 	if err := roleDeletePodDebug(); err != nil {
+		log.Errorf("roleDeletePodDebug err:%s", err)
 		return err
 	}
 	return nil
