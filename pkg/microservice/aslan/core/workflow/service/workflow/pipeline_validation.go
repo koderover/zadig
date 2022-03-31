@@ -761,17 +761,17 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		if err != nil {
 			return "", err
 		}
-		var statefulSets []*appsv1.StatefulSet
-		statefulSets, err = getter.ListStatefulSets(product.Namespace, selector, kubeClient)
-		if err != nil {
-			return "", err
-		}
 		for _, deploy := range deployments {
 			for _, c := range deploy.Spec.Template.Spec.Containers {
 				if c.Name == container {
 					return c.Image, nil
 				}
 			}
+		}
+		var statefulSets []*appsv1.StatefulSet
+		statefulSets, err = getter.ListStatefulSets(product.Namespace, selector, kubeClient)
+		if err != nil {
+			return "", err
 		}
 		for _, sts := range statefulSets {
 			for _, c := range sts.Spec.Template.Spec.Containers {
