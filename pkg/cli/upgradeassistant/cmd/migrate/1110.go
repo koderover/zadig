@@ -59,7 +59,7 @@ func roleAddPodDebug() error {
 		}
 		if toUpdate {
 			// start to update
-			log.Infof("find role:%s has verb:manage_environment ,start to update the role\n", role.Name)
+			log.Infof("find role:%s has verb:manage_environment ,start to update the role", role.Name)
 			query := bson.M{"name": role.Name}
 			change := bson.M{"$set": bson.M{
 				"rules": role.Rules,
