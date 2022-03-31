@@ -17,7 +17,7 @@ func init() {
 }
 
 func V1100ToV1110() error {
-	// iterate all roles ， if the role contains manage env , add debug_pod
+	// iterate all roles , if the role contains manage env , add debug_pod
 	if err := roleAddPodDebug(); err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func roleAddPodDebug() error {
 	var res []*models.Role
 	cursor, err := newRoleColl().Find(ctx, bson.M{})
 	if err != nil {
-		log.Errorf("Failed to find roles, err: %s", err)
+		log.Errorf("fail to find roles, err: %s", err)
 		return err
 	}
 	err = cursor.All(ctx, &res)
@@ -79,7 +79,7 @@ func roleDeletePodDebug() error {
 	var res []*models.Role
 	cursor, err := newRoleColl().Find(ctx, bson.M{})
 	if err != nil {
-		log.Errorf("Fail to find roles, err: %s", err)
+		log.Errorf("fail to find roles, err: %s", err)
 		return err
 	}
 	err = cursor.All(ctx, &res)
