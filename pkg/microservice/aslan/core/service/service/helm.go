@@ -457,6 +457,9 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return nil, err
 	}
 
+	// NOTE we may need a better way to handle service name with spaces
+	args.Name = strings.TrimSpace(args.Name)
+
 	var values [][]byte
 	if len(templateChartInfo.DefaultValuesYAML) > 0 {
 		//render variables
@@ -950,6 +953,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 
 	serviceName := filepath.Base(path)
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
+	serviceName = strings.TrimSpace(serviceName)
 
 	to := filepath.Join(config.LocalServicePath(projectName, serviceName), serviceName)
 	// remove old files
