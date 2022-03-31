@@ -17,6 +17,8 @@ limitations under the License.
 package gitlab
 
 import (
+	"fmt"
+
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -36,6 +38,11 @@ func (c *Client) ListNamespaces(keyword string, opts *ListOptions) ([]*gitlab.Na
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		fmt.Println(fmt.Sprintf("ListNamespaces err:%+v", err))
+		return nil, err
+	}
 
 	var res []*gitlab.Namespace
 	ns, ok := namespaces.([]interface{})
