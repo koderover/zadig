@@ -381,6 +381,8 @@ func getJobLabels(jobLabel *JobLabel) map[string]string {
 	serviceKey := jobLabel.ServiceName
 	if len(serviceKey) > 63 {
 		serviceKey = serviceKey[:63]
+		serviceKey = strings.TrimRight(serviceKey, "_")
+		serviceKey = strings.TrimRight(serviceKey, "-")
 	}
 
 	retMap := map[string]string{
