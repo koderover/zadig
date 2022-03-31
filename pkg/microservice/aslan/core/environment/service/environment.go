@@ -1768,7 +1768,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		return e.ErrDeleteEnv.AddErr(err)
 	}
 
-	// 设置产品状态
 	err = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusDeleting)
 	if err != nil {
 		log.Errorf("[%s][%s] update product status error: %v", username, productInfo.Namespace, err)
@@ -1789,7 +1788,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			var err error
 			defer func() {
 				if err != nil {
-					// 发送删除产品失败消息给用户
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
 					commonservice.SendErrorMessage(username, title, requestID, err, log)
 					_ = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
@@ -1800,7 +1798,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				}
 			}()
 
-			//卸载helm release资源
 			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
@@ -1819,7 +1816,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				log.Errorf("获取helmClient err:%v", err)
 			}
 
-			//删除namespace
 			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
 			if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
 				err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
@@ -1832,7 +1828,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			log.Errorf("Product.Delete error: %v", err)
 		}
 
-		// 删除workload数据
 		tempProduct, err := mongotemplate.NewProductColl().Find(productName)
 		if err != nil {
 			log.Errorf("project not found error:%s", err)
@@ -1848,7 +1843,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 					log.Errorf("update workloads fail error:%s", err)
 				}
 			}
-			// 获取所有external的服务
+
 			currentEnvServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
 			if err != nil {
 				log.Errorf("failed to list external workload, error:%s", err)
@@ -1895,7 +1890,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			var err error
 			defer func() {
 				if err != nil {
-					// 发送删除产品失败消息给用户
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
 					commonservice.SendErrorMessage(username, title, requestID, err, log)
 					_ = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)

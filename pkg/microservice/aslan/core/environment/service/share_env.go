@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -44,8 +43,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
-
-var ErrNotImplemented = errors.New("not implemented")
 
 const istioNamespace = "istio-system"
 const istioProxyName = "istio-proxy"
