@@ -31,9 +31,10 @@ func ConnectSshPmExec(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	ip := c.Query("ip")
+	hostId := c.Query("hostId")
 	name := c.Param("name")
-	if projectName == "" || ip == "" || name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("param projectName or ip or name is empty")
+	if projectName == "" || ip == "" || name == "" || hostId == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("param projectName or ip or name or hostId is empty")
 	}
 	colsStr := c.DefaultQuery("cols", "135")
 	cols, err := strconv.Atoi(colsStr)
@@ -46,5 +47,5 @@ func ConnectSshPmExec(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 	}
 
-	ctx.Err = service.ConnectSshPmExec(c, ctx.UserName, name, projectName, ip, cols, rows, ctx.Logger)
+	ctx.Err = service.ConnectSshPmExec(c, ctx.UserName, name, projectName, ip, hostId, cols, rows, ctx.Logger)
 }
