@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"regexp"
 	"sort"
 	"strconv"
@@ -31,6 +30,7 @@ import (
 	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
