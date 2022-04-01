@@ -118,6 +118,17 @@ access_is_granted {
 }
 
 access_is_granted {
+    not url_is_privileged
+
+    some rule
+
+    allowed_cluster_role_plain_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
+
+access_is_granted {
     some rule
 
     allowed_policy_attributive_rules[rule]
@@ -348,6 +359,14 @@ allowed_roles[role_ref] {
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
+allowed_system_roles[role_ref]{
+    some i
+    some j
+    data.bindings.role_bindings[i].uid == claims.uid
+    data.bindings.role_bindings[i].bindings[j].namespace == "*"
+    role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
+}
+
 # if the proejct is visible by all users (the user name is "*"), the bound roles are also allowed
 allowed_roles[role_ref] {
     some i
@@ -383,6 +402,16 @@ allowed_role_rules[rule] {
     rule := data.roles.roles[i].rules[_]
 }
 
+allowed_cluster_role_rules[rule] {
+    some role_ref
+    allowed_system_roles[role_ref]
+
+    some i
+    data.roles.roles[i].name == role_ref.name
+    role_ref.namespace == "*"
+    rule := data.roles.roles[i].rules[_]
+}
+
 allowed_policy_rules[rule] {
     some policy_ref
     allowed_policies[policy_ref]
@@ -403,6 +432,11 @@ allowed_role_plain_rules[rule] {
     rule := allowed_role_rules[_]
     not rule.matchAttributes
     not rule.matchExpressions
+}
+
+allowed_cluster_role_plain_rules[rule] {
+    rule := allowed_cluster_role_rules[_]
+    not rule.matchAttributes
 }
 
 allowed_policy_attributive_rules[rule] {

@@ -18,6 +18,7 @@ package handler
 
 import (
 	_ "embed"
+	"fmt"
 
 	"sigs.k8s.io/yaml"
 
@@ -28,6 +29,9 @@ import (
 //go:embed policy.yaml
 var policyDefinitions []byte
 
+//go:embed system-policies.yaml
+var policiesDefinitions []byte
+
 func (*Router) Policies() []*policy.PolicyMeta {
 	res := &policy.PolicyMeta{}
 	err := yaml.Unmarshal(policyDefinitions, res)
@@ -36,5 +40,14 @@ func (*Router) Policies() []*policy.PolicyMeta {
 		log.DPanic(err)
 	}
 
-	return []*policy.PolicyMeta{res}
+	res2 := []*policy.PolicyMeta{}
+	err = yaml.Unmarshal(policiesDefinitions, &res2)
+	if err != nil {
+		// should not have happened here
+		log.DPanic(err)
+	}
+	fmt.Println(len(res2))
+	res2 = append(res2, res)
+
+	return res2
 }
