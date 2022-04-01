@@ -31,6 +31,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -206,6 +207,8 @@ func ensureCleanRouteInBase(ctx context.Context, envName, baseNS, vsName string,
 		return nil
 	}
 
+	log.Infof("Begin to clean route env=%s in base ns %s for VirtualService %s.", envName, baseNS, vsName)
+
 	httpRoutes := make([]*networkingv1alpha3.HTTPRoute, 0, len(baseVS.Spec.Http)-1)
 	httpRoutes = append(httpRoutes, baseVS.Spec.Http[:location]...)
 	httpRoutes = append(httpRoutes, baseVS.Spec.Http[location+1:]...)
@@ -277,16 +280,12 @@ func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.
 	vsName := genVirtualServiceName(svc)
 	workloadSelector := labels.SelectorFromSet(labels.Set(svc.Spec.Selector))
 	for _, env := range envs {
-		podList := &corev1.PodList{}
-		err = kclient.List(ctx, podList, &client.ListOptions{
-			Namespace:     env.Namespace,
-			LabelSelector: workloadSelector,
-		})
-		if err == nil && len(podList.Items) > 0 {
-			continue
-		}
-		if err != nil && !apierrors.IsNotFound(err) {
+		hasWorkload, err := doesSvcHasWorkload(ctx, env.Namespace, workloadSelector, kclient)
+		if err != nil {
 			return err
+		}
+		if hasWorkload {
+			continue
 		}
 
 		err = ensureDeleteVirtualService(ctx, env, vsName, istioClient)
@@ -320,4 +319,21 @@ func ensureDeleteK8sService(ctx context.Context, ns, svcName string, kclient cli
 	return kclient.Delete(ctx, svc, &client.DeleteOptions{
 		PropagationPolicy: &deleteOption,
 	})
+}
+
+func doesSvcHasWorkload(ctx context.Context, ns string, svcSelector labels.Selector, kclient client.Client) (bool, error) {
+	podList := &corev1.PodList{}
+	err := kclient.List(ctx, podList, &client.ListOptions{
+		Namespace:     ns,
+		LabelSelector: svcSelector,
+	})
+	if err != nil {
+		return false, util.IgnoreNotFoundError(err)
+	}
+
+	if len(podList.Items) == 0 {
+		return false, nil
+	}
+
+	return true, nil
 }

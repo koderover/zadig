@@ -463,20 +463,14 @@ func ensureVirtualService(ctx context.Context, kclient client.Client, istioClien
 			return err
 		}
 
+		svcSelector := labels.SelectorFromSet(labels.Set(svc.Spec.Selector))
 		for _, subEnv := range subEnvs {
-			pods := &corev1.PodList{}
-			err = kclient.List(ctx, pods, &client.ListOptions{
-				Namespace:     subEnv.Namespace,
-				LabelSelector: labels.SelectorFromSet(labels.Set(svc.Spec.Selector)),
-			})
-			if apierrors.IsNotFound(err) {
-				continue
-			}
+			hasWorkload, err := doesSvcHasWorkload(ctx, subEnv.Namespace, svcSelector, kclient)
 			if err != nil {
 				return err
 			}
 
-			if len(pods.Items) == 0 {
+			if !hasWorkload {
 				continue
 			}
 
@@ -959,6 +953,16 @@ func ensureWorkloadsVirtualServiceInGrayAndBase(ctx context.Context, env *common
 	}
 
 	for _, svc := range svcs.Items {
+		// If there is no workloads in the sub-environment, the service is not updated.
+		hasWorkload, err := doesSvcHasWorkload(ctx, grayNS, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
+		if err != nil {
+			return err
+		}
+
+		if !hasWorkload {
+			continue
+		}
+
 		vsName := genVirtualServiceName(&svc)
 
 		err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svc.Name, grayNS, baseNS, istioClient)
