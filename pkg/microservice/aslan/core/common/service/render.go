@@ -171,16 +171,12 @@ func ValidateRenderSet(productName, renderName string, serviceInfo *templatemode
 	resp := &commonmodels.RenderSet{ProductTmpl: productName}
 	var err error
 	if renderName != "" {
-		opt := &commonrepo.RenderSetFindOption{Name: renderName}
+		opt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
 		resp, err = commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("find renderset[%s] error: %v", renderName, err)
 			return resp, err
 		}
-	}
-	if renderName != "" && resp.ProductTmpl != productName {
-		log.Errorf("renderset[%s] not match product[%s]", renderName, productName)
-		return resp, fmt.Errorf("renderset[%s] not match product[%s]", renderName, productName)
 	}
 	if serviceInfo == nil {
 		//if err := IsAllKeyCovered(resp, log); err != nil {
@@ -221,7 +217,7 @@ func mergeKVs(newKVs []*templatemodels.RenderKV, oldKVs []*templatemodels.Render
 }
 
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name}
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
 		// 已经存在渲染配置集
@@ -248,7 +244,7 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 
 // CreateHelmRenderSet 添加renderSet
 func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name}
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
 		// 已经存在渲染配置集

@@ -19,9 +19,10 @@ package types
 import "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 
 type PredatorContext struct {
-	JobType        string               `yaml:"job_type"`
-	DockerRegistry *DockerRegistry      `yaml:"docker_registry"`
-	DockerBuildCtx *task.DockerBuildCtx `yaml:"build_ctx"`
-	OnSetup        string               `yaml:"setup,omitempty"`
-	ReleaseImages  []task.RepoImage     `yaml:"release_images"`
+	JobType        string                 `yaml:"job_type"`
+	DockerRegistry *DockerRegistry        `yaml:"docker_registry"`
+	DockerBuildCtx *task.DockerBuildCtx   `yaml:"build_ctx"`
+	OnSetup        string                 `yaml:"setup,omitempty"`
+	ReleaseImages  []task.RepoImage       `yaml:"release_images"`
+	DistributeInfo []*task.DistributeInfo `yaml:"distribute_info"`
 }

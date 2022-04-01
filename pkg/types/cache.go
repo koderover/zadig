@@ -59,5 +59,3 @@ const (
 	WorkspaceCacheDir   CacheDirType = "workspace"
 	UserDefinedCacheDir CacheDirType = "user_defined"
 )
-
-const DefaultSubpath = "$PROJECT/$WORKFLOW/$SERVICE"
