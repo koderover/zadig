@@ -148,8 +148,10 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	if err != nil {
 		return
 	}
-	p.Task.ResponseBody = string(response.Body())
-	p.Task.ResponseHeader = response.Header()
+	responseBody := string(response.Body())
+	responseCode := response.StatusCode()
+	p.Task.ResponseBody = &responseBody
+	p.Task.ResponseCode = &responseCode
 	if !p.Task.IsCallback {
 		p.SetExtensionStatusCompleted(config.StatusPassed)
 	}

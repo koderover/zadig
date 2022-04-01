@@ -18,29 +18,28 @@ package task
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 )
 
 type Extension struct {
-	TaskType       config.TaskType  `bson:"type"                       json:"type"`
-	Enabled        bool             `bson:"enabled"                    json:"enabled"`
-	TaskStatus     config.Status    `bson:"status"                     json:"status"`
-	URL            string           `bson:"url"                        json:"url"`
-	Path           string           `bson:"path,omitempty"             json:"path,omitempty"`
-	IsCallback     bool             `bson:"is_callback"                json:"is_callback"`
-	Headers        []*models.KeyVal `bson:"headers,omitempty"          json:"headers"`
-	Payload        string           `bson:"payload"                    json:"payload"`
-	ResponseBody   string           `bson:"response_body,omitempty"    json:"response_body,omitempty"`
-	ResponseHeader http.Header      `bson:"response_header,omitempty"  json:"response_header,omitempty"`
-	ServiceInfos   []*ServiceInfo   `bson:"service_infos"              json:"service_infos"`
-	Timeout        int              `bson:"timeout"                    json:"timeout,omitempty"`
-	IsRestart      bool             `bson:"is_restart"                 json:"is_restart"`
-	Error          string           `bson:"error,omitempty"            json:"error,omitempty"`
-	StartTime      int64            `bson:"start_time"                 json:"start_time,omitempty"`
-	EndTime        int64            `bson:"end_time"                   json:"end_time,omitempty"`
+	TaskType     config.TaskType  `bson:"type"                       json:"type"`
+	Enabled      bool             `bson:"enabled"                    json:"enabled"`
+	TaskStatus   config.Status    `bson:"status"                     json:"status"`
+	URL          string           `bson:"url"                        json:"url"`
+	Path         string           `bson:"path,omitempty"             json:"path,omitempty"`
+	IsCallback   bool             `bson:"is_callback"                json:"is_callback"`
+	Headers      []*models.KeyVal `bson:"headers,omitempty"          json:"headers"`
+	Payload      string           `bson:"payload"                    json:"payload"`
+	ResponseBody *string          `bson:"response_body"              json:"response_body"`
+	ResponseCode *int             `bson:"response_code"              json:"response_code"`
+	ServiceInfos []*ServiceInfo   `bson:"service_infos"              json:"service_infos"`
+	Timeout      int              `bson:"timeout"                    json:"timeout,omitempty"`
+	IsRestart    bool             `bson:"is_restart"                 json:"is_restart"`
+	Error        string           `bson:"error,omitempty"            json:"error,omitempty"`
+	StartTime    int64            `bson:"start_time"                 json:"start_time,omitempty"`
+	EndTime      int64            `bson:"end_time"                   json:"end_time,omitempty"`
 }
 
 type ServiceInfo struct {
