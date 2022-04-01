@@ -182,6 +182,23 @@ func ListSystemRoleBindings(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListRoleBindings(service.SystemScope, "", ctx.Logger)
 }
 
+type SearchSystemRoleBindingArgs struct {
+	Uids []string `json:"uids"`
+}
+
+func SearchSystemRoleBinding(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(SearchSystemRoleBindingArgs)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.SearchRoleBindings(service.SystemScope, args.Uids, ctx.Logger)
+}
+
 func ListUserBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

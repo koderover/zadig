@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -73,4 +74,21 @@ func (c *Client) DeleteRoleBindings(userID string, header http.Header, qs url.Va
 		return []byte{}, err
 	}
 	return res.Body(), err
+}
+
+type SearchSystemRoleBindingArgs struct {
+	Uids []string `json:"uids"`
+}
+
+func (c *Client) SearchSystemUsers(uids []string) (map[string][]*service.RoleBinding, error) {
+	url := "system-rolebindings/search"
+	args := SearchSystemRoleBindingArgs{
+		Uids: uids,
+	}
+	result := map[string][]*service.RoleBinding{}
+	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(result))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

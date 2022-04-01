@@ -48,11 +48,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 	users := router.Group("users")
 	{
+		users.GET("", SearchUsers)
 		users.DELETE("/:id", DeleteUser)
 	}
 	downloads := router.Group("kubeconfig")
 	{
 		downloads.GET("", GetKubeConfig)
 	}
-
 }

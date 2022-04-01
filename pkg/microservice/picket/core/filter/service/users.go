@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 )
 
 type DeleteUserResp struct {
@@ -36,4 +37,60 @@ func DeleteUser(userID string, header http.Header, qs url.Values, _ *zap.Sugared
 		return []byte{}, err
 	}
 	return policy.New().DeleteRoleBindings(userID, header, qs)
+}
+
+func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, _ *zap.SugaredLogger) (*UsersResp, error) {
+	users, err := user.New().SearchUsers(header, qs, args)
+	if err != nil {
+		return nil, err
+	}
+	tmpUids := []string{}
+	for _, user := range users.Users {
+		tmpUids = append(tmpUids, user.Uid)
+	}
+	systemMap, err := policy.New().SearchSystemUsers(tmpUids)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &UsersResp{
+		Users:      make([]UserInfo, 0),
+		TotalCount: users.TotalCount,
+	}
+	for _, user := range users.Users {
+		userInfo := UserInfo{
+			LastLoginTime: user.LastLoginTime,
+			Uid:           user.Uid,
+			Name:          user.Name,
+			IdentityType:  user.IdentityType,
+			Email:         user.Email,
+			Phone:         user.Phone,
+			Account:       user.Account,
+			APIToken:      user.APIToken,
+			RoleBindings:  nil,
+		}
+		if rb, ok := systemMap[user.Uid]; ok {
+			userInfo.RoleBindings = rb
+		}
+		res.Users = append(res.Users, userInfo)
+	}
+
+	return res, nil
+}
+
+type UsersResp struct {
+	Users      []UserInfo `json:"users"`
+	TotalCount int64      `json:"totalCount"`
+}
+
+type UserInfo struct {
+	LastLoginTime int64                  `json:"lastLoginTime"`
+	Uid           string                 `json:"uid"`
+	Name          string                 `json:"name"`
+	IdentityType  string                 `gorm:"default:'unknown'" json:"identity_type"`
+	Email         string                 `json:"email"`
+	Phone         string                 `json:"phone"`
+	Account       string                 `json:"account"`
+	APIToken      string                 `json:"token"`
+	RoleBindings  []*service.RoleBinding `json:"role_bindings"`
 }
