@@ -1261,6 +1261,8 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
 			// replace $Service$ with service name
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
+			// replace $Product$ with product name
+			yamlData = config.ProductNameAlias.ReplaceAllLiteralString(yamlData, args.ProductName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
 				return fmt.Errorf("unmarshal ResourceKind error: %v", err)
