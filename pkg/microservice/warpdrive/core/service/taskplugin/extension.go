@@ -118,7 +118,6 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	}()
 	p.pipelineName = pipelineTask.PipelineName
 	p.taskId = pipelineTask.TaskID
-	p.Task.WorkflowStatus = getPipelineStatus(pipelineTask)
 	p.Log.Infof("succeed to create extension task %s", p.JobName)
 	_, p.cancel = context.WithCancel(context.Background())
 	httpClient := httpclient.New(
@@ -126,12 +125,13 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	)
 	url := p.Task.Path
 	webhookPayload := &task.WebhookPayload{
-		EventName:    "workflow",
-		ProjectName:  pipelineTask.ProductName,
-		TaskName:     pipelineTask.PipelineName,
-		TaskID:       pipelineTask.TaskID,
-		ServiceInfos: p.Task.ServiceInfos,
-		Creator:      pipelineTask.TaskCreator,
+		EventName:      "workflow",
+		ProjectName:    pipelineTask.ProductName,
+		TaskName:       pipelineTask.PipelineName,
+		TaskID:         pipelineTask.TaskID,
+		ServiceInfos:   p.Task.ServiceInfos,
+		Creator:        pipelineTask.TaskCreator,
+		WorkflowStatus: getPipelineStatus(pipelineTask),
 	}
 	body, err = json.Marshal(webhookPayload)
 	if err != nil {
@@ -148,8 +148,8 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	if err != nil {
 		return
 	}
-	p.Task.Response = string(response.Body())
-	p.Task.ResponseStatus = response.StatusCode()
+	p.Task.ResponseBody = string(response.Body())
+	p.Task.ResponseHeader = response.Header()
 	if !p.Task.IsCallback {
 		p.SetExtensionStatusCompleted(config.StatusPassed)
 	}

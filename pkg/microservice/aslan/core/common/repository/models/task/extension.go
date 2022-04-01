@@ -18,6 +18,7 @@ package task
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -30,11 +31,10 @@ type Extension struct {
 	URL            string           `bson:"url"                        json:"url"`
 	Path           string           `bson:"path,omitempty"             json:"path,omitempty"`
 	IsCallback     bool             `bson:"is_callback"                json:"is_callback"`
-	WorkflowStatus config.Status    `bson:"workflow_status"            json:"workflow_status"`
 	Headers        []*models.KeyVal `bson:"headers,omitempty"          json:"headers"`
 	Payload        string           `bson:"payload"                    json:"payload"`
-	Response       string           `bson:"response,omitempty"         json:"response,omitempty"`
-	ResponseStatus int              `bson:"response_status"            json:"response_status"`
+	ResponseBody   string           `bson:"response_body,omitempty"    json:"response_body,omitempty"`
+	ResponseHeader http.Header      `bson:"response_header,omitempty"  json:"response_header,omitempty"`
 	ServiceInfos   []*ServiceInfo   `bson:"service_infos"              json:"service_infos"`
 	Timeout        int              `bson:"timeout"                    json:"timeout,omitempty"`
 	IsRestart      bool             `bson:"is_restart"                 json:"is_restart"`
