@@ -163,7 +163,7 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 	}
 
 	// 2. Delete EnvoyFilter in the namespace of Istio installation.
-	err = deleteEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
+	err = ensureDeleteEnvoyFilter(ctx, prod, istioClient)
 	if err != nil {
 		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
 	}
