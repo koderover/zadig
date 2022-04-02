@@ -49,7 +49,9 @@ rules:
     description: ""
     rules:
       - method: PUT
-        endpoint: "api/aslan/workflow/workflow"
+        endpoint: "api/aslan/workflow/workflow/?*"
+        resourceType: "Workflow"
+        idRegex: "api/aslan/workflow/workflow/([\\w\\W]+?)$"
       - method: GET
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
