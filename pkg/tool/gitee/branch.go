@@ -48,7 +48,7 @@ func (c *Client) GetSingleBranch(accessToken, owner, repo, branch string) (*Bran
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
-	url := fmt.Sprintf("/v5/repos/%s/%s/branches/%", owner, repo, branch)
+	url := fmt.Sprintf("/v5/repos/%s/%s/branches/%s", owner, repo, branch)
 	var branchInfo *Branch
 	_, err := httpClient.Get(url, httpclient.SetQueryParam("access_token", accessToken), httpclient.SetResult(&branchInfo))
 	if err != nil {

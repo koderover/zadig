@@ -381,11 +381,13 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				}
 			} else if build.Branch != "" && build.PR == 0 {
 				branch, err := gitCli.GetSingleBranch(codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.Branch)
-				if err == nil {
-					build.CommitID = branch.Commit.Sha
-					build.CommitMessage = branch.Commit.Commit.Message
-					build.AuthorName = branch.Commit.Commit.Author.Name
+				if err != nil {
+					log.Errorf("failed to gitee GetSingleBranch  repoOwner:%s,repoName:%s,repoBranch:%s err:%s", build.RepoOwner, build.RepoName, build.Branch, err)
+					return
 				}
+				build.CommitID = branch.Commit.Sha
+				build.CommitMessage = branch.Commit.Commit.Message
+				build.AuthorName = branch.Commit.Commit.Author.Name
 			} else if build.PR > 0 {
 				prCommits, err := gitCli.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, nil)
 				sort.SliceStable(prCommits, func(i, j int) bool {
