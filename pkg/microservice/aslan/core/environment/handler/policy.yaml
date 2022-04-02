@@ -167,11 +167,17 @@ rules:
           - key: "production"
             value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/image/deployment"
+        endpoint: "/api/aslan/environment/image/deployment/?*"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/image/deployment/([\\w\\W]+?)"
       - method: POST
-        endpoint: "/api/aslan/environment/image/statefulset"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/image/statefulset/([\\w\\W]+?)"
+        endpoint: "/api/aslan/environment/image/statefulset/?*"
       - method: DELETE
-        endpoint: "/api/aslan/environment/kube/pods/?*"
+        endpoint: "/api/aslan/environment/kube/?*/pods/?*"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/kube/([\\w\\W]+?)/pods"
       - method: PUT
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
