@@ -50,9 +50,6 @@ func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, 
 		return nil, err
 	}
 
-	log.Infof("codehostID:%d", codehostID)
-	log.Infof("ch.AccessToken:%s", ch.AccessToken)
-
 	var c client.CodeHostClient
 	f, ok := ClientsConfig[ch.Type]
 	if !ok {
