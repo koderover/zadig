@@ -112,6 +112,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name/helm/releases", ListReleases)
 		environments.GET("/:name/helm/charts", GetChartInfos)
+		environments.GET("/:name/helm/images", GetImageInfos)
 
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", gin2.UpdateOperationLogStatus, UpdateService)
