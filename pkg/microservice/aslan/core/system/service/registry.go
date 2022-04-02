@@ -146,7 +146,7 @@ func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 
 	for _, env := range envs {
 		if env.RegistryID == id {
-			return fmt.Errorf("The registry cannot be deleted, it's being used by environment [%s] of project [%s]", env.EnvName, env.ProductName)
+			return fmt.Errorf("The registry cannot be deleted, it's being used by environment")
 		}
 	}
 
