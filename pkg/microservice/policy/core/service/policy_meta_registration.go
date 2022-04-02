@@ -18,6 +18,7 @@ package service
 
 import (
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
@@ -96,7 +97,7 @@ func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error
 	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
-func GetPolicyRegistrationDefinitions(_ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
+func GetPolicyRegistrationDefinitions(resourceScore string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
 	policies, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
@@ -109,6 +110,20 @@ func GetPolicyRegistrationDefinitions(_ *zap.SugaredLogger) ([]*PolicyDefinition
 			Alias:       p.Alias,
 			Description: p.Description,
 		}
+		clusterScopeResources := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryTrace", "DeliveryVersion")
+		projectScopeResources := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
+		switch resourceScore {
+		case "cluster":
+			if clusterScopeResources.Has(p.Resource) {
+				continue
+			}
+		case "project":
+			if projectScopeResources.Has(p.Resource) {
+				continue
+			}
+		case "":
+
+		}
 		for _, r := range p.Rules {
 			pd.Rules = append(pd.Rules, &PolicyRuleDefinition{
 				Action:      r.Action,
@@ -119,6 +134,5 @@ func GetPolicyRegistrationDefinitions(_ *zap.SugaredLogger) ([]*PolicyDefinition
 
 		res = append(res, pd)
 	}
-
 	return res, nil
 }
