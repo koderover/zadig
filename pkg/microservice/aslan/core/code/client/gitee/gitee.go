@@ -113,7 +113,7 @@ func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 }
 
 func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
-	projects, err := c.Client.ListRepositoriesForAuthenticatedUser(context.TODO(), c.AccessToken)
+	projects, err := c.Client.ListRepositoriesForAuthenticatedUser(c.AccessToken, opt.Key, opt.Page, opt.PerPage)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package gitee
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gitee.com/openeuler/go-gitee/gitee"
@@ -22,7 +23,7 @@ type Project struct {
 	DefaultBranch string `json:"default_branch,omitempty"`
 }
 
-func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, accessToken string) ([]Project, error) {
+func (c *Client) ListRepositoriesForAuthenticatedUser(accessToken, keyword string, page, perPage int) ([]Project, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
@@ -31,7 +32,9 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, acces
 	queryParams["access_token"] = accessToken
 	queryParams["visibility"] = "all"
 	queryParams["affiliation"] = "owner"
-	queryParams["per_page"] = "100"
+	queryParams["q"] = keyword
+	queryParams["page"] = strconv.Itoa(page)
+	queryParams["per_page"] = strconv.Itoa(perPage)
 
 	var projects []Project
 	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projects))
