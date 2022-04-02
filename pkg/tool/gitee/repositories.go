@@ -30,7 +30,7 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, acces
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
 	queryParams["visibility"] = "all"
-	queryParams["affiliation"] = "admin"
+	queryParams["affiliation"] = "owner"
 	queryParams["per_page"] = "100"
 
 	var projects []Project
