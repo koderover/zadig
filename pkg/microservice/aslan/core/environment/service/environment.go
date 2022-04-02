@@ -2506,7 +2506,7 @@ func ensureKubeEnv(namespace string, registryId string, kubeClient client.Client
 	err := kube.CreateNamespace(namespace, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
-		return e.ErrCreateNamspace.AddDesc(e.SetNamespaceErrMsg)
+		return e.ErrCreateNamspace.AddDesc(err.Error())
 	}
 
 	// 创建默认的镜像仓库secret
