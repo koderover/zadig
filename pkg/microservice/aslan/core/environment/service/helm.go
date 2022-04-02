@@ -332,7 +332,6 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 	}
 
 	services := strings.Split(serviceNames, ",")
-	//svcSet := sets.NewString(serviceName...)
 
 	ret := &ChartImagesResp{}
 
