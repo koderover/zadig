@@ -29,8 +29,8 @@ import (
 
 	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -46,7 +46,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gitee"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -58,6 +57,7 @@ import (
 const (
 	NameSpaceRegexString   = "[^a-z0-9.-]"
 	defaultNameRegexString = "^[a-zA-Z0-9-_]{1,50}$"
+	InterceptCommitID      = 8
 )
 
 var (
@@ -565,6 +565,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		reg             = regexp.MustCompile(`[^\w.-]`)
 		customImageRule *template.CustomRule
 		customTarRule   *template.CustomRule
+		commitID        = first.CommitID
 	)
 
 	if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
@@ -574,9 +575,13 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		customTarRule = project.CustomTarRule
 	}
 
+	if len(commitID) > InterceptCommitID {
+		commitID = commitID[0:InterceptCommitID]
+	}
+
 	candidate := &candidate{
 		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
-		CommitID:    first.CommitID,
+		CommitID:    commitID,
 		PR:          first.PR,
 		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
 		EnvName:     envName,
@@ -744,11 +749,19 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 	return nil
 }
 
-// validateServiceContainer validate container with envName like dev
-func validateServiceContainer(envName, productName, serviceName, container string) (string, error) {
+// getImageInfoFromWorkload find the current image info from the cluster
+func getImageInfoFromWorkload(envName, productName, serviceName, container string) (string, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	serviceInfo, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
 	})
 	if err != nil {
 		return "", err
@@ -759,9 +772,66 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	return validateServiceContainer2(
-		product, serviceName, container, kubeClient,
-	)
+	if product.Source == setting.SourceFromHelm {
+		return findCurrentlyUsingImage(product, serviceName, container)
+	}
+
+	switch serviceInfo.WorkloadType {
+	case setting.StatefulSet:
+		var statefulSet *appsv1.StatefulSet
+		statefulSet, _, err = getter.GetStatefulSet(product.Namespace, serviceName, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, c := range statefulSet.Spec.Template.Spec.Containers {
+			if c.Name == container {
+				return c.Image, nil
+			}
+		}
+		return "", errors.New("no container in statefulset found")
+	case setting.Deployment:
+		var deployment *appsv1.Deployment
+		deployment, _, err = getter.GetDeployment(product.Namespace, serviceName, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, c := range deployment.Spec.Template.Spec.Containers {
+			if c.Name == container {
+				return c.Image, nil
+			}
+		}
+		return "", errors.New("no container in deployment found")
+	default:
+		// since in some version of the service, there are no workload type, we need to do something with this
+		selector := labels.Set{setting.ProductLabel: product.ProductName, setting.ServiceLabel: serviceName}.AsSelector()
+		var deployments []*appsv1.Deployment
+		deployments, err = getter.ListDeployments(product.Namespace, selector, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, deploy := range deployments {
+			for _, c := range deploy.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+		var statefulSets []*appsv1.StatefulSet
+		statefulSets, err = getter.ListStatefulSets(product.Namespace, selector, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, sts := range statefulSets {
+			for _, c := range sts.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+
+		log.Errorf("No workload found with container: %s", container)
+		return "", errors.New("no workload found with container")
+	}
 }
 
 type ContainerNotFound struct {
@@ -794,44 +864,6 @@ func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, con
 		}
 	}
 	return "", fmt.Errorf("failed to find image url")
-}
-
-// validateServiceContainer2 validate container with raw namespace like dev-product
-func validateServiceContainer2(productInfo *commonmodels.Product, serviceName, container string, kubeClient client.Client) (string, error) {
-	namespace, productName, envName, source := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName, productInfo.Source
-	if source == setting.SourceFromHelm {
-		return findCurrentlyUsingImage(productInfo, serviceName, container)
-	}
-
-	var selector labels.Selector
-	//helm和托管类型的服务查询所有标签的pod
-	if source != setting.SourceFromHelm && source != setting.SourceFromExternal {
-		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
-		//selector = builder.BuildSelector()
-	}
-
-	pods, err := getter.ListPods(namespace, selector, kubeClient)
-	if err != nil {
-		return "", fmt.Errorf("[%s] ListPods %s/%s error: %v", namespace, productName, serviceName, err)
-	}
-
-	for _, p := range pods {
-		pod := wrapper.Pod(p).Resource()
-		for _, c := range pod.ContainerStatuses {
-			if c.Name == container || commonservice.ExtractImageName(c.Image) == container {
-				return c.Image, nil
-			}
-		}
-	}
-	log.Errorf("[%s]container %s not found", namespace, container)
-
-	return "", &ContainerNotFound{
-		ServiceName: serviceName,
-		Container:   container,
-		EnvName:     envName,
-		ProductName: productName,
-	}
 }
 
 // IsProductAuthed 查询指定产品是否授权给用户, 或者用户所在的组

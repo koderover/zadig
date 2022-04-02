@@ -40,8 +40,11 @@ func GetContainerLogs(namespace, podName, containerName string, follow bool, tai
 			return fmt.Errorf("failed to get pod %s in %s: %s", podName, namespace, err)
 		}
 
-		_, err = out.Write([]byte(pod.Status.ContainerStatuses[0].State.Terminated.Message))
+		if pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodUnknown {
+			return fmt.Errorf("phase of Pod %s in ns %s is %s", pod.Name, pod.Namespace, pod.Status.Phase)
+		}
 
+		_, err = out.Write([]byte(pod.Status.ContainerStatuses[0].State.Terminated.Message))
 		return err
 	}
 

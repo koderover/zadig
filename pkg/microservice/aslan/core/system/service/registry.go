@@ -26,6 +26,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
+	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -139,6 +140,16 @@ func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 		isDefault          = false
 		registryNamespaces []*commonmodels.RegistryNamespace
 	)
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ExcludeStatus: []string{setting.ProductStatusDeleting},
+	})
+
+	for _, env := range envs {
+		if env.RegistryID == id {
+			return fmt.Errorf("The registry cannot be deleted, it's being used by environment [%s] of project [%s]", env.EnvName, env.ProductName)
+		}
+	}
+
 	// whether it is the default registry
 	for _, registry := range registries {
 		if registry.ID.Hex() == id && registry.IsDefault {

@@ -16,6 +16,11 @@ limitations under the License.
 
 package service
 
+import (
+	"github.com/koderover/zadig/pkg/setting"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
 type SvcRevision struct {
 	ServiceName     string            `json:"service_name"`
 	Type            string            `json:"type"`
@@ -97,6 +102,14 @@ type PmHealthCheck struct {
 	UnhealthyThreshold  int    `json:"unhealthy_threshold,omitempty"`
 	CurrentHealthyNum   int    `json:"current_healthy_num,omitempty"`
 	CurrentUnhealthyNum int    `json:"current_unhealthy_num,omitempty"`
+}
+
+type PrivateKeyHosts struct {
+	ID           primitive.ObjectID   `json:"id,omitempty"`
+	IP           string               `json:"ip"`
+	Port         int64                `json:"port"`
+	Status       setting.PMHostStatus `json:"status"`
+	UpdateStatus bool                 `json:"update_status"`
 }
 
 type EnvStatus struct {

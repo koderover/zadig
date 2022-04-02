@@ -176,8 +176,6 @@ rules:
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
         endpoint: "/api/aslan/environment/configmaps"
-      - method: GET
-        endpoint: "/api/podexec/?*/?*/?*/?*/podExec"
       - method: POST
         endpoint: "/api/aslan/workflow/servicetask"
   - action: delete_environment
@@ -191,3 +189,9 @@ rules:
         matchAttributes:
           - key: "production"
             value: "false"
+  - action: debug_pod
+    alias: "服务调试"
+    description: ""
+    rules:
+      - method: GET
+        endpoint: "/api/podexec/?*/?*/?*/?*/podExec"

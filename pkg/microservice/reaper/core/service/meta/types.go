@@ -171,6 +171,7 @@ type SSH struct {
 	Name       string `json:"name"`
 	UserName   string `json:"user_name"`
 	IP         string `json:"ip"`
+	Port       int64  `json:"port"`
 	IsProd     bool   `json:"is_prod"`
 	Label      string `json:"label"`
 	PrivateKey string `json:"private_key"`

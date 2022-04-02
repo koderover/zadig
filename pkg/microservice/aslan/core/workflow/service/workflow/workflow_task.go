@@ -629,6 +629,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
+						args.ProductTmplName,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1056,6 +1057,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				}
 				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
 					distributeTasks, err = formatDistributeSubtasks(
+						args.ProductTmplName,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1362,16 +1364,43 @@ func artifactToSubTasks(name, image string) (map[string]interface{}, error) {
 	return artifactTask.ToSubTask()
 }
 
-func formatDistributeSubtasks(releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
+func formatDistributeSubtasks(productName string, releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
 	var resp []map[string]interface{}
 
 	if distribute.ImageDistribute {
 		t := taskmodels.ReleaseImage{
-			TaskType:  config.TaskReleaseImage,
-			Enabled:   true,
-			ImageRepo: imageRepo,
-			Releases:  releaseImages,
+			TaskType:    config.TaskReleaseImage,
+			Enabled:     true,
+			ProductName: productName,
 		}
+		// get product Info for further use
+		productInfo, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			return nil, err
+		}
+		distributeInfo := make([]*taskmodels.DistributeInfo, 0)
+		// now we add distributeInfo in
+		for _, repoInfo := range releaseImages {
+			envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+				EnvName: repoInfo.DeployEnv,
+				Name:    productName,
+			})
+			if err != nil {
+				return nil, err
+			}
+			distributeInfo = append(distributeInfo, &taskmodels.DistributeInfo{
+				DeployEnabled:     repoInfo.DeployEnabled,
+				DeployEnv:         repoInfo.DeployEnv,
+				DeployServiceType: productInfo.ProductFeature.DeployType,
+				DeployClusterID:   envInfo.ClusterID,
+				DeployNamespace:   envInfo.Namespace,
+				RepoID:            repoInfo.RepoID,
+			})
+		}
+		t.DistributeInfo = distributeInfo
+		t.Releases = releaseImages
+
+		// convert to subtask
 		subtask, err := t.ToSubTask()
 		if err != nil {
 			return resp, err
@@ -1722,6 +1751,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
+						args.ProductTmplName,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1972,10 +2002,12 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.ImageFrom = commonmodels.ImageFromKoderover
 		}
 
+		envHostInfos := make(map[string]*commonmodels.PrivateKey)
 		if serviceTmpl != nil {
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
 			envHostNames := make(map[string][]string)
+
 			for _, envConfig := range serviceTmpl.EnvConfigs {
 				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 				if err != nil {
@@ -1984,13 +2016,13 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				}
 				ips := sets.NewString()
 				names := sets.NewString()
-				ips, names = extractHost(privateKeys, ips, names)
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
 				if err != nil {
 					log.Errorf("ListNameByArgs labels err:%s", err)
 					continue
 				}
-				ips, names = extractHost(privateKeys, ips, names)
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				envHost[envConfig.EnvName] = ips.List()
 				envHostNames[envConfig.EnvName] = names.List()
 			}
@@ -2041,11 +2073,26 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				ssh.Name = latestKeyInfo.Name
 				ssh.UserName = latestKeyInfo.UserName
 				ssh.IP = latestKeyInfo.IP
+				ssh.Port = latestKeyInfo.Port
+				if ssh.Port == 0 {
+					ssh.Port = setting.PMHostDefaultPort
+				}
 				ssh.PrivateKey = latestKeyInfo.PrivateKey
 
 				privateKeys = append(privateKeys, ssh)
+				delete(envHostInfos, sshID)
 			}
 			build.JobCtx.SSHs = privateKeys
+		}
+		// Sync from the configuration in the environment
+		for _, privateKey := range envHostInfos {
+			build.JobCtx.SSHs = append(build.JobCtx.SSHs, &taskmodels.SSH{
+				Name:       privateKey.Name,
+				UserName:   privateKey.UserName,
+				IP:         privateKey.IP,
+				Port:       privateKey.Port,
+				PrivateKey: privateKey.PrivateKey,
+			})
 		}
 
 		build.JobCtx.EnvVars = module.PreBuild.Envs
@@ -2117,10 +2164,11 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	return subTasks, nil
 }
 
-func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String) (sets.String, sets.String) {
+func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String, envHostInfos map[string]*commonmodels.PrivateKey) (sets.String, sets.String) {
 	for _, privateKey := range privateKeys {
 		ips.Insert(privateKey.IP)
 		names.Insert(privateKey.Name)
+		envHostInfos[privateKey.ID.Hex()] = privateKey
 	}
 	return ips, names
 }
@@ -2311,6 +2359,9 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 				taskOpt.Task.TaskArgs.Deploy.Image = image
 				t.Image = image
+				if taskOpt.IsWorkflowTask {
+					t.ServiceName = t.ServiceName + "_" + t.Service
+				}
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
@@ -2416,7 +2467,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 			if t.Enabled {
 				t.SetNamespace(taskOpt.Task.TaskArgs.Deploy.Namespace)
-				image, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
+				image, err := getImageInfoFromWorkload(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
 				if err != nil {
 					log.Error(err)
 					return err
@@ -2445,12 +2496,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				containerName := t.ContainerName
 				if taskOpt.IsWorkflowTask {
 					containerName = strings.TrimSuffix(containerName, "_"+t.ServiceName)
-				}
-
-				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, containerName)
-				if err != nil {
-					log.Error(err)
-					return err
 				}
 
 				// Task creator can be webhook trigger or cronjob trigger or validated user
@@ -2548,15 +2593,39 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					}
 				}
 
+				var distributes []*taskmodels.DistributeInfo
+				for _, distribute := range t.DistributeInfo {
+					d := &taskmodels.DistributeInfo{
+						DeployEnabled:       distribute.DeployEnabled,
+						DeployEnv:           distribute.DeployEnv,
+						DeployNamespace:     distribute.DeployNamespace,
+						DeployContainerName: taskOpt.Task.ServiceName, // This is a match for target.Name
+						DeployServiceName:   taskOpt.ServiceName,      // this is a match for target.ServiceName
+						DeployServiceType:   distribute.DeployServiceType,
+						DeployClusterID:     distribute.DeployClusterID,
+						RepoID:              distribute.RepoID,
+					}
+					if v, ok := taskOpt.Task.ConfigPayload.RepoConfigs[distribute.RepoID]; ok {
+						d.Image = util.ReplaceRepo(taskOpt.Task.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)
+					}
+					distributes = append(distributes, d)
+				}
+
 				t.Releases = repos
+				t.DistributeInfo = distributes
 				if len(t.Releases) == 0 {
 					t.Enabled = false
 				} else {
 					t.ImageRelease = t.Releases[0].Name
 				}
 
+				if len(t.DistributeInfo) == 0 {
+					t.Enabled = false
+				}
+
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
+					log.Errorf("release task to subtask error: %s", err)
 					return err
 				}
 			}
