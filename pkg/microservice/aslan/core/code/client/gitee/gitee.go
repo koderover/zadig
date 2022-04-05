@@ -116,7 +116,7 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	var projects []gitee.Project
 	var err error
 	switch opt.NamespaceType {
-	case client.GroupKind:
+	case client.OrgKind:
 		projects, err = c.Client.ListRepositoriesForOrg(c.AccessToken, opt.Namespace, opt.Page, opt.PerPage)
 		if err != nil {
 			return nil, err
