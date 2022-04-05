@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -85,7 +87,7 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 	}
 }
 
-func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
+func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
 	ret := &commonmodels.Product{}
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(productTmplName)
@@ -118,8 +120,17 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 		ret.Source = setting.PMDeployType
 	}
 
+	svcGroupNames := prodTmpl.Services
+	if envType == types.ShareEnv && !isBaseEnv {
+		// At this point the request is from the environment share.
+		svcGroupNames, err = GetEnvServiceList(context.TODO(), productTmplName, baseEnvName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service list from env %s of product %s: %s", baseEnvName, productTmplName, err)
+		}
+	}
+
 	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
-	for _, names := range prodTmpl.Services {
+	for _, names := range svcGroupNames {
 		servicesResp := make([]*commonmodels.ProductService, 0)
 
 		for _, serviceName := range names {

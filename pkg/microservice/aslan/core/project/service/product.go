@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -48,6 +49,7 @@ import (
 	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type CustomParseDataArgs struct {
@@ -62,7 +64,7 @@ type ImageParseData struct {
 	PresetId int    `json:"presetId,omitempty"`
 }
 
-func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*template.Product, error) {
+func GetProductTemplateServices(productName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, log *zap.SugaredLogger) (*template.Product, error) {
 	resp, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("GetProductTemplate error: %v", err)
@@ -77,6 +79,15 @@ func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*te
 	if resp.Services == nil {
 		resp.Services = make([][]string, 0)
 	}
+
+	if envType == types.ShareEnv && !isBaseEnv {
+		// At this point the request is from the environment share.
+		resp.Services, err = environmentservice.GetEnvServiceList(context.TODO(), productName, baseEnvName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service list from env %s of product %s: %s", baseEnvName, productName, err)
+		}
+	}
+
 	return resp, nil
 }
 

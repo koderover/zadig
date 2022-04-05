@@ -33,6 +33,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadigutil "github.com/koderover/zadig/pkg/util"
 )
 
 func ensureBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
@@ -63,9 +64,9 @@ func ensureDisableBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Produ
 
 func ensureDeleteAssociatedEnvs(ctx context.Context, baseEnvName string) error {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		ShareEnvEnable:  getBoolPointer(true),
-		ShareEnvIsBase:  getBoolPointer(false),
-		ShareEnvBaseEnv: getStrPointer(baseEnvName),
+		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
+		ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
+		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseEnvName),
 	})
 	if err != nil {
 		return err
@@ -88,7 +89,7 @@ func ensureDeleteAssociatedEnvs(ctx context.Context, baseEnvName string) error {
 
 func ensureDeleteEnvoyFilter(ctx context.Context, baseEnv *commonmodels.Product, istioClient versionedclient.Interface) error {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		ShareEnvEnable: getBoolPointer(true),
+		ShareEnvEnable: zadigutil.GetBoolPointer(true),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list products which enable env sharing: %s", err)
@@ -133,14 +134,6 @@ func ensureCleanRoutesInBase(ctx context.Context, grayEnv *commonmodels.Product,
 	}
 
 	return nil
-}
-
-func getBoolPointer(data bool) *bool {
-	return &data
-}
-
-func getStrPointer(data string) *string {
-	return &data
 }
 
 func deleteEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, istioNamespace, name string) error {
@@ -219,13 +212,7 @@ func ensureCleanRouteInBase(ctx context.Context, envName, baseNS, vsName string,
 }
 
 func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:            env.ProductName,
-		ClusterID:       env.ClusterID,
-		ShareEnvEnable:  getBoolPointer(true),
-		ShareEnvIsBase:  getBoolPointer(false),
-		ShareEnvBaseEnv: getStrPointer(env.EnvName),
-	})
+	envs, err := fetchSubEnvs(ctx, env.ProductName, env.ClusterID, env.EnvName)
 	if err != nil {
 		return err
 	}
@@ -265,13 +252,7 @@ func ensureDeleteVirtualService(ctx context.Context, env *commonmodels.Product, 
 }
 
 func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:            baseEnv.ProductName,
-		ClusterID:       baseEnv.ClusterID,
-		ShareEnvEnable:  getBoolPointer(true),
-		ShareEnvIsBase:  getBoolPointer(false),
-		ShareEnvBaseEnv: getStrPointer(baseEnv.EnvName),
-	})
+	envs, err := fetchSubEnvs(ctx, baseEnv.ProductName, baseEnv.ClusterID, baseEnv.EnvName)
 	if err != nil {
 		return err
 	}
@@ -336,4 +317,25 @@ func doesSvcHasWorkload(ctx context.Context, ns string, svcSelector labels.Selec
 	}
 
 	return true, nil
+}
+
+func fetchSubEnvs(ctx context.Context, productName, clusterID, baseEnvName string) ([]*commonmodels.Product, error) {
+	return commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:            productName,
+		ClusterID:       clusterID,
+		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
+		ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
+		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseEnvName),
+	})
+}
+
+func getSvcInEnv(env *commonmodels.Product) []string {
+	svcs := []string{}
+	for _, svcGroup := range env.Services {
+		for _, svc := range svcGroup {
+			svcs = append(svcs, svc.ServiceName)
+		}
+	}
+
+	return svcs
 }

@@ -34,6 +34,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type CreateProductParam struct {
@@ -76,7 +77,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 		return productResp.Status, nil
 	}
 
-	productObject, err := GetInitProduct(productName, log)
+	productObject, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
 	if err != nil {
 		log.Errorf("AutoCreateProduct err:%v", err)
 		return "", err

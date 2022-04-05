@@ -109,6 +109,10 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"POST", "DELETE"},
 		Endpoints: []string{"api/aslan/environment/environments/?*/share/enable"},
 	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/service/services/?*/environments/deployable"},
+	},
 }
 
 // actions which are allowed for system admins only.

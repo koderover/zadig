@@ -67,6 +67,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
@@ -766,7 +767,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	log.Infof("[%s][P:%s] UpdateProduct", envName, productName)
 
 	// 查找产品模板
-	updateProd, err := GetInitProduct(productName, log)
+	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
@@ -1170,7 +1171,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	}
 	currentProductService := productResp.Services
 	// 查找产品模板
-	updateProd, err := GetInitProduct(productName, log)
+	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)

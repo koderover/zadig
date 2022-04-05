@@ -517,6 +517,25 @@ func DeleteProductServices(c *gin.Context) {
 	}
 	projectName := c.Query("projectName")
 	envName := c.Param("name")
+
+	// For environment sharing, if the environment is the base environment and the service to be deleted has been deployed in the subenvironment,
+	// we should prompt the user that `Delete the service in the subenvironment before deleting the service in the base environment`.
+	// servicesInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c)
+	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectName, envName, args.ServiceNames)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	if len(svcsInSubEnvs) > 0 {
+		data := make(map[string]interface{}, len(svcsInSubEnvs))
+		for k, v := range svcsInSubEnvs {
+			data[k] = v
+		}
+
+		ctx.Err = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境的服务", envName, "", ctx.Logger)
 	ctx.Err = service.DeleteProductServices(envName, projectName, args.ServiceNames, ctx.Logger)
 }

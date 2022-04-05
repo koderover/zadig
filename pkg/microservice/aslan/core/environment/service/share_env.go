@@ -42,6 +42,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/pkg/types"
+	zadigutil "github.com/koderover/zadig/pkg/util"
 )
 
 const istioNamespace = "istio-system"
@@ -61,8 +62,10 @@ func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string)
 		log.Infof("[CheckWorkloadsK8sServices]Time consumed: %s", time.Since(timeStart))
 	}()
 
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
 	}
@@ -455,9 +458,9 @@ func ensureVirtualService(ctx context.Context, kclient client.Client, istioClien
 	matchedEnvs := []MatchedEnv{}
 	if env.ShareEnv.Enable && env.ShareEnv.IsBase {
 		subEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			ShareEnvEnable:  getBoolPointer(true),
-			ShareEnvIsBase:  getBoolPointer(false),
-			ShareEnvBaseEnv: getStrPointer(env.EnvName),
+			ShareEnvEnable:  zadigutil.GetBoolPointer(true),
+			ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
+			ShareEnvBaseEnv: zadigutil.GetStrPointer(env.EnvName),
 		})
 		if err != nil {
 			return err
@@ -1224,4 +1227,64 @@ func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, sv
 
 	// Update VirtualService Routes in the base environment.
 	return ensureCleanRouteInBase(ctx, env.EnvName, baseEnv.Namespace, vsName, istioClient)
+}
+
+func GetEnvServiceList(ctx context.Context, productName, baseEnvName string) ([][]string, error) {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: baseEnvName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query env `%s` in project `%s`: %s", baseEnvName, productName, err)
+	}
+
+	svcGroupNames := make([][]string, len(env.Services))
+	for i, svcArr := range env.Services {
+		svcGroupNames[i] = []string{}
+		for _, svc := range svcArr {
+			svcGroupNames[i] = append(svcGroupNames[i], svc.ServiceName)
+		}
+	}
+
+	return svcGroupNames, nil
+}
+
+// Map of map[ServiceName][]string{EnvName} is returned.
+func CheckServicesDeployedInSubEnvs(ctx context.Context, productName, envName string, services []string) (map[string][]string, error) {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err)
+	}
+	if !env.ShareEnv.Enable || !env.ShareEnv.IsBase {
+		return nil, nil
+	}
+
+	envs, err := fetchSubEnvs(ctx, productName, env.ClusterID, envName)
+	if err != nil {
+		return nil, err
+	}
+
+	envsSvcs := make(map[string][]string, len(envs))
+	for _, env := range envs {
+		envsSvcs[env.EnvName] = getSvcInEnv(env)
+	}
+
+	svcsInSubEnvs := map[string][]string{}
+	for _, svcName := range services {
+		for envName, svcNames := range envsSvcs {
+			if !zadigutil.InStringArray(svcName, svcNames) {
+				continue
+			}
+
+			if _, found := svcsInSubEnvs[svcName]; !found {
+				svcsInSubEnvs[svcName] = []string{}
+			}
+			svcsInSubEnvs[svcName] = append(svcsInSubEnvs[svcName], envName)
+		}
+	}
+
+	return svcsInSubEnvs, nil
 }
