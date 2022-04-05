@@ -113,10 +113,21 @@ func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 }
 
 func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
-	projects, err := c.Client.ListRepositoriesForAuthenticatedUser(c.AccessToken, opt.Key, opt.Page, opt.PerPage)
-	if err != nil {
-		return nil, err
+	var projects []gitee.Project
+	var err error
+	switch opt.NamespaceType {
+	case client.GroupKind:
+		projects, err = c.Client.ListRepositoriesForOrg(c.AccessToken, opt.Namespace, opt.Page, opt.PerPage)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		projects, err = c.Client.ListRepositoriesForAuthenticatedUser(c.AccessToken, opt.Key, opt.Page, opt.PerPage)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	var res []*client.Project
 	for _, project := range projects {
 		res = append(res, &client.Project{

@@ -45,6 +45,26 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(accessToken, keyword strin
 	return projects, nil
 }
 
+func (c *Client) ListRepositoriesForOrg(accessToken, org string, page, perPage int) ([]Project, error) {
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(GiteeHOSTURL),
+	)
+	url := fmt.Sprintf("/api/v5/orgs/%s/repos", org)
+	queryParams := make(map[string]string)
+	queryParams["access_token"] = accessToken
+	queryParams["type"] = "all"
+	queryParams["page"] = strconv.Itoa(page)
+	queryParams["per_page"] = strconv.Itoa(perPage)
+
+	var projects []Project
+	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projects))
+	if err != nil {
+		return nil, err
+	}
+
+	return projects, nil
+}
+
 func (c *Client) ListHooks(ctx context.Context, owner, repo string, opts *gitee.GetV5ReposOwnerRepoHooksOpts) ([]gitee.Hook, error) {
 	hs, _, err := c.WebhooksApi.GetV5ReposOwnerRepoHooks(ctx, owner, repo, opts)
 	if err != nil {
