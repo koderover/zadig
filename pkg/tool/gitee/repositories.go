@@ -30,8 +30,9 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(accessToken, keyword strin
 	url := "/v5/user/repos"
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
-	queryParams["visibility"] = "all"
-	queryParams["affiliation"] = "owner"
+	//queryParams["visibility"] = "all"
+	//queryParams["affiliation"] = "owner"
+	queryParams["type"] = "owner"
 	queryParams["q"] = keyword
 	queryParams["page"] = strconv.Itoa(page)
 	queryParams["per_page"] = strconv.Itoa(perPage)
