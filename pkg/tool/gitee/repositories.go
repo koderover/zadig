@@ -49,7 +49,7 @@ func (c *Client) ListRepositoriesForOrg(accessToken, org string, page, perPage i
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
-	url := fmt.Sprintf("/api/v5/orgs/%s/repos", org)
+	url := fmt.Sprintf("/v5/orgs/%s/repos", org)
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
 	queryParams["type"] = "all"
