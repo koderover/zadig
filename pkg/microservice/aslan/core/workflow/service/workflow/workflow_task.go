@@ -2073,6 +2073,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				ssh.Name = latestKeyInfo.Name
 				ssh.UserName = latestKeyInfo.UserName
 				ssh.IP = latestKeyInfo.IP
+				ssh.Port = latestKeyInfo.Port
+				if ssh.Port == 0 {
+					ssh.Port = setting.PMHostDefaultPort
+				}
 				ssh.PrivateKey = latestKeyInfo.PrivateKey
 
 				privateKeys = append(privateKeys, ssh)
@@ -2086,6 +2090,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				Name:       privateKey.Name,
 				UserName:   privateKey.UserName,
 				IP:         privateKey.IP,
+				Port:       privateKey.Port,
 				PrivateKey: privateKey.PrivateKey,
 			})
 		}
