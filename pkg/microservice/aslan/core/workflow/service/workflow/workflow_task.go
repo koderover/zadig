@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/url"
@@ -26,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	gotempl "text/template"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -39,6 +41,7 @@ import (
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -2342,7 +2345,26 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 								return e.ErrFindRegistry.AddDesc(err.Error())
 							}
 						}
-						image = GetImage(reg, fmt.Sprintf("%s:%d", t.ServiceName, time.Now().Unix()))
+						project, err := templaterepo.NewProductColl().Find(taskOpt.Task.ProductName)
+						if err != nil {
+							log.Errorf("find project err:%s", err)
+							return err
+						}
+						rule := project.CustomImageRule.JenkinsRule
+						if rule != "" {
+							va := commonservice.Variable{
+								SERVICE:   t.ServiceName,
+								TIMESTAMP: time.Now().Format("20060102150405"),
+							}
+							tm, _ := gotempl.New("jenkins").Parse(rule)
+							var replaceRuleVariable = gotempl.Must(tm, err)
+							payload := bytes.NewBufferString("")
+							_ = replaceRuleVariable.Execute(payload, va)
+							image = GetImage(reg, payload.String())
+						} else {
+							image = GetImage(reg, fmt.Sprintf("%s:%d", t.ServiceName, time.Now().Format("20060102150405")))
+						}
+
 						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
 						break
 					} else {

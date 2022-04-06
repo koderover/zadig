@@ -150,6 +150,7 @@ type CustomRule struct {
 	BranchRule      string `bson:"branch_rule,omitempty"         json:"branch_rule,omitempty"`
 	PRAndBranchRule string `bson:"pr_and_branch_rule,omitempty"  json:"pr_and_branch_rule,omitempty"`
 	TagRule         string `bson:"tag_rule,omitempty"            json:"tag_rule,omitempty"`
+	JenkinsRule     string `bson:"jenkins_rule,omitempty"        json:"jenkins_rule,omitempty"`
 }
 
 type DeliveryVersionHook struct {
