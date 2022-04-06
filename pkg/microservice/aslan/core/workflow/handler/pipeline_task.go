@@ -191,8 +191,12 @@ func GetArtifactFile(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
+	notHistoryFileFlag := false
+	if c.DefaultQuery("notHistoryFileFlag", "false") == "true" {
+		notHistoryFileFlag = true
+	}
 
-	resp, err := workflow.GetArtifactFileContent(c.Param("pipelineName"), taskID, ctx.Logger)
+	resp, err := workflow.GetArtifactFileContent(c.Param("pipelineName"), taskID, notHistoryFileFlag, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
