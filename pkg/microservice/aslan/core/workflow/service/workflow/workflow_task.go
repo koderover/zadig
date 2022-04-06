@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -109,8 +110,11 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 			jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
 			for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
 				jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-					Name:  jenkinsBuildParam.Name,
-					Value: jenkinsBuildParam.Value,
+					Name:         jenkinsBuildParam.Name,
+					Value:        jenkinsBuildParam.Value,
+					Type:         jenkinsBuildParam.Type,
+					ChoiceOption: jenkinsBuildParam.ChoiceOption,
+					AutoGenerate: jenkinsBuildParam.AutoGenerate,
 				})
 			}
 			target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -399,8 +403,11 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
 				for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
 					jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-						Name:  jenkinsBuildParam.Name,
-						Value: jenkinsBuildParam.Value,
+						Name:         jenkinsBuildParam.Name,
+						Value:        jenkinsBuildParam.Value,
+						Type:         jenkinsBuildParam.Type,
+						ChoiceOption: jenkinsBuildParam.ChoiceOption,
+						AutoGenerate: jenkinsBuildParam.AutoGenerate,
 					})
 				}
 				target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -2278,6 +2285,34 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					if jenkinsBuildParams.Name != "IMAGE" {
 						continue
 					}
+
+					if jenkinsBuildParams.AutoGenerate {
+						log.Infof("********************")
+						opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
+						exitedProd, err := commonrepo.NewProductColl().Find(opt)
+						if err != nil {
+							log.Errorf("can't find product by envName:%s error msg: %v", taskOpt.EnvName, err)
+							return e.ErrFindRegistry.AddDesc(err.Error())
+						}
+
+						var reg *commonmodels.RegistryNamespace
+						if len(exitedProd.RegistryID) > 0 {
+							reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+							if err != nil {
+								log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+									exitedProd.RegistryID, err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						} else {
+							reg, _, err = commonservice.FindDefaultRegistry(true, log)
+							if err != nil {
+								log.Errorf("can't find default candidate registry: %v", err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						}
+						image = GetImage(reg, fmt.Sprintf("%s:%d", t.ServiceName, time.Now().Unix()))
+					}
+
 					if value, ok := jenkinsBuildParams.Value.(string); ok {
 						image = value
 						break

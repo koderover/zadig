@@ -36,8 +36,11 @@ type JenkinsBuildArgs struct {
 }
 
 type JenkinsBuildParam struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
+	Name         string      `json:"name"`
+	Value        interface{} `json:"value"`
+	Type         string      `bson:"type,omitempty"                json:"type,omitempty"`
+	AutoGenerate bool        `bson:"auto_generate,omitempty"                json:"auto_generate,omitempty"`
+	ChoiceOption []string    `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
 }
 
 // JenkinsBuild ...
