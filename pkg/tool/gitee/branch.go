@@ -19,29 +19,39 @@ func (c *Client) ListBranches(ctx context.Context, owner, repo string, opts *git
 }
 
 type Branch struct {
-	Name   string `json:"name"`
-	Commit struct {
-		Sha    string `json:"sha"`
-		URL    string `json:"url"`
-		Commit struct {
-			Author struct {
-				Name  string    `json:"name"`
-				Date  time.Time `json:"date"`
-				Email string    `json:"email"`
-			} `json:"author"`
-			URL     string `json:"url"`
-			Message string `json:"message"`
-			Tree    struct {
-				Sha string `json:"sha"`
-				URL string `json:"url"`
-			} `json:"tree"`
-			Committer struct {
-				Name  string    `json:"name"`
-				Date  time.Time `json:"date"`
-				Email string    `json:"email"`
-			} `json:"committer"`
-		} `json:"commit"`
-	} `json:"commit"`
+	Name   string       `json:"name"`
+	Commit BranchCommit `json:"commit"`
+}
+
+type BranchCommit struct {
+	Sha    string                      `json:"sha"`
+	URL    string                      `json:"url"`
+	Commit BranchCommmitInternalCommit `json:"commit"`
+}
+
+type BranchCommmitInternalCommit struct {
+	Author    BranchAuthor    `json:"author"`
+	URL       string          `json:"url"`
+	Message   string          `json:"message"`
+	Tree      BranchTree      `json:"tree"`
+	Committer BranchCommitter `json:"committer"`
+}
+
+type BranchAuthor struct {
+	Name  string    `json:"name"`
+	Date  time.Time `json:"date"`
+	Email string    `json:"email"`
+}
+
+type BranchTree struct {
+	Sha string `json:"sha"`
+	URL string `json:"url"`
+}
+
+type BranchCommitter struct {
+	Name  string    `json:"name"`
+	Date  time.Time `json:"date"`
+	Email string    `json:"email"`
 }
 
 func (c *Client) GetSingleBranch(accessToken, owner, repo, branch string) (*Branch, error) {

@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -49,7 +50,14 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
-	case *gitee.PullRequestEvent, *gitee.TagPushEvent:
+	case *gitee.PullRequestEvent:
+		if event.Action != "open" {
+			return fmt.Errorf("action %s is skipped", event.Action)
+		}
+		if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
+	case *gitee.TagPushEvent:
 		if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}

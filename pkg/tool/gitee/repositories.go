@@ -152,21 +152,21 @@ func (c *Client) GetTrees(ctx context.Context, owner, repo, sha string, level in
 }
 
 type RepoCommit struct {
-	URL    string `json:"url"`
-	Sha    string `json:"sha"`
-	Commit struct {
-		Author struct {
-			Name  string    `json:"name"`
-			Date  time.Time `json:"date"`
-			Email string    `json:"email"`
-		} `json:"author"`
-		Committer struct {
-			Name  string    `json:"name"`
-			Date  time.Time `json:"date"`
-			Email string    `json:"email"`
-		} `json:"committer"`
-		Message string `json:"message"`
-	} `json:"commit"`
+	URL    string                `json:"url"`
+	Sha    string                `json:"sha"`
+	Commit RepoCommitInnerCommit `json:"commit"`
+}
+
+type RepoCommitInnerCommit struct {
+	Author    RepoCommitAuthor `json:"author"`
+	Committer RepoCommitAuthor `json:"committer"`
+	Message   string           `json:"message"`
+}
+
+type RepoCommitAuthor struct {
+	Name  string    `json:"name"`
+	Date  time.Time `json:"date"`
+	Email string    `json:"email"`
 }
 
 func (c *Client) GetSingleCommitOfProject(ctx context.Context, accessToken, owner, repo, commitSha string) (*RepoCommit, error) {
@@ -211,83 +211,89 @@ func RefreshAccessToken(refreshToken string) (*AccessToken, error) {
 }
 
 type Compare struct {
-	Commits []struct {
-		URL         string `json:"url"`
-		Sha         string `json:"sha"`
-		HTMLURL     string `json:"html_url"`
-		CommentsURL string `json:"comments_url"`
-		Commit      struct {
-			Author struct {
-				Name  string    `json:"name"`
-				Date  time.Time `json:"date"`
-				Email string    `json:"email"`
-			} `json:"author"`
-			Committer struct {
-				Name  string    `json:"name"`
-				Date  time.Time `json:"date"`
-				Email string    `json:"email"`
-			} `json:"committer"`
-			Message string `json:"message"`
-			Tree    struct {
-				Sha string `json:"sha"`
-				URL string `json:"url"`
-			} `json:"tree"`
-		} `json:"commit"`
-		Author struct {
-			ID                int    `json:"id"`
-			Login             string `json:"login"`
-			Name              string `json:"name"`
-			AvatarURL         string `json:"avatar_url"`
-			URL               string `json:"url"`
-			HTMLURL           string `json:"html_url"`
-			Remark            string `json:"remark"`
-			FollowersURL      string `json:"followers_url"`
-			FollowingURL      string `json:"following_url"`
-			GistsURL          string `json:"gists_url"`
-			StarredURL        string `json:"starred_url"`
-			SubscriptionsURL  string `json:"subscriptions_url"`
-			OrganizationsURL  string `json:"organizations_url"`
-			ReposURL          string `json:"repos_url"`
-			EventsURL         string `json:"events_url"`
-			ReceivedEventsURL string `json:"received_events_url"`
-			Type              string `json:"type"`
-		} `json:"author"`
-		Committer struct {
-			ID                int    `json:"id"`
-			Login             string `json:"login"`
-			Name              string `json:"name"`
-			AvatarURL         string `json:"avatar_url"`
-			URL               string `json:"url"`
-			HTMLURL           string `json:"html_url"`
-			Remark            string `json:"remark"`
-			FollowersURL      string `json:"followers_url"`
-			FollowingURL      string `json:"following_url"`
-			GistsURL          string `json:"gists_url"`
-			StarredURL        string `json:"starred_url"`
-			SubscriptionsURL  string `json:"subscriptions_url"`
-			OrganizationsURL  string `json:"organizations_url"`
-			ReposURL          string `json:"repos_url"`
-			EventsURL         string `json:"events_url"`
-			ReceivedEventsURL string `json:"received_events_url"`
-			Type              string `json:"type"`
-		} `json:"committer"`
-		Parents []struct {
-			Sha string `json:"sha"`
-			URL string `json:"url"`
-		} `json:"parents"`
-	} `json:"commits"`
-	Files []struct {
-		Sha        string `json:"sha"`
-		Filename   string `json:"filename"`
-		Status     string `json:"status"`
-		Additions  int    `json:"additions"`
-		Deletions  int    `json:"deletions"`
-		Changes    int    `json:"changes"`
-		BlobURL    string `json:"blob_url"`
-		RawURL     string `json:"raw_url"`
-		ContentURL string `json:"content_url"`
-		Patch      string `json:"patch"`
-	} `json:"files"`
+	Commits []CompareCommit `json:"commits"`
+	Files   []CompareFiles  `json:"files"`
+}
+
+type CompareCommit struct {
+	URL         string             `json:"url"`
+	Sha         string             `json:"sha"`
+	HTMLURL     string             `json:"html_url"`
+	CommentsURL string             `json:"comments_url"`
+	Commit      CompareInnerCommit `json:"commit"`
+	Author      CompareAuthor      `json:"author"`
+	Committer   CompareCommitter   `json:"committer"`
+	Parents     []CompareParents   `json:"parents"`
+}
+
+type CompareParents struct {
+	Sha string `json:"sha"`
+	URL string `json:"url"`
+}
+
+type CompareInnerCommit struct {
+	Author    RepoCommitAuthor `json:"author"`
+	Committer RepoCommitAuthor `json:"committer"`
+	Message   string           `json:"message"`
+	Tree      CompareTree      `json:"tree"`
+}
+
+type CompareTree struct {
+	Sha string `json:"sha"`
+	URL string `json:"url"`
+}
+
+type CompareFiles struct {
+	Sha        string `json:"sha"`
+	Filename   string `json:"filename"`
+	Status     string `json:"status"`
+	Additions  int    `json:"additions"`
+	Deletions  int    `json:"deletions"`
+	Changes    int    `json:"changes"`
+	BlobURL    string `json:"blob_url"`
+	RawURL     string `json:"raw_url"`
+	ContentURL string `json:"content_url"`
+	Patch      string `json:"patch"`
+}
+
+type CompareCommitter struct {
+	ID                int    `json:"id"`
+	Login             string `json:"login"`
+	Name              string `json:"name"`
+	AvatarURL         string `json:"avatar_url"`
+	URL               string `json:"url"`
+	HTMLURL           string `json:"html_url"`
+	Remark            string `json:"remark"`
+	FollowersURL      string `json:"followers_url"`
+	FollowingURL      string `json:"following_url"`
+	GistsURL          string `json:"gists_url"`
+	StarredURL        string `json:"starred_url"`
+	SubscriptionsURL  string `json:"subscriptions_url"`
+	OrganizationsURL  string `json:"organizations_url"`
+	ReposURL          string `json:"repos_url"`
+	EventsURL         string `json:"events_url"`
+	ReceivedEventsURL string `json:"received_events_url"`
+	Type              string `json:"type"`
+}
+
+type CompareAuthor struct {
+	ID                int    `json:"id"`
+	Login             string `json:"login"`
+	Name              string `json:"name"`
+	AvatarURL         string `json:"avatar_url"`
+	URL               string `json:"url"`
+	HTMLURL           string `json:"html_url"`
+	Remark            string `json:"remark"`
+	FollowersURL      string `json:"followers_url"`
+	FollowingURL      string `json:"following_url"`
+	GistsURL          string `json:"gists_url"`
+	StarredURL        string `json:"starred_url"`
+	SubscriptionsURL  string `json:"subscriptions_url"`
+	OrganizationsURL  string `json:"organizations_url"`
+	ReposURL          string `json:"repos_url"`
+	EventsURL         string `json:"events_url"`
+	ReceivedEventsURL string `json:"received_events_url"`
+	Type              string `json:"type"`
 }
 
 func (c *Client) GetReposOwnerRepoCompareBaseHead(accessToken, owner string, repo string, base string, head string) (*Compare, error) {

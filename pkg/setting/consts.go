@@ -215,37 +215,37 @@ const (
 
 	DefaultIngressClass = "koderover-nginx"
 
-	// K8SDeployType 容器化部署方式
+	// K8SDeployType Containerized Deployment
 	K8SDeployType = "k8s"
-	// helm 部署
+	// helm deployment
 	HelmDeployType = "helm"
-	// PMDeployType physical machine deploy 脚本物理机部署方式
+	// PMDeployType physical machine deploy method
 	PMDeployType = "pm"
 
-	// 基础设施 k8s类型
+	// Infrastructure k8s type
 	BasicFacilityK8S = "kubernetes"
-	// 基础设施 云主机
+	// Infrastructure Cloud Hosting
 	BasicFacilityCVM = "cloud_host"
 
-	// SourceFromZadig 配置来源由平台管理
+	// SourceFromZadig Configuration sources are managed by the platform
 	SourceFromZadig = "spock"
-	// SourceFromGitlab 配置来源为gitlab
+	// SourceFromGitlab The configuration source is gitlab
 	SourceFromGitlab = "gitlab"
-	// SourceFromGithub 配置来源为github
+	// SourceFromGithub The configuration source is github
 	SourceFromGithub = "github"
-	// SourceFromGitlab 配置来源为gerrit
+	// SourceFromGitlab The configuration source is gerrit
 	SourceFromGerrit = "gerrit"
-	// SourceFromCodeHub 配置来源为codehub
+	// SourceFromCodeHub The configuration source is codehub
 	SourceFromCodeHub = "codehub"
-	// SourceFromGitee 配置来源为gitee
+	// SourceFromGitee Configure the source as gitee
 	SourceFromGitee = "gitee"
-	// SourceFromChartTemplate 配置来源为helmTemplate
+	// SourceFromChartTemplate The configuration source is helmTemplate
 	SourceFromChartTemplate = "chartTemplate"
-	// SourceFromPublicRepo 配置来源为publicRepo
+	// SourceFromPublicRepo The configuration source is publicRepo
 	SourceFromPublicRepo = "publicRepo"
 	SourceFromChartRepo  = "chartRepo"
 
-	// SourceFromGUI 配置来源为gui
+	// SourceFromGUI The configuration source is gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm
 	SourceFromHelm = "helm"
@@ -265,7 +265,7 @@ const (
 
 	PublicService = "public"
 
-	// onboarding流程第二步
+	// The second step of the onboarding process
 	OnboardingStatusSecond = 2
 
 	Unset            = "UNSET"
