@@ -345,14 +345,21 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 	}
 
-	// Stage之间仅支持串行
+	// Only serial is supported between stages
+	// If the stage status is StatusFailed/StatusCancelled/StatusTimeout, other than the extension stage will not be executed
+	isSkip := false
 	for stagePosition, stage := range pipelineTask.Stages {
-		if !stage.AfterAll {
+		if stage.AfterAll {
+			continue
+		}
+
+		if !isSkip || stage.TaskType == config.TaskExtension {
 			h.runStage(stagePosition, stage, pipelineTask.ConfigPayload.BuildConcurrency)
-			// 如果一个Stage执行失败了，跳出执行循环，并且更新pipelinetask状态为失败，发送ACK，并返回
-			if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
-				break
-			}
+		}
+
+		if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
+			isSkip = true
+			continue
 		}
 	}
 
@@ -493,6 +500,9 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	// 如果 SubTask 执行失败, 则不继续执行, 发送 Task 失败执行结果
 	// Failed, Timeout, Cancelled
 	if plugin.IsTaskFailed() {
+		plugin.Complete(ctx, pipelineTask, servicename)
+		xl.Infof("task status: %s", plugin.Status())
+
 		plugin.SetEndTime()
 		updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
 		return plugin.Status(), fmt.Errorf("pipeline task failed: task_handler:308")

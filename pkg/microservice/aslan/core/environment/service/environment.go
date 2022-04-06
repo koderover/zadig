@@ -1737,7 +1737,8 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 		}
 	}
 	rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name: productInfo.Namespace,
+		Name:        productInfo.Namespace,
+		ProductTmpl: productName,
 	})
 	if err != nil {
 		log.Errorf("get renderSet error: %v", err)
@@ -2509,16 +2510,12 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	resp := &commonmodels.RenderSet{ProductTmpl: productName}
 	var err error
 	if renderName != "" {
-		opt := &commonrepo.RenderSetFindOption{Name: renderName}
+		opt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
 		resp, err = commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("find helm renderset[%s] error: %v", renderName, err)
 			return resp, err
 		}
-	}
-	if renderName != "" && resp.ProductTmpl != productName {
-		log.Errorf("helm renderset[%s] not match product[%s]", renderName, productName)
-		return resp, fmt.Errorf("helm renderset[%s] not match product[%s]", renderName, productName)
 	}
 	return resp, nil
 }
@@ -2575,7 +2572,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	return err
 }
 
-func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient helmclient.Client, kubecli client.Client, log *zap.SugaredLogger) {
+func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient helmclient.Client, log *zap.SugaredLogger) {
 	var (
 		err     error
 		errList = &multierror.Error{}
@@ -2755,12 +2752,8 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		productServiceMap      = make(map[string]*commonmodels.ProductService)
 		productTemplServiceMap = make(map[string]*commonmodels.ProductService)
 	)
-	restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
 
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productResp.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -3078,12 +3071,7 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey 
 }
 
 func updateProductVariable(productName, envName string, productResp *commonmodels.Product, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productResp.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}

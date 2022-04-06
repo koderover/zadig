@@ -37,6 +37,7 @@ import (
 	"go.uber.org/zap"
 	chartloader "helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
@@ -520,14 +521,6 @@ func getProductEnvInfo(productName, envName string) (*commonmodels.Product, erro
 	return productInfo, nil
 }
 
-func createChartRepoClient(repoName string) (*helmtool.ChartRepoClient, error) {
-	chartRepo, err := getChartRepoData(repoName)
-	if err != nil {
-		return nil, err
-	}
-	return helmtool.NewHelmChartRepoClient(chartRepo.URL, chartRepo.Username, chartRepo.Password)
-}
-
 func getChartRepoData(repoName string) (*commonmodels.HelmRepo, error) {
 	return commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: repoName})
 }
@@ -732,15 +725,15 @@ func handleSingleChart(chartData *DeliveryChartData, product *commonmodels.Produ
 		return nil, err
 	}
 
-	client, err := createChartRepoClient(chartRepo.RepoName)
+	client, err := helmtool.NewClient()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create chart repo client, repoName: %s", chartRepo.RepoName)
 	}
 
 	log.Infof("pushing chart %s to %s...", filepath.Base(chartPackagePath), chartRepo.URL)
-	err = client.PushChart(chartPackagePath, false)
+	err = client.PushChart(commonservice.GeneHelmRepo(chartRepo), chartPackagePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPackagePath)
+		return nil, errors.Wrapf(err, "failed to push chart: %s", chartPackagePath)
 	}
 	return imageDetail, nil
 }
@@ -1380,20 +1373,28 @@ func ListDeliveryServiceNames(productName string, log *zap.SugaredLogger) ([]str
 func downloadChart(deliveryVersion *commonmodels.DeliveryVersion, chartInfo *commonmodels.DeliveryDistribute) (string, error) {
 	productName, versionName := deliveryVersion.ProductName, deliveryVersion.Version
 	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartInfo.ChartName, chartInfo.ChartVersion)
-	chartTGZFileParent := getChartTGZDir(productName, versionName)
-	chartTGZFilePath := filepath.Join(chartTGZFileParent, chartTGZName)
-	if _, err := os.Stat(chartTGZFilePath); err == nil {
-		// local cache exists
-		log.Infof("local cache exists, path %s", chartTGZFilePath)
-		return chartTGZFilePath, nil
-	}
-
-	client, err := createChartRepoClient(chartInfo.ChartRepoName)
+	chartTGZFileParent, err := makeChartTGZFileDir(productName, versionName)
 	if err != nil {
 		return "", err
 	}
 
-	return chartTGZFilePath, client.DownloadChart(chartTGZFileParent, chartInfo.ChartName, chartInfo.ChartVersion)
+	chartTGZFilePath := filepath.Join(chartTGZFileParent, chartTGZName)
+	if _, err := os.Stat(chartTGZFilePath); err == nil {
+		// local cache exists
+		return chartTGZFilePath, nil
+	}
+
+	chartRepo, err := getChartRepoData(chartInfo.ChartRepoName)
+	if err != nil {
+		return "", err
+	}
+	hClient, err := helmtool.NewClient()
+	if err != nil {
+		return "", err
+	}
+
+	chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, chartInfo.ChartName)
+	return chartTGZFilePath, hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, chartInfo.ChartVersion, chartTGZFileParent, false)
 }
 
 func getChartDistributeInfo(releaseID, chartName string, log *zap.SugaredLogger) (*commonmodels.DeliveryDistribute, error) {
@@ -1448,12 +1449,16 @@ func preDownloadChart(projectName, versionName, chartName string, log *zap.Sugar
 	return filePath, err
 }
 
-func getIndexInfoFromChartRepo(chartRepoName string) (*helm.Index, error) {
-	client, err := createChartRepoClient(chartRepoName)
+func getIndexInfoFromChartRepo(chartRepoName string) (*repo.IndexFile, error) {
+	chartRepo, err := getChartRepoData(chartRepoName)
+	if err != nil {
+		return nil, err
+	}
+	hClient, err := helmtool.NewClient()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create chart repo client")
 	}
-	return client.FetchIndexYaml()
+	return hClient.FetchIndexYaml(commonservice.GeneHelmRepo(chartRepo))
 }
 
 func fillChartUrl(charts []*DeliveryVersionPayloadChart, chartRepoName string) error {

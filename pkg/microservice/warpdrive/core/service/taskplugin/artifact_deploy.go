@@ -27,8 +27,11 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
@@ -46,6 +49,8 @@ func InitializeArtifactTaskPlugin(taskType config.TaskType) TaskPlugin {
 	return &ArtifactDeployTaskPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -56,6 +61,8 @@ type ArtifactDeployTaskPlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.Build
 	Log           *zap.SugaredLogger
 
@@ -105,6 +112,26 @@ func (p *ArtifactDeployTaskPlugin) SetBuildStatusCompleted(status config.Status)
 }
 
 func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	switch p.Task.ClusterID {
+	case setting.LocalClusterID:
+		p.KubeNamespace = zadigconfig.Namespace()
+	default:
+		p.KubeNamespace = setting.AttachedClusterNamespace
+
+		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		if err != nil {
+			p.Log.Error(err)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = err.Error()
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
+
+		p.kubeClient = crClient
+		p.clientset = clientset
+		p.restConfig = restConfig
+	}
+
 	envName := pipelineTask.WorkflowArgs.Namespace
 	envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
@@ -123,6 +150,12 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 	// env host ips
 	for envName, HostIPs := range p.Task.EnvHostInfo {
 		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_IPs", Value: strings.Join(HostIPs, ","), IsCredential: false}
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
+	}
+
+	// env host names
+	for envName, names := range p.Task.EnvHostNames {
+		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_NAMEs", Value: strings.Join(names, ","), IsCredential: false}
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
 	}
 
@@ -258,7 +291,7 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 
 // Wait ...
 func (p *ArtifactDeployTaskPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetBuildStatusCompleted(status)
 
 	if status == config.StatusPassed {

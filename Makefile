@@ -57,6 +57,7 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64) resource-server.up
 	@mkdir -p docker/dist/amd64
 	@cp docker/service/$*.Dockerfile docker/dist/amd64/$*.Dockerfile
 	@sed -i -e '/#alpine-git.Dockerfile/ {' -e 'r docker/base/amd64/alpine-git.Dockerfile' -e 'd' -e '}' docker/dist/amd64/$*.Dockerfile
+	@sed -i -e '/#alpine-curl.Dockerfile/ {' -e 'r docker/base/amd64/alpine-curl.Dockerfile' -e 'd' -e '}' docker/dist/amd64/$*.Dockerfile
 	@sed -i -e '/#alpine.Dockerfile/ {' -e 'r docker/base/amd64/alpine.Dockerfile' -e 'd' -e '}' docker/dist/amd64/$*.Dockerfile
 	@sed -i -e '/#ubuntu-xenial.Dockerfile/ {' -e 'r docker/base/amd64/ubuntu-xenial.Dockerfile' -e 'd' -e '}' docker/dist/amd64/$*.Dockerfile
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o docker/dist/$* cmd/$*/main.go
@@ -71,6 +72,7 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64) resource-server.up
 	@mkdir -p docker/dist/arm64
 	@cp docker/service/$*.Dockerfile docker/dist/arm64/$*.Dockerfile
 	@sed -i -e '/#alpine-git.Dockerfile/ {' -e 'r docker/base/arm64/alpine-git.Dockerfile' -e 'd' -e '}' docker/dist/arm64/$*.Dockerfile
+	@sed -i -e '/#alpine-curl.Dockerfile/ {' -e 'r docker/base/arm64/alpine-curl.Dockerfile' -e 'd' -e '}' docker/dist/arm64/$*.Dockerfile
 	@sed -i -e '/#alpine.Dockerfile/ {' -e 'r docker/base/arm64/alpine.Dockerfile' -e 'd' -e '}' docker/dist/arm64/$*.Dockerfile
 	@sed -i -e '/#ubuntu-xenial.Dockerfile/ {' -e 'r docker/base/arm64/ubuntu-xenial.Dockerfile' -e 'd' -e '}' docker/dist/arm64/$*.Dockerfile
 	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o docker/dist/$* cmd/$*/main.go

@@ -22,7 +22,6 @@ import (
 
 	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -127,7 +126,6 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		replacedValuesYaml       string
 		mergedValuesYaml         string
 		replacedMergedValuesYaml string
-		restConfig               *rest.Config
 		helmClient               helmclient.Client
 		namespace                string = product.Namespace
 	)
@@ -171,11 +169,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		return err
 	}
 
-	restConfig, err = kube.GetRESTConfig(product.ClusterID)
-	if err != nil {
-		return err
-	}
-	helmClient, err = helmtool.NewClientFromRestConf(restConfig, namespace)
+	helmClient, err = helmtool.NewClientFromNamespace(product.ClusterID, namespace)
 	if err != nil {
 		return err
 	}

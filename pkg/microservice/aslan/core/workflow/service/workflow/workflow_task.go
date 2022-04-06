@@ -1523,6 +1523,21 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 		testTask.JobCtx.TestResultPath = testModule.TestResultPath
 		testTask.JobCtx.TestReportPath = testModule.TestReportPath
 
+		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testModule.PreTest.ClusterID)
+		if err != nil {
+			return nil, err
+		}
+		testTask.Cache = clusterInfo.Cache
+
+		// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+		if testTask.Cache.MediumType == "" {
+			testTask.CacheEnable = false
+		} else {
+			testTask.CacheEnable = testModule.CacheEnable
+			testTask.CacheDirType = testModule.CacheDirType
+			testTask.CacheUserDir = testModule.CacheUserDir
+		}
+
 		if testTask.Registries == nil {
 			testTask.Registries = registries
 		}
@@ -1547,6 +1562,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			}
 			envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.WorkflowType)})
 			envs = append(envs, &commonmodels.KeyVal{Key: "SERVICES", Value: services})
+			envs = append(envs, &commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"})
 
 			testTask.JobCtx.EnvVars = envs
 			testTask.ImageID = testModule.PreTest.ImageID
@@ -1963,9 +1979,12 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.ImageFrom = commonmodels.ImageFromKoderover
 		}
 
+		envHostInfos := make(map[string]*commonmodels.PrivateKey)
 		if serviceTmpl != nil {
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
+			envHostNames := make(map[string][]string)
+
 			for _, envConfig := range serviceTmpl.EnvConfigs {
 				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 				if err != nil {
@@ -1973,16 +1992,19 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 					continue
 				}
 				ips := sets.NewString()
-				ips = extractHostIPs(privateKeys, ips)
+				names := sets.NewString()
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
 				if err != nil {
 					log.Errorf("ListNameByArgs labels err:%s", err)
 					continue
 				}
-				ips = extractHostIPs(privateKeys, ips)
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				envHost[envConfig.EnvName] = ips.List()
+				envHostNames[envConfig.EnvName] = names.List()
 			}
 			build.EnvHostInfo = envHost
+			build.EnvHostNames = envHostNames
 		}
 
 		if args.Env != nil {
@@ -2031,8 +2053,18 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				ssh.PrivateKey = latestKeyInfo.PrivateKey
 
 				privateKeys = append(privateKeys, ssh)
+				delete(envHostInfos, sshID)
 			}
 			build.JobCtx.SSHs = privateKeys
+		}
+		// Sync from the configuration in the environment
+		for _, privateKey := range envHostInfos {
+			build.JobCtx.SSHs = append(build.JobCtx.SSHs, &taskmodels.SSH{
+				Name:       privateKey.Name,
+				UserName:   privateKey.UserName,
+				IP:         privateKey.IP,
+				PrivateKey: privateKey.PrivateKey,
+			})
 		}
 
 		build.JobCtx.EnvVars = module.PreBuild.Envs
@@ -2104,11 +2136,13 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	return subTasks, nil
 }
 
-func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
+func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String, envHostInfos map[string]*commonmodels.PrivateKey) (sets.String, sets.String) {
 	for _, privateKey := range privateKeys {
 		ips.Insert(privateKey.IP)
+		names.Insert(privateKey.Name)
+		envHostInfos[privateKey.ID.Hex()] = privateKey
 	}
-	return ips
+	return ips, names
 }
 
 func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) error {
