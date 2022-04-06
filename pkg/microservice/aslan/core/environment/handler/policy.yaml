@@ -200,4 +200,6 @@ rules:
     description: ""
     rules:
       - method: GET
-        endpoint: "/api/podexec/?*/?*/?*/?*/podExec"
+        endpoint: "/api/podexec/?*/?*/?*/?*/?*/podExec"
+        idRegex: "api/podexec/([\\w\\W]+?)"
+        resourceType: "Environment"
