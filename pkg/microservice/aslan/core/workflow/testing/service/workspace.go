@@ -17,14 +17,20 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
 	"path"
+	"strings"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 type GetTestArtifactInfoResp struct {
@@ -34,6 +40,7 @@ type GetTestArtifactInfoResp struct {
 
 func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*GetTestArtifactInfoResp, error) {
 	resp := new(GetTestArtifactInfoResp)
+	fis := make([]string, 0)
 
 	storage, err := s3.FindDefaultS3()
 	if err != nil {
@@ -62,7 +69,42 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 		return resp, err
 	}
 	if object != nil && *object.ContentLength > 0 {
-		resp.FileNames = []string{setting.ArtifactResultOut}
+		tempDir, _ := ioutil.TempDir("", "")
+		sourcePath := path.Join(tempDir, "artifact")
+		if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+			_ = os.MkdirAll(sourcePath, 0777)
+		}
+
+		file, err := os.Create(path.Join(sourcePath, setting.ArtifactResultOut))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create file %s %s", setting.ArtifactResultOut, err)
+		}
+		defer func() {
+			_ = file.Close()
+			_ = os.Remove(tempDir)
+		}()
+
+		err = fs.SaveFile(object.Body, file.Name())
+		if err != nil {
+			log.Errorf("Failed to save file to %s, err: %s", file.Name(), err)
+			return resp, err
+		}
+
+		cmdtf := exec.Command("tar", "-tf", file.Name())
+		var stdoutBuf bytes.Buffer
+		cmdtf.Stdout = &stdoutBuf
+		cmdtf.Stderr = os.Stderr
+		if err = cmdtf.Run(); err != nil {
+			fmt.Printf("failed to tar -tf err:%s", err)
+			return resp, err
+		}
+		for _, tarFile := range strings.Split(string(stdoutBuf.Bytes()), "\n") {
+			if strings.HasSuffix(tarFile, "/") {
+				continue
+			}
+			fis = append(fis, tarFile)
+		}
+		resp.FileNames = fis
 		resp.NotHistoryFileFlag = true
 		return resp, nil
 	}
@@ -73,7 +115,7 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 		log.Errorf("GetTestArtifactInfo ListFiles err:%s", err)
 		return resp, err
 	}
-	fis := make([]string, 0)
+
 	for _, file := range files {
 		_, fileName := path.Split(file)
 		fis = append(fis, fileName)
