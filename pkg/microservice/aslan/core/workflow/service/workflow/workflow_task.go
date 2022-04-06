@@ -713,7 +713,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			}
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
-		log.Infof("*********task :%+v", task)
 		for _, stask := range task.SubTasks {
 			AddSubtaskToStage(&stages, stask, target.Name+"_"+target.ServiceName)
 		}
@@ -2319,9 +2318,8 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					if jenkinsBuildParams.Name != "IMAGE" {
 						continue
 					}
-					log.Infof("******************** : %+v", jenkinsBuildParams)
+
 					if jenkinsBuildParams.AutoGenerate {
-						log.Infof("********************")
 						opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
 						exitedProd, err := commonrepo.NewProductColl().Find(opt)
 						if err != nil {
@@ -2345,7 +2343,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 							}
 						}
 						image = GetImage(reg, fmt.Sprintf("%s:%d", t.ServiceName, time.Now().Unix()))
-						log.Infof("******************** image:%v", image)
 						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
 						break
 					} else {
@@ -2355,7 +2352,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						}
 					}
 				}
-				log.Infof("******************** image:%v", image)
 				if image == "" || !strings.Contains(image, ":") {
 					return &ImageIllegal{}
 				}
