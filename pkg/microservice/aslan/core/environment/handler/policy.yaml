@@ -169,10 +169,10 @@ rules:
       - method: POST
         endpoint: "/api/aslan/environment/image/deployment/?*"
         resourceType: "Environment"
-        idRegex: "/api/aslan/environment/image/deployment/([\\w\\W]+?)"
+        idRegex: "/api/aslan/environment/image/deployment/([\\w\\W]+?)$"
       - method: POST
         resourceType: "Environment"
-        idRegex: "/api/aslan/environment/image/statefulset/([\\w\\W]+?)"
+        idRegex: "/api/aslan/environment/image/statefulset/([\\w\\W]+?)$"
         endpoint: "/api/aslan/environment/image/statefulset/?*"
       - method: DELETE
         endpoint: "/api/aslan/environment/kube/?*/pods/?*"
