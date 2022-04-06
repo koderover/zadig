@@ -164,8 +164,9 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	jenkinsBuildParams := make([]*task.JenkinsBuildParam, 0)
 	for _, jenkinsBuildParam := range jenkinsBuildOption.JenkinsBuildArgs.JenkinsBuildParams {
 		jenkinsBuildParams = append(jenkinsBuildParams, &task.JenkinsBuildParam{
-			Name:  jenkinsBuildParam.Name,
-			Value: jenkinsBuildParam.Value,
+			Name:         jenkinsBuildParam.Name,
+			Value:        jenkinsBuildParam.Value,
+			AutoGenerate: jenkinsBuildParam.AutoGenerate,
 		})
 	}
 
