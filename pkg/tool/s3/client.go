@@ -225,7 +225,7 @@ func (c *Client) GetFile(bucketName, objectKey string, option *DownloadOption) (
 				return nil, err1
 			}
 
-			log.Warnf("GetFile Failed to get object %s from s3, try again, err: %s", objectKey, err1)
+			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
 			err = err1
 			retry++
 			continue
