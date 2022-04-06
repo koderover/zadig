@@ -19,6 +19,7 @@ package reaper
 import (
 	"bytes"
 	"fmt"
+	"github.com/koderover/zadig/pkg/tool/s3"
 	"io"
 	"io/ioutil"
 	"os"
@@ -377,44 +378,6 @@ func (r *Reaper) Exec() error {
 }
 
 func (r *Reaper) AfterExec() error {
-	if r.Ctx.GinkgoTest != nil {
-		resultPath := r.Ctx.GinkgoTest.ResultPath
-		if resultPath != "" && !strings.HasPrefix(resultPath, "/") {
-			resultPath = filepath.Join(r.ActiveWorkspace, resultPath)
-		}
-
-		if r.Ctx.TestType == "" {
-			r.Ctx.TestType = setting.FunctionTest
-		}
-
-		switch r.Ctx.TestType {
-		case setting.FunctionTest:
-			err := mergeGinkgoTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir, r.StartTime)
-			if err != nil {
-				return fmt.Errorf("failed to merge test result: %s", err)
-			}
-		case setting.PerformanceTest:
-			err := JmeterTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir)
-			if err != nil {
-				return fmt.Errorf("failed to archive performance test result: %s", err)
-			}
-		}
-
-		if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
-			if err := artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
-				return fmt.Errorf("failed to upload artifacts: %s", err)
-			}
-		}
-
-		if err := r.archiveTestFiles(); err != nil {
-			return fmt.Errorf("failed to archive test files: %s", err)
-		}
-
-		if err := r.archiveHTMLTestReportFile(); err != nil {
-			return fmt.Errorf("failed to archive HTML test report: %s", err)
-		}
-	}
-
 	if r.Ctx.ArtifactInfo == nil {
 		if err := r.archiveS3Files(); err != nil {
 			return fmt.Errorf("failed to archive S3 files: %s", err)
@@ -426,6 +389,45 @@ func (r *Reaper) AfterExec() error {
 	} else {
 		if err := r.downloadArtifactFile(); err != nil {
 			return fmt.Errorf("failed to download artifact files: %s", err)
+		}
+	}
+
+	if r.Ctx.UploadEnabled {
+		forcedPathStyle := true
+		if r.Ctx.UploadStorageInfo.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
+		}
+		client, err := s3.NewClient(r.Ctx.UploadStorageInfo.Endpoint, r.Ctx.UploadStorageInfo.AK, r.Ctx.UploadStorageInfo.SK, r.Ctx.UploadStorageInfo.Insecure, forcedPathStyle)
+		if err != nil {
+			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
+		}
+		for _, upload := range r.Ctx.UploadInfo {
+			info, err := os.Stat(upload.FilePath)
+			if err != nil {
+				return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %s", upload.FilePath, upload.DestinationPath, err)
+			}
+			// if the given path is a directory
+			if info.IsDir() {
+				// we get ALL files in this directory and upload it to the object storage
+				files, err := ioutil.ReadDir(upload.FilePath)
+				if err != nil {
+					return fmt.Errorf("failed to read file information in directory: [%s], the error is: %s", upload.FilePath, err)
+				}
+				for _, file := range files {
+					key := filepath.Join(upload.DestinationPath, file.Name())
+					originalFilePath := filepath.Join(upload.FilePath, file.Name())
+					err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, originalFilePath, key)
+					if err != nil {
+						fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", originalFilePath, key, err)
+					}
+				}
+			} else {
+				key := filepath.Join(upload.DestinationPath, info.Name())
+				err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, upload.FilePath, key)
+				if err != nil {
+					fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", upload.FilePath, key, err)
+				}
+			}
 		}
 	}
 

@@ -227,10 +227,15 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
 		UploadEnabled:   b.JobCtx.UploadEnabled,
-		OSSEndpoint:     b.JobCtx.OSSEndpoint,
-		OSSAK:           b.JobCtx.OSSAK,
-		OSSSK:           b.JobCtx.OSSSK,
-		UploadInfo:      b.JobCtx.UploadInfo,
+		UploadStorageInfo: &task.ObjectStorageInfo{
+			Endpoint: b.JobCtx.UploadStorageInfo.Endpoint,
+			AK:       b.JobCtx.UploadStorageInfo.AK,
+			SK:       b.JobCtx.UploadStorageInfo.SK,
+			Bucket:   b.JobCtx.UploadStorageInfo.Bucket,
+			Insecure: b.JobCtx.UploadStorageInfo.Insecure,
+			Provider: b.JobCtx.UploadStorageInfo.Provider,
+		},
+		UploadInfo: b.JobCtx.UploadInfo,
 	}
 
 	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {

@@ -127,11 +127,18 @@ type Context struct {
 	CacheUserDir string             `yaml:"cache_user_dir"`
 
 	// Upload To S3 related context
-	UploadEnabled bool                       `yaml:"upload_enabled"`
-	OSSEndpoint   string                     `yaml:"oss_endpoint"`
-	OSSAK         string                     `yaml:"oss_AK"`
-	OSSSK         string                     `yaml:"oss_SK"`
-	UploadInfo    []*ObjectStoragePathDetail `yaml:"upload_info"`
+	UploadEnabled     bool                       `yaml:"upload_enabled"`
+	UploadStorageInfo *ObjectStorageInfo         `yaml:"upload_storage_info"`
+	UploadInfo        []*ObjectStoragePathDetail `yaml:"upload_info"`
+}
+
+type ObjectStorageInfo struct {
+	Endpoint string `yaml:"endpoint"`
+	AK       string `yaml:"AK"`
+	SK       string `yaml:"SK"`
+	Bucket   string `yaml:"bucket"`
+	Insecure bool   `yaml:"insecure"`
+	Provider int8   `yaml:"provider"`
 }
 
 type ObjectStoragePathDetail struct {

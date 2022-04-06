@@ -170,11 +170,18 @@ type JobCtx struct {
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
 
 	// Upload To S3 related context
-	UploadEnabled bool                              `bson:"upload_enabled" json:"upload_enabled"`
-	OSSEndpoint   string                            `bson:"oss_endpoint"   json:"oss_endpoint"`
-	OSSAK         string                            `bson:"oss_AK"         json:"oss_AK"`
-	OSSSK         string                            `bson:"oss_SK"         json:"oss_SK"`
-	UploadInfo    []*models.ObjectStoragePathDetail `bson:"upload_info"    json:"upload_info"`
+	UploadEnabled     bool                              `bson:"upload_enabled"      json:"upload_enabled"`
+	UploadStorageInfo *ObjectStorageInfo                `bson:"upload_storage_info" json:"upload_storage_info"`
+	UploadInfo        []*models.ObjectStoragePathDetail `bson:"upload_info"         json:"upload_info"`
+}
+
+type ObjectStorageInfo struct {
+	Endpoint string `json:"endpoint" bson:"endpoint"`
+	AK       string `json:"AK"       bson:"AK"`
+	SK       string `json:"SK"       bson:"SK"`
+	Bucket   string `json:"bucket"   bson:"bucket"`
+	Insecure bool   `json:"insecure" bson:"insecure"`
+	Provider int8   `json:"provider" bson:"provider"`
 }
 
 type BuildStep struct {

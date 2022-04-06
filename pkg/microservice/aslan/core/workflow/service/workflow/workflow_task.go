@@ -2151,9 +2151,14 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 					log.Infof("Failed to get basic storage info for uploading, the error is %s", err)
 					return nil, err
 				}
-				build.JobCtx.OSSEndpoint = storageInfo.Endpoint
-				build.JobCtx.OSSAK = storageInfo.Ak
-				build.JobCtx.OSSSK = storageInfo.Sk
+				build.JobCtx.UploadStorageInfo = &taskmodels.ObjectStorageInfo{
+					Endpoint: storageInfo.Endpoint,
+					AK:       storageInfo.Ak,
+					SK:       storageInfo.Sk,
+					Bucket:   storageInfo.Bucket,
+					Insecure: storageInfo.Insecure,
+					Provider: storageInfo.Provider,
+				}
 				build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
 			}
 		}
