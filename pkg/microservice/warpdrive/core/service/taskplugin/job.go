@@ -226,6 +226,11 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ServiceName:     serviceName,
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
+		UploadEnabled:   b.JobCtx.UploadEnabled,
+		OSSEndpoint:     b.JobCtx.OSSEndpoint,
+		OSSAK:           b.JobCtx.OSSAK,
+		OSSSK:           b.JobCtx.OSSSK,
+		UploadInfo:      b.JobCtx.UploadInfo,
 	}
 
 	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {

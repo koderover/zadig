@@ -123,6 +123,13 @@ type Context struct {
 	Cache        types.Cache        `yaml:"cache"`
 	CacheDirType types.CacheDirType `yaml:"cache_dir_type"`
 	CacheUserDir string             `yaml:"cache_user_dir"`
+
+	// Upload To S3 related context
+	UploadEnabled bool                            `yaml:"upload_enabled"`
+	OSSEndpoint   string                          `yaml:"oss_endpoint"`
+	OSSAK         string                          `yaml:"oss_AK"`
+	OSSSK         string                          `yaml:"oss_SK"`
+	UploadInfo    []*task.ObjectStoragePathDetail `yaml:"upload_info"`
 }
 
 type ArtifactInfo struct {

@@ -168,6 +168,13 @@ type JobCtx struct {
 	ClassicBuild    bool   `bson:"classic_build"                  json:"classic_build"`
 	PostScripts     string `bson:"post_scripts,omitempty"         json:"post_scripts"`
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
+
+	// Upload To S3 related context
+	UploadEnabled bool                              `bson:"upload_enabled" json:"upload_enabled"`
+	OSSEndpoint   string                            `bson:"oss_endpoint"   json:"oss_endpoint"`
+	OSSAK         string                            `bson:"oss_AK"         json:"oss_AK"`
+	OSSSK         string                            `bson:"oss_SK"         json:"oss_SK"`
+	UploadInfo    []*models.ObjectStoragePathDetail `bson:"upload_info"    json:"upload_info"`
 }
 
 type BuildStep struct {

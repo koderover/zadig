@@ -18,7 +18,6 @@ package task
 
 import (
 	"fmt"
-
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
@@ -198,6 +197,18 @@ type JobCtx struct {
 	ClassicBuild    bool   `bson:"classic_build"                  json:"classic_build"`
 	PostScripts     string `bson:"post_scripts,omitempty"         json:"post_scripts"`
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
+
+	// Upload To S3 related context
+	UploadEnabled bool                       `json:"upload_enabled"`
+	OSSEndpoint   string                     `json:"oss_endpoint"`
+	OSSAK         string                     `json:"oss_AK"`
+	OSSSK         string                     `json:"oss_SK"`
+	UploadInfo    []*ObjectStoragePathDetail `json:"upload_info"`
+}
+
+type ObjectStoragePathDetail struct {
+	FilePath        string `json:"file_path" yaml:"file_path"`
+	DestinationPath string `json:"dest_path" yaml:"dest_path"`
 }
 
 type SSH struct {

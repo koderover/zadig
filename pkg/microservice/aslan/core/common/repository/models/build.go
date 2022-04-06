@@ -95,13 +95,25 @@ type BuildObj struct {
 }
 
 type PostBuild struct {
-	DockerBuild *DockerBuild `bson:"docker_build,omitempty" json:"docker_build"`
-	FileArchive *FileArchive `bson:"file_archive,omitempty" json:"file_archive,omitempty"`
-	Scripts     string       `bson:"scripts"             json:"scripts"`
+	DockerBuild         *DockerBuild         `bson:"docker_build,omitempty" json:"docker_build"`
+	ObjectStorageUpload *ObjectStorageUpload `bson:"object_storage_upload"  json:"object_storage_upload"`
+	FileArchive         *FileArchive         `bson:"file_archive,omitempty" json:"file_archive,omitempty"`
+	Scripts             string               `bson:"scripts"                json:"scripts"`
 }
 
 type FileArchive struct {
 	FileLocation string `bson:"file_location" json:"file_location"`
+}
+
+type ObjectStorageUpload struct {
+	Enabled         bool                       `bson:"enabled"           json:"enabled"`
+	ObjectStorageID string                     `bson:"object_storage_id" json:"object_storage_id"`
+	UploadDetail    []*ObjectStoragePathDetail `bson:"upload_detail"     json:"upload_detail"`
+}
+
+type ObjectStoragePathDetail struct {
+	FilePath        string `bson:"file_path" json:"file_path"`
+	DestinationPath string `bson:"dest_path" json:"dest_path"`
 }
 
 type DockerBuild struct {

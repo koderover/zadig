@@ -2143,6 +2143,21 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.JobCtx.PostScripts = module.PostBuild.Scripts
 		}
 
+		if module.PostBuild != nil && module.PostBuild.ObjectStorageUpload != nil {
+			build.JobCtx.UploadEnabled = module.PostBuild.ObjectStorageUpload.Enabled
+			if module.PostBuild.ObjectStorageUpload.Enabled {
+				storageInfo, err := commonrepo.NewS3StorageColl().Find(module.PostBuild.ObjectStorageUpload.ObjectStorageID)
+				if err != nil {
+					log.Infof("Failed to get basic storage info for uploading, the error is %s", err)
+					return nil, err
+				}
+				build.JobCtx.OSSEndpoint = storageInfo.Endpoint
+				build.JobCtx.OSSAK = storageInfo.Ak
+				build.JobCtx.OSSSK = storageInfo.Sk
+				build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
+			}
+		}
+
 		build.JobCtx.Caches = module.Caches
 
 		if args.FileName != "" {
