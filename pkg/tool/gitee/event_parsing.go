@@ -362,8 +362,27 @@ type PushEvent struct {
 }
 
 type PullRequestEvent struct {
-	Action      string `json:"action"`
-	ActionDesc  string `json:"action_desc"`
+	Action     string `json:"action"`
+	ActionDesc string `json:"action_desc"`
+	Project    struct {
+		ID                int         `json:"id"`
+		Language          interface{} `json:"language"`
+		License           interface{} `json:"license"`
+		Name              string      `json:"name"`
+		NameWithNamespace string      `json:"name_with_namespace"`
+		Namespace         string      `json:"namespace"`
+		OpenIssuesCount   int         `json:"open_issues_count"`
+		Path              string      `json:"path"`
+		PathWithNamespace string      `json:"path_with_namespace"`
+		Private           bool        `json:"private"`
+		PushedAt          time.Time   `json:"pushed_at"`
+		SSHURL            string      `json:"ssh_url"`
+		StargazersCount   int         `json:"stargazers_count"`
+		SvnURL            string      `json:"svn_url"`
+		UpdatedAt         time.Time   `json:"updated_at"`
+		URL               string      `json:"url"`
+		WatchersCount     int         `json:"watchers_count"`
+	} `json:"project"`
 	PullRequest *struct {
 		ID             int         `json:"id"`
 		Number         int         `json:"number"`

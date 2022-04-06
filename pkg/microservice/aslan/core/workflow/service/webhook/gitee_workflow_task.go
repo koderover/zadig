@@ -312,7 +312,7 @@ func findChangedFilesOfPullRequestEvent(event *gitee.PullRequestEvent, codehostI
 	}
 
 	giteeCli := gitee.NewClient(detail.ID, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
-	commitComparison, err := giteeCli.GetReposOwnerRepoCompareBaseHead(detail.AccessToken, event.PullRequest.Base.Repo.Owner.Login, event.PullRequest.Base.Repo.Name, event.PullRequest.Base.Sha, event.PullRequest.Head.Sha)
+	commitComparison, err := giteeCli.GetReposOwnerRepoCompareBaseHead(detail.AccessToken, event.Project.Namespace, event.Project.Name, event.PullRequest.Base.Sha, event.PullRequest.Head.Sha)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changes from gitee, err: %v", err)
 	}
