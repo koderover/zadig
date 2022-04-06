@@ -86,11 +86,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 	url := fmt.Sprintf("/codehosts/%d", id)
 
 	_, err := c.Patch(url, httpclient.SetBody(codehost))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (c *Client) GetCodeHostByAddressAndOwner(address, owner, source string) (*CodeHost, error) {
