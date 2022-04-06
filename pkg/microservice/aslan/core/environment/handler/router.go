@@ -122,6 +122,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
 		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
+		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
 	}
 
 	// ---------------------------------------------------------------------------------------

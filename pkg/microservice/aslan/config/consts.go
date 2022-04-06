@@ -26,6 +26,7 @@ var (
 	// RenderTemplateAlias ...
 	RenderTemplateAlias = regexp.MustCompile(`{{\s?\.\w+\s?}}`)
 	ServiceNameAlias    = regexp.MustCompile(`\$Service\$`)
+	ProductNameAlias    = regexp.MustCompile(`\$Product\$`)
 	NameSpaceRegex      = regexp.MustCompile(NameSpaceRegexString)
 )
 

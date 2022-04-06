@@ -359,38 +359,18 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 		return nil, e.ErrCreateTemplate.AddDesc(fmt.Sprintf("failed to query chart-repo info, productName: %s, repoName: %s", projectName, chartRepoArgs.ChartRepoName))
 	}
 
-	chartClient, err := helmclient.NewHelmChartRepoClient(chartRepo.URL, chartRepo.Username, chartRepo.Password)
+	hClient, err := helmclient.NewClient()
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to init chart client for repo: %s", chartRepo.RepoName))
 	}
 
-	index, err := chartClient.FetchIndexYaml()
-	if err != nil {
-		return nil, e.ErrCreateTemplate.AddErr(err)
-	}
-
-	// validate chart with specific version exists in repo
-	foundChart := false
-	for name, entries := range index.Entries {
-		if name != chartRepoArgs.ChartName {
-			continue
-		}
-		for _, entry := range entries {
-			if entry.Version == chartRepoArgs.ChartVersion {
-				foundChart = true
-				break
-			}
-		}
-		break
-	}
-	if !foundChart {
-		return nil, e.ErrCreateTemplate.AddDesc(fmt.Sprintf("failed to find chart: %s-%s from chart repo", chartRepoArgs.ChartName, chartRepoArgs.ChartVersion))
-	}
-
+	chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, chartRepoArgs.ChartName)
 	localPath := config.LocalServicePath(projectName, chartRepoArgs.ChartName)
-	err = chartClient.DownloadAndExpand(chartRepoArgs.ChartName, chartRepoArgs.ChartVersion, localPath)
+	// remove local file to untar
+	_ = os.RemoveAll(localPath)
+	err = hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, chartRepoArgs.ChartVersion, localPath, true)
 	if err != nil {
-		return nil, e.ErrCreateTemplate.AddErr(err)
+		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to download chart %s/%s-%s", chartRepo.RepoName, chartRepoArgs.ChartName, chartRepoArgs.ChartVersion))
 	}
 
 	serviceName := chartRepoArgs.ChartName
@@ -476,6 +456,9 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	if err != nil {
 		return nil, err
 	}
+
+	// NOTE we may need a better way to handle service name with spaces
+	args.Name = strings.TrimSpace(args.Name)
 
 	var values [][]byte
 	if len(templateChartInfo.DefaultValuesYAML) > 0 {
@@ -970,6 +953,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 
 	serviceName := filepath.Base(path)
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
+	serviceName = strings.TrimSpace(serviceName)
 
 	to := filepath.Join(config.LocalServicePath(projectName, serviceName), serviceName)
 	// remove old files

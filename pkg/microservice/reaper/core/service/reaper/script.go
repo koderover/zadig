@@ -347,6 +347,7 @@ func (r *Reaper) RunPMDeployScripts() error {
 
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_IP=%s", ssh.Name, ssh.IP))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_PORT=%d", ssh.Name, ssh.Port))
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_USERNAME=%s", ssh.Name, ssh.UserName))
 
 		r.Ctx.SecretEnvs = append(r.Ctx.SecretEnvs, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))
