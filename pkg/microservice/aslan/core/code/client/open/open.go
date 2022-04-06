@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/codehub"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gerrit"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gitee"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
@@ -40,6 +41,7 @@ var ClientsConfig = map[string]func() ClientConfig{
 	setting.SourceFromGithub:  func() ClientConfig { return new(github.Config) },
 	setting.SourceFromGerrit:  func() ClientConfig { return new(gerrit.Config) },
 	setting.SourceFromCodeHub: func() ClientConfig { return new(codehub.Config) },
+	setting.SourceFromGitee:   func() ClientConfig { return new(gitee.Config) },
 }
 
 func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, error) {
@@ -47,6 +49,7 @@ func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, 
 	if err != nil {
 		return nil, err
 	}
+
 	var c client.CodeHostClient
 	f, ok := ClientsConfig[ch.Type]
 	if !ok {
