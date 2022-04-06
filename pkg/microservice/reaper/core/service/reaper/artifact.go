@@ -66,8 +66,15 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 				continue
 			}
 			artifactPath = strings.TrimPrefix(artifactPath, "/")
-			cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "./"+artifactPath)
+			artifactPath := filepath.Join(activeWorkspace, artifactPath)
+			isDir, err := fs.IsDir(artifactPath)
+			if err != nil || !isDir {
+				log.Errorf("artifactPath is not exist  %s err: %s", artifactPath, err)
+				continue
+			}
+			cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)
 		}
+
 		cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 		cmd.Stderr = os.Stderr
 		if err = cmd.Run(); err != nil {
@@ -75,7 +82,7 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 			return err
 		}
 		if store != nil {
-			objectKey := store.GetObjectPath(tarName)
+			objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", activeWorkspace, tarName))
 			if err = s3FileUpload(store, temp.Name(), objectKey); err != nil {
 				return err
 			}
