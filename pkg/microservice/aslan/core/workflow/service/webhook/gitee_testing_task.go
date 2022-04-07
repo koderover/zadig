@@ -172,9 +172,7 @@ func (gmem *giteeMergeEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.
 	return args
 }
 
-func createGiteeEventMatcherForTesting(
-	event interface{}, diffSrv giteePullRequestDiffFunc, testing *commonmodels.Testing, log *zap.SugaredLogger,
-) gitEventMatcherForTesting {
+func createGiteeEventMatcherForTesting(event interface{}, diffSrv giteePullRequestDiffFunc, testing *commonmodels.Testing, log *zap.SugaredLogger) gitEventMatcherForTesting {
 	switch evt := event.(type) {
 	case *gitee.PushEvent:
 		return &giteePushEventMatcherForTesting{
@@ -232,8 +230,8 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
 					var mergeRequestID, commitID string
 					if ev, isPr := event.(*gitee.PullRequestEvent); isPr {
-						// 如果是merge request，且该webhook触发器配置了自动取消，
-						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
+						// If it is a merge request, and the webhook trigger is configured with automatic cancellation,
+						// It is necessary to confirm whether the task triggered by the commit of the merge request before this commit has been processed, and it will be cancelled if it is not processed.
 						mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
 						commitID = ev.PullRequest.Head.Sha
 						autoCancelOpt := &AutoCancelOpt{
