@@ -2353,8 +2353,9 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						rule := project.CustomImageRule.JenkinsRule
 						if rule != "" {
 							va := commonservice.Variable{
-								SERVICE:   t.ServiceName,
-								TIMESTAMP: time.Now().Format("20060102150405"),
+								SERVICE:    t.ServiceName,
+								TIMESTAMP:  time.Now().Format("20060102150405"),
+								IMAGE_NAME: t.Image,
 							}
 							tm, _ := gotempl.New("jenkins").Parse(rule)
 							var replaceRuleVariable = gotempl.Must(tm, err)
