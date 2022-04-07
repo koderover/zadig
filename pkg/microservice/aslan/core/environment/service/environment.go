@@ -1381,6 +1381,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 	}
 	ret := &templatemodels.CustomYaml{
 		Source:       args.YamlSource,
+		AutoSync:     args.AutoSync,
 		SourceDetail: repoData,
 	}
 	return ret
@@ -2937,6 +2938,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 
 	newChartInfos := make([]*templatemodels.RenderChart, 0)
 	defaultValues := ""
+	var yamlData *templatemodels.CustomYaml
 	switch updateType {
 	case UpdateTypeSystem:
 		for _, serviceNameGroup := range productTemp.Services {
@@ -2954,6 +2956,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			return nil, err
 		}
 		defaultValues = currentEnvRenderSet.DefaultValues
+		yamlData = currentEnvRenderSet.YamlData
 
 		// 环境里面的变量
 		currentEnvRenderSetMap := make(map[string]*templatemodels.RenderChart)
@@ -3039,6 +3042,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			ProductTmpl:   productName,
 			ChartInfos:    newChartInfos,
 			DefaultValues: defaultValues,
+			YamlData:      yamlData,
 			UpdateBy:      username,
 		},
 		log,

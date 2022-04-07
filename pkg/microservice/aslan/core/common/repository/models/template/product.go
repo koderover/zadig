@@ -105,6 +105,7 @@ type GitRepoConfig struct {
 type CustomYaml struct {
 	YamlContent  string      `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
 	Source       string      `bson:"source" json:"source"`
+	AutoSync     bool        `bson:"auto_sync" json:"auto_sync"`
 	SourceDetail interface{} `bson:"source_detail" json:"source_detail"`
 }
 
