@@ -71,7 +71,7 @@ func unMarshalJson(source interface{}) (*models.CreateFromRepo, error) {
 // SyncYamlFromSource sync values.yaml from source
 // NOTE currently only support gitHub and gitlab
 func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
-	if yamlData == nil {
+	if yamlData == nil || !yamlData.AutoSync {
 		return false, "", nil
 	}
 	if !fromGitRepo(yamlData.Source) {
