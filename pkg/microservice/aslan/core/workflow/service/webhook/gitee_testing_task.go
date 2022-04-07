@@ -96,7 +96,8 @@ func (gtem giteeTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHook
 		}
 
 		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
+			matched, err := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch)
+			if err != nil || !matched {
 				return false, nil
 			}
 		}
@@ -138,7 +139,8 @@ func (gmem *giteeMergeEventMatcherForTesting) Match(hookRepo *commonmodels.MainH
 		}
 
 		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.PullRequest.Base.Ref); !matched {
+			matched, err := regexp.MatchString(hookRepo.Branch, ev.PullRequest.Base.Ref)
+			if err != nil || !matched {
 				return false, nil
 			}
 		}
@@ -201,7 +203,7 @@ func createGiteeEventMatcherForTesting(
 func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
 	testingList, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
 	if err != nil {
-		log.Errorf("failed to list testing %v", err)
+		log.Errorf("failed to list testing,err: %s", err)
 		return err
 	}
 
@@ -243,7 +245,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 						}
 						err := AutoCancelTask(autoCancelOpt, log)
 						if err != nil {
-							log.Errorf("failed to auto cancel testing task when receive event %v due to %v ", event, err)
+							log.Errorf("failed to auto cancel testing task when receive event %v due to %s ", event, err)
 							mErr = multierror.Append(mErr, err)
 						}
 					}
@@ -258,7 +260,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 
 					// 3. create task with args
 					if resp, err := testingservice.CreateTestTask(args, log); err != nil {
-						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
+						log.Errorf("failed to create testing task when receive event %v due to %s ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {
 						log.Infof("succeed to create task %v", resp)
