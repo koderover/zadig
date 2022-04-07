@@ -175,15 +175,6 @@ type JobCtx struct {
 	UploadInfo        []*types.ObjectStoragePathDetail `bson:"upload_info"         json:"upload_info"`
 }
 
-type ObjectStorageInfo struct {
-	Endpoint string `json:"endpoint" bson:"endpoint"`
-	AK       string `json:"AK"       bson:"AK"`
-	SK       string `json:"SK"       bson:"SK"`
-	Bucket   string `json:"bucket"   bson:"bucket"`
-	Insecure bool   `json:"insecure" bson:"insecure"`
-	Provider int8   `json:"provider" bson:"provider"`
-}
-
 type BuildStep struct {
 	BuildType  string `bson:"type"                         json:"type"`
 	Scripts    string `bson:"scripts"                      json:"scripts"`
