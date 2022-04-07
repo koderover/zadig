@@ -205,8 +205,8 @@ type JobCtx struct {
 }
 
 type ObjectStoragePathDetail struct {
-	FilePath        string `json:"file_path"`
-	DestinationPath string `json:"dest_path"`
+	FilePath        string `json:"file_path" yaml:"file_path"`
+	DestinationPath string `json:"dest_path" yaml:"dest_path"`
 }
 
 type ObjectStorageInfo struct {
