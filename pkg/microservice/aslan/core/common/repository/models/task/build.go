@@ -170,9 +170,9 @@ type JobCtx struct {
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
 
 	// Upload To S3 related context
-	UploadEnabled     bool                              `bson:"upload_enabled"      json:"upload_enabled"`
-	UploadStorageInfo *ObjectStorageInfo                `bson:"upload_storage_info" json:"upload_storage_info"`
-	UploadInfo        []*models.ObjectStoragePathDetail `bson:"upload_info"         json:"upload_info"`
+	UploadEnabled     bool                             `bson:"upload_enabled"      json:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `bson:"upload_storage_info" json:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `bson:"upload_info"         json:"upload_info"`
 }
 
 type ObjectStorageInfo struct {
