@@ -367,6 +367,24 @@ func EstimatedValues(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
 }
 
+func SyncHelmProductRenderset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		return
+	}
+
+	ctx.Err = service.SyncHelmProductEnvironment(projectName, envName)
+}
+
 func UpdateHelmProductRenderset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

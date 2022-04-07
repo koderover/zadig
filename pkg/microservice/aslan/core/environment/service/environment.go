@@ -1386,6 +1386,72 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 	return ret
 }
 
+func SyncHelmProductEnvironment(productName, envName string) error {
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		return err
+	}
+	opt := &commonrepo.RenderSetFindOption{Name: product.Namespace}
+	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil || productRenderset == nil {
+		if err != nil {
+			log.Infof("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
+		}
+		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
+	}
+
+	updatedRCMap := make(map[string]*templatemodels.RenderChart)
+
+	changed, defaultValues, err := SyncYamlFromSource(productRenderset.YamlData, productRenderset.DefaultValues)
+	if err != nil {
+		return err
+	}
+	if changed {
+		productRenderset.DefaultValues = defaultValues
+		for _, curRenderChart := range productRenderset.ChartInfos {
+			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
+		}
+	}
+	for _, chartInfo := range productRenderset.ChartInfos {
+		if chartInfo.OverrideYaml == nil {
+			continue
+		}
+		changed, values, err := SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent)
+		if err != nil {
+			return err
+		}
+		if changed {
+			chartInfo.OverrideYaml.YamlContent = values
+			updatedRCMap[chartInfo.ServiceName] = chartInfo
+		}
+	}
+	if len(updatedRCMap) == 0 {
+		return nil
+	}
+
+	// content of values.yaml changed, environment will be updated
+	updatedRcList := make([]*templatemodels.RenderChart, 0)
+	for _, updatedRc := range updatedRCMap {
+		updatedRcList = append(updatedRcList, updatedRc)
+	}
+
+	logger := log.SugaredLogger()
+	err = UpdateHelmProductVariable(productName, envName, "timer", "000000000000000000", updatedRcList, productRenderset, logger)
+	if err != nil {
+		return err
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
+		return err
+	}
+	return ensureKubeEnv(product.Namespace, product.RegistryID, kubeClient, logger)
+}
+
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,

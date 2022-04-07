@@ -96,10 +96,10 @@ type EnvRenderKV struct {
 }
 
 type GitRepoConfig struct {
-	CodehostID int    `bson:"codehost_id,omitempty"`
-	Owner      string `bson:"owner,omitempty"`
-	Repo       string `bson:"repo,omitempty"`
-	Branch     string `bson:"branch,omitempty"`
+	CodehostID int    `bson:"codehost_id,omitempty" json:"codehost_id"`
+	Owner      string `bson:"owner,omitempty"       json:"owner"`
+	Repo       string `bson:"repo,omitempty"        json:"repo"`
+	Branch     string `bson:"branch,omitempty"      json:"branch"`
 }
 
 type CustomYaml struct {

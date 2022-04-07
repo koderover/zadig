@@ -252,6 +252,7 @@ const (
 	// service from yaml template
 	ServiceSourceTemplate = "template"
 	SourceFromPM          = "pm"
+	SourceFromGitRepo     = "repo"
 
 	ProdENV = "prod"
 	TestENV = "test"

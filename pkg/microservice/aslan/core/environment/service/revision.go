@@ -51,8 +51,8 @@ func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (
 	return prodRevs, nil
 }
 
-// ListProductsRevisionByFacility called by service cron
-func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+// ListProductsRevisionByOption called by service cron
+func ListProductsRevisionByOption(basicFacility string, deployType string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
 		err          error
 		prodRevs     = make([]*ProductRevision, 0)
@@ -60,7 +60,10 @@ func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger
 		projectNames = make([]string, 0)
 	)
 
-	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{BasicFacility: basicFacility})
+	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
+		BasicFacility: basicFacility,
+		DeployType:    deployType,
+	})
 	if err != nil {
 		log.Errorf("Collection.TemplateProduct.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
