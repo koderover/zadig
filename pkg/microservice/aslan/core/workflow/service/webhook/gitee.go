@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -49,6 +50,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 
 	baseURI := config.SystemAddress()
 	var errorList = &multierror.Error{}
+	var wg sync.WaitGroup
 
 	switch event := event.(type) {
 	case *gitee.PushEvent:
@@ -63,21 +65,64 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 			}
 			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
 		}
-		if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
-			errorList = multierror.Append(errorList, err)
-		}
+		// build webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+
+		//test webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerTestByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	case *gitee.PullRequestEvent:
 		if event.Action != "open" && event.Action != "update" {
 			return fmt.Errorf("action %s is skipped", event.Action)
 		}
-		if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
-			errorList = multierror.Append(errorList, err)
-		}
-	case *gitee.TagPushEvent:
-		if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
-			errorList = multierror.Append(errorList, err)
-		}
-	}
 
+		// build webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+
+		//test webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerTestByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+	case *gitee.TagPushEvent:
+		// build webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+
+		//test webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerTestByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+	}
+	wg.Wait()
 	return errorList.ErrorOrNil()
 }
