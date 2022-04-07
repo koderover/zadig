@@ -2225,7 +2225,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				if len(exitedProd.RegistryID) > 0 {
 					reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
-						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
@@ -2334,7 +2334,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						if len(exitedProd.RegistryID) > 0 {
 							reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 							if err != nil {
-								log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+								log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
 									exitedProd.RegistryID, err)
 								return e.ErrFindRegistry.AddDesc(err.Error())
 							}
