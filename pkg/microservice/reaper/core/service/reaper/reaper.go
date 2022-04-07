@@ -19,7 +19,6 @@ package reaper
 import (
 	"bytes"
 	"fmt"
-	"github.com/koderover/zadig/pkg/tool/s3"
 	"io"
 	"io/ioutil"
 	"os"
@@ -29,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/s3"
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
@@ -452,11 +452,13 @@ func (r *Reaper) AfterExec() error {
 					return fmt.Errorf("failed to read file information in directory: [%s], the error is: %s", upload.FilePath, err)
 				}
 				for _, file := range files {
-					key := filepath.Join(upload.DestinationPath, file.Name())
-					originalFilePath := filepath.Join(upload.FilePath, file.Name())
-					err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, originalFilePath, key)
-					if err != nil {
-						fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", originalFilePath, key, err)
+					if !file.IsDir() {
+						key := filepath.Join(upload.DestinationPath, file.Name())
+						originalFilePath := filepath.Join(upload.FilePath, file.Name())
+						err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, originalFilePath, key)
+						if err != nil {
+							fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", originalFilePath, key, err)
+						}
 					}
 				}
 			} else {

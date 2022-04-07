@@ -2148,7 +2148,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			if module.PostBuild.ObjectStorageUpload.Enabled {
 				storageInfo, err := commonrepo.NewS3StorageColl().Find(module.PostBuild.ObjectStorageUpload.ObjectStorageID)
 				if err != nil {
-					log.Infof("Failed to get basic storage info for uploading, the error is %s", err)
+					log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
 					return nil, err
 				}
 				build.JobCtx.UploadStorageInfo = &taskmodels.ObjectStorageInfo{
