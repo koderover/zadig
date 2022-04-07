@@ -184,6 +184,10 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
 		serviceModule.ImageName = container.ImageName
+		//Compatible with the problem that the name of the old data imageName is empty
+		if serviceModule.ImageName == "" {
+			serviceModule.ImageName = container.Name
+		}
 		buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
 		if buildObj != nil {
 			serviceModule.BuildName = buildObj.Name
