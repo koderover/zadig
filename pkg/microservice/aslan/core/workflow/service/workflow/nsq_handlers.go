@@ -311,7 +311,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryArtifact.Type = string(config.Image)
 							deliveryArtifact.Name = imageName
 							deliveryArtifact.ImageTag = imageTag
-							//获取镜像详细信息
+							//get image detail info
 							imageInfo, _ := getImageInfo(buildInfo.ProductName, buildInfo.EnvName, imageName, imageTag, h.log)
 							if imageInfo != nil {
 								deliveryArtifact.ImageSize = imageInfo.ImageSize
