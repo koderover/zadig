@@ -296,7 +296,6 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	if b.JobCtx.UploadEnabled {
 		for _, upload := range b.JobCtx.UploadInfo {
 			upload.FilePath = replaceEnvWithValue(upload.FilePath, envmaps)
-			fmt.Println("replaced filepath is: ", upload.FilePath)
 			upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		}
 	}
@@ -1060,8 +1059,7 @@ func replaceEnvWithValue(str string, envs map[string]string) string {
 	ret := str
 	for key, value := range envs {
 		strKey := fmt.Sprintf("$%s", key)
-		fmt.Printf("replacing %s in string [%s] with %s\n", strKey, ret, value)
-		ret = strings.ReplaceAll(str, strKey, value)
+		ret = strings.ReplaceAll(ret, strKey, value)
 	}
 	return ret
 }
