@@ -296,6 +296,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	if b.JobCtx.UploadEnabled {
 		for _, upload := range b.JobCtx.UploadInfo {
 			upload.FilePath = replaceEnvWithValue(upload.FilePath, envmaps)
+			fmt.Println("replaced filepath is: ", upload.FilePath)
 			upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		}
 	}
