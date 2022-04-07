@@ -125,9 +125,9 @@ type Context struct {
 	CacheUserDir string             `yaml:"cache_user_dir"`
 
 	// Upload To S3 related context
-	UploadEnabled     bool                            `yaml:"upload_enabled"`
-	UploadStorageInfo *task.ObjectStorageInfo         `yaml:"upload_storage_info"`
-	UploadInfo        []*task.ObjectStoragePathDetail `yaml:"upload_info"`
+	UploadEnabled     bool                             `yaml:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `yaml:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `yaml:"upload_info"`
 }
 
 type ArtifactInfo struct {

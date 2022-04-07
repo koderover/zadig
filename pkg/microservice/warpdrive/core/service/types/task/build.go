@@ -200,23 +200,9 @@ type JobCtx struct {
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
 
 	// Upload To S3 related context
-	UploadEnabled     bool                       `json:"upload_enabled"`
-	UploadStorageInfo *ObjectStorageInfo         `json:"upload_storage_info"`
-	UploadInfo        []*ObjectStoragePathDetail `json:"upload_info"`
-}
-
-type ObjectStoragePathDetail struct {
-	FilePath        string `json:"file_path" yaml:"file_path"`
-	DestinationPath string `json:"dest_path" yaml:"dest_path"`
-}
-
-type ObjectStorageInfo struct {
-	Endpoint string `json:"endpoint" yaml:"endpoint"`
-	AK       string `json:"AK"       yaml:"AK"`
-	SK       string `json:"SK"       yaml:"SK"`
-	Bucket   string `json:"bucket"   yaml:"bucket"`
-	Insecure bool   `json:"insecure" yaml:"insecure"`
-	Provider int8   `json:"provider" yaml:"provider"`
+	UploadEnabled     bool                             `json:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `json:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `json:"upload_info"`
 }
 
 type SSH struct {

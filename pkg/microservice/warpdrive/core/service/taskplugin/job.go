@@ -227,7 +227,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
 		UploadEnabled:   b.JobCtx.UploadEnabled,
-		UploadStorageInfo: &task.ObjectStorageInfo{
+		UploadStorageInfo: &commontypes.ObjectStorageInfo{
 			Endpoint: b.JobCtx.UploadStorageInfo.Endpoint,
 			AK:       b.JobCtx.UploadStorageInfo.AK,
 			SK:       b.JobCtx.UploadStorageInfo.SK,
