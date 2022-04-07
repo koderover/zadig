@@ -2355,7 +2355,10 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 							va := commonservice.Variable{
 								SERVICE:    t.ServiceName,
 								TIMESTAMP:  time.Now().Format("20060102150405"),
-								IMAGE_NAME: t.Image,
+								IMAGE_NAME: taskOpt.ImageName,
+								PROJECT:    taskOpt.Task.ProductName,
+								ENV_NAME:   taskOpt.EnvName,
+								TASK_ID:    strconv.FormatInt(taskOpt.Task.TaskID, 10),
 							}
 							tm, _ := gotempl.New("jenkins").Parse(rule)
 							var replaceRuleVariable = gotempl.Must(tm, err)
