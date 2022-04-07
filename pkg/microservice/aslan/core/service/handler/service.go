@@ -55,7 +55,16 @@ func GetServiceTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = commonservice.GetServiceTemplate(c.Param("name"), c.Param("type"), c.Query("projectName"), setting.ProductStatusDeleting, revision, ctx.Logger)
+	serviceInfo, err := commonservice.GetServiceTemplate(c.Param("name"), c.Param("type"), c.Query("projectName"), setting.ProductStatusDeleting, revision, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	for i, v := range serviceInfo.Containers {
+		if v.ImageName == "" {
+			serviceInfo.Containers[i].ImageName = serviceInfo.ServiceName
+		}
+	}
 }
 
 func GetServiceTemplateOption(c *gin.Context) {
