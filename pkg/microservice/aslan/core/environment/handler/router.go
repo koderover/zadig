@@ -66,8 +66,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	image := router.Group("image")
 	{
-		image.POST("/deployment/:env", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
-		image.POST("/statefulset/:env", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
+		image.POST("/deployment/:envName", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
+		image.POST("/statefulset/:envName", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
 	}
 
 	// 查询环境创建时的服务和变量信息

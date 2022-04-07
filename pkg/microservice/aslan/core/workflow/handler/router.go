@@ -104,7 +104,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workflow.POST("/:productName/auto", AutoCreateWorkflow)
 		workflow.POST("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, CreateWorkflow)
-		workflow.PUT("/:workflow", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
+		workflow.PUT("/:workflowName", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
 		workflow.GET("/testName/:testName", ListTestWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
