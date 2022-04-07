@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type JenkinsArgs struct {
@@ -37,6 +38,7 @@ type JenkinsArgs struct {
 type JenkinsBuildArgs struct {
 	Name  string      `json:"name"`
 	Value interface{} `json:"value"`
+	Type  string      `json:"type"`
 }
 
 func CreateJenkinsIntegration(args *commonmodels.JenkinsIntegration, log *zap.SugaredLogger) error {
@@ -130,10 +132,17 @@ func ListJobBuildArgs(jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildAr
 	}
 	jenkinsBuildArgsResp := make([]*JenkinsBuildArgs, 0)
 	for _, paramDefinition := range paramDefinitions {
-		jenkinsBuildArgsResp = append(jenkinsBuildArgsResp, &JenkinsBuildArgs{
+		arg := &JenkinsBuildArgs{
 			Name:  paramDefinition.DefaultParameterValue.Name,
 			Value: paramDefinition.DefaultParameterValue.Value,
-		})
+			Type:  paramDefinition.Type,
+		}
+		if paramDefinition.Type == "ChoiceParameterDefinition" {
+			arg.Type = string(types.Choice)
+		} else {
+			arg.Type = string(types.Str)
+		}
+		jenkinsBuildArgsResp = append(jenkinsBuildArgsResp, arg)
 	}
 	return jenkinsBuildArgsResp, nil
 }

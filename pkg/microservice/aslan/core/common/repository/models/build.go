@@ -127,13 +127,8 @@ type DockerBuild struct {
 }
 
 type JenkinsBuild struct {
-	JobName           string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParam []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
-}
-
-type JenkinsBuildParam struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
+	JobName           string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParam []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 type Parameter struct {
