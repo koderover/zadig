@@ -405,6 +405,11 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 			}
 		}
 	}
+	for i, v := range resp.Containers {
+		if v.ImageName == "" {
+			resp.Containers[i].ImageName = resp.ServiceName
+		}
+	}
 
 	return resp, nil
 }
