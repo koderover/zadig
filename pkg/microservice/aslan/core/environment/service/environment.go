@@ -1114,9 +1114,6 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 		}
 	}
 
-	// default values
-	defaultValuesYaml := arg.DefaultValues
-
 	// insert renderset info into db
 	if len(productInfo.ChartInfos) > 0 {
 		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
@@ -1125,7 +1122,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 			ProductTmpl:   arg.ProductName,
 			UpdateBy:      userName,
 			IsDefault:     false,
-			DefaultValues: defaultValuesYaml,
+			DefaultValues: arg.DefaultValues,
 			YamlData:      geneYamlData(arg.ValuesData),
 			ChartInfos:    productInfo.ChartInfos,
 		}, log)
@@ -2672,11 +2669,10 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			// 获取服务详情
 			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   svc.ServiceName,
-				Type:          svc.Type,
-				Revision:      svc.Revision,
-				ProductName:   args.ProductName,
-				ExcludeStatus: setting.ProductStatusDeleting,
+				ServiceName: svc.ServiceName,
+				Type:        svc.Type,
+				Revision:    svc.Revision,
+				ProductName: args.ProductName,
 			}
 			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
