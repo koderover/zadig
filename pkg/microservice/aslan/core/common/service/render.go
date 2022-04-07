@@ -51,6 +51,7 @@ type KVPair struct {
 
 type ValuesDataArgs struct {
 	YamlSource    string      `json:"yamlSource,omitempty"`
+	AutoSync      bool        `json:"autoSync,omitempty"`
 	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
 }
 
@@ -96,6 +97,7 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 		}
 		if args.ValuesData != nil {
 			ret.Source = args.ValuesData.YamlSource
+			ret.AutoSync = args.ValuesData.AutoSync
 			if args.ValuesData.GitRepoConfig != nil {
 				repoData := &models.CreateFromRepo{
 					GitRepoConfig: &templatemodels.GitRepoConfig{

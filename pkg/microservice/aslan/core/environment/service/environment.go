@@ -1114,9 +1114,6 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 		}
 	}
 
-	// default values
-	defaultValuesYaml := arg.DefaultValues
-
 	// insert renderset info into db
 	if len(productInfo.ChartInfos) > 0 {
 		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
@@ -1125,7 +1122,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 			ProductTmpl:   arg.ProductName,
 			UpdateBy:      userName,
 			IsDefault:     false,
-			DefaultValues: defaultValuesYaml,
+			DefaultValues: arg.DefaultValues,
 			YamlData:      geneYamlData(arg.ValuesData),
 			ChartInfos:    productInfo.ChartInfos,
 		}, log)
@@ -1381,6 +1378,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 	}
 	ret := &templatemodels.CustomYaml{
 		Source:       args.YamlSource,
+		AutoSync:     args.AutoSync,
 		SourceDetail: repoData,
 	}
 	return ret
@@ -2737,11 +2735,10 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			// 获取服务详情
 			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   svc.ServiceName,
-				Type:          svc.Type,
-				Revision:      svc.Revision,
-				ProductName:   args.ProductName,
-				ExcludeStatus: setting.ProductStatusDeleting,
+				ServiceName: svc.ServiceName,
+				Type:        svc.Type,
+				Revision:    svc.Revision,
+				ProductName: args.ProductName,
 			}
 			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
@@ -3003,6 +3000,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 
 	newChartInfos := make([]*templatemodels.RenderChart, 0)
 	defaultValues := ""
+	var yamlData *templatemodels.CustomYaml
 	switch updateType {
 	case UpdateTypeSystem:
 		for _, serviceNameGroup := range productTemp.Services {
@@ -3020,6 +3018,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			return nil, err
 		}
 		defaultValues = currentEnvRenderSet.DefaultValues
+		yamlData = currentEnvRenderSet.YamlData
 
 		// 环境里面的变量
 		currentEnvRenderSetMap := make(map[string]*templatemodels.RenderChart)
@@ -3105,6 +3104,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			ProductTmpl:   productName,
 			ChartInfos:    newChartInfos,
 			DefaultValues: defaultValues,
+			YamlData:      yamlData,
 			UpdateBy:      username,
 		},
 		log,
