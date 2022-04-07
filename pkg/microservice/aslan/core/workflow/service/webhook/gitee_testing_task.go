@@ -199,6 +199,7 @@ func createGiteeEventMatcherForTesting(event interface{}, diffSrv giteePullReque
 }
 
 func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+	// 1. find configured testing
 	testingList, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
 	if err != nil {
 		log.Errorf("failed to list testing,err: %s", err)
