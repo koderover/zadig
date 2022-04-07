@@ -685,7 +685,7 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 
 	reg, _, err := commonservice.FindDefaultRegistry(true, log)
 	if err != nil {
-		log.Errorf("can't find default candidate registry: %v", err)
+		log.Errorf("can't find default candidate registry: %s", err)
 		return e.ErrFindRegistry.AddDesc(err.Error())
 	}
 

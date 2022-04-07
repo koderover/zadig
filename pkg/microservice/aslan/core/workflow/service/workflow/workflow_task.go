@@ -2211,7 +2211,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
 				exitedProd, err := commonrepo.NewProductColl().Find(opt)
 				if err != nil {
-					log.Errorf("can't find product by envName:%s error msg: %v", taskOpt.EnvName, err)
+					log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
@@ -2232,7 +2232,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				} else {
 					reg, _, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
-						log.Errorf("can't find default candidate registry: %v", err)
+						log.Errorf("can't find default candidate registry: %s", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				}
@@ -2326,7 +2326,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
 						exitedProd, err := commonrepo.NewProductColl().Find(opt)
 						if err != nil {
-							log.Errorf("can't find product by envName:%s error msg: %v", taskOpt.EnvName, err)
+							log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
 							return e.ErrFindRegistry.AddDesc(err.Error())
 						}
 
@@ -2341,7 +2341,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						} else {
 							reg, _, err = commonservice.FindDefaultRegistry(true, log)
 							if err != nil {
-								log.Errorf("can't find default candidate registry: %v", err)
+								log.Errorf("can't find default candidate registry: %s", err)
 								return e.ErrFindRegistry.AddDesc(err.Error())
 							}
 						}

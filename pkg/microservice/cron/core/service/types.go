@@ -307,8 +307,8 @@ type JenkinsBuildArgs struct {
 }
 
 type JenkinsBuildParam struct {
-	Name         string      `json:"name"`
-	Value        interface{} `json:"value"`
+	Name         string      `bson:"name,omitempty"                json:"name,omitempty"`
+	Value        interface{} `bson:"value,omitempty"               json:"value,omitempty"`
 	Type         string      `bson:"type,omitempty"                json:"type,omitempty"`
 	ChoiceOption []string    `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
 }
