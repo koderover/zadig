@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type JenkinsArgs struct {
@@ -137,9 +138,9 @@ func ListJobBuildArgs(jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildAr
 			Type:  paramDefinition.Type,
 		}
 		if paramDefinition.Type == "ChoiceParameterDefinition" {
-			arg.Type = "choice"
+			arg.Type = string(types.Choice)
 		} else {
-			arg.Type = "string"
+			arg.Type = string(types.Str)
 		}
 		jenkinsBuildArgsResp = append(jenkinsBuildArgsResp, arg)
 	}

@@ -110,9 +110,9 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		}
 
 		if moBuild.JenkinsBuild != nil {
-			jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+			jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 			for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-				jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
+				jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
 					Name:         jenkinsBuildParam.Name,
 					Value:        jenkinsBuildParam.Value,
 					Type:         jenkinsBuildParam.Type,
@@ -403,9 +403,9 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			}
 
 			if moBuild.JenkinsBuild != nil {
-				jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+				jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 				for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-					jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
+					jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
 						Name:         jenkinsBuildParam.Name,
 						Value:        jenkinsBuildParam.Value,
 						Type:         jenkinsBuildParam.Type,
@@ -2360,10 +2360,18 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 								ENV_NAME:   taskOpt.EnvName,
 								TASK_ID:    strconv.FormatInt(taskOpt.Task.TaskID, 10),
 							}
-							tm, _ := gotempl.New("jenkins").Parse(rule)
+							tm, err := gotempl.New("jenkins").Parse(rule)
+							if err != nil {
+								log.Errorf("Parse template err:%s", err)
+								return err
+							}
 							var replaceRuleVariable = gotempl.Must(tm, err)
 							payload := bytes.NewBufferString("")
-							_ = replaceRuleVariable.Execute(payload, va)
+							err = replaceRuleVariable.Execute(payload, va)
+							if err != nil {
+								log.Errorf("Execute template err:%s", err)
+								return err
+							}
 							image = GetImage(reg, payload.String())
 						} else {
 							image = GetImage(reg, fmt.Sprintf("%s:%d", t.ServiceName, time.Now().Format("20060102150405")))
@@ -2371,11 +2379,9 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
 						break
-					} else {
-						if value, ok := jenkinsBuildParams.Value.(string); ok {
-							image = value
-							break
-						}
+					} else if value, ok := jenkinsBuildParams.Value.(string); ok {
+						image = value
+						break
 					}
 				}
 				if image == "" || !strings.Contains(image, ":") {

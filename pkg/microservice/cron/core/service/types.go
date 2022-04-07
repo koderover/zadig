@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // ScheduleType 触发模式
@@ -302,15 +303,8 @@ type TargetArgs struct {
 }
 
 type JenkinsBuildArgs struct {
-	JobName            string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParams []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
-}
-
-type JenkinsBuildParam struct {
-	Name         string      `bson:"name,omitempty"                json:"name,omitempty"`
-	Value        interface{} `bson:"value,omitempty"               json:"value,omitempty"`
-	Type         string      `bson:"type,omitempty"                json:"type,omitempty"`
-	ChoiceOption []string    `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
+	JobName            string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParams []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 type BuildArgs struct {

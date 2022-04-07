@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type JenkinsIntegration struct {
@@ -31,16 +32,8 @@ type JenkinsIntegration struct {
 }
 
 type JenkinsBuildArgs struct {
-	JobName            string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParams []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
-}
-
-type JenkinsBuildParam struct {
-	Name         string      `bson:"name,omitempt"                     json:"name,omitempt"`
-	Value        interface{} `bson:"value,omitempt"                    json:"value,omitempt"`
-	Type         string      `bson:"type,omitempty"                    json:"type,omitempty"`
-	AutoGenerate bool        `bson:"auto_generate,omitempty"           json:"auto_generate,omitempty"`
-	ChoiceOption []string    `bson:"choice_option,omitempty"           json:"choice_option,omitempty"`
+	JobName            string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParams []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 // JenkinsBuild ...

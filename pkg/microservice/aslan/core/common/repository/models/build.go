@@ -120,16 +120,8 @@ type DockerBuild struct {
 }
 
 type JenkinsBuild struct {
-	JobName           string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParam []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
-}
-
-type JenkinsBuildParam struct {
-	Name         string      `bson:"name,omitempty"                json:"name,omitempty"`
-	Value        interface{} `bson:"value,omitempty"               json:"value,omitempty"`
-	Type         string      `bson:"type,omitempty"                json:"type,omitempty"`
-	AutoGenerate bool        `bson:"auto_generate,omitempty"       json:"auto_generate,omitempty"`
-	ChoiceOption []string    `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
+	JobName           string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParam []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 type Parameter struct {
