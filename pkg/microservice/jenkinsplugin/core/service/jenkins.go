@@ -148,8 +148,8 @@ func (p *JenkinsPlugin) afterExec(ctx context.Context, jenkinsClient *gojenkins.
 		return err
 	}
 	if jobBuild == nil {
-		log.Errorf("get job fail")
-		return fmt.Errorf("get job fail")
+		log.Errorf("jobBuild is nil")
+		return fmt.Errorf("jobBuild is nil")
 	}
 	p.outputLog(ctx, jobBuild)
 	return nil
