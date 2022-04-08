@@ -382,7 +382,7 @@ func SyncHelmProductRenderset(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.SyncHelmProductEnvironment(projectName, envName)
+	ctx.Err = service.SyncHelmProductEnvironment(projectName, envName, ctx.RequestID, ctx.Logger)
 }
 
 func UpdateHelmProductRenderset(c *gin.Context) {
