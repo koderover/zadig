@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/bndr/gojenkins"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/jenkinsplugin/config"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -146,6 +146,10 @@ func (p *JenkinsPlugin) afterExec(ctx context.Context, jenkinsClient *gojenkins.
 	if err != nil {
 		log.Errorf("get jenkins build detail err:%v", err)
 		return err
+	}
+	if jobBuild == nil {
+		log.Errorf("get job fail")
+		return fmt.Errorf("get job fail")
 	}
 	p.outputLog(ctx, jobBuild)
 	return nil
