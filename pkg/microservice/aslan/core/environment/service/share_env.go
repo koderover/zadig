@@ -899,7 +899,17 @@ func ensureDefaultK8sServiceInGray(ctx context.Context, baseSvc *corev1.Service,
 	svcInGray.Labels = baseSvc.Labels
 	svcInGray.Annotations = baseSvc.Annotations
 	svcInGray.Spec.Selector = baseSvc.Spec.Selector
-	svcInGray.Spec.Ports = baseSvc.Spec.Ports
+
+	ports := make([]corev1.ServicePort, len(baseSvc.Spec.Ports))
+	for i, port := range baseSvc.Spec.Ports {
+		ports[i] = corev1.ServicePort{
+			Name:       port.Name,
+			Protocol:   port.Protocol,
+			Port:       port.Port,
+			TargetPort: port.TargetPort,
+		}
+	}
+	svcInGray.Spec.Ports = ports
 
 	if svcInGray.Labels != nil {
 		svcInGray.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
