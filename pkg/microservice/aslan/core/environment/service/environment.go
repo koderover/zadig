@@ -1409,7 +1409,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 	return ret
 }
 
-func SyncHelmProductEnvironment(productName, envName string) error {
+func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
@@ -1462,8 +1462,7 @@ func SyncHelmProductEnvironment(productName, envName string) error {
 		updatedRcList = append(updatedRcList, updatedRc)
 	}
 
-	logger := log.SugaredLogger()
-	err = UpdateHelmProductVariable(productName, envName, "cron", "000000000000000000", updatedRcList, productRenderset, logger)
+	err = UpdateHelmProductVariable(productName, envName, "cron", requestID, updatedRcList, productRenderset, log)
 	if err != nil {
 		return err
 	}
