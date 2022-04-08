@@ -147,10 +147,6 @@ func (p *JenkinsPlugin) afterExec(ctx context.Context, jenkinsClient *gojenkins.
 		log.Errorf("get jenkins build detail err:%v", err)
 		return err
 	}
-	if jobBuild == nil {
-		log.Errorf("jobBuild is nil")
-		return fmt.Errorf("jobBuild is nil")
-	}
 	p.outputLog(ctx, jobBuild)
 	return nil
 }
@@ -198,5 +194,5 @@ func getBuild(ctx context.Context, buildID int64, jenkins *gojenkins.Jenkins, jo
 	if status == 200 {
 		return &build, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("fail to get build")
 }
