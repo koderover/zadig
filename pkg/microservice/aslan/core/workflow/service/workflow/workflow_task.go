@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/url"
@@ -26,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	gotempl "text/template"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -38,6 +41,7 @@ import (
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -106,11 +110,14 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		}
 
 		if moBuild.JenkinsBuild != nil {
-			jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+			jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 			for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-				jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-					Name:  jenkinsBuildParam.Name,
-					Value: jenkinsBuildParam.Value,
+				jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+					Name:         jenkinsBuildParam.Name,
+					Value:        jenkinsBuildParam.Value,
+					Type:         jenkinsBuildParam.Type,
+					ChoiceOption: jenkinsBuildParam.ChoiceOption,
+					AutoGenerate: jenkinsBuildParam.AutoGenerate,
 				})
 			}
 			target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -396,11 +403,14 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			}
 
 			if moBuild.JenkinsBuild != nil {
-				jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+				jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 				for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-					jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-						Name:  jenkinsBuildParam.Name,
-						Value: jenkinsBuildParam.Value,
+					jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+						Name:         jenkinsBuildParam.Name,
+						Value:        jenkinsBuildParam.Value,
+						Type:         jenkinsBuildParam.Type,
+						ChoiceOption: jenkinsBuildParam.ChoiceOption,
+						AutoGenerate: jenkinsBuildParam.AutoGenerate,
 					})
 				}
 				target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -629,6 +639,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
+						args.ProductTmplName,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -706,7 +717,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			}
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
-
 		for _, stask := range task.SubTasks {
 			AddSubtaskToStage(&stages, stask, target.Name+"_"+target.ServiceName)
 		}
@@ -1056,6 +1066,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				}
 				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
 					distributeTasks, err = formatDistributeSubtasks(
+						args.ProductTmplName,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1362,16 +1373,43 @@ func artifactToSubTasks(name, image string) (map[string]interface{}, error) {
 	return artifactTask.ToSubTask()
 }
 
-func formatDistributeSubtasks(releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
+func formatDistributeSubtasks(productName string, releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
 	var resp []map[string]interface{}
 
 	if distribute.ImageDistribute {
 		t := taskmodels.ReleaseImage{
-			TaskType:  config.TaskReleaseImage,
-			Enabled:   true,
-			ImageRepo: imageRepo,
-			Releases:  releaseImages,
+			TaskType:    config.TaskReleaseImage,
+			Enabled:     true,
+			ProductName: productName,
 		}
+		// get product Info for further use
+		productInfo, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			return nil, err
+		}
+		distributeInfo := make([]*taskmodels.DistributeInfo, 0)
+		// now we add distributeInfo in
+		for _, repoInfo := range releaseImages {
+			envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+				EnvName: repoInfo.DeployEnv,
+				Name:    productName,
+			})
+			if err != nil {
+				return nil, err
+			}
+			distributeInfo = append(distributeInfo, &taskmodels.DistributeInfo{
+				DeployEnabled:     repoInfo.DeployEnabled,
+				DeployEnv:         repoInfo.DeployEnv,
+				DeployServiceType: productInfo.ProductFeature.DeployType,
+				DeployClusterID:   envInfo.ClusterID,
+				DeployNamespace:   envInfo.Namespace,
+				RepoID:            repoInfo.RepoID,
+			})
+		}
+		t.DistributeInfo = distributeInfo
+		t.Releases = releaseImages
+
+		// convert to subtask
 		subtask, err := t.ToSubTask()
 		if err != nil {
 			return resp, err
@@ -1722,6 +1760,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
+						args.ProductTmplName,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -2043,6 +2082,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				ssh.Name = latestKeyInfo.Name
 				ssh.UserName = latestKeyInfo.UserName
 				ssh.IP = latestKeyInfo.IP
+				ssh.Port = latestKeyInfo.Port
+				if ssh.Port == 0 {
+					ssh.Port = setting.PMHostDefaultPort
+				}
 				ssh.PrivateKey = latestKeyInfo.PrivateKey
 
 				privateKeys = append(privateKeys, ssh)
@@ -2056,6 +2099,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				Name:       privateKey.Name,
 				UserName:   privateKey.UserName,
 				IP:         privateKey.IP,
+				Port:       privateKey.Port,
 				PrivateKey: privateKey.PrivateKey,
 			})
 		}
@@ -2106,6 +2150,26 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 
 		if module.PostBuild != nil && module.PostBuild.Scripts != "" {
 			build.JobCtx.PostScripts = module.PostBuild.Scripts
+		}
+
+		if module.PostBuild != nil && module.PostBuild.ObjectStorageUpload != nil {
+			build.JobCtx.UploadEnabled = module.PostBuild.ObjectStorageUpload.Enabled
+			if module.PostBuild.ObjectStorageUpload.Enabled {
+				storageInfo, err := commonrepo.NewS3StorageColl().Find(module.PostBuild.ObjectStorageUpload.ObjectStorageID)
+				if err != nil {
+					log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
+					return nil, err
+				}
+				build.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
+					Endpoint: storageInfo.Endpoint,
+					AK:       storageInfo.Ak,
+					SK:       storageInfo.Sk,
+					Bucket:   storageInfo.Bucket,
+					Insecure: storageInfo.Insecure,
+					Provider: storageInfo.Provider,
+				}
+				build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
+			}
 		}
 
 		build.JobCtx.Caches = module.Caches
@@ -2202,7 +2266,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
 				exitedProd, err := commonrepo.NewProductColl().Find(opt)
 				if err != nil {
-					log.Errorf("can't find product by envName:%s error msg: %v", taskOpt.EnvName, err)
+					log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
@@ -2216,14 +2280,14 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				if len(exitedProd.RegistryID) > 0 {
 					reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
-						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
 					reg, _, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
-						log.Errorf("can't find default candidate registry: %v", err)
+						log.Errorf("can't find default candidate registry: %s", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				}
@@ -2308,22 +2372,82 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 			if t.Enabled {
 				// 分析镜像名称
 				image := ""
-				for _, jenkinsBuildParams := range t.JenkinsBuildArgs.JenkinsBuildParams {
+				for i, jenkinsBuildParams := range t.JenkinsBuildArgs.JenkinsBuildParams {
 					if jenkinsBuildParams.Name != "IMAGE" {
 						continue
 					}
-					if value, ok := jenkinsBuildParams.Value.(string); ok {
+
+					if jenkinsBuildParams.AutoGenerate {
+						opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
+						exitedProd, err := commonrepo.NewProductColl().Find(opt)
+						if err != nil {
+							log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
+							return e.ErrFindRegistry.AddDesc(err.Error())
+						}
+
+						var reg *commonmodels.RegistryNamespace
+						if len(exitedProd.RegistryID) > 0 {
+							reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+							if err != nil {
+								log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
+									exitedProd.RegistryID, err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						} else {
+							reg, _, err = commonservice.FindDefaultRegistry(true, log)
+							if err != nil {
+								log.Errorf("can't find default candidate registry: %s", err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						}
+						project, err := templaterepo.NewProductColl().Find(taskOpt.Task.ProductName)
+						if err != nil {
+							log.Errorf("find project err:%s", err)
+							return err
+						}
+						rule := project.CustomImageRule.JenkinsRule
+						if rule != "" {
+							va := commonservice.Variable{
+								SERVICE:    t.ServiceName,
+								TIMESTAMP:  time.Now().Format("20060102150405"),
+								IMAGE_NAME: taskOpt.ImageName,
+								PROJECT:    taskOpt.Task.ProductName,
+								ENV_NAME:   taskOpt.EnvName,
+								TASK_ID:    strconv.FormatInt(taskOpt.Task.TaskID, 10),
+							}
+							tm, err := gotempl.New("jenkins").Parse(rule)
+							if err != nil {
+								log.Errorf("Parse template err:%s", err)
+								return err
+							}
+							var replaceRuleVariable = gotempl.Must(tm, err)
+							payload := bytes.NewBufferString("")
+							err = replaceRuleVariable.Execute(payload, va)
+							if err != nil {
+								log.Errorf("Execute template err:%s", err)
+								return err
+							}
+							image = GetImage(reg, payload.String())
+						} else {
+							image = GetImage(reg, fmt.Sprintf("%s:%d", t.ServiceName, time.Now().Format("20060102150405")))
+						}
+
+						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
+						break
+					} else if value, ok := jenkinsBuildParams.Value.(string); ok {
 						image = value
 						break
 					}
 				}
-
 				if image == "" || !strings.Contains(image, ":") {
 					return &ImageIllegal{}
 				}
 
 				taskOpt.Task.TaskArgs.Deploy.Image = image
 				t.Image = image
+				if taskOpt.IsWorkflowTask {
+					t.ServiceName = t.ServiceName + "_" + t.Service
+				}
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
@@ -2429,7 +2553,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 			if t.Enabled {
 				t.SetNamespace(taskOpt.Task.TaskArgs.Deploy.Namespace)
-				image, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
+				image, err := getImageInfoFromWorkload(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
 				if err != nil {
 					log.Error(err)
 					return err
@@ -2458,12 +2582,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				containerName := t.ContainerName
 				if taskOpt.IsWorkflowTask {
 					containerName = strings.TrimSuffix(containerName, "_"+t.ServiceName)
-				}
-
-				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, containerName)
-				if err != nil {
-					log.Error(err)
-					return err
 				}
 
 				// Task creator can be webhook trigger or cronjob trigger or validated user
@@ -2561,15 +2679,39 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					}
 				}
 
+				var distributes []*taskmodels.DistributeInfo
+				for _, distribute := range t.DistributeInfo {
+					d := &taskmodels.DistributeInfo{
+						DeployEnabled:       distribute.DeployEnabled,
+						DeployEnv:           distribute.DeployEnv,
+						DeployNamespace:     distribute.DeployNamespace,
+						DeployContainerName: taskOpt.Task.ServiceName, // This is a match for target.Name
+						DeployServiceName:   taskOpt.ServiceName,      // this is a match for target.ServiceName
+						DeployServiceType:   distribute.DeployServiceType,
+						DeployClusterID:     distribute.DeployClusterID,
+						RepoID:              distribute.RepoID,
+					}
+					if v, ok := taskOpt.Task.ConfigPayload.RepoConfigs[distribute.RepoID]; ok {
+						d.Image = util.ReplaceRepo(taskOpt.Task.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)
+					}
+					distributes = append(distributes, d)
+				}
+
 				t.Releases = repos
+				t.DistributeInfo = distributes
 				if len(t.Releases) == 0 {
 					t.Enabled = false
 				} else {
 					t.ImageRelease = t.Releases[0].Name
 				}
 
+				if len(t.DistributeInfo) == 0 {
+					t.Enabled = false
+				}
+
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
+					log.Errorf("release task to subtask error: %s", err)
 					return err
 				}
 			}

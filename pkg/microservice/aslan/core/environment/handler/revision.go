@@ -28,8 +28,9 @@ func ListProductsRevision(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	// trigger by cron service
 	trigger := c.Query("basicFacility")
-	if trigger != "" {
-		ctx.Resp, ctx.Err = service.ListProductsRevisionByFacility(c.Query("basicFacility"), ctx.Logger)
+	deployType := c.Query("deployType")
+	if trigger != "" || deployType != "" {
+		ctx.Resp, ctx.Err = service.ListProductsRevisionByOption(trigger, deployType, ctx.Logger)
 		return
 	}
 	ctx.Resp, ctx.Err = service.ListProductsRevision(c.Query("projectName"), c.Query("envName"), ctx.Logger)

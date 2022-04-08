@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 const (
@@ -266,11 +267,7 @@ func getPipelineSelector(options *GetContainerOptions) labels.Selector {
 	ret[setting.TypeLabel] = options.SubTask
 
 	if options.ServiceName != "" {
-		serviceKey := options.ServiceName
-		if len(serviceKey) > 63 {
-			serviceKey = serviceKey[:63]
-		}
-		ret[setting.ServiceLabel] = strings.ToLower(serviceKey)
+		ret[setting.ServiceLabel] = strings.ToLower(util.ReturnValidLabelValue(options.ServiceName))
 	}
 
 	if options.PipelineType != "" {

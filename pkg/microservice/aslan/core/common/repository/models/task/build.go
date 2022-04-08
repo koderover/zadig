@@ -168,6 +168,11 @@ type JobCtx struct {
 	ClassicBuild    bool   `bson:"classic_build"                  json:"classic_build"`
 	PostScripts     string `bson:"post_scripts,omitempty"         json:"post_scripts"`
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
+
+	// Upload To S3 related context
+	UploadEnabled     bool                             `bson:"upload_enabled"      json:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `bson:"upload_storage_info" json:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `bson:"upload_info"         json:"upload_info"`
 }
 
 type BuildStep struct {
@@ -181,6 +186,7 @@ type SSH struct {
 	Name       string `json:"name"`
 	UserName   string `json:"user_name"`
 	IP         string `json:"ip"`
+	Port       int64  `json:"port"`
 	IsProd     bool   `json:"is_prod"`
 	Label      string `json:"label"`
 	PrivateKey string `json:"private_key"`

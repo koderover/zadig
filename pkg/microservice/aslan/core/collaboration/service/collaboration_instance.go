@@ -877,7 +877,7 @@ func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projec
 	log *zap.SugaredLogger) (err error) {
 	deleteResp := getCollaborationDelete(updateResp)
 	for _, product := range deleteResp.Products {
-		err := commonservice.DeleteProduct(username, product, projectName, requestID, log)
+		err := service2.DeleteProduct(username, product, projectName, requestID, log)
 		if err != nil && err != mongo.ErrNoDocuments {
 			log.Errorf("delete product err:%v", err)
 			return err
@@ -1291,7 +1291,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 		}
 		for _, product := range ci.Products {
 			if product.CollaborationType == config.CollaborationNew {
-				err = commonservice.DeleteProduct(userName, product.Name, ci.ProjectName, requestID, logger)
+				err = service2.DeleteProduct(userName, product.Name, ci.ProjectName, requestID, logger)
 				if err != nil {
 					return err
 				}

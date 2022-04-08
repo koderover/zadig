@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -48,12 +49,20 @@ type KVPair struct {
 	Value interface{} `json:"value"`
 }
 
+type ValuesDataArgs struct {
+	YamlSource    string      `json:"yamlSource,omitempty"`
+	AutoSync      bool        `json:"autoSync,omitempty"`
+	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
+}
+
 type RenderChartArg struct {
-	EnvName        string    `json:"envName,omitempty"`
-	ServiceName    string    `json:"serviceName,omitempty"`
-	ChartVersion   string    `json:"chartVersion,omitempty"`
-	OverrideValues []*KVPair `json:"overrideValues,omitempty"`
-	OverrideYaml   string    `json:"overrideYaml,omitempty"`
+	EnvName        string                     `json:"envName,omitempty"`
+	ServiceName    string                     `json:"serviceName,omitempty"`
+	ChartVersion   string                     `json:"chartVersion,omitempty"`
+	OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
+	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
+	ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
+	YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
 
 func (args *RenderChartArg) ToOverrideValueString() string {
@@ -83,9 +92,28 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 
 func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 	if len(args.OverrideYaml) > 0 {
-		return &templatemodels.CustomYaml{
+		ret := &templatemodels.CustomYaml{
 			YamlContent: args.OverrideYaml,
 		}
+		if args.ValuesData != nil {
+			ret.Source = args.ValuesData.YamlSource
+			ret.AutoSync = args.ValuesData.AutoSync
+			if args.ValuesData.GitRepoConfig != nil {
+				repoData := &models.CreateFromRepo{
+					GitRepoConfig: &templatemodels.GitRepoConfig{
+						CodehostID: args.ValuesData.GitRepoConfig.CodehostID,
+						Owner:      args.ValuesData.GitRepoConfig.Owner,
+						Repo:       args.ValuesData.GitRepoConfig.Repo,
+						Branch:     args.ValuesData.GitRepoConfig.Branch,
+					},
+				}
+				if len(args.ValuesData.GitRepoConfig.ValuesPaths) > 0 {
+					repoData.LoadPath = args.ValuesData.GitRepoConfig.ValuesPaths[0]
+				}
+				ret.SourceDetail = repoData
+			}
+		}
+		return ret
 	}
 	return nil
 }

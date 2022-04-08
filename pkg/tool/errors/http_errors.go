@@ -193,6 +193,10 @@ var (
 	ErrUpdateService = NewHTTPError(6092, "更新服务失败")
 	// ErrListPodEvents ...
 	ErrListPodEvents = NewHTTPError(6093, "列出服务事件失败")
+	// ErrLoginPm ...
+	ErrLoginPm = NewHTTPError(6099, "登陆主机失败")
+
+	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
 
 	//-----------------------------------------------------------------------------------------------
 	// it report APIs Range: 6100 - 6199

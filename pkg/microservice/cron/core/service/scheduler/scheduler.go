@@ -38,15 +38,17 @@ import (
 
 // CronClient ...
 type CronClient struct {
-	AslanCli              *client.Client
-	CollieCli             *client.CollieClient
-	Schedulers            map[string]*gocron.Scheduler
-	SchedulerController   map[string]chan bool
-	lastSchedulers        map[string][]*service.Schedule
-	lastServiceSchedulers map[string]*service.SvcRevision
-	enabledMap            map[string]bool
-	lastProductRevisions  []*service.ProductRevision
-	log                   *zap.SugaredLogger
+	AslanCli                 *client.Client
+	CollieCli                *client.CollieClient
+	Schedulers               map[string]*gocron.Scheduler
+	SchedulerController      map[string]chan bool
+	lastSchedulers           map[string][]*service.Schedule
+	lastServiceSchedulers    map[string]*service.SvcRevision
+	lastEnvSchedulerData     map[string]*service.ProductResp
+	enabledMap               map[string]bool
+	lastPMProductRevisions   []*service.ProductRevision
+	lastHelmProductRevisions []*service.ProductRevision
+	log                      *zap.SugaredLogger
 }
 
 const (
@@ -72,6 +74,10 @@ const (
 	SystemCapacityGC = "SystemCapacityGC"
 
 	InitHealthCheckScheduler = "InitHealthCheckScheduler"
+
+	InitHealthCheckPmHostScheduler = "InitHealthCheckPmHostScheduler"
+
+	InitHelmEnvSyncValuesScheduler = "InitHelmEnvSyncValuesScheduler"
 )
 
 // NewCronClient ...
@@ -120,6 +126,7 @@ func NewCronClient() *CronClient {
 		Schedulers:            make(map[string]*gocron.Scheduler),
 		lastSchedulers:        make(map[string][]*service.Schedule),
 		lastServiceSchedulers: make(map[string]*service.SvcRevision),
+		lastEnvSchedulerData:  make(map[string]*service.ProductResp),
 		SchedulerController:   make(map[string]chan bool),
 		enabledMap:            make(map[string]bool),
 		log:                   log.SugaredLogger(),
@@ -155,6 +162,10 @@ func (c *CronClient) Init() {
 	c.InitPullSonarStatScheduler()
 	// 定时初始化健康检查
 	c.InitHealthCheckScheduler()
+	// Timing probe host status
+	c.InitHealthCheckPmHostScheduler()
+	// sync values from remote for helm envs at regular intervals
+	c.InitHelmEnvSyncValuesScheduler()
 }
 
 func (c *CronClient) InitCleanJobScheduler() {
@@ -253,4 +264,22 @@ func (c *CronClient) InitHealthCheckScheduler() {
 	c.Schedulers[InitHealthCheckScheduler].Every(10).Seconds().Do(c.UpsertEnvServiceScheduler, c.log)
 
 	c.Schedulers[InitHealthCheckScheduler].Start()
+}
+
+func (c *CronClient) InitHealthCheckPmHostScheduler() {
+
+	c.Schedulers[InitHealthCheckPmHostScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[InitHealthCheckPmHostScheduler].Every(10).Seconds().Do(c.UpdatePmHostStatusScheduler, c.log)
+
+	c.Schedulers[InitHealthCheckPmHostScheduler].Start()
+}
+
+func (c *CronClient) InitHelmEnvSyncValuesScheduler() {
+
+	c.Schedulers[InitHelmEnvSyncValuesScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[InitHelmEnvSyncValuesScheduler].Every(20).Seconds().Do(c.UpsertEnvValueSyncScheduler, c.log)
+
+	c.Schedulers[InitHelmEnvSyncValuesScheduler].Start()
 }

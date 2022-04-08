@@ -25,11 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
 func DeleteConfigMaps(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
 	deletePolicy := metav1.DeletePropagationForeground
-	return clientset.CoreV1().ConfigMaps(namespace).DeleteCollection(
+	err := clientset.CoreV1().ConfigMaps(namespace).DeleteCollection(
 		context.TODO(),
 		metav1.DeleteOptions{
 			PropagationPolicy: &deletePolicy,
@@ -38,6 +40,8 @@ func DeleteConfigMaps(namespace string, selector labels.Selector, clientset *kub
 			LabelSelector: selector.String(),
 		},
 	)
+
+	return util.IgnoreNotFoundError(err)
 }
 
 func UpdateConfigMap(namespace string, cm *corev1.ConfigMap, clientset *kubernetes.Clientset) error {
