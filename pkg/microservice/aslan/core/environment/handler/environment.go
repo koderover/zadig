@@ -520,7 +520,6 @@ func DeleteProductServices(c *gin.Context) {
 
 	// For environment sharing, if the environment is the base environment and the service to be deleted has been deployed in the subenvironment,
 	// we should prompt the user that `Delete the service in the subenvironment before deleting the service in the base environment`.
-	// servicesInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c)
 	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectName, envName, args.ServiceNames)
 	if err != nil {
 		ctx.Err = err
