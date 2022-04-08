@@ -105,10 +105,6 @@ var publicURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/environment/environments/?*/check/sharenv/disable/ready"},
 	},
 	{
-		Methods:   []string{"POST", "DELETE"},
-		Endpoints: []string{"api/aslan/environment/environments/?*/share/enable"},
-	},
-	{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/aslan/service/services/?*/environments/deployable"},
 	},
