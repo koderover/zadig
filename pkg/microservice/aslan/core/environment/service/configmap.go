@@ -396,8 +396,9 @@ func cleanArchiveConfigMap(namespace string, ls map[string]string, kubeClient cl
 type MigrateHistoryConfigMapsRes struct {
 }
 
-func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogger) (*MigrateHistoryConfigMapsRes, error) {
+func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogger) ([]*models.EnvConfigMap, error) {
 
+	res := make([]*models.EnvConfigMap, 0)
 	products := make([]*models.Product, 0)
 	var err error
 	if productName != "" {
@@ -427,7 +428,7 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 		if err != nil {
 			return nil, e.ErrListResources.AddErr(err)
 		}
-	LB:
+
 		for _, cm := range cms {
 			cmNames := strings.Split(cm.Name, "-bak-")
 			cmName := cmNames[0]
@@ -438,7 +439,7 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 				Name:        cmName,
 			}
 			cmLables := cm.GetLabels()
-			if _, ok := cmLables[setting.UpdateTime]; !ok {
+			if _, ok := cmLables[setting.UpdateTime]; ok {
 				tm, err := time.Parse("20060102150405", cmLables[setting.UpdateTime])
 				if err != nil {
 					return nil, e.ErrListResources.AddErr(err)
@@ -450,6 +451,7 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 			delete(cmLables, setting.ConfigBackupLabel)
 			cm.SetLabels(cmLables)
 			cm.SetManagedFields(nil)
+			cm.SetResourceVersion("")
 			cm.SetAnnotations(make(map[string]string))
 			cm.SetName(cmName)
 
@@ -459,28 +461,12 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 				return nil, e.ErrListResources.AddDesc(err.Error())
 			}
 			envCm.YamlData = string(yamlData)
-
-			opt := &commonrepo.ListEnvCfgOption{
-				ProductName: product.ProductName,
-				EnvName:     product.EnvName,
-				Namespace:   product.Namespace,
-				Name:        cmName,
-			}
-			envCfgsOlder, err := commonrepo.NewConfigMapColl().List(opt)
-			if err != nil && commonrepo.IsErrNoDocuments(err) {
-				return nil, e.ErrListResources.AddErr(err)
-			}
-			for _, cfg := range envCfgsOlder {
-				if envCm.CreateTime == cfg.CreateTime {
-					continue LB
-				}
-			}
-
 			err = commonrepo.NewConfigMapColl().Create(envCm, false)
 			if err != nil {
 				return nil, e.ErrListResources.AddErr(err)
 			}
+			res = append(res, envCm)
 		}
 	}
-	return nil, nil
+	return res, nil
 }
