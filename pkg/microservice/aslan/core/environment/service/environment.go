@@ -1463,16 +1463,11 @@ func SyncHelmProductEnvironment(productName, envName string) error {
 	}
 
 	logger := log.SugaredLogger()
-	err = UpdateHelmProductVariable(productName, envName, "timer", "000000000000000000", updatedRcList, productRenderset, logger)
+	err = UpdateHelmProductVariable(productName, envName, "cron", "000000000000000000", updatedRcList, productRenderset, logger)
 	if err != nil {
 		return err
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
-	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
-		return err
-	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, kubeClient, logger)
+	return err
 }
 
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
