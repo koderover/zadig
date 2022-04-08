@@ -92,7 +92,6 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/callback"},
 	},
-	// !!! THE FOLLOWING IS FOR DEBUG.
 	{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/aslan/environment/environments/?*/check/workloads/k8services"},
