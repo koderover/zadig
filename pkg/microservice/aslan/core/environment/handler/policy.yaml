@@ -93,10 +93,16 @@ rules:
         endpoint: "/api/environment/environments/?*/share/enable"
         resourceType: "Environment"
         idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: DELETE
         endpoint: "/api/environment/environments/?*/share/enable"
         resourceType: "Environment"
         idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
