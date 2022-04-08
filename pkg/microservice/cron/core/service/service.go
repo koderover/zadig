@@ -17,9 +17,9 @@ limitations under the License.
 package service
 
 import (
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
