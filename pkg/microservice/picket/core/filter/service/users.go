@@ -39,9 +39,10 @@ func DeleteUser(userID string, header http.Header, qs url.Values, _ *zap.Sugared
 	return policy.New().DeleteRoleBindings(userID, header, qs)
 }
 
-func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, _ *zap.SugaredLogger) (*UsersResp, error) {
+func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *zap.SugaredLogger) (*UsersResp, error) {
 	users, err := user.New().SearchUsers(header, qs, args)
 	if err != nil {
+		log.Errorf("search users err :%s", err)
 		return nil, err
 	}
 	tmpUids := []string{}
@@ -50,6 +51,7 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, _ *za
 	}
 	systemMap, err := policy.New().SearchSystemUsers(tmpUids)
 	if err != nil {
+		log.Errorf("search system user bindings err :%s", err)
 		return nil, err
 	}
 
@@ -67,7 +69,6 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, _ *za
 			Phone:         user.Phone,
 			Account:       user.Account,
 			APIToken:      user.APIToken,
-			RoleBindings:  nil,
 		}
 		if rb, ok := systemMap[user.Uid]; ok {
 			userInfo.RoleBindings = rb
@@ -92,5 +93,5 @@ type UserInfo struct {
 	Phone         string                 `json:"phone"`
 	Account       string                 `json:"account"`
 	APIToken      string                 `json:"token"`
-	RoleBindings  []*service.RoleBinding `json:"role_bindings"`
+	RoleBindings  []*service.RoleBinding `json:"system_role_bindings"`
 }

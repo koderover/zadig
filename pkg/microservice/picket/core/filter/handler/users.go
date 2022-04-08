@@ -39,6 +39,7 @@ func SearchUsers(c *gin.Context) {
 	req := &user.SearchArgs{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Logger.Errorf("bindjson err :%s", err)
 		ctx.Err = err
 		return
 	}
