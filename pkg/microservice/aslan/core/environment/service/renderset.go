@@ -24,13 +24,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type DefaultValuesResp struct {
-	DefaultValues string `json:"defaultValues"`
+	DefaultValues string                     `json:"defaultValues"`
+	YamlData      *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
 
 type YamlContentRequestArg struct {
@@ -74,6 +76,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	ret.DefaultValues = rendersetObj.DefaultValues
+	ret.YamlData = rendersetObj.YamlData
 	return ret, nil
 }
 

@@ -46,10 +46,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -149,6 +149,7 @@ type EnvRenderChartArg struct {
 
 type EnvRendersetArg struct {
 	DefaultValues string                          `json:"defaultValues"`
+	ValuesData    *commonservice.ValuesDataArgs   `json:"valuesData"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 }
 
@@ -158,6 +159,7 @@ type CreateHelmProductArg struct {
 	Namespace     string                          `json:"namespace"`
 	ClusterID     string                          `json:"clusterID"`
 	DefaultValues string                          `json:"defaultValues"`
+	ValuesData    *commonservice.ValuesDataArgs   `json:"valuesData"`
 	RegistryID    string                          `json:"registry_id"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 	BaseEnvName   string                          `json:"baseEnvName"`
@@ -931,6 +933,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 			UpdateBy:      userName,
 			IsDefault:     false,
 			DefaultValues: defaultValuesYaml,
+			YamlData:      geneYamlData(arg.ValuesData),
 			ChartInfos:    productObj.ChartInfos,
 		}, log)
 		if err != nil {
@@ -1111,9 +1114,6 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 		}
 	}
 
-	// default values
-	defaultValuesYaml := arg.DefaultValues
-
 	// insert renderset info into db
 	if len(productInfo.ChartInfos) > 0 {
 		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
@@ -1122,7 +1122,8 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 			ProductTmpl:   arg.ProductName,
 			UpdateBy:      userName,
 			IsDefault:     false,
-			DefaultValues: defaultValuesYaml,
+			DefaultValues: arg.DefaultValues,
+			YamlData:      geneYamlData(arg.ValuesData),
 			ChartInfos:    productInfo.ChartInfos,
 		}, log)
 		if err != nil {
@@ -1357,6 +1358,32 @@ func checkOverrideValuesChange(source *templatemodels.RenderChart, args *commons
 	return false
 }
 
+func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml {
+	if args == nil {
+		return nil
+	}
+	var repoData *models.CreateFromRepo = nil
+	if args.GitRepoConfig != nil {
+		repoData = &models.CreateFromRepo{
+			GitRepoConfig: &templatemodels.GitRepoConfig{
+				CodehostID: args.GitRepoConfig.CodehostID,
+				Owner:      args.GitRepoConfig.Owner,
+				Repo:       args.GitRepoConfig.Repo,
+				Branch:     args.GitRepoConfig.Branch,
+			},
+		}
+		if len(args.GitRepoConfig.ValuesPaths) > 0 {
+			repoData.LoadPath = args.GitRepoConfig.ValuesPaths[0]
+		}
+	}
+	ret := &templatemodels.CustomYaml{
+		Source:       args.YamlSource,
+		AutoSync:     args.AutoSync,
+		SourceDetail: repoData,
+	}
+	return ret
+}
+
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -1386,6 +1413,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		}
 		productRenderset.DefaultValues = args.DefaultValues
 	}
+	productRenderset.YamlData = geneYamlData(args.ValuesData)
 
 	for _, requestRenderChart := range args.ChartValues {
 		// update renderset info
@@ -1394,6 +1422,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 				continue
 			}
 			if !checkOverrideValuesChange(curRenderChart, requestRenderChart) {
+				requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
 				continue
 			}
 			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
@@ -1438,6 +1467,7 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 			ProductTmpl:   productName,
 			UpdateBy:      username,
 			DefaultValues: renderset.DefaultValues,
+			YamlData:      renderset.YamlData,
 			ChartInfos:    renderset.ChartInfos,
 		},
 		log,
@@ -2639,11 +2669,10 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			// 获取服务详情
 			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   svc.ServiceName,
-				Type:          svc.Type,
-				Revision:      svc.Revision,
-				ProductName:   args.ProductName,
-				ExcludeStatus: setting.ProductStatusDeleting,
+				ServiceName: svc.ServiceName,
+				Type:        svc.Type,
+				Revision:    svc.Revision,
+				ProductName: args.ProductName,
 			}
 			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
@@ -2905,6 +2934,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 
 	newChartInfos := make([]*templatemodels.RenderChart, 0)
 	defaultValues := ""
+	var yamlData *templatemodels.CustomYaml
 	switch updateType {
 	case UpdateTypeSystem:
 		for _, serviceNameGroup := range productTemp.Services {
@@ -2922,6 +2952,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			return nil, err
 		}
 		defaultValues = currentEnvRenderSet.DefaultValues
+		yamlData = currentEnvRenderSet.YamlData
 
 		// 环境里面的变量
 		currentEnvRenderSetMap := make(map[string]*templatemodels.RenderChart)
@@ -3007,6 +3038,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			ProductTmpl:   productName,
 			ChartInfos:    newChartInfos,
 			DefaultValues: defaultValues,
+			YamlData:      yamlData,
 			UpdateBy:      username,
 		},
 		log,
