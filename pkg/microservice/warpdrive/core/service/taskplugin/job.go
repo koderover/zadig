@@ -227,15 +227,19 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
 		UploadEnabled:   b.JobCtx.UploadEnabled,
-		UploadStorageInfo: &commontypes.ObjectStorageInfo{
+		UploadInfo:      b.JobCtx.UploadInfo,
+	}
+
+	// Currently only the build stage will have this info. For the rest we will skip this context
+	if b.JobCtx.UploadStorageInfo != nil {
+		ctx.UploadStorageInfo = &commontypes.ObjectStorageInfo{
 			Endpoint: b.JobCtx.UploadStorageInfo.Endpoint,
 			AK:       b.JobCtx.UploadStorageInfo.AK,
 			SK:       b.JobCtx.UploadStorageInfo.SK,
 			Bucket:   b.JobCtx.UploadStorageInfo.Bucket,
 			Insecure: b.JobCtx.UploadStorageInfo.Insecure,
 			Provider: b.JobCtx.UploadStorageInfo.Provider,
-		},
-		UploadInfo: b.JobCtx.UploadInfo,
+		}
 	}
 
 	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
