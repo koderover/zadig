@@ -19,6 +19,7 @@ package getter
 import (
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
@@ -59,4 +60,27 @@ func ListIngressesYaml(ns string, selector labels.Selector, cl client.Client) ([
 		Version: "v1beta1",
 	}
 	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
+}
+
+func ListIngresses(namespace string, cl client.Client, lessThan122 bool) (*unstructured.UnstructuredList, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "extensions",
+		Kind:    "Ingress",
+		Version: "v1beta1",
+	}
+	if !lessThan122 {
+		gvk = schema.GroupVersionKind{
+			Group:   "networking.k8s.io",
+			Kind:    "Ingress",
+			Version: "v1",
+		}
+	}
+	u := &unstructured.UnstructuredList{}
+	u.SetGroupVersionKind(gvk)
+
+	err := ListResourceInCache(namespace, labels.Everything(), nil, u, cl)
+	if err != nil {
+		return u, err
+	}
+	return u, err
 }

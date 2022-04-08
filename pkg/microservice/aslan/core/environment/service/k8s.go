@@ -291,3 +291,7 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 
 	return nil
 }
+
+func (k *K8sService) initEnvConfigSet(envName, productName, userName string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+	return initEnvConfigSetAction(envName, productName, userName, envConfigYamls, inf, kubeClient)
+}

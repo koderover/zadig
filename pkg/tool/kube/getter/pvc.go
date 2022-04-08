@@ -18,29 +18,20 @@ package getter
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetSecret(ns, name string, cl client.Client) (*corev1.Secret, bool, error) {
-	svc := &corev1.Secret{}
-	found, err := GetResourceInCache(ns, name, svc, cl)
-	if err != nil || !found {
-		svc = nil
-	}
-
-	return svc, found, err
-}
-
-func ListSecrets(ns string, cl client.Client) ([]*corev1.Secret, error) {
-	l := &corev1.SecretList{}
-	err := ListResourceInCache(ns, nil, nil, l, cl)
+func ListPvcs(ns string, selector fields.Selector, cl client.Reader) ([]*corev1.PersistentVolumeClaim, error) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	err := ListResourceInCache(ns, nil, selector, pvcList, cl)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*corev1.Secret
-	for i := range l.Items {
-		res = append(res, &l.Items[i])
+	var res []*corev1.PersistentVolumeClaim
+	for i := range pvcList.Items {
+		res = append(res, &pvcList.Items[i])
 	}
 	return res, err
 }

@@ -44,6 +44,7 @@ type ProductFindOptions struct {
 type ProductListOptions struct {
 	EnvName             string
 	Name                string
+	Namespace           string
 	IsPublic            bool
 	ClusterID           string
 	IsSortByUpdateTime  bool
@@ -209,6 +210,9 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	}
 	if opt.Name != "" {
 		query["product_name"] = opt.Name
+	}
+	if opt.Namespace != "" {
+		query["namespace"] = opt.Namespace
 	}
 	if opt.IsPublic {
 		query["is_public"] = opt.IsPublic
