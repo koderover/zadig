@@ -28,6 +28,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
@@ -161,11 +162,12 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	jenkinsBuildParams := make([]*task.JenkinsBuildParam, 0)
+	jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 	for _, jenkinsBuildParam := range jenkinsBuildOption.JenkinsBuildArgs.JenkinsBuildParams {
-		jenkinsBuildParams = append(jenkinsBuildParams, &task.JenkinsBuildParam{
-			Name:  jenkinsBuildParam.Name,
-			Value: jenkinsBuildParam.Value,
+		jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+			Name:         jenkinsBuildParam.Name,
+			Value:        jenkinsBuildParam.Value,
+			AutoGenerate: jenkinsBuildParam.AutoGenerate,
 		})
 	}
 

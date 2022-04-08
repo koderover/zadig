@@ -207,6 +207,35 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 	return err
 }
 
+func (c *Client) GetFile(bucketName, objectKey string, option *DownloadOption) (*s3.GetObjectOutput, error) {
+	retry := 0
+	var err error
+
+	for retry < option.RetryNum {
+		opt := &s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(objectKey),
+		}
+		obj, err1 := c.GetObject(opt)
+		if err1 != nil {
+			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
+				if option.IgnoreNotExistError {
+					return nil, nil
+				}
+				return nil, err1
+			}
+
+			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
+			err = err1
+			retry++
+			continue
+		}
+
+		return obj, nil
+	}
+	return nil, err
+}
+
 // ListFiles with given prefix
 func (c *Client) ListFiles(bucketName, prefix string, recursive bool) ([]string, error) {
 	ret := make([]string, 0)
