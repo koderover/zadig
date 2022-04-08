@@ -221,3 +221,12 @@ const (
 	RoleBindingNameEdit = setting.ProductName + "-edit"
 	RoleBindingNameView = setting.ProductName + "-view"
 )
+
+type CommonEnvCfgType string
+
+const (
+	CommonEnvCfgTypeIngress   CommonEnvCfgType = "Ingress"
+	CommonEnvCfgTypeConfigMap CommonEnvCfgType = "ConfigMap"
+	CommonEnvCfgTypeSecret    CommonEnvCfgType = "Secret"
+	CommonEnvCfgTypePvc       CommonEnvCfgType = "PVC"
+)

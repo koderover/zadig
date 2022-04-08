@@ -31,8 +31,28 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	configmaps := router.Group("configmaps")
 	{
 		configmaps.GET("", ListConfigMaps)
-		configmaps.PUT("", gin2.UpdateOperationLogStatus, UpdateConfigMap)
 		configmaps.POST("", gin2.UpdateOperationLogStatus, RollBackConfigMap)
+		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
+	}
+
+	secrets := router.Group("secrets")
+	{
+		secrets.GET("", ListSecrets)
+	}
+	ingresses := router.Group("ingresses")
+	{
+		ingresses.GET("", ListIngresses)
+	}
+	pvcs := router.Group("pvcs")
+	{
+		pvcs.GET("", ListPvcs)
+	}
+	commonEnvCfgs := router.Group("envcfgs")
+	{
+		commonEnvCfgs.GET("/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.PUT("", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
