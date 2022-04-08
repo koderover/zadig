@@ -169,6 +169,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		privateKey.DELETE("/:id", gin2.UpdateOperationLogStatus, DeletePrivateKey)
 	}
 
+	rsaKey := router.Group("rsaKey")
+	{
+		rsaKey.GET("publicKey", GetRSAPublicKey)
+		rsaKey.GET("decryptedText", GetTextFromEncryptedKey)
+	}
+
 	notification := router.Group("notification")
 	{
 		notification.GET("", PullNotify)

@@ -33,7 +33,8 @@ func GetEmailHost(c *gin.Context) {
 func InternalGetEmailHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.InternalGetEmailHost(ctx.Logger)
+
+	ctx.Resp, ctx.Err = service.InternalGetEmailHost(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func CreateEmailHost(c *gin.Context) {
