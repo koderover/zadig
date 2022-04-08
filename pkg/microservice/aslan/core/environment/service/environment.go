@@ -1472,7 +1472,7 @@ func SyncHelmProductEnvironment(productName, envName string) error {
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, kubeClient, logger)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, product.ShareEnv.Enable, kubeClient, logger)
 }
 
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
