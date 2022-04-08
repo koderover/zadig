@@ -106,22 +106,18 @@
           endpoint: "/api/aslan/template/charts/?*"
         - method: DELETE
           endpoint: "/api/aslan/template/dockerfile/?*"
-- resource: DeliveryTrace
-  alias: "交付物追踪"
+- resource: DeliveryCenter
+  alias: "交付中心"
   description: ""
   rules:
     - action: get
-      alias: "查看"
+      alias: "查看版本"
       description: "查看"
       rules:
         - method: GET
           endpoint: "/api/aslan/delivery/artifacts"
-- resource: DeliveryVersion
-  alias: "版本管理"
-  description: ""
-  rules:
     - action: get
-      alias: "查看"
+      alias: "查看交付物"
       description: "查看"
       rules:
         - method: GET

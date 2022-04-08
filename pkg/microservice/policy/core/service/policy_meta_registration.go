@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type PolicyMeta struct {
@@ -98,40 +99,43 @@ func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error
 }
 
 func GetPolicyRegistrationDefinitions(resourceScore string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
-	policies, err := mongodb.NewPolicyMetaColl().List()
+	policieMetas, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
 	}
+	clusterScopeResources := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryTrace", "DeliveryVersion")
+	projectScopeResources := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
+	clusterPolicieMetas, projectPolicieMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
+	for _, v := range policieMetas {
+		if clusterScopeResources.Has(v.Resource) {
+			clusterPolicieMetas = append(clusterPolicieMetas, v)
+		} else if projectScopeResources.Has(v.Resource) {
+			projectPolicieMetas = append(projectPolicieMetas, v)
+		}
+	}
 
+	switch resourceScore {
+	case string(types.ClusterScope):
+		filteredPolicyMetas = clusterPolicieMetas
+	case string(types.ProjectScope):
+		filteredPolicyMetas = projectPolicieMetas
+	default:
+		filteredPolicyMetas = policieMetas
+	}
 	var res []*PolicyDefinition
-	for _, p := range policies {
+	for _, meta := range filteredPolicyMetas {
 		pd := &PolicyDefinition{
-			Resource:    p.Resource,
-			Alias:       p.Alias,
-			Description: p.Description,
+			Resource:    meta.Resource,
+			Alias:       meta.Alias,
+			Description: meta.Description,
 		}
-		clusterScopeResources := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryTrace", "DeliveryVersion")
-		projectScopeResources := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
-		switch resourceScore {
-		case "cluster":
-			if clusterScopeResources.Has(p.Resource) {
-				continue
-			}
-		case "project":
-			if projectScopeResources.Has(p.Resource) {
-				continue
-			}
-		case "":
-
-		}
-		for _, r := range p.Rules {
+		for _, r := range meta.Rules {
 			pd.Rules = append(pd.Rules, &PolicyRuleDefinition{
 				Action:      r.Action,
 				Alias:       r.Alias,
 				Description: r.Description,
 			})
 		}
-
 		res = append(res, pd)
 	}
 	return res, nil
