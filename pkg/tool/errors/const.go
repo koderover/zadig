@@ -117,3 +117,7 @@ const (
 	DuplicateClusterNameFound = "已经有相同名称的集群存在"
 	StartPodTimeout           = "这些服务中可能存在未正常运行的实例"
 )
+
+const (
+	DeleteVirtualServiceErrMsg = "删除 VirtualService 失败"
+)

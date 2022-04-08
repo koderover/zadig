@@ -23,6 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
 func DeleteIngresses(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
@@ -34,22 +36,24 @@ func DeleteIngresses(namespace string, selector labels.Selector, clientset *kube
 	deletePolicy := metav1.DeletePropagationForeground
 
 	if kubeclient.VersionLessThan122(version) {
-		return clientset.ExtensionsV1beta1().Ingresses(namespace).DeleteCollection(
+		err = clientset.ExtensionsV1beta1().Ingresses(namespace).DeleteCollection(
 			context.TODO(),
 			metav1.DeleteOptions{
 				PropagationPolicy: &deletePolicy,
 			}, metav1.ListOptions{
 				LabelSelector: selector.String(),
 			})
+	} else {
+		err = clientset.NetworkingV1().Ingresses(namespace).DeleteCollection(
+			context.TODO(),
+			metav1.DeleteOptions{
+				PropagationPolicy: &deletePolicy,
+			},
+			metav1.ListOptions{
+				LabelSelector: selector.String(),
+			},
+		)
 	}
 
-	return clientset.NetworkingV1().Ingresses(namespace).DeleteCollection(
-		context.TODO(),
-		metav1.DeleteOptions{
-			PropagationPolicy: &deletePolicy,
-		},
-		metav1.ListOptions{
-			LabelSelector: selector.String(),
-		},
-	)
+	return util.IgnoreNotFoundError(err)
 }

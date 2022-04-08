@@ -32,6 +32,9 @@ import (
 
 func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (prodRevs []*ProductRevision, err error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName, ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}})
+	if err != nil {
+		return nil, e.ErrListProducts.AddDesc(err.Error())
+	}
 
 	// list services with max revision of project
 	allServiceTmpls, err := getServicesWithMaxRevision(productName)
