@@ -79,7 +79,7 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 	for _, ingress := range ingresss.Items {
 		ingress.SetManagedFields(nil)
 		ingress.SetResourceVersion("")
-		yamlData, err := yaml.Marshal(ingress)
+		yamlData, err := yaml.Marshal(ingress.Object)
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrListResources.AddDesc(err.Error())
