@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -43,7 +45,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -313,7 +314,9 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
+	//releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
+	releaseName := p.Task.ReleaseName
+	log.Info("####### the release name is %s", releaseName)
 
 	ensureUpgrade := func() error {
 		hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
@@ -409,19 +412,6 @@ func (p *HelmDeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs
 		return nil, err
 	}
 	return prod, nil
-}
-
-func (p *HelmDeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string, revision int64) (*types.ServiceTmpl, error) {
-	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
-	s := &types.ServiceTmpl{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
-		"projectName": productName,
-		"revision":    fmt.Sprintf("%d", revision),
-	}))
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
 }
 
 // download chart info of specific version, use the latest version if fails

@@ -543,7 +543,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 	}
 
-	// 获取全局configpayload
+	// get global configPayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	if len(env.RegistryID) == 0 {
 		reg, _, err := commonservice.FindDefaultRegistry(false, log)
@@ -597,7 +597,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 
 		if env != nil {
-			// 生成部署的subtask
+			// generate subtasks to deploy
 			for _, deployEnv := range target.Deploy {
 				if deployEnv.Type == setting.PMDeployType {
 					continue
@@ -1314,14 +1314,19 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return deployTask.ToSubTask()
 	case setting.HelmDeployType:
 		deployTask.ServiceType = setting.HelmDeployType
-		for _, services := range prodEnv.Services {
-			for _, service := range services {
-				if service.ServiceName == deployTask.ServiceName {
-					deployTask.ServiceRevision = service.Revision
-					return deployTask.ToSubTask()
-				}
-			}
+		if pSvc, ok := prodEnv.GetServiceMap()[deployTask.ServiceName]; ok {
+			deployTask.ServiceRevision = pSvc.Revision
 		}
+		revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			ServiceName: deployTask.ServiceName,
+			Revision:    deployTask.ServiceRevision,
+			ProductName: prodEnv.ProductName,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find service: %s with revision: %s, err: %s", deployTask.ServiceName, deployTask.ServiceRevision, err)
+		}
+		deployTask.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNamingRule(), prodEnv.ProductName, prodEnv.Namespace, prodEnv.EnvName, deployTask.ServiceName)
+		log.Infof("############ the release name is %s", deployTask.ReleaseName)
 		return deployTask.ToSubTask()
 	}
 	return resp, fmt.Errorf("env type not match")

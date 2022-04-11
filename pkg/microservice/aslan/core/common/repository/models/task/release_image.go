@@ -47,6 +47,7 @@ type ReleaseImage struct {
 
 	// New Version field
 	ProductName    string            `bson:"product_name"    json:"product_name"`
+	ReleaseName    string            `bson:"release_name"    json:"release_name"`
 	SourceImage    string            `bson:"source_image"    json:"source_image"`
 	DistributeInfo []*DistributeInfo `bson:"distribute_info" json:"distribute_info"`
 }

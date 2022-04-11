@@ -36,6 +36,7 @@ import (
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type UpdateContainerImageArgs struct {
@@ -174,8 +175,20 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		return err
 	}
 
+	param := &ReleaseInstallParam{
+		ProductName:   serviceObj.ProductName,
+		Namespace:     namespace,
+		EnvName:       product.EnvName,
+		ServiceName:   serviceObj.ServiceName,
+		ReleaseName:   util.GeneReleaseName(serviceObj.GetReleaseNamingRule(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
+		DefaultValues: renderSet.DefaultValues,
+		MergedValues:  replacedMergedValuesYaml,
+		RenderChart:   targetChart,
+		serviceObj:    serviceObj,
+	}
+
 	// when replace image, should not wait
-	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, false, helmClient)
+	err = installOrUpgradeHelmChartWithValues(param, false, helmClient)
 	if err != nil {
 		return err
 	}

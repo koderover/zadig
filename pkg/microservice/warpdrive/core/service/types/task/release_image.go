@@ -45,9 +45,10 @@ type ReleaseImage struct {
 	Releases []RepoImage `bson:"releases"                 json:"releases"`
 
 	// New Version field
-	ProductName    string            `json:"product_name"`
-	SourceImage    string            `json:"source_image"`
-	DistributeInfo []*DistributeInfo `json:"distribute_info"`
+	ProductName    string            `bson:"product_name"    json:"product_name"`
+	ReleaseName    string            `bson:"release_name"    json:"release_name"`
+	SourceImage    string            `bson:"source_image"    json:"source_image"`
+	DistributeInfo []*DistributeInfo `bson:"distribute_info" json:"distribute_info"`
 }
 
 // DistributeInfo will be convert into yaml, adding yaml

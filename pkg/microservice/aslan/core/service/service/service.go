@@ -134,6 +134,10 @@ type YamlValidatorReq struct {
 	Yaml        string `json:"yaml,omitempty"`
 }
 
+type ReleaseNamingRule struct {
+	NamingRule string `json:"naming_rule"`
+}
+
 func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.SugaredLogger) {
 	opt := &commonrepo.ProductListOptions{
 		Source:        setting.SourceFromExternal,
@@ -923,12 +927,46 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				log.Errorf("yaml unmarsh err: %s", err)
+				log.Errorf("yaml unmarshal err: %s", err)
 				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
 			}
 		}
 	}
 	return errorDetails
+}
+
+func UpdateReleaseNamingRule(projectName, svcName string, args *ReleaseNamingRule) error {
+	serviceTemplate, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName:   svcName,
+		Revision:      0,
+		Type:          setting.HelmDeployType,
+		ProductName:   projectName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	if err != nil {
+		return err
+	}
+
+	oldReleaseNamingRule := serviceTemplate.GetReleaseNamingRule()
+	// nothing would happen if naming rule keeps the same
+	if oldReleaseNamingRule == args.NamingRule {
+		return nil
+	}
+
+	rev, err := getNextServiceRevision(projectName, svcName)
+	if err != nil {
+		return fmt.Errorf("failed to get service next revision, service %s, err: %s", svcName, err)
+	}
+	serviceTemplate.Revision = rev
+	serviceTemplate.ReleaseNamingRule = args.NamingRule
+
+	err = commonrepo.NewServiceColl().Create(serviceTemplate)
+	if err != nil {
+		return err
+	}
+
+	// reinstall all services
+	return service.UpdateSvcInAllEnvs(projectName, svcName, serviceTemplate)
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {

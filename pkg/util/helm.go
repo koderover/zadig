@@ -28,3 +28,11 @@ func GeneHelmReleaseName(namespace, serviceName string) string {
 func ExtraServiceName(releaseName, namespace string) string {
 	return strings.TrimPrefix(releaseName, fmt.Sprintf("%s-", namespace))
 }
+
+func GeneReleaseName(namingRule, projectName, namespace, envName, service string) string {
+	ret := strings.ReplaceAll(namingRule, "$Product$", projectName)
+	ret = strings.ReplaceAll(namingRule, "$Namespace$", namespace)
+	ret = strings.ReplaceAll(namingRule, "$EnvName", envName)
+	ret = strings.ReplaceAll(namingRule, "$Service$", service)
+	return ret
+}
