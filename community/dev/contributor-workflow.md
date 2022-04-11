@@ -56,12 +56,11 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 ![Edit variable button](./edit_variable_button.png)
 3. 在弹出的窗口中，如图修改如下字段：
 
-在弹出的窗口中，点击 zadig 选项，如图修改如下字段：
-1. dex.config.issuer=http://${github_id}-dex:5556/dex
-2. dex.config.staticClients[0].redirectURISs[0]=http://${github_id}.ko.coderover.cn/api/v1/callback
-3. dex.fullnameOverride=${github_id}-dex
-4. endpoint.FQDN=${github_id}.ko.coderover.cn
-5. global.extensions.extAuth.extauthzServerRef.namespace=zadig-env-${环境名称}
+   1. dex.config.issuer=http://${github_id}-dex:5556/dex
+   2. dex.config.staticClients[0].redirectURISs[0]=http://${github_id}.ko.coderover.cn/api/v1/callback
+   3. dex.fullnameOverride=${github_id}-dex
+   4. endpoint.FQDN=${github_id}.ko.coderover.cn
+   5. global.extensions.extAuth.extauthzServerRef.namespace=zadig-env-${环境名称}
 
 ![Fork_varibales_1](./fork_variables_1.png)
 ![Fork_varibales_2](./fork_variables_2.png)
