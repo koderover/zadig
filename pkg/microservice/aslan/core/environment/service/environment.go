@@ -167,17 +167,18 @@ type EnvRendersetArg struct {
 }
 
 type CreateHelmProductArg struct {
-	ProductName   string                          `json:"productName"`
-	EnvName       string                          `json:"envName"`
-	Namespace     string                          `json:"namespace"`
-	ClusterID     string                          `json:"clusterID"`
-	DefaultValues string                          `json:"defaultValues"`
-	ValuesData    *commonservice.ValuesDataArgs   `json:"valuesData"`
-	RegistryID    string                          `json:"registry_id"`
-	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
-	BaseEnvName   string                          `json:"baseEnvName"`
-	BaseName      string                          `json:"base_name,omitempty"`
-	IsExisted     bool                            `json:"is_existed"`
+	ProductName    string                          `json:"productName"`
+	EnvName        string                          `json:"envName"`
+	Namespace      string                          `json:"namespace"`
+	ClusterID      string                          `json:"clusterID"`
+	DefaultValues  string                          `json:"defaultValues"`
+	ValuesData     *commonservice.ValuesDataArgs   `json:"valuesData"`
+	RegistryID     string                          `json:"registry_id"`
+	ChartValues    []*commonservice.RenderChartArg `json:"chartValues"`
+	BaseEnvName    string                          `json:"baseEnvName"`
+	BaseName       string                          `json:"base_name,omitempty"`
+	IsExisted      bool                            `json:"is_existed"`
+	EnvConfigYamls []string                        `json:"env_config_yamls,omitempty"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -879,6 +880,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		IsForkedProduct: false,
 		RegistryID:      registryID,
 		IsExisted:       arg.IsExisted,
+		EnvConfigYamls:  arg.EnvConfigYamls,
 	}
 
 	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
@@ -1120,6 +1122,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 	productInfo.ClusterID = arg.ClusterID
 	productInfo.BaseName = arg.BaseName
 	productInfo.Namespace = commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace)
+	productInfo.EnvConfigYamls = arg.EnvConfigYamls
 
 	opt := &commonrepo.RenderSetFindOption{
 		Name:     productInfo.Render.Name,
@@ -2207,21 +2210,28 @@ func createGroups(envName, user, requestID string, args *commonmodels.Product, e
 			errorMsg = err.Error()
 
 			// 发送创建产品失败消息给用户
-			title := fmt.Sprintf("创建 [%s] 的 [%s] 环境失败", args.ProductName, args.EnvName)
+			title := fmt.Sprintf("创建 [%s] 的 [%s] 环境失败:%s", args.ProductName, args.EnvName, errorMsg)
 			commonservice.SendErrorMessage(user, title, requestID, err, log)
 		}
 
 		commonservice.LogProductStats(envName, setting.CreateProductEvent, args.ProductName, requestID, eventStart, log)
 
 		if err := commonrepo.NewProductColl().UpdateStatus(envName, args.ProductName, status); err != nil {
-			log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, args.ProductName, err)
+			log.Errorf("[%s][P:%s] Product.UpdateStatus error: %s", envName, args.ProductName, err)
 			return
 		}
 		if err := commonrepo.NewProductColl().UpdateErrors(envName, args.ProductName, errorMsg); err != nil {
-			log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, args.ProductName, err)
+			log.Errorf("[%s][P:%s] Product.UpdateErrors error: %s", envName, args.ProductName, err)
 			return
 		}
 	}()
+
+	err = envHandleFunc(getProjectType(args.ProductName), log).initEnvConfigSet(envName, args.ProductName, user, args.EnvConfigYamls, informer, kubeClient)
+	if err != nil {
+		args.Status = setting.ProductStatusFailed
+		log.Errorf("initEnvConfigSet error :%s", err)
+		return
+	}
 
 	for _, group := range args.Services {
 		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(envName, args.ProductName, user, group, renderSet, informer, kubeClient)

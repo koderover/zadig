@@ -14,36 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package github
+package getter
 
 import (
-	"context"
-
-	"github.com/google/go-github/v35/github"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (c *Client) ListInstallations(ctx context.Context, opts *ListOptions) ([]*github.Installation, error) {
-	installations, err := wrap(paginated(func(o *github.ListOptions) ([]interface{}, *github.Response, error) {
-		is, r, err := c.Apps.ListInstallations(ctx, o)
-		var res []interface{}
-		for _, i := range is {
-			res = append(res, i)
-		}
-		return res, r, err
-	}, opts))
-
+func ListPvcs(ns string, selector fields.Selector, cl client.Reader) ([]*corev1.PersistentVolumeClaim, error) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	err := ListResourceInCache(ns, nil, selector, pvcList, cl)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*github.Installation
-	is, ok := installations.([]interface{})
-	if !ok {
-		return nil, nil
+	var res []*corev1.PersistentVolumeClaim
+	for i := range pvcList.Items {
+		res = append(res, &pvcList.Items[i])
 	}
-	for _, i := range is {
-		res = append(res, i.(*github.Installation))
-	}
-
 	return res, err
 }

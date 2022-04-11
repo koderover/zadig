@@ -142,6 +142,10 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
 
 	//判断namespace是否存在
 	namespace := args.GetNamespace()
@@ -219,7 +223,21 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	eventStart := time.Now().Unix()
-
+	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
+	if err != nil {
+		log.Errorf("failed to create informer from clientset for clusterID: %s, the error is: %s", clusterID, err)
+		return nil
+	}
+	err = helmInitEnvConfigSet(args.EnvName, args.ProductName, user, args.EnvConfigYamls, inf, kubeClient)
+	if err != nil {
+		log.Errorf("failed to helmInitEnvConfigSet [%s][P:%s]: %s, the error is: %s", args.EnvName, args.ProductName, err)
+		if err := commonrepo.NewProductColl().UpdateStatus(args.EnvName, args.ProductName, setting.ProductStatusFailed); err != nil {
+			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateStatus error: %s", args.EnvName, args.ProductName, err)
+		}
+		if err := commonrepo.NewProductColl().UpdateErrors(args.EnvName, args.ProductName, err.Error()); err != nil {
+			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateErrors error: %s", args.EnvName, args.ProductName, err)
+		}
+	}
 	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, log)
 	return nil
 }

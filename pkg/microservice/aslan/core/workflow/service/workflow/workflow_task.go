@@ -2410,8 +2410,8 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 							log.Errorf("find project err:%s", err)
 							return err
 						}
-						rule := project.CustomImageRule.JenkinsRule
-						if rule != "" {
+
+						if project.CustomImageRule != nil && project.CustomImageRule.JenkinsRule != "" {
 							va := commonservice.Variable{
 								SERVICE:    t.ServiceName,
 								TIMESTAMP:  time.Now().Format("20060102150405"),
@@ -2420,7 +2420,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 								ENV_NAME:   taskOpt.EnvName,
 								TASK_ID:    strconv.FormatInt(taskOpt.Task.TaskID, 10),
 							}
-							tm, err := gotempl.New("jenkins").Parse(rule)
+							tm, err := gotempl.New("jenkins").Parse(project.CustomImageRule.JenkinsRule)
 							if err != nil {
 								log.Errorf("Parse template err:%s", err)
 								return err
@@ -2434,7 +2434,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 							}
 							image = GetImage(reg, payload.String())
 						} else {
-							image = GetImage(reg, fmt.Sprintf("%s:%d", t.ServiceName, time.Now().Format("20060102150405")))
+							image = GetImage(reg, fmt.Sprintf("%s:%s", t.ServiceName, time.Now().Format("20060102150405")))
 						}
 
 						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
