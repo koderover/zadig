@@ -935,8 +935,8 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					OldName:       product.BaseName,
 					NewName:       product.Name,
 					BaseName:      product.BaseName,
-					DefaultValues: product.DefaultValues,
-					ChartValues:   product.ChartValues,
+					DefaultValues: productArg.DefaultValues,
+					ChartValues:   productArg.ChartValues,
 				})
 			}
 			if productArg.DeployType == string(setting.K8SDeployType) {
