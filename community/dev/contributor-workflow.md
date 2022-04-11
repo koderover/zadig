@@ -47,7 +47,7 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 
 ![Login through Github](./github_login.png)
 
-第 2 步：在 Zadig 项目中创建自己的环境
+第 2 步：在 Zadig 项目中获得开发者工作流和环境
 
 步骤如下：
 1. 点击 Zadig 项目
