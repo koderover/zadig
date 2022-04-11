@@ -32,14 +32,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
-	configclient "github.com/koderover/zadig/pkg/shared/config"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // CronClient ...
 type CronClient struct {
 	AslanCli                 *client.Client
-	CollieCli                *client.CollieClient
 	Schedulers               map[string]*gocron.Scheduler
 	SchedulerController      map[string]chan bool
 	lastSchedulers           map[string][]*service.Schedule
@@ -86,21 +84,12 @@ func NewCronClient() *CronClient {
 	nsqLookupAddrs := config.NsqLookupAddrs()
 
 	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()))
-	collieCli := client.NewCollieClient(config.CollieAPI())
 	//初始化nsq
 	config := nsq.NewConfig()
 	// 注意 WD_POD_NAME 必须使用 Downward API 配置环境变量
 	config.UserAgent = "ASLAN_CRONJOB"
 	config.MaxAttempts = 50
 	config.LookupdPollInterval = 1 * time.Second
-
-	//nsqClient := nsqcli.NewNsqClient(nsqLookupAddrs, "127.0.0.1:4151")
-	//// 初始化nsq topic
-	//err := nsqClient.EnsureNsqdTopics([]string{setting.TopicAck, setting.TopicItReport, setting.TopicNotification})
-	//if err != nil {
-	//	//FIXME
-	//	log.Fatalf("cannot ensure nsq topic, the error is %v", err)
-	//}
 
 	//Cronjob Client
 	cronjobClient, err := nsq.NewConsumer(setting.TopicCronjob, "cronjob", config)
@@ -122,7 +111,6 @@ func NewCronClient() *CronClient {
 
 	return &CronClient{
 		AslanCli:              aslanCli,
-		CollieCli:             collieCli,
 		Schedulers:            make(map[string]*gocron.Scheduler),
 		lastSchedulers:        make(map[string][]*service.Schedule),
 		lastServiceSchedulers: make(map[string]*service.SvcRevision),
@@ -143,12 +131,6 @@ func (c *CronClient) Init() {
 	c.InitJobScheduler()
 	// 测试管理的定时任务触发
 	c.InitTestScheduler()
-
-	// 自由编排工作流定时任务触发
-	cl := configclient.New(configbase.ConfigServiceAddress())
-	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
-		c.InitColliePipelineScheduler()
-	}
 
 	// 定时清理环境
 	c.InitCleanProductScheduler()
@@ -211,15 +193,6 @@ func (c *CronClient) InitTestScheduler() {
 	c.Schedulers[UpsertTestScheduler].Every(1).Minutes().Do(c.UpsertTestScheduler, c.log)
 
 	c.Schedulers[UpsertTestScheduler].Start()
-}
-
-func (c *CronClient) InitColliePipelineScheduler() {
-
-	c.Schedulers[UpsertColliePipelineScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[UpsertColliePipelineScheduler].Every(1).Minutes().Do(c.UpsertColliePipelineScheduler, c.log)
-
-	c.Schedulers[UpsertColliePipelineScheduler].Start()
 }
 
 func (c *CronClient) InitBuildStatScheduler() {
