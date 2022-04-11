@@ -304,7 +304,7 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 	}
 	collaborationInstances, err := mongodb.NewCollaborationInstanceColl().List(&mongodb.CollaborationInstanceFindOptions{
 		ProjectName: projectName,
-		UserUID:     uid,
+		UserUID:     []string{uid},
 	})
 	if err != nil {
 		logger.Errorf("GetCollaborationInstance error, err msg:%s", err)
@@ -359,7 +359,7 @@ func syncInstance(updateResp *GetCollaborationUpdateResp, projectName, identityT
 		findOpts = append(findOpts, mongodb.CollaborationInstanceFindOptions{
 			Name:        instance.CollaborationName,
 			ProjectName: instance.ProjectName,
-			UserUID:     instance.UserUID,
+			UserUID:     []string{instance.UserUID},
 		})
 	}
 	return mongodb.NewCollaborationInstanceColl().BulkDelete(mongodb.CollaborationInstanceListOptions{
@@ -1227,7 +1227,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 		findOpts = append(findOpts, mongodb.CollaborationInstanceFindOptions{
 			ProjectName: ci.ProjectName,
 			Name:        ci.CollaborationName,
-			UserUID:     ci.UserUID,
+			UserUID:     []string{ci.UserUID},
 		})
 		policyNames = append(policyNames, ci.PolicyName)
 	}
