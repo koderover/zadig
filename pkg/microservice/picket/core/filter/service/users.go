@@ -25,6 +25,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
+	"github.com/koderover/zadig/pkg/setting"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type DeleteUserResp struct {
@@ -49,6 +51,11 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 	for _, user := range users.Users {
 		tmpUids = append(tmpUids, user.Uid)
 	}
+	if len(tmpUids) <= 0 || len(tmpUids) > 50 {
+		log.Errorf("len uids only supported 1-50")
+		return nil, e.ErrInvalidParam.AddErr(err).AddDesc("len uids only supported 1-50")
+	}
+
 	systemMap, err := policy.New().SearchSystemUsers(tmpUids)
 	if err != nil {
 		log.Errorf("search system user bindings err :%s", err)
@@ -72,6 +79,12 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 		}
 		if rb, ok := systemMap[user.Uid]; ok {
 			userInfo.RoleBindings = rb
+			for _, binding := range rb {
+				if binding.Role == string(setting.SystemAdmin) {
+					userInfo.Admin = true
+					break
+				}
+			}
 		}
 		res.Users = append(res.Users, userInfo)
 	}
@@ -94,4 +107,5 @@ type UserInfo struct {
 	Account       string                 `json:"account"`
 	APIToken      string                 `json:"token"`
 	RoleBindings  []*service.RoleBinding `json:"system_role_bindings"`
+	Admin         bool                   `json:"admin"`
 }

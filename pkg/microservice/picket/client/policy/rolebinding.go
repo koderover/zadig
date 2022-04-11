@@ -86,7 +86,7 @@ func (c *Client) SearchSystemUsers(uids []string) (map[string][]*service.RoleBin
 		Uids: uids,
 	}
 	result := map[string][]*service.RoleBinding{}
-	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(result))
+	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(&result))
 	if err != nil {
 		return nil, err
 	}
