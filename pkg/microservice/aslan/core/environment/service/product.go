@@ -285,6 +285,10 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		servicesResp, _, errObj = ListGroups("", envName, prod.ProductName, -1, -1, log)
 	}
 
+	if prod.Source == setting.SourceFromHelm {
+		prodResp.Services = prod.GetGroupServiceNames()
+	}
+
 	if errObj != nil {
 		prodResp.Error = errObj.Error()
 	} else {
