@@ -337,6 +337,25 @@ rules:
   - '*'
 
 ---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-agent
+  namespace: koderover-agent
+  labels:
+    app: koderover-agent-agent
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: koderover-agent-agent
+
+---
+
 apiVersion: apps/v1
 {{- if .UseDeployment }}
 kind: Deployment
@@ -567,6 +586,25 @@ rules:
   - '*'
 
 ---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-agent
+  namespace: {{.Namespace}}
+  labels:
+    app: koderover-agent-agent
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: koderover-agent-agent
+
+---
+
 apiVersion: apps/v1
 {{- if .UseDeployment }}
 kind: Deployment

@@ -423,7 +423,7 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	}
 
 	if !checkWorkflowSubModule(workflow) {
-		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
+		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
 	}
 
 	if err := validateWorkflowHookNames(workflow); err != nil {
@@ -485,7 +485,7 @@ func checkWorkflowSubModule(workflow *commonmodels.Workflow) bool {
 
 func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
 	if !checkWorkflowSubModule(workflow) {
-		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
+		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
 	}
 
 	currentWorkflow, err := commonrepo.NewWorkflowColl().Find(workflow.Name)

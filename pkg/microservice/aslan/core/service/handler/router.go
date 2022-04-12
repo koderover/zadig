@@ -54,6 +54,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.PUT("/yaml/validator", YamlValidator)
 		k8s.DELETE("/:name/:type", gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
+
+		k8s.GET("/:name/environments/deployable", GetDeployableEnvs)
 	}
 
 	workload := router.Group("workloads")

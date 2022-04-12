@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -191,12 +192,22 @@ func GetArtifactFile(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
+	notHistoryFileFlag, err := strconv.ParseBool(c.DefaultQuery("notHistoryFileFlag", "false"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notHistoryFileFlag")
+		return
+	}
 
-	resp, err := workflow.GetArtifactFileContent(c.Param("pipelineName"), taskID, ctx.Logger)
+	resp, err := workflow.GetArtifactFileContent(c.Param("pipelineName"), taskID, notHistoryFileFlag, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
-	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
+	if notHistoryFileFlag {
+		c.Writer.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, setting.ArtifactResultOut))
+	} else {
+		c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
+	}
+
 	c.Data(200, "application/octet-stream", resp)
 }

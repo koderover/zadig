@@ -31,8 +31,28 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	configmaps := router.Group("configmaps")
 	{
 		configmaps.GET("", ListConfigMaps)
-		configmaps.PUT("", gin2.UpdateOperationLogStatus, UpdateConfigMap)
 		configmaps.POST("", gin2.UpdateOperationLogStatus, RollBackConfigMap)
+		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
+	}
+
+	secrets := router.Group("secrets")
+	{
+		secrets.GET("", ListSecrets)
+	}
+	ingresses := router.Group("ingresses")
+	{
+		ingresses.GET("", ListIngresses)
+	}
+	pvcs := router.Group("pvcs")
+	{
+		pvcs.GET("", ListPvcs)
+	}
+	commonEnvCfgs := router.Group("envcfgs")
+	{
+		commonEnvCfgs.GET("/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.PUT("", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -103,6 +123,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/envRecycle", gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
+		environments.PUT("/:name/syncVariables", gin2.UpdateOperationLogStatus, SyncHelmProductRenderset)
 		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
 		environments.GET("/:name/productInfo", GetProductInfo)
 		environments.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteProduct)
@@ -122,6 +143,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
 		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
+
+		environments.GET("/:name/check/workloads/k8services", CheckWorkloadsK8sServices)
+		environments.POST("/:name/share/enable", EnableBaseEnv)
+		environments.DELETE("/:name/share/enable", DisableBaseEnv)
+		environments.GET("/:name/check/sharenv/:op/ready", CheckShareEnvReady)
+
 		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
 	}
 

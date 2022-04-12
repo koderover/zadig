@@ -95,13 +95,20 @@ type BuildObj struct {
 }
 
 type PostBuild struct {
-	DockerBuild *DockerBuild `bson:"docker_build,omitempty" json:"docker_build"`
-	FileArchive *FileArchive `bson:"file_archive,omitempty" json:"file_archive,omitempty"`
-	Scripts     string       `bson:"scripts"             json:"scripts"`
+	DockerBuild         *DockerBuild         `bson:"docker_build,omitempty" json:"docker_build"`
+	ObjectStorageUpload *ObjectStorageUpload `bson:"object_storage_upload"  json:"object_storage_upload"`
+	FileArchive         *FileArchive         `bson:"file_archive,omitempty" json:"file_archive,omitempty"`
+	Scripts             string               `bson:"scripts"                json:"scripts"`
 }
 
 type FileArchive struct {
 	FileLocation string `bson:"file_location" json:"file_location"`
+}
+
+type ObjectStorageUpload struct {
+	Enabled         bool                             `bson:"enabled"           json:"enabled"`
+	ObjectStorageID string                           `bson:"object_storage_id" json:"object_storage_id"`
+	UploadDetail    []*types.ObjectStoragePathDetail `bson:"upload_detail"     json:"upload_detail"`
 }
 
 type DockerBuild struct {
@@ -120,13 +127,8 @@ type DockerBuild struct {
 }
 
 type JenkinsBuild struct {
-	JobName           string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParam []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
-}
-
-type JenkinsBuildParam struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
+	JobName           string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParam []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 type Parameter struct {

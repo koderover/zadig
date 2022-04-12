@@ -17,10 +17,14 @@ limitations under the License.
 package handler
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func CleanProductCronJob(c *gin.Context) {
@@ -35,5 +39,20 @@ func GetInitProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productTemplateName := c.Param("name")
-	ctx.Resp, ctx.Err = service.GetInitProduct(productTemplateName, ctx.Logger)
+
+	envType := types.EnvType(c.Query("envType"))
+	isBaseEnvStr := c.Query("isBaseEnv")
+	baseEnvName := c.Query("baseEnv")
+
+	// Note: Compatible with previous behavior.
+	isBaseEnv, err := strconv.ParseBool(isBaseEnvStr)
+	if err != nil {
+		log.Warnf("Failed to parse %s to bool: %s.", isBaseEnvStr, err)
+	}
+
+	if envType == "" {
+		envType = types.GeneralEnv
+	}
+
+	ctx.Resp, ctx.Err = service.GetInitProduct(productTemplateName, envType, isBaseEnv, baseEnvName, ctx.Logger)
 }
