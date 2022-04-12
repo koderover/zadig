@@ -44,6 +44,10 @@ func (c *Client) ListTree(owner, repo, path, branch string, recursive bool, opts
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*gitlab.TreeNode
 	ns, ok := nodes.([]interface{})
 	if !ok {

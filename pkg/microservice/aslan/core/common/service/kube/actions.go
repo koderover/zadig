@@ -17,7 +17,9 @@ limitations under the License.
 package kube
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,12 +35,41 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
 
-func CreateNamespace(namespace string, kubeClient client.Client) error {
-	err := updater.CreateNamespaceByName(namespace, map[string]string{setting.EnvCreatedBy: setting.EnvCreator}, kubeClient)
+func CreateNamespace(namespace string, enableShare bool, kubeClient client.Client) error {
+	labels := map[string]string{
+		setting.EnvCreatedBy: setting.EnvCreator,
+	}
+	if enableShare {
+		labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
+	}
+
+	err := updater.CreateNamespaceByName(namespace, labels, kubeClient)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return err
+	}
+
+	nsObj := &corev1.Namespace{}
+	// It may fail to obtain the namespace immediately after it is created due to synchronization delay.
+	// Try twice.
+	for i := 0; i < 2; i++ {
+		err = kubeClient.Get(context.TODO(), client.ObjectKey{
+			Name: namespace,
+		}, nsObj)
+		if err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return err
+	}
+
+	if nsObj.Status.Phase == corev1.NamespaceTerminating {
+		return fmt.Errorf("namespace `%s` is in terminating state, please wait for a whilie and try again.", namespace)
 	}
 
 	return nil

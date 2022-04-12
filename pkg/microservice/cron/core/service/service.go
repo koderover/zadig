@@ -17,8 +17,10 @@ limitations under the License.
 package service
 
 import (
-	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type SvcRevision struct {
@@ -75,6 +77,15 @@ type ProductResp struct {
 	RecycleDay  int         `json:"recycle_day"`
 	IsProd      bool        `json:"is_prod"`
 	Source      string      `json:"source"`
+}
+
+type ProductRenderset struct {
+	Name        string                        `bson:"name"                     json:"name"`
+	Revision    int64                         `bson:"revision"                 json:"revision"`
+	EnvName     string                        `bson:"env_name,omitempty"       json:"env_name,omitempty"`
+	ProductTmpl string                        `bson:"product_tmpl"             json:"product_tmpl"`
+	YamlData    *templatemodels.CustomYaml    `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	ChartInfos  []*templatemodels.RenderChart `bson:"chart_infos,omitempty"    json:"chart_infos,omitempty"`
 }
 
 type EnvConfig struct {

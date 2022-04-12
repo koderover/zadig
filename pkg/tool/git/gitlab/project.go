@@ -45,6 +45,10 @@ func (c *Client) ListUserProjects(owner, keyword string, opts *ListOptions) ([]*
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*gitlab.Project
 	ps, ok := projects.([]interface{})
 	if !ok {
@@ -115,6 +119,10 @@ func (c *Client) ListProjectHooks(owner, repo string, opts *ListOptions) ([]*git
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		return nil, err
+	}
 
 	var res []*gitlab.ProjectHook
 	hs, ok := hooks.([]interface{})

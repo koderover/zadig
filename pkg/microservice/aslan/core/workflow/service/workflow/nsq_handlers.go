@@ -311,8 +311,8 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryArtifact.Type = string(config.Image)
 							deliveryArtifact.Name = imageName
 							deliveryArtifact.ImageTag = imageTag
-							//获取镜像详细信息
-							imageInfo, _ := getImageInfo(imageName, imageTag, h.log)
+							//get image detail info
+							imageInfo, _ := getImageInfo(buildInfo.ProductName, buildInfo.EnvName, imageName, imageTag, h.log)
 							if imageInfo != nil {
 								deliveryArtifact.ImageSize = imageInfo.ImageSize
 								deliveryArtifact.ImageDigest = imageInfo.ImageDigest
@@ -911,8 +911,15 @@ func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger)
 	return nil
 }
 
-func getImageInfo(repoName, tag string, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error) {
-	registryInfo, _, err := commonservice.FindDefaultRegistry(false, log)
+func getImageInfo(productName, evnName, repoName, tag string, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: evnName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	registryInfo, _, err := commonservice.FindRegistryById(productInfo.RegistryID, false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.get error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)

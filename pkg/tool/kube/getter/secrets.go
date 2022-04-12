@@ -30,3 +30,17 @@ func GetSecret(ns, name string, cl client.Client) (*corev1.Secret, bool, error) 
 
 	return svc, found, err
 }
+
+func ListSecrets(ns string, cl client.Client) ([]*corev1.Secret, error) {
+	l := &corev1.SecretList{}
+	err := ListResourceInCache(ns, nil, nil, l, cl)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*corev1.Secret
+	for i := range l.Items {
+		res = append(res, &l.Items[i])
+	}
+	return res, err
+}

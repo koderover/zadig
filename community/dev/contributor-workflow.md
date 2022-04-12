@@ -45,20 +45,25 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 
 第 1 步：GitHub OAuth 登录系统
 
-第 2 步：Fork Zadig 项目
+![Login through Github](./github_login.png)
 
-![Fork project](./fork-zadig-option.png)
+第 2 步：在 Zadig 项目中获得开发者工作流和环境
 
-在弹出的窗口中，点击 zadig 选项，如图修改如下字段：
-1. endpoint.FQDN=${github_id}.ko.coderover.cn
-2. global.extensions.extAuth.extauthzServerRef.namespace=zadig-env-${github_id}
-3. dex.fullnameOverride=zadig-${github_id}-dex
-4. dex.config.issuer=http://zadig-${github_id}-dex
-5. dex.config.staticClients[0].redirectURISs[0]=http:// ${github_id}.ko.coderover.cn/api/v1/callback
+步骤如下：
+1. 点击 Zadig 项目
+2. 在页面中点击 环境变量 按钮，如下图所示
 
-![Fork_var1](./fork_var1.png)
-![Fork_var2](./fork_var2.png)
-![Fork_var3](./fork_var3.png)
+![Edit variable button](./edit_variable_button.png)
+3. 在弹出的窗口中，如图修改如下字段：
+
+   1. dex.config.issuer=http://${github_id}-dex:5556/dex
+   2. dex.config.staticClients[0].redirectURISs[0]=http://${github_id}.ko.coderover.cn/api/v1/callback
+   3. dex.fullnameOverride=${github_id}-dex
+   4. endpoint.FQDN=${github_id}.ko.coderover.cn
+   5. global.extensions.extAuth.extauthzServerRef.namespace=zadig-env-${环境名称}
+
+![Fork_varibales_1](./fork_variables_1.png)
+![Fork_varibales_2](./fork_variables_2.png)
 
 请注意，如果没有按照以上规则修改参数，可能会导致环境无法创建/创建环境后无法正常访问！
 
