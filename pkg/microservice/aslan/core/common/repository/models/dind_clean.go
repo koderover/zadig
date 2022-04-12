@@ -26,6 +26,8 @@ type DindClean struct {
 	Status         string             `bson:"status"              json:"status"`
 	UpdateTime     int64              `bson:"update_time"         json:"update_time"`
 	DindCleanInfos []*DindCleanInfo   `bson:"dind_clean_infos"    json:"dind_clean_infos"`
+	Cron           string             `bson:"cron"                json:"cron"`
+	CronEnabled    bool               `bson:"cron_enabled"        json:"cron_enabled"`
 }
 
 type DindCleanInfo struct {

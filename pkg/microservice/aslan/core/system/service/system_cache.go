@@ -43,6 +43,34 @@ const (
 	CleanStatusFailed   = "failed"
 )
 
+//SetCron set the docker clean cron
+func SetCron(cron string, cronEnabled bool, logger *zap.SugaredLogger) error {
+	dindCleans, _ := commonrepo.NewDindCleanColl().List()
+	switch len(dindCleans) {
+	case 0:
+		dindClean := &commonmodels.DindClean{
+			Status:         CleanStatusUnStart,
+			DindCleanInfos: []*commonmodels.DindCleanInfo{},
+			Cron:           cron,
+			CronEnabled:    cronEnabled,
+		}
+
+		if err := commonrepo.NewDindCleanColl().Upsert(dindClean); err != nil {
+			return e.ErrCreateDindClean.AddErr(err)
+		}
+	case 1:
+		dindClean := dindCleans[0]
+		dindClean.Status = dindCleans[0].Status
+		dindClean.DindCleanInfos = dindCleans[0].DindCleanInfos
+		dindClean.Cron = cron
+		dindClean.CronEnabled = cronEnabled
+		if err := commonrepo.NewDindCleanColl().Upsert(dindClean); err != nil {
+			return e.ErrUpdateDindClean.AddErr(err)
+		}
+	}
+	return nil
+}
+
 // CleanImageCache 清理镜像缓存
 func CleanImageCache(logger *zap.SugaredLogger) error {
 	//Get pod list by label and namespace
@@ -157,6 +185,8 @@ func GetOrCreateCleanCacheState() (*commonmodels.DindClean, error) {
 		Status:         dindCleans[0].Status,
 		UpdateTime:     dindCleans[0].UpdateTime,
 		DindCleanInfos: dindCleans[0].DindCleanInfos,
+		Cron:           dindCleans[0].Cron,
+		CronEnabled:    dindCleans[0].CronEnabled,
 	}
 	return dindClean, nil
 }

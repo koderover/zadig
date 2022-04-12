@@ -87,6 +87,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		cleanCache.POST("/oneClick", CleanImageCache)
 		cleanCache.GET("/state", CleanCacheState)
+		cleanCache.POST("/setCron", SetCron)
 	}
 
 	// ---------------------------------------------------------------------------------------

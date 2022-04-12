@@ -20,6 +20,7 @@ import (
 	"fmt"
 	stdlog "log"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/jasonlvhit/gocron"
@@ -32,7 +33,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/tool/log"
+	cronV3 "github.com/robfig/cron/v3"
 )
 
 // CronClient ...
@@ -47,6 +50,50 @@ type CronClient struct {
 	lastPMProductRevisions   []*service.ProductRevision
 	lastHelmProductRevisions []*service.ProductRevision
 	log                      *zap.SugaredLogger
+}
+
+type CronV3Client struct {
+	Cron     *cronV3.Cron
+	AslanCli *aslan.Client
+}
+
+func NewCronV3() *CronV3Client {
+	return &CronV3Client{
+		Cron:     cronV3.New(cronV3.WithSeconds()),
+		AslanCli: aslan.New(configbase.AslanServiceAddress()),
+	}
+}
+
+func (c *CronV3Client) Start() {
+	var lastConfig *aslan.CleanConfig
+	var entryID cronV3.EntryID
+	c.Cron.AddFunc("*/3 * * * * *", func() {
+		// get the docker clean config
+		config, err := c.AslanCli.GetDockerCleanConfig()
+		if err != nil {
+			log.Errorf("get config err ,:%v", err)
+			return
+		}
+		if !reflect.DeepEqual(lastConfig, config) {
+			lastConfig = config
+			log.Infof("config changed to %v", config)
+			switch config.CronEnabled {
+			case true:
+				c.Cron.Run()
+				entryID, err = c.Cron.AddFunc(config.Cron, func() {
+					log.Infof("********add********* , %v\n", config)
+				})
+				if err != nil {
+					log.Errorf("err get entryID:%v", entryID)
+				}
+			case false:
+				log.Infof("*******remove job********* , %v\n", config)
+				c.Cron.Remove(entryID)
+			}
+		}
+	})
+
+	c.Cron.Start()
 }
 
 const (
@@ -76,6 +123,8 @@ const (
 	InitHealthCheckPmHostScheduler = "InitHealthCheckPmHostScheduler"
 
 	InitHelmEnvSyncValuesScheduler = "InitHelmEnvSyncValuesScheduler"
+
+	//InitDockerCleanScheduler = "InitDockerCleanScheduler"
 )
 
 // NewCronClient ...
@@ -148,7 +197,32 @@ func (c *CronClient) Init() {
 	c.InitHealthCheckPmHostScheduler()
 	// sync values from remote for helm envs at regular intervals
 	c.InitHelmEnvSyncValuesScheduler()
+	// add docker clean
+	//c.InitDockerCleanScheduler()
 }
+
+//func (c *CronClient) InitDockerCleanScheduler() {
+//
+//	lastConfig := new(client.CleanConfig)
+//	c.Schedulers[InitDockerCleanScheduler] = gocron.NewScheduler()
+//	checkConfigfunc := func() {
+//		config, err := c.AslanCli.GetDockerCleanConfig()
+//		if err != nil {
+//			return
+//		}
+//
+//		if !reflect.DeepEqual(config, lastConfig) {
+//			lastConfig = config
+//			// 配置发生变化
+//
+//		}
+//
+//	}
+//	c.Schedulers[InitDockerCleanScheduler].Every(20).Seconds().Do(
+//		checkConfigfunc, c.log)
+//
+//	c.Schedulers[InitDockerCleanScheduler].Start()
+//}
 
 func (c *CronClient) InitCleanJobScheduler() {
 
