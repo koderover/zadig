@@ -23,4 +23,6 @@ type Registry struct {
 	Namespace string `json:"namespace"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
+	TLSCert   string `json:"tls_cert"`
+	TLSKey    string `json:"tls_key"`
 }

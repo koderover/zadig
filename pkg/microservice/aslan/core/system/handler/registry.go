@@ -49,6 +49,8 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 		return
 	}
 
+	// FIXME: a new feature in 1.11 added a tls certificate field for registry, but it is not added in this API temporarily
+	//        since it is for Kodespace ONLY
 	ctx.Resp = &Registry{
 		ID:        reg.ID.Hex(),
 		RegAddr:   reg.RegAddr,
@@ -74,6 +76,8 @@ func GetRegistryNamespace(c *gin.Context) {
 		RegAddr:   reg.RegAddr,
 		IsDefault: reg.IsDefault,
 		Namespace: reg.Namespace,
+		TLSCert:   reg.TLSCert,
+		TLSKey:    reg.TLSKey,
 	}
 }
 

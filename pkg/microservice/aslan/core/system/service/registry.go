@@ -17,8 +17,15 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/retry"
 	"strings"
 
 	"go.uber.org/zap"
@@ -96,6 +103,8 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 		log.Errorf("RegistryNamespace.Create error: %v", err)
 		return fmt.Errorf("RegistryNamespace.Create error: %v", err)
 	}
+
+	//return UpdateDinD(log)
 	return nil
 }
 
@@ -271,3 +280,107 @@ func UpdateRegistryNamespaceDefault(args *commonmodels.RegistryNamespace, log *z
 	}
 	return nil
 }
+
+func UpdateDinD(log *zap.SugaredLogger) error {
+	repoInfo, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	if err != nil {
+		log.Errorf("failed to list all registries to update dind, the error is: %s", err)
+		return err
+	}
+
+	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
+	if err != nil {
+		log.Errorf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
+		return err
+	}
+
+	volumeMountList := make([]map[string]string, 0)
+	volumeList := make([]map[string]interface{}, 0)
+	for _, repo := range repoInfo {
+		if repo.TLSCert != "" {
+			mountName := fmt.Sprintf("%s-%s-cert", repo.RegAddr, repo.Namespace)
+			// create volumeMount info
+			volumeMountMap := map[string]string{
+				"mountPath": "/etc/docker/certs.d",
+				"name":      mountName,
+			}
+			volumeMountList = append(volumeMountList, volumeMountMap)
+			// create volume info
+			secretItemList := make([]map[string]string, 0)
+			secretItemList = append(secretItemList, map[string]string{
+				"key":  "cert.crt",
+				"path": fmt.Sprintf("%s/%s", repo.RegAddr, "cert.crt"),
+			})
+			secretInfo := map[string]interface{}{
+				"items":      secretItemList,
+				"secretName": mountName,
+			}
+			volumeMap := map[string]interface{}{
+				"name":   mountName,
+				"secret": secretInfo,
+			}
+			volumeList = append(volumeList, volumeMap)
+		}
+	}
+
+	stsResource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulset"}
+
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Retrieve the latest version of Deployment before attempting update
+		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
+		result, getErr := dynamicClient.Resource(stsResource).Namespace(config.Namespace()).Get(context.TODO(), "dind", metav1.GetOptions{})
+		if getErr != nil {
+			return err
+		}
+
+		// extract spec containers
+		containers, found, err := unstructured.NestedSlice(result.Object, "spec", "template", "spec", "containers")
+		if err != nil || !found || containers == nil {
+			return err
+		}
+
+		if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), volumeMountList, "volumeMounts"); err != nil {
+			return err
+		}
+		if err := unstructured.SetNestedField(result.Object, containers, "spec", "template", "spec", "containers"); err != nil {
+			return err
+		}
+		if err := unstructured.SetNestedField(result.Object, volumeList, "spec", "template", "spec", "volumes"); err != nil {
+			return err
+		}
+		_, updateErr := dynamicClient.Resource(stsResource).Namespace(config.Namespace()).Update(context.TODO(), result, metav1.UpdateOptions{})
+		return updateErr
+	})
+
+	if retryErr != nil {
+		return fmt.Errorf("update dind statefulset failed: %v", retryErr)
+	}
+
+	return nil
+}
+
+//func CreateCertSecret(secretName, cert string, log *zap.SugaredLogger) error {
+//	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
+//	if err != nil {
+//		log.Errorf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
+//		return err
+//	}
+//
+//	certificateString := base64.StdEncoding.EncodeToString([]byte(cert))
+//
+//	secret := &unstructured.Unstructured{
+//		Object: map[string]interface{}{
+//			"apiVersion": "v1",
+//			"kind":       "Secret",
+//			"metadata": map[string]interface{}{
+//				"name": secretName,
+//			},
+//			"type": "Opaque",
+//			"data": map[string]string{
+//				"cert.crt": certificateString,
+//			},
+//		},
+//	}
+//
+//	result, err := client.R
+//}

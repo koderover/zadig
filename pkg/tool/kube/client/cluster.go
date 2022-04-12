@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"k8s.io/client-go/dynamic"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -55,6 +56,14 @@ func NewClientSet() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 	return kubernetes.NewForConfig(config)
+}
+
+func NewDynamicClient() (dynamic.Interface, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	return dynamic.NewForConfig(config)
 }
 
 func Client() client.Client {

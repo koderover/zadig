@@ -38,6 +38,10 @@ type RegistryNamespace struct {
 	Region     string `bson:"region,omitempty"            json:"region,omitempty"`
 	UpdateTime int64  `bson:"update_time"                 json:"update_time"`
 	UpdateBy   string `bson:"update_by"                   json:"update_by"`
+
+	// New field since v1.11 to support self-signed TLS certificate
+	TLSCert string `bson:"tls_cert" json:"tls_cert"`
+	TLSKey  string `bson:"tls_key"  json:"tls_key"`
 }
 
 func (ns *RegistryNamespace) Validate() error {

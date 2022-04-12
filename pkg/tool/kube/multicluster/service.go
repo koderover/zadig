@@ -18,6 +18,7 @@ package multicluster
 
 import (
 	"fmt"
+	"k8s.io/client-go/dynamic"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,19 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 	}
 
 	return clusterService.GetClientGoKubeClient(clusterID)
+}
+
+func GetDynamicKubeclient(hubServerAddr, clusterID string) (dynamic.Interface, error) {
+	if clusterID == "" {
+		return krkubeclient.NewDynamicClient()
+	}
+
+	clusterService, err := NewAgent(hubServerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clusterService: %v", err)
+	}
+
+	return clusterService.GetDynamicKubeClient(clusterID)
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
@@ -142,6 +156,11 @@ func (s *Agent) GetKubeClient(clusterID string) (client.Client, error) {
 func (s *Agent) GetClientGoKubeClient(clusterID string) (*kubernetes.Clientset, error) {
 	config := generateRestConfig(clusterID, s.hubServerAddr)
 	return kubernetes.NewForConfig(config)
+}
+
+func (s *Agent) GetDynamicKubeClient(clusterID string) (dynamic.Interface, error) {
+	config := generateRestConfig(clusterID, s.hubServerAddr)
+	return dynamic.NewForConfig(config)
 }
 
 func (s *Agent) ClusterConnected(clusterID string) bool {

@@ -17,10 +17,13 @@ limitations under the License.
 package getter
 
 import (
+	"context"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,6 +35,10 @@ func GetStatefulSet(ns, name string, cl client.Client) (*appsv1.StatefulSet, boo
 	}
 
 	return ss, found, err
+}
+
+func GetStatefulSetNew(ns, name string, clientset *kubernetes.Clientset) (*appsv1.StatefulSet, error) {
+	return clientset.AppsV1().StatefulSets(ns).Get(context.TODO(), name, metav1.GetOptions{})
 }
 
 func ListStatefulSets(ns string, selector labels.Selector, cl client.Client) ([]*appsv1.StatefulSet, error) {
