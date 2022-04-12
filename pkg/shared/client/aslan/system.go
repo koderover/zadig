@@ -21,3 +21,9 @@ func (c *Client) GetDockerCleanConfig() (*CleanConfig, error) {
 
 	return res, nil
 }
+
+func (c *Client) DockerClean() error {
+	url := "/system/cleanCache/oneClick"
+	_, err := c.Post(url)
+	return err
+}

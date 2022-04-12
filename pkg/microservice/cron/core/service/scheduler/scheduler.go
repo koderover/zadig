@@ -82,6 +82,10 @@ func (c *CronV3Client) Start() {
 				c.Cron.Run()
 				entryID, err = c.Cron.AddFunc(config.Cron, func() {
 					log.Infof("********add********* , %v\n", config)
+					// call docker clean
+					if err := c.AslanCli.DockerClean(); err != nil {
+						log.Errorf("clean docker cache fail , err:%s", err)
+					}
 				})
 				if err != nil {
 					log.Errorf("err get entryID:%v", entryID)
