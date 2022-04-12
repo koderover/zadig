@@ -1329,7 +1329,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		if err != nil {
 			return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", deployTask.ServiceName, deployTask.ServiceRevision, err)
 		}
-		deployTask.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNamingRule(), prodEnv.ProductName, prodEnv.Namespace, prodEnv.EnvName, deployTask.ServiceName)
+		deployTask.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodEnv.ProductName, prodEnv.Namespace, prodEnv.EnvName, deployTask.ServiceName)
 		return deployTask.ToSubTask()
 	}
 	return resp, fmt.Errorf("env type not match")

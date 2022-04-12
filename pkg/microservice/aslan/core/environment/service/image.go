@@ -180,7 +180,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		Namespace:     namespace,
 		EnvName:       product.EnvName,
 		ServiceName:   serviceObj.ServiceName,
-		ReleaseName:   util.GeneReleaseName(serviceObj.GetReleaseNamingRule(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
+		ReleaseName:   util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
 		DefaultValues: renderSet.DefaultValues,
 		MergedValues:  replacedMergedValuesYaml,
 		RenderChart:   targetChart,

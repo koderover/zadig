@@ -2883,7 +2883,7 @@ func buildInstallParam(namespace string, envName string, renderChart *templatemo
 		Namespace:     namespace,
 		EnvName:       envName,
 		ServiceName:   serviceObj.ServiceName,
-		ReleaseName:   util.GeneReleaseName(serviceObj.GetReleaseNamingRule(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName),
+		ReleaseName:   util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName),
 		DefaultValues: defaultValues,
 		MergedValues:  mergedValues,
 		RenderChart:   renderChart,

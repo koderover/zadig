@@ -151,14 +151,16 @@ func HelmReleaseNaming(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	svcName := c.Query("name")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+	}
 
 	args := new(svcservice.ReleaseNamingRule)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
 		return
 	}
-	err := svcservice.UpdateReleaseNamingRule(projectName, svcName, args)
+	err := svcservice.UpdateReleaseNamingRule(projectName, args)
 	if err != nil {
 		ctx.Err = err
 		return

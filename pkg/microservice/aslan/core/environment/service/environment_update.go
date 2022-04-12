@@ -43,7 +43,7 @@ func UninstallService(helmClient helmclient.Client, productName, namespace, serv
 		return fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, revision, err)
 	}
 	return helmClient.UninstallRelease(&helmclient.ChartSpec{
-		ReleaseName: util.GeneReleaseName(revisionSvc.GetReleaseNamingRule(), productName, namespace, revisionSvc.EnvName, serviceName),
+		ReleaseName: util.GeneReleaseName(revisionSvc.GetReleaseNaming(), productName, namespace, revisionSvc.EnvName, serviceName),
 		Namespace:   namespace,
 		Wait:        true,
 		Force:       force,

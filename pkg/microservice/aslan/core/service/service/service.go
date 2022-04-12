@@ -135,7 +135,8 @@ type YamlValidatorReq struct {
 }
 
 type ReleaseNamingRule struct {
-	NamingRule string `json:"naming_rule"`
+	NamingRule  string `json:"naming"`
+	ServiceName string `json:"service_name"`
 }
 
 func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.SugaredLogger) {
@@ -935,9 +936,9 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	return errorDetails
 }
 
-func UpdateReleaseNamingRule(projectName, svcName string, args *ReleaseNamingRule) error {
+func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule) error {
 	serviceTemplate, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ServiceName:   svcName,
+		ServiceName:   args.ServiceName,
 		Revision:      0,
 		Type:          setting.HelmDeployType,
 		ProductName:   projectName,
@@ -947,18 +948,18 @@ func UpdateReleaseNamingRule(projectName, svcName string, args *ReleaseNamingRul
 		return err
 	}
 
-	oldReleaseNamingRule := serviceTemplate.GetReleaseNamingRule()
+	oldReleaseNamingRule := serviceTemplate.GetReleaseNaming()
 	// nothing would happen if naming rule keeps the same
 	if oldReleaseNamingRule == args.NamingRule {
 		return nil
 	}
 
-	rev, err := getNextServiceRevision(projectName, svcName)
+	rev, err := getNextServiceRevision(projectName, args.ServiceName)
 	if err != nil {
-		return fmt.Errorf("failed to get service next revision, service %s, err: %s", svcName, err)
+		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
 	}
 	serviceTemplate.Revision = rev
-	serviceTemplate.ReleaseNamingRule = args.NamingRule
+	serviceTemplate.ReleaseNaming = args.NamingRule
 
 	err = commonrepo.NewServiceColl().Create(serviceTemplate)
 	if err != nil {
@@ -966,7 +967,7 @@ func UpdateReleaseNamingRule(projectName, svcName string, args *ReleaseNamingRul
 	}
 
 	// reinstall all services
-	return service.UpdateSvcInAllEnvs(projectName, svcName, serviceTemplate)
+	return service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
