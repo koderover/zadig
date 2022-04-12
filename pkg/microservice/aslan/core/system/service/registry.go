@@ -297,7 +297,7 @@ func UpdateDinD(log *zap.SugaredLogger) error {
 	volumeMountList := make([]map[string]string, 0)
 	volumeList := make([]map[string]interface{}, 0)
 	for _, repo := range repoInfo {
-		if repo.TLSCert != "" {
+		if repo.AdvancedSetting != nil && repo.AdvancedSetting.TLSCert != "" {
 			mountName := fmt.Sprintf("%s-%s-cert", repo.RegAddr, repo.Namespace)
 			// create volumeMount info
 			volumeMountMap := map[string]string{
