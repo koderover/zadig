@@ -70,6 +70,13 @@ rules:
           - key: "production"
             value: "false"
       - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/helm/images"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/images"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
         endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
   - action: create_environment
     alias: "创建"

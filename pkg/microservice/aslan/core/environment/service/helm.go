@@ -312,22 +312,19 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 }
 
 func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLogger) (*ChartImagesResp, error) {
-
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, e.ErrCreateDeliveryVersion.AddDesc(err.Error())
+		return nil, fmt.Errorf("failed to find product: %s:%s to get image infos, err: %s", productName, envName, err)
 	}
 
 	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
 	if err != nil {
-		log.Errorf("GetRESTConfig error: %v", err)
-		return nil, e.ErrCreateDeliveryVersion.AddDesc(err.Error())
+		return nil, fmt.Errorf("failed to get rest config: %s:%s to get image infos, err: %s", productName, envName, err)
 	}
 	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
 	if err != nil {
-		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", envName, productName, err)
-		return nil, e.ErrCreateDeliveryVersion.AddErr(err)
+		return nil, fmt.Errorf("failed to init kube client: %s:%s to get image infos, err: %s", productName, envName, err)
 	}
 
 	// filter releases, only list releases deployed by zadig
@@ -344,18 +341,18 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 	for _, svcName := range services {
 		prodSvc, ok := serviceMap[svcName]
 		if !ok || prodSvc == nil {
-			return nil, e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to find service: %s in product", svcName))
+			return nil, fmt.Errorf("failed to find service: %s in product", svcName)
 		}
 
 		releaseName := util.GeneHelmReleaseName(prod.Namespace, svcName)
 		valuesYaml, err := helmClient.GetReleaseValues(releaseName, true)
 		if err != nil {
-			return nil, e.ErrCreateDeliveryVersion.AddErr(err)
+			return nil, fmt.Errorf("failed to get values for relase: %s, err: %s", releaseName, err)
 		}
 
 		flatMap, err := converter.Flatten(valuesYaml)
 		if err != nil {
-			return nil, e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to get flat map url for release :%s", releaseName))
+			return nil, fmt.Errorf("failed to get flat map url for release :%s", releaseName)
 		}
 
 		svcImage := &ServiceImages{
@@ -365,7 +362,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 
 		for _, container := range prodSvc.Containers {
 			if container.ImagePath == nil {
-				return nil, e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to parse image for container:%s", container.Image))
+				return nil, fmt.Errorf("failed to parse image for container:%s", container.Image)
 			}
 			imageSearchRule := &template.ImageSearchingRule{
 				Repo:  container.ImagePath.Repo,
@@ -375,7 +372,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			pattern := imageSearchRule.GetSearchingPattern()
 			imageUrl, err := commonservice.GeneImageURI(pattern, flatMap)
 			if err != nil {
-				return nil, e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to get image url for container:%s", container.Image))
+				return nil, fmt.Errorf("failed to get image url for container:%s", container.Image)
 			}
 
 			svcImage.Images = append(svcImage.Images, &ImageData{
@@ -384,7 +381,6 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			})
 		}
 		ret.ServiceImages = append(ret.ServiceImages, svcImage)
-
 	}
 	return ret, nil
 }

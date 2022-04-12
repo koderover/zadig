@@ -57,7 +57,7 @@ func ReplaceRepo(origin, addr, namespace string) string {
 
 func ReplaceTag(origin, newTag string) string {
 	parts := strings.Split(origin, ":")
-	if len(parts) < 2 {
+	if len(parts) != 2 {
 		return origin
 	}
 	parts[len(parts)-1] = newTag
