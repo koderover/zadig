@@ -133,6 +133,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		rcaObj := new(RenderChartArg)
 		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
+		rcaObj.YamlData = singleChart.OverrideYaml
 		ret = append(ret, rcaObj)
 	}
 	return ret, nil

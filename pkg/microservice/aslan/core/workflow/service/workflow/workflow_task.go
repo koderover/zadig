@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/url"
@@ -26,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	gotempl "text/template"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -38,6 +41,7 @@ import (
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -106,11 +110,14 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		}
 
 		if moBuild.JenkinsBuild != nil {
-			jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+			jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 			for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-				jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-					Name:  jenkinsBuildParam.Name,
-					Value: jenkinsBuildParam.Value,
+				jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+					Name:         jenkinsBuildParam.Name,
+					Value:        jenkinsBuildParam.Value,
+					Type:         jenkinsBuildParam.Type,
+					ChoiceOption: jenkinsBuildParam.ChoiceOption,
+					AutoGenerate: jenkinsBuildParam.AutoGenerate,
 				})
 			}
 			target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -396,11 +403,14 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			}
 
 			if moBuild.JenkinsBuild != nil {
-				jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+				jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 				for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-					jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-						Name:  jenkinsBuildParam.Name,
-						Value: jenkinsBuildParam.Value,
+					jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+						Name:         jenkinsBuildParam.Name,
+						Value:        jenkinsBuildParam.Value,
+						Type:         jenkinsBuildParam.Type,
+						ChoiceOption: jenkinsBuildParam.ChoiceOption,
+						AutoGenerate: jenkinsBuildParam.AutoGenerate,
 					})
 				}
 				target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -707,7 +717,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			}
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
-
 		for _, stask := range task.SubTasks {
 			AddSubtaskToStage(&stages, stask, target.Name+"_"+target.ServiceName)
 		}
@@ -2143,6 +2152,26 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.JobCtx.PostScripts = module.PostBuild.Scripts
 		}
 
+		if module.PostBuild != nil && module.PostBuild.ObjectStorageUpload != nil {
+			build.JobCtx.UploadEnabled = module.PostBuild.ObjectStorageUpload.Enabled
+			if module.PostBuild.ObjectStorageUpload.Enabled {
+				storageInfo, err := commonrepo.NewS3StorageColl().Find(module.PostBuild.ObjectStorageUpload.ObjectStorageID)
+				if err != nil {
+					log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
+					return nil, err
+				}
+				build.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
+					Endpoint: storageInfo.Endpoint,
+					AK:       storageInfo.Ak,
+					SK:       storageInfo.Sk,
+					Bucket:   storageInfo.Bucket,
+					Insecure: storageInfo.Insecure,
+					Provider: storageInfo.Provider,
+				}
+				build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
+			}
+		}
+
 		build.JobCtx.Caches = module.Caches
 
 		if args.FileName != "" {
@@ -2237,7 +2266,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
 				exitedProd, err := commonrepo.NewProductColl().Find(opt)
 				if err != nil {
-					log.Errorf("can't find product by envName:%s error msg: %v", taskOpt.EnvName, err)
+					log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
@@ -2251,14 +2280,14 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				if len(exitedProd.RegistryID) > 0 {
 					reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
-						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
 					reg, _, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
-						log.Errorf("can't find default candidate registry: %v", err)
+						log.Errorf("can't find default candidate registry: %s", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				}
@@ -2343,16 +2372,73 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 			if t.Enabled {
 				// 分析镜像名称
 				image := ""
-				for _, jenkinsBuildParams := range t.JenkinsBuildArgs.JenkinsBuildParams {
+				for i, jenkinsBuildParams := range t.JenkinsBuildArgs.JenkinsBuildParams {
 					if jenkinsBuildParams.Name != "IMAGE" {
 						continue
 					}
-					if value, ok := jenkinsBuildParams.Value.(string); ok {
+
+					if jenkinsBuildParams.AutoGenerate {
+						opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
+						exitedProd, err := commonrepo.NewProductColl().Find(opt)
+						if err != nil {
+							log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
+							return e.ErrFindRegistry.AddDesc(err.Error())
+						}
+
+						var reg *commonmodels.RegistryNamespace
+						if len(exitedProd.RegistryID) > 0 {
+							reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+							if err != nil {
+								log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
+									exitedProd.RegistryID, err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						} else {
+							reg, _, err = commonservice.FindDefaultRegistry(true, log)
+							if err != nil {
+								log.Errorf("can't find default candidate registry: %s", err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						}
+						project, err := templaterepo.NewProductColl().Find(taskOpt.Task.ProductName)
+						if err != nil {
+							log.Errorf("find project err:%s", err)
+							return err
+						}
+
+						if project.CustomImageRule != nil && project.CustomImageRule.JenkinsRule != "" {
+							va := commonservice.Variable{
+								SERVICE:    t.ServiceName,
+								TIMESTAMP:  time.Now().Format("20060102150405"),
+								IMAGE_NAME: taskOpt.ImageName,
+								PROJECT:    taskOpt.Task.ProductName,
+								ENV_NAME:   taskOpt.EnvName,
+								TASK_ID:    strconv.FormatInt(taskOpt.Task.TaskID, 10),
+							}
+							tm, err := gotempl.New("jenkins").Parse(project.CustomImageRule.JenkinsRule)
+							if err != nil {
+								log.Errorf("Parse template err:%s", err)
+								return err
+							}
+							var replaceRuleVariable = gotempl.Must(tm, err)
+							payload := bytes.NewBufferString("")
+							err = replaceRuleVariable.Execute(payload, va)
+							if err != nil {
+								log.Errorf("Execute template err:%s", err)
+								return err
+							}
+							image = GetImage(reg, payload.String())
+						} else {
+							image = GetImage(reg, fmt.Sprintf("%s:%s", t.ServiceName, time.Now().Format("20060102150405")))
+						}
+
+						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
+						break
+					} else if value, ok := jenkinsBuildParams.Value.(string); ok {
 						image = value
 						break
 					}
 				}
-
 				if image == "" || !strings.Contains(image, ":") {
 					return &ImageIllegal{}
 				}

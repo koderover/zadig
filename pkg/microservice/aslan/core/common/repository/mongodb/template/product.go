@@ -174,6 +174,7 @@ type ProductListOpt struct {
 	IsOpensource          string
 	ContainSharedServices []*template.ServiceInfo
 	BasicFacility         string
+	DeployType            string
 }
 
 // ListWithOption ...
@@ -189,6 +190,9 @@ func (c *ProductColl) ListWithOption(opt *ProductListOpt) ([]*template.Product, 
 	}
 	if opt.BasicFacility != "" {
 		query["product_feature.basic_facility"] = opt.BasicFacility
+	}
+	if opt.DeployType != "" {
+		query["product_feature.deploy_type"] = opt.DeployType
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)

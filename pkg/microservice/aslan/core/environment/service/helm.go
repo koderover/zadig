@@ -26,7 +26,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -38,6 +42,8 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -381,4 +387,114 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 
 	}
 	return ret, nil
+}
+
+func helmInitEnvConfigSet(envName, productName, userName string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+	return initEnvConfigSetAction(envName, productName, userName, envConfigYamls, inf, kubeClient)
+}
+
+func initEnvConfigSetAction(envName, productName, userName string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+	errList := &multierror.Error{
+		ErrorFormat: func(es []error) string {
+			format := "创建环境配置"
+			if len(es) == 1 {
+				return fmt.Sprintf(format+" %s 失败:%s", envName, es[0])
+			}
+			points := make([]string, len(es))
+			for i, err := range es {
+				points[i] = fmt.Sprintf("* %s", err)
+			}
+			return fmt.Sprintf(format+" %s 失败:\n%s", envName, strings.Join(points, "\n"))
+		},
+	}
+
+	clusterLabels := getPredefinedClusterLabels(productName, "", envName)
+	delete(clusterLabels, "s-service")
+	for _, envConfigYaml := range envConfigYamls {
+		manifests := releaseutil.SplitManifests(envConfigYaml)
+		resources := make([]*unstructured.Unstructured, 0, len(manifests))
+		for _, item := range manifests {
+			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+			if err != nil {
+				log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %s", item, err)
+				errList = multierror.Append(errList, err)
+				continue
+			}
+			resources = append(resources, u)
+		}
+		for _, u := range resources {
+			switch u.GetKind() {
+			case setting.ConfigMap, setting.Ingress, setting.Secret, setting.PersistentVolumeClaim:
+				ls := kube.MergeLabels(clusterLabels, u.GetLabels())
+				u.SetNamespace(productName + "-env-" + envName)
+				u.SetLabels(ls)
+
+				err := updater.CreateOrPatchUnstructuredNeverAnnotation(u, kubeClient)
+				if err != nil {
+					log.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
+					errList = multierror.Append(errList, err)
+					continue
+				}
+				u.SetManagedFields(nil)
+				yamlData, err := yaml.Marshal(u.UnstructuredContent())
+				if err != nil {
+					log.Errorf("Failed to initEnvConfigSet yaml.Marshal %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
+					errList = multierror.Append(errList, err)
+					continue
+				}
+				switch u.GetKind() {
+				case setting.ConfigMap:
+					envCm := &models.EnvConfigMap{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewConfigMapColl().Create(envCm, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				case setting.Ingress:
+					envIngress := &models.EnvIngress{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewIngressColl().Create(envIngress, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				case setting.Secret:
+					envSecret := &models.EnvSecret{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewSecretColl().Create(envSecret, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				case setting.PersistentVolumeClaim:
+					envPvc := &models.EnvPvc{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewPvcColl().Create(envPvc, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				}
+			default:
+				errList = multierror.Append(errList, fmt.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, "kind not support"))
+			}
+		}
+	}
+	if len(errList.Errors) == 0 {
+		return nil
+	}
+	return errList
 }

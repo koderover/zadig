@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
@@ -383,6 +384,16 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		return err
 	}
 
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productObj.ClusterID)
+	if err != nil {
+		return err
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productObj.ClusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
@@ -470,7 +481,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 					productObj,
 					productService,
 					productService,
-					newRender, inf, kubeClient, log)
+					newRender, inf, kubeClient, istioClient, log)
 
 				// 如果创建依赖服务组有返回错误, 停止等待
 				if err != nil {

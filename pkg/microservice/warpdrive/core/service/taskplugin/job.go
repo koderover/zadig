@@ -226,6 +226,20 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ServiceName:     serviceName,
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
+		UploadEnabled:   b.JobCtx.UploadEnabled,
+		UploadInfo:      b.JobCtx.UploadInfo,
+	}
+
+	// Currently only the build stage will have this info. For the rest we will skip this context
+	if b.JobCtx.UploadStorageInfo != nil {
+		ctx.UploadStorageInfo = &commontypes.ObjectStorageInfo{
+			Endpoint: b.JobCtx.UploadStorageInfo.Endpoint,
+			AK:       b.JobCtx.UploadStorageInfo.AK,
+			SK:       b.JobCtx.UploadStorageInfo.SK,
+			Bucket:   b.JobCtx.UploadStorageInfo.Bucket,
+			Insecure: b.JobCtx.UploadStorageInfo.Insecure,
+			Provider: b.JobCtx.UploadStorageInfo.Provider,
+		}
 	}
 
 	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
@@ -272,12 +286,24 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ctx.Repos = append(ctx.Repos, repo)
 	}
 
+	envmaps := make(map[string]string)
 	for _, ev := range b.JobCtx.EnvVars {
 		val := fmt.Sprintf("%s=%s", ev.Key, ev.Value)
 		if ev.IsCredential {
 			ctx.SecretEnvs = append(ctx.SecretEnvs, val)
 		} else {
 			ctx.Envs = append(ctx.Envs, val)
+		}
+		envmaps[ev.Key] = ev.Value
+	}
+
+	if b.JobCtx.UploadEnabled {
+		for _, upload := range b.JobCtx.UploadInfo {
+			// since the frontend won't change the file path, the backend will have to add it
+			upload.FilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
+			// then we replace it with our env variables
+			upload.FilePath = replaceEnvWithValue(upload.FilePath, envmaps)
+			upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		}
 	}
 
@@ -1034,4 +1060,13 @@ func genRegistrySecretName(reg *task.RegistryNamespace) (string, error) {
 	}
 
 	return secretName, nil
+}
+
+func replaceEnvWithValue(str string, envs map[string]string) string {
+	ret := str
+	for key, value := range envs {
+		strKey := fmt.Sprintf("$%s", key)
+		ret = strings.ReplaceAll(ret, strKey, value)
+	}
+	return ret
 }
