@@ -47,13 +47,13 @@ type ReleaseImage struct {
 
 	// New Version field
 	ProductName    string            `bson:"product_name"    json:"product_name"`
-	ReleaseName    string            `bson:"release_name"    json:"release_name"`
 	SourceImage    string            `bson:"source_image"    json:"source_image"`
 	DistributeInfo []*DistributeInfo `bson:"distribute_info" json:"distribute_info"`
 }
 
 type DistributeInfo struct {
 	Image               string `bson:"image" json:"image"`
+	ReleaseName         string `bson:"release_name" json:"release_name"`
 	DistributeStartTime int64  `bson:"distribute_start_time" json:"distribute_start_time"`
 	DistributeEndTime   int64  `bson:"distribute_end_time"   json:"distribute_end_time"`
 	DistributeStatus    string `bson:"distribute_status"     json:"distribute_status"`

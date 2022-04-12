@@ -76,12 +76,11 @@ func ReInstallServiceInEnv(productInfo *commonmodels.Product, serviceName string
 		return nil
 	}
 
-	log.Infof("###### reInstall service: %s in env: %s", serviceName, productInfo.EnvName)
 	renderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:     productSvc.Render.Name,
-		Revision: productSvc.Render.Revision})
+		Name:     productInfo.Render.Name,
+		Revision: productInfo.Render.Revision})
 	if err != nil {
-		return fmt.Errorf("failed to find renderset, %s:%d", productSvc.Render.Name, productSvc.Render.Revision)
+		return fmt.Errorf("failed to find renderset, %s:%d", productInfo.Render.Name, productInfo.Render.Revision)
 	}
 
 	var renderChart *templatemodels.RenderChart

@@ -160,7 +160,7 @@ func HelmReleaseNaming(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
 		return
 	}
-	err := svcservice.UpdateReleaseNamingRule(projectName, args)
+	err := svcservice.UpdateReleaseNamingRule(projectName, args, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return

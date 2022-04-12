@@ -46,7 +46,6 @@ type ReleaseImage struct {
 
 	// New Version field
 	ProductName    string            `bson:"product_name"    json:"product_name"`
-	ReleaseName    string            `bson:"release_name"    json:"release_name"`
 	SourceImage    string            `bson:"source_image"    json:"source_image"`
 	DistributeInfo []*DistributeInfo `bson:"distribute_info" json:"distribute_info"`
 }
@@ -54,6 +53,7 @@ type ReleaseImage struct {
 // DistributeInfo will be convert into yaml, adding yaml
 type DistributeInfo struct {
 	Image               string `json:"image"                 yaml:"image"`
+	ReleaseName         string `json:"release_name"          yaml:"release_name"`
 	DistributeStartTime int64  `json:"distribute_start_time" yaml:"distribute_start_time"`
 	DistributeEndTime   int64  `json:"distribute_end_time"   yaml:"distribute_end_time"`
 	DistributeStatus    string `json:"distribute_status"     yaml:"distribute_status"`

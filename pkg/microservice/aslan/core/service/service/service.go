@@ -42,6 +42,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -936,7 +937,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	return errorDetails
 }
 
-func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule) error {
+func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
 	serviceTemplate, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		Revision:      0,
@@ -954,20 +955,36 @@ func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule) error 
 		return nil
 	}
 
+	serviceTemplate.ReleaseNaming = args.NamingRule
 	rev, err := getNextServiceRevision(projectName, args.ServiceName)
 	if err != nil {
 		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
 	}
-	serviceTemplate.Revision = rev
-	serviceTemplate.ReleaseNaming = args.NamingRule
 
+	basePath := config.LocalServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
+	if err = commonservice.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
+		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	fsTree := os.DirFS(config.LocalServicePath(projectName, serviceTemplate.ServiceName))
+	s3Base := config.ObjectStorageServicePath(projectName, serviceTemplate.ServiceName)
+	err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
+	if err != nil {
+		return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	serviceTemplate.Revision = rev
 	err = commonrepo.NewServiceColl().Create(serviceTemplate)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
 	}
 
 	// reinstall all services
-	return service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
+	err = service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to re install service: %s, err: %s", args.ServiceName)
+	}
+	return nil
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {

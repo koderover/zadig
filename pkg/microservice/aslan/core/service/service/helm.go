@@ -183,6 +183,7 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 		serviceModules = append(serviceModules, serviceModule)
 	}
 	helmServiceModule.Service = serviceTemplate
+	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
 	helmServiceModule.ServiceModules = serviceModules
 	return helmServiceModule, err
 }

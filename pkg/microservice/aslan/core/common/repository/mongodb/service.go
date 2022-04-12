@@ -285,7 +285,7 @@ func (c *ServiceColl) UpdateServiceHealthCheckStatus(args *models.Service) error
 func (c *ServiceColl) UpdateServiceReleaseNamingRule(args *models.Service) error {
 	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
 	changeMap := bson.M{
-		"release_naming_rule": args.ReleaseNaming,
+		"release_naming": args.ReleaseNaming,
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)

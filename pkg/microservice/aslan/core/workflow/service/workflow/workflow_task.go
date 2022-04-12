@@ -1377,7 +1377,6 @@ func artifactToSubTasks(name, image string) (map[string]interface{}, error) {
 	artifactTask := taskmodels.Artifact{TaskType: config.TaskArtifact, Enabled: true}
 	artifactTask.Name = name
 	artifactTask.Image = image
-
 	return artifactTask.ToSubTask()
 }
 
@@ -1405,12 +1404,33 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 			if err != nil {
 				return nil, err
 			}
+			releaseName := ""
+			if repoInfo.DeployEnabled {
+				svcMap := envInfo.GetServiceMap()
+				pSvc, ok := svcMap[serviceModule.ServiceName]
+				if !ok {
+					return nil, fmt.Errorf("can't find service: %s:%s in product: %s", productName, repoInfo.DeployEnv, serviceModule.ServiceName)
+				}
+				if pSvc.Type == setting.HelmDeployType {
+					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+						ServiceName: serviceModule.ServiceName,
+						Revision:    pSvc.Revision,
+						Type:        setting.HelmDeployType,
+						ProductName: productName,
+					})
+					if err != nil {
+						return nil, err
+					}
+					releaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), productName, envInfo.Namespace, repoInfo.DeployEnv, serviceModule.ServiceName)
+				}
+			}
 			distributeInfo = append(distributeInfo, &taskmodels.DistributeInfo{
 				DeployEnabled:     repoInfo.DeployEnabled,
 				DeployEnv:         repoInfo.DeployEnv,
 				DeployServiceType: productInfo.ProductFeature.DeployType,
 				DeployClusterID:   envInfo.ClusterID,
 				DeployNamespace:   envInfo.Namespace,
+				ReleaseName:       releaseName,
 				RepoID:            repoInfo.RepoID,
 			})
 		}
@@ -2211,6 +2231,34 @@ func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String,
 	return ips, names
 }
 
+func getServiceNaming(projectName, envName, serviceName string) (string, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return "", err
+	}
+	svcMap := productInfo.GetServiceMap()
+	pSvc, ok := svcMap[serviceName]
+	if !ok {
+		return "", fmt.Errorf("can't find service: %s:%s in product: %s", projectName, envName, serviceName)
+	}
+	if pSvc.Type != setting.HelmDeployType {
+		return "", nil
+	}
+	templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    pSvc.Revision,
+		Type:        setting.HelmDeployType,
+		ProductName: projectName,
+	})
+	if err != nil {
+		return "", nil
+	}
+	return util.GeneReleaseName(templateSvc.GetReleaseNaming(), projectName, productInfo.Namespace, envName, serviceName), nil
+}
+
 func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) error {
 	var (
 		buildEnvs []*commonmodels.KeyVal
@@ -2699,6 +2747,13 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						DeployServiceType:   distribute.DeployServiceType,
 						DeployClusterID:     distribute.DeployClusterID,
 						RepoID:              distribute.RepoID,
+					}
+					if distribute.DeployEnabled {
+						releaseNaming, err := getServiceNaming(taskOpt.Task.ProductName, distribute.DeployEnv, taskOpt.ServiceName)
+						if err != nil {
+							return fmt.Errorf("failed to find release naming for service: %s, err: %s", taskOpt.ServiceName, err)
+						}
+						d.ReleaseName = releaseNaming
 					}
 					if v, ok := taskOpt.Task.ConfigPayload.RepoConfigs[distribute.RepoID]; ok {
 						d.Image = util.ReplaceRepo(taskOpt.Task.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)
