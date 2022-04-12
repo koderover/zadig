@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -658,6 +660,7 @@ DistributeLoop:
 
 			//releaseName := util.GeneHelmReleaseName(distribute.DeployNamespace, distribute.DeployServiceName)
 			releaseName := p.Task.ReleaseName
+			log.Info("########## the release Name is %s", releaseName)
 
 			ensureUpgrade := func() error {
 				hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)

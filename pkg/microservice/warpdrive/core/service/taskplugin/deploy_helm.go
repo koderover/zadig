@@ -316,7 +316,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 
 	//releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
 	releaseName := p.Task.ReleaseName
-	log.Info("####### the release name is %s", releaseName)
+	log.Infof("####### the release name is %s", releaseName)
 
 	ensureUpgrade := func() error {
 		hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)

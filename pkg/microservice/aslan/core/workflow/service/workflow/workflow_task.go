@@ -639,7 +639,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
-						args.ProductTmplName,
+						serviceModule,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1066,7 +1066,11 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				}
 				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
 					distributeTasks, err = formatDistributeSubtasks(
-						args.ProductTmplName,
+						&commonmodels.ServiceModuleTarget{
+							ProductName:   args.ProductTmplName,
+							ServiceName:   imageInfo.ServiceName,
+							ServiceModule: imageInfo.ServiceModule,
+						},
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1323,10 +1327,9 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 			ProductName: prodEnv.ProductName,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to find service: %s with revision: %s, err: %s", deployTask.ServiceName, deployTask.ServiceRevision, err)
+			return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", deployTask.ServiceName, deployTask.ServiceRevision, err)
 		}
 		deployTask.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNamingRule(), prodEnv.ProductName, prodEnv.Namespace, prodEnv.EnvName, deployTask.ServiceName)
-		log.Infof("############ the release name is %s", deployTask.ReleaseName)
 		return deployTask.ToSubTask()
 	}
 	return resp, fmt.Errorf("env type not match")
@@ -1378,9 +1381,9 @@ func artifactToSubTasks(name, image string) (map[string]interface{}, error) {
 	return artifactTask.ToSubTask()
 }
 
-func formatDistributeSubtasks(productName string, releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
+func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
 	var resp []map[string]interface{}
-
+	productName := serviceModule.ProductName
 	if distribute.ImageDistribute {
 		t := taskmodels.ReleaseImage{
 			TaskType:    config.TaskReleaseImage,
@@ -1710,6 +1713,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			if env != nil {
 				// 生成部署的subtask
 				for _, deployEnv := range artifact.Deploy {
+					log.Infof("####### start deployEnvToSubTasks")
 					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
 					if err != nil {
 						log.Errorf("deploy env to subtask error: %v", err)
@@ -1765,7 +1769,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
-						args.ProductTmplName,
+						serviceModule,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
