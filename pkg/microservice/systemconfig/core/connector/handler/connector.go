@@ -40,7 +40,7 @@ func ListConnectors(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListConnectors(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListConnectors(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func DeleteConnector(c *gin.Context) {

@@ -18,7 +18,9 @@ package service
 
 import (
 	"context"
-	"encoding/hex"
+	"encoding/base64"
+	"net/url"
+	"strings"
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,14 +64,18 @@ type GetAesKeyFromEncryptedKeyResp struct {
 }
 
 func GetAesKeyFromEncryptedKey(encryptedKey string, log *zap.SugaredLogger) (*GetAesKeyFromEncryptedKeyResp, error) {
-	log.Infof("start GetAesKeyFromEncryptedKey")
 	_, privateKey, err := GetRSAKey(log)
 	if err != nil {
 		log.Errorf("getAesKeyFromEncryptedKey getRSAKey error msg:%s", err)
 		return nil, err
 	}
-	log.Infof("privateKey:%s", privateKey)
-	byteKey, err := hex.DecodeString(encryptedKey)
+	decodedKey, err := url.QueryUnescape(encryptedKey)
+	if err != nil {
+		return nil, err
+	}
+	decodedKey = strings.ReplaceAll(decodedKey, " ", "+")
+	log.Infof("decodedKey:%s", decodedKey)
+	byteKey, err := base64.StdEncoding.DecodeString(decodedKey)
 	if err != nil {
 		log.Errorf("getAesKeyFromEncryptedKey decodeString error msg:%s", err)
 		return nil, err

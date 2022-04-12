@@ -21,11 +21,18 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/orm"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
-func ListConnectors(logger *zap.SugaredLogger) ([]*Connector, error) {
+func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connector, error) {
+	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
+	if err != nil {
+		return nil, err
+	}
 	cs, err := orm.NewConnectorColl().List()
 	if err != nil {
 		logger.Errorf("Failed to list connectors, err: %s", err)
@@ -39,6 +46,18 @@ func ListConnectors(logger *zap.SugaredLogger) ([]*Connector, error) {
 		if err != nil {
 			logger.Warnf("Failed to unmarshal config, err: %s", err)
 			continue
+		}
+		if pw, ok := cf["bindPW"]; ok {
+			cf["bindPW"], err = crypto.AesEncryptByKey(pw.(string), aesKey.PlainText)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if clientSecret, ok := cf["clientSecret"]; ok {
+			cf["clientSecret"], err = crypto.AesEncryptByKey(clientSecret.(string), aesKey.PlainText)
+			if err != nil {
+				return nil, err
+			}
 		}
 		res = append(res, &Connector{
 			ConnectorBase: ConnectorBase{
