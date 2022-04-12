@@ -76,8 +76,8 @@ func GetRegistryNamespace(c *gin.Context) {
 		RegAddr:   reg.RegAddr,
 		IsDefault: reg.IsDefault,
 		Namespace: reg.Namespace,
-		TLSCert:   reg.TLSCert,
-		TLSKey:    reg.TLSKey,
+		TLSCert:   reg.AdvancedSetting.TLSCert,
+		TLSKey:    reg.AdvancedSetting.TLSKey,
 	}
 }
 
