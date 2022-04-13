@@ -35,7 +35,7 @@ func CheckJenkinsIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	resp, err := service.ListJenkinsIntegration(ctx.Logger)
+	resp, err := service.ListJenkinsIntegration("", ctx.Logger)
 	if err != nil || len(resp) == 0 {
 		ctx.Resp = &CheckJenkinsIntegrationResp{Exists: false}
 		return
@@ -64,7 +64,7 @@ func ListJenkinsIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJenkinsIntegration(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListJenkinsIntegration(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func UpdateJenkinsIntegration(c *gin.Context) {

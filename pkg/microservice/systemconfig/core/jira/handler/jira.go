@@ -33,7 +33,7 @@ func DeleteJira(c *gin.Context) {
 func GetJira(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GeJira(ctx.Logger)
+	ctx.Resp, ctx.Err = service.GeJira(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func CreateJira(c *gin.Context) {
