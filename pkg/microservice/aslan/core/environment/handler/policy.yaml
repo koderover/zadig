@@ -97,16 +97,16 @@ rules:
     description: ""
     rules:
       - method: POST
-        endpoint: "/api/environment/environments/?*/share/enable"
+        endpoint: "/api/aslan/environment/environments/?*/share/enable"
         resourceType: "Environment"
-        idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/share/enable"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: DELETE
-        endpoint: "/api/environment/environments/?*/share/enable"
+        endpoint: "/api/aslan/environment/environments/?*/share/enable"
         resourceType: "Environment"
-        idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/share/enable"
         matchAttributes:
           - key: "production"
             value: "false"
@@ -184,10 +184,10 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
-#      - method: PUT
-#        endpoint: "/api/aslan/environment/environments/?*/services"
-#        resourceType: "Environment"
-#        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/services"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services"
         matchAttributes:
           - key: "production"
             value: "false"
