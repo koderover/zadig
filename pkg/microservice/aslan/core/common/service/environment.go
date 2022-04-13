@@ -143,7 +143,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product) {
 	if productInfo.Source == setting.SourceFromHelm {
 		for _, svc := range svcList {
-			svc.ServiceDisplayName = util.ExtraServiceName(svc.ServiceName, productInfo.Namespace)
+			svc.ServiceDisplayName = svc.ServiceName
 		}
 	}
 }
@@ -408,10 +408,45 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	return resp
 }
 
+// GetReleaseNameToServiceNameMap generates mapping relationship: releaseName=>serviceName
+func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, error) {
+	// filter releases, only list releases deployed by zadig
+	productName, envName, serviceMap := prod.ProductName, prod.EnvName, prod.GetServiceMap()
+	listOpt := &commonrepo.SvcRevisionListOption{
+		ProductName:      prod.ProductName,
+		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
+	}
+	for _, productSvc := range serviceMap {
+		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
+			ServiceName: productSvc.ServiceName,
+			Revision:    productSvc.Revision,
+		})
+	}
+	templateServices, err := commonrepo.NewServiceColl().ListServicesWithSRevision(listOpt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s", productName, envName)
+	}
+
+	// map[ReleaseName] => serviceName
+	releaseNameMap := make(map[string]string)
+	for _, svcInfo := range templateServices {
+		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
+	}
+	return releaseNameMap, nil
+}
+
 // GetHelmServiceName get service name from annotations of resources deployed by helm
 // resType currently only support Deployment and StatefulSet
-func GetHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
+// this function needs to be optimized
+func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client) (string, error) {
 	res := &unstructured.Unstructured{}
+	namespace := prod.Namespace
+
+	nameMap, err := GetReleaseNameToServiceNameMap(prod)
+	if err != nil {
+		return "", err
+	}
+
 	res.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apps",
 		Version: "v1",
@@ -426,8 +461,9 @@ func GetHelmServiceName(namespace, resType, resName string, kubeClient client.Cl
 	}
 	annotation := res.GetAnnotations()
 	if len(annotation) > 0 {
-		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
-			return util.ExtraServiceName(chartRelease, namespace), nil
+		releaseName := annotation[setting.HelmReleaseNameAnnotation]
+		if serviceName, ok := nameMap[releaseName]; ok {
+			return serviceName, nil
 		}
 	}
 	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)

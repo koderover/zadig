@@ -36,7 +36,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 var ClusterInformersMap sync.Map
@@ -279,10 +278,6 @@ func GetProductAndFilterNs(namespace, workloadName string) (*models.Product, boo
 			}
 		}
 		for _, psvc := range product.GetServiceMap() {
-			//TODO: helm not support restart service
-			if psvc.Type == setting.HelmDeployType && psvc.ServiceName == util.ExtraServiceName(workloadName, namespace) {
-				return product, false
-			}
 			if psvc.Type == setting.K8SDeployType && psvc.ServiceName == workloadName {
 				return product, true
 			}

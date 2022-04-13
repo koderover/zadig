@@ -17,13 +17,8 @@ limitations under the License.
 package util
 
 import (
-	"fmt"
 	"strings"
 )
-
-func ExtraServiceName(releaseName, namespace string) string {
-	return strings.TrimPrefix(releaseName, fmt.Sprintf("%s-", namespace))
-}
 
 func GeneReleaseName(namingRule, projectName, namespace, envName, service string) string {
 	ret := strings.ReplaceAll(namingRule, "$Product$", projectName)

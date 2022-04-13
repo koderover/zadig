@@ -28,7 +28,6 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -91,16 +90,15 @@ func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmR
 	}
 
 	// filter releases, only list releases deployed by zadig
-	serviceMap := prod.GetServiceMap()
-	serviceSet := sets.NewString()
-	for serviceName := range serviceMap {
-		serviceSet.Insert(serviceName)
+	releaseNameMap, err := commonservice.GetReleaseNameToServiceNameMap(prod)
+	if err != nil {
+		return nil, err
 	}
 
 	ret := make([]*HelmReleaseResp, 0, len(releases))
 	for _, release := range releases {
-		serviceName := util.ExtraServiceName(release.Name, prod.Namespace)
-		if !serviceSet.Has(serviceName) {
+		serviceName, ok := releaseNameMap[release.Name]
+		if !ok {
 			continue
 		}
 		ret = append(ret, &HelmReleaseResp{
