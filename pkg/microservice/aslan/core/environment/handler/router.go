@@ -86,8 +86,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	image := router.Group("image")
 	{
-		image.POST("/deployment", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
-		image.POST("/statefulset", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
+		image.POST("/deployment/:envName", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
+		image.POST("/statefulset/:envName", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
 	}
 
 	// 查询环境创建时的服务和变量信息
@@ -103,7 +103,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/events", ListKubeEvents)
 
 		kube.POST("/pods", ListServicePods)
-		kube.DELETE("/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
+		kube.DELETE("/:env/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)

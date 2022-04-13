@@ -42,7 +42,7 @@ func Serve(ctx context.Context) error {
 	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 	})
-	router.HandleFunc("/api/{productName}/{namespace}/{podName}/{containerName}/podExec", service.ServeWs)
+	router.HandleFunc("/api/{productName}/{namespace}/{podName}/{containerName}/podExec/{envName}", service.ServeWs)
 
 	server := &http.Server{
 		Addr:         "0.0.0.0:27000",
