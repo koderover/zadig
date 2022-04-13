@@ -28,6 +28,8 @@ import (
 	"github.com/rfyiamcool/cronlib"
 	"go.uber.org/zap"
 
+	cronV3 "github.com/robfig/cron/v3"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/cron/config"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
@@ -35,7 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/tool/log"
-	cronV3 "github.com/robfig/cron/v3"
 )
 
 // CronClient ...
@@ -79,6 +80,7 @@ func (c *CronV3Client) Start() {
 			log.Infof("config changed to %v", config)
 			switch config.CronEnabled {
 			case true:
+				c.Cron.Remove(entryID)
 				c.Cron.Run()
 				entryID, err = c.Cron.AddFunc(config.Cron, func() {
 					log.Infof("********add********* , %v\n", config)

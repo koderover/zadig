@@ -99,6 +99,8 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		}
 		dindClean.Status = CleanStatusCleaning
 		dindClean.DindCleanInfos = []*commonmodels.DindCleanInfo{}
+		dindClean.Cron = dindCleans[0].Cron
+		dindClean.CronEnabled = dindCleans[0].CronEnabled
 		if err := commonrepo.NewDindCleanColl().Upsert(dindClean); err != nil {
 			return e.ErrUpdateDindClean.AddErr(err)
 		}
@@ -118,6 +120,8 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 			commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
 				Status:         CleanStatusFailed,
 				DindCleanInfos: []*commonmodels.DindCleanInfo{},
+				Cron:           dindCleans[0].Cron,
+				CronEnabled:    dindCleans[0].CronEnabled,
 			})
 			return
 		}
@@ -157,6 +161,8 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
 			Status:         status,
 			DindCleanInfos: dindInfos,
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
 		})
 	}()
 
