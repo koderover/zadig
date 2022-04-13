@@ -2870,7 +2870,7 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
-func buildInstallParam(namespace string, envName string, renderChart *templatemodels.RenderChart, defaultValues string, serviceObj *commonmodels.Service) (*ReleaseInstallParam, error) {
+func buildInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service) (*ReleaseInstallParam, error) {
 	mergedValues, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
@@ -2966,7 +2966,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 	}
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, logger *zap.SugaredLogger) error {
-		param, err := buildInstallParam(args.Namespace, renderset.EnvName, chartInfoMap[serviceObj.ServiceName], renderset.DefaultValues, serviceObj)
+		param, err := buildInstallParam(args.Namespace, renderset.EnvName, renderset.DefaultValues, chartInfoMap[serviceObj.ServiceName], serviceObj)
 		if err != nil {
 			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, args.Namespace, err)
 		}
@@ -3159,7 +3159,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 	}
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
-		param, err := buildInstallParam(productResp.Namespace, renderSet.EnvName, renderChartMap[serviceObj.ServiceName], renderSet.DefaultValues, serviceObj)
+		param, err := buildInstallParam(productResp.Namespace, renderSet.EnvName, renderSet.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
 		if err != nil {
 			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, err)
 		}
@@ -3442,7 +3442,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 	}
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
-		param, err := buildInstallParam(productResp.Namespace, renderset.EnvName, renderChartMap[serviceObj.ServiceName], renderset.DefaultValues, serviceObj)
+		param, err := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
 		if err != nil {
 			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, err)
 		}

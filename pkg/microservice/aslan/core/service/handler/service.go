@@ -153,6 +153,7 @@ func HelmReleaseNaming(c *gin.Context) {
 	projectName := c.Query("projectName")
 	if projectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
 	}
 
 	args := new(svcservice.ReleaseNamingRule)
@@ -160,11 +161,7 @@ func HelmReleaseNaming(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
 		return
 	}
-	err := svcservice.UpdateReleaseNamingRule(projectName, args, ctx.Logger)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
+	ctx.Err = svcservice.UpdateReleaseNamingRule(projectName, args, ctx.Logger)
 }
 
 func DeleteServiceTemplate(c *gin.Context) {

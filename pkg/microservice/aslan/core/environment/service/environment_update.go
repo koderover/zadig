@@ -103,7 +103,7 @@ func ReInstallServiceInEnv(productInfo *commonmodels.Product, serviceName string
 		return fmt.Errorf("failed to uninstall release for service: %s, err: %s", productSvc.ServiceName, err)
 	}
 
-	param, err := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderChart, renderInfo.DefaultValues, templateSvc)
+	param, err := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
 	if err != nil {
 		return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, err)
 	}
