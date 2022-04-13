@@ -36,7 +36,7 @@ func ListPrivateKeys(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListPrivateKeys(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPrivateKeys(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {

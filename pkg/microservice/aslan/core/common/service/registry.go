@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -97,7 +98,7 @@ func FindDefaultRegistry(getRealCredential bool, log *zap.SugaredLogger) (reg *m
 	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, getRealCredential, log)
 }
 
-func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
+func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
 	resp, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %s", err)
@@ -107,7 +108,10 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 	if !getRealCredential {
 		return resp, nil
 	}
-
+	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		return nil, err
+	}
 	for _, reg := range resp {
 		switch reg.RegProvider {
 		case config.RegistryTypeSWR:
@@ -121,6 +125,10 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 			}
 			reg.AccessKey = realAK
 			reg.SecretKey = realSK
+		}
+		reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return resp, nil

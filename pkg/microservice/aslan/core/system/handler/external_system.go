@@ -75,7 +75,7 @@ func ListExternalSystem(c *gin.Context) {
 		return
 	}
 
-	systemList, length, err := service.ListExternalSystem(args.PageNum, args.PageSize, ctx.Logger)
+	systemList, length, err := service.ListExternalSystem(c.Query("encryptedKey"), args.PageNum, args.PageSize, ctx.Logger)
 	if err == nil {
 		ctx.Resp = &listExternalResp{
 			SystemList: systemList,

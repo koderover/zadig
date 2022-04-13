@@ -27,8 +27,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
@@ -73,12 +75,21 @@ func CreateS3Storage(updateBy string, storage *commonmodels.S3Storage, logger *z
 	return commonrepo.NewS3StorageColl().Create(storage)
 }
 
-func ListS3Storage(logger *zap.SugaredLogger) ([]*commonmodels.S3Storage, error) {
+func ListS3Storage(encryptedKey string, logger *zap.SugaredLogger) ([]*commonmodels.S3Storage, error) {
 	stores, err := commonrepo.NewS3StorageColl().FindAll()
 	if err == nil && len(stores) == 0 {
 		stores = make([]*commonmodels.S3Storage, 0)
 	}
-
+	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	if err != nil {
+		return nil, err
+	}
+	for _, store := range stores {
+		store.Sk, err = crypto.AesEncryptByKey(store.Sk, aesKey.PlainText)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return stores, err
 }
 

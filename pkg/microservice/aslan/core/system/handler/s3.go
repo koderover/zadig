@@ -36,7 +36,7 @@ func ListS3Storage(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListS3Storage(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListS3Storage(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func CreateS3Storage(c *gin.Context) {
