@@ -376,7 +376,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			}
 
 			svcImage.Images = append(svcImage.Images, &ImageData{
-				container.ImageName,
+				util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 				commonservice.ExtractImageTag(imageUrl),
 			})
 		}
