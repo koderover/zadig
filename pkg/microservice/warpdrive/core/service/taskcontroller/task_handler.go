@@ -47,6 +47,12 @@ var (
 	xl           *zap.SugaredLogger
 )
 
+// TODO: Leave the logic here until we know why it exists.
+var durationBeforeNextTask = 10 * time.Second
+
+// Note: `durationTouchMsg` is used to emit `TOUCH` cmd and it should smaller than `durationBeforeNextTask`.
+var durationTouchMsg = 5 * time.Second
+
 // Sender: sender to send ack/notification
 // TaskPlugins: registered task plugin initiators to initiate specific plugin to execute task
 type ExecHandler struct {
@@ -60,33 +66,38 @@ type CancelHandler struct{}
 func (h *ExecHandler) HandleMessage(message *nsq.Message) error {
 	defer func() {
 		// 每次处理完消息, 等待一段时间不处理新消息
-		time.Sleep(time.Second * 10)
+		time.Sleep(durationBeforeNextTask)
 	}()
 
 	xl = log.SugaredLogger()
-
-	// 如果存在运行中的 PipelineTask, 则重新requeue pipeline task
-	// task处理逻辑全部放在requeue之后，防止requeue影响正在运行的task
-	if pipelineTask != nil {
-		xl.Infof("warpdrive instance have one running pipeline task %s:%d", pipelineTask.PipelineName, pipelineTask.TaskID)
-		message.Requeue(time.Millisecond * 100)
-		return nil
-	}
 
 	// 获取 PipelineTask 内容
 	if err := json.Unmarshal(message.Body, &pipelineTask); err != nil {
 		xl.Errorf("unmarshal PipelineTask error: %v", err)
 		return nil
 	}
-	xl.Infof("receiving pipeline task %s:%d message", pipelineTask.PipelineName, pipelineTask.TaskID)
+	taskName := fmt.Sprintf("%s:%d", pipelineTask.PipelineName, pipelineTask.TaskID)
+	xl.Infof("Receiving pipeline task %s message", taskName)
 
-	// xl - global logger
 	xl = Logger(pipelineTask)
-
-	// 初始化 Context, CancelFunc, PipelineTask
 	ctx, cancel = context.WithCancel(context.Background())
 
-	go h.runPipelineTask(ctx, cancel, xl)
+	go func(taskName string) {
+		for {
+			if pipelineTask == nil {
+				xl.Infof("Pipeline task %q has completed. Exit.", taskName)
+				break
+			}
+
+			<-time.After(durationTouchMsg)
+			xl.Infof("After %s, touch message %q.", durationTouchMsg.String(), taskName)
+			message.Touch()
+		}
+	}(taskName)
+
+	h.runPipelineTask(ctx, cancel, xl)
+
+	// Note: If returning `nil`, we emit `FIN` cmd to nsq indicating that the messsage has been processed succefully.
 	return nil
 }
 
@@ -166,7 +177,6 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 	// Return 之前会执行defer内容，更新pipeline end time, 发送ACK，发送notification
 }
 
-// HandleMessage ...
 func (h *CancelHandler) HandleMessage(message *nsq.Message) error {
 	xl = Logger(pipelineTask)
 
