@@ -193,15 +193,12 @@ type RawYamlResp struct {
 }
 
 type ReleaseInstallParam struct {
-	ProductName   string
-	Namespace     string
-	EnvName       string
-	ServiceName   string
-	ReleaseName   string
-	DefaultValues string
-	MergedValues  string
-	RenderChart   *templatemodels.RenderChart
-	serviceObj    *commonmodels.Service
+	ProductName  string
+	Namespace    string
+	ReleaseName  string
+	MergedValues string
+	RenderChart  *templatemodels.RenderChart
+	serviceObj   *commonmodels.Service
 }
 
 type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error
@@ -2879,15 +2876,12 @@ func buildInstallParam(namespace string, envName string, renderChart *templatemo
 		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
 	}
 	ret := &ReleaseInstallParam{
-		ProductName:   serviceObj.ProductName,
-		Namespace:     namespace,
-		EnvName:       envName,
-		ServiceName:   serviceObj.ServiceName,
-		ReleaseName:   util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName),
-		DefaultValues: defaultValues,
-		MergedValues:  mergedValues,
-		RenderChart:   renderChart,
-		serviceObj:    serviceObj,
+		ProductName:  serviceObj.ProductName,
+		Namespace:    namespace,
+		ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName),
+		MergedValues: mergedValues,
+		RenderChart:  renderChart,
+		serviceObj:   serviceObj,
 	}
 	return ret, nil
 }

@@ -312,7 +312,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	//releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
 	releaseName := p.Task.ReleaseName
 
 	ensureUpgrade := func() error {

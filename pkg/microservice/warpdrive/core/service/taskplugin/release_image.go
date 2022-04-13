@@ -656,7 +656,6 @@ DistributeLoop:
 				continue DistributeLoop
 			}
 
-			//releaseName := util.GeneHelmReleaseName(distribute.DeployNamespace, distribute.DeployServiceName)
 			releaseName := distribute.ReleaseName
 
 			ensureUpgrade := func() error {

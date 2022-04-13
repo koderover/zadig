@@ -176,15 +176,12 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 	}
 
 	param := &ReleaseInstallParam{
-		ProductName:   serviceObj.ProductName,
-		Namespace:     namespace,
-		EnvName:       product.EnvName,
-		ServiceName:   serviceObj.ServiceName,
-		ReleaseName:   util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
-		DefaultValues: renderSet.DefaultValues,
-		MergedValues:  replacedMergedValuesYaml,
-		RenderChart:   targetChart,
-		serviceObj:    serviceObj,
+		ProductName:  serviceObj.ProductName,
+		Namespace:    namespace,
+		ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
+		MergedValues: replacedMergedValuesYaml,
+		RenderChart:  targetChart,
+		serviceObj:   serviceObj,
 	}
 
 	// when replace image, should not wait
