@@ -122,6 +122,9 @@ func Start(ctx context.Context) {
 
 	registerPolicies()
 
+	//Parse the workload dependencies configMap, PVC, ingress, secret
+	go environmentservice.StartClusterInformer()
+
 	go StartControllers(ctx.Done())
 }
 
@@ -210,6 +213,11 @@ func initDatabase() {
 		commonrepo.NewChartColl(),
 		commonrepo.NewDockerfileTemplateColl(),
 		commonrepo.NewProjectClusterRelationColl(),
+		commonrepo.NewConfigMapColl(),
+		commonrepo.NewIngressColl(),
+		commonrepo.NewSecretColl(),
+		commonrepo.NewPvcColl(),
+		commonrepo.NewEnvSvcDependColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

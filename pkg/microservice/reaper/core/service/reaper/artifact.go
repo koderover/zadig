@@ -18,10 +18,8 @@ package reaper
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -52,36 +50,44 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 	}
 
 	if len(pluginType) == 0 {
+		tarName := setting.ArtifactResultOut
+		cmdAndArtifactFullPaths := make([]string, 0)
+		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
+		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, tarName)
 		for _, artifactPath := range artifactPaths {
 			if len(artifactPath) == 0 {
 				continue
 			}
-
 			artifactPath = strings.TrimPrefix(artifactPath, "/")
-
-			artifactPath = filepath.Join(activeWorkspace, artifactPath)
-
-			artifactFiles, err := ioutil.ReadDir(artifactPath)
-			if err != nil || len(artifactFiles) == 0 {
+			artifactPath := filepath.Join(activeWorkspace, artifactPath)
+			isDir, err := fs.IsDir(artifactPath)
+			if err != nil || !isDir {
+				log.Errorf("artifactPath is not exist  %s err: %s", artifactPath, err)
 				continue
 			}
+			cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)
+		}
 
-			for _, artifactFile := range artifactFiles {
-				if artifactFile.IsDir() {
-					continue
-				}
-				filePath := path.Join(artifactPath, artifactFile.Name())
+		if len(cmdAndArtifactFullPaths) < 3 {
+			return nil
+		}
 
-				if _, err := os.Stat(filePath); os.IsNotExist(err) {
-					continue
-				}
-
-				if store != nil {
-					objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()))
-					if err = s3FileUpload(store, filePath, objectKey); err != nil {
-						return err
-					}
-				}
+		temp, err := os.Create(tarName)
+		if err != nil {
+			log.Errorf("failed to create %s err: %s", tarName, err)
+			return err
+		}
+		_ = temp.Close()
+		cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			log.Errorf("failed to compress %s err:%s", tarName, err)
+			return err
+		}
+		if store != nil {
+			objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", activeWorkspace, tarName))
+			if err = s3FileUpload(store, temp.Name(), objectKey); err != nil {
+				return err
 			}
 		}
 		return nil

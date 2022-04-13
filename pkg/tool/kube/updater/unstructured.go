@@ -25,6 +25,14 @@ func CreateOrPatchUnstructured(u *unstructured.Unstructured, cl client.Client) e
 	return createOrPatchObject(u, cl)
 }
 
+func CreateOrPatchUnstructuredNeverAnnotation(u *unstructured.Unstructured, cl client.Client) error {
+	return createOrPatchObjectNeverAnnotation(u, cl)
+}
+
+func UpdateOrCreateUnstructured(u *unstructured.Unstructured, cl client.Client) error {
+	return updateOrCreateObject(u, cl)
+}
+
 func DeleteUnstructured(u *unstructured.Unstructured, cl client.Client) error {
 	return deleteObjectWithDefaultOptions(u, cl)
 }

@@ -70,6 +70,13 @@ rules:
           - key: "production"
             value: "false"
       - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/helm/images"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/images"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
         endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
   - action: create_environment
     alias: "创建"
@@ -89,6 +96,20 @@ rules:
     alias: "配置"
     description: ""
     rules:
+      - method: POST
+        endpoint: "/api/environment/environments/?*/share/enable"
+        resourceType: "Environment"
+        idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: DELETE
+        endpoint: "/api/environment/environments/?*/share/enable"
+        resourceType: "Environment"
+        idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
