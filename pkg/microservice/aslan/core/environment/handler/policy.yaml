@@ -163,6 +163,10 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+#      - method: PUT
+#        endpoint: "/api/aslan/environment/environments/?*/services"
+#        resourceType: "Environment"
+#        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services"
         matchAttributes:
           - key: "production"
             value: "false"
