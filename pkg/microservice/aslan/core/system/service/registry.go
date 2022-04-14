@@ -295,7 +295,7 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 		return err
 	}
 
-	volumeMountList := make([]map[string]string, 0)
+	volumeMountList := make([]map[string]interface{}, 0)
 	volumeList := make([]map[string]interface{}, 0)
 
 	insecureRegistryList := make([]string, 0)
@@ -316,7 +316,7 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 				}
 
 				// create volumeMount info
-				volumeMountMap := map[string]string{
+				volumeMountMap := map[string]interface{}{
 					"mountPath": "/etc/docker/certs.d",
 					"name":      mountName,
 				}
