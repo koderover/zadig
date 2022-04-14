@@ -36,7 +36,7 @@ import (
 // get global config payload
 func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskCreator string, log *zap.SugaredLogger) (int64, error) {
 	configPayload := commonservice.GetConfigPayload(0)
-	repos, err := commonservice.ListRegistryNamespaces(true, log)
+	repos, err := commonservice.ListRegistryNamespaces("", true, log)
 
 	if err != nil {
 		log.Errorf("CreateArtifactPackageTask query registries failed, err: %s", err)

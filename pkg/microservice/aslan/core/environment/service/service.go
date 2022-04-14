@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -29,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/util"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -143,7 +144,7 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	}
 
 	// aws secrets needs to be refreshed
-	regs, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	regs, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
 		return err
@@ -404,7 +405,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	}
 
 	// aws secrets needs to be refreshed
-	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	regs, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
 		return err
