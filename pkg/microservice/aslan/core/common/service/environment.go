@@ -408,8 +408,7 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	return resp
 }
 
-// GetReleaseNameToServiceNameMap generates mapping relationship: releaseName=>serviceName
-func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, error) {
+func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error) {
 	// filter releases, only list releases deployed by zadig
 	productName, envName, serviceMap := prod.ProductName, prod.EnvName, prod.GetServiceMap()
 	listOpt := &commonrepo.SvcRevisionListOption{
@@ -426,7 +425,16 @@ func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s", productName, envName)
 	}
+	return templateServices, err
+}
 
+// GetReleaseNameToServiceNameMap generates mapping relationship: releaseName=>serviceName
+func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, error) {
+	productName, envName := prod.ProductName, prod.EnvName
+	templateServices, err := GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, err
+	}
 	// map[ReleaseName] => serviceName
 	releaseNameMap := make(map[string]string)
 	for _, svcInfo := range templateServices {

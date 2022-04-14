@@ -327,11 +327,14 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 
 	// filter releases, only list releases deployed by zadig
 	serviceMap := prod.GetServiceMap()
-	serviceSet := sets.NewString()
-	for serviceName := range serviceMap {
-		serviceSet.Insert(serviceName)
+	templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service tempaltes,  err: %s", err)
 	}
-
+	templateSvcMap := make(map[string]*models.Service)
+	for _, ts := range templateSvcs {
+		templateSvcMap[ts.ServiceName] = ts
+	}
 	services := strings.Split(serviceNames, ",")
 
 	ret := &ChartImagesResp{}
@@ -342,7 +345,12 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			return nil, fmt.Errorf("failed to find service: %s in product", svcName)
 		}
 
-		releaseName := util.GeneHelmReleaseName(prod.Namespace, svcName)
+		ts, ok := templateSvcMap[svcName]
+		if !ok {
+			return nil, fmt.Errorf("failed to find template service: %s", svcName)
+		}
+
+		releaseName := util.GeneReleaseName(ts.GetReleaseNaming(), productName, prod.Namespace, prod.Namespace, svcName)
 		valuesYaml, err := helmClient.GetReleaseValues(releaseName, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get values for relase: %s, err: %s", releaseName, err)
