@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -382,13 +381,19 @@ func ensureCertificateSecret(secretName, namespace, cert string, log *zap.Sugare
 		"cert.crt": certificateString,
 	}
 
+	secretResourceKind := schema.GroupVersionResource{
+		Group:    "api",
+		Version:  "v1",
+		Resource: "secrets",
+	}
+
 	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
 	if err != nil {
 		log.Errorf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
 		return err
 	}
 
-	secret, err := dynamicClient.Resource(getter.ResourceKindMap["Secret"]).Namespace(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := dynamicClient.Resource(secretResourceKind).Namespace(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	// if there is an error, either because of not found or anything else, we try to create a secret with the given information
 	if err != nil {
 		secret := &unstructured.Unstructured{
@@ -403,7 +408,7 @@ func ensureCertificateSecret(secretName, namespace, cert string, log *zap.Sugare
 			},
 		}
 
-		_, err := dynamicClient.Resource(getter.ResourceKindMap["Secret"]).Namespace(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+		_, err := dynamicClient.Resource(secretResourceKind).Namespace(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err != nil {
 			log.Errorf("failed to create secret: %s, the error is: %s", secretName, err)
 		}
@@ -413,7 +418,7 @@ func ensureCertificateSecret(secretName, namespace, cert string, log *zap.Sugare
 			log.Errorf("failed to set data in secret object, the error is: %s", err)
 			return err
 		}
-		_, err := dynamicClient.Resource(getter.ResourceKindMap["Secret"]).Namespace(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err := dynamicClient.Resource(secretResourceKind).Namespace(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err != nil {
 			log.Errorf("failed to update secret: %s, the error is: %s", secretName, err)
 		}
