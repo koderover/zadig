@@ -393,7 +393,11 @@ func ensureCertificateSecret(secretName, namespace, cert string, log *zap.Sugare
 		return err
 	}
 
-	secret, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), "21-registry-secret", metav1.GetOptions{})
+	secret, err := dynamicClient.Resource(schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}).Namespace(namespace).Get(context.TODO(), "aslan", metav1.GetOptions{})
 	// if there is an error, either because of not found or anything else, we try to create a secret with the given information
 	if err != nil {
 		secret := &unstructured.Unstructured{
@@ -414,14 +418,16 @@ func ensureCertificateSecret(secretName, namespace, cert string, log *zap.Sugare
 		}
 		return err
 	} else {
-		if err := unstructured.SetNestedField(secret.Object, datamap, "data"); err != nil {
-			log.Errorf("failed to set data in secret object, the error is: %s", err)
-			return err
-		}
-		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
-		if err != nil {
-			log.Errorf("failed to update secret: %s, the error is: %s", secretName, err)
-		}
-		return err
+		//if err := unstructured.SetNestedField(secret.Object, datamap, "data"); err != nil {
+		//	log.Errorf("failed to set data in secret object, the error is: %s", err)
+		//	return err
+		//}
+		//_, err := dynamicClient.Resource(gvr).Namespace(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		//if err != nil {
+		//	log.Errorf("failed to update secret: %s, the error is: %s", secretName, err)
+		//}
+		//return err
+		log.Infof("got deployment: %+v", secret)
+		return nil
 	}
 }
