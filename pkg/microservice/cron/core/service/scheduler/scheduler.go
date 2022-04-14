@@ -28,7 +28,7 @@ import (
 	"github.com/rfyiamcool/cronlib"
 	"go.uber.org/zap"
 
-	cronV3 "github.com/robfig/cron/v3"
+	newgoCron "github.com/go-co-op/gocron"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/cron/config"
@@ -54,35 +54,34 @@ type CronClient struct {
 }
 
 type CronV3Client struct {
-	Cron     *cronV3.Cron
-	AslanCli *aslan.Client
+	Scheduler *newgoCron.Scheduler
+	AslanCli  *aslan.Client
 }
 
 func NewCronV3() *CronV3Client {
 	return &CronV3Client{
-		Cron:     cronV3.New(cronV3.WithSeconds()),
-		AslanCli: aslan.New(configbase.AslanServiceAddress()),
+		Scheduler: newgoCron.NewScheduler(time.Local),
+		AslanCli:  aslan.New(configbase.AslanServiceAddress()),
 	}
 }
 
 func (c *CronV3Client) Start() {
 	var lastConfig *aslan.CleanConfig
-	var entryID cronV3.EntryID
-	c.Cron.AddFunc("*/20 * * * * *", func() {
+
+	c.Scheduler.Every(5).Seconds().Do(func() {
 		// get the docker clean config
 		config, err := c.AslanCli.GetDockerCleanConfig()
 		if err != nil {
 			log.Errorf("get config err :%s", err)
 			return
 		}
+		var job *newgoCron.Job
 		if !reflect.DeepEqual(lastConfig, config) {
 			lastConfig = config
 			log.Infof("config changed to %v", config)
-			switch config.CronEnabled {
-			case true:
-				c.Cron.Remove(entryID)
-				c.Cron.Run()
-				entryID, err = c.Cron.AddFunc(config.Cron, func() {
+			if config.CronEnabled {
+				c.Scheduler.RemoveByReference(job)
+				job, err = c.Scheduler.Cron(config.Cron).Do(func() {
 					log.Infof("add docker_cache clean cron job,reg: %v", config.Cron)
 					// call docker clean
 					if err := c.AslanCli.DockerClean(); err != nil {
@@ -90,16 +89,16 @@ func (c *CronV3Client) Start() {
 					}
 				})
 				if err != nil {
-					log.Errorf("fail to add docker_cache clean cron job:reg: %v", config.Cron)
+					log.Errorf("fail to add docker_cache clean cron job:reg: %v,err:%s", config.Cron, err)
 				}
-			case false:
-				log.Infof("remove docker_cache clean job , entryID: %v", entryID)
-				c.Cron.Remove(entryID)
+			} else {
+				log.Infof("remove docker_cache clean job , job: %v", job)
+				c.Scheduler.RemoveByReference(job)
 			}
 		}
 	})
 
-	c.Cron.Start()
+	c.Scheduler.StartAsync()
 }
 
 const (
