@@ -393,7 +393,7 @@ func ensureCertificateSecret(secretName, namespace, cert string, log *zap.Sugare
 		return err
 	}
 
-	secret, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), "21-registry-secret", metav1.GetOptions{})
 	// if there is an error, either because of not found or anything else, we try to create a secret with the given information
 	if err != nil {
 		secret := &unstructured.Unstructured{
