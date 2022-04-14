@@ -315,18 +315,17 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 					return err
 				}
 
+				addr := strings.Split(reg.RegAddr, "//")
 				// create volumeMount info
 				volumeMountMap := map[string]interface{}{
-					"mountPath": "/etc/docker/certs.d",
+					"mountPath": fmt.Sprintf("/etc/docker/certs.d/%s", addr[1]),
 					"name":      mountName,
 				}
 				volumeMountList = append(volumeMountList, volumeMountMap)
 				// create volume info
 				secretItemList := make([]interface{}, 0)
-				addr := strings.Split(reg.RegAddr, "//")
 				secretItemList = append(secretItemList, map[string]interface{}{
-					"key":  "cert.crt",
-					"path": fmt.Sprintf("%s/%s", addr[1], "cert.crt"),
+					"key": "cert.crt",
 				})
 				secretInfo := map[string]interface{}{
 					"items":      secretItemList,
