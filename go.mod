@@ -8,7 +8,7 @@ require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
-	github.com/antihax/optional v1.0.0 // indirect
+	github.com/antihax/optional v1.0.0
 	github.com/aws/aws-sdk-go v1.34.28
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bndr/gojenkins v1.1.0
@@ -28,6 +28,7 @@ require (
 	github.com/garyburd/redigo v1.6.2 // indirect
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-co-op/gocron v1.13.0
 	github.com/go-ldap/ldap/v3 v3.3.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/go-sql-driver/mysql v1.6.0
