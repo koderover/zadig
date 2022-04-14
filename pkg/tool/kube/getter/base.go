@@ -29,6 +29,44 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+var ResourceKindMap = map[string]schema.GroupVersionResource{
+	"Deployment": {
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	},
+	"ConfigMap": {
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "configmaps",
+	},
+	"Job": {
+		Group:    "batch",
+		Version:  "v1",
+		Resource: "jobs",
+	},
+	"Secret": {
+		Group:    "api",
+		Version:  "v1",
+		Resource: "secrets",
+	},
+	"Service": {
+		Group:    "api",
+		Version:  "v1",
+		Resource: "services",
+	},
+	"StatefulSet": {
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "statefulsets",
+	},
+	"PersistentVolume": {
+		Group:    "api",
+		Version:  "v1",
+		Resource: "persistentvolumes",
+	},
+}
+
 // GetResourceInCache gets a specific Kubernetes object in local cache, object can be any types
 // which are registered by "scheme.AddToScheme()".
 // Return true if object is found, false if not, or an error if something bad happened.
