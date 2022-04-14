@@ -310,7 +310,7 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 			}
 			// if a registry is marked as secure and a TLS cert is given, we mount this certificate to dind daemon
 			if reg.AdvancedSetting.TLSEnabled && reg.AdvancedSetting.TLSCert != "" {
-				mountName := fmt.Sprintf("%s-%s-cert", reg.RegAddr, reg.Namespace)
+				mountName := fmt.Sprintf("%s-cert", reg.ID)
 				err := ensureCertificateSecret(mountName, config.Namespace(), reg.AdvancedSetting.TLSCert, log)
 				if err != nil {
 					log.Errorf("failed to ensure secret: %s, the error is: %s", mountName, err)
