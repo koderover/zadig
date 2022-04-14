@@ -17,12 +17,13 @@ limitations under the License.
 package handler
 
 type Registry struct {
-	ID        string `json:"id"`
-	RegAddr   string `json:"reg_addr"`
-	IsDefault bool   `json:"is_default"`
-	Namespace string `json:"namespace"`
-	AccessKey string `json:"access_key"`
-	SecretKey string `json:"secret_key"`
-	TLSCert   string `json:"tls_cert"`
-	TLSKey    string `json:"tls_key"`
+	ID         string `json:"id"`
+	RegAddr    string `json:"reg_addr"`
+	IsDefault  bool   `json:"is_default"`
+	Namespace  string `json:"namespace"`
+	AccessKey  string `json:"access_key"`
+	SecretKey  string `json:"secret_key"`
+	TLSEnabled bool   `json:"tls_enabled"`
+	TLSCert    string `json:"tls_cert"`
+	TLSKey     string `json:"tls_key"`
 }

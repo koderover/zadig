@@ -43,9 +43,12 @@ type RegistryNamespace struct {
 }
 
 type RegistryAdvancedSetting struct {
+	// indicator to make sure if the advanced has been modified
+	Modified bool `bson:"modified" json:"modified"`
 	// New field since v1.11 to support self-signed TLS certificate
-	TLSCert string `bson:"tls_cert" json:"tls_cert"`
-	TLSKey  string `bson:"tls_key"  json:"tls_key"`
+	TLSEnabled bool   `bson:"tls_enabled" json:"tls_enabled"`
+	TLSCert    string `bson:"tls_cert" json:"tls_cert"`
+	TLSKey     string `bson:"tls_key"  json:"tls_key"`
 }
 
 func (ns *RegistryNamespace) Validate() error {
