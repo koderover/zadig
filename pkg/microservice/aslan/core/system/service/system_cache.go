@@ -45,7 +45,11 @@ const (
 
 //SetCron set the docker clean cron
 func SetCron(cron string, cronEnabled bool, logger *zap.SugaredLogger) error {
-	dindCleans, _ := commonrepo.NewDindCleanColl().List()
+	dindCleans, err := commonrepo.NewDindCleanColl().List()
+	if err != nil {
+		logger.Errorf("list dind cleans err:%s", err)
+		return err
+	}
 	switch len(dindCleans) {
 	case 0:
 		dindClean := &commonmodels.DindClean{
