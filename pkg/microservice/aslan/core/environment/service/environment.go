@@ -950,6 +950,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 			if _, ok := templateServiceMap[cv.ServiceName]; !ok {
 				dataValid = false
 				errList = multierror.Append(errList, fmt.Errorf("failed to find service tempalte, serviceName: %s", cv.ServiceName))
+				break
 			}
 		}
 		if !dataValid {
@@ -1793,34 +1794,6 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 	return prod, nil
 }
 
-func GetProductIngress(productName string, log *zap.SugaredLogger) ([]*ProductIngressInfo, error) {
-	productIngressInfos := make([]*ProductIngressInfo, 0)
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-	if err != nil {
-		log.Errorf("Failed to list envs, err: %s", err)
-		return productIngressInfos, e.ErrListEnvs.AddDesc(err.Error())
-	}
-	for _, prod := range products {
-		productIngressInfo := new(ProductIngressInfo)
-		productIngressInfo.EnvName = prod.EnvName
-		ingressInfos := make([]*commonservice.IngressInfo, 0)
-
-		serviceGroups, _, err := ListGroups("", prod.EnvName, productName, 0, 0, log)
-		if err != nil {
-			log.Errorf("GetProductIngress GetProductAndKubeClient err:%v", err)
-			continue
-		}
-		for _, serviceGroup := range serviceGroups {
-			if serviceGroup.Ingress != nil && len(serviceGroup.Ingress.HostInfo) > 0 {
-				ingressInfos = append(ingressInfos, serviceGroup.Ingress)
-			}
-		}
-		productIngressInfo.IngressInfos = ingressInfos
-		productIngressInfos = append(productIngressInfos, productIngressInfo)
-	}
-	return productIngressInfos, nil
-}
-
 func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) ([]*commonmodels.HelmVersions, error) {
 	var (
 		helmVersions = make([]*commonmodels.HelmVersions, 0)
@@ -2115,9 +2088,9 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 	}
 	if getProjectType(productName) == setting.HelmDeployType {
 		return deleteHelmProductServices(productInfo, serviceNames, log)
-	} else {
-		return deleteK8sProductServices(productInfo, serviceNames, log)
 	}
+	return deleteK8sProductServices(productInfo, serviceNames, log)
+
 }
 
 func deleteHelmProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
@@ -2162,7 +2135,7 @@ func deleteHelmProductServices(productInfo *commonmodels.Product, serviceNames [
 
 	// create new renderset
 	if err := commonservice.CreateHelmRenderSet(renderset, log); err != nil {
-		log.Error("failed to create renderset, name %s, err: %s", renderset.Name, err)
+		log.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
@@ -3136,7 +3109,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			serviceList = append(serviceList, serviceObj)
 		}
-		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -3235,7 +3208,7 @@ func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, 
 			*failedServices = append(*failedServices, data)
 			log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
 		}
-		time.Sleep(time.Second)
+		time.Sleep(interval)
 	}
 	return errList
 }
@@ -3321,7 +3294,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 			serviceList = append(serviceList, serviceObj)
 		}
 
-		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -3571,7 +3544,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		groupServiceErr := batchExecutorWithRetry(3, time.Millisecond*500, serviceList, handler, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
