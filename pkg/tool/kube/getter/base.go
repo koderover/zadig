@@ -46,7 +46,7 @@ var ResourceKindMap = map[string]schema.GroupVersionResource{
 		Resource: "jobs",
 	},
 	"Secret": {
-		Group:    "api",
+		Group:    "core",
 		Version:  "v1",
 		Resource: "secrets",
 	},
