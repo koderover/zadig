@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/util/retry"
 	"strings"
 
 	"go.uber.org/zap"
@@ -288,7 +287,7 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 		return err
 	}
 
-	stsResource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulset"}
+	stsResource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 
 	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
 	if err != nil {
@@ -341,38 +340,33 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 		}
 	}
 
-	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// Retrieve the latest version of Deployment before attempting update
-		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		result, getErr := dynamicClient.Resource(stsResource).Namespace(config.Namespace()).Get(context.TODO(), "dind", metav1.GetOptions{})
-		if getErr != nil {
-			return err
-		}
-
-		// extract spec containers
-		containers, found, err := unstructured.NestedSlice(result.Object, "spec", "template", "spec", "containers")
-		if err != nil || !found || containers == nil {
-			return err
-		}
-
-		if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), volumeMountList, "volumeMounts"); err != nil {
-			return err
-		}
-		if err := unstructured.SetNestedField(result.Object, containers, "spec", "template", "spec", "containers"); err != nil {
-			return err
-		}
-		if err := unstructured.SetNestedField(result.Object, volumeList, "spec", "template", "spec", "volumes"); err != nil {
-			return err
-		}
-		_, updateErr := dynamicClient.Resource(stsResource).Namespace(config.Namespace()).Update(context.TODO(), result, metav1.UpdateOptions{})
-		return updateErr
-	})
-
-	if retryErr != nil {
-		log.Errorf("failed to update dind, the error is: %s", retryErr)
+	// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
+	result, getErr := dynamicClient.Resource(stsResource).Namespace(config.Namespace()).Get(context.TODO(), "dind", metav1.GetOptions{})
+	if getErr != nil {
+		log.Errorf("failed to get dind statefulset, the error is: %s", getErr)
+		return getErr
 	}
 
-	return retryErr
+	// extract spec containers
+	containers, found, err := unstructured.NestedSlice(result.Object, "spec", "template", "spec", "containers")
+	if err != nil || !found || containers == nil {
+		return err
+	}
+
+	if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), volumeMountList, "volumeMounts"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(result.Object, containers, "spec", "template", "spec", "containers"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(result.Object, volumeList, "spec", "template", "spec", "volumes"); err != nil {
+		return err
+	}
+	_, updateErr := dynamicClient.Resource(stsResource).Namespace(config.Namespace()).Update(context.TODO(), result, metav1.UpdateOptions{})
+	if updateErr != nil {
+		log.Errorf("failed to update dind, the error is: %s", updateErr)
+	}
+	return updateErr
 }
 
 func ensureCertificateSecret(secretName, namespace, cert string, log *zap.SugaredLogger) error {
