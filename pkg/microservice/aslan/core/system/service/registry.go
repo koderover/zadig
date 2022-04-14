@@ -325,7 +325,8 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 				// create volume info
 				secretItemList := make([]interface{}, 0)
 				secretItemList = append(secretItemList, map[string]interface{}{
-					"key": "cert.crt",
+					"key":  "cert.crt",
+					"path": "cert.crt",
 				})
 				secretInfo := map[string]interface{}{
 					"items":      secretItemList,
