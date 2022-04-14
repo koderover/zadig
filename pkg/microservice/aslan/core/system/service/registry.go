@@ -377,7 +377,7 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 
 func ensureCertificateSecret(secretName, namespace, cert string, log *zap.SugaredLogger) error {
 	certificateString := base64.StdEncoding.EncodeToString([]byte(cert))
-	datamap := map[string]string{
+	datamap := map[string]interface{}{
 		"cert.crt": certificateString,
 	}
 
