@@ -39,6 +39,9 @@ func Serve(ctx context.Context) error {
 	cronClient := scheduler.NewCronClient()
 	cronClient.Init()
 
+	cronV3Client := scheduler.NewCronV3()
+	cronV3Client.Start()
+
 	http.HandleFunc("/ping", ping)
 	server := &http.Server{Addr: ":8091", Handler: nil}
 
