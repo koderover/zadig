@@ -82,7 +82,7 @@ func (c *CronV3Client) Start() {
 			log.Infof("config changed to %v", config)
 			if config.CronEnabled {
 				c.Scheduler.RemoveByTag(string(types.CleanDockerTag))
-				_, err = c.Scheduler.CronWithSeconds(config.Cron).Tag(string(types.CleanDockerTag)).Do(func() {
+				_, err = c.Scheduler.Cron(config.Cron).Tag(string(types.CleanDockerTag)).Do(func() {
 					log.Infof("trigger aslan docker clean,reg: %v", config.Cron)
 					// call docker clean
 					if err := c.AslanCli.DockerClean(); err != nil {
