@@ -382,7 +382,7 @@ func ensureCertificateSecret(secretName, namespace, cert string, log *zap.Sugare
 	}
 
 	secretResourceKind := schema.GroupVersionResource{
-		Group:    "core",
+		Group:    "meta",
 		Version:  "v1",
 		Resource: "secrets",
 	}
