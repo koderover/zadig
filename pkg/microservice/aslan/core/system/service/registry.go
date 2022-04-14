@@ -322,8 +322,8 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 				}
 				volumeMountList = append(volumeMountList, volumeMountMap)
 				// create volume info
-				secretItemList := make([]map[string]string, 0)
-				secretItemList = append(secretItemList, map[string]string{
+				secretItemList := make([]map[string]interface{}, 0)
+				secretItemList = append(secretItemList, map[string]interface{}{
 					"key":  "cert.crt",
 					"path": fmt.Sprintf("%s/%s", reg.RegAddr, "cert.crt"),
 				})
