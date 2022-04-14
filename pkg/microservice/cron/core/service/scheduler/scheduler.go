@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // CronClient ...
@@ -75,14 +76,14 @@ func (c *CronV3Client) Start() {
 			log.Errorf("get config err :%s", err)
 			return
 		}
-		var job *newgoCron.Job
+
 		if !reflect.DeepEqual(lastConfig, config) {
 			lastConfig = config
 			log.Infof("config changed to %v", config)
 			if config.CronEnabled {
-				c.Scheduler.RemoveByReference(job)
-				job, err = c.Scheduler.Cron(config.Cron).Do(func() {
-					log.Infof("add docker_cache clean cron job,reg: %v", config.Cron)
+				c.Scheduler.RemoveByTag(string(types.CleanDockerTag))
+				_, err = c.Scheduler.CronWithSeconds(config.Cron).Tag(string(types.CleanDockerTag)).Do(func() {
+					log.Infof("trigger aslan docker clean,reg: %v", config.Cron)
 					// call docker clean
 					if err := c.AslanCli.DockerClean(); err != nil {
 						log.Errorf("fail to clean docker cache , err:%s", err)
@@ -92,8 +93,9 @@ func (c *CronV3Client) Start() {
 					log.Errorf("fail to add docker_cache clean cron job:reg: %v,err:%s", config.Cron, err)
 				}
 			} else {
-				log.Infof("remove docker_cache clean job , job: %v", job)
-				c.Scheduler.RemoveByReference(job)
+				log.Infof("remove docker_cache clean job , job tag: %v", types.CleanDockerTag)
+				c.Scheduler.RemoveByTag(string(types.CleanDockerTag))
+
 			}
 		}
 	})
