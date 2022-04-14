@@ -104,14 +104,25 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 		log.Errorf("RegistryNamespace.List error: %s", err)
 		return resp, fmt.Errorf("RegistryNamespace.List error: %s", err)
 	}
-
+	var aesKey *GetAesKeyFromEncryptedKeyResp
+	if len(encryptedKey) > 0 {
+		aesKey, err = GetAesKeyFromEncryptedKey(encryptedKey, log)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if !getRealCredential {
+		if len(encryptedKey) > 0 {
+			for _, reg := range resp {
+				reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		return resp, nil
 	}
-	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, log)
-	if err != nil {
-		return nil, err
-	}
+
 	for _, reg := range resp {
 		switch reg.RegProvider {
 		case config.RegistryTypeSWR:
@@ -125,6 +136,9 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 			}
 			reg.AccessKey = realAK
 			reg.SecretKey = realSK
+		}
+		if len(encryptedKey) == 0 {
+			continue
 		}
 		reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
 		if err != nil {

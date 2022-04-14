@@ -42,6 +42,7 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 	var res []*Connector
 	for _, c := range cs {
 		cf := make(map[string]interface{})
+		logger.Infof("config:%v", c.Config)
 		err = json.Unmarshal([]byte(c.Config), &cf)
 		if err != nil {
 			logger.Warnf("Failed to unmarshal config, err: %s", err)

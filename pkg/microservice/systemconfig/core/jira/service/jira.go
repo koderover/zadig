@@ -33,6 +33,9 @@ func GeJira(encryptedKey string, _ *zap.SugaredLogger) (*models.Jira, error) {
 	if err != nil {
 		return nil, err
 	}
+	if jira == nil {
+		return nil, nil
+	}
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
 		return nil, err
