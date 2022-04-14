@@ -295,8 +295,8 @@ func SyncDinDForRegistries(log *zap.SugaredLogger) error {
 		return err
 	}
 
-	volumeMountList := make([]map[string]interface{}, 0)
-	volumeList := make([]map[string]interface{}, 0)
+	volumeMountList := make([]interface{}, 0)
+	volumeList := make([]interface{}, 0)
 
 	insecureRegistryList := make([]string, 0)
 	for _, reg := range regList {
