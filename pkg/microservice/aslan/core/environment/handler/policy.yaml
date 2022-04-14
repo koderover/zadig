@@ -96,6 +96,13 @@ rules:
     alias: "配置"
     description: ""
     rules:
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/services"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/share/enable"
         resourceType: "Environment"
@@ -112,7 +119,6 @@ rules:
             value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/environments"
-        resourceType: "Environment"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
@@ -152,6 +158,8 @@ rules:
     alias: "管理服务实例"
     description: ""
     rules:
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
         resourceType: "Environment"
@@ -184,13 +192,6 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
-      - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/services"
-        resourceType: "Environment"
-        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services"
-        matchAttributes:
-          - key: "production"
-            value: "false"
       - method: POST
         endpoint: "/api/aslan/environment/image/deployment/?*"
         resourceType: "Environment"
