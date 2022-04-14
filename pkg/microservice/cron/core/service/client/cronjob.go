@@ -174,24 +174,6 @@ func (c *Client) TriggerSystemGc(log *zap.SugaredLogger) error {
 	return err
 }
 
-//type CleanConfig struct {
-//	Cron        string `json:"cron"`
-//	CronEnabled bool   `json:"cron_enabled"`
-//}
-//
-//func (c *Client) GetDockerCleanConfig() (*CleanConfig, error) {
-//	url := fmt.Sprintf("%s/system/cleanCache/state", c.APIBase)
-//	res, err := c.get(url)
-//	if err != nil {
-//		return nil, err
-//	}
-//	config := new(CleanConfig)
-//	if err := json.Unmarshal(res, config); err != nil {
-//		return nil, err
-//	}
-//	return config, nil
-//}
-
 func (c *Client) sendRequest(url string) error {
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -204,23 +186,6 @@ func (c *Client) sendRequest(url string) error {
 	}
 	return err
 }
-
-//func (c *Client) get(url string) ([]byte, error) {
-//	request, err := http.NewRequest("GET", url, nil)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	resp, err := c.Conn.Do(request)
-//	if err == nil {
-//		defer func() { _ = resp.Body.Close() }()
-//	}
-//	result, err := ioutil.ReadAll(resp.Body)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return result, err
-//}
 
 func (c *Client) sendPostRequest(url string, body io.Reader, log *zap.SugaredLogger) (string, error) {
 	request, err := http.NewRequest("POST", url, body)

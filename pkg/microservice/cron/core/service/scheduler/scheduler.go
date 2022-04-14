@@ -68,11 +68,11 @@ func NewCronV3() *CronV3Client {
 func (c *CronV3Client) Start() {
 	var lastConfig *aslan.CleanConfig
 	var entryID cronV3.EntryID
-	c.Cron.AddFunc("*/3 * * * * *", func() {
+	c.Cron.AddFunc("*/20 * * * * *", func() {
 		// get the docker clean config
 		config, err := c.AslanCli.GetDockerCleanConfig()
 		if err != nil {
-			log.Errorf("get config err ,:%v", err)
+			log.Errorf("get config err :%s", err)
 			return
 		}
 		if !reflect.DeepEqual(lastConfig, config) {
@@ -83,17 +83,17 @@ func (c *CronV3Client) Start() {
 				c.Cron.Remove(entryID)
 				c.Cron.Run()
 				entryID, err = c.Cron.AddFunc(config.Cron, func() {
-					log.Infof("********add********* , %v\n", config)
+					log.Infof("add docker_cache clean cron job,reg: %v", config.Cron)
 					// call docker clean
 					if err := c.AslanCli.DockerClean(); err != nil {
-						log.Errorf("clean docker cache fail , err:%s", err)
+						log.Errorf("fail to clean docker cache , err:%s", err)
 					}
 				})
 				if err != nil {
-					log.Errorf("err get entryID:%v", entryID)
+					log.Errorf("fail to add docker_cache clean cron job:reg: %v", config.Cron)
 				}
 			case false:
-				log.Infof("*******remove job********* , %v\n", config)
+				log.Infof("remove docker_cache clean job , entryID: %v", entryID)
 				c.Cron.Remove(entryID)
 			}
 		}
@@ -129,8 +129,6 @@ const (
 	InitHealthCheckPmHostScheduler = "InitHealthCheckPmHostScheduler"
 
 	InitHelmEnvSyncValuesScheduler = "InitHelmEnvSyncValuesScheduler"
-
-	//InitDockerCleanScheduler = "InitDockerCleanScheduler"
 )
 
 // NewCronClient ...
@@ -203,32 +201,7 @@ func (c *CronClient) Init() {
 	c.InitHealthCheckPmHostScheduler()
 	// sync values from remote for helm envs at regular intervals
 	c.InitHelmEnvSyncValuesScheduler()
-	// add docker clean
-	//c.InitDockerCleanScheduler()
 }
-
-//func (c *CronClient) InitDockerCleanScheduler() {
-//
-//	lastConfig := new(client.CleanConfig)
-//	c.Schedulers[InitDockerCleanScheduler] = gocron.NewScheduler()
-//	checkConfigfunc := func() {
-//		config, err := c.AslanCli.GetDockerCleanConfig()
-//		if err != nil {
-//			return
-//		}
-//
-//		if !reflect.DeepEqual(config, lastConfig) {
-//			lastConfig = config
-//			// 配置发生变化
-//
-//		}
-//
-//	}
-//	c.Schedulers[InitDockerCleanScheduler].Every(20).Seconds().Do(
-//		checkConfigfunc, c.log)
-//
-//	c.Schedulers[InitDockerCleanScheduler].Start()
-//}
 
 func (c *CronClient) InitCleanJobScheduler() {
 
