@@ -16,6 +16,8 @@ limitations under the License.
 
 package aslan
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 type Environment struct {
 	ID          string      `json:"id"`
 	ProductName string      `json:"product_name"`
@@ -110,4 +112,19 @@ type Service struct {
 type ServiceStatus struct {
 	ServiceName string `json:"service_name"`
 	Status      string `json:"status"`
+}
+
+type RegistryInfo struct {
+	ID              primitive.ObjectID       `json:"id,omitempty"`
+	RegAddr         string                   `json:"reg_addr"`
+	AdvancedSetting *RegistryAdvancedSetting `json:"advanced_setting"`
+}
+
+type RegistryAdvancedSetting struct {
+	// indicator to make sure if the advanced has been modified
+	Modified bool `json:"modified"`
+	// New field since v1.11 to support self-signed TLS certificate
+	TLSEnabled bool   `json:"enable_tls"`
+	TLSCert    string `json:"tls_cert"`
+	TLSKey     string `json:"tls_key"`
 }
