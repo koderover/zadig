@@ -151,7 +151,7 @@ func initService() {
 }
 
 func initDinD() {
-	err := systemservice.SyncDinDForRegistries(log.SugaredLogger())
+	err := systemservice.SyncDinDForRegistries()
 	if err != nil {
 		log.Fatal(err)
 	}

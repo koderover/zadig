@@ -46,6 +46,10 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/system/registry"},
+	},
+	{
+		Methods:   []string{"GET"},
 		Endpoints: []string{"api/aslan/testing/report"},
 	},
 	{

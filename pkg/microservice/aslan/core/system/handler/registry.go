@@ -71,15 +71,22 @@ func GetRegistryNamespace(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp = &Registry{
-		ID:         reg.ID.Hex(),
-		RegAddr:    reg.RegAddr,
-		IsDefault:  reg.IsDefault,
-		Namespace:  reg.Namespace,
-		TLSEnabled: reg.AdvancedSetting.TLSEnabled,
-		TLSCert:    reg.AdvancedSetting.TLSCert,
-		TLSKey:     reg.AdvancedSetting.TLSKey,
+	resp := &Registry{
+		ID:        reg.ID.Hex(),
+		RegAddr:   reg.RegAddr,
+		IsDefault: reg.IsDefault,
+		Namespace: reg.Namespace,
 	}
+
+	if reg.AdvancedSetting != nil {
+		resp.AdvancedSetting = &AdvancedRegistrySetting{
+			Modified:   reg.AdvancedSetting.Modified,
+			TLSEnabled: reg.AdvancedSetting.TLSEnabled,
+			TLSCert:    reg.AdvancedSetting.TLSCert,
+		}
+	}
+
+	ctx.Resp = resp
 }
 
 func ListRegistryNamespaces(c *gin.Context) {
