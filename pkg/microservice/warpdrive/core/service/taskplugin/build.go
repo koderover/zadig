@@ -19,6 +19,7 @@ package taskplugin
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -92,7 +94,11 @@ func (p *BuildTaskPlugin) SetStatus(status config.Status) {
 	p.Task.TaskStatus = status
 }
 
+// Note: Unit of input `p.Task.Timeout` is `minutes` and convert it to `seconds` internally.
+// TODO: Using time implicitly is easy to generate bugs. We need use `time.Duration` instead.
 func (p *BuildTaskPlugin) TaskTimeout() int {
+	p.Log.Infof("IsRestart: %t. TaskTimeout: %d", p.Task.IsRestart, p.Task.Timeout)
+
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = BuildTaskV2Timeout
 	} else {
@@ -101,6 +107,13 @@ func (p *BuildTaskPlugin) TaskTimeout() int {
 		}
 	}
 	return p.Task.Timeout
+}
+
+// Note: This is a temporary function to be compatible with the `TaskTimeout()` method's process of time.
+// TODO: Remove this function after `TaskTimeout` uses `time.Duration`.
+func (p *BuildTaskPlugin) tmpSetTaskTimeout(durationInSeconds int) {
+	p.Task.Timeout = int(math.Ceil(float64(durationInSeconds) / 60.0))
+	p.Task.IsRestart = false
 }
 
 func (p *BuildTaskPlugin) SetBuildStatusCompleted(status config.Status) {
@@ -295,68 +308,103 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		PipelineType: string(pipelineTask.Type),
 	}
 
-	if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-		p.Log.Error(err)
-		p.Task.TaskStatus = config.StatusFailed
-		p.Task.Error = err.Error()
-		p.SetBuildStatusCompleted(config.StatusFailed)
-		return
-	}
-
-	if err := createJobConfigMap(
-		p.KubeNamespace, p.JobName, jobLabel, string(jobCtxBytes), p.kubeClient); err != nil {
-		msg := fmt.Sprintf("createJobConfigMap error: %v", err)
+	jobObj, jobExist, err := checkJobExists(ctx, p.KubeNamespace, jobLabel, p.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("failed to check whether Job exist for %s:%d: %s", pipelineTask.PipelineName, pipelineTask.TaskID, err)
 		p.Log.Error(msg)
 		p.Task.TaskStatus = config.StatusFailed
 		p.Task.Error = msg
 		p.SetBuildStatusCompleted(config.StatusFailed)
 		return
+	}
+	if jobExist {
+		p.Log.Infof("Job %s:%d eixsts.", pipelineTask.PipelineName, pipelineTask.TaskID)
+
+		p.JobName = jobObj.Name
+
+		// If the code is executed at this point, it indicates that the `wd` instance that executed the Job has been restarted and the
+		// Job timeout period needs to be corrected.
+		//
+		// Rule of reseting timeout: `timeout - (now - start_time_of_job) + compensate_duration`
+		// For now, `compensate_duration` is 2min.
+		taskTimeout := p.TaskTimeout()
+		elaspedTime := time.Now().Unix() - jobObj.Status.StartTime.Time.Unix()
+		timeout := taskTimeout + 120 - int(elaspedTime)
+		p.Log.Infof("Timeout before normalization: %d seconds", timeout)
+		if timeout < 0 {
+			// That shouldn't happen in theory, but a protection is needed.
+			timeout = 0
+		}
+
+		p.Log.Infof("Timeout after normalization: %d seconds", timeout)
+		p.tmpSetTaskTimeout(timeout)
+	}
+
+	_, cmExist, err := checkConfigMapExists(ctx, p.KubeNamespace, jobLabel, p.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("failed to check whether ConfigMap exist for %s:%d: %s", pipelineTask.PipelineName, pipelineTask.TaskID, err)
+		p.Log.Error(msg)
+		p.Task.TaskStatus = config.StatusFailed
+		p.Task.Error = msg
+		p.SetBuildStatusCompleted(config.StatusFailed)
+		return
+	}
+
+	if !cmExist {
+		p.Log.Infof("ConfigMap for Job %s:%d does not exist. Create.", pipelineTask.PipelineName, pipelineTask.TaskID)
+
+		err = createJobConfigMap(p.KubeNamespace, p.JobName, jobLabel, string(jobCtxBytes), p.kubeClient)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			msg := fmt.Sprintf("createJobConfigMap error: %v", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
 	}
 	p.Log.Infof("succeed to create cm for build job %s", p.JobName)
 
-	jobImage := fmt.Sprintf("%s-%s", pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS)
-	if p.Task.ImageFrom == setting.ImageFromCustom {
-		jobImage = p.Task.BuildOS
-	}
+	if !jobExist {
+		p.Log.Infof("Job %s:%d does not exist. Create.", pipelineTask.PipelineName, pipelineTask.TaskID)
 
-	//Resource request default value is LOW
-	job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)
-	if err != nil {
-		msg := fmt.Sprintf("create build job context error: %v", err)
-		p.Log.Error(msg)
-		p.Task.TaskStatus = config.StatusFailed
-		p.Task.Error = msg
-		p.SetBuildStatusCompleted(config.StatusFailed)
-		return
-	}
+		jobImage := fmt.Sprintf("%s-%s", pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS)
+		if p.Task.ImageFrom == setting.ImageFromCustom {
+			jobImage = p.Task.BuildOS
+		}
 
-	job.Namespace = p.KubeNamespace
+		//Resource request default value is LOW
+		job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)
+		if err != nil {
+			msg := fmt.Sprintf("create build job context error: %v", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
 
-	if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-		msg := fmt.Sprintf("delete build job error: %v", err)
-		p.Log.Error(msg)
-		p.Task.TaskStatus = config.StatusFailed
-		p.Task.Error = msg
-		p.SetBuildStatusCompleted(config.StatusFailed)
-		return
-	}
+		job.Namespace = p.KubeNamespace
 
-	// 将集成到KodeRover的私有镜像仓库的访问权限设置到namespace中
-	if err := createOrUpdateRegistrySecrets(p.KubeNamespace, pipelineTask.ConfigPayload.RegistryID, p.Task.Registries, p.kubeClient); err != nil {
-		msg := fmt.Sprintf("create secret error: %v", err)
-		p.Log.Error(msg)
-		p.Task.TaskStatus = config.StatusFailed
-		p.Task.Error = msg
-		p.SetBuildStatusCompleted(config.StatusFailed)
-		return
-	}
-	if err := updater.CreateJob(job, p.kubeClient); err != nil {
-		msg := fmt.Sprintf("create build job error: %v", err)
-		p.Log.Error(msg)
-		p.Task.TaskStatus = config.StatusFailed
-		p.Task.Error = msg
-		p.SetBuildStatusCompleted(config.StatusFailed)
-		return
+		// Set imagePullSecrets of the private image registry integrated with KodeRover into the namespace.
+		if err := createOrUpdateRegistrySecrets(p.KubeNamespace, pipelineTask.ConfigPayload.RegistryID, p.Task.Registries, p.kubeClient); err != nil {
+			msg := fmt.Sprintf("create secret error: %v", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
+
+		err = updater.CreateJob(job, p.kubeClient)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			msg := fmt.Sprintf("create build job error: %v", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
 	}
 	p.Log.Infof("succeed to create build job %s", p.JobName)
 

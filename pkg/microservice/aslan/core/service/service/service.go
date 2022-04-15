@@ -134,6 +134,11 @@ type YamlValidatorReq struct {
 	Yaml        string `json:"yaml,omitempty"`
 }
 
+type ReleaseNamingRule struct {
+	NamingRule  string `json:"naming"`
+	ServiceName string `json:"service_name"`
+}
+
 func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.SugaredLogger) {
 	opt := &commonrepo.ProductListOptions{
 		Source:        setting.SourceFromExternal,
@@ -183,11 +188,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	for _, container := range args.Containers {
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
-		serviceModule.ImageName = container.ImageName
-		//Compatible with the problem that the name of the old data imageName is empty
-		if serviceModule.ImageName == "" {
-			serviceModule.ImageName = container.Name
-		}
+		serviceModule.ImageName = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 		buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
 		if buildObj != nil {
 			serviceModule.BuildName = buildObj.Name
@@ -923,12 +924,62 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				log.Errorf("yaml unmarsh err: %s", err)
+				log.Errorf("yaml unmarshal err: %s", err)
 				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
 			}
 		}
 	}
 	return errorDetails
+}
+
+func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
+	serviceTemplate, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		Revision:      0,
+		Type:          setting.HelmDeployType,
+		ProductName:   projectName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	if err != nil {
+		return err
+	}
+
+	oldReleaseNamingRule := serviceTemplate.GetReleaseNaming()
+	// nothing would happen if naming rule keeps the same
+	if oldReleaseNamingRule == args.NamingRule {
+		return nil
+	}
+
+	serviceTemplate.ReleaseNaming = args.NamingRule
+	rev, err := getNextServiceRevision(projectName, args.ServiceName)
+	if err != nil {
+		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
+	}
+
+	basePath := config.LocalServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
+	if err = commonservice.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
+		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	fsTree := os.DirFS(config.LocalServicePath(projectName, serviceTemplate.ServiceName))
+	s3Base := config.ObjectStorageServicePath(projectName, serviceTemplate.ServiceName)
+	err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
+	if err != nil {
+		return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	serviceTemplate.Revision = rev
+	err = commonrepo.NewServiceColl().Create(serviceTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
+	}
+
+	// reinstall all services
+	err = service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to re install service: %s, err: %s", args.ServiceName)
+	}
+	return nil
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {

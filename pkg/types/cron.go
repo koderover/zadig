@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,16 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package types
 
-import (
-	"strings"
+type CronTag string
+
+const (
+	CleanDockerTag CronTag = "CleanDockerTag"
 )
-
-func GeneReleaseName(namingRule, projectName, namespace, envName, service string) string {
-	ret := strings.ReplaceAll(namingRule, "$Product$", projectName)
-	ret = strings.ReplaceAll(ret, "$Namespace$", namespace)
-	ret = strings.ReplaceAll(ret, "$EnvName$", envName)
-	ret = strings.ReplaceAll(ret, "$Service$", service)
-	return ret
-}

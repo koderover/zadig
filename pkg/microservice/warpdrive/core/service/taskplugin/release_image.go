@@ -19,6 +19,10 @@ package taskplugin
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strconv"
+	"time"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -26,16 +30,12 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/util"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"path/filepath"
-	"strconv"
-	"time"
 
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v3"
@@ -282,6 +282,7 @@ DistributeLoop:
 		}
 		// set the start time on deployment start.
 		distribute.DeployStartTime = time.Now().Unix()
+		distribute.DeployStatus = setting.StatusRunning
 		if distribute.DeployClusterID != "" {
 			p.restConfig, err = kubeclient.GetRESTConfig(p.HubServerAddr, distribute.DeployClusterID)
 			if err != nil {
@@ -656,7 +657,7 @@ DistributeLoop:
 				continue DistributeLoop
 			}
 
-			releaseName := util.GeneHelmReleaseName(distribute.DeployNamespace, distribute.DeployServiceName)
+			releaseName := distribute.ReleaseName
 
 			ensureUpgrade := func() error {
 				hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
@@ -747,6 +748,8 @@ DistributeLoop:
 					renderInfo.Name,
 				)
 			}
+			distribute.DeployStatus = string(config.StatusPassed)
+			distribute.DeployEndTime = time.Now().Unix()
 		}
 	}
 }

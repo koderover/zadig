@@ -38,6 +38,7 @@ type RepoImage struct {
 // DistributeInfo will be convert into yaml, adding yaml
 type DistributeInfo struct {
 	Image               string `yaml:"image"`
+	ReleaseName         string `yaml:"release_name"`
 	DistributeStartTime int64  `yaml:"distribute_start_time"`
 	DistributeEndTime   int64  `yaml:"distribute_end_time"`
 	DistributeStatus    string `yaml:"distribute_status"`

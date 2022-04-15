@@ -28,7 +28,6 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -47,6 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 type HelmReleaseResp struct {
@@ -65,6 +65,20 @@ type ChartInfo struct {
 type HelmChartsResp struct {
 	ChartInfos []*ChartInfo      `json:"chartInfos"`
 	FileInfos  []*types.FileInfo `json:"fileInfos"`
+}
+
+type ImageData struct {
+	ImageName string `json:"imageName"`
+	ImageTag  string `json:"imageTag"`
+}
+
+type ServiceImages struct {
+	ServiceName string       `json:"serviceName"`
+	Images      []*ImageData `json:"imageData"`
+}
+
+type ChartImagesResp struct {
+	ServiceImages []*ServiceImages `json:"serviceImages"`
 }
 
 func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmReleaseResp, error) {
@@ -91,16 +105,15 @@ func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmR
 	}
 
 	// filter releases, only list releases deployed by zadig
-	serviceMap := prod.GetServiceMap()
-	serviceSet := sets.NewString()
-	for serviceName := range serviceMap {
-		serviceSet.Insert(serviceName)
+	releaseNameMap, err := commonservice.GetReleaseNameToServiceNameMap(prod)
+	if err != nil {
+		return nil, err
 	}
 
 	ret := make([]*HelmReleaseResp, 0, len(releases))
 	for _, release := range releases {
-		serviceName := util.ExtraServiceName(release.Name, prod.Namespace)
-		if !serviceSet.Has(serviceName) {
+		serviceName, ok := releaseNameMap[release.Name]
+		if !ok {
 			continue
 		}
 		ret = append(ret, &HelmReleaseResp{
@@ -180,7 +193,7 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service, r
 		return err
 	}
 
-	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	releaseName := util.GeneReleaseName(serviceObj.GetReleaseNaming(), prod.ProductName, prod.Namespace, prod.EnvName, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)
@@ -293,6 +306,88 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	}
 	ret.FileInfos = fis
 
+	return ret, nil
+}
+
+func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLogger) (*ChartImagesResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product: %s:%s to get image infos, err: %s", productName, envName, err)
+	}
+
+	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get rest config: %s:%s to get image infos, err: %s", productName, envName, err)
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init kube client: %s:%s to get image infos, err: %s", productName, envName, err)
+	}
+
+	// filter releases, only list releases deployed by zadig
+	serviceMap := prod.GetServiceMap()
+	templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service tempaltes,  err: %s", err)
+	}
+	templateSvcMap := make(map[string]*models.Service)
+	for _, ts := range templateSvcs {
+		templateSvcMap[ts.ServiceName] = ts
+	}
+	services := strings.Split(serviceNames, ",")
+
+	ret := &ChartImagesResp{}
+
+	for _, svcName := range services {
+		prodSvc, ok := serviceMap[svcName]
+		if !ok || prodSvc == nil {
+			return nil, fmt.Errorf("failed to find service: %s in product", svcName)
+		}
+
+		ts, ok := templateSvcMap[svcName]
+		if !ok {
+			return nil, fmt.Errorf("failed to find template service: %s", svcName)
+		}
+
+		releaseName := util.GeneReleaseName(ts.GetReleaseNaming(), productName, prod.Namespace, prod.Namespace, svcName)
+		valuesYaml, err := helmClient.GetReleaseValues(releaseName, true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get values for relase: %s, err: %s", releaseName, err)
+		}
+
+		flatMap, err := converter.Flatten(valuesYaml)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get flat map url for release :%s", releaseName)
+		}
+
+		svcImage := &ServiceImages{
+			ServiceName: svcName,
+			Images:      nil,
+		}
+
+		for _, container := range prodSvc.Containers {
+			if container.ImagePath == nil {
+				return nil, fmt.Errorf("failed to parse image for container:%s", container.Image)
+			}
+			imageSearchRule := &template.ImageSearchingRule{
+				Repo:  container.ImagePath.Repo,
+				Image: container.ImagePath.Image,
+				Tag:   container.ImagePath.Tag,
+			}
+			pattern := imageSearchRule.GetSearchingPattern()
+			imageUrl, err := commonservice.GeneImageURI(pattern, flatMap)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get image url for container:%s", container.Image)
+			}
+
+			svcImage.Images = append(svcImage.Images, &ImageData{
+				util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
+				commonservice.ExtractImageTag(imageUrl),
+			})
+		}
+		ret.ServiceImages = append(ret.ServiceImages, svcImage)
+	}
 	return ret, nil
 }
 

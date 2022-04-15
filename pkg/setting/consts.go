@@ -638,3 +638,8 @@ const (
 const AttachedClusterNamespace = "koderover-agent"
 
 const ArtifactResultOut = "artifactResultOut.tar.gz"
+
+const (
+	DefaultReleaseNaming     = "$Service$"
+	ReleaseNamingPlaceholder = "$Namespace$-$Service$"
+)

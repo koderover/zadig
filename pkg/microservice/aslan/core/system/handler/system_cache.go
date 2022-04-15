@@ -30,6 +30,23 @@ func CleanImageCache(c *gin.Context) {
 	ctx.Err = service.CleanImageCache(ctx.Logger)
 }
 
+func SetCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	arg := new(SetCleanConfig)
+	if err := c.ShouldBindJSON(arg); err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Err = service.SetCron(arg.Cron, arg.CronEnabled, ctx.Logger)
+}
+
+type SetCleanConfig struct {
+	Cron        string `json:"cron"`
+	CronEnabled bool   `json:"cron_enabled"`
+}
+
 func CleanCacheState(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

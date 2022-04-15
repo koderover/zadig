@@ -36,7 +36,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 var ClusterInformersMap sync.Map
@@ -109,19 +108,19 @@ func DeleteClusterInformer(clusterID string) {
 
 func onDeploymentAddAndUpdate(obj interface{}) {
 	deploy := obj.(*appsv1.Deployment)
-	product, continueFlag := GetProductAndFilterNs(deploy.Namespace, deploy.Name)
+	labels := deploy.GetLabels()
+	serviceName := labels[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(deploy.Namespace, deploy.Name, serviceName)
 	if !continueFlag {
 		return
 	}
-	labels := deploy.GetLabels()
-	label := labels[setting.ServiceLabel]
 
 	configMaps, secrets, pvcs := VisitDeployment(deploy)
 	envSvcDepend := &models.EnvSvcDepend{
 		ProductName:   product.ProductName,
 		EnvName:       product.EnvName,
 		Namespace:     deploy.Namespace,
-		ServiceName:   label,
+		ServiceName:   serviceName,
 		ServiceModule: deploy.Name,
 		WorkloadType:  setting.Deployment,
 		ConfigMaps:    configMaps.List(),
@@ -135,13 +134,16 @@ func onDeploymentAddAndUpdate(obj interface{}) {
 
 func onDeploymentDelete(obj interface{}) {
 	deploy := obj.(*appsv1.Deployment)
-	product, continueFlag := GetProductAndFilterNs(deploy.Namespace, deploy.Name)
+	labels := deploy.GetLabels()
+	serviceName := labels[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(deploy.Namespace, deploy.Name, serviceName)
 	if !continueFlag {
 		return
 	}
 	opts := &commonrepo.DeleteEnvSvcDependOption{
 		ProductName:   product.ProductName,
 		EnvName:       product.EnvName,
+		ServiceName:   serviceName,
 		ServiceModule: deploy.Name,
 	}
 	if err := commonrepo.NewEnvSvcDependColl().Delete(opts); err != nil {
@@ -182,18 +184,19 @@ func VisitDeployment(deployment *appsv1.Deployment) (sets.String, sets.String, s
 
 func onStatefulSetAddAndUpdate(obj interface{}) {
 	sts := obj.(*appsv1.StatefulSet)
-	product, continueFlag := GetProductAndFilterNs(sts.Namespace, sts.Name)
+	labels := sts.GetLabels()
+	serviceName := labels[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(sts.Namespace, sts.Name, serviceName)
 	if !continueFlag {
 		return
 	}
-	labels := sts.GetLabels()
-	label := labels[setting.ServiceLabel]
+
 	configMaps, secrets, pvcs := VisitStatefulSet(sts)
 	envSvcDepend := &models.EnvSvcDepend{
 		ProductName:   product.ProductName,
 		EnvName:       product.EnvName,
 		Namespace:     sts.Namespace,
-		ServiceName:   label,
+		ServiceName:   serviceName,
 		ServiceModule: sts.Name,
 		WorkloadType:  setting.StatefulSet,
 		ConfigMaps:    configMaps.List(),
@@ -208,13 +211,16 @@ func onStatefulSetAddAndUpdate(obj interface{}) {
 
 func onStatefulSetDelete(obj interface{}) {
 	sts := obj.(*appsv1.StatefulSet)
-	product, continueFlag := GetProductAndFilterNs(sts.Namespace, sts.Name)
+	labels := sts.GetLabels()
+	serviceName := labels[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(sts.Namespace, sts.Name, serviceName)
 	if !continueFlag {
 		return
 	}
 	opts := &commonrepo.DeleteEnvSvcDependOption{
 		ProductName:   product.ProductName,
 		EnvName:       product.EnvName,
+		ServiceName:   serviceName,
 		ServiceModule: sts.Name,
 	}
 	if err := commonrepo.NewEnvSvcDependColl().Delete(opts); err != nil {
@@ -253,7 +259,7 @@ func VisitStatefulSet(sts *appsv1.StatefulSet) (sets.String, sets.String, sets.S
 	return cfgSets, secretSets, pvcSets
 }
 
-func GetProductAndFilterNs(namespace, workloadName string) (*models.Product, bool) {
+func GetProductAndFilterNs(namespace, workloadName, svcName string) (*models.Product, bool) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Namespace: namespace})
 	if err != nil {
 		if !commonrepo.IsErrNoDocuments(err) {
@@ -279,11 +285,7 @@ func GetProductAndFilterNs(namespace, workloadName string) (*models.Product, boo
 			}
 		}
 		for _, psvc := range product.GetServiceMap() {
-			//TODO: helm not support restart service
-			if psvc.Type == setting.HelmDeployType && psvc.ServiceName == util.ExtraServiceName(workloadName, namespace) {
-				return product, false
-			}
-			if psvc.Type == setting.K8SDeployType && psvc.ServiceName == workloadName {
+			if psvc.Type == setting.K8SDeployType && (psvc.ServiceName == workloadName || psvc.ServiceName == svcName) {
 				return product, true
 			}
 		}
