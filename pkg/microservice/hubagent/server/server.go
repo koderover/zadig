@@ -18,18 +18,18 @@ package server
 
 import (
 	"context"
-	config2 "github.com/koderover/zadig/pkg/microservice/hubagent/config"
-	"github.com/koderover/zadig/pkg/shared/client/aslan"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	registrytool "github.com/koderover/zadig/pkg/tool/registries"
 	"net/http"
 	"time"
 
 	"github.com/koderover/zadig/pkg/config"
+	config2 "github.com/koderover/zadig/pkg/microservice/hubagent/config"
 	"github.com/koderover/zadig/pkg/microservice/hubagent/core/service"
 	"github.com/koderover/zadig/pkg/microservice/hubagent/server/rest"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
+	registrytool "github.com/koderover/zadig/pkg/tool/registries"
 )
 
 func init() {
