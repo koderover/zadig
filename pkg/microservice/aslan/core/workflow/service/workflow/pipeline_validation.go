@@ -589,6 +589,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		TaskID:      taskID,
 		ProductName: productName,
 		ServiceName: b.ServiceName,
+		ImageName:   imageName,
 	}
 	switch deliveryType {
 	case config.TarResourceType:
@@ -611,6 +612,7 @@ type candidate struct {
 	Timestamp   string
 	ProductName string
 	ServiceName string
+	ImageName   string
 	EnvName     string
 }
 
@@ -645,7 +647,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 
 	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
 		SERVICE:        candidate.ServiceName,
-		IMAGE_NAME:     candidate.ServiceName,
+		IMAGE_NAME:     candidate.ImageName,
 		TIMESTAMP:      candidate.Timestamp,
 		TASK_ID:        strconv.FormatInt(candidate.TaskID, 10),
 		REPO_COMMIT_ID: candidate.CommitID,
