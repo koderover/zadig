@@ -45,6 +45,7 @@ type RegistryNamespace struct {
 type RegistryAdvancedSetting struct {
 	// indicator to make sure if the advanced has been modified
 	// This is solely a field for frontend display and not used anywhere else in the backend system
+	// TODO: whether this field should exist needs a discussion
 	Modified bool `bson:"modified" json:"modified"`
 	// New field since v1.11 to support self-signed TLS certificate
 	TLSEnabled bool   `bson:"enable_tls" json:"enable_tls"`
