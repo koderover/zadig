@@ -285,10 +285,6 @@ func GetProductAndFilterNs(namespace, workloadName, svcName string) (*models.Pro
 			}
 		}
 		for _, psvc := range product.GetServiceMap() {
-			//TODO: helm not support restart service
-			if psvc.Type == setting.HelmDeployType {
-				return product, false
-			}
 			if psvc.Type == setting.K8SDeployType && (psvc.ServiceName == workloadName || psvc.ServiceName == svcName) {
 				return product, true
 			}

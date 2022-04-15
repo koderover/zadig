@@ -192,6 +192,15 @@ type RawYamlResp struct {
 	YamlContent string `json:"yamlContent"`
 }
 
+type ReleaseInstallParam struct {
+	ProductName  string
+	Namespace    string
+	ReleaseName  string
+	MergedValues string
+	RenderChart  *templatemodels.RenderChart
+	serviceObj   *commonmodels.Service
+}
+
 type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error
 
 func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
@@ -1908,13 +1917,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
-						if err = hc.UninstallRelease(&helmclient.ChartSpec{
-							ReleaseName: fmt.Sprintf("%s-%s", productInfo.Namespace, service.ServiceName),
-							Namespace:   productInfo.Namespace,
-							Wait:        true,
-							Force:       true,
-							Timeout:     Timeout * time.Second * 10,
-						}); err != nil {
+						if err = UninstallService(hc, productInfo.ProductName, productInfo.Namespace, service.ServiceName, service.Revision, true); err != nil {
 							log.Errorf("UninstallRelease err:%v", err)
 						}
 					}
@@ -2867,16 +2870,24 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
-func installOrUpgradeHelmChart(namespace string, renderChart *templatemodels.RenderChart, defaultValues string, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client) error {
-	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+func buildInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service) (*ReleaseInstallParam, error) {
+	mergedValues, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 	if err != nil {
-		err = errors.WithMessagef(err, "failed to merge override yaml %s and values %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-		return err
+		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
 	}
-	return installOrUpgradeHelmChartWithValues(namespace, mergedValuesYaml, renderChart, serviceObj, isRetry, helmClient)
+	ret := &ReleaseInstallParam{
+		ProductName:  serviceObj.ProductName,
+		Namespace:    namespace,
+		ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName),
+		MergedValues: mergedValues,
+		RenderChart:  renderChart,
+		serviceObj:   serviceObj,
+	}
+	return ret, nil
 }
 
-func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client) error {
+func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient helmclient.Client) error {
+	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.serviceObj
 	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
 	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
@@ -2897,7 +2908,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	}
 
 	chartSpec := &helmclient.ChartSpec{
-		ReleaseName:   util.GeneHelmReleaseName(namespace, serviceObj.ServiceName),
+		ReleaseName:   param.ReleaseName,
 		ChartName:     chartPath,
 		Namespace:     namespace,
 		Version:       renderChart.ChartVersion,
@@ -2955,8 +2966,11 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 	}
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, logger *zap.SugaredLogger) error {
-		renderChart := chartInfoMap[serviceObj.ServiceName]
-		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, isRetry, helmClient)
+		param, err := buildInstallParam(args.Namespace, renderset.EnvName, renderset.DefaultValues, chartInfoMap[serviceObj.ServiceName], serviceObj)
+		if err != nil {
+			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, args.Namespace, err)
+		}
+		err = installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if err != nil {
 			log.Errorf("failed to install service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, args.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to install service: %s, namespace: %s", serviceObj.ServiceName, args.Namespace)
@@ -3114,18 +3128,12 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		productTemplServiceMap[service.ServiceName] = service
 	}
 
-	// 找到环境里面还存在但是服务编排里面已经删除的服务卸载掉
-	for serviceName := range productServiceMap {
+	// remove services not existed in services templates
+	for serviceName, productSvc := range productServiceMap {
 		if _, isExist := productTemplServiceMap[serviceName]; !isExist {
 			go func(namespace, serviceName string) {
 				log.Infof("ready to uninstall release:%s", fmt.Sprintf("%s-%s", namespace, serviceName))
-				if err = helmClient.UninstallRelease(&helmclient.ChartSpec{
-					ReleaseName: util.GeneHelmReleaseName(namespace, serviceName),
-					Namespace:   namespace,
-					Wait:        true,
-					//Force:       true,
-					//Timeout:     Timeout * time.Second * 10,
-				}); err != nil {
+				if err = UninstallService(helmClient, productName, namespace, productSvc.ServiceName, productSvc.Revision, false); err != nil {
 					log.Errorf("helm uninstall release %s err:%v", fmt.Sprintf("%s-%s", namespace, serviceName), err)
 				}
 			}(productResp.Namespace, serviceName)
@@ -3151,8 +3159,11 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 	}
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
-		renderChart := renderChartMap[serviceObj.ServiceName]
-		errInstall := installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, isRetry, helmClient)
+		param, err := buildInstallParam(productResp.Namespace, renderSet.EnvName, renderSet.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
+		if err != nil {
+			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, err)
+		}
+		errInstall := installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, err)
 			return errors.Wrapf(errInstall, "failed to install or upgrade service %s", serviceObj.ServiceName)
@@ -3430,12 +3441,15 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(service *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
-		renderChart := renderChartMap[service.ServiceName]
-		errInstall := installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient)
+	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
+		param, err := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
+		if err != nil {
+			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, err)
+		}
+		errInstall := installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
-			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, errInstall)
-			return errors.Wrapf(errInstall, "failed to upgrade service %s", service.ServiceName)
+			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, errInstall)
+			return errors.Wrapf(errInstall, "failed to upgrade service %s", serviceObj.ServiceName)
 		}
 		return nil
 	}

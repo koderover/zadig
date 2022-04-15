@@ -146,6 +146,24 @@ func YamlValidator(c *gin.Context) {
 	ctx.Resp = resp
 }
 
+func HelmReleaseNaming(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
+
+	args := new(svcservice.ReleaseNamingRule)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
+		return
+	}
+	ctx.Err = svcservice.UpdateReleaseNamingRule(projectName, args, ctx.Logger)
+}
+
 func DeleteServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -543,7 +543,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 	}
 
-	// 获取全局configpayload
+	// get global configPayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	if len(env.RegistryID) == 0 {
 		reg, _, err := commonservice.FindDefaultRegistry(false, log)
@@ -597,7 +597,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 
 		if env != nil {
-			// 生成部署的subtask
+			// generate subtasks to deploy
 			for _, deployEnv := range target.Deploy {
 				if deployEnv.Type == setting.PMDeployType {
 					continue
@@ -639,7 +639,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
-						args.ProductTmplName,
+						serviceModule,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1066,7 +1066,11 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				}
 				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
 					distributeTasks, err = formatDistributeSubtasks(
-						args.ProductTmplName,
+						&commonmodels.ServiceModuleTarget{
+							ProductName:   args.ProductTmplName,
+							ServiceName:   imageInfo.ServiceName,
+							ServiceModule: imageInfo.ServiceModule,
+						},
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1314,14 +1318,18 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return deployTask.ToSubTask()
 	case setting.HelmDeployType:
 		deployTask.ServiceType = setting.HelmDeployType
-		for _, services := range prodEnv.Services {
-			for _, service := range services {
-				if service.ServiceName == deployTask.ServiceName {
-					deployTask.ServiceRevision = service.Revision
-					return deployTask.ToSubTask()
-				}
-			}
+		if pSvc, ok := prodEnv.GetServiceMap()[deployTask.ServiceName]; ok {
+			deployTask.ServiceRevision = pSvc.Revision
 		}
+		revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			ServiceName: deployTask.ServiceName,
+			Revision:    deployTask.ServiceRevision,
+			ProductName: prodEnv.ProductName,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", deployTask.ServiceName, deployTask.ServiceRevision, err)
+		}
+		deployTask.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodEnv.ProductName, prodEnv.Namespace, prodEnv.EnvName, deployTask.ServiceName)
 		return deployTask.ToSubTask()
 	}
 	return resp, fmt.Errorf("env type not match")
@@ -1369,13 +1377,12 @@ func artifactToSubTasks(name, image string) (map[string]interface{}, error) {
 	artifactTask := taskmodels.Artifact{TaskType: config.TaskArtifact, Enabled: true}
 	artifactTask.Name = name
 	artifactTask.Image = image
-
 	return artifactTask.ToSubTask()
 }
 
-func formatDistributeSubtasks(productName string, releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
+func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
 	var resp []map[string]interface{}
-
+	productName := serviceModule.ProductName
 	if distribute.ImageDistribute {
 		t := taskmodels.ReleaseImage{
 			TaskType:    config.TaskReleaseImage,
@@ -1397,12 +1404,33 @@ func formatDistributeSubtasks(productName string, releaseImages []commonmodels.R
 			if err != nil {
 				return nil, err
 			}
+			releaseName := ""
+			if repoInfo.DeployEnabled {
+				svcMap := envInfo.GetServiceMap()
+				pSvc, ok := svcMap[serviceModule.ServiceName]
+				if !ok {
+					return nil, fmt.Errorf("can't find service: %s:%s in product: %s", productName, repoInfo.DeployEnv, serviceModule.ServiceName)
+				}
+				if pSvc.Type == setting.HelmDeployType {
+					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+						ServiceName: serviceModule.ServiceName,
+						Revision:    pSvc.Revision,
+						Type:        setting.HelmDeployType,
+						ProductName: productName,
+					})
+					if err != nil {
+						return nil, err
+					}
+					releaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), productName, envInfo.Namespace, repoInfo.DeployEnv, serviceModule.ServiceName)
+				}
+			}
 			distributeInfo = append(distributeInfo, &taskmodels.DistributeInfo{
 				DeployEnabled:     repoInfo.DeployEnabled,
 				DeployEnv:         repoInfo.DeployEnv,
 				DeployServiceType: productInfo.ProductFeature.DeployType,
 				DeployClusterID:   envInfo.ClusterID,
 				DeployNamespace:   envInfo.Namespace,
+				ReleaseName:       releaseName,
 				RepoID:            repoInfo.RepoID,
 			})
 		}
@@ -1705,6 +1733,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			if env != nil {
 				// 生成部署的subtask
 				for _, deployEnv := range artifact.Deploy {
+					log.Infof("####### start deployEnvToSubTasks")
 					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
 					if err != nil {
 						log.Errorf("deploy env to subtask error: %v", err)
@@ -1760,7 +1789,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
-						args.ProductTmplName,
+						serviceModule,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -2200,6 +2229,34 @@ func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String,
 		envHostInfos[privateKey.ID.Hex()] = privateKey
 	}
 	return ips, names
+}
+
+func getServiceNaming(projectName, envName, serviceName string) (string, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return "", err
+	}
+	svcMap := productInfo.GetServiceMap()
+	pSvc, ok := svcMap[serviceName]
+	if !ok {
+		return "", fmt.Errorf("can't find service: %s:%s in product: %s", projectName, envName, serviceName)
+	}
+	if pSvc.Type != setting.HelmDeployType {
+		return "", nil
+	}
+	templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    pSvc.Revision,
+		Type:        setting.HelmDeployType,
+		ProductName: projectName,
+	})
+	if err != nil {
+		return "", nil
+	}
+	return util.GeneReleaseName(templateSvc.GetReleaseNaming(), projectName, productInfo.Namespace, envName, serviceName), nil
 }
 
 func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) error {
@@ -2690,6 +2747,13 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						DeployServiceType:   distribute.DeployServiceType,
 						DeployClusterID:     distribute.DeployClusterID,
 						RepoID:              distribute.RepoID,
+					}
+					if distribute.DeployEnabled {
+						releaseNaming, err := getServiceNaming(taskOpt.Task.ProductName, distribute.DeployEnv, taskOpt.ServiceName)
+						if err != nil {
+							return fmt.Errorf("failed to find release naming for service: %s, err: %s", taskOpt.ServiceName, err)
+						}
+						d.ReleaseName = releaseNaming
 					}
 					if v, ok := taskOpt.Task.ConfigPayload.RepoConfigs[distribute.RepoID]; ok {
 						d.Image = util.ReplaceRepo(taskOpt.Task.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)

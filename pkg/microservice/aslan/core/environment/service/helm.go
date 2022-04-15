@@ -28,7 +28,6 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -106,16 +105,15 @@ func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmR
 	}
 
 	// filter releases, only list releases deployed by zadig
-	serviceMap := prod.GetServiceMap()
-	serviceSet := sets.NewString()
-	for serviceName := range serviceMap {
-		serviceSet.Insert(serviceName)
+	releaseNameMap, err := commonservice.GetReleaseNameToServiceNameMap(prod)
+	if err != nil {
+		return nil, err
 	}
 
 	ret := make([]*HelmReleaseResp, 0, len(releases))
 	for _, release := range releases {
-		serviceName := util.ExtraServiceName(release.Name, prod.Namespace)
-		if !serviceSet.Has(serviceName) {
+		serviceName, ok := releaseNameMap[release.Name]
+		if !ok {
 			continue
 		}
 		ret = append(ret, &HelmReleaseResp{
@@ -195,7 +193,7 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service, r
 		return err
 	}
 
-	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	releaseName := util.GeneReleaseName(serviceObj.GetReleaseNaming(), prod.ProductName, prod.Namespace, prod.EnvName, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)
@@ -329,11 +327,14 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 
 	// filter releases, only list releases deployed by zadig
 	serviceMap := prod.GetServiceMap()
-	serviceSet := sets.NewString()
-	for serviceName := range serviceMap {
-		serviceSet.Insert(serviceName)
+	templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service tempaltes,  err: %s", err)
 	}
-
+	templateSvcMap := make(map[string]*models.Service)
+	for _, ts := range templateSvcs {
+		templateSvcMap[ts.ServiceName] = ts
+	}
 	services := strings.Split(serviceNames, ",")
 
 	ret := &ChartImagesResp{}
@@ -344,7 +345,12 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			return nil, fmt.Errorf("failed to find service: %s in product", svcName)
 		}
 
-		releaseName := util.GeneHelmReleaseName(prod.Namespace, svcName)
+		ts, ok := templateSvcMap[svcName]
+		if !ok {
+			return nil, fmt.Errorf("failed to find template service: %s", svcName)
+		}
+
+		releaseName := util.GeneReleaseName(ts.GetReleaseNaming(), productName, prod.Namespace, prod.Namespace, svcName)
 		valuesYaml, err := helmClient.GetReleaseValues(releaseName, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get values for relase: %s, err: %s", releaseName, err)

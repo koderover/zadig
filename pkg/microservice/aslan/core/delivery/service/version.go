@@ -570,7 +570,7 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 		return "", err
 	}
 
-	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	releaseName := util.GeneReleaseName(serviceObj.GetReleaseNaming(), prod.ProductName, prod.Namespace, prod.EnvName, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)

@@ -42,6 +42,8 @@ rules:
         endpoint: "/api/aslan/project/products/?*"
       - method: PUT
         endpoint: "/api/aslan/project/products/?*/searching-rules"
+      - method: PUT
+        endpoint: "/api/aslan/service/helm/services/releaseNaming"
   - action: create_service
     alias: "新建"
     description: ""
