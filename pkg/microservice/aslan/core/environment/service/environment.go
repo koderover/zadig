@@ -2179,7 +2179,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 					Namespace:   product.Namespace,
 					Wait:        true,
 				}); errUninstall != nil {
-					errStr := fmt.Errorf("helm uninstall service %s err: %s", serviceName, errUninstall)
+					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)
 					log.Error(errStr)
 				}
