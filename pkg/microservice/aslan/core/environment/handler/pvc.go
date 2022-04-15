@@ -27,7 +27,7 @@ func ListPvcs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Query("envName")
+	envName := c.Param("envName")
 	productName := c.Query("projectName")
 	if envName == "" || productName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName is invalid")

@@ -30,29 +30,29 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	configmaps := router.Group("configmaps")
 	{
-		configmaps.GET("", ListConfigMaps)
+		configmaps.GET("/:envName", ListConfigMaps)
 		configmaps.POST("", gin2.UpdateOperationLogStatus, RollBackConfigMap)
 		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
 	}
 
 	secrets := router.Group("secrets")
 	{
-		secrets.GET("", ListSecrets)
+		secrets.GET("/:envName", ListSecrets)
 	}
 	ingresses := router.Group("ingresses")
 	{
-		ingresses.GET("", ListIngresses)
+		ingresses.GET("/:envName", ListIngresses)
 	}
 	pvcs := router.Group("pvcs")
 	{
-		pvcs.GET("", ListPvcs)
+		pvcs.GET("/:envName", ListPvcs)
 	}
 	commonEnvCfgs := router.Group("envcfgs")
 	{
-		commonEnvCfgs.GET("/:objectName", ListCommonEnvCfgHistory)
-		commonEnvCfgs.PUT("", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
-		commonEnvCfgs.POST("", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
-		commonEnvCfgs.DELETE("/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
+		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.PUT("/:envName", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("/:envName", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------

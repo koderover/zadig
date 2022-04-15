@@ -78,6 +78,41 @@ rules:
             value: "false"
       - method: GET
         endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
+      - method: GET
+        endpoint: "/api/aslan/environment/configmaps/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/configmaps/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/envcfgs/?*/cfg/?*"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/envcfgs/([\\w\\W]+?)/cfg"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/secrets/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/secrets/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/ingresses/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/ingresses/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/pvcs/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/pvcs/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
   - action: create_environment
     alias: "创建"
     description: ""
@@ -154,6 +189,27 @@ rules:
         matchAttributes:
           - key: "production"
             value: "false"
+      - method: PUT
+        endpoint: "/api/aslan/environment/envcfgs/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: POST
+        endpoint: "/api/aslan/environment/envcfgs/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"   
+      - method: DELETE
+        endpoint: "/api/aslan/environment/envcfgs/?*/cfg/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)/cfg"
+        matchAttributes:
+          - key: "production"
+            value: "false" 
   - action: manage_environment
     alias: "管理服务实例"
     description: ""

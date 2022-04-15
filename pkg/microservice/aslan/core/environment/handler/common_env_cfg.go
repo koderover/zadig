@@ -34,7 +34,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Query("envName")
+	envName := c.Param("envName")
 	productName := c.Query("projectName")
 	commonEnvCfgType := c.Query("commonEnvCfgType")
 	objectName := c.Param("objectName")
@@ -74,6 +74,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
+	args.EnvName = c.Param("envName")
 	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.UserID, ctx.Logger)
 }
 
@@ -100,13 +101,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-
-	// TODO: REVERT AUTH is disabled
-	//authed := service.CtrlMgr.IsProductAuthed(ctx.UserIDStr, args.ProductOwner, args.ProductName, collection.ProductWritePermission, ctx.Logger)
-	//if !authed {
-	//	ctx.Err = e.ErrUpdateConfigMap.AddDesc(e.ProductAccessDeniedErrMsg)
-	//	return
-	//}
+	args.EnvName = c.Param("envName")
 
 	ctx.Err = service.UpdateCommonEnvCfg(args, ctx.UserName, ctx.UserID, ctx.Logger)
 }
@@ -116,7 +111,7 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(service.ListCommonEnvCfgHistoryArgs)
-	args.EnvName = c.Query("envName")
+	args.EnvName = c.Param("envName")
 	args.ProductName = c.Query("projectName")
 	args.CommonEnvCfgType = config.CommonEnvCfgType(c.Query("commonEnvCfgType"))
 	args.Name = c.Param("objectName")
