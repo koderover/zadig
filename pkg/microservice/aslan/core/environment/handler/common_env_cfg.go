@@ -75,6 +75,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		return
 	}
 	args.EnvName = c.Param("envName")
+	args.ProductName = c.Query("projectName")
 	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.UserID, ctx.Logger)
 }
 
@@ -102,6 +103,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 		return
 	}
 	args.EnvName = c.Param("envName")
+	args.ProductName = c.Query("projectName")
 
 	ctx.Err = service.UpdateCommonEnvCfg(args, ctx.UserName, ctx.UserID, ctx.Logger)
 }
