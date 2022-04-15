@@ -27,7 +27,7 @@ import (
 func GetRSAPublicKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetRSAPublicKey(ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRSAPublicKey()
 }
 
 func GetTextFromEncryptedKey(c *gin.Context) {
