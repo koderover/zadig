@@ -28,9 +28,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
-func GeJira(encryptedKey string, _ *zap.SugaredLogger) (*models.Jira, error) {
+func GeJira(encryptedKey string, log *zap.SugaredLogger) (*models.Jira, error) {
 	jira, err := mongodb.NewJiraColl().GetJira()
 	if err != nil {
+		log.Errorf("GeJira error:%s", err)
 		return nil, err
 	}
 	if jira == nil {
@@ -38,10 +39,12 @@ func GeJira(encryptedKey string, _ *zap.SugaredLogger) (*models.Jira, error) {
 	}
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
+		log.Errorf("GeJira GetTextFromEncryptedKey erorr:%s", err)
 		return nil, err
 	}
 	jira.AccessToken, err = crypto.AesEncryptByKey(jira.AccessToken, aesKey.PlainText)
 	if err != nil {
+		log.Errorf("GeJira AesEncryptByKey erorr:%s", err)
 		return nil, err
 	}
 	return jira, nil

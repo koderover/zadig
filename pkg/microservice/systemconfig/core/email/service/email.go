@@ -39,19 +39,20 @@ func GetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
 func InternalGetEmailHost(encryptedKey string, log *zap.SugaredLogger) (*models.EmailHost, error) {
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
+		log.Errorf("InternalGetEmailHost GetTextFromEncryptedKey error:%s", err)
 		return nil, err
 	}
 	result, err := mongodb.NewEmailHostColl().Find()
 	if err != nil {
+		log.Errorf("InternalGetEmailHost find email host error:%s", err)
 		return nil, err
 	}
 	password, err := crypto.AesEncryptByKey(result.Password, aesKey.PlainText)
 	if err != nil {
+		log.Errorf("InternalGetEmailHost AesEncryptByKey error:%s", err)
 		return nil, err
 	}
-	log.Infof("pre password:%s", result.Password)
 	result.Password = password
-	log.Infof("password:%s", password)
 	return result, nil
 }
 

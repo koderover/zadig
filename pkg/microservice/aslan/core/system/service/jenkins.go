@@ -65,11 +65,13 @@ func ListJenkinsIntegration(encryptedKey string, log *zap.SugaredLogger) ([]*com
 
 	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
 	if err != nil {
+		log.Errorf("ListJenkinsIntegration GetAesKeyFromEncryptedKey err:%v", err)
 		return nil, err
 	}
 	for _, integration := range jenkinsIntegrations {
 		integration.Password, err = crypto.AesEncryptByKey(integration.Password, aesKey.PlainText)
 		if err != nil {
+			log.Errorf("ListJenkinsIntegration AesEncryptByKey err:%v", err)
 			return nil, err
 		}
 	}

@@ -31,6 +31,7 @@ import (
 func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connector, error) {
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
+		logger.Errorf("ListConnectors GetTextFromEncryptedKey, err: %s", err)
 		return nil, err
 	}
 	cs, err := orm.NewConnectorColl().List()
@@ -42,21 +43,22 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 	var res []*Connector
 	for _, c := range cs {
 		cf := make(map[string]interface{})
-		logger.Infof("config:%v", c.Config)
 		err = json.Unmarshal([]byte(c.Config), &cf)
 		if err != nil {
-			logger.Warnf("Failed to unmarshal config, err: %s", err)
+			logger.Errorf("Failed to unmarshal config, err: %s", err)
 			continue
 		}
 		if pw, ok := cf["bindPW"]; ok {
 			cf["bindPW"], err = crypto.AesEncryptByKey(pw.(string), aesKey.PlainText)
 			if err != nil {
+				logger.Errorf("ListConnectors AesEncryptByKey, err: %s", err)
 				return nil, err
 			}
 		}
 		if clientSecret, ok := cf["clientSecret"]; ok {
 			cf["clientSecret"], err = crypto.AesEncryptByKey(clientSecret.(string), aesKey.PlainText)
 			if err != nil {
+				logger.Errorf("ListConnectors AesEncryptByKey, err: %s", err)
 				return nil, err
 			}
 		}

@@ -82,11 +82,13 @@ func ListS3Storage(encryptedKey string, logger *zap.SugaredLogger) ([]*commonmod
 	}
 	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, logger)
 	if err != nil {
+		logger.Errorf("ListS3Storage GetAesKeyFromEncryptedKey err:%s", err)
 		return nil, err
 	}
 	for _, store := range stores {
 		store.Sk, err = crypto.AesEncryptByKey(store.Sk, aesKey.PlainText)
 		if err != nil {
+			logger.Errorf("ListS3Storage AesEncryptByKey err:%s", err)
 			return nil, err
 		}
 	}

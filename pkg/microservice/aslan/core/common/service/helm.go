@@ -40,6 +40,7 @@ import (
 func ListHelmRepos(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
 	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, log)
 	if err != nil {
+		log.Errorf("ListHelmRepos GetAesKeyFromEncryptedKey err:%v", err)
 		return nil, err
 	}
 	helmRepos, err := commonrepo.NewHelmRepoColl().List()
@@ -50,6 +51,7 @@ func ListHelmRepos(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels
 	for _, helmRepo := range helmRepos {
 		helmRepo.Password, err = crypto.AesEncryptByKey(helmRepo.Password, aesKey.PlainText)
 		if err != nil {
+			log.Errorf("ListHelmRepos AesEncryptByKey err:%v", err)
 			return nil, err
 		}
 	}

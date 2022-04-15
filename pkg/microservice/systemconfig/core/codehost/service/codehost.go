@@ -59,9 +59,10 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 	return mongodb.NewCodehostColl().AddCodeHost(codehost)
 }
 
-func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost) ([]*models.CodeHost, error) {
+func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
+		log.Errorf("ListCodeHost GetTextFromEncryptedKey error:%s", err)
 		return nil, err
 	}
 	var result []*models.CodeHost
@@ -69,12 +70,14 @@ func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost) ([]*mode
 		if len(codeHost.Password) > 0 {
 			codeHost.Password, err = crypto.AesEncryptByKey(codeHost.Password, aesKey.PlainText)
 			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
 				return nil, err
 			}
 		}
 		if len(codeHost.ClientSecret) > 0 {
 			codeHost.ClientSecret, err = crypto.AesEncryptByKey(codeHost.ClientSecret, aesKey.PlainText)
 			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
 				return nil, err
 			}
 		}
@@ -83,16 +86,17 @@ func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost) ([]*mode
 	return result, nil
 }
 
-func List(encryptedKey, address, owner, source string, _ *zap.SugaredLogger) ([]*models.CodeHost, error) {
+func List(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	codeHosts, err := mongodb.NewCodehostColl().List(&mongodb.ListArgs{
 		Address: address,
 		Owner:   owner,
 		Source:  source,
 	})
 	if err != nil {
+		log.Errorf("ListCodeHost error:%s", err)
 		return nil, err
 	}
-	return encypteCodeHost(encryptedKey, codeHosts)
+	return encypteCodeHost(encryptedKey, codeHosts, log)
 }
 
 func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {

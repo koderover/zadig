@@ -32,8 +32,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 )
 
-func GetRSAKey(log *zap.SugaredLogger) ([]byte, []byte, error) {
-	log.Infof("start get rsa key")
+func GetRSAKey() ([]byte, []byte, error) {
 	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), setting.LocalClusterID)
 	if err != nil {
 		return nil, nil, err
@@ -49,8 +48,8 @@ type GetRSAPublicKeyRes struct {
 	PublicKey string `json:"publicKey"`
 }
 
-func GetRSAPublicKey(log *zap.SugaredLogger) (*GetRSAPublicKeyRes, error) {
-	publicKey, _, err := GetRSAKey(log)
+func GetRSAPublicKey() (*GetRSAPublicKeyRes, error) {
+	publicKey, _, err := GetRSAKey()
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +63,7 @@ type GetAesKeyFromEncryptedKeyResp struct {
 }
 
 func GetAesKeyFromEncryptedKey(encryptedKey string, log *zap.SugaredLogger) (*GetAesKeyFromEncryptedKeyResp, error) {
-	_, privateKey, err := GetRSAKey(log)
+	_, privateKey, err := GetRSAKey()
 	if err != nil {
 		log.Errorf("getAesKeyFromEncryptedKey getRSAKey error msg:%s", err)
 		return nil, err
@@ -74,19 +73,19 @@ func GetAesKeyFromEncryptedKey(encryptedKey string, log *zap.SugaredLogger) (*Ge
 		return nil, err
 	}
 	decodedKey = strings.ReplaceAll(decodedKey, " ", "+")
-	log.Infof("decodedKey:%s", decodedKey)
+
 	byteKey, err := base64.StdEncoding.DecodeString(decodedKey)
 	if err != nil {
 		log.Errorf("getAesKeyFromEncryptedKey decodeString error msg:%s", err)
 		return nil, err
 	}
-	log.Infof("byteKey:%s", byteKey)
+
 	aesKey, err := rsa.DecryptByPrivateKey(byteKey, privateKey)
 	if err != nil {
 		log.Errorf("getAesKeyFromEncryptedKey decryptByPrivateKey error msg:%s", err)
 		return nil, err
 	}
-	log.Infof("aesKey:%s", aesKey)
+
 	return &GetAesKeyFromEncryptedKeyResp{
 		PlainText: string(aesKey),
 	}, nil
