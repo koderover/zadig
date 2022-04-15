@@ -175,4 +175,5 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		bundles.GET("", GetBundleResources)
 	}
+
 }
