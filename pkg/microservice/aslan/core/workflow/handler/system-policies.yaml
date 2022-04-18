@@ -72,6 +72,8 @@
           endpoint: "/api/aslan/stat/quality/buildTenDurationMeasure"
         - method: POST
           endpoint: "/api/aslan/stat/quality/buildAverageMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/buildTrend"
 - resource: Template
   alias: "模版库"
   description: ""
