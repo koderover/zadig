@@ -615,6 +615,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 						return nil, e.ErrCreateTask.AddErr(err)
 					}
 					if resetImageTask != nil {
+						resetImageTask["release_name"] = deployTask["release_name"]
 						subTasks = append(subTasks, resetImageTask)
 					}
 				}
@@ -1733,7 +1734,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			if env != nil {
 				// 生成部署的subtask
 				for _, deployEnv := range artifact.Deploy {
-					log.Infof("####### start deployEnvToSubTasks")
 					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
 					if err != nil {
 						log.Errorf("deploy env to subtask error: %v", err)
@@ -1747,6 +1747,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 							return nil, err
 						}
 						if resetImageTask != nil {
+							resetImageTask["release_name"] = deployTask["release_name"]
 							subTasks = append(subTasks, resetImageTask)
 						}
 					}
