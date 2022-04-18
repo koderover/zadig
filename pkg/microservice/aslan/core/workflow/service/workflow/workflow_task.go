@@ -1409,7 +1409,7 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 				svcMap := envInfo.GetServiceMap()
 				pSvc, ok := svcMap[serviceModule.ServiceName]
 				if !ok {
-					return nil, fmt.Errorf("can't find service: %s:%s in product: %s", productName, repoInfo.DeployEnv, serviceModule.ServiceName)
+					return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
 				}
 				if pSvc.Type == setting.HelmDeployType {
 					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -2242,7 +2242,7 @@ func getServiceNaming(projectName, envName, serviceName string) (string, error) 
 	svcMap := productInfo.GetServiceMap()
 	pSvc, ok := svcMap[serviceName]
 	if !ok {
-		return "", fmt.Errorf("can't find service: %s:%s in product: %s", projectName, envName, serviceName)
+		return "", fmt.Errorf("can't find service: %s in product: %s:%s", serviceName, projectName, envName)
 	}
 	if pSvc.Type != setting.HelmDeployType {
 		return "", nil
