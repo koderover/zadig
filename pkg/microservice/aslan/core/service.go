@@ -144,6 +144,7 @@ func Start(ctx context.Context) {
 	initDatabase()
 
 	initService()
+	initDinD()
 
 	systemservice.SetProxyConfig()
 
@@ -181,6 +182,13 @@ func initService() {
 
 	if err := workflowservice.SubScribeNSQ(); err != nil {
 		errors = multierror.Append(errors, err)
+	}
+}
+
+func initDinD() {
+	err := systemservice.SyncDinDForRegistries()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
