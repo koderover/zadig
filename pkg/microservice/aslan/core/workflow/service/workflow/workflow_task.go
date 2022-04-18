@@ -615,6 +615,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 						return nil, e.ErrCreateTask.AddErr(err)
 					}
 					if resetImageTask != nil {
+						resetImageTask["release_name"] = deployTask["release_name"]
 						subTasks = append(subTasks, resetImageTask)
 					}
 				}
@@ -1409,7 +1410,7 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 				svcMap := envInfo.GetServiceMap()
 				pSvc, ok := svcMap[serviceModule.ServiceName]
 				if !ok {
-					return nil, fmt.Errorf("can't find service: %s:%s in product: %s", productName, repoInfo.DeployEnv, serviceModule.ServiceName)
+					return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
 				}
 				if pSvc.Type == setting.HelmDeployType {
 					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -1733,7 +1734,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			if env != nil {
 				// 生成部署的subtask
 				for _, deployEnv := range artifact.Deploy {
-					log.Infof("####### start deployEnvToSubTasks")
 					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
 					if err != nil {
 						log.Errorf("deploy env to subtask error: %v", err)
@@ -1747,6 +1747,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 							return nil, err
 						}
 						if resetImageTask != nil {
+							resetImageTask["release_name"] = deployTask["release_name"]
 							subTasks = append(subTasks, resetImageTask)
 						}
 					}
@@ -2242,7 +2243,7 @@ func getServiceNaming(projectName, envName, serviceName string) (string, error) 
 	svcMap := productInfo.GetServiceMap()
 	pSvc, ok := svcMap[serviceName]
 	if !ok {
-		return "", fmt.Errorf("can't find service: %s:%s in product: %s", projectName, envName, serviceName)
+		return "", fmt.Errorf("can't find service: %s in product: %s:%s", serviceName, projectName, envName)
 	}
 	if pSvc.Type != setting.HelmDeployType {
 		return "", nil

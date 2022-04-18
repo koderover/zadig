@@ -142,7 +142,6 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 		arg.ProductName = projectName
 		envNameList = append(envNameList, arg.EnvName)
 	}
-
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
@@ -448,7 +447,7 @@ func updateMultiHelmEnv(c *gin.Context, ctx *internalhandler.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
-		ctx.RequestID, args, ctx.Logger,
+		ctx.RequestID, ctx.UserName, args, ctx.Logger,
 	)
 }
 
@@ -554,7 +553,7 @@ func DeleteProductServices(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境的服务", envName, "", ctx.Logger)
-	ctx.Err = service.DeleteProductServices(envName, projectName, args.ServiceNames, ctx.Logger)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectName, args.ServiceNames, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {
