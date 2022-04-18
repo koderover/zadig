@@ -33,7 +33,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func UninstallService(helmClient helmclient.Client, productName, namespace, serviceName string, revision int64, force bool) error {
+func UninstallService(helmClient helmclient.Client, productName, namespace, envName, serviceName string, revision int64, force bool) error {
 	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		Revision:    revision,
@@ -43,7 +43,7 @@ func UninstallService(helmClient helmclient.Client, productName, namespace, serv
 		return fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, revision, err)
 	}
 	return helmClient.UninstallRelease(&helmclient.ChartSpec{
-		ReleaseName: util.GeneReleaseName(revisionSvc.GetReleaseNaming(), productName, namespace, revisionSvc.EnvName, serviceName),
+		ReleaseName: util.GeneReleaseName(revisionSvc.GetReleaseNaming(), productName, namespace, envName, serviceName),
 		Namespace:   namespace,
 		Wait:        true,
 		Force:       force,
@@ -98,7 +98,7 @@ func ReInstallServiceInEnv(productInfo *commonmodels.Product, serviceName string
 		return err
 	}
 
-	err = UninstallService(helmClient, productInfo.ProductName, productInfo.Namespace, productSvc.ServiceName, productSvc.Revision, false)
+	err = UninstallService(helmClient, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, productSvc.ServiceName, productSvc.Revision, true)
 	if err != nil {
 		return fmt.Errorf("failed to uninstall release for service: %s, err: %s", productSvc.ServiceName, err)
 	}
