@@ -50,6 +50,12 @@ func ListCodeHost(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.List(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
+func ListCodeHostInternal(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+}
+
 func DeleteCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -69,10 +69,10 @@ func GetAesKeyFromEncryptedKey(encryptedKey string, log *zap.SugaredLogger) (*Ge
 	}
 	decodedKey, err := url.QueryUnescape(encryptedKey)
 	if err != nil {
+		log.Errorf("GetAesKeyFromEncryptedKey QueryUnescape error:%s", err)
 		return nil, err
 	}
 	decodedKey = strings.ReplaceAll(decodedKey, " ", "+")
-
 	byteKey, err := base64.StdEncoding.DecodeString(decodedKey)
 	if err != nil {
 		log.Errorf("getAesKeyFromEncryptedKey decodeString error msg:%s", err)
