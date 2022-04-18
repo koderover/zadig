@@ -2167,7 +2167,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 			wg.Add(1)
 			go func(product *models.Product, serviceName string, revision int64) {
 				defer wg.Done()
-				templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: revision})
+				templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: revision, ProductName: product.ProductName})
 				if err != nil {
 					failedServices.Store(serviceName, err.Error())
 					return
