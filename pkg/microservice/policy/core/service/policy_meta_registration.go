@@ -115,7 +115,7 @@ func GetPolicyRegistrationDefinitions(resourceScore string, _ *zap.SugaredLogger
 	}
 
 	switch resourceScore {
-	case string(types.ClusterScope):
+	case string(types.SystemScope):
 		filteredPolicyMetas = clusterPolicieMetas
 	case string(types.ProjectScope):
 		filteredPolicyMetas = projectPolicieMetas

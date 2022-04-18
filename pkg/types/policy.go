@@ -4,6 +4,6 @@ package types
 type PolicyMetaResourceScope string
 
 const (
-	ClusterScope PolicyMetaResourceScope = "cluster"
+	SystemScope  PolicyMetaResourceScope = "system"
 	ProjectScope PolicyMetaResourceScope = "project"
 )
