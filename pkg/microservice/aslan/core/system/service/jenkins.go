@@ -25,6 +25,8 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -49,13 +51,29 @@ func CreateJenkinsIntegration(args *commonmodels.JenkinsIntegration, log *zap.Su
 	return nil
 }
 
-func ListJenkinsIntegration(log *zap.SugaredLogger) ([]*commonmodels.JenkinsIntegration, error) {
+func ListJenkinsIntegration(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.JenkinsIntegration, error) {
 	jenkinsIntegrations, err := commonrepo.NewJenkinsIntegrationColl().List()
 	if err != nil {
 		log.Errorf("ListJenkinsIntegration err:%v", err)
 		return []*commonmodels.JenkinsIntegration{}, e.ErrListJenkinsIntegration.AddErr(err)
 	}
 
+	if len(encryptedKey) == 0 {
+		return jenkinsIntegrations, nil
+	}
+
+	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("ListJenkinsIntegration GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
+	for _, integration := range jenkinsIntegrations {
+		integration.Password, err = crypto.AesEncryptByKey(integration.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("ListJenkinsIntegration AesEncryptByKey err:%v", err)
+			return nil, err
+		}
+	}
 	return jenkinsIntegrations, nil
 }
 
@@ -87,7 +105,7 @@ func TestJenkinsConnection(args *JenkinsArgs, log *zap.SugaredLogger) error {
 
 func getJenkinsClient(log *zap.SugaredLogger) (*gojenkins.Jenkins, context.Context, error) {
 	ctx := context.Background()
-	jenkinsIntegrations, err := ListJenkinsIntegration(log)
+	jenkinsIntegrations, err := ListJenkinsIntegration("", log)
 	if err != nil {
 		return nil, ctx, err
 	}

@@ -830,7 +830,7 @@ func generateNextTaskID(workflowName string) (int64, error) {
 }
 
 func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache, resetCache bool) {
-	repos, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	repos, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
@@ -984,7 +984,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
-	registries, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	registries, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query registries")
 	}
@@ -1541,7 +1541,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 	testArgs := args.Tests
 	testCreator := args.WorkflowTaskCreator
 
-	registries, err := commonservice.ListRegistryNamespaces(true, log)
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
 	}
@@ -1702,7 +1702,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
-	repos, err := commonservice.ListRegistryNamespaces(true, log)
+	repos, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
@@ -1975,7 +1975,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 	}
 
-	registries, err := commonservice.ListRegistryNamespaces(true, log)
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}

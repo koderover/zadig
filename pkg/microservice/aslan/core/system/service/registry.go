@@ -54,7 +54,7 @@ const (
 
 // ListRegistries 为了抹掉ak和sk的数据
 func ListRegistries(log *zap.SugaredLogger) ([]*commonmodels.RegistryNamespace, error) {
-	registryNamespaces, err := commonservice.ListRegistryNamespaces(false, log)
+	registryNamespaces, err := commonservice.ListRegistryNamespaces("", false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %v", err)
 		return registryNamespaces, fmt.Errorf("RegistryNamespace.List error: %v", err)
@@ -177,7 +177,7 @@ func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 
 func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
 	repoInfos := make([]*RepoInfo, 0)
-	resp, err := commonservice.ListRegistryNamespaces(false, log)
+	resp, err := commonservice.ListRegistryNamespaces("", false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.List error: %v", err)

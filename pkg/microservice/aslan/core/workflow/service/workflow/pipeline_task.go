@@ -114,7 +114,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 			}
 
 			if build.Registries == nil {
-				registries, err := commonservice.ListRegistryNamespaces(true, log)
+				registries, err := commonservice.ListRegistryNamespaces("", true, log)
 				if err != nil {
 					log.Errorf("ListRegistryNamespaces err:%v", err)
 				} else {
@@ -148,7 +148,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 			}
 
 			if testing.Registries == nil {
-				registries, err := commonservice.ListRegistryNamespaces(true, log)
+				registries, err := commonservice.ListRegistryNamespaces("", true, log)
 				if err != nil {
 					log.Errorf("ListRegistryNamespaces err:%v", err)
 				} else {
@@ -232,7 +232,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	repos, err := commonservice.ListRegistryNamespaces(false, log)
+	repos, err := commonservice.ListRegistryNamespaces("", false, log)
 	if err != nil {
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
@@ -716,7 +716,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 	testTask.JobCtx.Caches = testModule.Caches
 	testTask.JobCtx.ArtifactPaths = testModule.ArtifactPaths
 	if testTask.Registries == nil {
-		registries, err := commonservice.ListRegistryNamespaces(true, log)
+		registries, err := commonservice.ListRegistryNamespaces("", true, log)
 		if err != nil {
 			log.Errorf("ListRegistryNamespaces err:%v", err)
 		} else {

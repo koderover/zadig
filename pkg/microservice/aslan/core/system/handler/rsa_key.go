@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,19 +19,18 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func DeleteJira(c *gin.Context) {
+func GetRSAPublicKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = service.DeleteJira(ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRSAPublicKey()
 }
 
-func GetJira(c *gin.Context) {
+func GetTextFromEncryptedKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	encryptedKey := c.Query("encryptedKey")
@@ -39,27 +38,5 @@ func GetJira(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.GeJira(encryptedKey, ctx.Logger)
-}
-
-func CreateJira(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.Jira)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp, ctx.Err = service.CreateJira(req, ctx.Logger)
-}
-
-func UpdateJira(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.Jira)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp, ctx.Err = service.UpdateJira(req, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
 }

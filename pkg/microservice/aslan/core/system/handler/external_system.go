@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -75,7 +76,12 @@ func ListExternalSystem(c *gin.Context) {
 		return
 	}
 
-	systemList, length, err := service.ListExternalSystem(args.PageNum, args.PageSize, ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	systemList, length, err := service.ListExternalSystem(encryptedKey, args.PageNum, args.PageSize, ctx.Logger)
 	if err == nil {
 		ctx.Resp = &listExternalResp{
 			SystemList: systemList,

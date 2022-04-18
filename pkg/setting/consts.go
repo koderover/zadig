@@ -203,6 +203,8 @@ const (
 
 	APIVersionAppsV1 = "apps/v1"
 
+	RSASecretName = "zadig-rsa-key"
+
 	DefaultImagePullSecret = "default-registry-secret"
 )
 

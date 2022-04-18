@@ -826,7 +826,7 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
-	registries, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	registries, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query registries")
 	}

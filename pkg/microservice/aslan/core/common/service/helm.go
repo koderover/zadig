@@ -32,17 +32,29 @@ import (
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/log"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-func ListHelmRepos(log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
+func ListHelmRepos(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
+	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("ListHelmRepos GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
 	helmRepos, err := commonrepo.NewHelmRepoColl().List()
 	if err != nil {
 		log.Errorf("ListHelmRepos err:%v", err)
 		return []*commonmodels.HelmRepo{}, nil
 	}
-
+	for _, helmRepo := range helmRepos {
+		helmRepo.Password, err = crypto.AesEncryptByKey(helmRepo.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("ListHelmRepos AesEncryptByKey err:%v", err)
+			return nil, err
+		}
+	}
 	return helmRepos, nil
 }
 
