@@ -53,7 +53,7 @@
         - method: GET
           endpoint: "/api/aslan/stat/dashboard/overview"
     - action: data_over
-      alias: "数据洞察"
+      alias: "效能洞察"
       description: ""
       rules:
         - method: GET
@@ -62,6 +62,16 @@
           endpoint: "/api/aslan/stat/dashboard/deploy"
         - method: GET
           endpoint: "/api/aslan/stat/dashboard/test"
+        - method: POST
+          endpoint: "/api/aslan/stat/quality/buildHealthMeasure"
+        - method: POST
+          endpoint: "/api/aslan/stat/quality/buildLatestTenMeasure"
+        - method: POST
+          endpoint: "/api/aslan/stat/quality/buildDailyMeasure"
+        - method: POST
+          endpoint: "/api/aslan/stat/quality/buildTenDurationMeasure"
+        - method: POST
+          endpoint: "/api/aslan/stat/quality/buildAverageMeasure"
 - resource: Template
   alias: "模版库"
   description: ""
