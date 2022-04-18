@@ -38,6 +38,10 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 	volumeList := make([]interface{}, 0)
 	insecureRegistryList := make([]interface{}, 0)
 
+	mountFlag := false
+	insecureFlag := false
+	sourceList := make([]interface{}, 0)
+
 	for _, reg := range regList {
 		// compatibility changes before 1.11
 		if reg.AdvancedSetting != nil {
@@ -45,6 +49,7 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 			addr := strings.Split(reg.RegAddr, "//")
 			// if a registry is marked as insecure, we add a record to insecure-registries
 			if !reg.AdvancedSetting.TLSEnabled {
+				insecureFlag = true
 				insecureRegistryList = append(insecureRegistryList, fmt.Sprintf("--insecure-registry=%s", addr[1]))
 			}
 			// if a registry is marked as secure and a TLS cert is given, we mount this certificate to dind daemon
@@ -55,30 +60,40 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 					log.Errorf("failed to ensure secret: %s, the error is: %s", mountName, err)
 					return err
 				}
+				// create secret mount info
+				secretMount := map[string]interface{}{
+					"name": mountName,
+					"items": []interface{}{
+						map[string]interface{}{
+							"key":  "cert.crt",
+							"path": fmt.Sprintf("%s/%s", addr[1], "cert.crt"),
+						},
+					},
+				}
 
-				// create volumeMount info
-				volumeMountMap := map[string]interface{}{
-					"mountPath": fmt.Sprintf("/etc/docker/certs.d/%s", addr[1]),
-					"name":      mountName,
-				}
-				volumeMountList = append(volumeMountList, volumeMountMap)
-				// create volume info
-				secretItemList := make([]interface{}, 0)
-				secretItemList = append(secretItemList, map[string]interface{}{
-					"key":  "cert.crt",
-					"path": "cert.crt",
+				// create projected volumes sources list
+				sourceList = append(sourceList, map[string]interface{}{
+					"secret": secretMount,
 				})
-				secretInfo := map[string]interface{}{
-					"items":      secretItemList,
-					"secretName": mountName,
-				}
-				volumeMap := map[string]interface{}{
-					"name":   mountName,
-					"secret": secretInfo,
-				}
-				volumeList = append(volumeList, volumeMap)
+
+				// set mountFlag to add mounting volume to dind
+				mountFlag = true
 			}
 		}
+	}
+
+	if mountFlag {
+		volumeMountMap := map[string]interface{}{
+			"mountPath": "/etc/docker/certs.d",
+			"name":      "cert-mount",
+		}
+		volumeMountList = append(volumeMountList, volumeMountMap)
+		volumeList = append(volumeList, map[string]interface{}{
+			"name": "cert-mount",
+			"projected": map[string]interface{}{
+				"sources": sourceList,
+			},
+		})
 	}
 
 	result, getErr := dynamicClient.Resource(stsResource).Namespace(namespace).Get(context.TODO(), "dind", metav1.GetOptions{})
@@ -93,22 +108,28 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 		return err
 	}
 
-	// update spec.template.spec.containers[0].volumeMounts
-	if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), volumeMountList, "volumeMounts"); err != nil {
-		return err
+	if mountFlag {
+		// update spec.template.spec.containers[0].volumeMounts
+		if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), volumeMountList, "volumeMounts"); err != nil {
+			return err
+		}
+		// update spec.template.spec.volumes
+		if err := unstructured.SetNestedField(result.Object, volumeList, "spec", "template", "spec", "volumes"); err != nil {
+			return err
+		}
 	}
 
-	// update spec.template.spec.containers[0].args
-	if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), insecureRegistryList, "args"); err != nil {
-		return err
+	if insecureFlag {
+		// update spec.template.spec.containers[0].args
+		if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), insecureRegistryList, "args"); err != nil {
+			return err
+		}
 	}
+
 	if err := unstructured.SetNestedField(result.Object, containers, "spec", "template", "spec", "containers"); err != nil {
 		return err
 	}
 
-	if err := unstructured.SetNestedField(result.Object, volumeList, "spec", "template", "spec", "volumes"); err != nil {
-		return err
-	}
 	_, updateErr := dynamicClient.Resource(stsResource).Namespace(namespace).Update(context.TODO(), result, metav1.UpdateOptions{})
 	if updateErr != nil {
 		log.Errorf("failed to update dind, the error is: %s", updateErr)
