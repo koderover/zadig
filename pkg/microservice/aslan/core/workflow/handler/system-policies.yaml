@@ -52,7 +52,7 @@
       rules:
         - method: GET
           endpoint: "/api/aslan/stat/dashboard/overview"
-    - action: data_over
+    - action: efficiency_over
       alias: "效能洞察"
       description: ""
       rules:
