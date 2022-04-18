@@ -171,7 +171,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
-			if projectInfo.ProductFeature == nil || projectInfo.ProductFeature.DeployType != setting.SourceFromExternal {
+			if projectInfo.ProductFeature == nil || projectInfo.ProductFeature.CreateEnvType != setting.SourceFromExternal {
 				return workloads
 			}
 
