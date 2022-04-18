@@ -73,7 +73,6 @@ func GetAesKeyFromEncryptedKey(encryptedKey string, log *zap.SugaredLogger) (*Ge
 		return nil, err
 	}
 	decodedKey = strings.ReplaceAll(decodedKey, " ", "+")
-	log.Infof("decodedKey:%s", decodedKey)
 	byteKey, err := base64.StdEncoding.DecodeString(decodedKey)
 	if err != nil {
 		log.Errorf("getAesKeyFromEncryptedKey decodeString error msg:%s", err)

@@ -47,7 +47,6 @@ func ListCodeHost(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Logger.Infof("encryptedKey:%s", encryptedKey)
 	ctx.Resp, ctx.Err = service.List(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
