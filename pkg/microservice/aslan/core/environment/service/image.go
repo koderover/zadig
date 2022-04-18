@@ -215,7 +215,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		return e.ErrUpdateConainterImage.AddErr(err)
 	}
 	// aws secrets needs to be refreshed
-	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	regs, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("Failed to get registries to update container images, the error is: %s", err)
 		return err

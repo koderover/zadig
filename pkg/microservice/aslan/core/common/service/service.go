@@ -315,6 +315,15 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		return resp, e.ErrGetTemplate.AddDesc(errMsg)
 	}
 
+	if resp.Type == setting.PMDeployType {
+		err = fillPmInfo(resp)
+		if err != nil {
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s fillPmInfo error: %v", serviceName, err)
+			log.Error(errMsg)
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		}
+	}
+
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
 		if gitlabAddress, err := GetGitlabAddress(resp.SrcPath); err == nil {
 			if details, err := systemconfig.New().ListCodeHosts(); err == nil {
@@ -407,6 +416,35 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	}
 
 	return resp, nil
+}
+
+func fillPmInfo(svc *commonmodels.Service) error {
+	pms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
+	if err != nil {
+		if commonrepo.IsErrNoDocuments(err) {
+			return nil
+		}
+		return err
+	}
+	pmMaps := make(map[string]*commonmodels.PrivateKey, len(pms))
+	for _, pm := range pms {
+		pmMaps[pm.ID.Hex()] = pm
+	}
+	for _, envStatus := range svc.EnvStatuses {
+		if pm, ok := pmMaps[envStatus.HostID]; ok {
+			envStatus.PmInfo = &commonmodels.PmInfo{
+				ID:       pm.ID,
+				Name:     pm.Name,
+				IP:       pm.IP,
+				Port:     pm.Port,
+				Status:   pm.Status,
+				Label:    pm.Label,
+				IsProd:   pm.IsProd,
+				Provider: pm.Provider,
+			}
+		}
+	}
+	return nil
 }
 
 func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {

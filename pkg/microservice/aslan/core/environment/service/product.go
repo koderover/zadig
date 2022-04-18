@@ -250,6 +250,10 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		prodResp.IsLocal = true
 	}
 
+	if prod.Source != setting.SourceFromExternal {
+		prodResp.Services = prod.GetGroupServiceNames()
+	}
+
 	if prod.Status == setting.ProductStatusCreating {
 		prodResp.Status = setting.PodCreating
 		return prodResp
@@ -281,7 +285,6 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 			return prodResp
 		}
 	default:
-		prodResp.Services = prod.GetGroupServiceNames()
 		servicesResp, _, errObj = ListGroups("", envName, prod.ProductName, -1, -1, log)
 	}
 

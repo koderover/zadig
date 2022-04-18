@@ -22,10 +22,14 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/config"
+	config2 "github.com/koderover/zadig/pkg/microservice/hubagent/config"
 	"github.com/koderover/zadig/pkg/microservice/hubagent/core/service"
 	"github.com/koderover/zadig/pkg/microservice/hubagent/server/rest"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
+	registrytool "github.com/koderover/zadig/pkg/tool/registries"
 )
 
 func init() {
@@ -42,6 +46,8 @@ func Serve(ctx context.Context) error {
 
 	engine := rest.NewEngine()
 	server := &http.Server{Addr: ":80", Handler: engine}
+
+	initDinD()
 
 	go func() {
 		<-ctx.Done()
@@ -67,4 +73,38 @@ func Serve(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func initDinD() {
+	client := aslan.New(config2.AslanBaseAddr())
+
+	ls, err := client.ListRegistries()
+	if err != nil {
+		log.Fatalf("failed to get information from zadig server to set DinD, err: %s", err)
+	}
+
+	regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
+	for _, reg := range ls {
+		regItem := &registrytool.RegistryInfoForDinDUpdate{
+			ID:      reg.ID,
+			RegAddr: reg.RegAddr,
+		}
+		if reg.AdvancedSetting != nil {
+			regItem.AdvancedSetting = &registrytool.RegistryAdvancedSetting{
+				TLSEnabled: reg.AdvancedSetting.TLSEnabled,
+				TLSCert:    reg.AdvancedSetting.TLSCert,
+			}
+		}
+		regList = append(regList, regItem)
+	}
+
+	dynamicClient, err := kubeclient.GetDynamicKubeClient(config2.AslanBaseAddr(), setting.LocalClusterID)
+	if err != nil {
+		log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
+	}
+
+	err = registrytool.PrepareDinD(dynamicClient, "koderover-agent", regList)
+	if err != nil {
+		log.Fatalf("failed to update dind, the error is: %s", err)
+	}
 }

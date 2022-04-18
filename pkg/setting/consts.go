@@ -83,6 +83,7 @@ const (
 	KubernetesServicePort = "KUBERNETES_SERVICE_PORT"
 	Token                 = "X-API-Tunnel-Token"
 	Params                = "X-API-Tunnel-Params"
+	AslanBaseAddr         = "ASLAN_BASE_ADDR"
 
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"
@@ -202,6 +203,8 @@ const (
 	HelmReleaseStatusDeployed = "Deployed"
 
 	APIVersionAppsV1 = "apps/v1"
+
+	RSASecretName = "zadig-rsa-key"
 
 	DefaultImagePullSecret = "default-registry-secret"
 )

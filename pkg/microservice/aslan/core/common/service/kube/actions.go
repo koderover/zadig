@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -72,6 +73,23 @@ func CreateNamespace(namespace string, enableShare bool, kubeClient client.Clien
 	}
 
 	return nil
+}
+
+func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Client) error {
+	data := make(map[string][]byte)
+
+	data["publicKey"] = publicKey
+	data["privateKey"] = privateKey
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: config.Namespace(),
+			Name:      setting.RSASecretName,
+		},
+		Data: data,
+		Type: corev1.SecretTypeOpaque,
+	}
+	return updater.UpdateOrCreateSecret(secret, kubeClient)
 }
 
 func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {

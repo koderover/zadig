@@ -19,6 +19,7 @@ package kube
 import (
 	"bytes"
 	"fmt"
+	config2 "github.com/koderover/zadig/pkg/config"
 	"net/url"
 	"strings"
 	"text/template"
@@ -257,6 +258,7 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			ResourceServerImage: rsImage,
 			ClientToken:         token,
 			HubServerBaseAddr:   hubBase.String(),
+			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
 		})
 	} else {
@@ -265,6 +267,7 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			ResourceServerImage: rsImage,
 			ClientToken:         token,
 			HubServerBaseAddr:   hubBase.String(),
+			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
 			Namespace:           cluster.Namespace,
 		})
@@ -284,6 +287,7 @@ type TemplateSchema struct {
 	HubServerBaseAddr   string
 	Namespace           string
 	UseDeployment       bool
+	AslanBaseAddr       string
 }
 
 var YamlTemplate = template.Must(template.New("agentYaml").Parse(`
@@ -405,6 +409,8 @@ spec:
           value: "{{.ClientToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
+        - name: ASLAN_BASE_ADDR
+          value: "{{.AslanBaseAddr}}"
         resources:
           limits:
             cpu: 1000m
@@ -654,6 +660,8 @@ spec:
           value: "{{.ClientToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
+        - name: ASLAN_BASE_ADDR
+          value: "{{.AslanBaseAddr}}"
         resources:
           limits:
             cpu: 1000m

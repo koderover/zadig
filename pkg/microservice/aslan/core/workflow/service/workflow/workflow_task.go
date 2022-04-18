@@ -615,6 +615,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 						return nil, e.ErrCreateTask.AddErr(err)
 					}
 					if resetImageTask != nil {
+						resetImageTask["release_name"] = deployTask["release_name"]
 						subTasks = append(subTasks, resetImageTask)
 					}
 				}
@@ -830,7 +831,7 @@ func generateNextTaskID(workflowName string) (int64, error) {
 }
 
 func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache, resetCache bool) {
-	repos, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	repos, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
@@ -984,7 +985,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
-	registries, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	registries, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query registries")
 	}
@@ -1409,7 +1410,7 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 				svcMap := envInfo.GetServiceMap()
 				pSvc, ok := svcMap[serviceModule.ServiceName]
 				if !ok {
-					return nil, fmt.Errorf("can't find service: %s:%s in product: %s", productName, repoInfo.DeployEnv, serviceModule.ServiceName)
+					return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
 				}
 				if pSvc.Type == setting.HelmDeployType {
 					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -1541,7 +1542,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 	testArgs := args.Tests
 	testCreator := args.WorkflowTaskCreator
 
-	registries, err := commonservice.ListRegistryNamespaces(true, log)
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
 	}
@@ -1702,7 +1703,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
-	repos, err := commonservice.ListRegistryNamespaces(true, log)
+	repos, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
@@ -1733,7 +1734,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			if env != nil {
 				// 生成部署的subtask
 				for _, deployEnv := range artifact.Deploy {
-					log.Infof("####### start deployEnvToSubTasks")
 					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
 					if err != nil {
 						log.Errorf("deploy env to subtask error: %v", err)
@@ -1747,6 +1747,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 							return nil, err
 						}
 						if resetImageTask != nil {
+							resetImageTask["release_name"] = deployTask["release_name"]
 							subTasks = append(subTasks, resetImageTask)
 						}
 					}
@@ -1975,7 +1976,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 	}
 
-	registries, err := commonservice.ListRegistryNamespaces(true, log)
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
@@ -2242,7 +2243,7 @@ func getServiceNaming(projectName, envName, serviceName string) (string, error) 
 	svcMap := productInfo.GetServiceMap()
 	pSvc, ok := svcMap[serviceName]
 	if !ok {
-		return "", fmt.Errorf("can't find service: %s:%s in product: %s", projectName, envName, serviceName)
+		return "", fmt.Errorf("can't find service: %s in product: %s:%s", serviceName, projectName, envName)
 	}
 	if pSvc.Type != setting.HelmDeployType {
 		return "", nil

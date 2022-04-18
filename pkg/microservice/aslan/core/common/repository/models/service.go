@@ -19,6 +19,7 @@ package models
 import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // TODO: move Revision out of Service.
@@ -223,10 +224,22 @@ type HelmServiceRespArgs struct {
 }
 
 type EnvStatus struct {
-	HostID  string `bson:"host_id,omitempty"           json:"host_id"`
-	EnvName string `bson:"env_name,omitempty"          json:"env_name"`
-	Address string `bson:"address,omitempty"           json:"address"`
-	Status  string `bson:"status,omitempty"            json:"status"`
+	HostID  string  `bson:"host_id,omitempty"           json:"host_id"`
+	EnvName string  `bson:"env_name,omitempty"          json:"env_name"`
+	Address string  `bson:"address,omitempty"           json:"address"`
+	Status  string  `bson:"status,omitempty"            json:"status"`
+	PmInfo  *PmInfo `bson:"-"                           json:"pm_info"`
+}
+
+type PmInfo struct {
+	ID       primitive.ObjectID   `json:"id,omitempty"`
+	Name     string               `json:"name"`
+	IP       string               `json:"ip"`
+	Port     int64                `json:"port"`
+	Status   setting.PMHostStatus `json:"status"`
+	Label    string               `json:"label"`
+	IsProd   bool                 `json:"is_prod"`
+	Provider int8                 `json:"provider"`
 }
 
 type EnvConfig struct {
