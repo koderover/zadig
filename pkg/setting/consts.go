@@ -126,21 +126,22 @@ const (
 
 // k8s concepts
 const (
-	Secret             = "Secret"
-	ConfigMap          = "ConfigMap"
-	Ingress            = "Ingress"
-	Service            = "Service"
-	Deployment         = "Deployment"
-	StatefulSet        = "StatefulSet"
-	Pod                = "Pod"
-	ReplicaSet         = "ReplicaSet"
-	Job                = "Job"
-	CronJob            = "CronJob"
-	ClusterRoleBinding = "ClusterRoleBinding"
-	ServiceAccount     = "ServiceAccount"
-	ClusterRole        = "ClusterRole"
-	Role               = "Role"
-	RoleBinding        = "RoleBinding"
+	Secret                = "Secret"
+	ConfigMap             = "ConfigMap"
+	Ingress               = "Ingress"
+	PersistentVolumeClaim = "PersistentVolumeClaim"
+	Service               = "Service"
+	Deployment            = "Deployment"
+	StatefulSet           = "StatefulSet"
+	Pod                   = "Pod"
+	ReplicaSet            = "ReplicaSet"
+	Job                   = "Job"
+	CronJob               = "CronJob"
+	ClusterRoleBinding    = "ClusterRoleBinding"
+	ServiceAccount        = "ServiceAccount"
+	ClusterRole           = "ClusterRole"
+	Role                  = "Role"
+	RoleBinding           = "RoleBinding"
 
 	// labels
 	TaskLabel                       = "s-task"
@@ -637,3 +638,8 @@ const (
 const AttachedClusterNamespace = "koderover-agent"
 
 const ArtifactResultOut = "artifactResultOut.tar.gz"
+
+const (
+	DefaultReleaseNaming     = "$Service$"
+	ReleaseNamingPlaceholder = "$Namespace$-$Service$"
+)

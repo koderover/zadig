@@ -51,13 +51,6 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 
 	if len(pluginType) == 0 {
 		tarName := setting.ArtifactResultOut
-		temp, err := os.Create(tarName)
-		if err != nil {
-			log.Errorf("failed to create %s err: %s", tarName, err)
-			return err
-		}
-		_ = temp.Close()
-
 		cmdAndArtifactFullPaths := make([]string, 0)
 		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
 		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, tarName)
@@ -75,6 +68,16 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 			cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)
 		}
 
+		if len(cmdAndArtifactFullPaths) < 3 {
+			return nil
+		}
+
+		temp, err := os.Create(tarName)
+		if err != nil {
+			log.Errorf("failed to create %s err: %s", tarName, err)
+			return err
+		}
+		_ = temp.Close()
 		cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 		cmd.Stderr = os.Stderr
 		if err = cmd.Run(); err != nil {

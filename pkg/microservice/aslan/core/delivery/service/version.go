@@ -76,10 +76,16 @@ type CreateHelmDeliveryVersionOption struct {
 	S3StorageID       string `json:"s3StorageID"`
 }
 
+type ImageData struct {
+	ImageName string `json:"imageName"`
+	ImageTag  string `json:"imageTag"`
+}
+
 type CreateHelmDeliveryVersionChartData struct {
-	ServiceName       string `json:"serviceName"`
-	Version           string `json:"version,omitempty"`
-	ValuesYamlContent string `json:"valuesYamlContent"`
+	ServiceName       string       `json:"serviceName"`
+	Version           string       `json:"version,omitempty"`
+	ValuesYamlContent string       `json:"valuesYamlContent"`
+	ImageData         []*ImageData `json:"imageData"`
 }
 
 type CreateHelmDeliveryVersionArgs struct {
@@ -171,10 +177,11 @@ type DeliverySecurityStats struct {
 }
 
 type ImageUrlDetail struct {
-	ImageUrl string
-	Name     string
-	Registry string
-	Tag      string
+	ImageUrl  string
+	Name      string
+	Registry  string
+	Tag       string
+	CustomTag string
 }
 
 type ServiceImageDetails struct {
@@ -563,7 +570,7 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 		return "", err
 	}
 
-	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	releaseName := util.GeneReleaseName(serviceObj.GetReleaseNaming(), prod.ProductName, prod.Namespace, prod.EnvName, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)
@@ -584,11 +591,17 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 }
 
 // handleImageRegistry update image registry to target registry
-func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) ([]byte, *ServiceImageDetails, error) {
+func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, targetRegistry *commonmodels.RegistryNamespace,
+	registryMap map[string]*commonmodels.RegistryNamespace, imageData []*ImageData) ([]byte, *ServiceImageDetails, error) {
 
 	flatMap, err := converter.YamlToFlatMap(valuesYaml)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	imageTagMap := make(map[string]string)
+	for _, it := range imageData {
+		imageTagMap[it.ImageName] = it.ImageTag
 	}
 
 	retValuesYaml := string(valuesYaml)
@@ -617,8 +630,6 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			return nil, nil, err
 		}
 
-		targetImageUrl := util.ReplaceRepo(imageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
-
 		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
@@ -627,6 +638,10 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 
 		imageName := commonservice.ExtractImageName(imageUrl)
 		imageTag := commonservice.ExtractImageTag(imageUrl)
+		customTag := imageTag
+		if ct, ok := imageTagMap[imageName]; ok {
+			customTag = ct
+		}
 
 		registryID := ""
 		// used source registry
@@ -636,13 +651,16 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		}
 
 		imageDetail.Images = append(imageDetail.Images, &ImageUrlDetail{
-			ImageUrl: imageUrl,
-			Name:     imageName,
-			Tag:      imageTag,
-			Registry: registryID,
+			ImageUrl:  imageUrl,
+			Name:      imageName,
+			Tag:       imageTag,
+			Registry:  registryID,
+			CustomTag: customTag,
 		})
 
 		// assign image to values.yaml
+		targetImageUrl := util.ReplaceRepo(imageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
+		targetImageUrl = util.ReplaceTag(targetImageUrl, customTag)
 		replaceValuesMap, err := commonservice.AssignImageData(targetImageUrl, spec)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to pase image uri %s, err %s", targetImageUrl, err)
@@ -689,8 +707,8 @@ func handleSingleChart(chartData *DeliveryChartData, product *commonmodels.Produ
 		}
 	}
 
-	// replace image url
-	valueYamlContent, imageDetail, err := handleImageRegistry(valueYamlContent, chartData, targetRegistry, registryMap)
+	// replace image url(registryUrl and imageTag)
+	valueYamlContent, imageDetail, err := handleImageRegistry(valueYamlContent, chartData, targetRegistry, registryMap, chartData.ChartData.ImageData)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to handle image registry for service: %s", serviceObj.ServiceName)
 	}
@@ -839,6 +857,7 @@ func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) *co
 				ImageUrl:   image.ImageUrl,
 				ImageName:  image.Name,
 				ImageTag:   image.Tag,
+				CustomTag:  image.CustomTag,
 				RegistryID: image.Registry,
 			})
 		}

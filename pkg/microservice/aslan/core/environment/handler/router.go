@@ -30,9 +30,29 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	configmaps := router.Group("configmaps")
 	{
-		configmaps.GET("", ListConfigMaps)
-		configmaps.PUT("", gin2.UpdateOperationLogStatus, UpdateConfigMap)
+		configmaps.GET("/:envName", ListConfigMaps)
 		configmaps.POST("", gin2.UpdateOperationLogStatus, RollBackConfigMap)
+		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
+	}
+
+	secrets := router.Group("secrets")
+	{
+		secrets.GET("/:envName", ListSecrets)
+	}
+	ingresses := router.Group("ingresses")
+	{
+		ingresses.GET("/:envName", ListIngresses)
+	}
+	pvcs := router.Group("pvcs")
+	{
+		pvcs.GET("/:envName", ListPvcs)
+	}
+	commonEnvCfgs := router.Group("envcfgs")
+	{
+		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.PUT("/:envName", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("/:envName", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -66,8 +86,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	image := router.Group("image")
 	{
-		image.POST("/deployment", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
-		image.POST("/statefulset", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
+		image.POST("/deployment/:envName", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
+		image.POST("/statefulset/:envName", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
 	}
 
 	// 查询环境创建时的服务和变量信息
@@ -83,7 +103,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/events", ListKubeEvents)
 
 		kube.POST("/pods", ListServicePods)
-		kube.DELETE("/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
+		kube.DELETE("/:env/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
@@ -113,6 +133,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name/helm/releases", ListReleases)
 		environments.GET("/:name/helm/charts", GetChartInfos)
+		environments.GET("/:name/helm/images", GetImageInfos)
 
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", gin2.UpdateOperationLogStatus, UpdateService)

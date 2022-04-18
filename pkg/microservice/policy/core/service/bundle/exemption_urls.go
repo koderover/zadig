@@ -121,6 +121,14 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/project/products"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/system/rsaKey/publicKey"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/cleanCache/cron"},
+	},
+	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/picket/projects"},
 	},

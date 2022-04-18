@@ -589,6 +589,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		TaskID:      taskID,
 		ProductName: productName,
 		ServiceName: b.ServiceName,
+		ImageName:   imageName,
 	}
 	switch deliveryType {
 	case config.TarResourceType:
@@ -598,8 +599,6 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		}
 		return newTarRule
 	default:
-		// If image, replace service name with imageName
-		candidate.ServiceName = imageName
 		return replaceVariable(customImageRule, candidate)
 	}
 }
@@ -613,6 +612,7 @@ type candidate struct {
 	Timestamp   string
 	ProductName string
 	ServiceName string
+	ImageName   string
 	EnvName     string
 }
 
@@ -646,8 +646,16 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 	}
 
 	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
-		candidate.ServiceName, candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
-		candidate.Tag, candidate.Branch, strconv.Itoa(candidate.PR),
+		SERVICE:        candidate.ServiceName,
+		IMAGE_NAME:     candidate.ImageName,
+		TIMESTAMP:      candidate.Timestamp,
+		TASK_ID:        strconv.FormatInt(candidate.TaskID, 10),
+		REPO_COMMIT_ID: candidate.CommitID,
+		PROJECT:        candidate.ProductName,
+		ENV_NAME:       candidate.EnvName,
+		REPO_TAG:       candidate.Tag,
+		REPO_BRANCH:    candidate.Branch,
+		REPO_PR:        strconv.Itoa(candidate.PR),
 	})
 	return currentRule
 }

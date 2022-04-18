@@ -167,7 +167,6 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 }
 
 func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
-
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
 		return nil, err
@@ -184,6 +183,7 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 		serviceModules = append(serviceModules, serviceModule)
 	}
 	helmServiceModule.Service = serviceTemplate
+	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
 	helmServiceModule.ServiceModules = serviceModules
 	return helmServiceModule, err
 }
@@ -1202,21 +1202,22 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	}
 
 	serviceObj := &commonmodels.Service{
-		ServiceName: args.ServiceName,
-		Type:        setting.HelmDeployType,
-		Revision:    args.ServiceRevision,
-		ProductName: args.ProductName,
-		Visibility:  setting.PrivateVisibility,
-		CreateTime:  time.Now().Unix(),
-		CreateBy:    args.CreateBy,
-		Containers:  containerList,
-		CodehostID:  args.CodehostID,
-		RepoOwner:   args.Owner,
-		RepoName:    args.Repo,
-		BranchName:  args.Branch,
-		LoadPath:    args.FilePath,
-		SrcPath:     args.RepoLink,
-		Source:      args.Source,
+		ServiceName:   args.ServiceName,
+		Type:          setting.HelmDeployType,
+		Revision:      args.ServiceRevision,
+		ProductName:   args.ProductName,
+		Visibility:    setting.PrivateVisibility,
+		CreateTime:    time.Now().Unix(),
+		CreateBy:      args.CreateBy,
+		Containers:    containerList,
+		CodehostID:    args.CodehostID,
+		RepoOwner:     args.Owner,
+		RepoName:      args.Repo,
+		BranchName:    args.Branch,
+		LoadPath:      args.FilePath,
+		SrcPath:       args.RepoLink,
+		Source:        args.Source,
+		ReleaseNaming: setting.DefaultReleaseNaming,
 		HelmChart: &commonmodels.HelmChart{
 			Name:       chartName,
 			Version:    chartVersion,
@@ -1253,6 +1254,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 			log.Errorf("Failed to set status of current service templates, serviceName: %s, err: %s", args.ServiceName, err)
 			return nil, err
 		}
+		serviceObj.ReleaseNaming = currentSvcTmpl.GetReleaseNaming()
 	}
 
 	// create new service template

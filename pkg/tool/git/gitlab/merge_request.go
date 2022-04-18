@@ -38,6 +38,10 @@ func (c *Client) ListOpenedProjectMergeRequests(owner, repo, targetBranch, key s
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*gitlab.MergeRequest
 	mrs, ok := mergeRequests.([]interface{})
 	if !ok {

@@ -234,10 +234,6 @@ any_attribute_match(attributes, resourceType, resourceID) {
     attributes_match(attributes, res)
 }
 
-attributes_match(attributes, res) {
-    attribute := attributes[_]
-    attribute_match(attribute, res)
-}
 
 get_resource_id(idRegex) = id {
     output := regex.find_all_string_submatch_n(trim(idRegex, "/"), concat("/", input.parsed_path), -1)
@@ -448,6 +444,7 @@ allowed_role_attributive_rules[rule] {
     rule := allowed_role_rules[_]
     rule.matchAttributes
 }
+
 allowed_policy_attributive_rules[rule] {
     rule := allowed_policy_rules[_]
     rule.matchExpressions

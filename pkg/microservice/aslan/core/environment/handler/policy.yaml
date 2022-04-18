@@ -70,7 +70,49 @@ rules:
           - key: "production"
             value: "false"
       - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/helm/images"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/images"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
         endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
+      - method: GET
+        endpoint: "/api/aslan/environment/configmaps/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/configmaps/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/envcfgs/?*/cfg/?*"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/envcfgs/([\\w\\W]+?)/cfg"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/secrets/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/secrets/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/ingresses/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/ingresses/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/pvcs/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/pvcs/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
   - action: create_environment
     alias: "创建"
     description: ""
@@ -89,23 +131,29 @@ rules:
     alias: "配置"
     description: ""
     rules:
-      - method: POST
-        endpoint: "/api/environment/environments/?*/share/enable"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/services"
         resourceType: "Environment"
-        idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/share/enable"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/share/enable"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: DELETE
-        endpoint: "/api/environment/environments/?*/share/enable"
+        endpoint: "/api/aslan/environment/environments/?*/share/enable"
         resourceType: "Environment"
-        idRegex: "/api/environment/environments/([\\w\\W]+?)/share/enable"
+        idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/share/enable"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/environments"
-        resourceType: "Environment"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
@@ -141,10 +189,33 @@ rules:
         matchAttributes:
           - key: "production"
             value: "false"
+      - method: PUT
+        endpoint: "/api/aslan/environment/envcfgs/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: POST
+        endpoint: "/api/aslan/environment/envcfgs/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"   
+      - method: DELETE
+        endpoint: "/api/aslan/environment/envcfgs/?*/cfg/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)/cfg"
+        matchAttributes:
+          - key: "production"
+            value: "false" 
   - action: manage_environment
     alias: "管理服务实例"
     description: ""
     rules:
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
         resourceType: "Environment"
@@ -177,15 +248,27 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+      - method: POST
+        endpoint: "/api/aslan/environment/image/deployment/?*"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/image/deployment/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/image/deployment"
-      - method: POST
-        endpoint: "/api/aslan/environment/image/statefulset"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/image/statefulset/([\\w\\W]+?)$"
+        endpoint: "/api/aslan/environment/image/statefulset/?*"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: DELETE
-        endpoint: "/api/aslan/environment/kube/pods/?*"
+        endpoint: "/api/aslan/environment/kube/?*/pods/?*"
+        resourceType: "Environment"
+        idRegex: "/api/aslan/environment/kube/([\\w\\W]+?)/pods"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
@@ -208,4 +291,9 @@ rules:
     description: ""
     rules:
       - method: GET
-        endpoint: "/api/podexec/?*/?*/?*/?*/podExec"
+        endpoint: "/api/podexec/?*/?*/?*/?*/podExec/?*"
+        idRegex: "/podExec/([\\w\\W]+?)$"
+        resourceType: "Environment"
+        matchAttributes:
+          - key: "production"
+            value: "false"

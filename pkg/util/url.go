@@ -55,6 +55,15 @@ func ReplaceRepo(origin, addr, namespace string) string {
 	}, "/")
 }
 
+func ReplaceTag(origin, newTag string) string {
+	parts := strings.Split(origin, ":")
+	if len(parts) != 2 {
+		return origin
+	}
+	parts[len(parts)-1] = newTag
+	return strings.Join(parts, ":")
+}
+
 func GetAddress(uri string) (string, error) {
 	u, err := url.Parse(uri)
 	if err != nil {

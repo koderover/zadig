@@ -52,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	commontypes "github.com/koderover/zadig/pkg/types"
@@ -227,15 +228,19 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
 		UploadEnabled:   b.JobCtx.UploadEnabled,
-		UploadStorageInfo: &commontypes.ObjectStorageInfo{
+		UploadInfo:      b.JobCtx.UploadInfo,
+	}
+
+	// Currently only the build stage will have this info. For the rest we will skip this context
+	if b.JobCtx.UploadStorageInfo != nil {
+		ctx.UploadStorageInfo = &commontypes.ObjectStorageInfo{
 			Endpoint: b.JobCtx.UploadStorageInfo.Endpoint,
 			AK:       b.JobCtx.UploadStorageInfo.AK,
 			SK:       b.JobCtx.UploadStorageInfo.SK,
 			Bucket:   b.JobCtx.UploadStorageInfo.Bucket,
 			Insecure: b.JobCtx.UploadStorageInfo.Insecure,
 			Provider: b.JobCtx.UploadStorageInfo.Provider,
-		},
-		UploadInfo: b.JobCtx.UploadInfo,
+		}
 	}
 
 	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
@@ -850,7 +855,8 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
 	timeout := time.After(time.Duration(taskTimeout) * time.Second)
 	podTimeout := time.After(120 * time.Second)
-	// 等待job运行
+
+	xl.Infof("Timeout of preparing Pod: %s. Timeout of running task: %s.", 120*time.Second, time.Duration(taskTimeout)*time.Second)
 
 	var started bool
 	for {
@@ -1065,4 +1071,44 @@ func replaceEnvWithValue(str string, envs map[string]string) string {
 		ret = strings.ReplaceAll(ret, strKey, value)
 	}
 	return ret
+}
+
+func checkJobExists(ctx context.Context, ns string, jobLabels *JobLabel, kclient client.Client) (jobObj *batchv1.Job, exist bool, err error) {
+	labelsMap := getJobLabels(jobLabels)
+	labelSelector := labels.SelectorFromSet(labels.Set(labelsMap))
+
+	jobList := &batchv1.JobList{}
+	err = kclient.List(ctx, jobList, &client.ListOptions{
+		Namespace:     ns,
+		LabelSelector: labelSelector,
+	})
+	if err != nil || len(jobList.Items) == 0 {
+		return nil, false, kubeutil.IgnoreNotFoundError(err)
+	}
+
+	if len(jobList.Items) != 1 {
+		return nil, true, fmt.Errorf("more than 1 job with labels: %v", labelsMap)
+	}
+
+	return &(jobList.Items[0]), true, nil
+}
+
+func checkConfigMapExists(ctx context.Context, ns string, jobLabels *JobLabel, kclient client.Client) (cmObj *corev1.ConfigMap, exist bool, err error) {
+	labelsMap := getJobLabels(jobLabels)
+	labelSelector := labels.SelectorFromSet(labels.Set(labelsMap))
+
+	cmList := &corev1.ConfigMapList{}
+	err = kclient.List(ctx, cmList, &client.ListOptions{
+		Namespace:     ns,
+		LabelSelector: labelSelector,
+	})
+	if err != nil || len(cmList.Items) == 0 {
+		return nil, false, kubeutil.IgnoreNotFoundError(err)
+	}
+
+	if len(cmList.Items) != 1 {
+		return nil, true, fmt.Errorf("more than 1 ConfigMap with labels: %v", labelsMap)
+	}
+
+	return &(cmList.Items[0]), true, nil
 }

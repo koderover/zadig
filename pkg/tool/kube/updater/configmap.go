@@ -63,7 +63,7 @@ func DeleteConfigMap(ns, name string, cl client.Client) error {
 }
 
 func CreateConfigMap(cm *corev1.ConfigMap, cl client.Client) error {
-	return createObject(cm, cl)
+	return createObjectNeverAnnotation(cm, cl)
 }
 
 func DeleteConfigMapsAndWait(ns string, selector labels.Selector, cl client.Client) error {

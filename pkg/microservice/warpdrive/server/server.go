@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -37,8 +38,10 @@ func Serve(ctx context.Context) error {
 
 	log.Info("Warpdrive service start ... ")
 
-	if err := taskcontroller.InitTaskController(ctx); err != nil {
-		log.Fatalf("NewTaskController error: %v", err)
+	controller := taskcontroller.NewController()
+	err := controller.Init(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to init controller: %s", err)
 	}
 
 	http.HandleFunc("/ping", ping)
@@ -65,7 +68,7 @@ func Serve(ctx context.Context) error {
 
 	<-stopChan
 
-	return nil
+	return controller.Stop(ctx)
 }
 
 func ping(w http.ResponseWriter, r *http.Request) {

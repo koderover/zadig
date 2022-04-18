@@ -43,6 +43,10 @@ func (c *Client) ListGroupProjects(namespace, keyword string, opts *ListOptions)
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*gitlab.Project
 	ps, ok := projects.([]interface{})
 	if !ok {

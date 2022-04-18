@@ -28,6 +28,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (prodRevs []*ProductRevision, err error) {
@@ -247,7 +248,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 						serviceRev.Containers = append(serviceRev.Containers, &commonmodels.Container{
 							Image:     container.Image,
 							Name:      container.Name,
-							ImageName: container.ImageName,
+							ImageName: util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 						})
 					}
 				}
@@ -306,7 +307,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 					c := &commonmodels.Container{
 						Image:     container.Image,
 						Name:      container.Name,
-						ImageName: container.ImageName,
+						ImageName: util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 					}
 
 					// reuse existed container image
