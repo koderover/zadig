@@ -34,25 +34,26 @@ func (c *Client) ListPmHosts(log *zap.SugaredLogger) ([]*service.PrivateKeyHosts
 		resp = make([]*service.PrivateKeyHosts, 0)
 	)
 
-	url := fmt.Sprintf("%s/system/privateKey", c.APIBase)
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Errorf("ListPmHosts new http request error: %v", err)
-		return nil, err
-	}
-
-	var ret *http.Response
-	if ret, err = c.Conn.Do(request); err == nil {
-		defer func() { _ = ret.Body.Close() }()
-		var body []byte
-		body, err = ioutil.ReadAll(ret.Body)
-		if err == nil {
-			if err = json.Unmarshal(body, &resp); err == nil {
-				return resp, nil
-			}
-		}
-	}
-	return resp, errors.WithMessage(err, "failed to list PmHosts")
+	//url := fmt.Sprintf("%s/system/privateKey", c.APIBase)
+	//request, err := http.NewRequest("GET", url, nil)
+	//if err != nil {
+	//	log.Errorf("ListPmHosts new http request error: %v", err)
+	//	return nil, err
+	//}
+	//
+	//var ret *http.Response
+	//if ret, err = c.Conn.Do(request); err == nil {
+	//	defer func() { _ = ret.Body.Close() }()
+	//	var body []byte
+	//	body, err = ioutil.ReadAll(ret.Body)
+	//	if err == nil {
+	//		if err = json.Unmarshal(body, &resp); err == nil {
+	//			return resp, nil
+	//		}
+	//	}
+	//}
+	//return resp, errors.WithMessage(err, "failed to list PmHosts")
+	return resp, err
 }
 
 func (c *Client) UpdatePmHost(args *service.PrivateKeyHosts, log *zap.SugaredLogger) error {
