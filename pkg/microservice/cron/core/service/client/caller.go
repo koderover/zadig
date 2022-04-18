@@ -40,7 +40,8 @@ func (c *Client) ScheduleCall(api string, args interface{}, log *zap.SugaredLogg
 		log.Errorf("create post request error : %v", err)
 		return err
 	}
-	log.Info("start run scheduled task 3..")
+	log.Infof("start run scheduled task 3 url:%s", request.URL)
+	log.Infof("start run scheduled task 3 host:%s", request.Host)
 	var resp *http.Response
 	resp, err = c.Conn.Do(request)
 	log.Info("start run scheduled task 4..")
