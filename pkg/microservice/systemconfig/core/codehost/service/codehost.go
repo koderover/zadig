@@ -86,6 +86,14 @@ func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap
 	return result, nil
 }
 
+func ListInternal(address, owner, source string, _ *zap.SugaredLogger) ([]*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().List(&mongodb.ListArgs{
+		Address: address,
+		Owner:   owner,
+		Source:  source,
+	})
+}
+
 func List(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	codeHosts, err := mongodb.NewCodehostColl().List(&mongodb.ListArgs{
 		Address: address,
