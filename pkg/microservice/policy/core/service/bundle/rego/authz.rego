@@ -122,7 +122,7 @@ access_is_granted {
 
     some rule
 
-    allowed_cluster_role_plain_rules[rule]
+    allowed_system_role_plain_rules[rule]
     rule.method == http_request.method
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
@@ -398,7 +398,7 @@ allowed_role_rules[rule] {
     rule := data.roles.roles[i].rules[_]
 }
 
-allowed_cluster_role_rules[rule] {
+allowed_system_role_rules[rule] {
     some role_ref
     allowed_system_roles[role_ref]
 
@@ -430,8 +430,8 @@ allowed_role_plain_rules[rule] {
     not rule.matchExpressions
 }
 
-allowed_cluster_role_plain_rules[rule] {
-    rule := allowed_cluster_role_rules[_]
+allowed_system_role_plain_rules[rule] {
+    rule := allowed_system_role_rules[_]
     not rule.matchAttributes
 }
 
