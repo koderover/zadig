@@ -218,7 +218,6 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 					continue
 				}
 				releaseName := workload.Annotation[setting.HelmReleaseNameAnnotation]
-				log.Infof("###### the relaseName is %s", releaseName)
 				if _, ok := releaseNameMap[releaseName]; ok {
 					res = append(res, workload)
 				}
