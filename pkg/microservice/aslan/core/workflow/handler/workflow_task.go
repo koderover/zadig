@@ -77,6 +77,10 @@ func CreateWorkflowTask(c *gin.Context) {
 		args.WorkflowTaskCreator = ctx.UserName
 	}
 
+	if args.WorkflowTaskCreator == setting.CronTaskCreator {
+		log.Infof("args:%+v", args)
+	}
+
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTask(args, args.WorkflowTaskCreator, ctx.Logger)
 
 	// 发送通知
