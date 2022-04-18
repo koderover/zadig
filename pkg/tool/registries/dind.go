@@ -65,8 +65,8 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 					"name": mountName,
 					"items": []interface{}{
 						map[string]interface{}{
-							"key":  "cert.crt",
-							"path": fmt.Sprintf("%s/%s", addr[1], "cert.crt"),
+							"key":  "ca.crt",
+							"path": fmt.Sprintf("%s/%s", addr[1], "ca.crt"),
 						},
 					},
 				}
@@ -140,7 +140,7 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 func ensureCertificateSecret(dynamicClient dynamic.Interface, secretName, namespace, cert string) error {
 	certificateString := base64.StdEncoding.EncodeToString([]byte(cert))
 	datamap := map[string]interface{}{
-		"cert.crt": certificateString,
+		"ca.crt": certificateString,
 	}
 
 	// setup secret GVR for future use
