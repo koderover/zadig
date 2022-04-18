@@ -18,7 +18,6 @@ package systemconfig
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -64,18 +63,6 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 
 	res := &CodeHost{}
 	_, err := c.Get(url, httpclient.SetResult(res))
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (c *Client) ListCodeHosts(encryptedKey string) ([]*CodeHost, error) {
-	url := "/codehosts?encryptedKey=" + url.QueryEscape(encryptedKey)
-
-	res := make([]*CodeHost, 0)
-	_, err := c.Get(url, httpclient.SetResult(&res))
 	if err != nil {
 		return nil, err
 	}
