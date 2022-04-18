@@ -18,7 +18,6 @@ package handler
 
 import (
 	_ "embed"
-	"fmt"
 
 	"sigs.k8s.io/yaml"
 
@@ -46,7 +45,6 @@ func (*Router) Policies() []*policy.PolicyMeta {
 		// should not have happened here
 		log.DPanic(err)
 	}
-	fmt.Println(len(res2))
 	res2 = append(res2, res)
 
 	return res2
