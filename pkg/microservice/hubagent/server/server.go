@@ -76,7 +76,7 @@ func Serve(ctx context.Context) error {
 }
 
 func initDinD() {
-	client := aslan.New(config2.HubServerBaseAddr())
+	client := aslan.New(config2.AslanBaseAddr())
 
 	ls, err := client.ListRegistries()
 	if err != nil {
@@ -98,7 +98,7 @@ func initDinD() {
 		regList = append(regList, regItem)
 	}
 
-	dynamicClient, err := kubeclient.GetDynamicKubeClient(config2.HubServerBaseAddr(), setting.LocalClusterID)
+	dynamicClient, err := kubeclient.GetDynamicKubeClient(config2.AslanBaseAddr(), setting.LocalClusterID)
 	if err != nil {
 		log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
 	}
