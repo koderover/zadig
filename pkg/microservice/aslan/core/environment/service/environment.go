@@ -1236,11 +1236,22 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 
 	deletedSvcSet := sets.NewString(deletedServices...)
+	deletedSvcRevision := make(map[string]int64)
 	// services need to be created or updated
 	serviceNeedUpdateOrCreate := sets.NewString()
 	for _, chart := range overrideCharts {
 		serviceNeedUpdateOrCreate.Insert(chart.ServiceName)
 	}
+
+	// get deleted services map[serviceName]=>serviceRevision
+	for _, svcGroup := range currentProductService {
+		for _, svc := range svcGroup {
+			if deletedSvcSet.Has(svc.ServiceName) {
+				deletedSvcRevision[svc.ServiceName] = svc.Revision
+			}
+		}
+	}
+
 	// use service definition from service template, but keep the image info
 	productServiceMap := productResp.GetServiceMap()
 	allServices := make([][]*commonmodels.ProductService, 0)
@@ -1279,7 +1290,7 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
-		err := updateProductGroup(username, productName, envName, productResp, currentProductService, overrideCharts, log)
+		err := updateProductGroup(username, productName, envName, productResp, currentProductService, overrideCharts, deletedSvcRevision, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -1967,7 +1978,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
-						if err = UninstallService(hc, productInfo.ProductName, productInfo.Namespace, service.ServiceName, service.Revision, true); err != nil {
+						if err = UninstallService(hc, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, service.ServiceName, service.Revision, true); err != nil {
 							log.Errorf("UninstallRelease err:%v", err)
 						}
 					}
@@ -3263,7 +3274,8 @@ func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, 
 	return errList
 }
 
-func updateProductGroup(username, productName, envName string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
+func updateProductGroup(username, productName, envName string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService,
+	overrideCharts []*commonservice.RenderChartArg, deletedSvcRevision map[string]int64, log *zap.SugaredLogger) error {
 	var (
 		renderChartMap         = make(map[string]*templatemodels.RenderChart)
 		productServiceMap      = make(map[string]*commonmodels.ProductService)
@@ -3273,6 +3285,14 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	// uninstall services
+	for serviceName, serviceRevision := range deletedSvcRevision {
+		if err = UninstallService(helmClient, productResp.ProductName, productResp.Namespace, productResp.EnvName, serviceName, serviceRevision, true); err != nil {
+			log.Errorf("UninstallRelease err:%v", err)
+			return e.ErrUpdateEnv.AddErr(err)
+		}
 	}
 
 	// current service applied in product
@@ -3311,7 +3331,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 		}
 		errInstall := installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
-			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, err)
+			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, errInstall)
 			return errors.Wrapf(errInstall, "failed to install or upgrade service %s", serviceObj.ServiceName)
 		}
 		return nil
