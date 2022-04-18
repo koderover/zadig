@@ -21,11 +21,18 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/core/filter/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func ListCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListCodeHost(ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Logger.Infof("encryptedKey:%s", encryptedKey)
+	ctx.Resp, ctx.Err = service.ListCodeHost(encryptedKey, ctx.Logger)
 }
