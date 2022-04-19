@@ -1978,7 +1978,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
-						if err = UninstallService(hc, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, service.ServiceName, service.Revision, true); err != nil {
+						if err = UninstallServiceByName(hc, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, service.ServiceName, service.Revision, true); err != nil {
 							log.Errorf("UninstallRelease err:%v", err)
 						}
 					}
@@ -2183,13 +2183,8 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 					failedServices.Store(serviceName, err.Error())
 					return
 				}
-				releaseName := util.GeneReleaseName(templateSvc.GetReleaseNaming(), product.ProductName, productInfo.Namespace, product.EnvName, serviceName)
-				log.Infof("uninstall release: %s", releaseName)
-				if errUninstall := helmClient.UninstallRelease(&helmclient.ChartSpec{
-					ReleaseName: releaseName,
-					Namespace:   product.Namespace,
-					Wait:        true,
-				}); errUninstall != nil {
+				log.Infof("uninstall release for service: %s", serviceName)
+				if errUninstall := UninstallService(helmClient, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, templateSvc, false); errUninstall != nil {
 					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)
 					log.Error(errStr)
@@ -3289,7 +3284,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 
 	// uninstall services
 	for serviceName, serviceRevision := range deletedSvcRevision {
-		if err = UninstallService(helmClient, productResp.ProductName, productResp.Namespace, productResp.EnvName, serviceName, serviceRevision, true); err != nil {
+		if err = UninstallServiceByName(helmClient, productResp.ProductName, productResp.Namespace, productResp.EnvName, serviceName, serviceRevision, true); err != nil {
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
 		}

@@ -161,7 +161,7 @@ func HelmReleaseNaming(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
 		return
 	}
-	ctx.Err = svcservice.UpdateReleaseNamingRule(projectName, args, ctx.Logger)
+	ctx.Err = svcservice.UpdateReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, ctx.Logger)
 }
 
 func DeleteServiceTemplate(c *gin.Context) {
