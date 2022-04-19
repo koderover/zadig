@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -111,7 +112,6 @@ type authClient struct {
 }
 
 func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger) (cli *authClient, err error) {
-	fmt.Printf("creating registry client for ep: %s, cert: %s, enableTLS: %s", ep, s.CustomCert, s.EnableHTTPS)
 	endpointURL, err := url.Parse(ep.Addr)
 	if err != nil {
 		return
@@ -125,7 +125,11 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 
 	tlsConfig := &tls.Config{}
 
-	if (s.EnableHTTPS && s.CustomCert != "") || !s.EnableHTTPS {
+	if s.EnableHTTPS && s.CustomCert != "" {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM([]byte(s.CustomCert))
+		tlsConfig.RootCAs = caCertPool
+	} else if !s.EnableHTTPS {
 		tlsConfig.InsecureSkipVerify = true
 	}
 
