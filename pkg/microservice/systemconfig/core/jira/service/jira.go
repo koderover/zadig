@@ -50,6 +50,10 @@ func GeJira(encryptedKey string, log *zap.SugaredLogger) (*models.Jira, error) {
 	return jira, nil
 }
 
+func GeJiraInternal(_ *zap.SugaredLogger) (*models.Jira, error) {
+	return mongodb.NewJiraColl().GetJira()
+}
+
 func CreateJira(jira *models.Jira, _ *zap.SugaredLogger) (*models.Jira, error) {
 	jira.CreatedAt = time.Now().Unix()
 	jira.UpdatedAt = time.Now().Unix()
