@@ -2240,13 +2240,13 @@ func getServiceNaming(projectName, envName, serviceName string) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	if productInfo.Source != setting.SourceFromHelm {
+		return "", nil
+	}
 	svcMap := productInfo.GetServiceMap()
 	pSvc, ok := svcMap[serviceName]
 	if !ok {
 		return "", fmt.Errorf("can't find service: %s in product: %s:%s", serviceName, projectName, envName)
-	}
-	if pSvc.Type != setting.HelmDeployType {
-		return "", nil
 	}
 	templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
