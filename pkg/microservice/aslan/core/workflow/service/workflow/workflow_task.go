@@ -1407,12 +1407,12 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 			}
 			releaseName := ""
 			if repoInfo.DeployEnabled {
-				svcMap := envInfo.GetServiceMap()
-				pSvc, ok := svcMap[serviceModule.ServiceName]
-				if !ok {
-					return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
-				}
-				if pSvc.Type == setting.HelmDeployType {
+				if productInfo.ProductFeature != nil && productInfo.ProductFeature.DeployType == setting.HelmDeployType {
+					svcMap := envInfo.GetServiceMap()
+					pSvc, ok := svcMap[serviceModule.ServiceName]
+					if !ok {
+						return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
+					}
 					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 						ServiceName: serviceModule.ServiceName,
 						Revision:    pSvc.Revision,
