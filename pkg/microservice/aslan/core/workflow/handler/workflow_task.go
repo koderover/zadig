@@ -56,7 +56,7 @@ func PresetWorkflowArgs(c *gin.Context) {
 func CreateWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
+	log.Info("CreateWorkflowTask i'm in")
 	args := new(commonmodels.WorkflowTaskArgs)
 	data, err := c.GetRawData()
 	if err != nil {
