@@ -144,7 +144,7 @@ func (c *CollaborationInstanceColl) BulkDelete(opt CollaborationInstanceListOpti
 	for _, findOpt := range opt.FindOpts {
 		condition = append(condition, bson.M{
 			"project_name":       findOpt.ProjectName,
-			"user_uid":           findOpt.UserUID,
+			"user_uid":           bson.M{"$in": findOpt.UserUID},
 			"collaboration_name": findOpt.Name,
 		})
 	}
