@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -58,8 +59,8 @@ func (c *Client) ListTestWorkflows(testName string, header http.Header, qs url.V
 	return res.Body(), nil
 }
 
-func (c *Client) CreateWorkflowTask(header http.Header, qs url.Values, body []byte) ([]byte, error) {
-	url := "/workflow/workflowtask"
+func (c *Client) CreateWorkflowTask(header http.Header, qs url.Values, body []byte, workflowName string) ([]byte, error) {
+	url := path.Join("/workflow/workflowtask", workflowName)
 
 	res, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetBody(body))
 	if err != nil {
