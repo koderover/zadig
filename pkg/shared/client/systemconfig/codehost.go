@@ -90,7 +90,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 }
 
 func (c *Client) GetCodeHostByAddressAndOwner(address, owner, source string) (*CodeHost, error) {
-	url := "/codehosts"
+	url := "/codehosts/internal"
 
 	res := make([]*CodeHost, 0)
 
