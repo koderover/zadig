@@ -26,6 +26,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	jira := router.Group("jira")
 	{
 		jira.GET("", GetJira)
+		jira.GET("/internal", GetJiraInternal)
 		jira.POST("", CreateJira)
 		jira.PATCH("", UpdateJira)
 		jira.DELETE("", DeleteJira)
