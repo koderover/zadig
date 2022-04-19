@@ -111,6 +111,7 @@ type authClient struct {
 }
 
 func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger) (cli *authClient, err error) {
+	fmt.Printf("creating registry client for ep: %s, cert: %s, enableTLS: %s", ep, s.CustomCert, s.EnableHTTPS)
 	endpointURL, err := url.Parse(ep.Addr)
 	if err != nil {
 		return
