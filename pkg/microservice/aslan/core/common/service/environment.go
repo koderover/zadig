@@ -204,7 +204,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 	}
 
 	// for helm service, only show deploys/stss created by zadig
-	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.DeployType == setting.SourceFromHelm {
+	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
 			if err != nil {
