@@ -34,7 +34,7 @@ func (c *Client) ListPmHosts(log *zap.SugaredLogger) ([]*service.PrivateKeyHosts
 		resp = make([]*service.PrivateKeyHosts, 0)
 	)
 
-	url := fmt.Sprintf("%s/system/privateKey", c.APIBase)
+	url := fmt.Sprintf("%s/system/privateKey/internal", c.APIBase)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("ListPmHosts new http request error: %v", err)
