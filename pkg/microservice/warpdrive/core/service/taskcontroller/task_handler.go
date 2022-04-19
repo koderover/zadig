@@ -309,7 +309,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 	//tasks been preprocessed, map[serviceName]=[]Tasks
 	pluginsByService := make(map[string]*plugins.HelmDeployTaskPlugin)
 	// helm deploy plugins map[fullServiceName]=>HelmDeployPlugin
-	helmDeployPlugins := make(map[string]*plugins.HelmDeployTaskPlugin, 0)
+	helmDeployPlugins := make(map[string]*plugins.HelmDeployTaskPlugin)
 
 	// preprocess subTasks, make batchTask with multiple subTasks
 	// eg: multiple deploys of same helm chart
@@ -338,7 +338,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 	for serviceName, subTask := range stage.SubTasks {
 		if deployPlugin, ok := helmDeployPlugins[serviceName]; ok {
 			svcName := deployPlugin.Task.ServiceName
-			pluginsByService[svcName].ContentPlugins = append(pluginsByService[svcName].ContentPlugins, helmDeployPlugins[serviceName])
+			pluginsByService[svcName].ContentPlugins = append(pluginsByService[svcName].ContentPlugins, deployPlugin)
 			if !preProcessedServices.Has(svcName) {
 				xl.Infof("new batch sub task of service name: %s, type: %s", serviceName, stage.TaskType)
 				batchTask := NewTask(ctx, h.executeTask, pluginsByService[svcName], subTask, stagePosition, serviceName, xl)
