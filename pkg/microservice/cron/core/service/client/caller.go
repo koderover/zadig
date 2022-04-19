@@ -34,23 +34,21 @@ func (c *Client) ScheduleCall(api string, args interface{}, log *zap.SugaredLogg
 		log.Errorf("marshal json args error: %v", err)
 		return err
 	}
-	log.Info("start run scheduled task 2..")
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("create post request error : %v", err)
 		return err
 	}
 	log.Infof("start run scheduled task 3 url:%s", request.URL)
-	log.Infof("start run scheduled task 3 host:%s", request.Host)
 	var resp *http.Response
 	resp, err = c.Conn.Do(request)
-	log.Info("start run scheduled task 4..")
 	if err == nil {
 		defer func() { _ = resp.Body.Close() }()
-		log.Info("start run scheduled task 5..")
-		if _, err := ioutil.ReadAll(resp.Body); err != nil {
+		if body, err := ioutil.ReadAll(resp.Body); err != nil {
 			log.Errorf("run %s result %v", api, err)
 			return err
+		} else {
+			log.Infof("body:%+v", string(body))
 		}
 	} else {
 		log.Errorf("do error:%+v", err)
