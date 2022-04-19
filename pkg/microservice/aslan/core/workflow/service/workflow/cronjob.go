@@ -64,17 +64,6 @@ func HandleCronjob(workflow *commonmodels.Workflow, log *zap.SugaredLogger) erro
 	return nil
 }
 
-func DisableCronjobForWorkflow(workflow *commonmodels.Workflow) error {
-	payload := &commonservice.CronjobPayload{
-		Name:    workflow.Name,
-		JobType: config.WorkflowCronjob,
-		Action:  setting.TypeDisableCronjob,
-	}
-
-	pl, _ := json.Marshal(payload)
-	return nsq.Publish(setting.TopicCronjob, pl)
-}
-
 func UpdateCronjob(parentName, parentType, productName string, schedule *commonmodels.ScheduleCtrl, log *zap.SugaredLogger) (deleteList []string, err error) {
 	idMap := make(map[string]bool)
 	deleteList = make([]string, 0)
@@ -146,7 +135,7 @@ func UpdateCronjob(parentName, parentType, productName string, schedule *commonm
 	return deleteList, nil
 }
 
-func DeleteCronjob(parentName, parentType string, log *zap.SugaredLogger) error {
+func DeleteCronjob(parentName, parentType string) error {
 	return commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{
 		ParentName: parentName,
 		ParentType: parentType,

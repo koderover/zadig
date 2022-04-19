@@ -17,8 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
-	workflow2 "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -99,7 +100,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("Failed to process webhook, err: %s", err)
 	}
 
-	err = workflow2.DisableCronjobForWorkflow(workflow)
+	err = DisableCronjobForWorkflow(workflow)
 	if err != nil {
 		log.Errorf("Failed to stop cronjob for workflow: %s, error: %s", workflow.Name, err)
 	}
@@ -158,6 +159,17 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("Counter.Delete error: %v", err)
 	}
 	return nil
+}
+
+func DisableCronjobForWorkflow(workflow *models.Workflow) error {
+	payload := &CronjobPayload{
+		Name:    workflow.Name,
+		JobType: config.WorkflowCronjob,
+		Action:  setting.TypeDisableCronjob,
+	}
+
+	pl, _ := json.Marshal(payload)
+	return nsq.Publish(setting.TopicCronjob, pl)
 }
 
 func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger *zap.SugaredLogger) error {
