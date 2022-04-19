@@ -582,11 +582,13 @@ func (p *HelmDeployTaskPlugin) Complete(ctx context.Context, pipelineTask *task.
 }
 
 func (p *HelmDeployTaskPlugin) SetTask(t map[string]interface{}) error {
-	task, err := ToDeployTask(t)
-	if err != nil {
-		return err
+	if p.Task == nil {
+		task, err := ToDeployTask(t)
+		if err != nil {
+			return err
+		}
+		p.Task = task
 	}
-	p.Task = task
 	return nil
 }
 
