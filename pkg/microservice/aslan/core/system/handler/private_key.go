@@ -32,6 +32,13 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+func ListPrivateKeysInternal(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListPrivateKeysInternal(ctx.Logger)
+}
+
 func ListPrivateKeys(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
