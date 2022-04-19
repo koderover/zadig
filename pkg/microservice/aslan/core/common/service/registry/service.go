@@ -19,7 +19,6 @@ package registry
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -125,11 +124,7 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 
 	tlsConfig := &tls.Config{}
 
-	if s.EnableHTTPS && s.CustomCert != "" {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM([]byte(s.CustomCert))
-		tlsConfig.RootCAs = caCertPool
-	} else if !s.EnableHTTPS {
+	if (s.EnableHTTPS && s.CustomCert != "") || !s.EnableHTTPS {
 		tlsConfig.InsecureSkipVerify = true
 	}
 
