@@ -46,7 +46,7 @@ func CreateWorkflowTask(c *gin.Context) {
 		ctx.Logger.Errorf("Marshal err:%s", err)
 		return
 	}
-	res, err := service.CreateWorkflowTask(c.Request.Header, c.Request.URL.Query(), body, ctx.Logger)
+	res, err := service.CreateWorkflowTask(c.Request.Header, c.Request.URL.Query(), req.WorkflowName, body, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		ctx.Logger.Errorf("CreateWorkflowTask err:%s", err)
