@@ -33,7 +33,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func UninstallService(helmClient helmclient.Client, productName, namespace, envName, serviceName string, revision int64, force bool) error {
+func UninstallServiceByName(helmClient helmclient.Client, productName, namespace, envName, serviceName string, revision int64, force bool) error {
 	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		Revision:    revision,
@@ -42,8 +42,12 @@ func UninstallService(helmClient helmclient.Client, productName, namespace, envN
 	if err != nil {
 		return fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, revision, err)
 	}
+	return UninstallService(helmClient, productName, namespace, envName, revisionSvc, force)
+}
+
+func UninstallService(helmClient helmclient.Client, productName, namespace, envName string, revisionSvc *commonmodels.Service, force bool) error {
 	return helmClient.UninstallRelease(&helmclient.ChartSpec{
-		ReleaseName: util.GeneReleaseName(revisionSvc.GetReleaseNaming(), productName, namespace, envName, serviceName),
+		ReleaseName: util.GeneReleaseName(revisionSvc.GetReleaseNaming(), productName, namespace, envName, revisionSvc.ServiceName),
 		Namespace:   namespace,
 		Wait:        true,
 		Force:       force,
@@ -98,9 +102,18 @@ func ReInstallServiceInEnv(productInfo *commonmodels.Product, serviceName string
 		return err
 	}
 
-	err = UninstallService(helmClient, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, productSvc.ServiceName, productSvc.Revision, true)
+	prodSvcTemp, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName})
 	if err != nil {
-		return fmt.Errorf("failed to uninstall release for service: %s, err: %s", productSvc.ServiceName, err)
+		return fmt.Errorf("failed to get service: %s with revision: %d, err: %s", serviceName, productSvc.Revision, productInfo.ProductName)
+	}
+
+	// nothing would happen if release naming rule are same
+	if prodSvcTemp.GetReleaseNaming() == templateSvc.GetReleaseNaming() {
+		return nil
+	}
+
+	if err := UninstallService(helmClient, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, prodSvcTemp, true); err != nil {
+		return fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
 	}
 
 	param, err := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
