@@ -55,8 +55,8 @@ func (c *Client) GetLDAPConnector(id string) (*Connector, error) {
 	return res, err
 }
 
-func (c *Client) ListConnectors() ([]*Connector, error) {
-	url := "/connectors"
+func (c *Client) ListConnectorsInternal() ([]*Connector, error) {
+	url := "/connectors/internal"
 
 	res := make([]*Connector, 0)
 	_, err := c.Get(url, httpclient.SetResult(&res))
