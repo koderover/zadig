@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	workflow2 "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -96,6 +97,11 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	err = ProcessWebhook(nil, workflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
+	}
+
+	err = workflow2.DisableCronjobForWorkflow(workflow)
+	if err != nil {
+		log.Errorf("Failed to stop cronjob for workflow: %s, error: %s", workflow.Name, err)
 	}
 
 	go gerrit.DeleteGerritWebhook(workflow, log)
