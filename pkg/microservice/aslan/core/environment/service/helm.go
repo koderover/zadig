@@ -350,7 +350,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			return nil, fmt.Errorf("failed to find template service: %s", svcName)
 		}
 
-		releaseName := util.GeneReleaseName(ts.GetReleaseNaming(), productName, prod.Namespace, prod.Namespace, svcName)
+		releaseName := util.GeneReleaseName(ts.GetReleaseNaming(), productName, prod.Namespace, prod.EnvName, svcName)
 		valuesYaml, err := helmClient.GetReleaseValues(releaseName, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get values for relase: %s, err: %s", releaseName, err)
