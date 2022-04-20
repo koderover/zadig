@@ -162,10 +162,17 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 }
 
 func DisableCronjobForWorkflow(workflow *models.Workflow) error {
+	disableIDList := make([]string, 0)
 	payload := &CronjobPayload{
 		Name:    workflow.Name,
 		JobType: config.WorkflowCronjob,
-		Action:  setting.TypeDisableCronjob,
+		Action:  setting.TypeEnableCronjob,
+	}
+	if workflow.Schedules.Enabled {
+		for _, timer := range workflow.Schedules.Items {
+			disableIDList = append(disableIDList, timer.ID.Hex())
+		}
+		payload.DeleteList = disableIDList
 	}
 
 	pl, _ := json.Marshal(payload)
