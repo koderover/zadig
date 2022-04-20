@@ -63,5 +63,6 @@ func DeleteLabelBindings(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+	ctx.Logger.Infof("DeleteLabelBindings user:%s", ctx.UserName)
 	ctx.Err = service.DeleteLabelBindings(deleteLabelBindingsArgs, ctx.UserName, ctx.Logger)
 }
