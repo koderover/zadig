@@ -925,7 +925,14 @@ func getImageInfo(productName, evnName, repoName, tag string, log *zap.SugaredLo
 		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)
 	}
 
-	return registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert).GetImageInfo(registry.GetRepoImageDetailOption{
+	var regService registry.Service
+	if registryInfo.AdvancedSetting != nil {
+		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
+	} else {
+		regService = registry.NewV2Service(registryInfo.RegProvider, true, "")
+	}
+
+	return regService.GetImageInfo(registry.GetRepoImageDetailOption{
 		Endpoint: registry.Endpoint{
 			Addr:      registryInfo.RegAddr,
 			Ak:        registryInfo.AccessKey,
