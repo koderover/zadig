@@ -680,7 +680,9 @@ DistributeLoop:
 
 			err = ensureUpgrade()
 			if err != nil {
-				return
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				continue DistributeLoop
 			}
 
 			timeOut := p.TaskTimeout()
@@ -721,7 +723,9 @@ DistributeLoop:
 				err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 			}
 			if err != nil {
-				return
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				continue DistributeLoop
 			}
 
 			//替换环境变量中的chartInfos
