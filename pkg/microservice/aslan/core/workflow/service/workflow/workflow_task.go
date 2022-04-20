@@ -2487,7 +2487,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 							}
 							image = GetImage(reg, payload.String())
 						} else {
-							image = GetImage(reg, fmt.Sprintf("%s:%s", t.ServiceName, time.Now().Format("20060102150405")))
+							image = GetImage(reg, fmt.Sprintf("%s:%s", taskOpt.ImageName, time.Now().Format("20060102150405")))
 						}
 
 						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
