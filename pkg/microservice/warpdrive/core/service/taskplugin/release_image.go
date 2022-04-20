@@ -436,7 +436,9 @@ DistributeLoop:
 			if !replaced {
 				err = errors.Errorf(
 					"container %s is not found in resources with label %s", distribute.DeployContainerName, selector)
-				return
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				break
 			}
 			// if all is done in one deployment, update its status to success and endtime
 			distribute.DeployStatus = string(config.StatusPassed)
