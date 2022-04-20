@@ -168,9 +168,17 @@ func DisableCronjobForWorkflow(workflow *models.Workflow) error {
 		JobType: config.WorkflowCronjob,
 		Action:  setting.TypeEnableCronjob,
 	}
-	if workflow.Schedules.Enabled {
-		for _, timer := range workflow.Schedules.Items {
-			disableIDList = append(disableIDList, timer.ID.Hex())
+	if workflow.ScheduleEnabled {
+		jobList, err := mongodb.NewCronjobColl().List(&mongodb.ListCronjobParam{
+			ParentName: workflow.Name,
+			ParentType: config.WorkflowCronjob,
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, job := range jobList {
+			disableIDList = append(disableIDList, job.ID.Hex())
 		}
 		payload.DeleteList = disableIDList
 	}
