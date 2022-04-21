@@ -2644,7 +2644,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 					continue
 				}
 			default:
-				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment ort appsv1.StatefulSet"))
+				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
 				continue
 			}
 
