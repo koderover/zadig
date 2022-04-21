@@ -741,6 +741,22 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 		}
 	}
 
+	//TODO:The host update environment cannot remove deleted services
+	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(productName)
+		if err != nil && !commonrepo.IsErrNoDocuments(err) {
+			log.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
+			return fmt.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
+		}
+		if services != nil {
+			svcNames := make([]string, len(services))
+			for _, svc := range services {
+				svcNames = append(svcNames, svc.ServiceName)
+			}
+			serviceNames = svcNames
+		}
+	}
+
 	if project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, exitedProd.ShareEnv.Enable, kubeClient, log)
 
