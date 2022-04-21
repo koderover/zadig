@@ -124,6 +124,10 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		return prodRev, nil
 	}
 
+	if prodRev.NextRevision > prodRev.CurrentRevision {
+		prodRev.Updatable = true
+	}
+
 	var allRenders []*commonmodels.RenderSet
 	var newRender *commonmodels.RenderSet
 	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
@@ -159,6 +163,10 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
+	}
+
+	if !prodRev.Updatable {
+		prodRev.Updatable = prodRev.GroupsUpdated()
 	}
 
 	return prodRev, nil
