@@ -282,7 +282,7 @@ DistributeLoop:
 		}
 		// set the start time on deployment start.
 		distribute.DeployStartTime = time.Now().Unix()
-		distribute.DeployStatus = setting.StatusRunning
+		distribute.DeployStatus = "running"
 		if distribute.DeployClusterID != "" {
 			p.restConfig, err = kubeclient.GetRESTConfig(p.HubServerAddr, distribute.DeployClusterID)
 			if err != nil {
