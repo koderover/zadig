@@ -705,6 +705,17 @@ func ExtractRegistryNamespace(imageURI string) string {
 	return strings.Join(nsComponent, "/")
 }
 
+func generateUniquePath(pathData map[string]string) string {
+	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
+	values := make([]string, 0)
+	for _, key := range keys {
+		if value := pathData[key]; value != "" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, "-")
+}
+
 func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*commonmodels.Container, error) {
 	flatMap, err := converter.Flatten(nested)
 	if err != nil {
@@ -715,7 +726,13 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 		return nil, err
 	}
 	ret := make([]*commonmodels.Container, 0)
+	usedImagePath := sets.NewString()
 	for _, searchResult := range matchedPath {
+		uniquePath := generateUniquePath(searchResult)
+		if usedImagePath.Has(uniquePath) {
+			continue
+		}
+		usedImagePath.Insert(uniquePath)
 		imageUrl, err := GeneImageURI(searchResult, flatMap)
 		if err != nil {
 			return nil, err
