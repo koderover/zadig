@@ -126,7 +126,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		return prodRev, nil
 	}
 
-	// 如果当前产品版本比产品模板小, 则需要更新
 	if prodRev.NextRevision > prodRev.CurrentRevision {
 		prodRev.Updatable = true
 	}
@@ -168,7 +167,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
 	}
 
-	// 如果任一服务组有更新, 则认为产品需要更新
 	if !prodRev.Updatable {
 		prodRev.Updatable = prodRev.GroupsUpdated()
 	}
