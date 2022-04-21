@@ -98,7 +98,7 @@ func (pr *ProductRevision) GroupsUpdated() bool {
 		return false
 	}
 	for _, serviceRev := range pr.ServiceRevisions {
-		if serviceRev.Updatable && !serviceRev.New && !serviceRev.Deleted {
+		if serviceRev.Updatable {
 			return true
 		}
 	}
