@@ -103,12 +103,10 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 }
 
 func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*commonmodels.Service, log *zap.SugaredLogger) (*ProductRevision, error) {
-
 	prodRev := new(ProductRevision)
 
-	// 查询当前产品的最新模板信息
-	productTemplatName := product.ProductName
-	prodTmpl, err := templaterepo.NewProductColl().Find(productTemplatName)
+	productTemplateName := product.ProductName
+	prodTmpl, err := templaterepo.NewProductColl().Find(productTemplateName)
 	if err != nil {
 		log.Errorf("[ProductTmpl.Find] %s error: %v", product.ProductName, err)
 		return prodRev, e.ErrFindProductTmpl
@@ -124,11 +122,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 
 	if product.Source == setting.SourceFromExternal {
 		return prodRev, nil
-	}
-
-	// 如果当前产品版本比产品模板小, 则需要更新
-	if prodRev.NextRevision > prodRev.CurrentRevision {
-		prodRev.Updatable = true
 	}
 
 	var allRenders []*commonmodels.RenderSet
@@ -152,7 +145,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		}
 		allRenders, err = commonrepo.NewRenderSetColl().ListRendersets(&commonrepo.RenderSetListOption{
 			Revisions:     renderRevision.List(),
-			ProductTmpl:   productTemplatName,
+			ProductTmpl:   productTemplateName,
 			RendersetName: rendersetName,
 		})
 		if err != nil {
@@ -166,11 +159,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
-	}
-
-	// 如果任一服务组有更新, 则认为产品需要更新
-	if !prodRev.Updatable {
-		prodRev.Updatable = prodRev.GroupsUpdated()
 	}
 
 	return prodRev, nil
