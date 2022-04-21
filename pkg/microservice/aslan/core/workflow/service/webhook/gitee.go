@@ -87,6 +87,10 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 			return fmt.Errorf("action %s is skipped", event.Action)
 		}
 
+		if event.Action == "update" && event.ActionDesc == "target_branch_changed" {
+			return fmt.Errorf("action %s is skipped", event.Action)
+		}
+
 		// build webhook
 		wg.Add(1)
 		go func() {
