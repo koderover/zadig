@@ -133,4 +133,4 @@
       description: "查看"
       rules:
         - method: GET
-          endpoint: "/api/aslan/delivery/artifacts""
+          endpoint: "/api/aslan/delivery/artifacts"

@@ -103,22 +103,22 @@ func GetPolicyRegistrationDefinitions(resourceScore string, _ *zap.SugaredLogger
 	if err != nil {
 		return nil, err
 	}
-	clusterScopeResources := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryTrace", "DeliveryVersion")
+	systemScopeResources := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
 	projectScopeResources := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
-	clusterPolicieMetas, projectPolicieMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
+	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
-		if clusterScopeResources.Has(v.Resource) {
-			clusterPolicieMetas = append(clusterPolicieMetas, v)
+		if systemScopeResources.Has(v.Resource) {
+			systemPolicyMetas = append(systemPolicyMetas, v)
 		} else if projectScopeResources.Has(v.Resource) {
-			projectPolicieMetas = append(projectPolicieMetas, v)
+			projectPolicyMetas = append(projectPolicyMetas, v)
 		}
 	}
 
 	switch resourceScore {
 	case string(types.SystemScope):
-		filteredPolicyMetas = clusterPolicieMetas
+		filteredPolicyMetas = systemPolicyMetas
 	case string(types.ProjectScope):
-		filteredPolicyMetas = projectPolicieMetas
+		filteredPolicyMetas = projectPolicyMetas
 	default:
 		filteredPolicyMetas = policieMetas
 	}
