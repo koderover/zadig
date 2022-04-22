@@ -74,6 +74,24 @@
           endpoint: "/api/aslan/stat/quality/buildAverageMeasure"
         - method: POST
           endpoint: "api/aslan/stat/quality/buildTrend"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/deployTopFiveFailureMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/deployTopFiveHigherMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/deployWeeklyMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/deployHealthMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/testDeliveryDeploy"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/testAverageMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/testCaseMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/testHealthMeasure"
+        - method: POST
+          endpoint: "api/aslan/stat/quality/testTrend"
 - resource: Template
   alias: "模版库"
   description: ""
