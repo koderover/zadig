@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -125,11 +126,20 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 			gp.ProductName = serviceTmpl.ProductName
 			if len(serviceTmpl.EnvStatuses) > 0 {
 				envStatuses := make([]*commonmodels.EnvStatus, 0)
+				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+				if err != nil {
+					return
+				}
+				filterEnvStatusSet := sets.NewString()
+				for _, v := range filterEnvStatuses {
+					filterEnvStatusSet.Insert(v.Address)
+				}
 				for _, envStatus := range serviceTmpl.EnvStatuses {
-					if envStatus.EnvName == envName {
+					if envStatus.EnvName == envName && filterEnvStatusSet.Has(envStatus.Address) {
 						envStatuses = append(envStatuses, envStatus)
 					}
 				}
+
 				if len(envStatuses) > 0 {
 					gp.EnvStatuses = envStatuses
 					mutex.Lock()

@@ -162,6 +162,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	privateKey := router.Group("privateKey")
 	{
 		privateKey.GET("", ListPrivateKeys)
+		privateKey.GET("/internal", ListPrivateKeysInternal)
 		privateKey.GET("/:id", GetPrivateKey)
 		privateKey.GET("/labels", ListLabels)
 		privateKey.POST("", gin2.UpdateOperationLogStatus, CreatePrivateKey)

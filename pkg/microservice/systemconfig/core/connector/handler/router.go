@@ -27,6 +27,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		connector.POST("", CreateConnector)
 		connector.GET("", ListConnectors)
+		connector.GET("/internal", ListConnectorsInternal)
 		connector.GET("/:id", GetConnector)
 		connector.PUT("/:id", UpdateConnector)
 		connector.DELETE("/:id", DeleteConnector)

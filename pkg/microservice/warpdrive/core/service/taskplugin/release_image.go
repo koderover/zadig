@@ -282,7 +282,7 @@ DistributeLoop:
 		}
 		// set the start time on deployment start.
 		distribute.DeployStartTime = time.Now().Unix()
-		distribute.DeployStatus = setting.StatusRunning
+		distribute.DeployStatus = "running"
 		if distribute.DeployClusterID != "" {
 			p.restConfig, err = kubeclient.GetRESTConfig(p.HubServerAddr, distribute.DeployClusterID)
 			if err != nil {
@@ -436,7 +436,9 @@ DistributeLoop:
 			if !replaced {
 				err = errors.Errorf(
 					"container %s is not found in resources with label %s", distribute.DeployContainerName, selector)
-				return
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				break
 			}
 			// if all is done in one deployment, update its status to success and endtime
 			distribute.DeployStatus = string(config.StatusPassed)
@@ -680,7 +682,9 @@ DistributeLoop:
 
 			err = ensureUpgrade()
 			if err != nil {
-				return
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				continue DistributeLoop
 			}
 
 			timeOut := p.TaskTimeout()
@@ -721,7 +725,9 @@ DistributeLoop:
 				err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 			}
 			if err != nil {
-				return
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				continue DistributeLoop
 			}
 
 			//替换环境变量中的chartInfos

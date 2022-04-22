@@ -130,7 +130,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
 			}
 
-			details, err := systemconfig.New().ListCodeHosts()
+			details, err := systemconfig.New().ListCodeHostsInternal()
 			if err != nil {
 				log.Errorf("无法从原有数据中恢复加载信息, listCodehostDetail failed err: %+v", err)
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
@@ -326,7 +326,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
 		if gitlabAddress, err := GetGitlabAddress(resp.SrcPath); err == nil {
-			if details, err := systemconfig.New().ListCodeHosts(); err == nil {
+			if details, err := systemconfig.New().ListCodeHostsInternal(); err == nil {
 				for _, detail := range details {
 					if strings.Contains(detail.Address, gitlabAddress) {
 						resp.GerritCodeHostID = detail.ID
@@ -705,6 +705,17 @@ func ExtractRegistryNamespace(imageURI string) string {
 	return strings.Join(nsComponent, "/")
 }
 
+func generateUniquePath(pathData map[string]string) string {
+	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
+	values := make([]string, 0)
+	for _, key := range keys {
+		if value := pathData[key]; value != "" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, "-")
+}
+
 func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*commonmodels.Container, error) {
 	flatMap, err := converter.Flatten(nested)
 	if err != nil {
@@ -715,7 +726,13 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 		return nil, err
 	}
 	ret := make([]*commonmodels.Container, 0)
+	usedImagePath := sets.NewString()
 	for _, searchResult := range matchedPath {
+		uniquePath := generateUniquePath(searchResult)
+		if usedImagePath.Has(uniquePath) {
+			continue
+		}
+		usedImagePath.Insert(uniquePath)
 		imageUrl, err := GeneImageURI(searchResult, flatMap)
 		if err != nil {
 			return nil, err

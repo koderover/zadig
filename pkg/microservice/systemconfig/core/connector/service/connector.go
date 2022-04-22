@@ -28,6 +28,34 @@ import (
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
+func ListConnectorsInternal(logger *zap.SugaredLogger) ([]*Connector, error) {
+	cs, err := orm.NewConnectorColl().List()
+	if err != nil {
+		logger.Errorf("Failed to list connectors, err: %s", err)
+		return nil, err
+	}
+
+	var res []*Connector
+	for _, c := range cs {
+		cf := make(map[string]interface{})
+		err = json.Unmarshal([]byte(c.Config), &cf)
+		if err != nil {
+			logger.Errorf("Failed to unmarshal config, err: %s", err)
+			continue
+		}
+		res = append(res, &Connector{
+			ConnectorBase: ConnectorBase{
+				Type: ConnectorType(c.Type),
+			},
+			ID:     c.ID,
+			Name:   c.Name,
+			Config: cf,
+		})
+	}
+
+	return res, nil
+}
+
 func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connector, error) {
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {

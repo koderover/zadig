@@ -77,8 +77,8 @@ type WorkflowTaskDetail struct {
 	Status       string                    `json:"status"`
 }
 
-func CreateWorkflowTask(header http.Header, qs url.Values, body []byte, _ *zap.SugaredLogger) ([]byte, error) {
-	return aslan.New().CreateWorkflowTask(header, qs, body)
+func CreateWorkflowTask(header http.Header, qs url.Values, workflowName string, body []byte, _ *zap.SugaredLogger) ([]byte, error) {
+	return aslan.New().CreateWorkflowTask(header, qs, body, workflowName)
 }
 
 func CancelWorkflowTask(header http.Header, qs url.Values, id string, name string, _ *zap.SugaredLogger) (int, error) {

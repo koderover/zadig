@@ -19,7 +19,6 @@ package kube
 import (
 	"bytes"
 	"fmt"
-	config2 "github.com/koderover/zadig/pkg/config"
 	"net/url"
 	"strings"
 	"text/template"
@@ -29,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -510,7 +510,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/library-docker:stable-dind
+          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
           args:
             - --mtu=1376
           env:
@@ -762,7 +762,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/library-docker:stable-dind
+          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
           args:
             - --mtu=1376
           env:

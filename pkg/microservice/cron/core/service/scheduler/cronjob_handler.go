@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -250,7 +251,7 @@ func (h *CronjobHandler) registerWorkFlowJob(name, schedule string, job *service
 		args.DistributeEnabled = job.WorkflowArgs.DistributeEnabled
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
-		if err := h.aslanCli.ScheduleCall("workflow/workflowtask", args, log.SugaredLogger()); err != nil {
+		if err := h.aslanCli.ScheduleCall(path.Join("workflow/workflowtask", args.WorkflowName), args, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
 		}
 	})
@@ -354,7 +355,7 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 			cron, _ = convertCronString(job.JobType, job.Time, job.Frequency, job.Number)
 		}
 		scheduleJob, err := cronlib.NewJobModel(cron, func() {
-			if err := client.ScheduleCall("workflow/workflowtask", args, log.SugaredLogger()); err != nil {
+			if err := client.ScheduleCall(path.Join("workflow/workflowtask", job.WorkflowArgs.WorkflowName), args, log.SugaredLogger()); err != nil {
 				log.Errorf("[%s]RunScheduledTask err: %v", job.Name, err)
 			}
 		})

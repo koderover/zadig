@@ -420,7 +420,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	}
 
 	switch productObj.Source {
-	case setting.SourceFromHelm, setting.SourceFromExternal:
+	case setting.SourceFromExternal:
 		errList := new(multierror.Error)
 		serviceObj, found, err := getter.GetService(productObj.Namespace, args.ServiceName, kubeClient)
 		if err != nil || !found {
@@ -446,7 +446,22 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				}
 			}
 		}
+	case setting.SourceFromHelm:
+		deploy, found, err := getter.GetDeployment(productObj.Namespace, args.ServiceName, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.Deployment, err.Error())
+		}
+		if found {
+			return updater.RestartDeployment(productObj.Namespace, deploy.Name, kubeClient)
+		}
 
+		sts, found, err := getter.GetStatefulSet(productObj.Namespace, args.ServiceName, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.StatefulSet, err.Error())
+		}
+		if found {
+			return updater.RestartStatefulSet(productObj.Namespace, sts.Name, kubeClient)
+		}
 	default:
 		var serviceTmpl *commonmodels.Service
 		var newRender *commonmodels.RenderSet

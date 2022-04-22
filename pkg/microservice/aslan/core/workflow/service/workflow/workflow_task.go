@@ -1407,12 +1407,12 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 			}
 			releaseName := ""
 			if repoInfo.DeployEnabled {
-				svcMap := envInfo.GetServiceMap()
-				pSvc, ok := svcMap[serviceModule.ServiceName]
-				if !ok {
-					return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
-				}
-				if pSvc.Type == setting.HelmDeployType {
+				if productInfo.ProductFeature != nil && productInfo.ProductFeature.DeployType == setting.HelmDeployType {
+					svcMap := envInfo.GetServiceMap()
+					pSvc, ok := svcMap[serviceModule.ServiceName]
+					if !ok {
+						return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
+					}
 					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 						ServiceName: serviceModule.ServiceName,
 						Revision:    pSvc.Revision,
@@ -2240,13 +2240,13 @@ func getServiceNaming(projectName, envName, serviceName string) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	if productInfo.Source != setting.SourceFromHelm {
+		return "", nil
+	}
 	svcMap := productInfo.GetServiceMap()
 	pSvc, ok := svcMap[serviceName]
 	if !ok {
 		return "", fmt.Errorf("can't find service: %s in product: %s:%s", serviceName, projectName, envName)
-	}
-	if pSvc.Type != setting.HelmDeployType {
-		return "", nil
 	}
 	templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
@@ -2487,7 +2487,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 							}
 							image = GetImage(reg, payload.String())
 						} else {
-							image = GetImage(reg, fmt.Sprintf("%s:%s", t.ServiceName, time.Now().Format("20060102150405")))
+							image = GetImage(reg, fmt.Sprintf("%s:%s", taskOpt.ImageName, time.Now().Format("20060102150405")))
 						}
 
 						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image

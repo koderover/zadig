@@ -202,6 +202,30 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			return res
 		},
 	}
+
+	// for helm service, only show deploys/stss created by zadig
+	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
+			releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+			if err != nil {
+				log.Errorf("failed to generate relase map for product: %s:%s", productInfo.ProductName, productInfo.EnvName)
+				return workloads
+			}
+
+			var res []*Workload
+			for _, workload := range workloads {
+				if len(workload.Annotation) == 0 {
+					continue
+				}
+				releaseName := workload.Annotation[setting.HelmReleaseNameAnnotation]
+				if _, ok := releaseNameMap[releaseName]; ok {
+					res = append(res, workload)
+				}
+			}
+			return res
+		})
+	}
+
 	if filter != "" {
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			data, err := jsonutil.ToJSON(filter)
@@ -254,6 +278,7 @@ type Workload struct {
 	Images      []string               `json:"-"`
 	Ready       bool                   `json:"ready"`
 	ServiceName string                 `json:"service_name"`
+	Annotation  map[string]string      `json:"-"`
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -277,7 +302,14 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.Deployment,
+			Images:     wrapper.Deployment(v).ImageInfos(),
+			Ready:      wrapper.Deployment(v).Ready(),
+			Annotation: v.Annotations,
+		})
 	}
 	statefulSets, err := getter.ListStatefulSetsWithCache(nil, informer)
 	if err != nil {
@@ -285,7 +317,14 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.StatefulSet,
+			Images:     wrapper.StatefulSet(v).ImageInfos(),
+			Ready:      wrapper.StatefulSet(v).Ready(),
+			Annotation: v.Annotations,
+		})
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))

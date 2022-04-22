@@ -932,7 +932,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	return errorDetails
 }
 
-func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
+func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
 	serviceTemplate, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		Revision:      0,
@@ -944,10 +944,24 @@ func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule, log *z
 		return err
 	}
 
-	oldReleaseNamingRule := serviceTemplate.GetReleaseNaming()
-	// nothing would happen if naming rule keeps the same
-	if oldReleaseNamingRule == args.NamingRule {
-		return nil
+	// check if namings rule changes for services deployed in envs
+	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: projectName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
+		}
+		modified := false
+		for _, product := range products {
+			if pSvc, ok := product.GetServiceMap()[args.ServiceName]; ok && pSvc.Revision != serviceTemplate.Revision {
+				modified = true
+				break
+			}
+		}
+		if !modified {
+			return nil
+		}
 	}
 
 	serviceTemplate.ReleaseNaming = args.NamingRule
@@ -974,11 +988,15 @@ func UpdateReleaseNamingRule(projectName string, args *ReleaseNamingRule, log *z
 		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
 	}
 
-	// reinstall all services
-	err = service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
-	if err != nil {
-		return fmt.Errorf("failed to re install service: %s, err: %s", args.ServiceName)
-	}
+	go func() {
+		// reinstall services in envs
+		err = service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
+		if err != nil {
+			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
+			commonservice.SendErrorMessage(userName, title, requestID, err, log)
+		}
+	}()
+
 	return nil
 }
 

@@ -76,7 +76,7 @@ func Serve(ctx context.Context) error {
 }
 
 func initDinD() {
-	client := aslan.New(config2.AslanBaseAddr())
+	client := aslan.NewExternal(config2.AslanBaseAddr(), "")
 
 	ls, err := client.ListRegistries()
 	if err != nil {

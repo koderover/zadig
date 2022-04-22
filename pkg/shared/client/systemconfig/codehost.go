@@ -70,8 +70,8 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 	return res, nil
 }
 
-func (c *Client) ListCodeHosts() ([]*CodeHost, error) {
-	url := "/codehosts"
+func (c *Client) ListCodeHostsInternal() ([]*CodeHost, error) {
+	url := "/codehosts/internal"
 
 	res := make([]*CodeHost, 0)
 	_, err := c.Get(url, httpclient.SetResult(&res))
@@ -90,7 +90,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 }
 
 func (c *Client) GetCodeHostByAddressAndOwner(address, owner, source string) (*CodeHost, error) {
-	url := "/codehosts"
+	url := "/codehosts/internal"
 
 	res := make([]*CodeHost, 0)
 
