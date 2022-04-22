@@ -113,7 +113,6 @@ func SearchRoleBindings(ns string, uids []string, _ *zap.SugaredLogger) (map[str
 			UID:    v.Subjects[0].UID,
 			Preset: v.RoleRef.Namespace == "",
 		})
-		fmt.Printf("%v", v)
 	}
 	resMap := make(map[string][]*RoleBinding)
 	for _, rb := range roleBindings {
