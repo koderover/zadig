@@ -236,6 +236,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sonar.PUT("/integration/:id", gin2.UpdateOperationLogStatus, UpdateSonarIntegration)
 		sonar.GET("/integration", ListSonarIntegration)
 		sonar.GET("/integration/:id", GetSonarIntegration)
+		sonar.DELETE("/integration/:id", gin2.UpdateOperationLogStatus, DeleteSonarIntegration)
 		sonar.POST("/validate", ValidateSonarInformation)
 	}
 }

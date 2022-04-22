@@ -63,3 +63,11 @@ func GetSonarIntegration(id string, log *zap.SugaredLogger) (*SonarIntegration, 
 	resp.Token = sonarIntegration.Token
 	return resp, nil
 }
+
+func DeleteSonarIntegration(id string, log *zap.SugaredLogger) error {
+	err := commonrepo.NewSonarIntegrationColl().DeleteByID(id)
+	if err != nil {
+		log.Errorf("Failed to delete sonar integration of id: %s, the error is: %s", id, err)
+	}
+	return err
+}

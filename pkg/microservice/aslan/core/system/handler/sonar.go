@@ -144,6 +144,14 @@ func GetSonarIntegration(c *gin.Context) {
 	ctx.Resp = resp
 }
 
+func DeleteSonarIntegration(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-Sonar集成", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+	ctx.Err = service.DeleteSonarIntegration(c.Param("id"), ctx.Logger)
+}
+
 func ValidateSonarInformation(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
