@@ -145,6 +145,7 @@ func ListResourceYamlInCache(ns string, selector labels.Selector, fieldSelector 
 
 	var res [][]byte
 	for _, item := range u.Items {
+		item.SetManagedFields(nil)
 		data, err := item.MarshalJSON()
 		if err != nil {
 			return nil, err
