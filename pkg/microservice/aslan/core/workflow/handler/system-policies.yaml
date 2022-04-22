@@ -127,10 +127,10 @@
       description: "查看"
       rules:
         - method: GET
-          endpoint: "/api/aslan/delivery/artifacts"
+          endpoint: "/api/aslan/delivery/releases"
     - action: get
       alias: "查看交付物"
       description: "查看"
       rules:
         - method: GET
-          endpoint: "/api/aslan/delivery/releases"
+          endpoint: "/api/aslan/delivery/artifacts""
