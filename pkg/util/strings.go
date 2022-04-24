@@ -37,7 +37,7 @@ func ReplaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-// image ccr.ccs.tencentyun.com/koderover/nginx:stable or 124.221.18.196:5000/admin/nginx:20220424203540
+// image xxx.xxx.xxx/nginx:stable or xxx.xxx.xxx.xxx:5000/admin/nginx:20220424203540
 // return nginx
 func GetImageName(image string) string {
 	imageNameStr := ""
