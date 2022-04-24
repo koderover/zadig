@@ -91,7 +91,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		if ok {
 			production = cluster.Production
 		}
-		resourceSpec.Spec = append(resourceSpec.Spec, strconv.FormatBool(production))
+		resourceSpec.Spec = append(resourceSpec.Spec, "production:"+strconv.FormatBool(production))
 		res = append(res, resourceSpec)
 	}
 
