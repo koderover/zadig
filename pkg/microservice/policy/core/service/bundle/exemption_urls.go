@@ -340,6 +340,14 @@ var systemAdminURLs = []*policyRule{
 		Methods:   []string{"PUT", "DELETE"},
 		Endpoints: []string{"api/aslan/template/charts/?*"},
 	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/template/build"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/template/build/?*"},
+	},
 }
 
 // actions which are allowed for project admins.

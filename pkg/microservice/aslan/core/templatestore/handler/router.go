@@ -59,4 +59,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		yaml.GET("/:id/reference", GetYamlTemplateReference)
 		yaml.POST("/getVariables", GetYamlTemplateVariables)
 	}
+
+	build := router.Group("build")
+	{
+		build.POST("", AddBuildTemplate)
+		build.PUT("/:name", UpdateBuildTemplate)
+		build.GET("", ListBuildTemplates)
+		build.GET("/:name", GetBuildTemplate)
+		build.DELETE("/:name", RemoveBuildTemplate)
+	}
 }
