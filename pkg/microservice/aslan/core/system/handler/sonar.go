@@ -166,5 +166,5 @@ func ValidateSonarInformation(c *gin.Context) {
 		log.Errorf("Validate sonar integration Unmarshal err : %s", err)
 	}
 
-	ctx.Err = service.ValidateSonarIntegration(data, ctx.Logger)
+	ctx.Err = service.ValidateSonarIntegration(args, ctx.Logger)
 }
