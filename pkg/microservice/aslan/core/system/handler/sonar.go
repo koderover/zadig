@@ -155,4 +155,16 @@ func DeleteSonarIntegration(c *gin.Context) {
 func ValidateSonarInformation(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.SonarIntegration)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("Validate sonar integration GetRawData err : %s", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("Validate sonar integration Unmarshal err : %s", err)
+	}
+
+	ctx.Err = service.ValidateSonarIntegration(data, ctx.Logger)
 }

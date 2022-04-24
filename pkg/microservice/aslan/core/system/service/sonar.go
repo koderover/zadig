@@ -1,10 +1,15 @@
 package service
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"go.uber.org/zap"
+	"io"
+	"net/http"
 )
 
 func CreateSonarIntegration(args *SonarIntegration, log *zap.SugaredLogger) error {
@@ -70,4 +75,46 @@ func DeleteSonarIntegration(id string, log *zap.SugaredLogger) error {
 		log.Errorf("Failed to delete sonar integration of id: %s, the error is: %s", id, err)
 	}
 	return err
+}
+
+type sonarValidationResponse struct {
+	Valid bool `json:"valid"`
+}
+
+func ValidateSonarIntegration(arg *SonarIntegration, log *zap.SugaredLogger) error {
+	validateAPI := fmt.Sprintf("%s/%s", arg.ServerAddress, "api/authentication/validate")
+
+	req, err := http.NewRequest("GET", validateAPI, nil)
+	if err != nil {
+		log.Errorf("failed to create http request to API: %s with error: %s", validateAPI, err)
+		return err
+	}
+
+	req.SetBasicAuth(arg.Token, "")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Errorf("failed to request the sonar validate API, the error is: %s", err)
+		return err
+	}
+	defer resp.Body.Close()
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Errorf("failed to read response body, the error is: %s", err)
+		return err
+	}
+	if resp.StatusCode == http.StatusOK {
+		res := &sonarValidationResponse{}
+		err = json.Unmarshal(bodyBytes, res)
+		if err != nil {
+			log.Errorf("failed to ready response body, the error is: %s", err)
+			return err
+		}
+		if res.Valid {
+			return nil
+		}
+		return errors.New("the token validation failed.")
+	}
+
+	return fmt.Errorf("the server responded with code: %d and message: %s", resp.StatusCode, string(bodyBytes))
 }
