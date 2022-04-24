@@ -54,5 +54,5 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req.ProjectName, req.ServiceName, req.Variables, ctx.Logger)
+	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req.ProjectName, req.ServiceName, req.TemplateID, req.Variables, ctx.Logger)
 }
