@@ -76,6 +76,10 @@ func GetBuildTemplateByName(name string) (*commonmodels.BuildTemplate, error) {
 	return mongodb.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{Name: name})
 }
 
+func GetBuildTemplateByID(idStr string) (*commonmodels.BuildTemplate, error) {
+	return mongodb.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: idStr})
+}
+
 func ListBuildTemplates(pageNum, pageSize int) (*BuildTemplateListResp, error) {
 	buildTemplates, count, err := mongodb.NewBuildTemplateColl().List(pageNum, pageSize)
 	if err != nil {
@@ -95,7 +99,7 @@ func ListBuildTemplates(pageNum, pageSize int) (*BuildTemplateListResp, error) {
 }
 
 func RemoveBuildTemplate(name string, logger *zap.SugaredLogger) error {
-	err := mongodb.NewBuildTemplateColl().DeleteByName(name)
+	err := mongodb.NewBuildTemplateColl().DeleteByID(name)
 	if err != nil {
 		logger.Errorf("Failed to delete build template %s, err: %s", name, err)
 		return err
@@ -103,12 +107,12 @@ func RemoveBuildTemplate(name string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func UpdateBuildTemplate(buildTemplate *commonmodels.BuildTemplate, logger *zap.SugaredLogger) error {
+func UpdateBuildTemplate(id string, buildTemplate *commonmodels.BuildTemplate, logger *zap.SugaredLogger) error {
 	_, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-		Name: buildTemplate.Name,
+		ID: id,
 	})
 	if err != nil {
 		return err
 	}
-	return commonrepo.NewBuildTemplateColl().Update(buildTemplate)
+	return commonrepo.NewBuildTemplateColl().Update(id, buildTemplate)
 }

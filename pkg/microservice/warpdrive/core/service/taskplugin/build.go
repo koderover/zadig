@@ -229,32 +229,8 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
 	}
 
-	for _, repo := range p.Task.JobCtx.Builds {
-		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
-		if len(repo.Branch) > 0 {
-			branchVar := &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, branchVar)
-		}
-
-		if len(repo.Tag) > 0 {
-			tagVar := &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, tagVar)
-		}
-
-		if repo.PR > 0 {
-			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
-		}
-
-		if len(repo.CommitID) > 0 {
-			commitVar := &task.KeyVal{
-				Key:          fmt.Sprintf("%s_COMMIT_ID", repoName),
-				Value:        repo.CommitID,
-				IsCredential: false,
-			}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, commitVar)
-		}
-	}
+	//instantiates variables like ${<REPO>_BRANCH} ${${REPO[index]}_BRANCH} ...
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, InstantiateBuildSysVariables(&p.Task.JobCtx)...)
 
 	// Note: Currently, `SERVICE` in the environment variable represents a service module.
 	// Since variable rendering is required next, the `SERVICE_MODULE` environment variable is added to accurately

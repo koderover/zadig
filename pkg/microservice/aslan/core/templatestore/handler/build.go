@@ -35,7 +35,7 @@ func GetBuildTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateByName(c.Param("name"))
+	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateByID(c.Param("id"))
 }
 
 func ListBuildTemplates(c *gin.Context) {
@@ -95,12 +95,12 @@ func UpdateBuildTemplate(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = templateservice.UpdateBuildTemplate(args, ctx.Logger)
+	ctx.Err = templateservice.UpdateBuildTemplate(c.Param("id"), args, ctx.Logger)
 }
 
 func RemoveBuildTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = templateservice.RemoveBuildTemplate(c.Param("name"), ctx.Logger)
+	ctx.Err = templateservice.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -241,4 +242,32 @@ func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes
 	}
 
 	return controllerRuntimeClient, clientset, restConfig, nil
+}
+
+// InstantiateBuildSysVariables instantiate system variables for build module
+func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
+	ret := make([]*task.KeyVal, 0)
+	for index, repo := range jobCtx.Builds {
+		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+
+		repoIndex := fmt.Sprintf("REPO[%d]", index+1)
+		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
+
+		if len(repo.Branch) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
+		}
+
+		if len(repo.Tag) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
+		}
+
+		if repo.PR > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
+		}
+
+		if len(repo.CommitID) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
+		}
+	}
+	return ret
 }

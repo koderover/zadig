@@ -24,11 +24,12 @@ import (
 )
 
 type Build struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Name    string             `bson:"name"                         json:"name"`
-	Team    string             `bson:"team,omitempty"               json:"team,omitempty"`
-	Source  string             `bson:"source,omitempty"             json:"source,omitempty"`
-	Timeout int                `bson:"timeout"                      json:"timeout"`
+	ID         primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
+	Name       string             `bson:"name"                         json:"name"`
+	Team       string             `bson:"team,omitempty"               json:"team,omitempty"`
+	Source     string             `bson:"source,omitempty"             json:"source,omitempty"`
+	TemplateID string             `bson:"template_id"                  json:"template_id"`
+	Timeout    int                `bson:"timeout"                      json:"timeout"`
 	// 在任一编译配置模板中只能出现一次
 	// 对于k8s部署是传入容器名称
 	// 对于物理机部署是服务名称

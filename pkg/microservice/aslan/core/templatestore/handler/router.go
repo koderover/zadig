@@ -63,9 +63,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	build := router.Group("build")
 	{
 		build.POST("", AddBuildTemplate)
-		build.PUT("/:name", UpdateBuildTemplate)
+		build.PUT("/:id", UpdateBuildTemplate)
 		build.GET("", ListBuildTemplates)
-		build.GET("/:name", GetBuildTemplate)
-		build.DELETE("/:name", RemoveBuildTemplate)
+		build.GET("/:id", GetBuildTemplate)
+		build.DELETE("/:id", RemoveBuildTemplate)
 	}
 }

@@ -1942,6 +1942,32 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	return resp, nil
 }
 
+// fillBuildDetail fill the contents for builds created from build templates
+func fillBuildDetail(moduleBuild *commonmodels.Build) error {
+	if moduleBuild.TemplateID == "" {
+		return nil
+	}
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		ID: moduleBuild.TemplateID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+	}
+
+	moduleBuild.Timeout = buildTemplate.Timeout
+	moduleBuild.PreBuild = buildTemplate.PreBuild
+	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.Scripts = buildTemplate.Scripts
+	moduleBuild.PostBuild = buildTemplate.PostBuild
+	moduleBuild.SSHs = buildTemplate.SSHs
+	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
+	moduleBuild.CacheEnable = buildTemplate.CacheEnable
+	moduleBuild.CacheDirType = buildTemplate.CacheDirType
+	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
+	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+	return nil
+}
+
 func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredLogger) ([]map[string]interface{}, error) {
 	var (
 		subTasks    = make([]map[string]interface{}, 0)
@@ -1982,6 +2008,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	}
 
 	for _, module := range modules {
+		err = fillBuildDetail(module)
+		if err != nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
 		build := &taskmodels.Build{
 			TaskType:     config.TaskBuild,
 			Enabled:      true,

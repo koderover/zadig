@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -31,6 +32,7 @@ import (
 )
 
 type BuildTemplateQueryOption struct {
+	ID   string
 	Name string
 }
 
@@ -69,10 +71,15 @@ func (c *BuildTemplateColl) Create(obj *models.BuildTemplate) error {
 	return err
 }
 
-func (c *BuildTemplateColl) Update(obj *models.BuildTemplate) error {
-	query := bson.M{"name": obj.Name}
+func (c *BuildTemplateColl) Update(idStr string, obj *models.BuildTemplate) error {
+	id, err := primitive.ObjectIDFromHex(idStr)
+	if err != nil {
+		return err
+	}
+	obj.ID = id
+	query := bson.M{"_id": id}
 	change := bson.M{"$set": obj}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err = c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 
@@ -81,7 +88,14 @@ func (c *BuildTemplateColl) Find(opt *BuildTemplateQueryOption) (*models.BuildTe
 		return nil, errors.New("nil FindOption")
 	}
 	query := bson.M{}
-	if len(opt.Name) != 0 {
+	if len(opt.ID) > 0 {
+		id, err := primitive.ObjectIDFromHex(opt.ID)
+		if err != nil {
+			return nil, err
+		}
+		query["_id"] = id
+	}
+	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
 	}
 	resp := new(models.BuildTemplate)
@@ -117,5 +131,15 @@ func (c *BuildTemplateColl) List(pageNum, pageSize int) ([]*models.BuildTemplate
 func (c *BuildTemplateColl) DeleteByName(name string) error {
 	query := bson.M{"name": name}
 	_, err := c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *BuildTemplateColl) DeleteByID(idStr string) error {
+	id, err := primitive.ObjectIDFromHex(idStr)
+	if err != nil {
+		return err
+	}
+	query := bson.M{"_id": id}
+	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
