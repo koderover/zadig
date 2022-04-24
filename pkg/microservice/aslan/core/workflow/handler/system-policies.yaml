@@ -115,6 +115,8 @@
         - method: GET
           endpoint: "/api/aslan/template/charts"
         - method: GET
+          endpoint: "/api/aslan/template/charts/?*"
+        - method: GET
           endpoint: "/api/aslan/template/dockerfile"
     - action: edit_template
       alias: "编辑"
@@ -124,6 +126,8 @@
           endpoint: "/api/aslan/template/yaml/?*"
         - method: PUT
           endpoint: "/api/aslan/template/charts/?*"
+        - method: PUT
+          endpoint: "api/aslan/template/charts/?*/variables"
         - method: PUT
           endpoint: "/api/aslan/template/dockerfile/?*"
     - action: delete_template
