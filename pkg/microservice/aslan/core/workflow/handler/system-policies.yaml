@@ -149,12 +149,6 @@
         - method: GET
           endpoint: "/api/aslan/delivery/releases/?*"
     - action: get
-      alias: "版本管理|删除"
-      description: "删除"
-      rules:
-        - method: DELETE
-          endpoint: "/api/aslan/delivery/releases/?*"
-    - action: get
       alias: "交付物追踪|查看"
       description: "查看"
       rules:
