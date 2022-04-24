@@ -17,6 +17,7 @@ require (
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/chartmuseum/helm-push v0.10.1
+	github.com/containers/image v3.0.2+incompatible
 	github.com/coocood/freecache v1.1.0
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/dexidp/dex v0.0.0-20210802203454-3fac2ab6bc3b
@@ -47,7 +48,6 @@ require (
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/mittwald/go-helm-client v0.8.4
 	github.com/moby/buildkit v0.9.1
-	github.com/novln/docker-parser v1.0.0
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.16.4

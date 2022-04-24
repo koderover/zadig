@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	parser "github.com/novln/docker-parser"
+	ref "github.com/containers/image/docker/reference"
 )
 
 func GetJiraKeys(title string) (keys []string) {
@@ -40,19 +40,14 @@ func ReplaceWrapLine(script string) string {
 }
 
 // image xxx.xxx.xxx/admin/nginx:stable or xxx.xxx.xxx.xxx:5000/admin/nginx:20220424203540 or xxx.xxx.xxx/admin/nginx
-// extract name: admin/nginx:stable or admin/nginx:20220424203540 or admin/nginx:latest
+// extract name: xxx.xxx.xxx/admin/nginx or xxx.xxx.xxx.xxx:5000/admin/nginx or xxx.xxx.xxx/admin/nginx
 // return nginx
 func GetImageName(image string) string {
 	imageNameStr := ""
 
-	reference, err := parser.Parse(image)
-	if err != nil {
-		return ""
-	}
-	imageName := reference.Name()
-	imageArr := strings.Split(imageName, ":")
-	if len(imageArr) > 0 {
-		imageNameArr := strings.Split(imageArr[0], "/")
+	reference, _ := ref.Parse(image)
+	if named, ok := reference.(ref.Named); ok {
+		imageNameArr := strings.Split(named.Name(), "/")
 		imageNameStr = imageNameArr[len(imageNameArr)-1]
 	}
 
