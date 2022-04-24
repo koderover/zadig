@@ -39,7 +39,8 @@ func ReplaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-// image xxx.xxx.xxx/nginx:stable or xxx.xxx.xxx.xxx:5000/admin/nginx:20220424203540 or xxx.xxx.xxx/nginx
+// image xxx.xxx.xxx/admin/nginx:stable or xxx.xxx.xxx.xxx:5000/admin/nginx:20220424203540 or xxx.xxx.xxx/admin/nginx
+// extract name: admin/nginx:stable or admin/nginx:20220424203540 or admin/nginx:latest
 // return nginx
 func GetImageName(image string) string {
 	imageNameStr := ""
