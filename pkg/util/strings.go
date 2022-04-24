@@ -45,7 +45,10 @@ func ReplaceWrapLine(script string) string {
 func GetImageName(image string) string {
 	imageNameStr := ""
 
-	reference, _ := ref.Parse(image)
+	reference, err := ref.Parse(image)
+	if err != nil {
+		return imageNameStr
+	}
 	if named, ok := reference.(ref.Named); ok {
 		imageNameArr := strings.Split(named.Name(), "/")
 		imageNameStr = imageNameArr[len(imageNameArr)-1]
