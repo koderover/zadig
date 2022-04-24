@@ -49,6 +49,7 @@ type Workflow struct {
 	DistributeStage *DistributeStage   `bson:"distribute_stage"             json:"distribute_stage"`
 	ExtensionStage  *ExtensionStage    `bson:"extension_stage"              json:"extension_stage"`
 	NotifyCtl       *NotifyCtl         `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
+	NotifyCtls      []*NotifyCtl       `bson:"notify_ctls,omitempty"        json:"notify_ctls,omitempty"`
 	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
 	BaseName        string             `bson:"base_name" json:"base_name"`
 
