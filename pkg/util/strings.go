@@ -19,6 +19,8 @@ package util
 import (
 	"regexp"
 	"strings"
+
+	parser "github.com/novln/docker-parser"
 )
 
 func GetJiraKeys(title string) (keys []string) {
@@ -37,16 +39,22 @@ func ReplaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-// image xxx.xxx.xxx/nginx:stable or xxx.xxx.xxx.xxx:5000/admin/nginx:20220424203540
+// image xxx.xxx.xxx/nginx:stable or xxx.xxx.xxx.xxx:5000/admin/nginx:20220424203540 or xxx.xxx.xxx/nginx
 // return nginx
 func GetImageName(image string) string {
 	imageNameStr := ""
-	imageArr := strings.Split(image, ":")
 
-	if len(imageArr) >= 2 {
-		imageNameArr := strings.Split(imageArr[len(imageArr)-2], "/")
+	reference, err := parser.Parse(image)
+	if err != nil {
+		return ""
+	}
+	imageName := reference.Name()
+	imageArr := strings.Split(imageName, ":")
+	if len(imageArr) > 0 {
+		imageNameArr := strings.Split(imageArr[0], "/")
 		imageNameStr = imageNameArr[len(imageNameArr)-1]
 	}
+
 	return imageNameStr
 }
 
