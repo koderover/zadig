@@ -17,8 +17,9 @@ limitations under the License.
 package models
 
 import (
-	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type BuildTemplate struct {

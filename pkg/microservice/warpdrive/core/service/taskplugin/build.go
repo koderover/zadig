@@ -229,7 +229,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
 	}
 
-	//instantiates variables like ${<REPO>_BRANCH} ${${REPO[index]}_BRANCH} ...
+	//instantiates variables like ${<REPO>_BRANCH} ${${REPO_index}_BRANCH} ..
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, InstantiateBuildSysVariables(&p.Task.JobCtx)...)
 
 	// Note: Currently, `SERVICE` in the environment variable represents a service module.

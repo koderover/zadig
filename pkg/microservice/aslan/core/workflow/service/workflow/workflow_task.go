@@ -1944,11 +1944,9 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 // fillBuildDetail fill the contents for builds created from build templates
 func fillBuildDetail(moduleBuild *commonmodels.Build) error {
-	log.Infof("######## check fill build")
 	if moduleBuild.TemplateID == "" {
 		return nil
 	}
-	log.Infof("############# start fill build detail")
 	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 		ID: moduleBuild.TemplateID,
 	})

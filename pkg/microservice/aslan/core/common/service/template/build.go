@@ -17,14 +17,14 @@ limitations under the License.
 package dockerfile
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"go.uber.org/zap"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"go.uber.org/zap"
 )
 
 type BuildTemplateBrief struct {
@@ -33,28 +33,8 @@ type BuildTemplateBrief struct {
 }
 
 type BuildTemplateListResp struct {
-	BuildTemplates  []*BuildTemplateBrief         `json:"build_templates"`
-	SystemVariables []*commonmodels.ChartVariable `json:"system_variables"`
-	Total           int                           `json:"total,omitempty"`
-}
-
-var builtInVariable = map[string]string{
-	"${REPO[index]}":           "代码库名称",
-	"${REPO[index]}_PR":        "构建时使用的代码 Pull Request 信息",
-	"${REPO[index]}_BRANCH":    "构建时使用的代码分支信息",
-	"${REPO[index]}_TAG":       "构建时使用代码 Tag 信息",
-	"${REPO[index]}_COMMIT_ID": "构建时使用代码 Commit 信息",
-}
-
-func GetBuiltInBuildTemplateVariables() []*models.ChartVariable {
-	resp := make([]*models.ChartVariable, 0)
-	for key, description := range builtInVariable {
-		resp = append(resp, &models.ChartVariable{
-			Key:         key,
-			Description: description,
-		})
-	}
-	return resp
+	BuildTemplates []*BuildTemplateBrief `json:"build_templates"`
+	Total          int                   `json:"total,omitempty"`
 }
 
 func AddBuildTemplate(userName string, build *commonmodels.BuildTemplate, logger *zap.SugaredLogger) error {
@@ -86,8 +66,7 @@ func ListBuildTemplates(pageNum, pageSize int) (*BuildTemplateListResp, error) {
 		return nil, err
 	}
 	ret := &BuildTemplateListResp{
-		SystemVariables: GetBuiltInBuildTemplateVariables(),
-		Total:           count,
+		Total: count,
 	}
 	for _, bt := range buildTemplates {
 		ret.BuildTemplates = append(ret.BuildTemplates, &BuildTemplateBrief{

@@ -250,7 +250,7 @@ func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 	for index, repo := range jobCtx.Builds {
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
 
-		repoIndex := fmt.Sprintf("REPO[%d]", index+1)
+		repoIndex := fmt.Sprintf("REPO_%d", index)
 		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
 
 		if len(repo.Branch) > 0 {
