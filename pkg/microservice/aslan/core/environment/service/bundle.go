@@ -31,9 +31,9 @@ import (
 )
 
 type resourceSpec struct {
-	ResourceID  string                 `json:"resourceID"`
-	ProjectName string                 `json:"projectName"`
-	Spec        map[string]interface{} `json:"spec"`
+	ResourceID  string   `json:"resourceID"`
+	ProjectName string   `json:"projectName"`
+	Spec        []string `json:"spec"`
 }
 
 func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
@@ -78,11 +78,10 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		resourceSpec := &resourceSpec{
 			ResourceID:  env.EnvName,
 			ProjectName: env.ProductName,
-			Spec:        map[string]interface{}{},
 		}
 		if labels, ok := labelsResp.Labels[resourceKey]; ok {
 			for _, v := range labels {
-				resourceSpec.Spec[v.Key] = v.Value
+				resourceSpec.Spec = append(resourceSpec.Spec, v.Key+":"+v.Value)
 			}
 		}
 
@@ -92,7 +91,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		if ok {
 			production = cluster.Production
 		}
-		resourceSpec.Spec["production"] = strconv.FormatBool(production)
+		resourceSpec.Spec = append(resourceSpec.Spec, "production:"+strconv.FormatBool(production))
 		res = append(res, resourceSpec)
 	}
 
