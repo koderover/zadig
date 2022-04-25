@@ -177,7 +177,12 @@ attributes_match(attributes, res) {
 }
 
 attribute_match(attribute, res) {
-    res.spec[attribute.key] == attribute.value
+    resValue := res.spec[_]
+    value_match(resValue, sprintf("%s:%s",[attribute.key,attribute.value]))
+}
+
+value_match(resValue, value) {
+   resValue == value
 }
 
 project_name_is_match(res) {

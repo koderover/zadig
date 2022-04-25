@@ -1401,7 +1401,7 @@ func getContainers(data string) ([]*commonmodels.Container, error) {
 		container := &commonmodels.Container{
 			Name:      nameStr,
 			Image:     imageStr,
-			ImageName: util.GetImageName(imageStr),
+			ImageName: util.ExtractImageName(imageStr),
 		}
 
 		containers = append(containers, container)
@@ -1441,7 +1441,7 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 		container := &commonmodels.Container{
 			Name:      nameStr,
 			Image:     imageStr,
-			ImageName: util.GetImageName(imageStr),
+			ImageName: util.ExtractImageName(imageStr),
 		}
 
 		containers = append(containers, container)

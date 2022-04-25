@@ -24,9 +24,9 @@ import (
 )
 
 type resourceSpec struct {
-	ResourceID  string                 `json:"resourceID"`
-	ProjectName string                 `json:"projectName"`
-	Spec        map[string]interface{} `json:"spec"`
+	ResourceID  string   `json:"resourceID"`
+	ProjectName string   `json:"projectName"`
+	Spec        []string `json:"spec"`
 }
 
 func GetBundleResources() ([]*resourceSpec, error) {
@@ -40,8 +40,8 @@ func GetBundleResources() ([]*resourceSpec, error) {
 	for _, cluster := range clusters {
 		res = append(res, &resourceSpec{
 			ResourceID: cluster.ID.Hex(),
-			Spec: map[string]interface{}{
-				"production": strconv.FormatBool(cluster.Production),
+			Spec: []string{
+				"production:" + strconv.FormatBool(cluster.Production),
 			},
 		})
 	}

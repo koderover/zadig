@@ -51,7 +51,7 @@ func LoadServiceFromYamlTemplate(username, projectName, serviceName, templateID 
 	return err
 }
 
-func ReloadServiceFromYamlTemplate(username, projectName, serviceName string, variables []*Variable, logger *zap.SugaredLogger) error {
+func ReloadServiceFromYamlTemplate(username, projectName, serviceName, templateID string, variables []*Variable, logger *zap.SugaredLogger) error {
 	service, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: projectName,
@@ -63,12 +63,12 @@ func ReloadServiceFromYamlTemplate(username, projectName, serviceName string, va
 	if service.Source != setting.ServiceSourceTemplate {
 		return errors.New("service is not created from template")
 	}
-	if service.TemplateID == "" {
-		return errors.New("failed to find template id for service:" + serviceName)
+	if templateID == "" {
+		return errors.New("template id can't be nil")
 	}
-	template, err := commonrepo.NewYamlTemplateColl().GetById(service.TemplateID)
+	template, err := commonrepo.NewYamlTemplateColl().GetById(templateID)
 	if err != nil {
-		logger.Errorf("Failed to find template of ID: %s, the error is: %s", service.TemplateID, err)
+		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
 		return err
 	}
 	renderedYaml := renderYamlFromTemplate(template.Content, projectName, serviceName, variables)
@@ -79,11 +79,11 @@ func ReloadServiceFromYamlTemplate(username, projectName, serviceName string, va
 		Source:      setting.ServiceSourceTemplate,
 		Yaml:        renderedYaml,
 		Visibility:  setting.PrivateVisibility,
-		TemplateID:  service.TemplateID,
+		TemplateID:  templateID,
 	}
 	_, err = CreateServiceTemplate(username, svc, logger)
 	if err != nil {
-		logger.Errorf("Failed to create service template from template ID: %s, the error is: %s", service.TemplateID, err)
+		logger.Errorf("Failed to create service template from template ID: %s, the error is: %s", templateID, err)
 	}
 	return err
 }
