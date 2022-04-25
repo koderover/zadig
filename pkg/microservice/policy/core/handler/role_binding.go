@@ -166,7 +166,10 @@ func UpdateSystemRoleBindings(c *gin.Context) {
 			ctx.Err = e.ErrInvalidParam.AddDesc("roleBindings' uid is not consistent")
 			return
 		}
-
+	}
+	// TODO: mouuii args can be empty slice , this will delete admin binding , try to improve
+	if userId == "" {
+		userId = userID
 	}
 	ctx.Err = service.UpdateRoleBindings(service.SystemScope, args, userId, ctx.Logger)
 }
