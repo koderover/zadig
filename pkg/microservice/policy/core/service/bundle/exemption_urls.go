@@ -316,30 +316,6 @@ var systemAdminURLs = []*policyRule{
 		Methods:   []string{"DELETE"},
 		Endpoints: []string{"api/v1/system-policybindings/?*"},
 	},
-	{
-		Methods:   []string{"POST"},
-		Endpoints: []string{"api/aslan/template/yaml"},
-	},
-	{
-		Methods:   []string{"PUT", "DELETE"},
-		Endpoints: []string{"api/aslan/template/yaml/?*"},
-	},
-	{
-		Methods:   []string{"POST"},
-		Endpoints: []string{"api/aslan/template/dockerfile"},
-	},
-	{
-		Methods:   []string{"PUT", "DELETE"},
-		Endpoints: []string{"api/aslan/template/dockerfile/?*"},
-	},
-	{
-		Methods:   []string{"POST"},
-		Endpoints: []string{"api/aslan/template/charts"},
-	},
-	{
-		Methods:   []string{"PUT", "DELETE"},
-		Endpoints: []string{"api/aslan/template/charts/?*"},
-	},
 }
 
 // actions which are allowed for project admins.

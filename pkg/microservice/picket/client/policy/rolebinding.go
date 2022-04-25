@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type RoleBinding struct {
@@ -73,4 +74,21 @@ func (c *Client) DeleteRoleBindings(userID string, header http.Header, qs url.Va
 		return []byte{}, err
 	}
 	return res.Body(), err
+}
+
+type SearchSystemRoleBindingArgs struct {
+	Uids []string `json:"uids"`
+}
+
+func (c *Client) SearchSystemRoleBindings(uids []string) (map[string][]*types.RoleBinding, error) {
+	url := "system-rolebindings/search"
+	args := SearchSystemRoleBindingArgs{
+		Uids: uids,
+	}
+	result := map[string][]*types.RoleBinding{}
+	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(&result))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
