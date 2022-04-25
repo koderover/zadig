@@ -80,7 +80,7 @@ type SearchSystemRoleBindingArgs struct {
 	Uids []string `json:"uids"`
 }
 
-func (c *Client) SearchSystemUsers(uids []string) (map[string][]*service.RoleBinding, error) {
+func (c *Client) SearchSystemRoleBindings(uids []string) (map[string][]*service.RoleBinding, error) {
 	url := "system-rolebindings/search"
 	args := SearchSystemRoleBindingArgs{
 		Uids: uids,

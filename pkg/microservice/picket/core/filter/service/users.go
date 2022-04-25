@@ -26,7 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type DeleteUserResp struct {
@@ -51,12 +50,8 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 	for _, user := range users.Users {
 		tmpUids = append(tmpUids, user.Uid)
 	}
-	if len(tmpUids) <= 0 || len(tmpUids) > 50 {
-		log.Errorf("len uids only supported 1-50")
-		return nil, e.ErrInvalidParam.AddErr(err).AddDesc("len uids only supported 1-50")
-	}
 
-	systemMap, err := policy.New().SearchSystemUsers(tmpUids)
+	systemMap, err := policy.New().SearchSystemRoleBindings(tmpUids)
 	if err != nil {
 		log.Errorf("search system user bindings err :%s", err)
 		return nil, err
@@ -78,7 +73,7 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 			APIToken:      user.APIToken,
 		}
 		if rb, ok := systemMap[user.Uid]; ok {
-			userInfo.RoleBindings = rb
+			userInfo.SystemRoleBindings = rb
 			for _, binding := range rb {
 				if binding.Role == string(setting.SystemAdmin) {
 					userInfo.Admin = true
@@ -98,14 +93,14 @@ type UsersResp struct {
 }
 
 type UserInfo struct {
-	LastLoginTime int64                  `json:"lastLoginTime"`
-	Uid           string                 `json:"uid"`
-	Name          string                 `json:"name"`
-	IdentityType  string                 `gorm:"default:'unknown'" json:"identity_type"`
-	Email         string                 `json:"email"`
-	Phone         string                 `json:"phone"`
-	Account       string                 `json:"account"`
-	APIToken      string                 `json:"token"`
-	RoleBindings  []*service.RoleBinding `json:"system_role_bindings"`
-	Admin         bool                   `json:"admin"`
+	LastLoginTime      int64                  `json:"lastLoginTime"`
+	Uid                string                 `json:"uid"`
+	Name               string                 `json:"name"`
+	IdentityType       string                 `gorm:"default:'unknown'" json:"identity_type"`
+	Email              string                 `json:"email"`
+	Phone              string                 `json:"phone"`
+	Account            string                 `json:"account"`
+	APIToken           string                 `json:"token"`
+	SystemRoleBindings []*service.RoleBinding `json:"system_role_bindings"`
+	Admin              bool                   `json:"admin"`
 }
