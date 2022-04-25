@@ -29,7 +29,7 @@ func CodeHostListBranches(codeHostID int, projectName, namespace, key string, pa
 		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	br, err := codehostClient.ListBranches(client.ListOpt{Namespace: namespace, ProjectName: projectName, Key: key, Page: page, PerPage: perPage})
+	br, err := cli.ListBranches(client.ListOpt{Namespace: namespace, ProjectName: projectName, Key: key, Page: page, PerPage: perPage})
 	if err != nil {
 		log.Errorf("list branch err:%s", err)
 		return nil, err

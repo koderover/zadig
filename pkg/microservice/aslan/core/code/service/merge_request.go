@@ -29,7 +29,7 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, ke
 		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	prs, err := codehostClient.ListPrs(client.ListOpt{
+	prs, err := cli.ListPrs(client.ListOpt{
 		Namespace:   namespace,
 		ProjectName: projectName,
 		Key:         key,

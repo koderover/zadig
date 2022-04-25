@@ -29,7 +29,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page,
 		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	projects, err := codehostClient.ListProjects(client.ListOpt{
+	projects, err := cli.ListProjects(client.ListOpt{
 		Namespace:     namespace,
 		NamespaceType: namespaceType,
 		Key:           keyword,
