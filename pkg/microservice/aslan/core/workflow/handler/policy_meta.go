@@ -39,13 +39,13 @@ func (*Router) Policies() []*policy.PolicyMeta {
 		log.DPanic(err)
 	}
 
-	res2 := []*policy.PolicyMeta{}
-	err = yaml.Unmarshal(systemPolicyMeta, &res2)
+	systemMetas := []*policy.PolicyMeta{}
+	err = yaml.Unmarshal(systemPolicyMeta, &systemMetas)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
 	}
-	res2 = append(res2, res)
+	systemMetas = append(systemMetas, res)
 
-	return res2
+	return systemMetas
 }
