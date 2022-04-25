@@ -1,9 +1,9 @@
 package types
 
-//PolicyMetaResourceScope resource scope for permission
-type PolicyMetaResourceScope string
+//PolicyMetaScope resource scope for permission
+type PolicyMetaScope string
 
 const (
-	SystemScope  PolicyMetaResourceScope = "system"
-	ProjectScope PolicyMetaResourceScope = "project"
+	SystemScope  PolicyMetaScope = "system"
+	ProjectScope PolicyMetaScope = "project"
 )

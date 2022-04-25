@@ -98,7 +98,7 @@ func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error
 	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
-func GetPolicyRegistrationDefinitions(resourceScore string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
+func GetPolicyRegistrationDefinitions(scope string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
 	policieMetas, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func GetPolicyRegistrationDefinitions(resourceScore string, _ *zap.SugaredLogger
 		}
 	}
 
-	switch resourceScore {
+	switch scope {
 	case string(types.SystemScope):
 		filteredPolicyMetas = systemPolicyMetas
 	case string(types.ProjectScope):
