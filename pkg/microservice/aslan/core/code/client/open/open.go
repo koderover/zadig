@@ -54,7 +54,7 @@ func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, 
 	var c client.CodeHostClient
 	f, ok := ClientsConfig[ch.Type]
 	if !ok {
-		log.Errorf("unknow codehost type")
+		log.Error("unknow codehost type")
 		return c, fmt.Errorf("unknow codehost type")
 	}
 	clientConfig := f()
