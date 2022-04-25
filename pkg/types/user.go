@@ -19,7 +19,7 @@ type UserInfo struct {
 
 type UsersResp struct {
 	Users      []UserInfo `json:"users"`
-	TotalCount int64      `json:"totalCount"`
+	TotalCount int64      `json:"total_count"`
 }
 
 type RoleBinding struct {
