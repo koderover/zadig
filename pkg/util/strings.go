@@ -39,10 +39,8 @@ func ReplaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-// image xxx.xxx.xxx/admin/nginx:stable or xxx.xxx.xxx.xxx:5000/admin/nginx:20220424203540 or xxx.xxx.xxx/admin/nginx
-// extract name: xxx.xxx.xxx/admin/nginx or xxx.xxx.xxx.xxx:5000/admin/nginx or xxx.xxx.xxx/admin/nginx
-// return nginx
-func GetImageName(image string) string {
+// Test case reference https://github.com/containers/image/blob/main/docker/reference/reference_test.go
+func ExtractImageName(image string) string {
 	imageNameStr := ""
 
 	reference, err := ref.Parse(image)
