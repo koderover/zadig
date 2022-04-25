@@ -25,25 +25,38 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-//go:embed service_policy.yaml
-var servicePolicyDefinitions []byte
+const (
+	productionPolicyResource = "ProductionEnvironment"
+	productionPolicyAlias    = "环境(生产/预发布)"
+	productionKey            = "production"
+	productionValueTrue      = "true"
+)
 
-//go:embed build_policy.yaml
-var buildPolicyDefinitions []byte
+//go:embed policy.yaml
+var policyMeta []byte
 
 func (*Router) Policies() []*policy.PolicyMeta {
-	serviceRes := &policy.PolicyMeta{}
-	err := yaml.Unmarshal(servicePolicyDefinitions, serviceRes)
-	if err != nil {
-		// should not have happened here
-		log.DPanic(err)
-	}
-	buildRes := &policy.PolicyMeta{}
-	err = yaml.Unmarshal(buildPolicyDefinitions, buildRes)
+	res := &policy.PolicyMeta{}
+	err := yaml.Unmarshal(policyMeta, res)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
 	}
 
-	return []*policy.PolicyMeta{serviceRes, buildRes}
+	productionPolicy := &policy.PolicyMeta{}
+	_ = yaml.Unmarshal(policyMeta, productionPolicy)
+	productionPolicy.Resource = productionPolicyResource
+	productionPolicy.Alias = productionPolicyAlias
+	//productionPolicy.Description = ""
+	for _, ru := range productionPolicy.Rules {
+		for _, r := range ru.Rules {
+			for _, a := range r.MatchAttributes {
+				if a.Key == productionKey {
+					a.Value = productionValueTrue
+				}
+			}
+		}
+	}
+
+	return []*policy.PolicyMeta{res, productionPolicy}
 }

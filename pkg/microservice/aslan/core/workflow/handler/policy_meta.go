@@ -26,15 +26,26 @@ import (
 )
 
 //go:embed policy.yaml
-var policyDefinitions []byte
+var workflowPolicyMeta []byte
+
+//go:embed system-policies.yaml
+var systemPolicyMeta []byte
 
 func (*Router) Policies() []*policy.PolicyMeta {
 	res := &policy.PolicyMeta{}
-	err := yaml.Unmarshal(policyDefinitions, res)
+	err := yaml.Unmarshal(workflowPolicyMeta, res)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
 	}
 
-	return []*policy.PolicyMeta{res}
+	res2 := []*policy.PolicyMeta{}
+	err = yaml.Unmarshal(systemPolicyMeta, &res2)
+	if err != nil {
+		// should not have happened here
+		log.DPanic(err)
+	}
+	res2 = append(res2, res)
+
+	return res2
 }
