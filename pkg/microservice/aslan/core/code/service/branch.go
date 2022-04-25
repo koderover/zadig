@@ -24,7 +24,7 @@ import (
 )
 
 func CodeHostListBranches(codeHostID int, projectName, namespace, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.Branch, error) {
-	codehostClient, err := open.OpenClient(codeHostID, log)
+	cli, err := open.OpenClient(codeHostID, log)
 	if err != nil {
 		log.Errorf("open client err:%s", err)
 		return nil, err

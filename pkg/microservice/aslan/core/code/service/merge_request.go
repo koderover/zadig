@@ -24,7 +24,7 @@ import (
 )
 
 func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.PullRequest, error) {
-	codehostClient, err := open.OpenClient(codeHostID, log)
+	cli, err := open.OpenClient(codeHostID, log)
 	if err != nil {
 		log.Errorf("open client err:%s", err)
 		return nil, err
