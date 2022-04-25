@@ -32,9 +32,10 @@ const (
 )
 
 func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*client.Namespace, error) {
-	codehostClient, err := open.OpenClient(codeHostID, log)
+	cli, err := open.OpenClient(codeHostID, log)
 	if err != nil {
+		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	return codehostClient.ListNamespaces(keyword)
+	return cli.ListNamespaces(keyword)
 }

@@ -17,13 +17,16 @@ limitations under the License.
 package gitlab
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
+
+	gogitlab "github.com/xanzy/go-gitlab"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
-	gogitlab "github.com/xanzy/go-gitlab"
 )
 
 type Config struct {
@@ -114,6 +117,7 @@ func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 	nsList, err := c.Client.ListNamespaces(keyword, nil)
 	if err != nil {
+		fmt.Errorf("list ns err:%s", err)
 		return nil, err
 	}
 	var res []*client.Namespace
