@@ -25,6 +25,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	types "github.com/gogo/protobuf/types"
+	helmclient "github.com/mittwald/go-helm-client"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
@@ -39,6 +40,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/pkg/types"
@@ -834,7 +836,7 @@ func restartPodsWithIstioProxy(ctx context.Context, kclient client.Client, ns st
 	return nil
 }
 
-func ensureGrayEnvConfig(ctx context.Context, env *commonmodels.Product, kclient client.Client, istioClient versionedclient.Interface) error {
+func EnsureGrayEnvConfig(ctx context.Context, env *commonmodels.Product, kclient client.Client, istioClient versionedclient.Interface) error {
 	opt := &commonrepo.ProductFindOptions{Name: env.ProductName, EnvName: env.ShareEnv.BaseEnv}
 	baseEnv, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1165,35 +1167,7 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
-	vsName := genVirtualServiceName(svc)
-
-	if env.ShareEnv.IsBase {
-		// 1. Create VirtualService in the base environment.
-		err = ensureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
-		if err != nil {
-			return err
-		}
-
-		// 2. Create VirtualService in all of the sub environments.
-		return ensureServicesInAllSubEnvs(ctx, env, svc, kclient, istioClient)
-	}
-
-	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    env.ProductName,
-		EnvName: env.ShareEnv.BaseEnv,
-	})
-	if err != nil {
-		return err
-	}
-
-	// 1. Create VirtualService in the sub environment.
-	err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svcName, env.Namespace, baseEnv.Namespace, istioClient)
-	if err != nil {
-		return err
-	}
-
-	// 2. Updated the VirtualService configuration in the base environment.
-	return ensureUpdateVirtualServiceInBase(ctx, env.EnvName, vsName, svcName, env.Namespace, baseEnv.Namespace, istioClient)
+	return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
 }
 
 func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svcSelector labels.Selector, kclient client.Client, istioClient versionedclient.Interface) error {
@@ -1214,29 +1188,8 @@ func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("Length of svc list is not expected for env %s of product %s with selector %s. Expected 1 but got %d.", env.EnvName, env.ProductName, svcSelector.String(), len(svcList.Items))
 	}
 	svc := &svcList.Items[0]
-	vsName := genVirtualServiceName(svc)
 
-	// Delete VirtualService in the current environment.
-	err = ensureDeleteVirtualService(ctx, env, vsName, istioClient)
-	if err != nil {
-		return err
-	}
-
-	if env.ShareEnv.IsBase {
-		// Delete VirtualService and K8s Service in all of the sub environments if there're no specific workloads.
-		return ensureDeleteServiceInAllSubEnvs(ctx, env, svc, kclient, istioClient)
-	}
-
-	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    env.ProductName,
-		EnvName: env.ShareEnv.BaseEnv,
-	})
-	if err != nil {
-		return err
-	}
-
-	// Update VirtualService Routes in the base environment.
-	return ensureCleanRouteInBase(ctx, env.EnvName, baseEnv.Namespace, vsName, istioClient)
+	return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
 }
 
 func GetEnvServiceList(ctx context.Context, productName, baseEnvName string) ([][]string, error) {
@@ -1297,4 +1250,138 @@ func CheckServicesDeployedInSubEnvs(ctx context.Context, productName, envName st
 	}
 
 	return svcsInSubEnvs, nil
+}
+
+func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, manifest string) error {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:      productName,
+		Namespace: namespace,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
+	}
+
+	if !env.ShareEnv.Enable {
+		return nil
+	}
+
+	svcNames, err := util.GetSvcNamesFromManifest(manifest)
+	if err != nil {
+		return fmt.Errorf("failed to get Service names from manifest: %s", err)
+	}
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get istio client: %s", err)
+	}
+
+	for _, svcName := range svcNames {
+		err := EnsureUpdateZadigService(ctx, env, svcName, kclient, istioClient)
+		if err != nil {
+			return fmt.Errorf("failed to ensure Zadig Service for K8s Service %q in env %q of product %q: %s", svcName, env.EnvName, env.ProductName, err)
+		}
+	}
+
+	return nil
+}
+
+func EnsureDeleteZadigServiceByHelmRelease(ctx context.Context, env *commonmodels.Product, releaseName string, helmClient helmclient.Client) error {
+	if !env.ShareEnv.Enable {
+		return nil
+	}
+
+	release, err := helmClient.GetRelease(releaseName)
+	if err != nil {
+		return fmt.Errorf("failed to get release %q in namespace %q: %s", releaseName, env.Namespace, err)
+	}
+
+	svcNames, err := util.GetSvcNamesFromManifest(release.Manifest)
+	if err != nil {
+		return fmt.Errorf("failed to get Service names from manifest: %s", err)
+	}
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get istio client: %s", err)
+	}
+
+	for _, svcName := range svcNames {
+		err = ensureDeleteZadigServiceBySvcName(ctx, env, svcName, kclient, istioClient)
+		if err != nil {
+			return fmt.Errorf("failed to ensure deleting Zadig service by service name %q for env %q of product %q: %s", svcName, env.EnvName, env.ProductName, err)
+		}
+	}
+
+	return nil
+}
+
+func ensureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
+	svc := &corev1.Service{}
+	err := kclient.Get(ctx, client.ObjectKey{
+		Name:      svcName,
+		Namespace: env.Namespace,
+	}, svc)
+	if err != nil {
+		return fmt.Errorf("failed to find Service %q in namespace %q: %s", svcName, env.Namespace, err)
+	}
+
+	return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+}
+
+func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace string, chartSpec *helmclient.ChartSpec, helmClient *helmtool.HelmClient) error {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:      productName,
+		Namespace: namespace,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
+	}
+
+	if !(env.ShareEnv.Enable && !env.ShareEnv.IsBase) {
+		return nil
+	}
+
+	manifestBytes, err := helmClient.TemplateChart(chartSpec)
+	if err != nil {
+		return fmt.Errorf("failed template chart %q for release %q in namespace %q: %s", chartSpec.ChartName, chartSpec.ReleaseName, chartSpec.Namespace, err)
+	}
+
+	svcNames, err := util.GetSvcNamesFromManifest(string(manifestBytes))
+	if err != nil {
+		return fmt.Errorf("failed to get Service names from manifest: %s", err)
+	}
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	for _, svcName := range svcNames {
+		err := ensureDeleteK8sService(ctx, namespace, svcName, kclient, true)
+		if err != nil {
+			return fmt.Errorf("failed to ensure delete existing K8s Service %q in namespace %q: %s", svcName, namespace, err)
+		}
+	}
+
+	return nil
 }

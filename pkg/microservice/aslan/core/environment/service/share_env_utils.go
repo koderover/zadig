@@ -33,6 +33,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadiglabels "github.com/koderover/zadig/pkg/types"
 	zadigutil "github.com/koderover/zadig/pkg/util"
 )
 
@@ -153,11 +154,14 @@ func deleteEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 }
 
 func ensureCleanRouteInBase(ctx context.Context, envName, baseNS, vsName string, istioClient versionedclient.Interface) error {
-	baseVS, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
+	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
 	if err != nil {
 		log.Warnf("Failed to query VirtualService %s releated to env %s in namesapce %s: %s. It may be not an exception and skip.", vsName, envName, baseNS, err)
 		return nil
 	}
+
+	// Note: DeepCopy is used to avoid unpredictable results in concurrent operations.
+	baseVS := vsObj.DeepCopy()
 
 	if len(baseVS.Spec.Http) == 0 {
 		return nil
@@ -274,7 +278,7 @@ func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.
 			return fmt.Errorf("failed to delete VirtualService %s in env %s of product %s: %s", vsName, env.EnvName, env.ProductName, err)
 		}
 
-		err = ensureDeleteK8sService(ctx, env.Namespace, svc.Name, kclient)
+		err = ensureDeleteK8sService(ctx, env.Namespace, svc.Name, kclient, true)
 		if err != nil {
 			return fmt.Errorf("failed to delete K8s Service %s in env %s of product: %s: %s", svc.Name, env.EnvName, env.ProductName, err)
 		}
@@ -283,7 +287,7 @@ func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.
 	return nil
 }
 
-func ensureDeleteK8sService(ctx context.Context, ns, svcName string, kclient client.Client) error {
+func ensureDeleteK8sService(ctx context.Context, ns, svcName string, kclient client.Client, systemCreatedOnly bool) error {
 	svc := &corev1.Service{}
 	err := kclient.Get(ctx, client.ObjectKey{
 		Name:      svcName,
@@ -294,6 +298,10 @@ func ensureDeleteK8sService(ctx context.Context, ns, svcName string, kclient cli
 	}
 	if err != nil {
 		return err
+	}
+
+	if systemCreatedOnly && !(svc.Labels != nil && svc.Labels[zadiglabels.ZadigLabelKeyGlobalOwner] == zadiglabels.Zadig) {
+		return nil
 	}
 
 	deleteOption := metav1.DeletePropagationBackground
@@ -338,4 +346,62 @@ func getSvcInEnv(env *commonmodels.Product) []string {
 	}
 
 	return svcs
+}
+
+func ensureUpdateZadigSerivce(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
+	vsName := genVirtualServiceName(svc)
+
+	if env.ShareEnv.IsBase {
+		// 1. Create VirtualService in the base environment.
+		err := ensureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
+		if err != nil {
+			return err
+		}
+
+		// 2. Create VirtualService in all of the sub environments.
+		return ensureServicesInAllSubEnvs(ctx, env, svc, kclient, istioClient)
+	}
+
+	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    env.ProductName,
+		EnvName: env.ShareEnv.BaseEnv,
+	})
+	if err != nil {
+		return err
+	}
+
+	// 1. Create VirtualService in the sub environment.
+	err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svc.Name, env.Namespace, baseEnv.Namespace, istioClient)
+	if err != nil {
+		return err
+	}
+
+	// 2. Updated the VirtualService configuration in the base environment.
+	return ensureUpdateVirtualServiceInBase(ctx, env.EnvName, vsName, svc.Name, env.Namespace, baseEnv.Namespace, istioClient)
+}
+
+func ensureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
+	vsName := genVirtualServiceName(svc)
+
+	// Delete VirtualService in the current environment.
+	err := ensureDeleteVirtualService(ctx, env, vsName, istioClient)
+	if err != nil {
+		return err
+	}
+
+	if env.ShareEnv.IsBase {
+		// Delete VirtualService and K8s Service in all of the sub environments if there're no specific workloads.
+		return ensureDeleteServiceInAllSubEnvs(ctx, env, svc, kclient, istioClient)
+	}
+
+	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    env.ProductName,
+		EnvName: env.ShareEnv.BaseEnv,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Update VirtualService Routes in the base environment.
+	return ensureCleanRouteInBase(ctx, env.EnvName, baseEnv.Namespace, vsName, istioClient)
 }
