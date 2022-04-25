@@ -347,7 +347,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if buildSt.BuildStatus.Status == "" {
 					buildSt.BuildStatus.Status = config.StatusNotRun
 				}
-				buildElemTemp += fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}\n\n##### {{end}}**服务名称**：%s \n", buildSt.Service)
+				buildElemTemp += fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**服务名称**：%s \n", buildSt.Service)
 				if !(buildSt.ServiceType == setting.PMDeployType &&
 					(buildSt.JobCtx.FileArchiveCtx != nil || buildSt.JobCtx.DockerBuildCtx != nil)) {
 					buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.JobCtx.Image)
