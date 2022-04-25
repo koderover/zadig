@@ -152,7 +152,23 @@ func UpdateSystemRoleBindings(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = service.UpdateRoleBindings(service.SystemScope, args, c.Query("userID"), ctx.Logger)
+	var userId string
+	for i, v := range args {
+		if i == 0 {
+			userId = v.UID
+		}
+		if v.UID == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("some roleBinding's uid is empty")
+			return
+		}
+
+		if v.UID != userId {
+			ctx.Err = e.ErrInvalidParam.AddDesc("roleBindings' uid is not consistent")
+			return
+		}
+
+	}
+	ctx.Err = service.UpdateRoleBindings(service.SystemScope, args, userId, ctx.Logger)
 }
 
 func DeleteSystemRoleBinding(c *gin.Context) {
