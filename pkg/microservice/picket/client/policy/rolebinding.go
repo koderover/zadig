@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type RoleBinding struct {
@@ -80,12 +80,12 @@ type SearchSystemRoleBindingArgs struct {
 	Uids []string `json:"uids"`
 }
 
-func (c *Client) SearchSystemRoleBindings(uids []string) (map[string][]*service.RoleBinding, error) {
+func (c *Client) SearchSystemRoleBindings(uids []string) (map[string][]*types.RoleBinding, error) {
 	url := "system-rolebindings/search"
 	args := SearchSystemRoleBindingArgs{
 		Uids: uids,
 	}
-	result := map[string][]*service.RoleBinding{}
+	result := map[string][]*types.RoleBinding{}
 	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(&result))
 	if err != nil {
 		return nil, err

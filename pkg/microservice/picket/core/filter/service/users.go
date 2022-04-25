@@ -24,8 +24,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type DeleteUserResp struct {
@@ -40,7 +40,7 @@ func DeleteUser(userID string, header http.Header, qs url.Values, _ *zap.Sugared
 	return policy.New().DeleteRoleBindings(userID, header, qs)
 }
 
-func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *zap.SugaredLogger) (*UsersResp, error) {
+func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *zap.SugaredLogger) (*types.UsersResp, error) {
 	users, err := user.New().SearchUsers(header, qs, args)
 	if err != nil {
 		log.Errorf("search users err :%s", err)
@@ -57,12 +57,12 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 		return nil, err
 	}
 
-	res := &UsersResp{
-		Users:      make([]UserInfo, 0),
+	res := &types.UsersResp{
+		Users:      make([]types.UserInfo, 0),
 		TotalCount: users.TotalCount,
 	}
 	for _, user := range users.Users {
-		userInfo := UserInfo{
+		userInfo := types.UserInfo{
 			LastLoginTime: user.LastLoginTime,
 			Uid:           user.Uid,
 			Name:          user.Name,
@@ -85,22 +85,4 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 	}
 
 	return res, nil
-}
-
-type UsersResp struct {
-	Users      []UserInfo `json:"users"`
-	TotalCount int64      `json:"totalCount"`
-}
-
-type UserInfo struct {
-	LastLoginTime      int64                  `json:"lastLoginTime"`
-	Uid                string                 `json:"uid"`
-	Name               string                 `json:"name"`
-	IdentityType       string                 `json:"identity_type"`
-	Email              string                 `json:"email"`
-	Phone              string                 `json:"phone"`
-	Account            string                 `json:"account"`
-	APIToken           string                 `json:"token"`
-	SystemRoleBindings []*service.RoleBinding `json:"system_role_bindings"`
-	Admin              bool                   `json:"admin"`
 }
