@@ -433,6 +433,7 @@ allowed_role_plain_rules[rule] {
 allowed_system_role_plain_rules[rule] {
     rule := allowed_system_role_rules[_]
     not rule.matchAttributes
+    not rule.matchExpressions
 }
 
 allowed_policy_attributive_rules[rule] {

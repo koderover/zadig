@@ -115,11 +115,11 @@ func (c *RoleBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding
 	return res, nil
 }
 
-func (c *RoleBindingColl) ListByUids(projectName string, uids []string) ([]*models.RoleBinding, error) {
+func (c *RoleBindingColl) ListSystemRoleBindingsByUIDs(uids []string) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
-	query := bson.M{"namespace": projectName}
+	query := bson.M{"namespace": "*"}
 	if len(uids) > 0 {
 		query["subjects.uid"] = bson.M{"$in": uids}
 	}

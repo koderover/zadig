@@ -103,13 +103,13 @@ func GetPolicyRegistrationDefinitions(resourceScore string, _ *zap.SugaredLogger
 	if err != nil {
 		return nil, err
 	}
-	systemScopeResources := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
-	projectScopeResources := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
+	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
+	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
-		if systemScopeResources.Has(v.Resource) {
+		if systemScopeSet.Has(v.Resource) {
 			systemPolicyMetas = append(systemPolicyMetas, v)
-		} else if projectScopeResources.Has(v.Resource) {
+		} else if projectScopeSet.Has(v.Resource) {
 			projectPolicyMetas = append(projectPolicyMetas, v)
 		}
 	}

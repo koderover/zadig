@@ -99,9 +99,9 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 	return roleBindings, nil
 }
 
-func SearchRoleBindings(ns string, uids []string, _ *zap.SugaredLogger) (map[string][]*RoleBinding, error) {
+func SearchSystemRoleBindings(uids []string, _ *zap.SugaredLogger) (map[string][]*RoleBinding, error) {
 	var roleBindings []*RoleBinding
-	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListByUids(ns, uids)
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListSystemRoleBindingsByUIDs(uids)
 	if err != nil {
 		return nil, err
 	}

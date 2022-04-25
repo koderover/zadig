@@ -214,7 +214,7 @@ func SearchSystemRoleBinding(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.SearchRoleBindings(service.SystemScope, args.Uids, ctx.Logger)
+	ctx.Resp, ctx.Err = service.SearchSystemRoleBindings(args.Uids, ctx.Logger)
 }
 
 func ListUserBindings(c *gin.Context) {
