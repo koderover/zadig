@@ -26,13 +26,19 @@ import (
 func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page, perPage int, keyword string, log *zap.SugaredLogger) ([]*client.Project, error) {
 	codehostClient, err := open.OpenClient(codeHostID, log)
 	if err != nil {
+		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	return codehostClient.ListProjects(client.ListOpt{
+	projects, err := codehostClient.ListProjects(client.ListOpt{
 		Namespace:     namespace,
 		NamespaceType: namespaceType,
 		Key:           keyword,
 		Page:          page,
 		PerPage:       perPage,
 	})
+	if err != nil {
+		log.Errorf("list projects err:%s", err)
+		return nil, err
+	}
+	return projects, nil
 }

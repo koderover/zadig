@@ -37,5 +37,10 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	return cli.ListNamespaces(keyword)
+	ns, err := cli.ListNamespaces(keyword)
+	if err != nil {
+		log.Errorf("list namespace err:%s", err)
+		return nil, err
+	}
+	return ns, nil
 }

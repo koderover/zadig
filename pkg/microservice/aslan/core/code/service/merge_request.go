@@ -26,9 +26,10 @@ import (
 func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.PullRequest, error) {
 	codehostClient, err := open.OpenClient(codeHostID, log)
 	if err != nil {
+		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	return codehostClient.ListPrs(client.ListOpt{
+	prs, err := codehostClient.ListPrs(client.ListOpt{
 		Namespace:   namespace,
 		ProjectName: projectName,
 		Key:         key,
@@ -36,4 +37,9 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, ke
 		PerPage:     perPage,
 		TargeBr:     targetBr,
 	})
+	if err != nil {
+		log.Errorf("list prs err:%s", err)
+		return nil, err
+	}
+	return prs, nil
 }
