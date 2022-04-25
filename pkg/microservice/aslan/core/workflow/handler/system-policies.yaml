@@ -8,12 +8,14 @@
       rules:
         - method: GET
           endpoint: "/api/aslan/testing/test"
+         # 查看单个测试
         - method: GET
           endpoint: "/api/aslan/testing/test/?*"
         - method: GET
           endpoint: "/api/aslan/testing/testdetail"
         - method: GET
           endpoint: "/api/aslan/workflow/workflow/testName/?*"
+          # 测试工作流
         - method: GET
           endpoint: "/api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*"
         - method: GET
@@ -56,6 +58,7 @@
       alias: "数据洞察|查看"
       description: ""
       rules:
+        # 构建效能9个
         - method: GET
           endpoint: "/api/aslan/stat/dashboard/build"
         - method: GET
@@ -74,6 +77,7 @@
           endpoint: "/api/aslan/stat/quality/buildAverageMeasure"
         - method: POST
           endpoint: "api/aslan/stat/quality/buildTrend"
+          # 部署效能4个endpoint
         - method: POST
           endpoint: "api/aslan/stat/quality/deployTopFiveFailureMeasure"
         - method: POST
@@ -82,6 +86,7 @@
           endpoint: "api/aslan/stat/quality/deployWeeklyMeasure"
         - method: POST
           endpoint: "api/aslan/stat/quality/deployHealthMeasure"
+          # 测试效能5个
         - method: POST
           endpoint: "api/aslan/stat/quality/testDeliveryDeploy"
         - method: POST
@@ -126,6 +131,7 @@
           endpoint: "/api/aslan/template/yaml/?*"
         - method: PUT
           endpoint: "/api/aslan/template/charts/?*"
+          # 修改 chart 模版变量
         - method: PUT
           endpoint: "api/aslan/template/charts/?*/variables"
         - method: PUT
