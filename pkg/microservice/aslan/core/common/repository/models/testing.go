@@ -45,17 +45,19 @@ type Testing struct {
 	// TODO: Deprecated.
 	Caches []string `bson:"caches"                   json:"caches"`
 
-	ArtifactPaths   []string         `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
-	TestCaseNum     int              `bson:"-"                        json:"test_case_num,omitempty"`
-	ExecuteNum      int              `bson:"-"                        json:"execute_num,omitempty"`
-	PassRate        float64          `bson:"-"                        json:"pass_rate,omitempty"`
-	AvgDuration     float64          `bson:"-"                        json:"avg_duration,omitempty"`
-	Workflows       []*Workflow      `bson:"-"                        json:"workflows,omitempty"`
-	Schedules       *ScheduleCtrl    `bson:"schedules,omitempty"      json:"schedules,omitempty"`
-	HookCtl         *TestingHookCtrl `bson:"hook_ctl"                 json:"hook_ctl"`
-	NotifyCtl       *NotifyCtl       `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
-	NotifyCtls      []*NotifyCtl     `bson:"notify_ctls,omitempty"     json:"notify_ctls,omitempty"`
-	ScheduleEnabled bool             `bson:"schedule_enabled"         json:"-"`
+	ArtifactPaths []string         `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
+	TestCaseNum   int              `bson:"-"                        json:"test_case_num,omitempty"`
+	ExecuteNum    int              `bson:"-"                        json:"execute_num,omitempty"`
+	PassRate      float64          `bson:"-"                        json:"pass_rate,omitempty"`
+	AvgDuration   float64          `bson:"-"                        json:"avg_duration,omitempty"`
+	Workflows     []*Workflow      `bson:"-"                        json:"workflows,omitempty"`
+	Schedules     *ScheduleCtrl    `bson:"schedules,omitempty"      json:"schedules,omitempty"`
+	HookCtl       *TestingHookCtrl `bson:"hook_ctl"                 json:"hook_ctl"`
+	// TODO: Deprecated.
+	NotifyCtl *NotifyCtl `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
+	// New since V1.12.0.
+	NotifyCtls      []*NotifyCtl `bson:"notify_ctls,omitempty"     json:"notify_ctls,omitempty"`
+	ScheduleEnabled bool         `bson:"schedule_enabled"         json:"-"`
 
 	// New since V1.10.0.
 	CacheEnable  bool               `bson:"cache_enable"              json:"cache_enable"`

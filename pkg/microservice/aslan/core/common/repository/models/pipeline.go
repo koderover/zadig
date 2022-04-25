@@ -51,9 +51,11 @@ type Pipeline struct {
 	PassRate       float32                  `bson:"pass_rate,omitempty"          json:"pass_rate,omitempty"`
 	IsDeleted      bool                     `bson:"is_deleted"                   json:"is_deleted"`
 	Slack          *Slack                   `bson:"slack"                        json:"slack"`
-	NotifyCtl      *NotifyCtl               `bson:"notify_ctl"                   json:"notify_ctl"`
-	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls"                  json:"notify_ctls"`
-	IsFavorite     bool                     `bson:"-"                            json:"is_favorite"`
+	// TODO: Deprecated.
+	NotifyCtl *NotifyCtl `bson:"notify_ctl"                   json:"notify_ctl"`
+	// New since V1.12.0.
+	NotifyCtls []*NotifyCtl `bson:"notify_ctls"                  json:"notify_ctls"`
+	IsFavorite bool         `bson:"-"                            json:"is_favorite"`
 	// 是否允许同时运行多次
 	MultiRun bool `bson:"multi_run"                    json:"multi_run"`
 }
