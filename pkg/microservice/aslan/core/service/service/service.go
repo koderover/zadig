@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +43,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -133,6 +135,13 @@ type YamlPreview struct {
 type YamlValidatorReq struct {
 	ServiceName string `json:"service_name"`
 	Yaml        string `json:"yaml,omitempty"`
+}
+
+type YamlViewServiceTemplateReq struct {
+	ServiceName string                     `json:"service_name"`
+	ProjectName string                     `json:"project_name"`
+	EnvName     string                     `json:"env_name"`
+	Variables   []*templatemodels.RenderKV `json:"variables"`
 }
 
 type ReleaseNamingRule struct {
@@ -956,6 +965,58 @@ func YamlValidator(args *YamlValidatorReq) []string {
 		}
 	}
 	return errorDetails
+}
+
+func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		ProductName:   args.ProjectName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	}
+	svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
+	if err != nil {
+		return "", err
+	}
+
+	renderSet := new(commonmodels.RenderSet)
+	renderSet.KVs = args.Variables
+	parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, renderSet)
+	if args.EnvName != "" {
+		prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProjectName,
+			EnvName: args.EnvName,
+		})
+		if err != nil {
+			return "", err
+		}
+
+		cerSvc := prod.GetServiceMap()
+		svcInfo, ok := cerSvc[args.ServiceName]
+		if !ok {
+			return "", fmt.Errorf("services %s is not exist in env %s", args.ServiceName, prod.Namespace)
+		}
+		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
+		parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
+	}
+
+	return parsedYaml, nil
+}
+
+func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) string {
+	replaceMap := make(map[string]string)
+	for _, container := range replace {
+		replaceMap[container.Name] = container.Image
+	}
+
+	for _, container := range ori {
+		imageRex := regexp.MustCompile("image:\\s*" + container.Image)
+		if _, ok := replaceMap[container.Name]; !ok {
+			continue
+		}
+		tmpl = imageRex.ReplaceAllLiteralString(tmpl, fmt.Sprintf("image: %s", replaceMap[container.Name]))
+	}
+
+	return tmpl
 }
 
 func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
