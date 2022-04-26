@@ -34,7 +34,7 @@ type Scanning struct {
 	Parameter string `json:"parameter"`
 	// Script is for other type only
 	Script          string                         `json:"script"`
-	AdvancedSetting *types.ScanningAdvancedSetting `json:"advanced_setting"`
+	AdvancedSetting *types.ScanningAdvancedSetting `json:"advanced_settings"`
 }
 
 func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
