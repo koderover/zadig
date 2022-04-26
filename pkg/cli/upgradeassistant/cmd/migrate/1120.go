@@ -77,6 +77,10 @@ func moduleTestingAddNotifyCtls() error {
 
 	var ms []mongo.WriteModel
 	for _, testing := range testings {
+		// 如果已经执行过数据迁移，不要重复迁移
+		if testing.NotifyCtls != nil {
+			continue
+		}
 		if testing.NotifyCtl != nil {
 			testing.NotifyCtls = []*models.NotifyCtl{testing.NotifyCtl}
 		}
@@ -146,6 +150,10 @@ func workflowAddNotifyCtls() error {
 
 	var ms []mongo.WriteModel
 	for _, workflow := range workflows {
+		// 如果已经执行过数据迁移，不要重复迁移
+		if workflow.NotifyCtls != nil {
+			continue
+		}
 		if workflow.NotifyCtl != nil {
 			workflow.NotifyCtls = []*models.NotifyCtl{workflow.NotifyCtl}
 		}
