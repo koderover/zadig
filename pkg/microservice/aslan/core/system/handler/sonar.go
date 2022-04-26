@@ -30,6 +30,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+var SonarIntegrationValidationError = errors.New("name and server must be provided")
+
 func CreateSonarIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -51,7 +53,7 @@ func CreateSonarIntegration(c *gin.Context) {
 	}
 
 	if args.ServerAddress == "" || args.Token == "" {
-		ctx.Err = errors.New("name and server must be provided")
+		ctx.Err = SonarIntegrationValidationError
 		return
 	}
 	ctx.Err = service.CreateSonarIntegration(args, ctx.Logger)
@@ -78,7 +80,7 @@ func UpdateSonarIntegration(c *gin.Context) {
 	}
 
 	if args.ServerAddress == "" || args.Token == "" {
-		ctx.Err = errors.New("name and server must be provided")
+		ctx.Err = SonarIntegrationValidationError
 		return
 	}
 	ctx.Err = service.UpdateSonarIntegration(c.Param("id"), args, ctx.Logger)
