@@ -141,4 +141,19 @@ func EnsureResp(build *commonmodels.Build) {
 			build.PreBuild.Parameters = make([]*commonmodels.Parameter, 0)
 		}
 	}
+
+	if build.TemplateID != "" {
+		build.TargetRepos = make([]*commonmodels.TargetRepo, 0, len(build.Targets))
+		for _, target := range build.Targets {
+			targetRepo := &commonmodels.TargetRepo{
+				Service: &commonmodels.ServiceModuleTargetBase{
+					ProductName:   target.ProductName,
+					ServiceName:   target.ServiceName,
+					ServiceModule: target.ServiceModule,
+				},
+				Repos: target.Repos,
+			}
+			build.TargetRepos = append(build.TargetRepos, targetRepo)
+		}
+	}
 }

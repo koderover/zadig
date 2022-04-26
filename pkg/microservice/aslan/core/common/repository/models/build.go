@@ -34,6 +34,7 @@ type Build struct {
 	// 对于k8s部署是传入容器名称
 	// 对于物理机部署是服务名称
 	Targets      []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
+	TargetRepos  []*TargetRepo          `bson:"-"                             json:"target_repos"`
 	Description  string                 `bson:"desc,omitempty"                json:"desc"`
 	UpdateTime   int64                  `bson:"update_time"                   json:"update_time"`
 	UpdateBy     string                 `bson:"update_by"                     json:"update_by"`
@@ -148,7 +149,24 @@ type ServiceModuleTarget struct {
 	ProductName   string              `bson:"product_name"                  json:"product_name"`
 	ServiceName   string              `bson:"service_name"                  json:"service_name"`
 	ServiceModule string              `bson:"service_module"                json:"service_module"`
-	Repos         []*types.Repository `bson:"repos"                         json:"repos"`
+	Repos         []*types.Repository `bson:"repos,omitempty"                         json:"repos,omitempty"`
+}
+
+type ServiceModuleTargetBase struct {
+	ProductName   string `json:"product_name"`
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `bson:"service_module"                json:"service_module"`
+}
+
+type TargetRepo struct {
+	Service *ServiceModuleTargetBase `json:"service"`
+	Repos   []*types.Repository      `json:"repos"`
+}
+
+type ServiceTargetRepo struct {
+	ProductName   string `bson:"product_name"                  json:"product_name"`
+	ServiceName   string `bson:"service_name"                  json:"service_name"`
+	ServiceModule string `bson:"service_module"                json:"service_module"`
 }
 
 type KeyVal struct {
