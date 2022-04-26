@@ -104,7 +104,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 	case config.SingleType:
 		resp, err := w.pipelineColl.Find(&mongodb.PipelineFindOption{Name: task.PipelineName})
 		if err != nil {
-			log.Errorf("Pipeline find err :%s", err)
+			log.Errorf("failed to find Pipeline,err: %s", err)
 			return err
 		}
 		notifyCtls = resp.NotifyCtls
@@ -112,7 +112,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 	case config.WorkflowType:
 		resp, err := w.workflowColl.Find(task.PipelineName)
 		if err != nil {
-			log.Errorf("Workflow find err :%s", err)
+			log.Errorf("failed to find Workflow,err: %s", err)
 			return err
 		}
 		notifyCtls = resp.NotifyCtls
@@ -120,7 +120,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 	case config.TestType:
 		resp, err := w.testingColl.Find(strings.TrimSuffix(task.PipelineName, "-job"), task.ProductName)
 		if err != nil {
-			log.Errorf("testing find err :%s", err)
+			log.Errorf("failed to find Testing,err: %s", err)
 			return err
 		}
 		notifyCtls = resp.NotifyCtls

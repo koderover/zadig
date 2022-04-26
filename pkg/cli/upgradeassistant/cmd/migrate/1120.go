@@ -105,7 +105,7 @@ func moduleTestingRollBackNotifyCtls() error {
 
 	testings, err := testingCol.List(&internalmongodb.ListTestOption{})
 	if err != nil {
-		return fmt.Errorf("failed to list all data in `zadig.module_testing`: %s", err)
+		return fmt.Errorf("failed to list all data in `zadig.module_testing`,err: %s", err)
 	}
 
 	if len(testings) == 0 {
@@ -141,7 +141,7 @@ func workflowAddNotifyCtls() error {
 
 	workflows, err := workflowColl.List(&internalmongodb.ListWorkflowOption{})
 	if err != nil {
-		return fmt.Errorf("failed to list all data in `zadig.workflow`: %s", err)
+		return fmt.Errorf("failed to list all data in `zadig.workflow`,err: %s", err)
 	}
 
 	if len(workflows) == 0 {
