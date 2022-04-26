@@ -30,7 +30,7 @@ type Testing struct {
 	Timeout    int                `bson:"timeout"                  json:"timeout"`
 	HookCtl    *TestingHookCtrl   `bson:"hook_ctl"                 json:"hook_ctl"`
 	NotifyCtl  *NotifyCtl         `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
-	NotifyCtls []*NotifyCtl       `bson:"notify_ctls,omitempty"    json:"notify_ctls,omitempty"`
+	NotifyCtls []*NotifyCtl       `bson:"notify_ctls"              json:"notify_ctls"`
 
 	Schedules *ScheduleCtrl `bson:"schedules,omitempty"      json:"schedules,omitempty"`
 

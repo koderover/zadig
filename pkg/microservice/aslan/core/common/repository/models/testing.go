@@ -56,7 +56,7 @@ type Testing struct {
 	// TODO: Deprecated.
 	NotifyCtl *NotifyCtl `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
 	// New since V1.12.0.
-	NotifyCtls      []*NotifyCtl `bson:"notify_ctls,omitempty"     json:"notify_ctls,omitempty"`
+	NotifyCtls      []*NotifyCtl `bson:"notify_ctls"     json:"notify_ctls"`
 	ScheduleEnabled bool         `bson:"schedule_enabled"         json:"-"`
 
 	// New since V1.10.0.
