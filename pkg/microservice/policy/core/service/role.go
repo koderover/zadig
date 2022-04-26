@@ -33,7 +33,9 @@ type Role struct {
 	// if the role is created by system , set the type  to "system"
 	Type setting.ResourceType `json:"type,omitempty"`
 	// frontend default select flag
-	Select bool `json:"select,omitempty"`
+	Select    bool   `json:"select,omitempty"`
+	Namespace string `json:"namespace"`
+	Desc      string `json:"desc,omitempty"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
@@ -41,6 +43,7 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 		Name:      role.Name,
 		Namespace: ns,
 		Type:      role.Type,
+		Desc:      role.Desc,
 	}
 
 	for _, r := range role.Rules {
@@ -100,7 +103,7 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
 		if v.Name == string(setting.Contributor) {
 			continue
 		}
-		tmpRole := Role{Select: false, Name: v.Name, Type: v.Type}
+		tmpRole := Role{Select: false, Name: v.Name, Type: v.Type, Desc: v.Desc, Namespace: v.Namespace}
 		if v.Name == string(setting.ReadProjectOnly) {
 			tmpRole.Select = true
 		}

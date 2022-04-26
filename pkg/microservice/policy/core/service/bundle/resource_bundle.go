@@ -41,9 +41,9 @@ type Config struct {
 }
 
 type ResourceSpec struct {
-	ResourceID  string                 `json:"resourceID"`
-	ProjectName string                 `json:"projectName"`
-	Spec        map[string]interface{} `json:"spec"`
+	ResourceID  string   `json:"resourceID"`
+	ProjectName string   `json:"projectName"`
+	Spec        []string `json:"spec"`
 }
 
 type ResourceBundle map[string]resources

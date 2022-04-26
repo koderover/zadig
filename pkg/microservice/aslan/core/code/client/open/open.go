@@ -47,12 +47,14 @@ var ClientsConfig = map[string]func() ClientConfig{
 func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, error) {
 	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
+		log.Errorf("get code host info err:%s", err)
 		return nil, err
 	}
 
 	var c client.CodeHostClient
 	f, ok := ClientsConfig[ch.Type]
 	if !ok {
+		log.Error("unknow codehost type")
 		return c, fmt.Errorf("unknow codehost type")
 	}
 	clientConfig := f()
@@ -61,6 +63,7 @@ func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, 
 		return nil, err
 	}
 	if err := json.Unmarshal(bs, clientConfig); err != nil {
+		log.Errorf("marsh err:%s", err)
 		return nil, err
 	}
 	return clientConfig.Open(codehostID, log)

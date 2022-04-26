@@ -24,6 +24,7 @@ import (
 // for a cluster scoped Role, namespace is empty.
 type Role struct {
 	Name      string               `bson:"name"      json:"name"`
+	Desc      string               `bson:"desc"      json:"desc"`
 	Namespace string               `bson:"namespace" json:"namespace"`
 	Rules     []*Rule              `bson:"rules"     json:"rules"`
 	Type      setting.ResourceType `bson:"type"     json:"type"`

@@ -99,6 +99,29 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 	return roleBindings, nil
 }
 
+func SearchSystemRoleBindings(uids []string, _ *zap.SugaredLogger) (map[string][]*RoleBinding, error) {
+	var roleBindings []*RoleBinding
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListSystemRoleBindingsByUIDs(uids)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range modelRoleBindings {
+		roleBindings = append(roleBindings, &RoleBinding{
+			Name:   v.Name,
+			Role:   v.RoleRef.Name,
+			UID:    v.Subjects[0].UID,
+			Preset: v.RoleRef.Namespace == "",
+		})
+	}
+	resMap := make(map[string][]*RoleBinding)
+	for _, rb := range roleBindings {
+		resMap[rb.UID] = append(resMap[rb.UID], rb)
+	}
+
+	return resMap, nil
+}
+
 func DeleteRoleBinding(name string, projectName string, _ *zap.SugaredLogger) error {
 	return mongodb.NewRoleBindingColl().Delete(name, projectName)
 }

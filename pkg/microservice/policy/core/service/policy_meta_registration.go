@@ -18,9 +18,11 @@ package service
 
 import (
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type PolicyMeta struct {
@@ -96,29 +98,45 @@ func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error
 	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
-func GetPolicyRegistrationDefinitions(_ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
-	policies, err := mongodb.NewPolicyMetaColl().List()
+func GetPolicyRegistrationDefinitions(scope string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
+	policieMetas, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
 	}
-
-	var res []*PolicyDefinition
-	for _, p := range policies {
-		pd := &PolicyDefinition{
-			Resource:    p.Resource,
-			Alias:       p.Alias,
-			Description: p.Description,
+	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
+	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
+	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
+	for _, v := range policieMetas {
+		if systemScopeSet.Has(v.Resource) {
+			systemPolicyMetas = append(systemPolicyMetas, v)
+		} else if projectScopeSet.Has(v.Resource) {
+			projectPolicyMetas = append(projectPolicyMetas, v)
 		}
-		for _, r := range p.Rules {
+	}
+
+	switch scope {
+	case string(types.SystemScope):
+		filteredPolicyMetas = systemPolicyMetas
+	case string(types.ProjectScope):
+		filteredPolicyMetas = projectPolicyMetas
+	default:
+		filteredPolicyMetas = policieMetas
+	}
+	var res []*PolicyDefinition
+	for _, meta := range filteredPolicyMetas {
+		pd := &PolicyDefinition{
+			Resource:    meta.Resource,
+			Alias:       meta.Alias,
+			Description: meta.Description,
+		}
+		for _, r := range meta.Rules {
 			pd.Rules = append(pd.Rules, &PolicyRuleDefinition{
 				Action:      r.Action,
 				Alias:       r.Alias,
 				Description: r.Description,
 			})
 		}
-
 		res = append(res, pd)
 	}
-
 	return res, nil
 }

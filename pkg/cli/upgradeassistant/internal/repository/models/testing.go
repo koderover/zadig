@@ -25,12 +25,14 @@ import (
 )
 
 type Testing struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty"            json:"id,omitempty"`
-	PreTest   *PreTest           `bson:"pre_test"                 json:"pre_test"`
-	Timeout   int                `bson:"timeout"                  json:"timeout"`
-	HookCtl   *TestingHookCtrl   `bson:"hook_ctl"                 json:"hook_ctl"`
-	NotifyCtl *NotifyCtl         `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
-	Schedules *ScheduleCtrl      `bson:"schedules,omitempty"      json:"schedules,omitempty"`
+	ID         primitive.ObjectID `bson:"_id,omitempty"            json:"id,omitempty"`
+	PreTest    *PreTest           `bson:"pre_test"                 json:"pre_test"`
+	Timeout    int                `bson:"timeout"                  json:"timeout"`
+	HookCtl    *TestingHookCtrl   `bson:"hook_ctl"                 json:"hook_ctl"`
+	NotifyCtl  *NotifyCtl         `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
+	NotifyCtls []*NotifyCtl       `bson:"notify_ctls,omitempty"    json:"notify_ctls,omitempty"`
+
+	Schedules *ScheduleCtrl `bson:"schedules,omitempty"      json:"schedules,omitempty"`
 
 	ArtifactPaths []string `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
 

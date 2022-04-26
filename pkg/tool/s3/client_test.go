@@ -14,18 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package aslan
+package s3
 
-import "github.com/koderover/zadig/pkg/tool/httpclient"
+import (
+	"testing"
+)
 
-func (c *Client) ListRegistries() ([]*RegistryInfo, error) {
-	url := "/system/registry"
-	res := make([]*RegistryInfo, 0)
-
-	_, err := c.Get(url, httpclient.SetResult(&res))
-	if err != nil {
-		return nil, err
+func TestDetectMimetype(t *testing.T) {
+	type testcase struct {
+		file     string
+		mimetype string
 	}
-
-	return res, nil
+	testcases := []testcase{
+		{"", ""},
+		{"/a/abc.", ""},
+		{"abc/ab", ""},
+		{".abc.a", ""},
+		{"./abc.js", "application/javascript"},
+		{"./abc.css", "text/css; charset=utf-8"},
+		{"./abc.html", "text/html; charset=utf-8"},
+	}
+	for _, ts := range testcases {
+		m := detectMimetype(ts.file)
+		if m != ts.mimetype {
+			t.Errorf("Expected result for path <%s> to be <%s> but got <%s>", ts.file, ts.mimetype, m)
+		}
+	}
 }

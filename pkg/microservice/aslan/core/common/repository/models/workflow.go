@@ -48,7 +48,10 @@ type Workflow struct {
 	SecurityStage   *SecurityStage     `bson:"security_stage"               json:"security_stage"`
 	DistributeStage *DistributeStage   `bson:"distribute_stage"             json:"distribute_stage"`
 	ExtensionStage  *ExtensionStage    `bson:"extension_stage"              json:"extension_stage"`
+	// TODO: Deprecated.
 	NotifyCtl       *NotifyCtl         `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
+	// New since V1.12.0.
+	NotifyCtls      []*NotifyCtl       `bson:"notify_ctls,omitempty"        json:"notify_ctls,omitempty"`
 	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
 	BaseName        string             `bson:"base_name" json:"base_name"`
 
