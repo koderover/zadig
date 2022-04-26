@@ -18,12 +18,14 @@ package user
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/dexidp/dex/connector/ldap"
 	ldapv3 "github.com/go-ldap/ldap/v3"
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -37,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/mail"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -415,7 +418,11 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("CreateUser CreateUser :%v error, error msg:%s", user, err.Error())
-		return nil, err
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+			return nil, e.ErrCreateUser.AddErr(err).AddDesc("存在相同用户名")
+		}
+		return nil, e.ErrCreateUser.AddErr(err)
 	}
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(args.Password), bcrypt.DefaultCost)
 	userLogin := &models.UserLogin{
