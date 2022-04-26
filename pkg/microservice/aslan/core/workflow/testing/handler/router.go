@@ -58,8 +58,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	scanner := router.Group("scanning")
 	{
-		tester.POST("", GetScanningProductName, gin2.UpdateOperationLogStatus, CreateScanningModule)
-		tester.PUT("/:id", GetScanningProductName, gin2.UpdateOperationLogStatus, UpdateScanningModule)
+		scanner.POST("", GetScanningProductName, gin2.UpdateOperationLogStatus, CreateScanningModule)
+		scanner.PUT("/:id", GetScanningProductName, gin2.UpdateOperationLogStatus, UpdateScanningModule)
 		scanner.GET("", ListScanningModule)
 		scanner.GET("/:id", GetScanningModule)
 		scanner.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteScanningModule)
