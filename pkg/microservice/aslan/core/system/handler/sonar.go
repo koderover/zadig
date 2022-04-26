@@ -17,14 +17,11 @@ limitations under the License.
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/koderover/zadig/pkg/tool/crypto"
-	"io/ioutil"
-
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
@@ -48,7 +45,10 @@ func CreateSonarIntegration(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to update sonar integration: %s", err)
+		return
+	}
 
 	if args.ServerAddress == "" || args.Token == "" {
 		ctx.Err = errors.New("name and server must be provided")
@@ -72,7 +72,10 @@ func UpdateSonarIntegration(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to update sonar integration: %s", err)
+		return
+	}
 
 	if args.ServerAddress == "" || args.Token == "" {
 		ctx.Err = errors.New("name and server must be provided")
@@ -106,7 +109,7 @@ func ListSonarIntegration(c *gin.Context) {
 	for _, sonar := range sonarList {
 		encryptedSonarToken, err := crypto.AesEncryptByKey(sonar.Token, aesKey.PlainText)
 		if err != nil {
-			ctx.Err = fmt.Errorf("failed to encyrpt sonar token, err: %s", err)
+			ctx.Err = fmt.Errorf("failed to encrypt sonar token, err: %s", err)
 			return
 		}
 		sonar.Token = encryptedSonarToken
@@ -137,7 +140,7 @@ func GetSonarIntegration(c *gin.Context) {
 	}
 	encryptedSonarToken, err := crypto.AesEncryptByKey(resp.Token, aesKey.PlainText)
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to encyrpt sonar token, err: %s", err)
+		ctx.Err = fmt.Errorf("failed to encrypt sonar token, err: %s", err)
 		return
 	}
 	resp.Token = encryptedSonarToken

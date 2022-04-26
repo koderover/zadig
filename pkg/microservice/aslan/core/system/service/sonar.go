@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+
+	"go.uber.org/zap"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"go.uber.org/zap"
-	"io"
-	"net/http"
 )
 
 func CreateSonarIntegration(args *SonarIntegration, log *zap.SugaredLogger) error {
