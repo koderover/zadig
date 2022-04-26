@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 )
 
 func CreateSonarIntegration(args *SonarIntegration, log *zap.SugaredLogger) error {
-	err := commonrepo.NewSonarIntegrationColl().Create(&commonmodels.SonarIntegration{
+	err := commonrepo.NewSonarIntegrationColl().Create(context.TODO(), &commonmodels.SonarIntegration{
 		ServerAddress: args.ServerAddress,
 		Token:         args.Token,
 	})
@@ -28,6 +29,7 @@ func CreateSonarIntegration(args *SonarIntegration, log *zap.SugaredLogger) erro
 
 func UpdateSonarIntegration(id string, integration *SonarIntegration, log *zap.SugaredLogger) error {
 	err := commonrepo.NewSonarIntegrationColl().Update(
+		context.TODO(),
 		id,
 		&commonmodels.SonarIntegration{
 			ServerAddress: integration.ServerAddress,
@@ -42,7 +44,7 @@ func UpdateSonarIntegration(id string, integration *SonarIntegration, log *zap.S
 
 func ListSonarIntegration(log *zap.SugaredLogger) ([]*SonarIntegration, int64, error) {
 	// for now paging is not supported
-	sonarList, length, err := commonrepo.NewSonarIntegrationColl().List(0, 0)
+	sonarList, length, err := commonrepo.NewSonarIntegrationColl().List(context.TODO(), 0, 0)
 	if err != nil {
 		log.Errorf("Failed to list sonar integration from db, the error is: %s", err)
 		return nil, 0, err
@@ -60,7 +62,7 @@ func ListSonarIntegration(log *zap.SugaredLogger) ([]*SonarIntegration, int64, e
 
 func GetSonarIntegration(id string, log *zap.SugaredLogger) (*SonarIntegration, error) {
 	resp := new(SonarIntegration)
-	sonarIntegration, err := commonrepo.NewSonarIntegrationColl().GetByID(id)
+	sonarIntegration, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), id)
 	if err != nil {
 		log.Errorf("Failed to get sonar integration detail from id %s, the error is: %s", id, err)
 		return nil, err
@@ -72,7 +74,7 @@ func GetSonarIntegration(id string, log *zap.SugaredLogger) (*SonarIntegration, 
 }
 
 func DeleteSonarIntegration(id string, log *zap.SugaredLogger) error {
-	err := commonrepo.NewSonarIntegrationColl().DeleteByID(id)
+	err := commonrepo.NewSonarIntegrationColl().DeleteByID(context.TODO(), id)
 	if err != nil {
 		log.Errorf("Failed to delete sonar integration of id: %s, the error is: %s", id, err)
 	}

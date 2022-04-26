@@ -166,9 +166,13 @@ func ValidateSonarInformation(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("Validate sonar integration GetRawData err : %s", err)
+		ctx.Err = fmt.Errorf("validate sonar integration GetRawData err : %s", err)
+		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Validate sonar integration Unmarshal err : %s", err)
+		ctx.Err = fmt.Errorf("validate sonar integration Unmarshal err : %s", err)
+		return
 	}
 
 	ctx.Err = service.ValidateSonarIntegration(args, ctx.Logger)
