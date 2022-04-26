@@ -37,6 +37,19 @@ type Scanning struct {
 	AdvancedSetting *types.ScanningAdvancedSetting `json:"advanced_settings"`
 }
 
+type ListScanningRespItem struct {
+	ID         string             `json:"id"`
+	Name       string             `json:"name"`
+	Statistics *ScanningStatistic `json:"statistics"`
+	CreatedAt  int64              `json:"created_at"`
+	UpdatedAt  int64              `json:"updated_at"`
+}
+
+type ScanningStatistic struct {
+	TimesRun       int64 `json:"times_run"`
+	AverageRuntime int64 `json:"run_time_average"`
+}
+
 func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 	// ID is omitted since they are of different type and there will be no use of it
 	return &commonmodels.Scanning{

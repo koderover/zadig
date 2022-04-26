@@ -86,15 +86,24 @@ func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredL
 	return nil
 }
 
-func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*Scanning, int64, error) {
+func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScanningRespItem, int64, error) {
 	scanningList, total, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{ProjectName: projectName}, 0, 0)
 	if err != nil {
 		log.Errorf("failed to list scanning list from mongodb, the error is: %s", err)
 		return nil, 0, err
 	}
-	resp := make([]*Scanning, 0)
+	resp := make([]*ListScanningRespItem, 0)
 	for _, scanning := range scanningList {
-		resp = append(resp, ConvertDBScanningModule(scanning))
+		resp = append(resp, &ListScanningRespItem{
+			ID:   scanning.ID.Hex(),
+			Name: scanning.Name,
+			Statistics: &ScanningStatistic{
+				TimesRun:       0,
+				AverageRuntime: 0,
+			},
+			CreatedAt: scanning.CreatedAt,
+			UpdatedAt: scanning.UpdatedAt,
+		})
 	}
 	return resp, total, nil
 }
