@@ -1943,7 +1943,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 }
 
 // fillBuildDetail fill the contents for builds created from build templates
-func fillBuildDetail(moduleBuild *commonmodels.Build) error {
+func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string) error {
 	if moduleBuild.TemplateID == "" {
 		return nil
 	}
@@ -1957,7 +1957,7 @@ func fillBuildDetail(moduleBuild *commonmodels.Build) error {
 	moduleBuild.Timeout = buildTemplate.Timeout
 	moduleBuild.PreBuild = buildTemplate.PreBuild
 	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
-	//moduleBuild.Scripts = buildTemplate.Scripts
+	moduleBuild.Scripts = buildTemplate.Scripts
 	moduleBuild.PostBuild = buildTemplate.PostBuild
 	moduleBuild.SSHs = buildTemplate.SSHs
 	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
@@ -1965,6 +1965,13 @@ func fillBuildDetail(moduleBuild *commonmodels.Build) error {
 	moduleBuild.CacheDirType = buildTemplate.CacheDirType
 	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
 	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+
+	// repos are configured by service modules
+	for _, serviceConfig := range moduleBuild.Targets {
+		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
+			moduleBuild.Repos = serviceConfig.Repos
+		}
+	}
 	return nil
 }
 
@@ -2008,7 +2015,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	}
 
 	for _, module := range modules {
-		err = fillBuildDetail(module)
+		err = fillBuildDetail(module, args.ServiceName, args.Target)
 		if err != nil {
 			return nil, e.ErrConvertSubTasks.AddErr(err)
 		}
