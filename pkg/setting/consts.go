@@ -614,6 +614,8 @@ const (
 
 const LocalClusterID = "0123456789abcdef12345678"
 
+const DefaultLoginLocal = "local"
+
 const RequestModeOpenAPI = "openAPI"
 
 const DeployTimeout = 60 * 10 // 10 minutes
