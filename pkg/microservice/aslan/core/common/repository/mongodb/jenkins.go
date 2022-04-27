@@ -52,6 +52,20 @@ func (c *JenkinsIntegrationColl) EnsureIndex(ctx context.Context) error {
 	return nil
 }
 
+// Get ...
+func (c *JenkinsIntegrationColl) Get(id string) (*models.JenkinsIntegration, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	query := bson.M{"_id": oid}
+	res := &models.JenkinsIntegration{}
+	err = c.FindOne(context.TODO(), query).Decode(res)
+
+	return res, err
+}
+
 func (c *JenkinsIntegrationColl) Create(args *models.JenkinsIntegration) error {
 	if args == nil {
 		return errors.New("nil jenkins integration args")

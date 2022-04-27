@@ -109,12 +109,12 @@ func ListJobNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJobNames(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListJobNames(c.Param("id"), ctx.Logger)
 }
 
 func ListJobBuildArgs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJobBuildArgs(c.Param("jobName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListJobBuildArgs(c.Param("id"), c.Param("jobName"), ctx.Logger)
 }

@@ -152,11 +152,6 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	jenkinsIntegrations, err := commonrepo.NewJenkinsIntegrationColl().List()
-	if err != nil {
-		return nil, e.ErrConvertSubTasks.AddErr(err)
-	}
-
 	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
@@ -172,6 +167,10 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	}
 
 	for _, module := range modules {
+		jenkinsIntegration := getJenkinsIntegration(module.JenkinsBuild)
+		if jenkinsIntegration == nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
 		build := &task.JenkinsBuild{
 			TaskType:    config.TaskJenkinsBuild,
 			Enabled:     true,
@@ -185,9 +184,9 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 				JenkinsBuildParams: jenkinsBuildParams,
 			},
 			JenkinsIntegration: &task.JenkinsIntegration{
-				URL:      jenkinsIntegrations[0].URL,
-				Username: jenkinsIntegrations[0].Username,
-				Password: jenkinsIntegrations[0].Password,
+				URL:      jenkinsIntegration.URL,
+				Username: jenkinsIntegration.Username,
+				Password: jenkinsIntegration.Password,
 			},
 			Registries: registries,
 		}
@@ -200,6 +199,17 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	}
 
 	return subTasks, nil
+}
+
+func getJenkinsIntegration(jenkinsBuild *commonmodels.JenkinsBuild) *commonmodels.JenkinsIntegration {
+	if jenkinsBuild == nil {
+		return nil
+	}
+	jenkinsIntegration, err := commonrepo.NewJenkinsIntegrationColl().Get(jenkinsBuild.JenkinsID)
+	if err != nil {
+		return nil
+	}
+	return jenkinsIntegration
 }
 
 func AddPipelineJiraSubTask(pipeline *commonmodels.Pipeline, log *zap.SugaredLogger) (map[string]interface{}, error) {
