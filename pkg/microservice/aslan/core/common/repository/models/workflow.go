@@ -353,6 +353,7 @@ type TargetArgs struct {
 	Envs             []*KeyVal         `bson:"envs"                          json:"envs"`
 	HasBuild         bool              `bson:"has_build"                     json:"has_build"`
 	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args,omitempty"  json:"jenkins_build_args,omitempty"`
+	BuildName        string            `bson:"build_name,omitempty"          json:"build_name"`
 }
 
 type JenkinsBuildArgs struct {

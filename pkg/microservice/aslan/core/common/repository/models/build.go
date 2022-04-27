@@ -147,6 +147,7 @@ type ServiceModuleTarget struct {
 	ProductName   string `bson:"product_name"                  json:"product_name"`
 	ServiceName   string `bson:"service_name"                  json:"service_name"`
 	ServiceModule string `bson:"service_module"                json:"service_module"`
+	BuildName     string `bson:"build_name"                    json:"build_name"`
 }
 
 type KeyVal struct {

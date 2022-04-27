@@ -441,6 +441,10 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
+	if err := checkWorkflowBuildStage(workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+
 	if err := commonrepo.NewWorkflowColl().Create(workflow); err != nil {
 		log.Errorf("Workflow.Create error: %v", err)
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
@@ -483,6 +487,22 @@ func checkWorkflowSubModule(workflow *commonmodels.Workflow) bool {
 	return false
 }
 
+func checkWorkflowBuildStage(workflow *commonmodels.Workflow) error {
+	if workflow.BuildStage != nil && workflow.BuildStage.Enabled {
+		// find all of builds in this project
+		builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: workflow.ProductTmplName})
+		if err != nil {
+			return err
+		}
+		for _, serviceModule := range workflow.BuildStage.Modules {
+			if serviceModule.Target != nil && serviceModule.Target.BuildName == "" && len(builds) > 0 {
+				serviceModule.Target.BuildName = builds[0].Name
+			}
+		}
+	}
+	return nil
+}
+
 func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
 	if !checkWorkflowSubModule(workflow) {
 		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
@@ -519,6 +539,10 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 				test.Envs = make([]*commonmodels.KeyVal, 0)
 			}
 		}
+	}
+
+	if err := checkWorkflowBuildStage(workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
 	if err = commonrepo.NewWorkflowColl().Replace(workflow); err != nil {

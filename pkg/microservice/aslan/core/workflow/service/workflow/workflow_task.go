@@ -253,6 +253,29 @@ func getProjectTargets(productName string) []string {
 	return targets
 }
 
+func findModuleByContainer(serviceModuleTarget string, buildStageModules []*commonmodels.BuildModule, allModules []*commonmodels.Build) *commonmodels.Build {
+	// find build name
+	var buildName string
+	for _, buildStageModule := range buildStageModules {
+		if buildStageModule.Target == nil {
+			return nil
+		}
+		targetStr := fmt.Sprintf("%s%s%s%s%s", buildStageModule.Target.ProductName, SplitSymbol, buildStageModule.Target.ServiceName, SplitSymbol, buildStageModule.Target.ServiceModule)
+		if serviceModuleTarget == targetStr {
+			buildName = buildStageModule.Target.BuildName
+			break
+		}
+	}
+	if buildName != "" {
+		for _, module := range allModules {
+			if module.Name == buildName {
+				return module
+			}
+		}
+	}
+	return nil
+}
+
 func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) *commonmodels.Build {
 	containerArr := strings.Split(serviceModuleTarget, SplitSymbol)
 	if len(containerArr) != 3 {
@@ -385,7 +408,8 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				Build:       &commonmodels.BuildArgs{},
 				HasBuild:    true,
 			}
-			moBuild := findModuleByTargetAndVersion(allModules, container)
+			//moBuild := findModuleByTargetAndVersion(allModules, container)
+			moBuild := findModuleByContainer(container, workflow.BuildStage.Modules, allModules)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false

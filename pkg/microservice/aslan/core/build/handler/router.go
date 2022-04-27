@@ -29,6 +29,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		build.GET("/:name", FindBuildModule)
 		build.GET("", ListBuildModules)
+		build.GET("/:serviceName/:serviceModule", ListBuildModulesByServiceModule)
 		build.POST("", gin2.UpdateOperationLogStatus, CreateBuildModule)
 		build.PUT("", gin2.UpdateOperationLogStatus, UpdateBuildModule)
 		build.DELETE("", gin2.UpdateOperationLogStatus, DeleteBuildModule)

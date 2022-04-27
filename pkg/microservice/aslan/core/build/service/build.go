@@ -108,6 +108,43 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	return resp, nil
 }
 
+func ListBuildModulesByServiceModule(productName, serviceName, serviceModule string, log *zap.SugaredLogger) ([]*BuildResp, error) {
+	resp := make([]*BuildResp, 0)
+	opt := &commonrepo.BuildListOption{
+		ProductName: productName,
+		ServiceName: serviceName,
+		Targets:     []string{serviceModule},
+	}
+
+	buildModules, err := commonrepo.NewBuildColl().List(opt)
+	if err != nil {
+		return nil, e.ErrListBuildModule.AddErr(err)
+	}
+	if len(buildModules) > 0 {
+		for _, build := range buildModules {
+			resp = append(resp, &BuildResp{
+				ID:   build.ID.Hex(),
+				Name: build.Name,
+			})
+		}
+		return resp, nil
+	}
+
+	// When the service is a shared service
+	opt.ProductName = ""
+	buildModules, err = commonrepo.NewBuildColl().List(opt)
+	if err != nil {
+		return nil, e.ErrListBuildModule.AddErr(err)
+	}
+	for _, build := range buildModules {
+		resp = append(resp, &BuildResp{
+			ID:   build.ID.Hex(),
+			Name: build.Name,
+		})
+	}
+	return resp, nil
+}
+
 func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
 	if len(build.Name) == 0 {
 		return e.ErrCreateBuildModule.AddDesc("empty name")
