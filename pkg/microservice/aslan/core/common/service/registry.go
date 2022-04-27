@@ -174,7 +174,7 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 		}
 	}
 
-	err = kube.CreateOrUpdateRegistrySecret(namespace, reg, kubeClient)
+	err = kube.CreateOrUpdateDefaultRegistrySecret(namespace, reg, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] CreateDockerSecret error: %s", namespace, err)
 		return e.ErrUpdateSecret.AddDesc(e.CreateDefaultRegistryErrMsg)
