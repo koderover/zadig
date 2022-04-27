@@ -150,7 +150,7 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, false, kubeClient); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -411,7 +411,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, false, kubeClient); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
