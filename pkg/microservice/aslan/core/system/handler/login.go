@@ -27,7 +27,7 @@ func GetDefaultLogin(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetDefaultLogin()
+	ctx.Resp, ctx.Err = service.GetDefaultLogin(ctx.Logger)
 }
 
 func UpdateDefaultLogin(c *gin.Context) {
