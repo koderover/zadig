@@ -81,7 +81,7 @@ func moduleTestingAddNotifyCtls() error {
 		if testing.NotifyCtls != nil {
 			continue
 		}
-		if testing.NotifyCtl != nil {
+		if testing.NotifyCtl != nil && testing.NotifyCtl.Enabled {
 			testing.NotifyCtls = []*models.NotifyCtl{testing.NotifyCtl}
 		}
 
@@ -154,7 +154,7 @@ func workflowAddNotifyCtls() error {
 		if workflow.NotifyCtls != nil {
 			continue
 		}
-		if workflow.NotifyCtl != nil {
+		if workflow.NotifyCtl != nil && workflow.NotifyCtl.Enabled {
 			workflow.NotifyCtls = []*models.NotifyCtl{workflow.NotifyCtl}
 		}
 

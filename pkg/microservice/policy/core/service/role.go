@@ -77,6 +77,7 @@ func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 func UpdateOrCreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,
+		Desc:      role.Desc,
 		Namespace: ns,
 		Type:      role.Type,
 	}

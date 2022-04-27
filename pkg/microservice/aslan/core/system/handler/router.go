@@ -226,4 +226,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		externalSystem.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateExternalSystem)
 		externalSystem.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteExternalSystem)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// sonar integration API
+	// ---------------------------------------------------------------------------------------
+	sonar := router.Group("sonar")
+	{
+		sonar.POST("/integration", gin2.UpdateOperationLogStatus, CreateSonarIntegration)
+		sonar.PUT("/integration/:id", gin2.UpdateOperationLogStatus, UpdateSonarIntegration)
+		sonar.GET("/integration", ListSonarIntegration)
+		sonar.GET("/integration/:id", GetSonarIntegration)
+		sonar.DELETE("/integration/:id", gin2.UpdateOperationLogStatus, DeleteSonarIntegration)
+		sonar.POST("/validate", ValidateSonarInformation)
+	}
 }
