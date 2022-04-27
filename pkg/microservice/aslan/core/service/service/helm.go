@@ -166,6 +166,52 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	return helmService, nil
 }
 
+func getCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
+	bs, err := json.Marshal(createFrom)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromChartTemplate{}
+	err = json.Unmarshal(bs, ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, err
+}
+
+func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
+	if serviceTemplate.Source != setting.SourceFromChartTemplate {
+		return nil
+	}
+	creation, err := getCreateFromChartTemplate(serviceTemplate.CreateFrom)
+	if err != nil {
+		return fmt.Errorf("failed to get creation detail: %s", err)
+	}
+
+	templateChart, err := commonrepo.NewChartColl().Get(creation.TemplateName)
+	if err != nil {
+		return err
+	}
+	variables := make([]*models.Variable, 0)
+	curValueMap := make(map[string]string)
+	for _, kv := range creation.Variables {
+		curValueMap[kv.Key] = kv.Value
+	}
+
+	log.Infof("#########3 the template chart is %v", templateChart.ChartVariables)
+	for _, v := range templateChart.ChartVariables {
+		value := v.Value
+		if cv, ok := curValueMap[v.Key]; ok {
+			value = cv
+		}
+		variables = append(variables, &models.Variable{Key: v.Key, Value: value})
+	}
+	creation.Variables = variables
+	log.Infof("##### the variables is %v", variables)
+	serviceTemplate.CreateFrom = creation
+	return nil
+}
+
 func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
@@ -181,6 +227,10 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 			serviceModule.BuildName = buildObj.Name
 		}
 		serviceModules = append(serviceModules, serviceModule)
+	}
+	err = fillServiceTemplateVariables(serviceTemplate)
+	if err != nil {
+		log.Errorf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 	helmServiceModule.Service = serviceTemplate
 	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()

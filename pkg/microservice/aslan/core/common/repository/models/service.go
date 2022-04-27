@@ -64,7 +64,7 @@ type Service struct {
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
 	LoadPath         string           `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
-	CreateFrom       interface{}      `bson:"create_from,omitempty"               json:"create_from,omitempty"`
+	CreateFrom       interface{}      `bson:"create_from,omitempty"          json:"create_from,omitempty"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
@@ -92,6 +92,11 @@ type CreateFromChartRepo struct {
 	ChartRepoName string `json:"chart_repo_name" bson:"chart_repo_name"`
 	ChartName     string `json:"chart_name"      bson:"chart_name"`
 	ChartVersion  string `json:"chart_version"   bson:"chart_version"`
+}
+
+type CreateFromYamlTemplate struct {
+	TemplateID string      `bson:"template_id"   json:"template_id"`
+	Variables  []*Variable `bson:"variables"     json:"variables"`
 }
 
 type GUIConfig struct {

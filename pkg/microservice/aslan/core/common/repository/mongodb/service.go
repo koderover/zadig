@@ -184,6 +184,24 @@ func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.S
 	return c.listMaxRevisions(m, nil)
 }
 
+func (c *ServiceColl) ListMaxRevisionsByYamlTemplate(templateId string) ([]*models.Service, error) {
+	m := bson.M{
+		"template_id": templateId,
+		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
+		"source":      setting.ServiceSourceTemplate,
+	}
+	return c.listMaxRevisions(m, nil)
+}
+
+func (c *ServiceColl) ListMaxRevisionsByChartTemplate(templateName string) ([]*models.Service, error) {
+	m := bson.M{
+		"create_from.template_name": templateName,
+		"status":                    bson.M{"$ne": setting.ProductStatusDeleting},
+		"source":                    setting.SourceFromChartTemplate,
+	}
+	return c.listMaxRevisions(m, nil)
+}
+
 func (c *ServiceColl) ListMaxRevisionsAllSvcByProduct(productName string) ([]*models.Service, error) {
 	m := bson.M{
 		"product_name": productName,
