@@ -563,11 +563,9 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 	updateProd.Services = updatedServices
 	updateProd.ShareEnv = existedProd.ShareEnv
 
-	log.Infof("[Namespace:%s][Product:%s]: update service orchestration in product. Status: %s", envName, productName, updateProd.Status)
-	if err = commonrepo.NewProductColl().Update(updateProd); err != nil {
-		log.Errorf("[Namespace:%s][Product:%s] Product.Update error: %v", envName, productName, err)
-		err = e.ErrUpdateEnv.AddErr(err)
-		return
+	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
+		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
 	existedServices := existedProd.GetServiceMap()
