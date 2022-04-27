@@ -17,9 +17,7 @@ limitations under the License.
 package handler
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,7 +25,6 @@ import (
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetBuildTemplate(c *gin.Context) {
@@ -55,22 +52,12 @@ func AddBuildTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.BuildTemplate)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateBuildModule c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateBuildModule json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模板-构建", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	err = c.BindJSON(args)
+	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
-
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模板-构建", args.Name, fmt.Sprintf("%+v", args), ctx.Logger)
 	ctx.Err = templateservice.AddBuildTemplate(ctx.UserName, args, ctx.Logger)
 }
 
@@ -79,20 +66,12 @@ func UpdateBuildTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.BuildTemplate)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateBuildTemplate c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateBuildTemplate json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "编辑", "模板-构建", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-	err = c.BindJSON(args)
+	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "编辑", "模板-构建", args.Name, fmt.Sprintf("%+v", args), ctx.Logger)
 
 	ctx.Err = templateservice.UpdateBuildTemplate(c.Param("id"), args, ctx.Logger)
 }
