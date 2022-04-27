@@ -357,6 +357,18 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				build = append(build, buildElemTemp)
 			}
 
+		case config.TaskJenkinsBuild:
+			for _, sb := range subStage.SubTasks {
+				buildElemTemp := ""
+				buildSt, err := base.ToJenkinsBuildTask(sb)
+				if err != nil {
+					return "", "", nil, err
+				}
+				buildElemTemp += fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**服务名称**：%s \n", buildSt.Service)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.Image)
+				build = append(build, buildElemTemp)
+			}
+
 		case config.TaskTestingV2:
 			test = "{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试结果** \n"
 			for _, sb := range subStage.SubTasks {
