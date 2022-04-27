@@ -471,7 +471,6 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		}
 
 		repos := commonservice.FindReposByTarget(targetElem.ProductName, targetElem.ServiceName, targetElem.Name, resp)
-
 		for _, repo := range repos {
 			if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
 				repo.Branch = branref

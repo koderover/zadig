@@ -101,5 +101,6 @@ func RemoveBuildTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板-构建", c.Param("id"), "", ctx.Logger)
 	ctx.Err = templateservice.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }

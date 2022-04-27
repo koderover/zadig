@@ -155,18 +155,12 @@ type ServiceModuleTarget struct {
 type ServiceModuleTargetBase struct {
 	ProductName   string `json:"product_name"`
 	ServiceName   string `json:"service_name"`
-	ServiceModule string `bson:"service_module"                json:"service_module"`
+	ServiceModule string `json:"service_module"`
 }
 
 type TargetRepo struct {
 	Service *ServiceModuleTargetBase `json:"service"`
 	Repos   []*types.Repository      `json:"repos"`
-}
-
-type ServiceTargetRepo struct {
-	ProductName   string `bson:"product_name"                  json:"product_name"`
-	ServiceName   string `bson:"service_name"                  json:"service_name"`
-	ServiceModule string `bson:"service_module"                json:"service_module"`
 }
 
 type KeyVal struct {
