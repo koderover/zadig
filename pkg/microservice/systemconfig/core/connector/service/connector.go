@@ -67,7 +67,11 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 		logger.Errorf("Failed to list connectors, err: %s", err)
 		return nil, err
 	}
-
+	config, err := aslan.New(config.AslanServiceAddress()).GetDefaultLogin()
+	if err != nil {
+		logger.Errorf("Failed to list connectors, err: %s", err)
+		return nil, err
+	}
 	var res []*Connector
 	for _, c := range cs {
 		cf := make(map[string]interface{})
@@ -90,13 +94,18 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 				return nil, err
 			}
 		}
+		isDefault := false
+		if config.DefaultLogin == c.ID {
+			isDefault = true
+		}
 		res = append(res, &Connector{
 			ConnectorBase: ConnectorBase{
 				Type: ConnectorType(c.Type),
 			},
-			ID:     c.ID,
-			Name:   c.Name,
-			Config: cf,
+			ID:        c.ID,
+			Name:      c.Name,
+			Config:    cf,
+			IsDefault: isDefault,
 		})
 	}
 

@@ -132,6 +132,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		concurrency.POST("/workflow", UpdateWorkflowConcurrency)
 	}
 
+	// default login default login home page settings
+	login := router.Group("login")
+	{
+		login.GET("/default", GetDefaultLogin)
+		login.POST("/default", UpdateDefaultLogin)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// 自定义镜像管理接口
 	// ---------------------------------------------------------------------------------------

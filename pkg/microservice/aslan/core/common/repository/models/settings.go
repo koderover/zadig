@@ -22,6 +22,7 @@ type SystemSetting struct {
 	ID                  primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	WorkflowConcurrency int64              `bson:"workflow_concurrency" json:"workflow_concurrency"`
 	BuildConcurrency    int64              `bson:"build_concurrency" json:"build_concurrency"`
+	DefaultLogin        string             `bson:"default_login" json:"default_login"`
 	UpdateTime          int64              `bson:"update_time" json:"update_time"`
 }
 
