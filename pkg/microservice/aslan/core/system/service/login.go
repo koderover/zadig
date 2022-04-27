@@ -23,9 +23,10 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-func GetDefaultLogin() (*GetDefaultLoginResponse, error) {
+func GetDefaultLogin(logger *zap.SugaredLogger) (*GetDefaultLoginResponse, error) {
 	configuration, err := commonrepo.NewSystemSettingColl().Get()
 	if err != nil {
+		logger.Errorf("GetDefaultLogin error:%s", err)
 		return nil, err
 	}
 	defaultLogin := setting.DefaultLoginLocal
@@ -45,6 +46,6 @@ type UpdateDefaultLoginParams struct {
 	DefaultLogin string `json:"defaultLogin"`
 }
 
-func UpdateDefaultLogin(defaultLogin string, log *zap.SugaredLogger) error {
+func UpdateDefaultLogin(defaultLogin string, _ *zap.SugaredLogger) error {
 	return commonrepo.NewSystemSettingColl().UpdateDefaultLoginSetting(defaultLogin)
 }
