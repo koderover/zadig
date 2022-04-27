@@ -39,11 +39,11 @@ func GetDefaultLogin(logger *zap.SugaredLogger) (*GetDefaultLoginResponse, error
 }
 
 type GetDefaultLoginResponse struct {
-	DefaultLogin string `json:"defaultLogin"`
+	DefaultLogin string `json:"default_login"`
 }
 
 type UpdateDefaultLoginParams struct {
-	DefaultLogin string `json:"defaultLogin"`
+	DefaultLogin string `json:"default_login"`
 }
 
 func UpdateDefaultLogin(defaultLogin string, _ *zap.SugaredLogger) error {

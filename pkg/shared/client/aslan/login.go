@@ -23,7 +23,7 @@ import (
 )
 
 type GetDefaultLoginResp struct {
-	DefaultLogin string `json:"defaultLogin"`
+	DefaultLogin string `json:"default_login"`
 }
 
 func (c *Client) GetDefaultLogin() (*GetDefaultLoginResp, error) {
