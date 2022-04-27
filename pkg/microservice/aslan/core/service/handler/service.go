@@ -21,11 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -201,15 +199,6 @@ func UpdateWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedEnvs...)
-		if !allowedSet.Has(env) {
-			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
-			return
-		}
-	}
-
 	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, product, env, *args, ctx.Logger)
 }
 
