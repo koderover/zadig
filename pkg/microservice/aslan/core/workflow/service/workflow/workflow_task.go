@@ -1967,6 +1967,7 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	for _, serviceConfig := range moduleBuild.Targets {
 		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
 			moduleBuild.Repos = serviceConfig.Repos
+			break
 		}
 	}
 	return nil

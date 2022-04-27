@@ -23,11 +23,11 @@ import (
 )
 
 type BuildTemplate struct {
-	ID                       primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Name                     string             `bson:"name"                         json:"name"`
-	Team                     string             `bson:"team,omitempty"               json:"team,omitempty"`
-	Source                   string             `bson:"source,omitempty"             json:"source,omitempty"`
-	Timeout                  int                `bson:"timeout"                      json:"timeout"`
+	ID                       primitive.ObjectID `bson:"_id,omitempty"                 json:"id,omitempty"`
+	Name                     string             `bson:"name"                          json:"name"`
+	Team                     string             `bson:"team,omitempty"                json:"team,omitempty"`
+	Source                   string             `bson:"source,omitempty"              json:"source,omitempty"`
+	Timeout                  int                `bson:"timeout"                       json:"timeout"`
 	UpdateTime               int64              `bson:"update_time"                   json:"update_time"`
 	UpdateBy                 string             `bson:"update_by"                     json:"update_by"`
 	PreBuild                 *PreBuild          `bson:"pre_build"                     json:"pre_build"`
@@ -36,10 +36,10 @@ type BuildTemplate struct {
 	PostBuild                *PostBuild         `bson:"post_build,omitempty"          json:"post_build"`
 	SSHs                     []string           `bson:"sshs"                          json:"sshs"`
 	PMDeployScripts          string             `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
-	CacheEnable              bool               `bson:"cache_enable"   json:"cache_enable"`
-	CacheDirType             types.CacheDirType `bson:"cache_dir_type" json:"cache_dir_type"`
-	CacheUserDir             string             `bson:"cache_user_dir" json:"cache_user_dir"`
-	AdvancedSettingsModified bool               `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
+	CacheEnable              bool               `bson:"cache_enable"                  json:"cache_enable"`
+	CacheDirType             types.CacheDirType `bson:"cache_dir_type"                json:"cache_dir_type"`
+	CacheUserDir             string             `bson:"cache_user_dir"                json:"cache_user_dir"`
+	AdvancedSettingsModified bool               `bson:"advanced_setting_modified"     json:"advanced_setting_modified"`
 }
 
 func (BuildTemplate) TableName() string {

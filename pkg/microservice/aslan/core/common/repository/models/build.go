@@ -149,7 +149,7 @@ type ServiceModuleTarget struct {
 	ProductName   string              `bson:"product_name"                  json:"product_name"`
 	ServiceName   string              `bson:"service_name"                  json:"service_name"`
 	ServiceModule string              `bson:"service_module"                json:"service_module"`
-	Repos         []*types.Repository `bson:"repos,omitempty"                         json:"repos,omitempty"`
+	Repos         []*types.Repository `bson:"repos,omitempty"               json:"repos,omitempty"`
 }
 
 type ServiceModuleTargetBase struct {

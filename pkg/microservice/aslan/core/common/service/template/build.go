@@ -46,7 +46,7 @@ func AddBuildTemplate(userName string, build *commonmodels.BuildTemplate, logger
 	}
 	build.UpdateBy = userName
 	if err := commonrepo.NewBuildTemplateColl().Create(build); err != nil {
-		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
+		log.Errorf("[Build.Upsert] %s error: %s", build.Name, err)
 		return e.ErrCreateBuildModule.AddErr(err)
 	}
 	return nil
