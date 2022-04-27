@@ -26,7 +26,7 @@ import (
 func ListPvcs(ns string, selector fields.Selector, cl client.Reader) ([]*corev1.PersistentVolumeClaim, error) {
 	pvcList := &corev1.PersistentVolumeClaimList{}
 	gvk := schema.GroupVersionKind{
-		Group:   "",
+		Group:   "core",
 		Kind:    "PersistentVolumeClaim",
 		Version: "v1",
 	}

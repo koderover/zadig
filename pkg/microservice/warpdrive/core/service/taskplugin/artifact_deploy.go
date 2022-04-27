@@ -171,23 +171,9 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 	}
 
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
-	for _, repo := range p.Task.JobCtx.Builds {
-		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
-		if len(repo.Branch) > 0 {
-			branchVar := &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, branchVar)
-		}
 
-		if len(repo.Tag) > 0 {
-			tagVar := &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, tagVar)
-		}
-
-		if repo.PR > 0 {
-			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
-		}
-	}
+	//instantiates variables like ${<REPO>_BRANCH} ${${REPO_index}_BRANCH} ..
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, InstantiateBuildSysVariables(&p.Task.JobCtx)...)
 
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,

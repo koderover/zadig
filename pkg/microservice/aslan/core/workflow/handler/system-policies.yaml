@@ -111,6 +111,8 @@
           endpoint: "/api/aslan/template/charts"
         - method: POST
           endpoint: "/api/aslan/template/yaml"
+        - method: POST
+          endpoint: "/api/aslan/template/build"
     - action: get_template
       alias: "查看"
       description: "查看"
@@ -123,6 +125,10 @@
           endpoint: "/api/aslan/template/charts/?*"
         - method: GET
           endpoint: "/api/aslan/template/dockerfile"
+        - method: GET
+          endpoint: "/api/aslan/template/build"
+        - method: GET
+          endpoint: "/api/aslan/template/build/?*"
     - action: edit_template
       alias: "编辑"
       description: "编辑"
@@ -136,6 +142,8 @@
           endpoint: "api/aslan/template/charts/?*/variables"
         - method: PUT
           endpoint: "/api/aslan/template/dockerfile/?*"
+      - method: PUT
+          endpoint: "/api/aslan/template/build/?*"
     - action: delete_template
       alias: "删除"
       description: "删除"
@@ -146,11 +154,13 @@
           endpoint: "/api/aslan/template/charts/?*"
         - method: DELETE
           endpoint: "/api/aslan/template/dockerfile/?*"
+        - method: DELETE
+            endpoint: "/api/aslan/template/build/?*"
 - resource: DeliveryCenter
   alias: "交付中心"
   description: ""
   rules:
-    - action: get
+    - action: realase_get
       alias: "版本管理|查看"
       description: "查看"
       rules:
@@ -158,7 +168,7 @@
           endpoint: "/api/aslan/delivery/releases"
         - method: GET
           endpoint: "/api/aslan/delivery/releases/?*"
-    - action: get
+    - action: delivery_get
       alias: "交付物追踪|查看"
       description: "查看"
       rules:

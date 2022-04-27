@@ -148,6 +148,12 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 		}
 		cm.SetManagedFields(nil)
 		cm.SetResourceVersion("")
+		if cm.APIVersion == "" {
+			cm.APIVersion = "v1"
+		}
+		if cm.Kind == "" {
+			cm.Kind = "ConfigMap"
+		}
 		yamlData, err := yaml.Marshal(cm)
 		if err != nil {
 			return err
