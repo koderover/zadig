@@ -203,11 +203,11 @@ func presetRoleBinding(uid string) error {
 func presetRole() error {
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		systemRole := &policy.Role{}
-		if err := yaml.Unmarshal(admin, systemRole); err != nil {
+		systemAdminRole := &policy.Role{}
+		if err := yaml.Unmarshal(admin, systemAdminRole); err != nil {
 			log.DPanic(err)
 		}
-		return policy.NewDefault().CreateSystemRole(systemRole.Name, systemRole)
+		return policy.NewDefault().CreateSystemRole(systemAdminRole.Name, systemAdminRole)
 	})
 
 	rolesArray := [][]byte{readOnly, readProjectOnly, contributor, projectAdmin}

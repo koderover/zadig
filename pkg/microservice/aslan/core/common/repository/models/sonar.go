@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,22 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package models
 
-type ExternalSystemDetail struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Server   string `json:"server"`
-	APIToken string `json:"api_token,omitempty"`
-}
-
-type WorkflowConcurrencySettings struct {
-	WorkflowConcurrency int64 `json:"workflow_concurrency"`
-	BuildConcurrency    int64 `json:"build_concurrency"`
-}
+import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type SonarIntegration struct {
-	ID            string `json:"id"`
-	ServerAddress string `json:"server_address"`
-	Token         string `json:"token"`
+	ID            primitive.ObjectID `bson:"_id,omitempty"`
+	ServerAddress string             `bson:"server_address"`
+	Token         string             `bson:"token"`
+}
+
+func (SonarIntegration) TableName() string {
+	return "sonar_integration"
 }
