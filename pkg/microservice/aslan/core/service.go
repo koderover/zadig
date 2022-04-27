@@ -261,6 +261,7 @@ func initDatabase() {
 		commonrepo.NewSecretColl(),
 		commonrepo.NewPvcColl(),
 		commonrepo.NewEnvSvcDependColl(),
+		commonrepo.NewBuildTemplateColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

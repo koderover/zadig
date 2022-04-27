@@ -92,17 +92,13 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		}
 		target := &commonmodels.TargetArgs{Name: containerArr[2], ServiceName: containerArr[1], Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
 
-		moBuild := findModuleByTargetAndVersion(allModules, container)
+		moBuild, _ := findModuleByTargetAndVersion(allModules, container)
 		if moBuild == nil {
 			moBuild = &commonmodels.Build{}
 			target.HasBuild = false
 		}
 
-		if len(moBuild.Repos) == 0 {
-			target.Build.Repos = make([]*types.Repository, 0)
-		} else {
-			target.Build.Repos = moBuild.Repos
-		}
+		target.Build.Repos = moBuild.SafeRepos()
 
 		if moBuild.PreBuild != nil {
 			EnsureBuildResp(moBuild)
@@ -253,10 +249,10 @@ func getProjectTargets(productName string) []string {
 	return targets
 }
 
-func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) *commonmodels.Build {
+func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
 	containerArr := strings.Split(serviceModuleTarget, SplitSymbol)
 	if len(containerArr) != 3 {
-		return nil
+		return nil, nil
 	}
 
 	opt := &commonrepo.ServiceFindOption{
@@ -272,11 +268,11 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 		for _, target := range mo.Targets {
 			targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
 			if targetStr == strings.Join(containerArr, SplitSymbol) {
-				return mo
+				return mo, target
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func EnsureBuildResp(mb *commonmodels.Build) {
@@ -284,9 +280,7 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 		mb.Targets = make([]*commonmodels.ServiceModuleTarget, 0)
 	}
 
-	if len(mb.Repos) == 0 {
-		mb.Repos = make([]*types.Repository, 0)
-	}
+	mb.Repos = mb.SafeRepos()
 
 	if mb.PreBuild != nil {
 		if len(mb.PreBuild.Installs) == 0 {
@@ -385,16 +379,16 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				Build:       &commonmodels.BuildArgs{},
 				HasBuild:    true,
 			}
-			moBuild := findModuleByTargetAndVersion(allModules, container)
+			moBuild, targetInfo := findModuleByTargetAndVersion(allModules, container)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false
 			}
 
-			if len(moBuild.Repos) == 0 {
-				target.Build.Repos = make([]*types.Repository, 0)
+			if moBuild.TemplateID != "" {
+				target.Build.Repos = targetInfo.Repos
 			} else {
-				target.Build.Repos = moBuild.Repos
+				target.Build.Repos = moBuild.SafeRepos()
 			}
 
 			if moBuild.PreBuild != nil {
@@ -909,6 +903,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				}
 				// If the service component owned by the build contains any service component of the service, the match is considered successful
 				match := false
+				repos := build.Repos
 				for _, container := range serviceTmpl.Containers {
 					serviceModuleTarget := &commonmodels.ServiceModuleTarget{
 						ProductName:   serviceTmpl.ProductName,
@@ -920,6 +915,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 							target.Name = container.Name
 							target.ServiceName = serviceTmpl.ServiceName
 							match = true
+							repos = buildTarget.Repos
 							break
 						}
 					}
@@ -931,7 +927,8 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				if target.Build == nil {
 					continue
 				}
-				for _, buildRepo := range build.Repos {
+
+				for _, buildRepo := range repos {
 					for _, targetRepo := range target.Build.Repos {
 						if targetRepo.RepoName == buildRepo.RepoName {
 							// openAPI only pass repoName, branch, pr
@@ -1942,6 +1939,40 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	return resp, nil
 }
 
+// fillBuildDetail fill the contents for builds created from build templates
+func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string) error {
+	if moduleBuild.TemplateID == "" {
+		return nil
+	}
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		ID: moduleBuild.TemplateID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+	}
+
+	moduleBuild.Timeout = buildTemplate.Timeout
+	moduleBuild.PreBuild = buildTemplate.PreBuild
+	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.Scripts = buildTemplate.Scripts
+	moduleBuild.PostBuild = buildTemplate.PostBuild
+	moduleBuild.SSHs = buildTemplate.SSHs
+	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
+	moduleBuild.CacheEnable = buildTemplate.CacheEnable
+	moduleBuild.CacheDirType = buildTemplate.CacheDirType
+	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
+	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+
+	// repos are configured by service modules
+	for _, serviceConfig := range moduleBuild.Targets {
+		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
+			moduleBuild.Repos = serviceConfig.Repos
+			break
+		}
+	}
+	return nil
+}
+
 func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredLogger) ([]map[string]interface{}, error) {
 	var (
 		subTasks    = make([]map[string]interface{}, 0)
@@ -1982,6 +2013,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	}
 
 	for _, module := range modules {
+		err = fillBuildDetail(module, args.ServiceName, args.Target)
+		if err != nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
 		build := &taskmodels.Build{
 			TaskType:     config.TaskBuild,
 			Enabled:      true,
@@ -2077,7 +2112,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.InstallItems = make([]*commonmodels.Item, 0)
 		}
 
-		build.JobCtx.Builds = module.Repos
+		build.JobCtx.Builds = module.SafeRepos()
 		for _, repo := range build.JobCtx.Builds {
 			repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
 			if err != nil {
@@ -2085,9 +2120,6 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				return nil, err
 			}
 			repo.EnableProxy = repoInfo.EnableProxy
-		}
-		if len(build.JobCtx.Builds) == 0 {
-			build.JobCtx.Builds = make([]*types.Repository, 0)
 		}
 
 		build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}
