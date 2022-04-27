@@ -142,7 +142,7 @@
           endpoint: "api/aslan/template/charts/?*/variables"
         - method: PUT
           endpoint: "/api/aslan/template/dockerfile/?*"
-      - method: PUT
+        - method: PUT
           endpoint: "/api/aslan/template/build/?*"
     - action: delete_template
       alias: "删除"
