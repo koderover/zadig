@@ -130,15 +130,8 @@ rules:
       - method: POST
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Cluster"
-        matchAttributes:
-          - key: "production"
-            value: "false"
       - method: POST
         endpoint: "/api/aslan/service/workloads"
-        resourceType: "Environment"
-        matchAttributes:
-          - key: "production"
-            value: "false"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
       - method: GET
@@ -148,17 +141,6 @@ rules:
     alias: "配置"
     description: ""
     rules:
-      # ----托管场景下配置服务需要接口------
-      - method: GET
-        endpoint: "/api/aslan/build/targets"
-        resourceType: "Environment"
-      - method: GET
-        endpoint: "/api/aslan/build/build"
-        resourceType: "Environment"
-      - method: GET
-        endpoint: "/api/aslan/service/services/?*"
-        resourceType: "Environment"
-        # ----------
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/services"
         resourceType: "Environment"
@@ -183,9 +165,6 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
-        matchAttributes:
-          - key: "production"
-            value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
@@ -212,9 +191,6 @@ rules:
             value: "false"
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
-        matchAttributes:
-          - key: "production"
-            value: "false"
         resourceType: "Environment"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
@@ -254,9 +230,6 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
-        matchAttributes:
-          - key: "production"
-          - value: "false"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
         resourceType: "Environment"

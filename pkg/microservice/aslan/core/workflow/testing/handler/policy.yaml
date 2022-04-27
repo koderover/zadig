@@ -18,8 +18,6 @@ rules:
         endpoint: "/api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*"
       - method: GET
         endpoint: "/api/aslan/testing/workspace/workflow/?*/taskId/?*"
-      - method: GET
-        endpoint: "/api/aslan/cluster/clusters"
   - action: edit_test
     alias: "编辑"
     description: ""
