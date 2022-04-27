@@ -155,7 +155,7 @@
         - method: DELETE
           endpoint: "/api/aslan/template/dockerfile/?*"
         - method: DELETE
-            endpoint: "/api/aslan/template/build/?*"
+          endpoint: "/api/aslan/template/build/?*"
 - resource: DeliveryCenter
   alias: "交付中心"
   description: ""
