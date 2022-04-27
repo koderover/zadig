@@ -169,7 +169,7 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	for _, module := range modules {
 		jenkinsIntegration := getJenkinsIntegration(module.JenkinsBuild)
 		if jenkinsIntegration == nil {
-			return nil, e.ErrConvertSubTasks.AddErr(err)
+			return nil, e.ErrConvertSubTasks.AddDesc("not found jenkins client")
 		}
 		build := &task.JenkinsBuild{
 			TaskType:    config.TaskJenkinsBuild,
