@@ -185,7 +185,6 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	svcList := make([]*commonmodels.ProductService, 0)
 	svcTmplNameList := make([]string, 0)
 
-	// 拍平服务组
 	for _, services := range productInfo.Services {
 		svcList = append(svcList, services...)
 	}

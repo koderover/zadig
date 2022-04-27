@@ -3235,7 +3235,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		}
 	}
 
-	// Note: For the sub env, supplement, try to supplement information relevant to the base env.
+	// Note: For the sub env, try to supplement information relevant to the base env.
 	if args.ShareEnv.Enable && !args.ShareEnv.IsBase {
 		shareEnvErr := EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
 		if shareEnvErr != nil {
