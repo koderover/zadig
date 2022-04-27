@@ -52,7 +52,6 @@ func (c *JenkinsIntegrationColl) EnsureIndex(ctx context.Context) error {
 	return nil
 }
 
-// Get ...
 func (c *JenkinsIntegrationColl) Get(id string) (*models.JenkinsIntegration, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
