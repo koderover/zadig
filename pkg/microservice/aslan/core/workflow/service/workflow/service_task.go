@@ -156,7 +156,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 				ServiceModule: container.Name,
 			}
 			serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, container.Name)
-			moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
+			moBuild, _ := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
 			if moBuild == nil {
 				continue
 			}
@@ -169,7 +169,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 			ServiceModule: service.ServiceName,
 		}
 		serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, service.ServiceName)
-		moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
+		moBuild, _ := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
 		if moBuild != nil {
 			resp.Targets = append(resp.Targets, target)
 		}
@@ -303,6 +303,6 @@ func serviceTaskArgsToTaskArgs(serviceTaskArgs *commonmodels.ServiceTaskArgs) *c
 		resp.Builds = make([]*types.Repository, 0)
 		return resp
 	}
-	resp.Builds = buildObj.Repos
+	resp.Builds = commonservice.FindReposByTarget(serviceTaskArgs.ProductName, serviceTaskArgs.ServiceName, serviceTaskArgs.ServiceName, buildObj)
 	return resp
 }

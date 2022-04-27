@@ -182,6 +182,13 @@ type Item struct {
 	Version string `bson:"version"                json:"version"`
 }
 
+func (build *Build) SafeRepos() []*types.Repository {
+	if len(build.Repos) == 0 {
+		return []*types.Repository{}
+	}
+	return build.Repos
+}
+
 func (Build) TableName() string {
 	return "module_build"
 }

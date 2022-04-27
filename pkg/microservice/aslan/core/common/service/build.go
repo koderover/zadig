@@ -116,10 +116,7 @@ func EnsureResp(build *commonmodels.Build) {
 	if len(build.Targets) == 0 {
 		build.Targets = make([]*commonmodels.ServiceModuleTarget, 0)
 	}
-
-	if len(build.Repos) == 0 {
-		build.Repos = make([]*types.Repository, 0)
-	}
+	build.Repos = build.SafeRepos()
 
 	if build.PreBuild != nil {
 		if len(build.PreBuild.Installs) == 0 {
@@ -156,4 +153,16 @@ func EnsureResp(build *commonmodels.Build) {
 			build.TargetRepos = append(build.TargetRepos, targetRepo)
 		}
 	}
+}
+
+func FindReposByTarget(projectName, serviceName, serviceModule string, build *commonmodels.Build) []*types.Repository {
+	if build.TemplateID == "" {
+		return build.SafeRepos()
+	}
+	for _, target := range build.Targets {
+		if target.ServiceName == serviceName && target.ProductName == projectName && target.ServiceModule == serviceModule {
+			return target.Repos
+		}
+	}
+	return build.SafeRepos()
 }
