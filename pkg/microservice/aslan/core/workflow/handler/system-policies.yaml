@@ -150,7 +150,7 @@
   alias: "交付中心"
   description: ""
   rules:
-    - action: get
+    - action: realase_get
       alias: "版本管理|查看"
       description: "查看"
       rules:
@@ -158,7 +158,7 @@
           endpoint: "/api/aslan/delivery/releases"
         - method: GET
           endpoint: "/api/aslan/delivery/releases/?*"
-    - action: get
+    - action: delivery_get
       alias: "交付物追踪|查看"
       description: "查看"
       rules:
