@@ -26,7 +26,7 @@ import (
 func ListConfigMaps(ns string, selector labels.Selector, cl client.Client) ([]*corev1.ConfigMap, error) {
 	l := &corev1.ConfigMapList{}
 	gvk := schema.GroupVersionKind{
-		Group:   "",
+		Group:   "core",
 		Kind:    "ConfigMap",
 		Version: "v1",
 	}

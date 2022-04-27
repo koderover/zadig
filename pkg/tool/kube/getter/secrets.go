@@ -35,7 +35,7 @@ func GetSecret(ns, name string, cl client.Client) (*corev1.Secret, bool, error) 
 func ListSecrets(ns string, cl client.Client) ([]*corev1.Secret, error) {
 	l := &corev1.SecretList{}
 	gvk := schema.GroupVersionKind{
-		Group:   "",
+		Group:   "core",
 		Kind:    "Secret",
 		Version: "v1",
 	}
