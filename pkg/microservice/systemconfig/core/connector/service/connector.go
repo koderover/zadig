@@ -95,7 +95,7 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 			}
 		}
 		isDefault := false
-		if config.DefaultLogin == c.Type {
+		if config.DefaultLogin == c.ID {
 			isDefault = true
 		}
 		res = append(res, &Connector{
