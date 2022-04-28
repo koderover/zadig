@@ -274,22 +274,17 @@ func findModuleByContainer(productName, serviceModuleTarget string, buildStageMo
 		}
 
 		for _, serviceTmpl := range services {
-			for _, container := range serviceTmpl.Containers {
-				targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+			if serviceTmpl.Type != setting.PMDeployType {
+				for _, container := range serviceTmpl.Containers {
+					targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+					if serviceModuleTarget == targetStr {
+						buildName = findBuildName(container.Name, serviceTmpl)
+					}
+				}
+			} else if serviceTmpl.Type == setting.PMDeployType {
+				targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
 				if serviceModuleTarget == targetStr {
-					opt := &commonrepo.BuildListOption{
-						ServiceName: serviceTmpl.ServiceName,
-						Targets:     []string{container.Name},
-					}
-					if serviceTmpl.Visibility != setting.PublicService {
-						opt.ProductName = productName
-					}
-
-					buildModules, err := commonrepo.NewBuildColl().List(opt)
-					if err != nil {
-						return nil, nil
-					}
-					buildName = buildModules[0].Name
+					buildName = findBuildName(serviceTmpl.ServiceName, serviceTmpl)
 				}
 			}
 		}
@@ -308,6 +303,23 @@ func findModuleByContainer(productName, serviceModuleTarget string, buildStageMo
 	}
 
 	return nil, nil
+}
+
+func findBuildName(containerName string, serviceTmpl *commonmodels.Service) string {
+	opt := &commonrepo.BuildListOption{
+		ServiceName: serviceTmpl.ServiceName,
+		Targets:     []string{containerName},
+	}
+	if serviceTmpl.Visibility != setting.PublicService {
+		opt.ProductName = serviceTmpl.ProductName
+	}
+
+	buildModules, err := commonrepo.NewBuildColl().List(opt)
+	if err != nil {
+		return ""
+	}
+	buildName := buildModules[0].Name
+	return buildName
 }
 
 func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
