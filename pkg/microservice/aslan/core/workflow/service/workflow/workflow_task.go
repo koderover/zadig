@@ -642,6 +642,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ProductName: args.ProductTmplName,
 				Variables:   target.Envs,
 				Env:         env,
+				BuildName:   target.BuildName,
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
@@ -650,6 +651,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ServiceName:      target.ServiceName,
 				ProductName:      args.ProductTmplName,
 				JenkinsBuildArgs: target.JenkinsBuildArgs,
+				BuildName:        target.BuildName,
 			}, log)
 		}
 		if err != nil {
