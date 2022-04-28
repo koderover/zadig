@@ -26,6 +26,8 @@
       rules:
         - method: PUT
           endpoint: "/api/aslan/testing/test"
+        - method: GET
+          endpoint: "/api/aslan/cluster/clusters"
     - action: delete_test
       alias: "删除"
       description: ""
