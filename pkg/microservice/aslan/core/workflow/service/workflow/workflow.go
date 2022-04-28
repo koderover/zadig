@@ -288,9 +288,15 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 	if resp.BuildStage.Enabled {
 		// make a map of current target modules
 		buildMap := map[string]bool{}
+
+		moList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
+		if err != nil {
+			return resp, e.ErrListTemplate.AddDesc(err.Error())
+		}
 		for _, build := range resp.BuildStage.Modules {
 			key := fmt.Sprintf("%s-%s-%s", build.Target.ProductName, build.Target.ServiceName, build.Target.ServiceModule)
 			buildMap[key] = true
+			build.Target.BuildName = findBuildName(key, moList)
 		}
 
 		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
@@ -299,10 +305,6 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 			return resp, e.ErrListTemplate.AddDesc(err.Error())
 		}
 
-		moList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
-		if err != nil {
-			return resp, e.ErrListTemplate.AddDesc(err.Error())
-		}
 		for _, serviceTmpl := range services {
 			switch serviceTmpl.Type {
 			case setting.PMDeployType:
@@ -315,7 +317,6 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 					// if no target info is found for this container, meaning that this is a new service for that workflow
 					// then we need to add it to the response
 					if _, ok := buildMap[key]; !ok {
-						log.Infof("key:%s", key)
 						resp.BuildStage.Modules = append(resp.BuildStage.Modules, &commonmodels.BuildModule{
 							HideServiceModule: false,
 							BuildModuleVer:    "stable",
@@ -323,7 +324,6 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 								ProductName:   serviceTmpl.ProductName,
 								ServiceName:   serviceTmpl.ServiceName,
 								ServiceModule: container.Name,
-								BuildName:     findBuildName(key, moList),
 							},
 						})
 					}
