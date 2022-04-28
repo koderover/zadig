@@ -177,10 +177,6 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 	for _, container := range serviceTemplate.Containers {
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
-		//buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
-		//if buildObj != nil {
-		//	serviceModule.BuildName = buildObj.Name
-		//}
 
 		buildObjs, _ := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
 		buildNames := sets.NewString()
