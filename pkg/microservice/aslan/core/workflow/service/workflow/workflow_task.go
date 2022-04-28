@@ -414,6 +414,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false
 			}
+			target.BuildName = moBuild.Name
 
 			if moBuild.TemplateID != "" {
 				target.Build.Repos = targetInfo.Repos
