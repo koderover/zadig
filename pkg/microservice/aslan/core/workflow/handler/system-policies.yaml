@@ -46,6 +46,8 @@
       rules:
         - method: POST
           endpoint: "/api/aslan/testing/testtask"
+        - method: GET
+          endpoint: "/api/aslan/workflow/sse/workflows/id/?*/pipelines/?*"
 - resource: DataCenter
   alias: "数据视图"
   description: ""
