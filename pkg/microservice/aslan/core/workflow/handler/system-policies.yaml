@@ -59,13 +59,13 @@
       description: ""
       rules:
         - method: GET
-          endpoint: "/api/aslan/stat/dashboard/overview"
+          endpoint: "/api/v1/picket/stat/dashboard/overview"
         - method: GET
-          endpoint: "/api/aslan/stat/dashboard/test"
+          endpoint: "/api/v1/picket/stat/dashboard/test"
         - method: GET
-          endpoint: "api/aslan/stat/dashboard/deploy"
+          endpoint: "api/v1/picket/stat/dashboard/deploy"
         - method: GET
-          endpoint: "/api/aslan/stat/dashboard/build"
+          endpoint: "/api/v1/picket/stat/dashboard/build"
     - action: efficiency_over
       alias: "数据洞察|查看"
       description: ""
