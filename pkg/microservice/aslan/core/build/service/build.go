@@ -119,6 +119,7 @@ func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger)
 	if err != nil {
 		return nil, e.ErrListBuildModule.AddErr(err)
 	}
+
 	serviceModuleAndBuildResp := make([]*ServiceModuleAndBuildResp, 0)
 	for _, serviceTmpl := range services {
 		for _, container := range serviceTmpl.Containers {
