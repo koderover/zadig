@@ -248,6 +248,10 @@ func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes
 func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 	ret := make([]*task.KeyVal, 0)
 	for index, repo := range jobCtx.Builds {
+
+		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
+		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
+
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
 
 		repoIndex := fmt.Sprintf("REPO_%d", index)
