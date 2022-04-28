@@ -35,6 +35,7 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -148,7 +149,7 @@ func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product)
 	}
 }
 
-// ListWorkloadsInEnv returns all workloads in the given env which meat the filter.
+// ListWorkloadsInEnv returns all workloads in the given env which meet the filter.
 // A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
 // a and the value contain character b.
 func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
@@ -325,6 +326,13 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Ready:      wrapper.StatefulSet(v).Ready(),
 			Annotation: v.Annotations,
 		})
+	}
+
+	// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
+	for _, workload := range workLoads {
+		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
+		_, _, images := kube.GetSelectedPodsInfo(selector, informer, log)
+		workload.Images = images
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
