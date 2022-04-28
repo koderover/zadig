@@ -297,11 +297,13 @@ user_projects[project] {
     some i
     data.bindings.role_bindings[i].uid == claims.uid
     project := data.bindings.role_bindings[i].bindings[_].namespace
+    project !="*"
 }
 user_projects[project] {
     some i
     data.bindings.policy_bindings[i].uid == claims.uid
     project := data.bindings.policy_bindings[i].bindings[_].namespace
+    project !="*"
 }
 
 # get all projects which are visible by all users (the user name is "*")

@@ -97,6 +97,10 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 			moBuild = &commonmodels.Build{}
 			target.HasBuild = false
 		}
+		err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
+		if err != nil {
+			return resp, e.ErrListBuildModule.AddErr(err)
+		}
 
 		target.Build.Repos = moBuild.SafeRepos()
 
@@ -415,6 +419,10 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				target.HasBuild = false
 			}
 			target.BuildName = moBuild.Name
+			err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
+			if err != nil {
+				return resp, e.ErrListBuildModule.AddErr(err)
+			}
 
 			if moBuild.TemplateID != "" {
 				target.Build.Repos = targetInfo.Repos
