@@ -58,6 +58,12 @@
       rules:
         - method: GET
           endpoint: "/api/aslan/stat/dashboard/overview"
+        - method: GET
+          endpoint: "/api/aslan/stat/dashboard/test"
+        - method: GET
+          endpoint: "api/aslan/stat/dashboard/deploy"
+        - method: GET
+          endpoint: "/api/aslan/stat/dashboard/build"
     - action: efficiency_over
       alias: "数据洞察|查看"
       description: ""
