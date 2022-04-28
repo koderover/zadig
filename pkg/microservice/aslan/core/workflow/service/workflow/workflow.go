@@ -288,10 +288,20 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 	if resp.BuildStage.Enabled {
 		// make a map of current target modules
 		buildMap := map[string]string{}
+
+		moList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
+		if err != nil {
+			return resp, e.ErrListTemplate.AddDesc(err.Error())
+		}
 		for _, build := range resp.BuildStage.Modules {
 			key := fmt.Sprintf("%s-%s-%s", build.Target.ProductName, build.Target.ServiceName, build.Target.ServiceModule)
-			buildMap[key] = build.Target.BuildName
+			buildName := build.Target.BuildName
+			if buildName == "" {
+				buildName = findBuildName(key, moList)
+			}
+			buildMap[key] = buildName
 		}
+
 		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
 		if err != nil {
 			log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
@@ -326,6 +336,18 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 	}
 
 	return resp, nil
+}
+
+func findBuildName(container string, moList []*commonmodels.Build) string {
+	for _, mo := range moList {
+		for _, moTarget := range mo.Targets {
+			moduleTargetStr := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
+			if container == moduleTargetStr {
+				return mo.Name
+			}
+		}
+	}
+	return ""
 }
 
 type PreSetResp struct {
