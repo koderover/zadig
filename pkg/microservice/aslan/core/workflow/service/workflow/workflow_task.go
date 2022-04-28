@@ -253,7 +253,7 @@ func getProjectTargets(productName string) []string {
 	return targets
 }
 
-func findModuleByContainer(serviceModuleTarget string, buildStageModules []*commonmodels.BuildModule, allModules []*commonmodels.Build) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
+func findModuleByContainer(productName, serviceModuleTarget string, buildStageModules []*commonmodels.BuildModule, allModules []*commonmodels.Build) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
 	// find build name
 	var buildName string
 	for _, buildStageModule := range buildStageModules {
@@ -264,6 +264,34 @@ func findModuleByContainer(serviceModuleTarget string, buildStageModules []*comm
 		if serviceModuleTarget == targetStr {
 			buildName = buildStageModule.Target.BuildName
 			break
+		}
+	}
+	if buildName == "" {
+		// Compatible with old data if buildName is empty
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+		if err != nil {
+			return nil, nil
+		}
+
+		for _, serviceTmpl := range services {
+			for _, container := range serviceTmpl.Containers {
+				targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+				if serviceModuleTarget == targetStr {
+					opt := &commonrepo.BuildListOption{
+						ServiceName: serviceTmpl.ServiceName,
+						Targets:     []string{container.Name},
+					}
+					if serviceTmpl.Visibility != setting.PublicService {
+						opt.ProductName = productName
+					}
+
+					buildModules, err := commonrepo.NewBuildColl().List(opt)
+					if err != nil {
+						return nil, nil
+					}
+					buildName = buildModules[0].Name
+				}
+			}
 		}
 	}
 	if buildName != "" {
@@ -278,6 +306,7 @@ func findModuleByContainer(serviceModuleTarget string, buildStageModules []*comm
 			}
 		}
 	}
+
 	return nil, nil
 }
 
@@ -412,8 +441,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				HasBuild:    true,
 			}
 
-			moBuild, targetInfo := findModuleByContainer(container, workflow.BuildStage.Modules, allModules)
-			//moBuild, targetInfo := findModuleByTargetAndVersion(allModules, container)
+			moBuild, targetInfo := findModuleByContainer(workflow.ProductTmplName, container, workflow.BuildStage.Modules, allModules)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false
