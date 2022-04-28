@@ -278,13 +278,13 @@ func findModuleByContainer(productName, serviceModuleTarget string, buildStageMo
 				for _, container := range serviceTmpl.Containers {
 					targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
 					if serviceModuleTarget == targetStr {
-						buildName = findBuildName(container.Name, serviceTmpl)
+						buildName = findBuildNameByContainerName(container.Name, serviceTmpl)
 					}
 				}
 			} else if serviceTmpl.Type == setting.PMDeployType {
 				targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
 				if serviceModuleTarget == targetStr {
-					buildName = findBuildName(serviceTmpl.ServiceName, serviceTmpl)
+					buildName = findBuildNameByContainerName(serviceTmpl.ServiceName, serviceTmpl)
 				}
 			}
 		}
@@ -305,7 +305,7 @@ func findModuleByContainer(productName, serviceModuleTarget string, buildStageMo
 	return nil, nil
 }
 
-func findBuildName(containerName string, serviceTmpl *commonmodels.Service) string {
+func findBuildNameByContainerName(containerName string, serviceTmpl *commonmodels.Service) string {
 	opt := &commonrepo.BuildListOption{
 		ServiceName: serviceTmpl.ServiceName,
 		Targets:     []string{containerName},
