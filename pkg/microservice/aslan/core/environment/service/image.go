@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -127,7 +126,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		replacedValuesYaml       string
 		mergedValuesYaml         string
 		replacedMergedValuesYaml string
-		helmClient               helmclient.Client
+		helmClient               *helmtool.HelmClient
 		namespace                string = product.Namespace
 	)
 

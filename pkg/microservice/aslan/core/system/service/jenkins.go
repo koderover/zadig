@@ -103,24 +103,22 @@ func TestJenkinsConnection(args *JenkinsArgs, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func getJenkinsClient(log *zap.SugaredLogger) (*gojenkins.Jenkins, context.Context, error) {
+func getJenkinsClient(id string, log *zap.SugaredLogger) (*gojenkins.Jenkins, context.Context, error) {
 	ctx := context.Background()
-	jenkinsIntegrations, err := ListJenkinsIntegration("", log)
+	jenkinsIntegration, err := commonrepo.NewJenkinsIntegrationColl().Get(id)
 	if err != nil {
-		return nil, ctx, err
-	}
-	if len(jenkinsIntegrations) == 0 {
 		return nil, ctx, fmt.Errorf("未找到jenkins集成数据")
 	}
-	jenkinsClient, err := gojenkins.CreateJenkins(nil, jenkinsIntegrations[0].URL, jenkinsIntegrations[0].Username, jenkinsIntegrations[0].Password).Init(ctx)
+
+	jenkinsClient, err := gojenkins.CreateJenkins(nil, jenkinsIntegration.URL, jenkinsIntegration.Username, jenkinsIntegration.Password).Init(ctx)
 	if err != nil {
 		return nil, ctx, err
 	}
 	return jenkinsClient, ctx, nil
 }
 
-func ListJobNames(log *zap.SugaredLogger) ([]string, error) {
-	jenkinsClient, ctx, err := getJenkinsClient(log)
+func ListJobNames(id string, log *zap.SugaredLogger) ([]string, error) {
+	jenkinsClient, ctx, err := getJenkinsClient(id, log)
 	if err != nil {
 		return []string{}, e.ErrListJobNames.AddErr(err)
 	}
@@ -135,8 +133,8 @@ func ListJobNames(log *zap.SugaredLogger) ([]string, error) {
 	return jobNames, nil
 }
 
-func ListJobBuildArgs(jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildArgs, error) {
-	jenkinsClient, ctx, err := getJenkinsClient(log)
+func ListJobBuildArgs(id, jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildArgs, error) {
+	jenkinsClient, ctx, err := getJenkinsClient(id, log)
 	if err != nil {
 		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(err)
 	}

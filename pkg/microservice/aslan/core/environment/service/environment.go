@@ -32,6 +32,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -177,6 +178,9 @@ type CreateHelmProductArg struct {
 	BaseName       string                          `json:"base_name,omitempty"`
 	IsExisted      bool                            `json:"is_existed"`
 	EnvConfigYamls []string                        `json:"env_config_yamls,omitempty"`
+
+	// New Since v1.12.0
+	ShareEnv commonmodels.ProductShareEnv `json:"share_env"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -1001,6 +1005,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		RegistryID:      registryID,
 		IsExisted:       arg.IsExisted,
 		EnvConfigYamls:  arg.EnvConfigYamls,
+		ShareEnv:        arg.ShareEnv,
 	}
 
 	// fill services and chart infos of product
@@ -1968,8 +1973,15 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	log.Infof("[%s] delete product %s", username, productInfo.Namespace)
 	commonservice.LogProductStats(username, setting.DeleteProductEvent, productName, requestID, eventStart, log)
 
+	ctx := context.TODO()
 	switch productInfo.Source {
 	case setting.SourceFromHelm:
+		// Handles environment sharing related operations.
+		err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
+		if err != nil {
+			log.Errorf("Failed to delete share env config for env %s of product %s: %s", productInfo.EnvName, productInfo.ProductName, err)
+		}
+
 		err = commonrepo.NewProductColl().Delete(envName, productName)
 		if err != nil {
 			log.Errorf("Product.Delete error: %v", err)
@@ -1992,7 +2004,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
-						if err = UninstallServiceByName(hc, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, service.ServiceName, service.Revision, true); err != nil {
+						if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
 							log.Errorf("UninstallRelease err:%v", err)
 						}
 					}
@@ -2093,7 +2105,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}
 
 			// Handles environment sharing related operations.
-			err = EnsureDeleteShareEnvConfig(context.TODO(), productInfo, istioClient)
+			err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
 			if err != nil {
 				log.Errorf("Failed to delete share env config: %s", err)
 				err = e.ErrDeleteProduct.AddDesc(e.DeleteVirtualServiceErrMsg + ": " + err.Error())
@@ -2126,15 +2138,25 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 		return deleteHelmProductServices(userName, requestID, productInfo, serviceNames, log)
 	}
 	return deleteK8sProductServices(productInfo, serviceNames, log)
-
 }
 
 func deleteHelmProductServices(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
-	restConfig, err := kube.GetRESTConfig(productInfo.ClusterID)
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	ctx := context.TODO()
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2198,7 +2220,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 					return
 				}
 				log.Infof("uninstall release for service: %s", serviceName)
-				if errUninstall := UninstallService(helmClient, productInfo.ProductName, productInfo.Namespace, productInfo.EnvName, templateSvc, false); errUninstall != nil {
+				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
 					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)
 					log.Error(errStr)
@@ -2215,6 +2237,13 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 		if len(errList) > 0 {
 			title := fmt.Sprintf("[%s] 的 [%s] 环境服务删除失败", productInfo.ProductName, productInfo.EnvName)
 			commonservice.SendErrorMessage(userName, title, requestID, errors.New(strings.Join(errList, "\n")), log)
+		}
+
+		if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
+			err = EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
+			if err != nil {
+				log.Errorf("Failed to ensure gray env config: %s", err)
+			}
 		}
 	}()
 
@@ -2294,7 +2323,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	}
 
 	if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
-		err = ensureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
+		err = EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
 		if err != nil {
 			log.Errorf("Failed to ensure gray env config: %s", err)
 			return fmt.Errorf("failed to ensure gray env config: %s", err)
@@ -2419,7 +2448,7 @@ func createGroups(envName, user, requestID string, args *commonmodels.Product, e
 	}
 
 	// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
-	err = ensureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
+	err = EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
 	if err != nil {
 		args.Status = setting.ProductStatusFailed
 		log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
@@ -3064,7 +3093,7 @@ func buildInstallParam(namespace, envName, defaultValues string, renderChart *te
 	return ret, nil
 }
 
-func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient helmclient.Client) error {
+func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
 	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.serviceObj
 	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
 	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
@@ -3099,16 +3128,37 @@ func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		chartSpec.Replace = true
 	}
 
-	if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
+	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
+	ctx := context.TODO()
+	err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
+	if err != nil {
+		return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
+	}
+
+	helmClient, err = helmClient.Clone()
+	if err != nil {
+		return fmt.Errorf("failed to clone helm client: %s", err)
+	}
+
+	var release *release.Release
+	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec)
+	if err != nil {
 		err = errors.WithMessagef(
 			err,
 			"failed to Install helm chart %s/%s",
 			namespace, serviceObj.ServiceName)
+	} else {
+		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
+		if err != nil {
+			err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
+		}
 	}
+
 	return err
 }
 
-func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient helmclient.Client, log *zap.SugaredLogger) {
+func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
+	kclient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var (
 		err     error
 		errList = &multierror.Error{}
@@ -3182,6 +3232,14 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
+		}
+	}
+
+	// Note: For the sub env, try to supplement information relevant to the base env.
+	if args.ShareEnv.Enable && !args.ShareEnv.IsBase {
+		shareEnvErr := EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
+		if shareEnvErr != nil {
+			errList = multierror.Append(errList, shareEnvErr)
 		}
 	}
 
@@ -3298,7 +3356,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 
 	// uninstall services
 	for serviceName, serviceRevision := range deletedSvcRevision {
-		if err = UninstallServiceByName(helmClient, productResp.ProductName, productResp.Namespace, productResp.EnvName, serviceName, serviceRevision, true); err != nil {
+		if err = UninstallServiceByName(helmClient, serviceName, productResp, serviceRevision, true); err != nil {
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
 		}

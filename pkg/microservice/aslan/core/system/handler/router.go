@@ -111,8 +111,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		jenkins.PUT("/integration/:id", UpdateJenkinsIntegration)
 		jenkins.DELETE("/integration/:id", DeleteJenkinsIntegration)
 		jenkins.POST("/user/connection", TestJenkinsConnection)
-		jenkins.GET("/jobNames", ListJobNames)
-		jenkins.GET("/buildArgs/:jobName", ListJobBuildArgs)
+		jenkins.GET("/jobNames/:id", ListJobNames)
+		jenkins.GET("/buildArgs/:id/:jobName", ListJobBuildArgs)
 	}
 
 	//系统配额
