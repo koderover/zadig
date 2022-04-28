@@ -19,11 +19,12 @@ package gitlab
 import (
 	"go.uber.org/zap"
 
+	gogitlab "github.com/xanzy/go-gitlab"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
-	gogitlab "github.com/xanzy/go-gitlab"
 )
 
 type Config struct {

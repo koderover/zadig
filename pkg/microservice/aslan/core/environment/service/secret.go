@@ -73,6 +73,12 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 	secretProcess := func(secret *corev1.Secret) error {
 		secret.SetManagedFields(nil)
 		secret.SetResourceVersion("")
+		if secret.APIVersion == "" {
+			secret.APIVersion = "v1"
+		}
+		if secret.Kind == "" {
+			secret.Kind = "Secret"
+		}
 		yamlData, err := yaml.Marshal(secret)
 		if err != nil {
 			return err

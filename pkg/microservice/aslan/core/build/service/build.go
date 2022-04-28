@@ -145,6 +145,21 @@ func ListBuildModulesByServiceModule(productName, serviceName, serviceModule str
 	return resp, nil
 }
 
+func fillBuildRepoData(build *commonmodels.Build) {
+	if build.TemplateID == "" {
+		return
+	}
+	build.Targets = make([]*commonmodels.ServiceModuleTarget, 0, len(build.TargetRepos))
+	for _, target := range build.TargetRepos {
+		build.Targets = append(build.Targets, &commonmodels.ServiceModuleTarget{
+			ProductName:   target.Service.ProductName,
+			ServiceName:   target.Service.ServiceName,
+			ServiceModule: target.Service.ServiceModule,
+			Repos:         target.Repos,
+		})
+	}
+}
+
 func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
 	if len(build.Name) == 0 {
 		return e.ErrCreateBuildModule.AddDesc("empty name")
@@ -356,6 +371,7 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 }
 
 func correctFields(build *commonmodels.Build) {
+	fillBuildRepoData(build)
 	// make sure cache has no empty field
 	caches := make([]string, 0)
 	for _, cache := range build.Caches {

@@ -34,6 +34,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -49,6 +51,9 @@ func provider() *oidc.Provider {
 }
 
 func Login(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
 	oauth2Config := &oauth2.Config{
 		ClientID:     config.ClientID(),
 		ClientSecret: config.ClientSecret(),
@@ -56,8 +61,21 @@ func Login(c *gin.Context) {
 		Scopes:       config.Scopes(),
 		RedirectURL:  config.RedirectURI(),
 	}
+
 	authCodeURL := oauth2Config.AuthCodeURL(config.AppState, oauth2.AccessTypeOffline)
-	authCodeURL = strings.Replace(authCodeURL, config.IssuerURL(), configbase.SystemAddress()+"/dex", -1)
+	systemConfig, err := aslan.New(configbase.AslanServiceAddress()).GetDefaultLogin()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	defaultLogin := ""
+	replaceURL := configbase.SystemAddress() + "/dex/auth"
+	if systemConfig.DefaultLogin != setting.DefaultLoginLocal {
+		defaultLogin = systemConfig.DefaultLogin
+		replaceURL = replaceURL + "/" + defaultLogin
+	}
+	authCodeURL = strings.Replace(authCodeURL, config.IssuerURL()+"/auth", replaceURL, -1)
+
 	c.Redirect(http.StatusSeeOther, authCodeURL)
 }
 

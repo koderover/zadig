@@ -28,6 +28,7 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
@@ -97,6 +98,51 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 }
 
 func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool) error {
+	var notifyCtls []*models.NotifyCtl
+	var desc string
+	switch task.Type {
+	case config.SingleType:
+		resp, err := w.pipelineColl.Find(&mongodb.PipelineFindOption{Name: task.PipelineName})
+		if err != nil {
+			log.Errorf("failed to find Pipeline,err: %s", err)
+			return err
+		}
+		notifyCtls = resp.NotifyCtls
+
+	case config.WorkflowType:
+		resp, err := w.workflowColl.Find(task.PipelineName)
+		if err != nil {
+			log.Errorf("failed to find Workflow,err: %s", err)
+			return err
+		}
+		notifyCtls = resp.NotifyCtls
+
+	case config.TestType:
+		resp, err := w.testingColl.Find(strings.TrimSuffix(task.PipelineName, "-job"), task.ProductName)
+		if err != nil {
+			log.Errorf("failed to find Testing,err: %s", err)
+			return err
+		}
+		notifyCtls = resp.NotifyCtls
+
+	default:
+		log.Errorf("task type is not supported!")
+		return nil
+	}
+
+	for _, notifyCtl := range notifyCtls {
+		if err := w.sendMessage(task, notifyCtl, testTaskStatusChanged, desc); err != nil {
+			log.Errorf("send %s message err: %s", notifyCtl.WebHookType, err)
+			continue
+		}
+	}
+	return nil
+}
+
+func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, testTaskStatusChanged bool, desc string) error {
+	if notifyCtl == nil {
+		return nil
+	}
 	var (
 		uri         = ""
 		content     = ""
@@ -105,27 +151,19 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 		isAtAll     bool
 		title       = ""
 		larkCard    *LarkCard
+		err         error
 	)
 	if task.Type == config.SingleType {
-		resp, err := w.pipelineColl.Find(&mongodb.PipelineFindOption{Name: task.PipelineName})
-		if err != nil {
-			log.Errorf("Pipeline find err :%s", err)
-			return err
-		}
-		if resp.NotifyCtl == nil {
-			log.Infof("pipeline notifyCtl is not set!")
-			return nil
-		}
-		if resp.NotifyCtl.Enabled && sets.NewString(resp.NotifyCtl.NotifyTypes...).Has(string(task.Status)) {
-			webHookType = resp.NotifyCtl.WebHookType
+		if notifyCtl.Enabled && sets.NewString(notifyCtl.NotifyTypes...).Has(string(task.Status)) {
+			webHookType = notifyCtl.WebHookType
 			if webHookType == dingDingType {
-				uri = resp.NotifyCtl.DingDingWebHook
-				atMobiles = resp.NotifyCtl.AtMobiles
-				isAtAll = resp.NotifyCtl.IsAtAll
+				uri = notifyCtl.DingDingWebHook
+				atMobiles = notifyCtl.AtMobiles
+				isAtAll = notifyCtl.IsAtAll
 			} else if webHookType == feiShuType {
-				uri = resp.NotifyCtl.FeiShuWebHook
+				uri = notifyCtl.FeiShuWebHook
 			} else {
-				uri = resp.NotifyCtl.WeChatWebHook
+				uri = notifyCtl.WeChatWebHook
 			}
 			content, err = w.createNotifyBody(&wechatNotification{
 				Task:        task,
@@ -142,25 +180,16 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 			}
 		}
 	} else if task.Type == config.WorkflowType {
-		resp, err := w.workflowColl.Find(task.PipelineName)
-		if err != nil {
-			log.Errorf("Workflow find err :%s", err)
-			return err
-		}
-		if resp.NotifyCtl == nil {
-			log.Infof("Workflow notifyCtl is not set!")
-			return nil
-		}
-		if resp.NotifyCtl.Enabled && sets.NewString(resp.NotifyCtl.NotifyTypes...).Has(string(task.Status)) {
-			webHookType = resp.NotifyCtl.WebHookType
+		if notifyCtl.Enabled && sets.NewString(notifyCtl.NotifyTypes...).Has(string(task.Status)) {
+			webHookType = notifyCtl.WebHookType
 			if webHookType == dingDingType {
-				uri = resp.NotifyCtl.DingDingWebHook
-				atMobiles = resp.NotifyCtl.AtMobiles
-				isAtAll = resp.NotifyCtl.IsAtAll
+				uri = notifyCtl.DingDingWebHook
+				atMobiles = notifyCtl.AtMobiles
+				isAtAll = notifyCtl.IsAtAll
 			} else if webHookType == feiShuType {
-				uri = resp.NotifyCtl.FeiShuWebHook
+				uri = notifyCtl.FeiShuWebHook
 			} else {
-				uri = resp.NotifyCtl.WeChatWebHook
+				uri = notifyCtl.WeChatWebHook
 			}
 			title, content, larkCard, err = w.createNotifyBodyOfWorkflowIM(&wechatNotification{
 				Task:        task,
@@ -177,28 +206,19 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 			}
 		}
 	} else if task.Type == config.TestType {
-		resp, err := w.testingColl.Find(strings.TrimSuffix(task.PipelineName, "-job"), task.ProductName)
-		if err != nil {
-			log.Errorf("testing find err :%s", err)
-			return err
-		}
-		if resp.NotifyCtl == nil {
-			log.Infof("testing notifyCtl is not set!")
-			return nil
-		}
-		statusSets := sets.NewString(resp.NotifyCtl.NotifyTypes...)
-		if resp.NotifyCtl.Enabled && (statusSets.Has(string(task.Status)) || (testTaskStatusChanged && statusSets.Has(string(config.StatusChanged)))) {
-			webHookType = resp.NotifyCtl.WebHookType
+		statusSets := sets.NewString(notifyCtl.NotifyTypes...)
+		if notifyCtl.Enabled && (statusSets.Has(string(task.Status)) || (testTaskStatusChanged && statusSets.Has(string(config.StatusChanged)))) {
+			webHookType = notifyCtl.WebHookType
 			if webHookType == dingDingType {
-				uri = resp.NotifyCtl.DingDingWebHook
-				atMobiles = resp.NotifyCtl.AtMobiles
-				isAtAll = resp.NotifyCtl.IsAtAll
+				uri = notifyCtl.DingDingWebHook
+				atMobiles = notifyCtl.AtMobiles
+				isAtAll = notifyCtl.IsAtAll
 			} else if webHookType == feiShuType {
-				uri = resp.NotifyCtl.FeiShuWebHook
+				uri = notifyCtl.FeiShuWebHook
 			} else {
-				uri = resp.NotifyCtl.WeChatWebHook
+				uri = notifyCtl.WeChatWebHook
 			}
-			title, content, larkCard, err = w.createNotifyBodyOfTestIM(resp.Desc, &wechatNotification{
+			title, content, larkCard, err = w.createNotifyBodyOfTestIM(desc, &wechatNotification{
 				Task:        task,
 				BaseURI:     configbase.SystemAddress(),
 				IsSingle:    false,
@@ -327,13 +347,25 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if buildSt.BuildStatus.Status == "" {
 					buildSt.BuildStatus.Status = config.StatusNotRun
 				}
-				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**服务名称**：%s \n", buildSt.Service)
+				buildElemTemp += fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**服务名称**：%s \n", buildSt.Service)
 				if !(buildSt.ServiceType == setting.PMDeployType &&
 					(buildSt.JobCtx.FileArchiveCtx != nil || buildSt.JobCtx.DockerBuildCtx != nil)) {
 					buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.JobCtx.Image)
 				}
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
+				build = append(build, buildElemTemp)
+			}
+
+		case config.TaskJenkinsBuild:
+			for _, sb := range subStage.SubTasks {
+				buildElemTemp := ""
+				buildSt, err := base.ToJenkinsBuildTask(sb)
+				if err != nil {
+					return "", "", nil, err
+				}
+				buildElemTemp += fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**服务名称**：%s \n", buildSt.Service)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.Image)
 				build = append(build, buildElemTemp)
 			}
 

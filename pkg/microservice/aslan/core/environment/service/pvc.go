@@ -77,6 +77,12 @@ func ListPvcs(envName, productName string, log *zap.SugaredLogger) ([]*ListPvcsR
 	pvcProcess := func(pvc *v1.PersistentVolumeClaim) error {
 		pvc.SetManagedFields(nil)
 		pvc.SetResourceVersion("")
+		if pvc.APIVersion == "" {
+			pvc.APIVersion = "v1"
+		}
+		if pvc.Kind == "" {
+			pvc.Kind = "PersistentVolumeClaim"
+		}
 		yamlData, err := yaml.Marshal(pvc)
 		if err != nil {
 			return err

@@ -18,7 +18,9 @@ package s3
 
 import (
 	"fmt"
+	"mime"
 	"os"
+	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -191,6 +193,14 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 	}
 }
 
+func detectMimetype(path string) string {
+	fileext := filepath.Ext(path)
+	if fileext == "" {
+		return ""
+	}
+	return mime.TypeByExtension(fileext)
+}
+
 // Upload uploads a file from src to the bucket with the specified objectKey
 func (c *Client) Upload(bucketName, src string, objectKey string) error {
 	file, err := os.OpenFile(src, os.O_RDONLY, 0600)
@@ -202,6 +212,10 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 		Body:   file,
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(objectKey),
+	}
+	mimetype := detectMimetype(src)
+	if mimetype != "" {
+		input.ContentType = &mimetype
 	}
 	_, err = c.PutObject(input)
 	return err

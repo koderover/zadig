@@ -127,6 +127,26 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 		if err != nil {
 			return nil, fmt.Errorf("failed to get service list from env %s of product %s: %s", baseEnvName, productTmplName, err)
 		}
+
+		// Note: In the Helm scenario, filter `chart_infos` which is used by front-end.
+		if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {
+			chartInfos := []*templatemodels.RenderChart{}
+			for _, chartInfo := range ret.ChartInfos {
+				found := false
+				for _, svcGroupName := range svcGroupNames {
+					if util.InStringArray(chartInfo.ServiceName, svcGroupName) {
+						found = true
+						break
+					}
+				}
+
+				if found {
+					chartInfos = append(chartInfos, chartInfo)
+				}
+			}
+
+			ret.ChartInfos = chartInfos
+		}
 	}
 
 	allServiceInfoMap := prodTmpl.AllServiceInfoMap()

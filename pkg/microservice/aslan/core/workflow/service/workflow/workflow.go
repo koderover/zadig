@@ -402,10 +402,10 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 			for _, moTarget := range mo.Targets {
 				moduleTargetStr := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
 				if moduleTargetStr == k {
-					if len(mo.Repos) == 0 {
-						preSet.Repos = make([]*types.Repository, 0)
+					if mo.TemplateID != "" {
+						preSet.Repos = moTarget.Repos
 					} else {
-						preSet.Repos = mo.Repos
+						preSet.Repos = mo.SafeRepos()
 					}
 				}
 			}

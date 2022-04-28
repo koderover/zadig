@@ -111,8 +111,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		jenkins.PUT("/integration/:id", UpdateJenkinsIntegration)
 		jenkins.DELETE("/integration/:id", DeleteJenkinsIntegration)
 		jenkins.POST("/user/connection", TestJenkinsConnection)
-		jenkins.GET("/jobNames", ListJobNames)
-		jenkins.GET("/buildArgs/:jobName", ListJobBuildArgs)
+		jenkins.GET("/jobNames/:id", ListJobNames)
+		jenkins.GET("/buildArgs/:id/:jobName", ListJobBuildArgs)
 	}
 
 	//系统配额
@@ -130,6 +130,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		concurrency.GET("/workflow", GetWorkflowConcurrency)
 		concurrency.POST("/workflow", UpdateWorkflowConcurrency)
+	}
+
+	// default login default login home page settings
+	login := router.Group("login")
+	{
+		login.GET("/default", GetDefaultLogin)
+		login.POST("/default", UpdateDefaultLogin)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -225,5 +232,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		externalSystem.GET("/:id", GetExternalSystemDetail)
 		externalSystem.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateExternalSystem)
 		externalSystem.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteExternalSystem)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// sonar integration API
+	// ---------------------------------------------------------------------------------------
+	sonar := router.Group("sonar")
+	{
+		sonar.POST("/integration", gin2.UpdateOperationLogStatus, CreateSonarIntegration)
+		sonar.PUT("/integration/:id", gin2.UpdateOperationLogStatus, UpdateSonarIntegration)
+		sonar.GET("/integration", ListSonarIntegration)
+		sonar.GET("/integration/:id", GetSonarIntegration)
+		sonar.DELETE("/integration/:id", gin2.UpdateOperationLogStatus, DeleteSonarIntegration)
+		sonar.POST("/validate", ValidateSonarInformation)
 	}
 }

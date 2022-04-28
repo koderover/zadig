@@ -24,15 +24,17 @@ import (
 )
 
 type Build struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Name    string             `bson:"name"                         json:"name"`
-	Team    string             `bson:"team,omitempty"               json:"team,omitempty"`
-	Source  string             `bson:"source,omitempty"             json:"source,omitempty"`
-	Timeout int                `bson:"timeout"                      json:"timeout"`
+	ID         primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
+	Name       string             `bson:"name"                         json:"name"`
+	Team       string             `bson:"team,omitempty"               json:"team,omitempty"`
+	Source     string             `bson:"source,omitempty"             json:"source,omitempty"`
+	TemplateID string             `bson:"template_id"                  json:"template_id"`
+	Timeout    int                `bson:"timeout"                      json:"timeout"`
 	// 在任一编译配置模板中只能出现一次
 	// 对于k8s部署是传入容器名称
 	// 对于物理机部署是服务名称
 	Targets      []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
+	TargetRepos  []*TargetRepo          `bson:"-"                             json:"target_repos"`
 	Description  string                 `bson:"desc,omitempty"                json:"desc"`
 	UpdateTime   int64                  `bson:"update_time"                   json:"update_time"`
 	UpdateBy     string                 `bson:"update_by"                     json:"update_by"`
@@ -127,6 +129,7 @@ type DockerBuild struct {
 }
 
 type JenkinsBuild struct {
+	JenkinsID         string                     `bson:"jenkins_id"          json:"jenkins_id"`
 	JobName           string                     `bson:"job_name"            json:"job_name"`
 	JenkinsBuildParam []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
@@ -144,10 +147,22 @@ type ParamVal struct {
 }
 
 type ServiceModuleTarget struct {
-	ProductName   string `bson:"product_name"                  json:"product_name"`
-	ServiceName   string `bson:"service_name"                  json:"service_name"`
-	ServiceModule string `bson:"service_module"                json:"service_module"`
-	BuildName     string `bson:"build_name"                    json:"build_name"`
+	ProductName   string              `bson:"product_name"                  json:"product_name"`
+	ServiceName   string              `bson:"service_name"                  json:"service_name"`
+	ServiceModule string              `bson:"service_module"                json:"service_module"`
+	BuildName     string              `bson:"build_name"                    json:"build_name"`
+	Repos         []*types.Repository `bson:"repos,omitempty"  json:"repos,omitempty"`
+}
+
+type ServiceModuleTargetBase struct {
+	ProductName   string `json:"product_name"`
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module"`
+}
+
+type TargetRepo struct {
+	Service *ServiceModuleTargetBase `json:"service"`
+	Repos   []*types.Repository      `json:"repos"`
 }
 
 type KeyVal struct {
@@ -161,6 +176,13 @@ type KeyVal struct {
 type Item struct {
 	Name    string `bson:"name"                   json:"name"`
 	Version string `bson:"version"                json:"version"`
+}
+
+func (build *Build) SafeRepos() []*types.Repository {
+	if len(build.Repos) == 0 {
+		return []*types.Repository{}
+	}
+	return build.Repos
 }
 
 func (Build) TableName() string {
