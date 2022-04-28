@@ -340,7 +340,6 @@ func findBuildName(key string, moList []*commonmodels.Build) string {
 		for _, moTarget := range mo.Targets {
 			moduleTargetStr := fmt.Sprintf("%s-%s-%s", moTarget.ProductName, moTarget.ServiceName, moTarget.ServiceModule)
 			if key == moduleTargetStr {
-				fmt.Println("key:", moduleTargetStr)
 				return mo.Name
 			}
 		}
