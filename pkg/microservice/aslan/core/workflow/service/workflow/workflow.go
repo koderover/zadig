@@ -298,6 +298,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 			buildName := build.Target.BuildName
 			if buildName == "" {
 				buildName = findBuildName(key, moList)
+				log.Infof("buildName:%s", buildName)
 			}
 			buildMap[key] = buildName
 		}
@@ -338,13 +339,14 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 	return resp, nil
 }
 
-func findBuildName(container string, moList []*commonmodels.Build) string {
-	fmt.Println("container: ", container)
+func findBuildName(key string, moList []*commonmodels.Build) string {
+	fmt.Println("key: ", key)
 	for _, mo := range moList {
 		for _, moTarget := range mo.Targets {
 			moduleTargetStr := fmt.Sprintf("%s-%s-%s", moTarget.ProductName, moTarget.ServiceName, moTarget.ServiceModule)
 			fmt.Println("moduleTargetStr: ", moduleTargetStr)
-			if container == moduleTargetStr {
+			if key == moduleTargetStr {
+				fmt.Println("find it key: ", moduleTargetStr)
 				return mo.Name
 			}
 		}
