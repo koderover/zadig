@@ -268,7 +268,11 @@ func findModuleByContainer(productName, serviceModuleTarget string, buildStageMo
 	}
 	if buildName == "" {
 		// Compatible with old data if buildName is empty
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+		productTmpl, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			return nil, nil
+		}
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 		if err != nil {
 			return nil, nil
 		}
