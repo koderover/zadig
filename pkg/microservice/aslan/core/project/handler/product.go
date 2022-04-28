@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"strconv"
 
@@ -51,14 +52,18 @@ func GetProductTemplateServices(c *gin.Context) {
 	isBaseEnvStr := c.Query("isBaseEnv")
 	baseEnvName := c.Query("baseEnv")
 
-	// Note: Compatible with previous behavior.
-	isBaseEnv, err := strconv.ParseBool(isBaseEnvStr)
-	if err != nil {
-		log.Warnf("Failed to parse %s to bool: %s.", isBaseEnvStr, err)
-	}
-
 	if envType == "" {
 		envType = types.GeneralEnv
+	}
+
+	var isBaseEnv bool
+	var err error
+	if envType == types.ShareEnv {
+		isBaseEnv, err = strconv.ParseBool(isBaseEnvStr)
+		if err != nil {
+			ctx.Err = fmt.Errorf("failed to parse %s to bool: %s", isBaseEnvStr, err)
+			return
+		}
 	}
 
 	ctx.Resp, ctx.Err = projectservice.GetProductTemplateServices(productTemplatName, envType, isBaseEnv, baseEnvName, ctx.Logger)

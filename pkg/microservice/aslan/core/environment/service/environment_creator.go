@@ -147,6 +147,16 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
 	//判断namespace是否存在
 	namespace := args.GetNamespace()
 	if args.Namespace == "" {
@@ -236,7 +246,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateErrors error: %s", args.EnvName, args.ProductName, err)
 		}
 	}
-	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, log)
+	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, kubeClient, istioClient, log)
 	return nil
 }
 

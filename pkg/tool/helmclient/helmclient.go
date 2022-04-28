@@ -82,6 +82,7 @@ type HelmClient struct {
 	kubeClient client.Client
 	Namespace  string
 	lock       *sync.Mutex
+	RestConfig *rest.Config
 }
 
 // NewClient returns a new Helm client with no construct parameters
@@ -102,12 +103,13 @@ func NewClient() (*HelmClient, error) {
 		nil,
 		"",
 		&sync.Mutex{},
+		nil,
 	}, nil
 }
 
 // NewClientFromNamespace returns a new Helm client constructed with the provided clusterID and namespace
 // a kubeClient will be initialized to support necessary k8s operations when install/upgrade helm charts
-func NewClientFromNamespace(clusterID, namespace string) (hc.Client, error) {
+func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return nil, err
@@ -135,12 +137,13 @@ func NewClientFromNamespace(clusterID, namespace string) (hc.Client, error) {
 		kubeClient,
 		namespace,
 		&sync.Mutex{},
+		restConfig,
 	}, nil
 }
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
 // used to list/uninstall helm release
-func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error) {
+func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, error) {
 	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
 		Options: &hc.Options{
 			Namespace: ns,
@@ -158,6 +161,7 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 		nil,
 		ns,
 		&sync.Mutex{},
+		restConfig,
 	}, nil
 }
 
@@ -694,6 +698,11 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 	} else {
 		return hClient.pushChartMuseum(repoEntry, chartPath)
 	}
+}
+
+// NOTE: When using this method, pay attention to whether restConfig is present in the original client.
+func (hClient *HelmClient) Clone() (*HelmClient, error) {
+	return NewClientFromRestConf(hClient.RestConfig, hClient.Namespace)
 }
 
 // mergeInstallOptions merges values of the provided chart to helm install options used by the client.
