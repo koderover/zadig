@@ -315,6 +315,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 					// if no target info is found for this container, meaning that this is a new service for that workflow
 					// then we need to add it to the response
 					if _, ok := buildMap[key]; !ok {
+						log.Infof("key:%s", key)
 						resp.BuildStage.Modules = append(resp.BuildStage.Modules, &commonmodels.BuildModule{
 							HideServiceModule: false,
 							BuildModuleVer:    "stable",
@@ -339,6 +340,7 @@ func findBuildName(key string, moList []*commonmodels.Build) string {
 		for _, moTarget := range mo.Targets {
 			moduleTargetStr := fmt.Sprintf("%s-%s-%s", moTarget.ProductName, moTarget.ServiceName, moTarget.ServiceModule)
 			if key == moduleTargetStr {
+				fmt.Println("key:", moduleTargetStr)
 				return mo.Name
 			}
 		}
