@@ -33,6 +33,7 @@ import (
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
@@ -176,10 +177,16 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 	for _, container := range serviceTemplate.Containers {
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
-		buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
-		if buildObj != nil {
-			serviceModule.BuildName = buildObj.Name
+
+		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
+		if err != nil {
+			return nil, err
 		}
+		buildNames := sets.NewString()
+		for _, buildObj := range buildObjs {
+			buildNames.Insert(buildObj.Name)
+		}
+		serviceModule.BuildNames = buildNames.List()
 		serviceModules = append(serviceModules, serviceModule)
 	}
 	helmServiceModule.Service = serviceTemplate

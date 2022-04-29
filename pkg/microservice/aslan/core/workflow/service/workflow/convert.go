@@ -126,6 +126,7 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 }
 
 type JenkinsBuildOption struct {
+	BuildName        string
 	Version          string
 	Target           string
 	ServiceName      string
@@ -139,6 +140,7 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	)
 
 	opt := &commonrepo.BuildListOption{
+		Name:        jenkinsBuildOption.BuildName,
 		ServiceName: jenkinsBuildOption.ServiceName,
 		ProductName: jenkinsBuildOption.ProductName,
 	}

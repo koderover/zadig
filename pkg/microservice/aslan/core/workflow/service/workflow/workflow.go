@@ -288,15 +288,25 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 	if resp.BuildStage.Enabled {
 		// make a map of current target modules
 		buildMap := map[string]bool{}
+
+		moList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
+		if err != nil {
+			return resp, e.ErrListTemplate.AddDesc(err.Error())
+		}
 		for _, build := range resp.BuildStage.Modules {
 			key := fmt.Sprintf("%s-%s-%s", build.Target.ProductName, build.Target.ServiceName, build.Target.ServiceModule)
 			buildMap[key] = true
+			if build.Target.BuildName == "" {
+				build.Target.BuildName = findBuildName(key, moList)
+			}
 		}
+
 		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
 		if err != nil {
 			log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 			return resp, e.ErrListTemplate.AddDesc(err.Error())
 		}
+
 		for _, serviceTmpl := range services {
 			switch serviceTmpl.Type {
 			case setting.PMDeployType:
@@ -316,6 +326,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 								ProductName:   serviceTmpl.ProductName,
 								ServiceName:   serviceTmpl.ServiceName,
 								ServiceModule: container.Name,
+								BuildName:     findBuildName(key, moList),
 							},
 						})
 					}
@@ -325,6 +336,18 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 	}
 
 	return resp, nil
+}
+
+func findBuildName(key string, moList []*commonmodels.Build) string {
+	for _, mo := range moList {
+		for _, moTarget := range mo.Targets {
+			moduleTargetStr := fmt.Sprintf("%s-%s-%s", moTarget.ProductName, moTarget.ServiceName, moTarget.ServiceModule)
+			if key == moduleTargetStr {
+				return mo.Name
+			}
+		}
+	}
+	return ""
 }
 
 type PreSetResp struct {
@@ -348,7 +371,7 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return resp, e.ErrGetTemplate.AddDesc(err.Error())
 	}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productTmpl.ProductName)
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
@@ -407,6 +430,7 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 					} else {
 						preSet.Repos = mo.SafeRepos()
 					}
+					preSet.Target.BuildName = mo.Name
 				}
 			}
 		}

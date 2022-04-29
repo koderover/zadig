@@ -64,7 +64,7 @@ type ServiceOption struct {
 
 type ServiceModule struct {
 	*commonmodels.Container
-	BuildName string `json:"build_name"`
+	BuildNames []string `json:"build_names"`
 }
 
 type Variable struct {
@@ -189,10 +189,16 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
 		serviceModule.ImageName = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
-		buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
-		if buildObj != nil {
-			serviceModule.BuildName = buildObj.Name
+		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
+		if err != nil {
+			return nil, err
 		}
+
+		buildNames := sets.NewString()
+		for _, buildObj := range buildObjs {
+			buildNames.Insert(buildObj.Name)
+		}
+		serviceModule.BuildNames = buildNames.List()
 		serviceModules = append(serviceModules, serviceModule)
 	}
 	serviceOption.ServiceModules = serviceModules

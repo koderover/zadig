@@ -253,6 +253,81 @@ func getProjectTargets(productName string) []string {
 	return targets
 }
 
+func findModuleByContainer(productName, serviceModuleTarget string, buildStageModules []*commonmodels.BuildModule, allModules []*commonmodels.Build, log *zap.SugaredLogger) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
+	// find build name
+	var buildName string
+	for _, buildStageModule := range buildStageModules {
+		if buildStageModule.Target == nil {
+			return nil, nil
+		}
+		targetStr := fmt.Sprintf("%s%s%s%s%s", buildStageModule.Target.ProductName, SplitSymbol, buildStageModule.Target.ServiceName, SplitSymbol, buildStageModule.Target.ServiceModule)
+		if serviceModuleTarget == targetStr {
+			buildName = buildStageModule.Target.BuildName
+			break
+		}
+	}
+	if buildName == "" {
+		// Compatible with old data if buildName is empty
+		productTmpl, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			log.Errorf("failed to find project,err:%s", err)
+			return nil, nil
+		}
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		if err != nil {
+			log.Errorf("failed to list services,err:%s", err)
+			return nil, nil
+		}
+
+		for _, serviceTmpl := range services {
+			if serviceTmpl.Type != setting.PMDeployType {
+				for _, container := range serviceTmpl.Containers {
+					targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+					if serviceModuleTarget == targetStr {
+						buildName = findBuildNameByContainerName(container.Name, serviceTmpl)
+					}
+				}
+			} else if serviceTmpl.Type == setting.PMDeployType {
+				targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
+				if serviceModuleTarget == targetStr {
+					buildName = findBuildNameByContainerName(serviceTmpl.ServiceName, serviceTmpl)
+				}
+			}
+		}
+	}
+	if buildName != "" {
+		for _, module := range allModules {
+			if module.Name == buildName {
+				for _, target := range module.Targets {
+					targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
+					if targetStr == serviceModuleTarget {
+						return module, target
+					}
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func findBuildNameByContainerName(containerName string, serviceTmpl *commonmodels.Service) string {
+	opt := &commonrepo.BuildListOption{
+		ServiceName: serviceTmpl.ServiceName,
+		Targets:     []string{containerName},
+	}
+	if serviceTmpl.Visibility != setting.PublicService {
+		opt.ProductName = serviceTmpl.ProductName
+	}
+
+	buildModules, err := commonrepo.NewBuildColl().List(opt)
+	if err != nil || len(buildModules) == 0 {
+		return ""
+	}
+	buildName := buildModules[0].Name
+	return buildName
+}
+
 func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
 	containerArr := strings.Split(serviceModuleTarget, SplitSymbol)
 	if len(containerArr) != 3 {
@@ -383,11 +458,13 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				Build:       &commonmodels.BuildArgs{},
 				HasBuild:    true,
 			}
-			moBuild, targetInfo := findModuleByTargetAndVersion(allModules, container)
+
+			moBuild, targetInfo := findModuleByContainer(workflow.ProductTmplName, container, workflow.BuildStage.Modules, allModules, log)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false
 			}
+			target.BuildName = moBuild.Name
 			err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
 			if err != nil {
 				return resp, e.ErrListBuildModule.AddErr(err)
@@ -583,6 +660,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ProductName: args.ProductTmplName,
 				Variables:   target.Envs,
 				Env:         env,
+				BuildName:   target.BuildName,
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
@@ -591,6 +669,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ServiceName:      target.ServiceName,
 				ProductName:      args.ProductTmplName,
 				JenkinsBuildArgs: target.JenkinsBuildArgs,
+				BuildName:        target.BuildName,
 			}, log)
 		}
 		if err != nil {
