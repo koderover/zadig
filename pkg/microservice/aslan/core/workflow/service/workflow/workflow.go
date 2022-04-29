@@ -324,6 +324,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 								ProductName:   serviceTmpl.ProductName,
 								ServiceName:   serviceTmpl.ServiceName,
 								ServiceModule: container.Name,
+								BuildName: findBuildName(key, moList),
 							},
 						})
 					}
