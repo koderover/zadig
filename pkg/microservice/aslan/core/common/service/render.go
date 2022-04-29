@@ -244,7 +244,7 @@ func mergeKVs(newKVs []*templatemodels.RenderKV, oldKVs []*templatemodels.Render
 	return result
 }
 
-func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
@@ -257,6 +257,30 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 		}
 		mergedKVs := mergeKVs(args.KVs, rs.KVs)
 		args.KVs = mergedKVs
+	}
+	if err := ensureRenderSetArgs(args); err != nil {
+		log.Error(err)
+		return e.ErrCreateRenderSet.AddDesc(err.Error())
+	}
+	if err := commonrepo.NewRenderSetColl().Create(args); err != nil {
+		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", args.Name, err)
+		log.Error(errMsg)
+		return e.ErrCreateRenderSet.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
+	rs, err := commonrepo.NewRenderSetColl().Find(opt)
+	if rs != nil && err == nil {
+		// 已经存在渲染配置集
+		// 判断是否有修改
+		if rs.Diff(args) {
+			args.IsDefault = rs.IsDefault
+		} else {
+			return nil
+		}
 	}
 	if err := ensureRenderSetArgs(args); err != nil {
 		log.Error(err)

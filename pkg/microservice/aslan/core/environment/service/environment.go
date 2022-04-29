@@ -767,7 +767,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 			return err
 		}
 
-		err = commonservice.CreateRenderSet(
+		err = commonservice.CreateRenderSetByMerge(
 			&commonmodels.RenderSet{
 				Name:        exitedProd.Namespace,
 				EnvName:     envName,
