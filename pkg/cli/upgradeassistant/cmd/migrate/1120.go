@@ -95,7 +95,9 @@ func moduleTestingAddNotifyCtls() error {
 				}),
 		)
 	}
-	_, err = testingCol.BulkWrite(context.TODO(), ms)
+	if len(ms) > 0 {
+		_, err = testingCol.BulkWrite(context.TODO(), ms)
+	}
 
 	return err
 }
@@ -131,7 +133,9 @@ func moduleTestingRollBackNotifyCtls() error {
 				}),
 		)
 	}
-	_, err = testingCol.BulkWrite(context.TODO(), ms)
+	if len(ms) > 0 {
+		_, err = testingCol.BulkWrite(context.TODO(), ms)
+	}
 
 	return err
 }
@@ -168,7 +172,9 @@ func workflowAddNotifyCtls() error {
 				}),
 		)
 	}
-	_, err = workflowColl.BulkWrite(context.TODO(), ms)
+	if len(ms) > 0 {
+		_, err = workflowColl.BulkWrite(context.TODO(), ms)
+	}
 
 	return err
 }
@@ -204,7 +210,9 @@ func workflowRollBackNotifyCtls() error {
 				}),
 		)
 	}
-	_, err = workflowColl.BulkWrite(context.TODO(), ms)
+	if len(ms) > 0 {
+		_, err = workflowColl.BulkWrite(context.TODO(), ms)
+	}
 
 	return err
 }
