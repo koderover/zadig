@@ -21,14 +21,13 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	dockerfileinstructions "github.com/moby/buildkit/frontend/dockerfile/instructions"
 	dockerfileparser "github.com/moby/buildkit/frontend/dockerfile/parser"
-
-	"go.uber.org/zap"
-
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*DockerfileDetail, error) {
