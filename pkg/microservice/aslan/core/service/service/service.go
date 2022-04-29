@@ -189,7 +189,10 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
 		serviceModule.ImageName = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
-		buildObjs, _ := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
+		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
+		if err != nil {
+			return nil, err
+		}
 
 		buildNames := sets.NewString()
 		for _, buildObj := range buildObjs {

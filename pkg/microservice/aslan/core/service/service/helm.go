@@ -178,7 +178,10 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
 
-		buildObjs, _ := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
+		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
+		if err != nil {
+			return nil, err
+		}
 		buildNames := sets.NewString()
 		for _, buildObj := range buildObjs {
 			buildNames.Insert(buildObj.Name)
