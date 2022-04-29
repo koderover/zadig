@@ -14,17 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package template
+package service
 
 import (
 	"errors"
 	"regexp"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	. "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -125,6 +127,10 @@ func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
 		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
 	}
 	return err
+}
+
+func SyncYamlTemplateReference(id string, logger *zap.SugaredLogger) error {
+	return service.SyncServiceFromTemplate(setting.ServiceSourceTemplate, id, "", logger)
 }
 
 func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*ServiceReference, error) {

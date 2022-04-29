@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package template
+package service
 
 import (
 	"fmt"
@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 
 	"github.com/27149chen/afero"
 	"github.com/pkg/errors"
@@ -37,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	. "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -297,7 +300,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		variables = append(variables, variable)
 	}
 
-	return mongodb.NewChartColl().Update(&models.Chart{
+	err = mongodb.NewChartColl().Update(&models.Chart{
 		Name:           name,
 		Owner:          args.Owner,
 		Repo:           args.Repo,
@@ -308,6 +311,12 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		ChartVariables: variables,
 		Source:         ch.Type,
 	})
+
+	return err
+}
+
+func SyncHelmTemplateReference(name string, logger *zap.SugaredLogger) error {
+	return service.SyncServiceFromTemplate(setting.SourceFromChartTemplate, "", name, logger)
 }
 
 func UpdateChartTemplateVariables(name string, args []*commonmodels.Variable, logger *zap.SugaredLogger) error {

@@ -192,7 +192,7 @@ func GetTemplateVariables(args *commonmodels.Service) []*Variable {
 		return nil
 	}
 
-	variables, err := extractTemplateVariables(args, templateInfo)
+	variables, err := extractYamlTemplateVariables(args, templateInfo)
 	if err != nil {
 		log.Errorf("failed to extract template variables for service: %s, err: %s", args.ServiceName, err)
 		return nil

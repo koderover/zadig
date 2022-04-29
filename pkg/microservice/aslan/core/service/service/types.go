@@ -40,10 +40,12 @@ type HelmLoadSource struct {
 
 type HelmServiceCreationArgs struct {
 	HelmLoadSource
-	Name       string                  `json:"name"`
-	CreatedBy  string                  `json:"createdBy"`
-	CreateFrom interface{}             `json:"createFrom"`
-	ValuesData *service.ValuesDataArgs `json:"valuesData"`
+	Name           string                  `json:"name"`
+	CreatedBy      string                  `json:"createdBy"`
+	AutoSync       bool                    `json:"auto_sync"`
+	CreateFrom     interface{}             `json:"createFrom"`
+	ValuesData     *service.ValuesDataArgs `json:"valuesData"`
+	CreationDetail interface{}             `json:"-"`
 }
 
 type BulkHelmServiceCreationArgs struct {
@@ -51,6 +53,7 @@ type BulkHelmServiceCreationArgs struct {
 	CreateFrom interface{}             `json:"createFrom"`
 	CreatedBy  string                  `json:"createdBy"`
 	ValuesData *service.ValuesDataArgs `json:"valuesData"`
+	AutoSync   bool                    `json:"auto_sync"`
 }
 
 type FailedService struct {

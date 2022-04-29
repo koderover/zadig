@@ -69,6 +69,7 @@ type Service struct {
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 	TemplateID       string           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
+	AutoSync         bool             `bson:"auto_sync"                      json:"auto_sync"`
 }
 
 type CreateFromRepo struct {

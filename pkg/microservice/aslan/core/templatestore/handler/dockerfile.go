@@ -21,7 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -29,7 +30,7 @@ func CreateDockerfileTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &templateservice.DockerfileTemplate{}
+	req := &template.DockerfileTemplate{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
@@ -50,7 +51,7 @@ func UpdateDockerfileTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &templateservice.DockerfileTemplate{}
+	req := &template.DockerfileTemplate{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
@@ -73,8 +74,8 @@ type listDockerfileQuery struct {
 }
 
 type ListDockefileResp struct {
-	DockerfileTemplates []*templateservice.DockerfileListObject `json:"dockerfile_template"`
-	Total               int                                     `json:"total"`
+	DockerfileTemplates []*template.DockerfileListObject `json:"dockerfile_template"`
+	Total               int                              `json:"total"`
 }
 
 func ListDockerfileTemplate(c *gin.Context) {
@@ -101,7 +102,7 @@ func GetDockerfileTemplateDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetDockerfileTemplateDetail(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.Err = template.GetDockerfileTemplateDetail(c.Param("id"), ctx.Logger)
 }
 
 func DeleteDockerfileTemplate(c *gin.Context) {
