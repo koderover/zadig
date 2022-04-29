@@ -24,10 +24,11 @@ import (
 )
 
 type Build struct {
-	ID       primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	PreBuild *PreBuild          `bson:"pre_build"                     json:"pre_build"`
-	Timeout  int                `bson:"timeout"                      json:"timeout"`
-
+	ID          primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
+	Name        string             `bson:"name"                         json:"name"`
+	ProductName string             `bson:"product_name"                 json:"product_name"`
+	PreBuild    *PreBuild          `bson:"pre_build"                    json:"pre_build"`
+	Timeout     int                `bson:"timeout"                      json:"timeout"`
 	// TODO: Deprecated.
 	Caches []string `bson:"caches"                        json:"caches"`
 
@@ -36,7 +37,14 @@ type Build struct {
 	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
 	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
 	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
-	AdvancedSettingsModified bool `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
+	AdvancedSettingsModified bool          `bson:"advanced_setting_modified"     json:"advanced_setting_modified"`
+	JenkinsBuild             *JenkinsBuild `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
+}
+
+type JenkinsBuild struct {
+	JenkinsID         string                     `bson:"jenkins_id"          json:"jenkins_id"`
+	JobName           string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParam []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 // PreBuild prepares an environment for a job

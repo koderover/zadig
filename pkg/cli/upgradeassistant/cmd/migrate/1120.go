@@ -46,6 +46,11 @@ func V1110ToV1120() error {
 		return err
 	}
 
+	if err := buildAddJenkinsID(); err != nil {
+		log.Errorf("buildAddJenkinsID err:%s", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -58,6 +63,11 @@ func V1120ToV1110() error {
 	// iterate all workflows , if contains notifyctl , add notifyctls
 	if err := workflowRollBackNotifyCtls(); err != nil {
 		log.Errorf("workflowRollBackNotifyCtls err:%s", err)
+		return err
+	}
+
+	if err := buildAddJenkinsIDRollBack(); err != nil {
+		log.Errorf("buildAddJenkinsIDRollBack err:%s", err)
 		return err
 	}
 	return nil
@@ -214,5 +224,88 @@ func workflowRollBackNotifyCtls() error {
 		_, err = workflowColl.BulkWrite(context.TODO(), ms)
 	}
 
+	return err
+}
+
+// If the data is not cleaned, executing the jenkins build will report an error
+func buildAddJenkinsID() error {
+	jenkins, err := internalmongodb.NewJenkinsIntegrationColl().List()
+	if err != nil {
+		return fmt.Errorf("failed to list jenkins integration ,err: %s", err)
+	}
+
+	if len(jenkins) == 0 {
+		return nil
+	}
+
+	builds, err := internalmongodb.NewBuildColl().List(&internalmongodb.BuildListOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list all builds ,err: %s", err)
+	}
+
+	if len(builds) == 0 {
+		return nil
+	}
+
+	var ms []mongo.WriteModel
+	for _, build := range builds {
+		if build.JenkinsBuild == nil {
+			continue
+		}
+
+		if build.JenkinsBuild.JenkinsID != "" {
+			continue
+		}
+
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", build.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"jenkins_build.jenkins_id", jenkins[0].ID.Hex()},
+					}},
+				}),
+		)
+	}
+	if len(ms) > 0 {
+		_, err = internalmongodb.NewBuildColl().BulkWrite(context.TODO(), ms)
+	}
+
+	return err
+}
+
+func buildAddJenkinsIDRollBack() error {
+	builds, err := internalmongodb.NewBuildColl().List(&internalmongodb.BuildListOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list all builds ,err: %s", err)
+	}
+
+	if len(builds) == 0 {
+		return nil
+	}
+
+	var ms []mongo.WriteModel
+	for _, build := range builds {
+		if build.JenkinsBuild == nil {
+			continue
+		}
+
+		if build.JenkinsBuild.JenkinsID == "" {
+			continue
+		}
+
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", build.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"jenkins_build.jenkins_id", ""},
+					}},
+				}),
+		)
+	}
+	if len(ms) > 0 {
+		_, err = internalmongodb.NewBuildColl().BulkWrite(context.TODO(), ms)
+	}
 	return err
 }
