@@ -24,8 +24,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
-
 	"github.com/27149chen/afero"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -40,6 +38,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	. "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
