@@ -296,7 +296,9 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 		for _, build := range resp.BuildStage.Modules {
 			key := fmt.Sprintf("%s-%s-%s", build.Target.ProductName, build.Target.ServiceName, build.Target.ServiceModule)
 			buildMap[key] = true
-			build.Target.BuildName = findBuildName(key, moList)
+			if build.Target.BuildName == "" {
+				build.Target.BuildName = findBuildName(key, moList)
+			}
 		}
 
 		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
@@ -324,7 +326,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 								ProductName:   serviceTmpl.ProductName,
 								ServiceName:   serviceTmpl.ServiceName,
 								ServiceModule: container.Name,
-								BuildName: findBuildName(key, moList),
+								BuildName:     findBuildName(key, moList),
 							},
 						})
 					}
