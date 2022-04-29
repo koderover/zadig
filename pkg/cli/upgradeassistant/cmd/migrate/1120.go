@@ -46,9 +46,9 @@ func V1110ToV1120() error {
 		return err
 	}
 
-	// iterate all builds
 	if err := buildAddJenkinsID(); err != nil {
 		log.Errorf("buildAddJenkinsID err:%s", err)
+		return err
 	}
 
 	return nil
@@ -219,6 +219,7 @@ func workflowRollBackNotifyCtls() error {
 	return err
 }
 
+// If the data is not cleaned, executing the jenkins build will report an error
 func buildAddJenkinsID() error {
 	jenkins, err := internalmongodb.NewJenkinsIntegrationColl().List()
 	if err != nil || len(jenkins) == 0 {
@@ -236,7 +237,6 @@ func buildAddJenkinsID() error {
 
 	var ms []mongo.WriteModel
 	for _, build := range builds {
-		// 如果已经执行过数据迁移，不要重复迁移
 		if build.JenkinsBuild == nil {
 			continue
 		}
@@ -272,7 +272,6 @@ func buildAddJenkinsIDRollBack() error {
 
 	var ms []mongo.WriteModel
 	for _, build := range builds {
-		// 如果已经执行过数据迁移，不要重复迁移
 		if build.JenkinsBuild == nil {
 			continue
 		}
