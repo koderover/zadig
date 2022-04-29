@@ -321,7 +321,7 @@ func findBuildNameByContainerName(containerName string, serviceTmpl *commonmodel
 	}
 
 	buildModules, err := commonrepo.NewBuildColl().List(opt)
-	if err != nil {
+	if err != nil || len(buildModules) == 0 {
 		return ""
 	}
 	buildName := buildModules[0].Name
