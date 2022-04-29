@@ -188,7 +188,7 @@ func GetTemplateVariables(args *commonmodels.Service) []*Variable {
 	}
 	templateInfo, err := commonrepo.NewYamlTemplateColl().GetById(args.TemplateID)
 	if err != nil {
-		log.Errorf("failed to find template with id: %s for service: %s", args.TemplateID, args.ServiceName)
+		log.Errorf("failed to find template with id: %s for service: %s, err: %s", args.TemplateID, args.ServiceName, err)
 		return nil
 	}
 
