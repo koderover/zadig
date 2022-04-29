@@ -253,7 +253,7 @@ func getProjectTargets(productName string) []string {
 	return targets
 }
 
-func findModuleByContainer(productName, serviceModuleTarget string, buildStageModules []*commonmodels.BuildModule, allModules []*commonmodels.Build) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
+func findModuleByContainer(productName, serviceModuleTarget string, buildStageModules []*commonmodels.BuildModule, allModules []*commonmodels.Build, log *zap.SugaredLogger) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
 	// find build name
 	var buildName string
 	for _, buildStageModule := range buildStageModules {
@@ -270,10 +270,12 @@ func findModuleByContainer(productName, serviceModuleTarget string, buildStageMo
 		// Compatible with old data if buildName is empty
 		productTmpl, err := template.NewProductColl().Find(productName)
 		if err != nil {
+			log.Errorf("failed to find project,err:%s", err)
 			return nil, nil
 		}
 		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 		if err != nil {
+			log.Errorf("failed to list services,err:%s", err)
 			return nil, nil
 		}
 
@@ -457,7 +459,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				HasBuild:    true,
 			}
 
-			moBuild, targetInfo := findModuleByContainer(workflow.ProductTmplName, container, workflow.BuildStage.Modules, allModules)
+			moBuild, targetInfo := findModuleByContainer(workflow.ProductTmplName, container, workflow.BuildStage.Modules, allModules, log)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false
