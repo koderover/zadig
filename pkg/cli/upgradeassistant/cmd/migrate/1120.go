@@ -222,7 +222,11 @@ func workflowRollBackNotifyCtls() error {
 // If the data is not cleaned, executing the jenkins build will report an error
 func buildAddJenkinsID() error {
 	jenkins, err := internalmongodb.NewJenkinsIntegrationColl().List()
-	if err != nil || len(jenkins) == 0 {
+	if err != nil {
+		return fmt.Errorf("failed to list jenkins integration ,err: %s", err)
+	}
+
+	if len(jenkins) == 0 {
 		return nil
 	}
 
