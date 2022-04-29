@@ -206,7 +206,7 @@ func syncServicesFromChartTemplate(templateName string, logger *zap.SugaredLogge
 }
 
 func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate *ChartTemplateData) error {
-	variable, customYaml, err := updateChartTemplateVariables(service, chartTemplate.TemplateData)
+	variable, customYaml, err := buildChartTemplateVariables(service, chartTemplate.TemplateData)
 	if err != nil {
 		return err
 	}
@@ -234,7 +234,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 	return nil
 }
 
-func extractYamlTemplateVariables(service *commonmodels.Service, template *commonmodels.YamlTemplate) ([]*Variable, error) {
+func buildYamlTemplateVariables(service *commonmodels.Service, template *commonmodels.YamlTemplate) ([]*Variable, error) {
 	variables := make([]*Variable, 0)
 	variableMap := make(map[string]*Variable)
 	for _, v := range template.Variables {
@@ -258,6 +258,11 @@ func extractYamlTemplateVariables(service *commonmodels.Service, template *commo
 			log.Errorf("failed to unmarshal creation data: %s", err)
 			return variables, nil
 		}
+		for _, kv := range creation.Variables {
+			if tkv, ok := variableMap[kv.Key]; ok {
+				tkv.Value = kv.Value
+			}
+		}
 		vbs := make([]*commonmodels.Variable, 0)
 		for _, kv := range variables {
 			vbs = append(vbs, &commonmodels.Variable{
@@ -271,7 +276,7 @@ func extractYamlTemplateVariables(service *commonmodels.Service, template *commo
 	return variables, nil
 }
 
-func updateChartTemplateVariables(service *commonmodels.Service, template *commonmodels.Chart) ([]*Variable, string, error) {
+func buildChartTemplateVariables(service *commonmodels.Service, template *commonmodels.Chart) ([]*Variable, string, error) {
 	variables := make([]*Variable, 0)
 	variableMap := make(map[string]*Variable)
 
@@ -320,7 +325,7 @@ func updateChartTemplateVariables(service *commonmodels.Service, template *commo
 
 func reloadServiceFromYamlTemplate(projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
 	//extract variables from current service
-	variables, err := extractYamlTemplateVariables(service, template)
+	variables, err := buildYamlTemplateVariables(service, template)
 	if err != nil {
 		return err
 	}
