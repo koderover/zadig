@@ -259,7 +259,9 @@ func buildAddJenkinsID() error {
 				}),
 		)
 	}
-	_, err = internalmongodb.NewBuildColl().BulkWrite(context.TODO(), ms)
+	if len(ms) > 0 {
+		_, err = internalmongodb.NewBuildColl().BulkWrite(context.TODO(), ms)
+	}
 
 	return err
 }
@@ -294,6 +296,8 @@ func buildAddJenkinsIDRollBack() error {
 				}),
 		)
 	}
-	_, err = internalmongodb.NewBuildColl().BulkWrite(context.TODO(), ms)
+	if len(ms) > 0 {
+		_, err = internalmongodb.NewBuildColl().BulkWrite(context.TODO(), ms)
+	}
 	return err
 }
