@@ -93,7 +93,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 		return errors.New("service is not created from template")
 	}
 	if service.TemplateID == "" {
-		return errors.New("failed to find template id for service:" + serviceName)
+		return fmt.Errorf("failed to find template id for service: %s", serviceName)
 	}
 	template, err := commonrepo.NewYamlTemplateColl().GetById(templateID)
 	if err != nil {
@@ -121,10 +121,10 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 
 func renderYamlFromTemplate(yaml, productName, serviceName string, variables []*Variable) string {
 	for _, variable := range variables {
-		yaml = strings.Replace(yaml, buildVariable(variable.Key), variable.Value, -1)
+		yaml = strings.ReplaceAll(yaml, buildVariable(variable.Key), variable.Value)
 	}
-	yaml = strings.Replace(yaml, setting.TemplateVariableProduct, productName, -1)
-	yaml = strings.Replace(yaml, setting.TemplateVariableService, serviceName, -1)
+	yaml = strings.ReplaceAll(yaml, setting.TemplateVariableProduct, productName)
+	yaml = strings.ReplaceAll(yaml, setting.TemplateVariableService, serviceName)
 	return yaml
 }
 
@@ -195,7 +195,7 @@ func syncServicesFromChartTemplate(templateName string, logger *zap.SugaredLogge
 			for _, service := range pService {
 				err := reloadServiceFromChartTemplate(service, chartTemplate)
 				if err != nil {
-					logger.Infof("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
+					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
 					commonservice.SendErrorMessage("system", title, "", err, logger)
 				}
@@ -229,7 +229,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 		return err
 	}
 	if len(ret.FailedServices) == 1 {
-		return fmt.Errorf(ret.FailedServices[0].Error)
+		return errors.New(ret.FailedServices[0].Error)
 	}
 	return nil
 }
@@ -246,33 +246,38 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 		variables = append(variables, kv)
 	}
 
+	creation := &commonmodels.CreateFromYamlTemplate{}
+	vbs := make([]*commonmodels.Variable, 0)
 	if service.CreateFrom != nil {
 		bs, err := json.Marshal(service.CreateFrom)
 		if err != nil {
 			log.Errorf("failed to marshal creation data: %s", err)
-			return variables, nil
+			return variables, err
 		}
-		creation := &commonmodels.CreateFromYamlTemplate{}
+
 		err = json.Unmarshal(bs, creation)
 		if err != nil {
 			log.Errorf("failed to unmarshal creation data: %s", err)
-			return variables, nil
+			return variables, err
 		}
 		for _, kv := range creation.Variables {
 			if tkv, ok := variableMap[kv.Key]; ok {
 				tkv.Value = kv.Value
 			}
 		}
-		vbs := make([]*commonmodels.Variable, 0)
-		for _, kv := range variables {
-			vbs = append(vbs, &commonmodels.Variable{
-				Key:   kv.Key,
-				Value: kv.Value,
-			})
-		}
-		creation.Variables = vbs
-		service.CreateFrom = creation
+	} else {
+		creation.TemplateID = template.ID.Hex()
 	}
+
+	for _, kv := range variables {
+		vbs = append(vbs, &commonmodels.Variable{
+			Key:   kv.Key,
+			Value: kv.Value,
+		})
+	}
+	creation.Variables = vbs
+	service.CreateFrom = creation
+
 	return variables, nil
 }
 

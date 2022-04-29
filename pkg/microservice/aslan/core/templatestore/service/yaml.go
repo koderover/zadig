@@ -25,7 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	. "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -35,7 +35,7 @@ var DefaultSystemVariable = map[string]string{
 	setting.TemplateVariableService: setting.TemplateVariableServiceDescription,
 }
 
-func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error {
+func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogger) error {
 	vars := make([]*models.Variable, 0)
 	for _, variable := range template.Variable {
 		vars = append(vars, &models.Variable{
@@ -54,7 +54,7 @@ func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error
 	return err
 }
 
-func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLogger) error {
+func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
 	vars := make([]*models.Variable, 0)
 	for _, variable := range template.Variable {
 		vars = append(vars, &models.Variable{
@@ -76,15 +76,15 @@ func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLo
 	return err
 }
 
-func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*YamlListObject, int, error) {
-	resp := make([]*YamlListObject, 0)
+func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*template.YamlListObject, int, error) {
+	resp := make([]*template.YamlListObject, 0)
 	templateList, total, err := commonrepo.NewYamlTemplateColl().List(pageNum, pageSize)
 	if err != nil {
 		logger.Errorf("list dockerfile template error: %s", err)
 		return resp, 0, err
 	}
 	for _, obj := range templateList {
-		resp = append(resp, &YamlListObject{
+		resp = append(resp, &template.YamlListObject{
 			ID:   obj.ID.Hex(),
 			Name: obj.Name,
 		})
@@ -92,8 +92,8 @@ func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*Yaml
 	return resp, total, err
 }
 
-func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*YamlDetail, error) {
-	resp := new(YamlDetail)
+func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.YamlDetail, error) {
+	resp := new(template.YamlDetail)
 	yamlTemplate, err := commonrepo.NewYamlTemplateColl().GetById(id)
 	if err != nil {
 		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %s", id, err)
@@ -133,15 +133,15 @@ func SyncYamlTemplateReference(id string, logger *zap.SugaredLogger) error {
 	return service.SyncServiceFromTemplate(setting.ServiceSourceTemplate, id, "", logger)
 }
 
-func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*ServiceReference, error) {
-	ret := make([]*ServiceReference, 0)
+func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.ServiceReference, error) {
+	ret := make([]*template.ServiceReference, 0)
 	referenceList, err := commonrepo.NewServiceColl().GetTemplateReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
 		return ret, err
 	}
 	for _, reference := range referenceList {
-		ret = append(ret, &ServiceReference{
+		ret = append(ret, &template.ServiceReference{
 			ServiceName: reference.ServiceName,
 			ProjectName: reference.ProductName,
 		})

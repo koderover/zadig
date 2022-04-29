@@ -37,7 +37,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	. "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -55,10 +55,10 @@ var (
 
 type ChartTemplateListResp struct {
 	SystemVariables []*commonmodels.ChartVariable `json:"systemVariables"`
-	ChartTemplates  []*Chart                      `json:"chartTemplates"`
+	ChartTemplates  []*template.Chart             `json:"chartTemplates"`
 }
 
-func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
+func GetChartTemplate(name string, logger *zap.SugaredLogger) (*template.Chart, error) {
 	chart, err := commonrepo.NewChartColl().Get(name)
 	if err != nil {
 		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
@@ -87,7 +87,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 		})
 	}
 
-	return &Chart{
+	return &template.Chart{
 		Name:       name,
 		CodehostID: chart.CodeHostID,
 		Owner:      chart.Owner,
@@ -134,9 +134,9 @@ func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, erro
 		return nil, err
 	}
 
-	res := make([]*Chart, 0, len(cs))
+	res := make([]*template.Chart, 0, len(cs))
 	for _, c := range cs {
-		res = append(res, &Chart{
+		res = append(res, &template.Chart{
 			Name:       c.Name,
 			CodehostID: c.CodeHostID,
 			Owner:      c.Owner,

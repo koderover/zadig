@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,15 +21,15 @@ import (
 	"strings"
 
 	dockerfileinstructions "github.com/moby/buildkit/frontend/dockerfile/instructions"
-	dockerfileparser "github.com/moby/buildkit/frontend/dockerfile/parser"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	. "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 )
 
-func CreateDockerfileTemplate(template *DockerfileTemplate, logger *zap.SugaredLogger) error {
+func CreateDockerfileTemplate(template *template.DockerfileTemplate, logger *zap.SugaredLogger) error {
 	err := commonrepo.NewDockerfileTemplateColl().Create(&commonmodels.DockerfileTemplate{
 		Name:    template.Name,
 		Content: template.Content,
@@ -40,7 +40,7 @@ func CreateDockerfileTemplate(template *DockerfileTemplate, logger *zap.SugaredL
 	return err
 }
 
-func UpdateDockerfileTemplate(id string, template *DockerfileTemplate, logger *zap.SugaredLogger) error {
+func UpdateDockerfileTemplate(id string, template *template.DockerfileTemplate, logger *zap.SugaredLogger) error {
 	err := commonrepo.NewDockerfileTemplateColl().Update(
 		id,
 		&commonmodels.DockerfileTemplate{
@@ -54,15 +54,15 @@ func UpdateDockerfileTemplate(id string, template *DockerfileTemplate, logger *z
 	return err
 }
 
-func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*DockerfileListObject, int, error) {
-	resp := make([]*DockerfileListObject, 0)
+func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*template.DockerfileListObject, int, error) {
+	resp := make([]*template.DockerfileListObject, 0)
 	templateList, total, err := commonrepo.NewDockerfileTemplateColl().List(pageNum, pageSize)
 	if err != nil {
 		logger.Errorf("list dockerfile template error: %s", err)
 		return resp, 0, err
 	}
 	for _, obj := range templateList {
-		resp = append(resp, &DockerfileListObject{
+		resp = append(resp, &template.DockerfileListObject{
 			ID:   obj.ID.Hex(),
 			Name: obj.Name,
 		})
@@ -86,15 +86,15 @@ func DeleteDockerfileTemplate(id string, logger *zap.SugaredLogger) error {
 	return err
 }
 
-func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*BuildReference, error) {
-	ret := make([]*BuildReference, 0)
+func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.BuildReference, error) {
+	ret := make([]*template.BuildReference, 0)
 	referenceList, err := commonrepo.NewBuildColl().GetDockerfileTemplateReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
 		return ret, err
 	}
 	for _, reference := range referenceList {
-		ret = append(ret, &BuildReference{
+		ret = append(ret, &template.BuildReference{
 			BuildName:   reference.Name,
 			ProjectName: reference.ProductName,
 		})
@@ -102,10 +102,10 @@ func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*Bu
 	return ret, nil
 }
 
-func ValidateDockerfileTemplate(template string, logger *zap.SugaredLogger) error {
+func ValidateDockerfileTemplate(template string, _ *zap.SugaredLogger) error {
 	// some dockerfile validation stuff
 	reader := strings.NewReader(template)
-	result, err := dockerfileparser.Parse(reader)
+	result, err := parser.Parse(reader)
 	if err != nil {
 		return err
 	}

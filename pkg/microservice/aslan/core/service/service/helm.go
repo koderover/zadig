@@ -175,9 +175,6 @@ func getCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChart
 	}
 	ret := &models.CreateFromChartTemplate{}
 	err = json.Unmarshal(bs, ret)
-	if err != nil {
-		return nil, err
-	}
 	return ret, err
 }
 
@@ -230,7 +227,8 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 	}
 	err = fillServiceTemplateVariables(serviceTemplate)
 	if err != nil {
-		log.Errorf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
+		// NOTE source template may be deleted, error should not block the following logic
+		log.Warnf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 	helmServiceModule.Service = serviceTemplate
 	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
