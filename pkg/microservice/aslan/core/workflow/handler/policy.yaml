@@ -83,10 +83,18 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/workflow/v3/?*"
         resourceType: "Workflow"
+        #一个服务关联多个构建
+      - method: GET
+        endpoint: "/api/aslan/build/build/serviceModule"
+        resourceType: "Workflow"
   - action: create_workflow
     alias: "新建"
     description: ""
     rules:
+      #一个服务关联多个构建
+      - method: GET
+        endpoint: "/api/aslan/build/build/serviceModule"
+        resourceType: "Workflow"
       - method: POST
         endpoint: "api/aslan/workflow/workflow"
         resourceType: "Workflow"
