@@ -78,7 +78,6 @@ func SetCron(cron string, cronEnabled bool, logger *zap.SugaredLogger) error {
 // CleanImageCache 清理镜像缓存
 func CleanImageCache(logger *zap.SugaredLogger) error {
 	//Get pod list by label and namespace
-	//判断当前的状态，cleaning状态下不做清理
 	var mu sync.Mutex
 	mu.Lock()
 	defer func() {
@@ -98,9 +97,6 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		}
 	case 1:
 		dindClean := dindCleans[0]
-		if dindClean.Status == CleanStatusCleaning {
-			return e.ErrDindClean.AddDesc("")
-		}
 		dindClean.Status = CleanStatusCleaning
 		dindClean.DindCleanInfos = []*commonmodels.DindCleanInfo{}
 		dindClean.Cron = dindCleans[0].Cron
