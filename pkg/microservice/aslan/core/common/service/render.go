@@ -248,8 +248,6 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
-		// 已经存在渲染配置集
-		// 判断是否有修改
 		if rs.Diff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
@@ -274,8 +272,6 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
-		// 已经存在渲染配置集
-		// 判断是否有修改
 		if rs.Diff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
