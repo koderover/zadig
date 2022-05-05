@@ -41,8 +41,8 @@ type Notification struct {
 	PrTask     *PrTaskInfo         `bson:"pr_task_info,omitempty"       json:"pr_task_info,omitempty"`
 	Label      string              `bson:"label"                        json:"label"  `
 	Revision   string              `bson:"revision"                     json:"revision"`
-	RepoOwner  string              `bson:"-"                            json:"-"`
-	RepoName   string              `bson:"-"                            json:"-"`
+	RepoOwner  string              `bson:"repo_owner"                   json:"repo_owner"`
+	RepoName   string              `bson:"repo_name"                    json:"repo_name"`
 }
 
 type PrTaskInfo struct {
