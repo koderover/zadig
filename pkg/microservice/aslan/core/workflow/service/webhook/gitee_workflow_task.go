@@ -296,6 +296,10 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 							}
 						}
 
+						if notification != nil {
+							item.WorkflowArgs.NotificationID = notification.ID.Hex()
+						}
+
 						hookPayload = &commonmodels.HookPayload{
 							Owner:  ev.Repository.Owner.Login,
 							Repo:   ev.Repository.Name,

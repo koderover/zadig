@@ -257,6 +257,10 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 						}
 					}
 
+					if notification != nil {
+						item.TestArgs.NotificationID = notification.ID.Hex()
+					}
+
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.MergeRequestID = mergeRequestID
 					args.CommitID = commitID
