@@ -341,3 +341,14 @@ rules:
         matchAttributes:
           - key: "production"
             value: "false"
+  - action: ssh_pm
+    alias: "主机登陆"
+    description: ""
+    rules:
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/pmexec"
+        idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/services"
+        resourceType: "Environment"
+        matchAttributes:
+          - key: "production"
+            value: "false"
