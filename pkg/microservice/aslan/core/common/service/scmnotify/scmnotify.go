@@ -62,6 +62,8 @@ func (s *Service) SendInitWebhookComment(
 		IsTest:     isTest,
 		Label:      mainRepo.GetLabelValue(),
 		Revision:   mainRepo.Revision,
+		RepoOwner:  mainRepo.RepoOwner,
+		RepoName:   mainRepo.RepoName,
 	}
 
 	if err := s.Client.Comment(notification); err != nil {
