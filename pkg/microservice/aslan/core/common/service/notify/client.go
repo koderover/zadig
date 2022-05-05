@@ -218,7 +218,9 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 				return nil
 			}
 			logger.Infof("workflow get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
-			_ = c.scmNotifyService.UpdateWebhookComment(task, logger)
+			if err = c.scmNotifyService.UpdateWebhookComment(task, logger); err != nil {
+				logger.Infof("UpdateWebhookComment workflow get task #%d notify, err: %s", ctx.TaskID, err)
+			}
 			task.Stages = ctx.Stages
 		} else if ctx.Type == config.TestType {
 			logger.Infof("test get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
