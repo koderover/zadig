@@ -543,7 +543,6 @@ func (r *Reaper) getUserEnvs() []string {
 		fmt.Sprintf("WORKSPACE=%s", r.ActiveWorkspace),
 		// TODO: readme文件可以使用别的方式代替
 		fmt.Sprintf("README=%s", ReadmeFile),
-		"DOCKER_BUILDKIT=1",
 	}
 
 	r.Ctx.Paths = strings.Replace(r.Ctx.Paths, "$HOME", config.Home(), -1)
