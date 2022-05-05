@@ -42,6 +42,16 @@ func (*Router) Policies() []*policy.PolicyMeta {
 		// should not have happened here
 		log.DPanic(err)
 	}
+	for i, meta := range res.Rules {
+		tmpRules := []*policy.ActionRule{}
+		for _, rule := range meta.Rules {
+			if rule.ResourceType == "" {
+				rule.ResourceType = res.Resource
+			}
+			tmpRules = append(tmpRules, rule)
+		}
+		res.Rules[i].Rules = tmpRules
+	}
 
 	productionPolicy := &policy.PolicyMeta{}
 	_ = yaml.Unmarshal(policyMeta, productionPolicy)
