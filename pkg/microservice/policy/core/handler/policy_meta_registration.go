@@ -41,6 +41,6 @@ func GetPolicyRegistrationDefinitions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	scope := c.Query("scope")
-
-	ctx.Resp, ctx.Err = service.GetPolicyRegistrationDefinitions(scope, ctx.Logger)
+	envType := c.Query("env_type")
+	ctx.Resp, ctx.Err = service.GetPolicyRegistrationDefinitions(scope, envType, ctx.Logger)
 }

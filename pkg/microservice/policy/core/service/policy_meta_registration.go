@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -98,13 +99,13 @@ func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error
 	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
-func GetPolicyRegistrationDefinitions(scope string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
+func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
 	policieMetas, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
 	}
 	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
-	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build")
+	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
 		if systemScopeSet.Has(v.Resource) {
@@ -118,6 +119,21 @@ func GetPolicyRegistrationDefinitions(scope string, _ *zap.SugaredLogger) ([]*Po
 	case string(types.SystemScope):
 		filteredPolicyMetas = systemPolicyMetas
 	case string(types.ProjectScope):
+		for i, meta := range projectPolicyMetas {
+			if meta.Resource == "Environment" || meta.Resource == "ProductionEnvironment" {
+				tmpRules := []*models.PolicyMetaRule{}
+				for _, rule := range meta.Rules {
+					if rule.Action == "debug_pod" && envType == setting.PMDeployType {
+						continue
+					}
+					if rule.Action == "ssh_pm" && envType != setting.PMDeployType {
+						continue
+					}
+					tmpRules = append(tmpRules, rule)
+				}
+				projectPolicyMetas[i].Rules = tmpRules
+			}
+		}
 		filteredPolicyMetas = projectPolicyMetas
 	default:
 		filteredPolicyMetas = policieMetas
