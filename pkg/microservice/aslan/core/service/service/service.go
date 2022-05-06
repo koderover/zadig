@@ -55,11 +55,12 @@ import (
 )
 
 type ServiceOption struct {
-	ServiceModules []*ServiceModule           `json:"service_module"`
-	SystemVariable []*Variable                `json:"system_variable"`
-	CustomVariable []*templatemodels.RenderKV `json:"custom_variable"`
-	Yaml           string                     `json:"yaml"`
-	Service        *commonmodels.Service      `json:"service,omitempty"`
+	ServiceModules   []*ServiceModule           `json:"service_module"`
+	SystemVariable   []*Variable                `json:"system_variable"`
+	CustomVariable   []*templatemodels.RenderKV `json:"custom_variable"`
+	TemplateVariable []*Variable                `json:"template_variable"`
+	Yaml             string                     `json:"yaml"`
+	Service          *commonmodels.Service      `json:"service,omitempty"`
 }
 
 type ServiceModule struct {
@@ -181,6 +182,24 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, l
 	return serviceOption, err
 }
 
+func GetTemplateVariables(args *commonmodels.Service) []*Variable {
+	if args.TemplateID == "" {
+		return nil
+	}
+	templateInfo, err := commonrepo.NewYamlTemplateColl().GetById(args.TemplateID)
+	if err != nil {
+		log.Errorf("failed to find template with id: %s for service: %s, err: %s", args.TemplateID, args.ServiceName, err)
+		return nil
+	}
+
+	variables, err := buildYamlTemplateVariables(args, templateInfo)
+	if err != nil {
+		log.Errorf("failed to extract template variables for service: %s, err: %s", args.ServiceName, err)
+		return nil
+	}
+	return variables
+}
+
 func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
 	serviceOption := new(ServiceOption)
 
@@ -216,6 +235,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Key:   "$EnvName$",
 			Value: ""},
 	}
+	serviceOption.TemplateVariable = GetTemplateVariables(args)
 	renderKVs, err := commonservice.ListServicesRenderKeys([]*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}, log)
 	if err != nil {
 		log.Errorf("ListServicesRenderKeys %s error: %v", args.ServiceName, err)

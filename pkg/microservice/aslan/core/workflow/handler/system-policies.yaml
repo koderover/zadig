@@ -152,6 +152,10 @@
           # 修改 chart 模版变量
         - method: PUT
           endpoint: "api/aslan/template/charts/?*/variables"
+        - method: POST
+          endpoint: "api/aslan/template/charts/?*/reference"
+        - method: POST
+          endpoint: "api/aslan/template/yaml/?*/reference"
         - method: PUT
           endpoint: "/api/aslan/template/dockerfile/?*"
         - method: PUT

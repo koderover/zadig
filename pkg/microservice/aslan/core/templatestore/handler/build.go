@@ -22,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )

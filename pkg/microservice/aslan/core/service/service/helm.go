@@ -113,6 +113,8 @@ type helmServiceCreationArgs struct {
 	GerritCodeHostID int
 	ChartRepoName    string
 	ValuesSource     *commonservice.ValuesDataArgs
+	CreationDetail   interface{}
+	AutoSync         bool
 }
 
 type ChartTemplateData struct {
@@ -167,6 +169,47 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	return helmService, nil
 }
 
+func getCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
+	bs, err := json.Marshal(createFrom)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromChartTemplate{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
+
+func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
+	if serviceTemplate.Source != setting.SourceFromChartTemplate {
+		return nil
+	}
+	creation, err := getCreateFromChartTemplate(serviceTemplate.CreateFrom)
+	if err != nil {
+		return fmt.Errorf("failed to get creation detail: %s", err)
+	}
+
+	templateChart, err := commonrepo.NewChartColl().Get(creation.TemplateName)
+	if err != nil {
+		return err
+	}
+	variables := make([]*models.Variable, 0)
+	curValueMap := make(map[string]string)
+	for _, kv := range creation.Variables {
+		curValueMap[kv.Key] = kv.Value
+	}
+
+	for _, v := range templateChart.ChartVariables {
+		value := v.Value
+		if cv, ok := curValueMap[v.Key]; ok {
+			value = cv
+		}
+		variables = append(variables, &models.Variable{Key: v.Key, Value: value})
+	}
+	creation.Variables = variables
+	serviceTemplate.CreateFrom = creation
+	return nil
+}
+
 func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
@@ -188,6 +231,11 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 		}
 		serviceModule.BuildNames = buildNames.List()
 		serviceModules = append(serviceModules, serviceModule)
+	}
+	err = fillServiceTemplateVariables(serviceTemplate)
+	if err != nil {
+		// NOTE source template may be deleted, error should not block the following logic
+		log.Warnf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 	helmServiceModule.Service = serviceTemplate
 	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
@@ -465,6 +513,11 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return nil, err
 	}
 
+	return createOrUpdateHelmServiceFromChartTemplate(templateArgs, templateChartInfo, projectName, args, logger)
+}
+
+func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTemplate, templateChartInfo *ChartTemplateData, projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+
 	// NOTE we may need a better way to handle service name with spaces
 	args.Name = strings.TrimSpace(args.Name)
 
@@ -489,11 +542,11 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	from := filepath.Join(localBase, base)
 	to := filepath.Join(config.LocalServicePath(projectName, args.Name), args.Name)
 	// remove old files
-	if err = os.RemoveAll(to); err != nil {
+	if err := os.RemoveAll(to); err != nil {
 		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
 		return nil, err
 	}
-	if err = copy.Copy(from, to); err != nil {
+	if err := copy.Copy(from, to); err != nil {
 		logger.Errorf("Failed to copy file from %s to %s, err: %s", from, to, err)
 		return nil, err
 	}
@@ -551,6 +604,8 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			ValuesYaml:       templateArgs.ValuesYAML,
 			Variables:        templateArgs.Variables,
 			ValuesSource:     args.ValuesData,
+			CreationDetail:   args.CreationDetail,
+			AutoSync:         args.AutoSync,
 		},
 		logger,
 	)
@@ -899,7 +954,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer wg.Done()
-			renderChart, err := handleSingleService(projectName, repoConfig, path, from, args.CreatedBy, templateChartData, args.ValuesData, logger)
+			renderChart, err := handleSingleService(projectName, repoConfig, args, path, from, templateChartData, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
@@ -936,9 +991,8 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 	return resp, nil
 }
 
-func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath, createBy string,
-	templateChartData *ChartTemplateData, valuesData *commonservice.ValuesDataArgs, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
-
+func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, args *BulkHelmServiceCreationArgs, path, fromPath string, templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
+	createBy, valuesData := args.CreatedBy, args.ValuesData
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
@@ -1026,6 +1080,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			ValuePaths:       []string{path},
 			ValuesYaml:       string(valuesYAML),
 			ValuesSource:     valuesData,
+			AutoSync:         args.AutoSync,
 		},
 		logger,
 	)
@@ -1225,12 +1280,17 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		SrcPath:       args.RepoLink,
 		Source:        args.Source,
 		ReleaseNaming: setting.DefaultReleaseNaming,
+		AutoSync:      args.AutoSync,
 		HelmChart: &commonmodels.HelmChart{
 			Name:       chartName,
 			Version:    chartVersion,
 			ValuesYaml: valuesYaml,
 		},
-		CreateFrom: geneCreationDetail(args),
+	}
+	if args.CreationDetail != nil {
+		serviceObj.CreateFrom = args.CreationDetail
+	} else {
+		serviceObj.CreateFrom = geneCreationDetail(args)
 	}
 
 	switch args.Source {

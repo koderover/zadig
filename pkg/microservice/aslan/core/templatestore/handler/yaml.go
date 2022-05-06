@@ -18,9 +18,10 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -28,7 +29,7 @@ func CreateYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &templateservice.YamlTemplate{}
+	req := &template.YamlTemplate{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
@@ -42,7 +43,7 @@ func UpdateYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &templateservice.YamlTemplate{}
+	req := &template.YamlTemplate{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
@@ -58,9 +59,9 @@ type listYamlQuery struct {
 }
 
 type ListYamlResp struct {
-	SystemVariables []*commonmodels.ChartVariable     `json:"system_variables"`
-	YamlTemplates   []*templateservice.YamlListObject `json:"yaml_template"`
-	Total           int                               `json:"total"`
+	SystemVariables []*commonmodels.ChartVariable `json:"system_variables"`
+	YamlTemplates   []*template.YamlListObject    `json:"yaml_template"`
+	Total           int                           `json:"total"`
 }
 
 func ListYamlTemplate(c *gin.Context) {
@@ -104,6 +105,13 @@ func GetYamlTemplateReference(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = templateservice.GetYamlTemplateReference(c.Param("id"), ctx.Logger)
+}
+
+func SyncYamlTemplateReference(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = templateservice.SyncYamlTemplateReference(c.Param("id"), ctx.Logger)
 }
 
 type getYamlTemplateVariablesReq struct {
