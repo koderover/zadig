@@ -717,7 +717,6 @@ func buildEnvoyGetCacheOperation() (*types.Struct, error) {
   end
 
   local traceid = request_handle:headers():get("sw8")
-  request_handle:logWarn(string.format("[inbound]sw8: %s", traceid))
   if traceid then
     arr = split_str(traceid, "-")
     traceid = arr[2]
