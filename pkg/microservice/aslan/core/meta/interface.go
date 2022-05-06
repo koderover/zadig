@@ -4,9 +4,10 @@ import (
 	_ "embed"
 	"strings"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"sigs.k8s.io/yaml"
 )
 
 //go:embed env_meta.yaml
@@ -20,13 +21,6 @@ var systemPolicyMeta []byte
 
 //go:embed other_metas.yaml
 var otherPolicyMeta []byte
-
-const (
-	productionPolicyResource = "ProductionEnvironment"
-	productionPolicyAlias    = "环境(生产/预发布)"
-	productionKey            = "production"
-	productionValueTrue      = "true"
-)
 
 type MetaGetter interface {
 	Policies() []*policy.PolicyMeta
@@ -106,8 +100,8 @@ func (m *MetaEnvironment) Policies() []*policy.PolicyMeta {
 		log.DPanic(err)
 	}
 
-	proEnvMeta.Resource = productionPolicyResource
-	proEnvMeta.Alias = productionPolicyAlias
+	proEnvMeta.Resource = "ProductionEnvironment"
+	proEnvMeta.Alias = "环境(生产/预发布)"
 	for i, meta := range proEnvMeta.Rules {
 		tmpRules := []*policy.ActionRule{}
 		for _, rule := range meta.Rules {

@@ -36,7 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	meta "github.com/koderover/zadig/pkg/microservice/aslan/core/policy"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/meta"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
