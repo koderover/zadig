@@ -21,13 +21,14 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	testingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/gitee"
 )
 
@@ -211,6 +212,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 		return findChangedFilesOfPullRequestEvent(PullRequestEvent, codehostId)
 	}
 
+	var notification *commonmodels.Notification
 	for _, testing := range testingList {
 		if testing.HookCtl != nil && testing.HookCtl.Enabled {
 			log.Infof("find %d hooks in testing %s", len(testing.HookCtl.Items), testing.Name)
@@ -247,6 +249,19 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 							log.Errorf("failed to auto cancel testing task when receive event %v due to %s ", event, err)
 							mErr = multierror.Append(mErr, err)
 						}
+						if notification == nil {
+							notification, err = scmnotify.NewService().SendInitWebhookComment(
+								item.MainRepo, ev.PullRequest.Number, baseURI, false, true, log,
+							)
+							if err != nil {
+								log.Errorf("failed to init webhook comment due to %s", err)
+								mErr = multierror.Append(mErr, err)
+							}
+						}
+					}
+
+					if notification != nil {
+						item.TestArgs.NotificationID = notification.ID.Hex()
 					}
 
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
