@@ -21,13 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-
 	"github.com/hashicorp/go-multierror"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -275,8 +274,7 @@ func AutoDeployHelmServiceToEnvs(userName, requestID, projectName string, servic
 		return fmt.Errorf("failed to find template product when depolying services: %s, err: %s", projectName, err)
 	}
 	if templateProduct.AutoDeploy == nil || !templateProduct.AutoDeploy.Enable {
-		log.Infof("########## no need to auto deploy service")
-		//return
+		return nil
 	}
 	go func() {
 		err = updateHelmSvcInAllEnvs(projectName, serviceTemplates)
@@ -293,8 +291,7 @@ func AutoDeployYamlServiceToEnvs(userName, requestID string, serviceTemplate *co
 		return fmt.Errorf("failed to find template product when depolying services: %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 	if templateProduct.AutoDeploy == nil || !templateProduct.AutoDeploy.Enable {
-		log.Infof("########## no need to auto deploy service")
-		//return
+		return nil
 	}
 	go func() {
 		err = updateK8sSvcInAllEnvs(serviceTemplate.ProductName, serviceTemplate)

@@ -28,8 +28,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
@@ -40,6 +38,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"

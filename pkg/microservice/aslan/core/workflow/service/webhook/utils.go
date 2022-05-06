@@ -26,8 +26,6 @@ import (
 	"strings"
 	"sync"
 
-	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
-
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
@@ -40,6 +38,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
+	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
