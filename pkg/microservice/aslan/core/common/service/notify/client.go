@@ -207,9 +207,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			receivers = append(receivers, pipline.Notifiers...)
 
 			logger.Infof("pipeline get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
-			if err = c.scmNotifyService.UpdatePipelineWebhookComment(task, logger); err != nil {
-				logger.Errorf("failed to get task #%d notify, err: %s", ctx.TaskID, err)
-			}
+			_ = c.scmNotifyService.UpdatePipelineWebhookComment(task, logger)
 		} else if ctx.Type == config.WorkflowType {
 			if task.TaskCreator == setting.RequestModeOpenAPI {
 				// send callback requests
@@ -220,9 +218,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 				return nil
 			}
 			logger.Infof("workflow get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
-			if err = c.scmNotifyService.UpdateWebhookComment(task, logger); err != nil {
-				logger.Errorf("failed to get task #%d notify, err: %s", ctx.TaskID, err)
-			}
+			_ = c.scmNotifyService.UpdateWebhookComment(task, logger)
 			task.Stages = ctx.Stages
 		} else if ctx.Type == config.TestType {
 			logger.Infof("test get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
