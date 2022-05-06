@@ -17,16 +17,20 @@ limitations under the License.
 package scmnotify
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
+	giteeClient "gitee.com/openeuler/go-gitee/gitee"
 	"github.com/pkg/errors"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitee"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
@@ -59,7 +63,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 	if err != nil {
 		return errors.Wrapf(err, "codehost %d not found to comment", notify.CodehostID)
 	}
-	if strings.ToLower(codeHostDetail.Type) == "gitlab" {
+	if strings.ToLower(codeHostDetail.Type) == setting.SourceFromGitlab {
 		var note *gitlab.Note
 		cli, err := gitlabtool.NewClient(codeHostDetail.Address, codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
 		if err != nil {
@@ -153,6 +157,35 @@ func (c *Client) Comment(notify *models.Notification) error {
 					c.logger.Warnf("failed to set review %v %v %v", task, notify, e)
 				}
 			}
+		}
+	} else if strings.ToLower(codeHostDetail.Type) == setting.SourceFromGitee {
+		cli := gitee.NewClient(codeHostDetail.ID, codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
+		var pullRequestComments giteeClient.PullRequestComments
+		if notify.CommentID == "" {
+			// create comment
+			pullRequestComments, err = cli.CreateMergeRequestComment(context.Background(),
+				notify.RepoOwner, notify.RepoName, int32(notify.PrID), giteeClient.PullRequestCommentPostParam{
+					Body: comment,
+				},
+			)
+
+			if err == nil {
+				notify.CommentID = strconv.Itoa(int(pullRequestComments.Id))
+			}
+		} else {
+			// update comment
+			commentID, err := strconv.Atoi(notify.CommentID)
+			if err != nil {
+				return fmt.Errorf("failed to atoi commentID %v,err: %s", notify.CommentID, err)
+			}
+			err = cli.UpdateMergeRequestComment(context.Background(),
+				notify.RepoOwner, notify.RepoName, int32(commentID), giteeClient.PullRequestCommentPatchParam{
+					Body: comment,
+				})
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to comment gitee due to %s/%d %v", notify.ProjectID, notify.PrID, err)
 		}
 	} else {
 		return fmt.Errorf("non gitlab source not supported to comment")
