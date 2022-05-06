@@ -46,8 +46,7 @@ rules:
     description: ""
     rules:
       - method: PUT
-        endpoint: "api/aslan/workflow/workflow/?*"
-        idRegex: "api/aslan/workflow/workflow/([\\w\\W]+?)$"
+        endpoint: "api/aslan/workflow/workflow/:name"
       - method: GET
         endpoint: "/api/aslan/environment/environments"
         matchAttributes:
@@ -97,17 +96,13 @@ rules:
     description: ""
     rules:
       - method: POST
-        endpoint: "/api/aslan/workflow/workflowtask/?*"
-        idRegex: "/api/aslan/workflow/workflowtask/([\\w\\W]+?)$"
+        endpoint: "/api/aslan/workflow/workflowtask/:name"
       - method: PUT
-        endpoint: "/api/aslan/workflow/workflowtask/?*"
-        idRegex: "/api/aslan/workflow/workflowtask/([\\w\\W]+?)$"
+        endpoint: "/api/aslan/workflow/workflowtask/:name"
       - method: POST
-        endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*/restart"
-        idRegex: "/pipelines/([\\w\\W]+?)/restart"
+        endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/:name/restart"
       - method: DELETE
-        endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*"
-        idRegex: "/pipelines/([\\w\\W]+?)$"
+        endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/:name"
       - method: POST
         endpoint: "/api/directory/workflowTask/id/?*/pipelines/?*/restart"
       - method: POST

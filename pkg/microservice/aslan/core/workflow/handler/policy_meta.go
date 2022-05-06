@@ -18,6 +18,7 @@ package handler
 
 import (
 	_ "embed"
+	"strings"
 
 	"sigs.k8s.io/yaml"
 
@@ -43,6 +44,13 @@ func (*Router) Policies() []*policy.PolicyMeta {
 		for _, rule := range meta.Rules {
 			if rule.ResourceType == "" {
 				rule.ResourceType = res.Resource
+			}
+			if strings.Contains(rule.Endpoint, ":name") {
+				idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
+				idRegex = strings.ReplaceAll(idRegex, "?*", `[\w\W].*`)
+				endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
+				rule.Endpoint = endpoint
+				rule.IDRegex = idRegex
 			}
 			tmpRules = append(tmpRules, rule)
 		}
