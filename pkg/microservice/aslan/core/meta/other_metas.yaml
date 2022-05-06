@@ -89,8 +89,6 @@
       description: ""
       rules:
         - method: GET
-          endpoint: "/api/aslan/template/yaml"
-        - method: GET
           endpoint: "/api/aslan/service/services"
         - method: GET
           endpoint: "/api/aslan/service/services/?*/k8s"
