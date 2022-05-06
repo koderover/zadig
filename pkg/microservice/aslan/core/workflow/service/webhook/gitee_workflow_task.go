@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -243,6 +244,7 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 		return findChangedFilesOfPullRequestEvent(pullRequestEvent, codehostId)
 	}
 
+	var notification *commonmodels.Notification
 	for _, workflow := range workflowList {
 		if workflow.HookCtl != nil && workflow.HookCtl.Enabled {
 			log.Debugf("find %d hooks in workflow %s", len(workflow.HookCtl.Items), workflow.Name)
@@ -286,6 +288,20 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 								log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
 								mErr = multierror.Append(mErr, err)
 							}
+
+							if notification == nil {
+								notification, err = scmnotify.NewService().SendInitWebhookComment(
+									item.MainRepo, ev.PullRequest.Number, baseURI, false, false, log,
+								)
+								if err != nil {
+									log.Errorf("failed to init webhook comment due to %s", err)
+									mErr = multierror.Append(mErr, err)
+								}
+							}
+						}
+
+						if notification != nil {
+							item.WorkflowArgs.NotificationID = notification.ID.Hex()
 						}
 
 						hookPayload = &commonmodels.HookPayload{
