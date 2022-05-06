@@ -351,5 +351,5 @@ func reloadServiceFromYamlTemplate(projectName string, template *commonmodels.Ya
 	if err != nil {
 		return fmt.Errorf("failed to reload service template from template ID: %s, error : %s", service.TemplateID, err)
 	}
-	return err
+	return nil
 }
