@@ -251,9 +251,13 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 						}
 
 						if notification == nil {
-							notification, _ = scmnotify.NewService().SendInitWebhookComment(
+							notification, err = scmnotify.NewService().SendInitWebhookComment(
 								item.MainRepo, ev.PullRequest.Number, baseURI, false, true, log,
 							)
+							if err != nil {
+								log.Errorf("failed to init webhook comment due to %s", err)
+								mErr = multierror.Append(mErr, err)
+							}
 						}
 					}
 

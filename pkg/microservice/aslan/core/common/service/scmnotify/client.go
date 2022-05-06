@@ -174,7 +174,10 @@ func (c *Client) Comment(notify *models.Notification) error {
 			}
 		} else {
 			// update comment
-			commentID, _ := strconv.Atoi(notify.CommentID)
+			commentID, err := strconv.Atoi(notify.CommentID)
+			if err != nil {
+				return fmt.Errorf("failed to atoi commentID %v,err: %s", notify.CommentID, err)
+			}
 			err = cli.UpdateMergeRequestComment(context.Background(),
 				notify.RepoOwner, notify.RepoName, int32(commentID), giteeClient.PullRequestCommentPatchParam{
 					Body: comment,

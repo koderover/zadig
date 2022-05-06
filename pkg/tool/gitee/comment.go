@@ -24,7 +24,7 @@ import (
 func (c *Client) CreateMergeRequestComment(ctx context.Context, owner, repo string, number int32, pullRequestCommentPostParam gitee.PullRequestCommentPostParam) (gitee.PullRequestComments, error) {
 	pullRequestComments, _, err := c.PullRequestsApi.PostV5ReposOwnerRepoPullsNumberComments(ctx, owner, repo, number, pullRequestCommentPostParam)
 	if err != nil {
-		return gitee.PullRequestComments{}, err
+		return pullRequestComments, err
 	}
 	return pullRequestComments, nil
 }
