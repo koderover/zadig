@@ -49,8 +49,7 @@ func (*Router) Policies() []*policy.PolicyMeta {
 			if rule.ResourceType == "" {
 				rule.ResourceType = res.Resource
 			}
-			needIdregex := strings.Contains(rule.Endpoint, ":name")
-			if needIdregex {
+			if strings.Contains(rule.Endpoint, ":name") {
 				idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
 				idRegex = strings.ReplaceAll(idRegex, "?*", `[\w\W].*`)
 				endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
