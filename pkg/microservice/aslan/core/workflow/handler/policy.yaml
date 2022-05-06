@@ -12,6 +12,11 @@ rules:
           - key: "placeholder"
             value: "placeholder"
       - method: GET
+        endpoint: "/api/aslan/environment/environments"
+        matchAttributes:
+          - key: "placeholder"
+            value: "placeholder"
+      - method: GET
         endpoint: "api/aslan/workflow/workflow"
       - method: GET
         endpoint: "/api/aslan/workflow/workflow/find/?*"
@@ -48,11 +53,6 @@ rules:
       - method: PUT
         endpoint: "api/aslan/workflow/workflow/:name"
       - method: GET
-        endpoint: "/api/aslan/environment/environments"
-        matchAttributes:
-          - key: "placeholder"
-            value: "placeholder"
-      - method: GET
         endpoint: "/api/aslan/workflow/workflow/preset/?*"
       - method: GET
         endpoint: "/api/aslan/testing/testdetail"
@@ -74,11 +74,6 @@ rules:
         endpoint: "/api/aslan/workflow/workflow/old/?*/new/?*"
       - method: POST
         endpoint: "/api/directory/workflowTask/create"
-      - method: GET
-        endpoint: "/api/aslan/environment/environments"
-        matchAttributes:
-          - key: "placeholder"
-            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/testing/testdetail"
       - method: POST
@@ -107,11 +102,6 @@ rules:
         endpoint: "/api/directory/workflowTask/id/?*/pipelines/?*/restart"
       - method: POST
         endpoint: "/api/directory/workflowTask/id/?*/pipelines/?*/cancel"
-      - method: GET
-        endpoint: "/api/aslan/environment/environments"
-        matchAttributes:
-          - key: "placeholder"
-            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
       - method: GET
