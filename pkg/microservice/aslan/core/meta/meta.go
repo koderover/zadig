@@ -106,7 +106,7 @@ func (m *MetaEnvironment) Policies() []*policy.PolicyMeta {
 		tmpRules := []*policy.ActionRule{}
 		for _, rule := range meta.Rules {
 			if rule.ResourceType == "" {
-				rule.ResourceType = envMeta.Resource
+				rule.ResourceType = "Environment"
 			}
 			if strings.Contains(rule.Endpoint, ":name") {
 				idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
@@ -124,7 +124,7 @@ func (m *MetaEnvironment) Policies() []*policy.PolicyMeta {
 
 			tmpRules = append(tmpRules, rule)
 		}
-		envMeta.Rules[i].Rules = tmpRules
+		proEnvMeta.Rules[i].Rules = tmpRules
 	}
 
 	return []*policy.PolicyMeta{envMeta, proEnvMeta}
