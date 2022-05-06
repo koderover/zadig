@@ -51,13 +51,19 @@ func (*Router) Policies() []*policy.PolicyMeta {
 			}
 			needIdregex := strings.Contains(rule.Endpoint, ":name")
 			if needIdregex {
-				idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\\w\\W].*)`)
-				idRegex = strings.ReplaceAll(idRegex, "?*", `[\\w\\W].*`)
+				idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
+				idRegex = strings.ReplaceAll(idRegex, "?*", `[\w\W].*`)
 				endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
 				rule.Endpoint = endpoint
 				rule.IDRegex = idRegex
+				rule.MatchAttributes = []*policy.Attribute{
+					{
+						Key:   "production",
+						Value: "false",
+					},
+				}
+				log.Infof("rule:%+v", rule)
 			}
-			log.Infof("rule:%v", rule)
 
 			tmpRules = append(tmpRules, rule)
 		}
