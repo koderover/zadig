@@ -34,16 +34,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
-	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
-	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
+	meta "github.com/koderover/zadig/pkg/microservice/aslan/core/policy"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -86,18 +82,9 @@ func StartControllers(stopCh <-chan struct{}) {
 
 func registerPolicies() {
 	policyClient := policy.NewWithRetry()
-	var policies []*policy.PolicyMeta
-	for _, r := range []policyGetter{
-		new(workflowhandler.Router),
-		new(environmenthandler.Router),
-		new(projecthandler.Router),
-		new(testinghandler.Router),
-		new(deliveryhandler.Router),
-	} {
-		policies = append(policies, r.Policies()...)
-	}
+	getter := meta.NewMetaGetter()
 
-	for _, p := range policies {
+	for _, p := range getter.Policies() {
 		err := policyClient.CreateOrUpdatePolicyRegistration(p)
 		if err != nil {
 			// should not have happened here
