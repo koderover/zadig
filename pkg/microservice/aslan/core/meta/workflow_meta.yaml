@@ -8,7 +8,6 @@ rules:
     rules:
       - method: GET
         endpoint: "/api/aslan/delivery/releases"
-        resourceType: "Workflow"
       - method: GET
         endpoint: "api/aslan/workflow/workflow"
         matchAttributes:

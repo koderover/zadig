@@ -1,196 +1,198 @@
 - resource: Delivery
-  alias: 版本管理
-  description: ''
+  alias: "版本管理"
+  description: ""
   rules:
     - action: get_delivery
-      alias: 查看
-      description: ''
+      alias: "查看"
+      description: ""
       rules:
         - method: GET
-          endpoint: /api/aslan/delivery/releases/helm/charts
+          endpoint: "/api/aslan/delivery/releases/helm/charts"
         - method: GET
-          endpoint: /api/aslan/delivery/releases
+          endpoint: "/api/aslan/delivery/releases"
     - action: delete_delivery
       alias: 删除
-      description: ''
+      description: ""
       rules:
         - method: DELETE
-          endpoint: /api/aslan/delivery/releases/?*
+          endpoint: "/api/aslan/delivery/releases/?*"
     - action: create_delivery
       alias: 创建
-      description: ''
+      description: ""
       rules:
         - method: POST
-          endpoint: /api/aslan/delivery/releases/helm
+          endpoint: "/api/aslan/delivery/releases/helm"
         - method: GET
-          endpoint: /api/aslan/environment/environments
+          endpoint: "/api/aslan/environment/environments"
         - method: GET
-          endpoint: /api/aslan/environment/environments/?*/helm/releases
+          endpoint: "/api/aslan/environment/environments/?*/helm/releases"
         - method: GET
-          endpoint: /api/aslan/environment/environments/?*/helm/charts
+          endpoint: "/api/aslan/environment/environments/?*/helm/charts"
         - method: GET
-          endpoint: /api/aslan/service/helm/?*/?*/fileContent
+          endpoint: "/api/aslan/service/helm/?*/?*/fileContent"
         - method: POST
-          endpoint: /api/aslan/delivery/releases/helm/global-variables
+          endpoint: "/api/aslan/delivery/releases/helm/global-variables"
         - method: GET
-          endpoint: /api/aslan/delivery/releases/helm/charts/version
+          endpoint: "/api/aslan/delivery/releases/helm/charts/version"
 - resource: Test
-  alias: 测试
-  description: ''
+  alias: "测试"
+  description: ""
   rules:
     - action: get_test
-      alias: 查看
-      description: ''
+      alias: "查看"
+      description: ""
       rules:
         - method: GET
-          endpoint: /api/aslan/testing/test
+          endpoint: "/api/aslan/testing/test"
         - method: GET
-          endpoint: /api/aslan/testing/test/?*
+          endpoint: "/api/aslan/testing/test/?*"
         - method: GET
-          endpoint: /api/aslan/testing/testdetail
+          endpoint: "/api/aslan/testing/testdetail"
         - method: GET
-          endpoint: /api/aslan/workflow/workflow/testName/?*
+          endpoint: "/api/aslan/workflow/workflow/testName/?*"
         - method: GET
-          endpoint: /api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*
+          endpoint: "/api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*"
         - method: GET
-          endpoint: /api/aslan/testing/workspace/workflow/?*/taskId/?*
+          endpoint: "/api/aslan/testing/workspace/workflow/?*/taskId/?*"
         - method: GET
-          endpoint: /api/aslan/cluster/clusters
+          endpoint: "/api/aslan/cluster/clusters"
     - action: edit_test
       alias: 编辑
-      description: ''
+      description: ""
       rules:
         - method: PUT
-          endpoint: /api/aslan/testing/test
+          endpoint: "/api/aslan/testing/test"
     - action: delete_test
       alias: 删除
-      description: ''
+      description: ""
       rules:
         - method: DELETE
-          endpoint: /api/aslan/testing/test/?*
+          endpoint: "/api/aslan/testing/test/?*"
     - action: create_test
       alias: 新建
-      description: ''
+      description: ""
       rules:
         - method: POST
-          endpoint: /api/aslan/testing/test
+          endpoint: "/api/aslan/testing/test"
     - action: run_test
       alias: 执行
-      description: ''
+      description: ""
       rules:
         - method: POST
-          endpoint: /api/aslan/testing/testtask
+          endpoint: "/api/aslan/testing/testtask"
 - resource: Service
   alias: 服务
-  description: ''
+  description: ""
   rules:
     - action: get_service
       alias: 查看
-      description: ''
+      description: ""
       rules:
         - method: GET
-          endpoint: /api/aslan/service/services
+          endpoint: "/api/aslan/template/yaml"
         - method: GET
-          endpoint: /api/aslan/service/services/?*/k8s
+          endpoint: "/api/aslan/service/services"
         - method: GET
-          endpoint: /api/aslan/project/products/?*/services
+          endpoint: "/api/aslan/service/services/?*/k8s"
         - method: GET
-          endpoint: /api/aslan/service/services/?*
+          endpoint: "/api/aslan/project/products/?*/services"
         - method: GET
-          endpoint: /api/aslan/project/products/?*/searching-rules
+          endpoint: "/api/aslan/service/services/?*"
         - method: GET
-          endpoint: /api/aslan/service/helm/?*/?*/filePath
+          endpoint: "/api/aslan/project/products/?*/searching-rules"
         - method: GET
-          endpoint: /api/aslan/service/helm/?*/?*/fileContent
+          endpoint: "/api/aslan/service/helm/?*/?*/filePath"
         - method: GET
-          endpoint: /api/aslan/service/helm/?*/?*/serviceModule
+          endpoint: "/api/aslan/service/helm/?*/?*/fileContent"
         - method: GET
-          endpoint: /api/aslan/service/services/?*/pm
+          endpoint: "/api/aslan/service/helm/?*/?*/serviceModule"
         - method: GET
-          endpoint: /api/aslan/template/yaml
+          endpoint: "/api/aslan/service/services/?*/pm"
         - method: GET
-          endpoint: /api/aslan/service/helm/?*/?*/fileContent
+          endpoint: "/api/aslan/template/yaml"
+        - method: GET
+          endpoint: "/api/aslan/service/helm/?*/?*/fileContent"
     - action: edit_service
       alias: 编辑
-      description: ''
+      description: ""
       rules:
         - method: POST
-          endpoint: /api/aslan/service/helm/?*
+          endpoint: "/api/aslan/service/helm/?*"
         - method: PUT
-          endpoint: /api/aslan/service/services
+          endpoint: "/api/aslan/service/services"
         - method: POST
-          endpoint: /api/aslan/service/services
+          endpoint: "/api/aslan/service/services"
         - method: PUT
-          endpoint: /api/aslan/service/pm/?*
+          endpoint: "/api/aslan/service/pm/?*"
         - method: PUT
-          endpoint: /api/aslan/project/products/?*
+          endpoint: "/api/aslan/project/products/?*"
         - method: PATCH
-          endpoint: /api/aslan/project/products/?*
+          endpoint: "/api/aslan/project/products/?*"
         - method: PUT
-          endpoint: /api/aslan/project/products/?*/searching-rules
+          endpoint: "/api/aslan/project/products/?*/searching-rules"
         - method: PUT
-          endpoint: /api/aslan/service/helm/services/releaseNaming
+          endpoint: "/api/aslan/service/helm/services/releaseNaming"
     - action: create_service
       alias: 新建
-      description: ''
+      description: ""
       rules:
         - method: POST
-          endpoint: /api/aslan/service/pm/?*
+          endpoint: "/api/aslan/service/pm/?*"
         - method: POST
-          endpoint: /api/aslan/service/services
+          endpoint: "/api/aslan/service/services"
         - method: POST
-          endpoint: /api/aslan/service/loader/load/?*/?*
+          endpoint: "/api/aslan/service/loader/load/?*/?*"
         - method: POST
-          endpoint: api/aslan/service/template/load
+          endpoint: "/api/aslan/service/template/load"
         - method: POST
-          endpoint: /api/aslan/service/helm/services
+          endpoint: "/api/aslan/service/helm/services"
         - method: POST
-          endpoint: /api/aslan/service/helm/services/bulk
+          endpoint: "/api/aslan/service/helm/services/bulk"
     - action: delete_service
       alias: 删除
-      description: ''
+      description: ""
       rules:
         - method: DELETE
-          endpoint: /api/aslan/service/services/?*/?*
+          endpoint: "/api/aslan/service/services/?*/?*"
         - method: DELETE
-          endpoint: /api/aslan/service/services/?*/pm
+          endpoint: "/api/aslan/service/services/?*/pm"
 - resource: Build
   alias: 构建
-  description: ''
+  description: ""
   rules:
     - action: get_build
       alias: 查看
-      description: ''
+      description: ""
       rules:
         - method: GET
-          endpoint: /api/aslan/build/build
+          endpoint: "/api/aslan/build/build"
         - method: GET
-          endpoint: /api/aslan/build/build/?*
+          endpoint: "/api/aslan/build/build/?*"
         - method: GET
-          endpoint: /api/aslan/build/targets
+          endpoint: "/api/aslan/build/targets"
         - method: GET
-          endpoint: /api/aslan/cluster/clusters
+          endpoint: "/api/aslan/cluster/clusters"
     - action: create_build
       alias: 新建
-      description: ''
+      description: ""
       rules:
         - method: POST
-          endpoint: /api/aslan/build/build
+          endpoint: "/api/aslan/build/build"
     - action: edit_build
       alias: 编辑
-      description: ''
+      description: ""
       rules:
         - method: PUT
-          endpoint: /api/aslan/build/build
+          endpoint: "/api/aslan/build/build"
         - method: POST
-          endpoint: /api/aslan/build/targets
+          endpoint: "/api/aslan/build/targets"
         - method: POST
-          endpoint: /api/aslan/build/build/targets
+          endpoint: "/api/aslan/build/build/targets"
     - action: delete_build
       alias: 删除
-      description: ''
+      description: ""
       rules:
         - method: DELETE
-          endpoint: /api/aslan/build/build
+          endpoint: "/api/aslan/build/build"
 
 
