@@ -37,6 +37,10 @@ var publicURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/health"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/roles/rule"},
+	},
+	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/webhook"},
 	},

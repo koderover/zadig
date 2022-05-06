@@ -31,6 +31,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		roles.PUT("/:name", UpdateOrCreateRole)
 		roles.GET("", ListRoles)
 		roles.GET("/:name", GetRole)
+		roles.GET("/rule", GetUserRules)
 		roles.DELETE("/:name", DeleteRole)
 	}
 
