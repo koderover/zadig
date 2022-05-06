@@ -9,20 +9,20 @@ rules:
       - method: GET
         endpoint: "/api/aslan/environment/environments"
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*"
-        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
+        endpoint: "/api/aslan/environment/environments/:name"
+#        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/groups"
-        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/groups$"
+        endpoint: "/api/aslan/environment/environments/:name/groups"
+#        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/groups$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/services/?*"
-        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+        endpoint: "/api/aslan/environment/environments/:name/services/?*"
+#        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
           - key: "production"
             value: "false"
@@ -45,25 +45,25 @@ rules:
       - method: GET
         endpoint: "/api/aslan/environment/revision/products"
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/workloads"
+        endpoint: "/api/aslan/environment/environments/:name/workloads"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/workloads$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/helm/releases"
+        endpoint: "/api/aslan/environment/environments/:name/helm/releases"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/releases$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/helm/charts"
+        endpoint: "/api/aslan/environment/environments/:name/helm/charts"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/helm/images"
+        endpoint: "/api/aslan/environment/environments/:name/helm/images"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/images"
         matchAttributes:
           - key: "production"
@@ -71,31 +71,31 @@ rules:
       - method: GET
         endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
       - method: GET
-        endpoint: "/api/aslan/environment/configmaps/?*"
+        endpoint: "/api/aslan/environment/configmaps/:name"
         idRegex: "api/aslan/environment/configmaps/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/envcfgs/?*/cfg/?*"
+        endpoint: "/api/aslan/environment/envcfgs/:name/cfg/?*"
         idRegex: "/api/aslan/environment/envcfgs/([\\w\\W]+?)/cfg"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/secrets/?*"
+        endpoint: "/api/aslan/environment/secrets/:name"
         idRegex: "api/aslan/environment/secrets/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/ingresses/?*"
+        endpoint: "/api/aslan/environment/ingresses/:name"
         idRegex: "api/aslan/environment/ingresses/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: GET
-        endpoint: "/api/aslan/environment/pvcs/?*"
+        endpoint: "/api/aslan/environment/pvcs/:name"
         idRegex: "api/aslan/environment/pvcs/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
@@ -132,19 +132,19 @@ rules:
         endpoint: "/api/aslan/service/services/?*"
         # ----------
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/services"
+        endpoint: "/api/aslan/environment/environments/:name/services"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/share/enable"
+        endpoint: "/api/aslan/environment/environments/:name/share/enable"
         idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/share/enable"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: DELETE
-        endpoint: "/api/aslan/environment/environments/?*/share/enable"
+        endpoint: "/api/aslan/environment/environments/:name/share/enable"
         idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/share/enable"
         matchAttributes:
           - key: "production"
@@ -155,7 +155,7 @@ rules:
           - key: "production"
             value: "false"
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*"
+        endpoint: "/api/aslan/environment/environments/:name"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
@@ -163,13 +163,13 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/service/pm/healthCheckUpdate"
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/envRecycle"
+        endpoint: "/api/aslan/environment/environments/:name/envRecycle"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/envRecycle$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/renderset"
+        endpoint: "/api/aslan/environment/environments/:name/renderset"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/renderset$"
         matchAttributes:
           - key: "production"
@@ -183,25 +183,25 @@ rules:
         endpoint: "/api/aslan/project/products/?*/services"
         resourceType: "Environment"
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/registry"
+        endpoint: "/api/aslan/environment/environments/:name/registry"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/registry$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: PUT
-        endpoint: "/api/aslan/environment/envcfgs/?*"
+        endpoint: "/api/aslan/environment/envcfgs/:name"
         idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/envcfgs/?*"
+        endpoint: "/api/aslan/environment/envcfgs/:name"
         idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"   
       - method: DELETE
-        endpoint: "/api/aslan/environment/envcfgs/?*/cfg/?*"
+        endpoint: "/api/aslan/environment/envcfgs/:name/cfg/?*"
         idRegex: "api/aslan/environment/envcfgs/([\\w\\W]+?)/cfg"
         matchAttributes:
           - key: "production"
@@ -216,46 +216,46 @@ rules:
           - key: "production"
           - value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
+        endpoint: "/api/aslan/environment/environments/:name/services/?*/restart"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
+        endpoint: "/api/aslan/environment/environments/:name/services/?*/restartNew"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/scale"
+        endpoint: "/api/aslan/environment/environments/:name/services/?*/scale"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/scaleNew"
+        endpoint: "/api/aslan/environment/environments/:name/services/?*/scaleNew"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/services/?*"
+        endpoint: "/api/aslan/environment/environments/:name/services/?*"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
       - method: POST
-        endpoint: "/api/aslan/environment/image/deployment/?*"
+        endpoint: "/api/aslan/environment/image/deployment/:name"
         idRegex: "/api/aslan/environment/image/deployment/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: POST
         idRegex: "/api/aslan/environment/image/statefulset/([\\w\\W]+?)$"
-        endpoint: "/api/aslan/environment/image/statefulset/?*"
+        endpoint: "/api/aslan/environment/image/statefulset/:name"
         matchAttributes:
           - key: "production"
             value: "false"
       - method: DELETE
-        endpoint: "/api/aslan/environment/kube/?*/pods/?*"
+        endpoint: "/api/aslan/environment/kube/:name/pods/?*"
         idRegex: "/api/aslan/environment/kube/([\\w\\W]+?)/pods"
         matchAttributes:
           - key: "production"
@@ -271,7 +271,7 @@ rules:
     description: ""
     rules:
       - method: DELETE
-        endpoint: "/api/aslan/environment/environments/?*"
+        endpoint: "/api/aslan/environment/environments/:name"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
@@ -281,7 +281,7 @@ rules:
     description: ""
     rules:
       - method: GET
-        endpoint: "/api/podexec/?*/?*/?*/?*/podExec/?*"
+        endpoint: "/api/podexec/?*/?*/?*/?*/podExec/:name"
         idRegex: "/podExec/([\\w\\W]+?)$"
         matchAttributes:
           - key: "production"
@@ -291,7 +291,7 @@ rules:
     description: ""
     rules:
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/pmexec"
+        endpoint: "/api/aslan/environment/environments/:name/services/?*/pmexec"
         idRegex: "/api/aslan/environment/environments/([\\w\\W]+?)/services"
         matchAttributes:
           - key: "production"
