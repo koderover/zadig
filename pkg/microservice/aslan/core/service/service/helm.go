@@ -29,6 +29,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -96,6 +98,7 @@ type helmServiceCreationArgs struct {
 	FilePath         string
 	ProductName      string
 	CreateBy         string
+	RequestID        string
 	CodehostID       int
 	Owner            string
 	Repo             string
@@ -479,6 +482,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 			ServiceName:     serviceName,
 			ProductName:     projectName,
 			CreateBy:        args.CreatedBy,
+			RequestID:       args.RequestID,
 			Source:          setting.SourceFromChartRepo,
 		},
 		log,
@@ -599,6 +603,7 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 			FilePath:         to,
 			ProductName:      projectName,
 			CreateBy:         args.CreatedBy,
+			RequestID:        args.RequestID,
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateArgs.TemplateName,
 			ValuesYaml:       templateArgs.ValuesYAML,
@@ -737,6 +742,7 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 					FilePath:         filePath,
 					ProductName:      projectName,
 					CreateBy:         args.CreatedBy,
+					RequestID:        args.RequestID,
 					CodehostID:       createFromRepo.CodehostID,
 					Owner:            createFromRepo.Owner,
 					Repo:             createFromRepo.Repo,
@@ -886,6 +892,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					FilePath:        filePath,
 					ProductName:     projectName,
 					CreateBy:        args.CreatedBy,
+					RequestID:       args.RequestID,
 					CodehostID:      repoArgs.CodehostID,
 					Owner:           repoArgs.Owner,
 					Repo:            repoArgs.Repo,
@@ -954,7 +961,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer wg.Done()
-			renderChart, err := handleSingleService(projectName, repoConfig, args, path, from, templateChartData, logger)
+			renderChart, err := handleSingleService(projectName, repoConfig, path, from, args, templateChartData, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
@@ -991,8 +998,8 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 	return resp, nil
 }
 
-func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, args *BulkHelmServiceCreationArgs, path, fromPath string, templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
-	createBy, valuesData := args.CreatedBy, args.ValuesData
+func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath string, args *BulkHelmServiceCreationArgs,
+	templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
@@ -1073,14 +1080,15 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			ServiceName:      serviceName,
 			FilePath:         to,
 			ProductName:      projectName,
-			CreateBy:         createBy,
+			CreateBy:         args.CreatedBy,
+			RequestID:        args.RequestID,
 			CodehostID:       repoConfig.CodehostID,
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateChartData.TemplateName,
 			ValuePaths:       []string{path},
 			ValuesYaml:       string(valuesYAML),
-			ValuesSource:     valuesData,
 			AutoSync:         args.AutoSync,
+			ValuesSource:     args.ValuesData,
 		},
 		logger,
 	)
@@ -1345,7 +1353,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
-	return serviceObj, nil
+	return serviceObj, service.AutoDeployHelmServiceToEnvs(args.CreateBy, args.RequestID, serviceObj.ProductName, []*models.Service{serviceObj}, logger)
 }
 
 func loadServiceFileInfos(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
@@ -1404,7 +1412,7 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	return fis, nil
 }
 
-// UpdateHelmService TODO need to be deprecated
+// UpdateHelmService deprecated
 func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 	serviceMap := make(map[string]int64)
 	for _, helmServiceInfo := range args.HelmServiceInfos {

@@ -21,11 +21,14 @@ import (
 	"fmt"
 	"time"
 
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+
 	"github.com/hashicorp/go-multierror"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -79,9 +82,30 @@ func InstallService(helmClient *helmtool.HelmClient, param *ReleaseInstallParam)
 	return nil
 }
 
-// ReInstallServiceInEnv uninstall the service and reinstall to update releaseNaming rule
-func ReInstallServiceInEnv(productInfo *commonmodels.Product, serviceName string, templateSvc *commonmodels.Service) error {
-	productSvcMap := productInfo.GetServiceMap()
+func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceName string, serviceRevision int64) error {
+	foundSvc := false
+	// update service revision data in product
+	for groupIndex, svcGroup := range productInfo.Services {
+		for _, svc := range svcGroup {
+			if svc.ServiceName == serviceName {
+				svc.Revision = serviceRevision
+				foundSvc = true
+				break
+			}
+		}
+		if foundSvc {
+			if err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, groupIndex, svcGroup); err != nil {
+				return fmt.Errorf("failed to update service group: %s:%s, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
+			}
+			break
+		}
+	}
+	return nil
+}
+
+// reInstallHelmServiceInEnv uninstall the service and reinstall to update releaseNaming rule
+func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
+	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
 	productSvc, ok := productSvcMap[serviceName]
 	// service not applied in this environment
 	if !ok {
@@ -134,29 +158,62 @@ func ReInstallServiceInEnv(productInfo *commonmodels.Product, serviceName string
 		return fmt.Errorf("fauled to install release for service: %s, err: %s", templateSvc.ServiceName, err)
 	}
 
-	foundSvc := false
-	// update service revision data in product
-	for groupIndex, svcGroup := range productInfo.Services {
-		for _, svc := range svcGroup {
-			if svc.ServiceName == serviceName {
-				svc.Revision = templateSvc.Revision
-				foundSvc = true
-				break
-			}
-		}
-		if foundSvc {
-			if err = commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, groupIndex, svcGroup); err != nil {
-				return fmt.Errorf("failed to update service group: %s:%s, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
-			}
-			break
-		}
-	}
-
-	return nil
+	return updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
 }
 
-// UpdateSvcInAllEnvs updates svc in all envs in which the svc is already installed
-func UpdateSvcInAllEnvs(productName, serviceName string, templateSvc *commonmodels.Service) error {
+func updateHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
+	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
+	// service not applied in this environment
+	if _, ok := productSvcMap[serviceName]; !ok {
+		return nil
+	}
+
+	renderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Name:     productInfo.Render.Name,
+		Revision: productInfo.Render.Revision})
+	if err != nil {
+		return fmt.Errorf("failed to find renderset, %s:%d", productInfo.Render.Name, productInfo.Render.Revision)
+	}
+
+	var renderChart *templatemodels.RenderChart
+	for _, _renderChart := range renderInfo.ChartInfos {
+		if _renderChart.ServiceName == serviceName {
+			renderChart = _renderChart
+		}
+	}
+	if renderChart == nil {
+		return fmt.Errorf("failed to find renderchart for service: %s", renderChart.ServiceName)
+	}
+
+	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if err != nil {
+		return err
+	}
+
+	param, err := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
+	if err != nil {
+		return fmt.Errorf("failed to generate install param, service: %s err: %s", templateSvc.ServiceName, err)
+	}
+
+	err = InstallService(helmClient, param)
+	if err != nil {
+		return fmt.Errorf("fauled to install release for service: %s, err: %s", templateSvc.ServiceName, err)
+	}
+
+	return updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+}
+
+func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
+	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
+	// service not applied in this environment
+	if _, ok := productSvcMap[serviceName]; !ok {
+		return nil
+	}
+	return UpdateProductV2(productInfo.EnvName, productInfo.ProductName, "", "", []string{templateSvc.ServiceName}, false, nil, log.SugaredLogger())
+}
+
+// ReInstallHelmSvcInAllEnvs reinstall svc in all envs in which the svc is already installed
+func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name: productName,
 	})
@@ -165,10 +222,85 @@ func UpdateSvcInAllEnvs(productName, serviceName string, templateSvc *commonmode
 	}
 	retErr := &multierror.Error{}
 	for _, product := range products {
-		err := ReInstallServiceInEnv(product, serviceName, templateSvc)
+		err := reInstallHelmServiceInEnv(product, templateSvc)
+		if err != nil {
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+
+		}
+	}
+	return retErr.ErrorOrNil()
+}
+
+// updateHelmSvcInAllEnvs updates helm svc in all envs in which the svc is already installed
+func updateHelmSvcInAllEnvs(productName string, templateSvcs []*commonmodels.Service) error {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name: productName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
+	}
+	retErr := &multierror.Error{}
+	for _, product := range products {
+		for _, templateSvc := range templateSvcs {
+			err := updateHelmServiceInEnv(product, templateSvc)
+			if err != nil {
+				retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+			}
+		}
+	}
+	return retErr.ErrorOrNil()
+}
+
+// updateK8sSvcInAllEnvs updates k8s svc in all envs in which the svc is already installed
+func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name: productName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
+	}
+	retErr := &multierror.Error{}
+	for _, product := range products {
+		err := updateK8sServiceInEnv(product, templateSvc)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
 	}
 	return retErr.ErrorOrNil()
+}
+
+func AutoDeployHelmServiceToEnvs(userName, requestID, projectName string, serviceTemplates []*commonmodels.Service, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		return fmt.Errorf("failed to find template product when depolying services: %s, err: %s", projectName, err)
+	}
+	if templateProduct.AutoDeploy == nil || !templateProduct.AutoDeploy.Enable {
+		log.Infof("########## no need to auto deploy service")
+		//return
+	}
+	go func() {
+		err = updateHelmSvcInAllEnvs(projectName, serviceTemplates)
+		if err != nil {
+			commonservice.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
+		}
+	}()
+	return nil
+}
+
+func AutoDeployYamlServiceToEnvs(userName, requestID string, serviceTemplate *commonmodels.Service, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(serviceTemplate.ProductName)
+	if err != nil {
+		return fmt.Errorf("failed to find template product when depolying services: %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+	if templateProduct.AutoDeploy == nil || !templateProduct.AutoDeploy.Enable {
+		log.Infof("########## no need to auto deploy service")
+		//return
+	}
+	go func() {
+		err = updateK8sSvcInAllEnvs(serviceTemplate.ProductName, serviceTemplate)
+		if err != nil {
+			commonservice.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
+		}
+	}()
+	return nil
 }

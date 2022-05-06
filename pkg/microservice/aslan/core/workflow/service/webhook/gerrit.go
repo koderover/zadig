@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
@@ -185,7 +187,7 @@ func GetGerritServiceTemplates() ([]*commonmodels.Service, error) {
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
-// SyncServiceTemplateFromGerrit Force to sync Service Template to latest commit and content,
+// SyncServiceTemplateFromGerrit Force to sync Service Template to the latest commit and content,
 // Notes: if remains the same, quit sync; if updates, revision +1
 func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.SugaredLogger) error {
 	if service.Source != setting.SourceFromGerrit {
@@ -209,7 +211,8 @@ func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.Sugar
 			log.Errorf("SyncServiceTemplateFromGerrit Failed to sync service %s from gerrit path %s error: %v", service.ServiceName, service.SrcPath, err)
 			return e.ErrCreateTemplate.AddDesc(err.Error())
 		}
-		return nil
+
+		return environmentservice.AutoDeployYamlServiceToEnvs(service.CreateBy, "", service, log)
 	}
 	// remove old repo dir
 	oldRepoDir := filepath.Join(config.S3StoragePath(), service.GerritRepoName)

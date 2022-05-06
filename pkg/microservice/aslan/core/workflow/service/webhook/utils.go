@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 
+	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
@@ -159,13 +161,13 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		if err != nil {
 			return fmt.Errorf("get next service template revision error: %v", err)
 		}
-
 		args.Revision = rev
 		// update service template
 		if err := commonrepo.NewServiceColl().Create(args); err != nil {
 			log.Errorf("Failed to sync service %s from github path %s error: %v", args.ServiceName, args.SrcPath, err)
 			return e.ErrCreateTemplate.AddDesc(err.Error())
 		}
+		return environmentservice.AutoDeployYamlServiceToEnvs(args.CreateBy, "", args, log)
 	} else if args.Type == setting.HelmDeployType {
 		if args.Source == setting.SourceFromGitlab {
 			// Set args.Commit
