@@ -200,7 +200,7 @@ var (
 	//ErrDeleteResource ...
 	ErrDeleteResource = NewHTTPError(6096, "删除对象资源失败")
 	// ErrLoginPm ...
-	ErrLoginPm = NewHTTPError(6099, "登陆主机失败")
+	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
 
 	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
 

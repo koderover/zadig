@@ -342,7 +342,7 @@ rules:
           - key: "production"
             value: "false"
   - action: ssh_pm
-    alias: "主机登陆"
+    alias: "主机登录"
     description: ""
     rules:
       - method: GET
