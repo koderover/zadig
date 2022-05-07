@@ -20,6 +20,7 @@ public class Worker implements CommandLineRunner {
       .getLogger(Worker.class);
 
   public static void main(String[] args) {
+    LOG.info("hahaha")
     LOG.info("STARTING THE APPLICATION");
     SpringApplication.run(Worker.class, args);
     LOG.info("APPLICATION FINISHED");
