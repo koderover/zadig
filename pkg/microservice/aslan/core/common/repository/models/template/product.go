@@ -33,6 +33,7 @@ type Product struct {
 	UpdateBy            string                `bson:"update_by"                 json:"update_by"`
 	Enabled             bool                  `bson:"enabled"                   json:"enabled"`
 	Visibility          string                `bson:"visibility"                json:"visibility"`
+	AutoDeploy          *AutoDeployPolicy     `bson:"auto_deploy"               json:"auto_deploy"`
 	Timeout             int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services            [][]string            `bson:"services"                  json:"services"`
 	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
@@ -160,6 +161,10 @@ type DeliveryVersionHook struct {
 	Enable   bool   `bson:"enable"     json:"enable"`
 	HookHost string `bson:"hook_host"  json:"hook_host"`
 	Path     string `bson:"path"       json:"path"`
+}
+
+type AutoDeployPolicy struct {
+	Enable bool `bson:"enable" json:"enable"`
 }
 
 func (Product) TableName() string {

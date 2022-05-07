@@ -791,6 +791,11 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 	}
 	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
+	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
 	return GetServiceOption(args, log)
 }
 
@@ -1083,14 +1088,14 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 
 	go func() {
 		// reinstall services in envs
-		err = service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
+		err = service.ReInstallHelmSvcInAllEnvs(projectName, serviceTemplate)
 		if err != nil {
 			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
 			commonservice.SendErrorMessage(userName, title, requestID, err, log)
 		}
 	}()
 
-	return nil
+	return service.AutoDeployHelmServiceToEnvs(userName, requestID, serviceTemplate.ProductName, []*commonmodels.Service{serviceTemplate}, log)
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
