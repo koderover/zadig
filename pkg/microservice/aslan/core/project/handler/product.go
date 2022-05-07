@@ -250,5 +250,5 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.UserName, args.Rules)
+	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.UserName, ctx.RequestID, args.Rules)
 }

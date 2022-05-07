@@ -815,7 +815,7 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 	return ret, nil
 }
 
-func UpdateCustomMatchRules(productName string, userName string, matchRules []*ImageParseData) error {
+func UpdateCustomMatchRules(productName, userName, requestID string, matchRules []*ImageParseData) error {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("query product:%s fail, err:%s", productName, err.Error())
@@ -857,7 +857,7 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 	if err != nil {
 		return err
 	}
-	err = reParseServices(userName, services, imageRulesToSave)
+	err = reParseServices(userName, requestID, services, imageRulesToSave)
 	if err != nil {
 		return err
 	}
@@ -872,15 +872,17 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 }
 
 // reparse values.yaml for each service
-func reParseServices(userName string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
+func reParseServices(userName, requestID string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
 	updatedServiceTmpls := make([]*commonmodels.Service, 0)
 
 	var err error
+	var projectName string
 	for _, serviceTmpl := range serviceList {
 		if serviceTmpl.Type != setting.HelmDeployType || serviceTmpl.HelmChart == nil {
 			continue
 		}
 		valuesYaml := serviceTmpl.HelmChart.ValuesYaml
+		projectName = serviceTmpl.ProductName
 
 		valuesMap := make(map[string]interface{})
 		err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
@@ -931,7 +933,7 @@ func reParseServices(userName string, serviceList []*commonmodels.Service, match
 		return err
 	}
 
-	return nil
+	return environmentservice.AutoDeployHelmServiceToEnvs(userName, requestID, projectName, updatedServiceTmpls, log.SugaredLogger())
 }
 
 func DeleteCollabrationMode(productName string, userName string, log *zap.SugaredLogger) error {
