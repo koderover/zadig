@@ -158,7 +158,7 @@ func YamlViewServiceTemplate(c *gin.Context) {
 		return
 	}
 	args.ProjectName = c.Query("projectName")
-	args.ServiceName = c.Param("serviceName")
+	args.ServiceName = c.Param("name")
 	if args.ProjectName == "" || args.ServiceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName or serviceName can't be nil")
 		return
