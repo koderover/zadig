@@ -344,6 +344,10 @@
         - method: PUT
           endpoint: "/api/aslan/template/charts/?*"
           # 修改 chart 模版变量
+        - method: POST
+          endpoint: "api/aslan/template/charts/?*/reference"
+        - method: POST
+          endpoint: "api/aslan/template/yaml/?*/reference"
         - method: PUT
           endpoint: "api/aslan/template/charts/?*/variables"
         - method: PUT
