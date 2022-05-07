@@ -1538,7 +1538,7 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, kubeClient, log)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, false, kubeClient, log)
 }
 
 // update product service to the latest revision
@@ -3375,51 +3375,10 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
 
-	//err = proceedHelmRelease(args.ProductName, args.EnvName, args, renderset, helmClient, nil, log)
-	//if err != nil {
-	//	log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, envName, err)
-	//}
-
-	handler := func(serviceObj *commonmodels.Service, isRetry bool, logger *zap.SugaredLogger) error {
-		param, err := buildInstallParam(args.Namespace, renderset.EnvName, renderset.DefaultValues, chartInfoMap[serviceObj.ServiceName], serviceObj)
-		if err != nil {
-			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, args.Namespace, err)
-		}
-		err = installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
-		if err != nil {
-			log.Errorf("failed to install service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, args.Namespace, isRetry, err)
-			return errors.Wrapf(err, "failed to install service: %s, namespace: %s", serviceObj.ServiceName, args.Namespace)
-		}
-		return nil
-	}
-
-	for _, serviceGroups := range args.Services {
-		serviceList := make([]*commonmodels.Service, 0)
-		for _, svc := range serviceGroups {
-			_, ok := chartInfoMap[svc.ServiceName]
-			if !ok {
-				continue
-			}
-
-			// 获取服务详情
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName: svc.ServiceName,
-				Type:        svc.Type,
-				Revision:    svc.Revision,
-				ProductName: args.ProductName,
-			}
-			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-			if err != nil {
-				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
-				continue
-			}
-
-			serviceList = append(serviceList, serviceObj)
-		}
-		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*500, serviceList, handler, log)
-		if serviceGroupErr != nil {
-			errList = multierror.Append(errList, serviceGroupErr...)
-		}
+	err = proceedHelmRelease(args.ProductName, args.EnvName, args, renderset, helmClient, nil, log)
+	if err != nil {
+		log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, envName, err)
+		errList = multierror.Append(errList, err)
 	}
 
 	// Note: For the sub env, try to supplement information relevant to the base env.
@@ -3574,67 +3533,14 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 		svcNameSet.Insert(singleChart.ServiceName)
 	}
 
-	//filter := func(svc *commonmodels.ProductService) bool {
-	//	return svcNameSet.Has(svc.ServiceName)
-	//}
-
-	//err = proceedHelmRelease(productName, envName, productResp, renderSet, helmClient, filter, log)
-	//if err != nil {
-	//	log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
-	//}
-
-	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
-		param, err := buildInstallParam(productResp.Namespace, renderSet.EnvName, renderSet.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
-		if err != nil {
-			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, err)
-		}
-		errInstall := installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
-		if errInstall != nil {
-			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, errInstall)
-			return errors.Wrapf(errInstall, "failed to install or upgrade service %s", serviceObj.ServiceName)
-		}
-		return nil
+	filter := func(svc *commonmodels.ProductService) bool {
+		return svcNameSet.Has(svc.ServiceName)
 	}
 
-	errList := new(multierror.Error)
-	for groupIndex, services := range productResp.Services {
-		serviceList := make([]*commonmodels.Service, 0)
-		for _, svc := range services {
-			_, ok := renderChartMap[svc.ServiceName]
-			if !ok {
-				continue
-			}
-			// service is not in update list
-			if !svcNameSet.Has(svc.ServiceName) {
-				continue
-			}
-
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   svc.ServiceName,
-				Type:          svc.Type,
-				Revision:      svc.Revision,
-				ProductName:   svc.ProductName,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-			if err != nil {
-				log.Errorf("failed to find service with opt %+v, err: %s", opt, err)
-				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
-				continue
-			}
-
-			serviceList = append(serviceList, serviceObj)
-		}
-
-		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*500, serviceList, handler, log)
-		if serviceGroupErr != nil {
-			errList = multierror.Append(errList, serviceGroupErr...)
-		}
-
-		if err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, services); err != nil {
-			log.Errorf("Failed to update service group %d, err: %s", groupIndex, err)
-			errList = multierror.Append(errList, err)
-		}
+	err = proceedHelmRelease(productName, envName, productResp, renderSet, helmClient, filter, log)
+	if err != nil {
+		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
+		return err
 	}
 
 	productResp.Render.Revision = renderSet.Revision
@@ -3916,14 +3822,16 @@ func proceedHelmRelease(productName, envName string, productResp *commonmodels.P
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
+		if errList.ErrorOrNil() != nil {
+			return errList.ErrorOrNil()
+		}
 		err := commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update service group %d. Error: %v", groupIndex, err)
 			return err
 		}
 	}
-
-	return errList.ErrorOrNil()
+	return nil
 }
 
 func setFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fields ...string) map[string]interface{} {

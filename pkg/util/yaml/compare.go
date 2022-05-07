@@ -41,24 +41,3 @@ func Equal(source, target string) (bool, error) {
 
 	return reflect.DeepEqual(sourceYamlObj, targetYamlObj), nil
 }
-
-func CheckEqual(source, target []byte) (bool, error) {
-	if source == nil && target == nil {
-		return true, nil
-	}
-	if source == nil && target != nil {
-		return false, nil
-	}
-	if source != nil && target == nil {
-		return false, nil
-	}
-	sourceMap := make(map[string]interface{})
-	if err := yaml.Unmarshal(source, &sourceMap); err != nil {
-		return false, err
-	}
-	targetMap := make(map[string]interface{})
-	if err := yaml.Unmarshal(target, &targetMap); err != nil {
-		return false, err
-	}
-	return reflect.DeepEqual(sourceMap, targetMap), nil
-}

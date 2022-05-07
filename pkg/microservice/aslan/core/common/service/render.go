@@ -155,8 +155,8 @@ func (args *RenderChartArg) LoadFromRenderChartModel(chart *templatemodels.Rende
 	args.fromCustomValueYaml(chart.OverrideYaml)
 }
 
-func (args *RenderChartArg) GetUniqueKvMap() map[string]string {
-	uniqueKvs := make(map[string]string)
+func (args *RenderChartArg) GetUniqueKvMap() map[string]interface{} {
+	uniqueKvs := make(map[string]interface{})
 	for index := range args.OverrideValues {
 		kv := args.OverrideValues[len(args.OverrideValues)-index-1]
 		if _, ok := uniqueKvs[kv.Key]; ok {

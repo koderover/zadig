@@ -159,7 +159,22 @@ func GetChartValues(projectName, envName, serviceName string) (*ValuesResp, erro
 		return nil, errors.Wrapf(err, "failed to init helm client")
 	}
 
-	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceName)
+	serviceMap := prod.GetServiceMap()
+	prodSvc, ok := serviceMap[serviceName]
+	if !ok {
+		return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
+	}
+
+	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    prodSvc.Revision,
+		ProductName: prodSvc.ProductName,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)
@@ -192,10 +207,6 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", envName, projectName, err)
 		return nil, errors.Wrapf(err, "failed to init helm client")
 	}
-	helmClient, ok := helmClientInterface.(*helmtool.HelmClient)
-	if !ok {
-		return nil, errors.Wrapf(err, "failed to init helm client")
-	}
 
 	filter := &ReleaseFilter{}
 	if len(filterStr) > 0 {
@@ -211,13 +222,18 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 		}
 	}
 
-	releases, err := listReleaseInNamespace(helmClient, filter)
+	releases, err := listReleaseInNamespace(helmClientInterface, filter)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to list release")
 	}
 	releaseMap := make(map[string]*release.Release)
 	for _, re := range releases {
-		releaseMap[util.ExtraServiceName(re.Name, prod.Namespace)] = re
+		releaseMap[re.Name] = re
+	}
+
+	releaseNameMap, err := commonservice.GetServiceNameToReleaseNameMap(prod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build release-service map: %s", err)
 	}
 
 	serviceMap := prod.GetServiceMap()
@@ -225,9 +241,10 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 	svcDatSetMap := make(map[string]*SvcDataSet)
 	for serviceName, prodSvc := range serviceMap {
 		prodServiceRevisionMap[serviceName] = prodSvc
+		releaseName := releaseNameMap[serviceName]
 		svcDatSetMap[serviceName] = &SvcDataSet{
 			ProdSvc:    prodSvc,
-			SvcRelease: releaseMap[serviceName],
+			SvcRelease: releaseMap[releaseName],
 		}
 	}
 
