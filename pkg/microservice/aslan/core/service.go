@@ -36,16 +36,15 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/meta"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/policy"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
@@ -53,7 +52,7 @@ const (
 )
 
 type policyGetter interface {
-	Policies() []*policy.PolicyMeta
+	Policies() []*types.PolicyMeta
 }
 
 type Controller interface {
@@ -78,19 +77,6 @@ func StartControllers(stopCh <-chan struct{}) {
 	}
 
 	wg.Wait()
-}
-
-func registerPolicies() {
-	policyClient := policy.NewWithRetry()
-	getter := meta.NewMetaGetter()
-
-	for _, p := range getter.Policies() {
-		err := policyClient.CreateOrUpdatePolicyRegistration(p)
-		if err != nil {
-			// should not have happened here
-			log.DPanic(err)
-		}
-	}
 }
 
 func initRsaKey() {
@@ -140,8 +126,6 @@ func Start(ctx context.Context) {
 	environmentservice.CleanProducts()
 
 	environmentservice.ResetProductsStatus()
-
-	registerPolicies()
 
 	//Parse the workload dependencies configMap, PVC, ingress, secret
 	go environmentservice.StartClusterInformer()

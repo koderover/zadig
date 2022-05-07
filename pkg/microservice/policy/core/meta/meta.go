@@ -7,32 +7,32 @@ import (
 	"github.com/qdm12/reprint"
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 //go:embed metas.yaml
 var PolicyMetas []byte
 
 type MetaGetter interface {
-	Policies() []*policy.PolicyMeta
+	Policies() []*types.PolicyMeta
 }
 
 type MetaOthers struct {
 }
 
-func (m *MetaOthers) Policies() []*policy.PolicyMeta {
-	policyMetas := []*policy.PolicyMeta{}
+func (m *MetaOthers) Policies() []*types.PolicyMeta {
+	policyMetas := []*types.PolicyMeta{}
 	if err := yaml.Unmarshal(PolicyMetas, &policyMetas); err != nil {
 		log.DPanic(err)
 	}
 
-	proEnvMeta := &policy.PolicyMeta{}
+	proEnvMeta := &types.PolicyMeta{}
 
 	for _, meta := range policyMetas {
 		if meta.Resource == "Workflow" {
 			for _, ruleMeta := range meta.Rules {
-				tmpRules := []*policy.ActionRule{}
+				tmpRules := []*types.ActionRule{}
 				for _, rule := range ruleMeta.Rules {
 					if rule.ResourceType == "" {
 						rule.ResourceType = "Workflow"
@@ -51,7 +51,7 @@ func (m *MetaOthers) Policies() []*policy.PolicyMeta {
 		}
 		if meta.Resource == "Environment" {
 			for _, ruleMeta := range meta.Rules {
-				tmpRules := []*policy.ActionRule{}
+				tmpRules := []*types.ActionRule{}
 				for _, rule := range ruleMeta.Rules {
 					if rule.ResourceType == "" {
 						rule.ResourceType = "Environment"
@@ -62,7 +62,7 @@ func (m *MetaOthers) Policies() []*policy.PolicyMeta {
 						endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
 						rule.Endpoint = endpoint
 						rule.IDRegex = idRegex
-						rule.MatchAttributes = []*policy.Attribute{
+						rule.MatchAttributes = []*types.Attribute{
 							{
 								Key:   "production",
 								Value: "false",
@@ -99,8 +99,8 @@ type MetaAll struct {
 	metaGetters []MetaGetter
 }
 
-func (m *MetaAll) Policies() []*policy.PolicyMeta {
-	all := []*policy.PolicyMeta{}
+func (m *MetaAll) Policies() []*types.PolicyMeta {
+	all := []*types.PolicyMeta{}
 	for _, v := range m.metaGetters {
 		all = append(all, v.Policies()...)
 	}

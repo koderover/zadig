@@ -17,33 +17,14 @@ limitations under the License.
 package policy
 
 import (
-	"time"
-
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
-
-const retryInterval = 200 * time.Millisecond
 
 type Client struct {
 	*httpclient.Client
 
 	host string
-}
-
-func NewWithRetry() *Client {
-	host := config.PolicyServiceAddress()
-
-	c := httpclient.New(
-		httpclient.SetHostURL(host+"/api/v1"),
-		httpclient.SetRetryCount(100),
-		httpclient.SetRetryWaitTime(retryInterval),
-	)
-
-	return &Client{
-		Client: c,
-		host:   host,
-	}
 }
 
 func NewDefault() *Client {

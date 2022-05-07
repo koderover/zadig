@@ -26,33 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-type PolicyMeta struct {
-	Resource    string        `json:"resource"`
-	Alias       string        `json:"alias"`
-	Description string        `json:"description"`
-	Rules       []*PolicyRule `json:"rules"`
-}
-
-type PolicyRule struct {
-	Action      string        `json:"action"`
-	Alias       string        `json:"alias"`
-	Description string        `json:"description"`
-	Rules       []*ActionRule `json:"rules"`
-}
-
-type ActionRule struct {
-	Method          string      `json:"method"`
-	Endpoint        string      `json:"endpoint"`
-	ResourceType    string      `json:"resourceType,omitempty"`
-	IDRegex         string      `json:"idRegex,omitempty"`
-	MatchAttributes []attribute `json:"matchAttributes,omitempty"`
-}
-
-type attribute struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
 type PolicyDefinition struct {
 	Resource    string                  `json:"resource"`
 	Alias       string                  `json:"alias"`
@@ -66,7 +39,7 @@ type PolicyRuleDefinition struct {
 	Description string `json:"description"`
 }
 
-func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error {
+func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger) error {
 	obj := &models.PolicyMeta{
 		Resource:    p.Resource,
 		Alias:       p.Alias,

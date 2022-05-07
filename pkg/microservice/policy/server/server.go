@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/meta"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/microservice/policy/server/rest"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -48,6 +50,9 @@ func Serve(ctx context.Context) error {
 			log.Errorf("Failed to stop server, error: %s", err)
 		}
 	}()
+	for _, v := range meta.NewMetaGetter().Policies() {
+		service.CreateOrUpdatePolicyRegistration(v, nil)
+	}
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Errorf("Failed to start http server, error: %s", err)
