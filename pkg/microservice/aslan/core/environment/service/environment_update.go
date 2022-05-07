@@ -115,7 +115,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		Name:     productInfo.Render.Name,
 		Revision: productInfo.Render.Revision})
 	if err != nil {
-		return fmt.Errorf("failed to find renderset, %s:%d", productInfo.Render.Name, productInfo.Render.Revision)
+		return fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
 	}
 
 	var renderChart *templatemodels.RenderChart
@@ -171,7 +171,7 @@ func updateHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *comm
 		Name:     productInfo.Render.Name,
 		Revision: productInfo.Render.Revision})
 	if err != nil {
-		return fmt.Errorf("failed to find renderset, %s:%d", productInfo.Render.Name, productInfo.Render.Revision)
+		return fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
 	}
 
 	var renderChart *templatemodels.RenderChart
