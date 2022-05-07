@@ -50,9 +50,8 @@ func Serve(ctx context.Context) error {
 			log.Errorf("Failed to stop server, error: %s", err)
 		}
 	}()
-	for _, v := range meta.NewMetaGetter().Policies() {
-		service.CreateOrUpdatePolicyRegistration(v, nil)
-	}
+
+	migratePolicyMeta()
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Errorf("Failed to start http server, error: %s", err)
@@ -62,4 +61,13 @@ func Serve(ctx context.Context) error {
 	<-stopChan
 
 	return nil
+}
+
+// migratePolicyMeta migrate the policy meta db date
+func migratePolicyMeta() {
+	for _, v := range meta.NewMetaGetter().Policies() {
+		if err := service.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
+			log.DPanic(err)
+		}
+	}
 }
