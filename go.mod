@@ -44,6 +44,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.0.50
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
+	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -56,6 +57,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/otiai10/copy v1.6.0
 	github.com/pkg/errors v0.9.1
+	github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494 // indirect
 	github.com/rfyiamcool/cronlib v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.8.1
