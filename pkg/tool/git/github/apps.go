@@ -32,6 +32,10 @@ func (c *Client) ListInstallations(ctx context.Context, opts *ListOptions) ([]*g
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*github.Installation
 	is, ok := installations.([]interface{})
 	if !ok {

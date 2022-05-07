@@ -176,7 +176,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, branchName, path string, isDir bool) ([]string, error) {
 	var ret []string
 
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	// 非文件夹情况下直接获取文件信息
 	if !isDir {
 		if !isYaml(path) {
@@ -231,6 +231,9 @@ func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, br
 
 // 根据repo信息从gerrit加载服务
 func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+	if remoteName == "" {
+		remoteName = "origin"
+	}
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
 		err = command.RunGitCmds(ch, repoOwner, repoName, branchName, remoteName)
@@ -239,7 +242,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 		}
 	}
 
-	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken)
+	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	commit, err := gerritCli.GetCommitByBranch(repoName, branchName)
 	if err != nil {
 		log.Errorf("Failed to get latest commit info from repo: %s, the error is: %+v", repoName, err)
@@ -370,7 +373,7 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 
 // load codehub service
 func loadCodehubService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, repoUUID, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
+	codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region, config.ProxyHTTPSAddr(), ch.EnableProxy)
 
 	if !args.LoadFromDir {
 		yamls, err := codeHubClient.GetYAMLContents(repoUUID, branchName, args.LoadPath, args.LoadFromDir, true)
@@ -639,7 +642,7 @@ func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, rep
 }
 
 func validateServiceUpdateCodehub(detail *systemconfig.CodeHost, serviceName, repoName, repoUUID, branchName, loadPath string, isDir bool) error {
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	// 非文件夹情况下直接获取文件信息
 	if !isDir {
 		if !isYaml(loadPath) {

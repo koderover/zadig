@@ -31,7 +31,9 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -47,6 +49,9 @@ var contributor []byte
 
 //go:embed read-only.yaml
 var readOnly []byte
+
+//go:embed read-project-only.yaml
+var readProjectOnly []byte
 
 //go:embed admin.yaml
 var admin []byte
@@ -106,7 +111,26 @@ func initSystemConfig() error {
 		return err
 	}
 
+	if err := scaleWarpdrive(); err != nil {
+		log.Errorf("scale warpdrive err: %s", err)
+		return err
+	}
+
 	return nil
+}
+
+func scaleWarpdrive() error {
+	cfg, err := aslan.New(config.AslanServiceAddress()).GetWorkflowConcurrencySetting()
+	if err == nil {
+		client, err := kubeclient.GetKubeClient(config.HubServerServiceAddress(), setting.LocalClusterID)
+		if err != nil {
+			return err
+		}
+		return updater.ScaleDeployment(config.Namespace(), config.WarpDriveServiceName(), int(cfg.WorkflowConcurrency), client)
+	}
+
+	log.Errorf("Failed to get workflow concurrency settings, error: %s", err)
+	return err
 }
 
 func presetSystemAdmin(email string, password, domain string) (string, error) {
@@ -171,6 +195,7 @@ func presetRoleBinding(uid string) error {
 		Name: config.RoleBindingNameFromUIDAndRole(uid, setting.SystemAdmin, "*"),
 		UID:  uid,
 		Role: string(setting.SystemAdmin),
+		Type: setting.ResourceTypeSystem,
 	})
 
 }
@@ -178,14 +203,14 @@ func presetRoleBinding(uid string) error {
 func presetRole() error {
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		systemRole := &policy.Role{}
-		if err := yaml.Unmarshal(admin, systemRole); err != nil {
+		systemAdminRole := &policy.Role{}
+		if err := yaml.Unmarshal(admin, systemAdminRole); err != nil {
 			log.DPanic(err)
 		}
-		return policy.NewDefault().CreateSystemRole(systemRole.Name, systemRole)
+		return policy.NewDefault().CreateSystemRole(systemAdminRole.Name, systemAdminRole)
 	})
 
-	rolesArray := [][]byte{readOnly, contributor, projectAdmin}
+	rolesArray := [][]byte{readOnly, readProjectOnly, contributor, projectAdmin}
 
 	for _, v := range rolesArray {
 		role := &policy.Role{}
@@ -193,7 +218,7 @@ func presetRole() error {
 			log.DPanic(err)
 		}
 		g.Go(func() error {
-			return policy.NewDefault().CreatePublicRole(role.Name, role)
+			return policy.NewDefault().CreatePresetRole(role.Name, role)
 		})
 	}
 	if err := g.Wait(); err != nil {

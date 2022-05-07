@@ -101,6 +101,7 @@ type ImageData struct {
 	ImageUrl   string `bson:"image_url"   json:"image_url"`
 	ImageName  string `bson:"image_name"  json:"image_name"`
 	ImageTag   string `bson:"image_tag"   json:"image_tag"`
+	CustomTag  string `bson:"custom_tag"  json:"custom_tag"`
 	RegistryID string `bson:"registry_id" json:"registry_id"`
 }
 
@@ -150,6 +151,9 @@ type ConfigPayload struct {
 
 	// RegistryID is the id of product registry
 	RegistryID string `json:"registry_id"`
+
+	// build concurrency settings
+	BuildConcurrency int64 `json:"build_concurrency"`
 }
 
 type AslanConfig struct {

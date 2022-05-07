@@ -163,3 +163,12 @@ type Error struct {
 	Type    string `bson:"type"     json:"type"    xml:"type,attr"`
 	Text    string `bson:"text"     json:"text"    xml:",chardata"`
 }
+
+type TaskOpt struct {
+	Task           *Task           `json:"task"`
+	EnvName        string          `json:"env_name"`
+	ServiceName    string          `json:"service_name"`
+	ServiceInfos   *[]*ServiceInfo `json:"service_infos"`
+	IsWorkflowTask bool            `json:"is_workflow_task"`
+	ImageName      string          `json:"image_name"`
+}

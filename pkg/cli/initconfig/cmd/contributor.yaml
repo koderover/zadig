@@ -1,4 +1,5 @@
 name: contributor
+type: system
 rules:
   - verbs:
       - get_workflow
@@ -15,10 +16,14 @@ rules:
       - Environment
     kind: resource
   - verbs:
-      - get_build
       - get_service
     resources:
       - Service
+    kind: resource
+  - verbs:
+      - get_build
+    resources:
+      - Build
     kind: resource
   - verbs:
       - get_test

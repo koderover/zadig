@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -31,19 +32,24 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type CustomParseDataArgs struct {
@@ -58,7 +64,7 @@ type ImageParseData struct {
 	PresetId int    `json:"presetId,omitempty"`
 }
 
-func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*template.Product, error) {
+func GetProductTemplateServices(productName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, log *zap.SugaredLogger) (*template.Product, error) {
 	resp, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("GetProductTemplate error: %v", err)
@@ -73,6 +79,15 @@ func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*te
 	if resp.Services == nil {
 		resp.Services = make([][]string, 0)
 	}
+
+	if envType == types.ShareEnv && !isBaseEnv {
+		// At this point the request is from the environment share.
+		resp.Services, err = environmentservice.GetEnvServiceList(context.TODO(), productName, baseEnvName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service list from env %s of product %s: %s", baseEnvName, productName, err)
+		}
+	}
+
 	return resp, nil
 }
 
@@ -215,7 +230,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	}
 
 	for _, envVars := range args.EnvVars {
-		//创建集成环境变量
+		//创建环境变量
 		if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
 			EnvName:     envVars.EnvName,
 			Name:        args.ProductName,
@@ -319,7 +334,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	}
 
 	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
-		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
+		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
 	})
 	switch deliveryType {
 	case config.ImageResourceType:
@@ -373,6 +388,22 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 
 	if err = DeleteTestModules(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s test err: %s", productName, err)
+		return err
+	}
+
+	// delete collaboration_mode and collaboration_instance
+	if err := DeleteCollabrationMode(productName, userName, log); err != nil {
+		log.Errorf("DeleteCollabrationMode err:%s", err)
+		return err
+	}
+
+	if err = DeletePolicy(productName, log); err != nil {
+		log.Errorf("DeletePolicy  productName %s  err: %s", productName, err)
+		return err
+	}
+
+	if err = DeleteLabels(productName, log); err != nil {
+		log.Errorf("DeleteLabels  productName %s  err: %s", productName, err)
 		return err
 	}
 
@@ -457,6 +488,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			ProductName: productName,
 		})
 	}()
+
 	return nil
 }
 
@@ -576,7 +608,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 	err = policy.NewDefault().CreateOrUpdateRoleBinding(args.ProductName, &policy.RoleBinding{
 		UID:    uid,
 		Role:   string(setting.Contributor),
-		Public: true,
+		Preset: true,
 	})
 	if err != nil {
 		log.Errorf("Failed to create or update roleBinding, err: %s", err)
@@ -601,7 +633,7 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 		log.Errorf("Failed to delete roleBinding, err: %s", err)
 		return e.ErrForkProduct
 	}
-	if err := commonservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
+	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			if description != "not found" {
@@ -694,7 +726,7 @@ func DeleteProductsAsync(userName, productName, requestID string, log *zap.Sugar
 	}
 	errList := new(multierror.Error)
 	for _, env := range envs {
-		err = commonservice.DeleteProduct(userName, env.EnvName, productName, requestID, log)
+		err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
@@ -899,5 +931,46 @@ func reParseServices(userName string, serviceList []*commonmodels.Service, match
 		return err
 	}
 
+	return nil
+}
+
+func DeleteCollabrationMode(productName string, userName string, log *zap.SugaredLogger) error {
+	// find all collaboration mode in this project
+	res, err := collaboration.GetCollaborationModes([]string{productName}, log)
+	if err != nil {
+		log.Errorf("GetCollaborationModes err: %s", err)
+		return err
+	}
+	//  delete all collaborationMode
+	for _, mode := range res.Collaborations {
+		if err := service.DeleteCollaborationMode(userName, productName, mode.Name, log); err != nil {
+			log.Errorf("DeleteCollaborationMode err: %s", err)
+			return err
+		}
+	}
+	// delete all collaborationIns
+	if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
+		log.Errorf("fail to DeleteByProject err:%s", err)
+		return err
+	}
+	return nil
+}
+
+func DeletePolicy(productName string, log *zap.SugaredLogger) error {
+	policy.NewDefault()
+	if err := policy.NewDefault().DeletePolicies(productName, policy.DeletePoliciesArgs{
+		Names: []string{},
+	}); err != nil {
+		log.Errorf("DeletePolicies err :%s", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteLabels(productName string, log *zap.SugaredLogger) error {
+	if err := service2.DeleteLabelsAndBindingsByProject(productName, log); err != nil {
+		log.Errorf("delete labels and bindings by project fail , err :%s", err)
+		return err
+	}
 	return nil
 }

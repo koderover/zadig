@@ -17,39 +17,33 @@ limitations under the License.
 package updater
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"k8s.io/client-go/kubernetes"
 )
 
-// service does not support deleteCollection
-// see here for details: https://github.com/kubernetes/kubernetes/issues/68468#issuecomment-419981870
-func DeleteServices(ns string, selector labels.Selector, cl client.Client) error {
-	services, err := getter.ListServices(ns, selector, cl)
+func DeleteServices(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
+	services, err := clientset.CoreV1().Services(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		return err
 	}
 
 	var lastErr error
-	for _, service := range services {
-		err := DeleteService(ns, service.Name, cl)
+	deletePolicy := metav1.DeletePropagationForeground
+	for _, svc := range services.Items {
+		err := clientset.CoreV1().Services(namespace).Delete(
+			context.TODO(),
+			svc.Name,
+			metav1.DeleteOptions{
+				PropagationPolicy: &deletePolicy,
+			},
+		)
 		if err != nil {
-			lastErr = err
 		}
+		lastErr = err
 	}
 
 	return lastErr
-}
-
-func DeleteService(ns, name string, cl client.Client) error {
-	deletePolicy := metav1.DeletePropagationForeground
-	return deleteObject(&corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-			Name:      name,
-		},
-	}, cl, &client.DeleteOptions{PropagationPolicy: &deletePolicy})
 }

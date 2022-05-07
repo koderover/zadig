@@ -19,9 +19,12 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"sort"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
@@ -47,8 +50,18 @@ func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (
 
 	if ch.Type == setting.SourceFromGitlab {
 		token, address := ch.AccessToken, ch.Address
-
-		cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address))
+		var client *http.Client
+		if ch.EnableProxy {
+			proxyURL, err := url.Parse(config.ProxyHTTPSAddr())
+			if err != nil {
+				return nil, err
+			}
+			transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+			client = &http.Client{Transport: transport}
+		} else {
+			client = http.DefaultClient
+		}
+		cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
 		if err != nil {
 			return nil, fmt.Errorf("set base url failed, err:%v", err)
 		}
@@ -66,7 +79,7 @@ func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (
 			Message:    br.Commit.Message,
 		}, nil
 	} else if ch.Type == setting.SourceFromGerrit {
-		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		commit, err := cli.GetCommitByBranch(name, branch)
 		if err != nil {
 			return nil, err
@@ -113,7 +126,7 @@ func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoC
 			Message:    br.Commit.Message,
 		}, nil
 	} else if ch.Type == setting.SourceFromGerrit {
-		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		commit, err := cli.GetCommitByTag(name, tag)
 		if err != nil {
 			return nil, err
@@ -156,7 +169,7 @@ func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *z
 	}
 
 	if ch.Type == gerrit.CodehostTypeGerrit {
-		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		change, err := cli.GetCurrentVersionByChangeID(projectName, pr)
 		if err != nil {
 			return nil, err

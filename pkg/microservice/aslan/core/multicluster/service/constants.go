@@ -16,11 +16,9 @@ limitations under the License.
 
 package service
 
-import "strings"
-
-// AttachedClusterNamespace is the namespace Zadig uses in attached cluster.
-// Note: **Restricted because of product design since v1.9.0**.
-const AttachedClusterNamespace = "koderover-agent"
+import (
+	"strings"
+)
 
 // StorageProvisioner is a storage type
 type StorageProvisioner string
@@ -64,3 +62,6 @@ func (s StorageProvisioner) IsNFS() bool {
 
 // ZadigMinioSVC is the service name of minio.
 const ZadigMinioSVC = "zadig-minio"
+
+// IstiodDeployment is the Deployment name of istiod.
+const IstiodDeployment = "istiod"

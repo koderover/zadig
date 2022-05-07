@@ -1,4 +1,5 @@
 name: read-only
+type: system
 rules:
   - verbs:
       - get_workflow
@@ -16,10 +17,14 @@ rules:
       - ProductionEnvironment
     kind: resource
   - verbs:
-      - get_build
       - get_service
     resources:
       - Service
+    kind: resource
+  - verbs:
+      - get_build
+    resources:
+      - Build
     kind: resource
   - verbs:
       - get_test

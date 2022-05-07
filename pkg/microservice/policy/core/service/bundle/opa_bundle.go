@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
@@ -28,18 +30,21 @@ import (
 )
 
 const (
-	manifestPath     = ".manifest"
-	policyPath       = "authz.rego"
-	rolesPath        = "roles/data.json"
-	rolebindingsPath = "bindings/data.json"
-	exemptionsPath   = "exemptions/data.json"
-	resourcesPath    = "resources/data.json"
+	manifestPath   = ".manifest"
+	policyRegoPath = "authz.rego"
+	rolesPath      = "roles/data.json"
+	policiesPath   = "policies/data.json"
+	bindingsPath   = "bindings/data.json"
+
+	exemptionsPath = "exemptions/data.json"
+	resourcesPath  = "resources/data.json"
 
 	policyRoot       = "rbac"
 	rolesRoot        = "roles"
 	rolebindingsRoot = "bindings"
 	exemptionsRoot   = "exemptions"
 	resourcesRoot    = "resources"
+	policiesRoot     = "policies"
 )
 
 type expressionOperator string
@@ -67,8 +72,13 @@ type opaRoles struct {
 	Roles roles `json:"roles"`
 }
 
+type opaPolicies struct {
+	Roles roles `json:"policies"`
+}
+
 type opaRoleBindings struct {
-	RoleBindings roleBindings `json:"role_bindings"`
+	RoleBindings   roleBindings   `json:"role_bindings"`
+	PolicyBindings policyBindings `json:"policy_bindings"`
 }
 
 type role struct {
@@ -89,6 +99,18 @@ type rule struct {
 type Attribute struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+func NewFrom(attrs []models.MatchAttribute) Attributes {
+	var att Attributes
+	for _, v := range attrs {
+		a := Attribute{
+			Key:   v.Key,
+			Value: v.Value,
+		}
+		att = append(att, &a)
+	}
+	return att
 }
 
 type Attributes []*Attribute
@@ -131,9 +153,19 @@ type roleBinding struct {
 	Bindings bindings `json:"bindings"`
 }
 
+type policyBinding struct {
+	UID      string         `json:"uid"`
+	Bindings bindingPolicys `json:"bindings"`
+}
+
 type binding struct {
 	Namespace string   `json:"namespace"`
 	RoleRefs  roleRefs `json:"role_refs"`
+}
+
+type bindingPolicy struct {
+	Namespace string   `json:"namespace"`
+	RoleRefs  roleRefs `json:"policy_refs"`
 }
 
 type roleRef struct {
@@ -174,6 +206,14 @@ func (o bindings) Less(i, j int) bool {
 	return o[i].Namespace < o[j].Namespace
 }
 
+type bindingPolicys []*bindingPolicy
+
+func (o bindingPolicys) Len() int      { return len(o) }
+func (o bindingPolicys) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o bindingPolicys) Less(i, j int) bool {
+	return o[i].Namespace < o[j].Namespace
+}
+
 type roleRefs []*roleRef
 
 func (o roleRefs) Len() int      { return len(o) }
@@ -193,18 +233,58 @@ func (o roleBindings) Less(i, j int) bool {
 	return o[i].UID < o[j].UID
 }
 
-func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles {
+type policyBindings []*policyBinding
+
+func (o policyBindings) Len() int      { return len(o) }
+func (o policyBindings) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o policyBindings) Less(i, j int) bool {
+	return o[i].UID < o[j].UID
+}
+
+func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *opaRoles {
 	data := &opaRoles{}
-	resourceMappings := getResourceActionMappings(policies)
+	resourceMappings := getResourceActionMappings(false, policyMetas)
 
 	for _, ro := range roles {
-		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
+		verbAttrMap := make(map[string]sets.String)
+		resourceVerbs := make(map[string]sets.String)
 		for _, r := range ro.Rules {
-			if r.Kind == models.KindResource {
-				for _, res := range r.Resources {
-					opaRole.Rules = append(opaRole.Rules, resourceMappings.GetRules(res, r.Verbs)...)
+			for _, verb := range r.Verbs {
+				if verbs, ok := resourceVerbs[r.Resources[0]]; ok {
+					for _, v := range r.Verbs {
+						verbs.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbs
+				} else {
+					verbSet := sets.String{}
+					for _, v := range r.Verbs {
+						verbSet.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbSet
 				}
-			} else {
+				if attrs, ok := verbAttrMap[verb]; ok {
+					for _, attribute := range r.MatchAttributes {
+						attrs.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrs
+				} else {
+					attrSet := sets.String{}
+					for _, attribute := range r.MatchAttributes {
+						attrSet.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrSet
+				}
+			}
+		}
+
+		//TODO - mouuii change role model to policy model
+		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
+		for resource, verbs := range resourceVerbs {
+			ruleList := resourceMappings.GetPolicyRules(resource, verbs.List(), verbAttrMap)
+			opaRole.Rules = append(opaRole.Rules, ruleList...)
+		}
+		for _, r := range ro.Rules {
+			if r.Kind != models.KindResource {
 				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
 					r.Verbs = AllMethods
 				}
@@ -214,19 +294,76 @@ func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles
 					}
 				}
 			}
-
 		}
-
 		sort.Sort(opaRole.Rules)
 		data.Roles = append(data.Roles, opaRole)
 	}
-
 	sort.Sort(data.Roles)
-
 	return data
 }
 
-func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
+func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.PolicyMeta) *opaPolicies {
+	data := &opaPolicies{}
+	resourceMappings := getResourceActionMappings(true, policyMetas)
+
+	for _, policy := range policies {
+		verbAttrMap := make(map[string]sets.String)
+		resourceVerbs := make(map[string]sets.String)
+		for _, r := range policy.Rules {
+			for _, verb := range r.Verbs {
+				if verbs, ok := resourceVerbs[r.Resources[0]]; ok {
+					for _, v := range r.Verbs {
+						verbs.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbs
+				} else {
+					verbSet := sets.String{}
+					for _, v := range r.Verbs {
+						verbSet.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbSet
+				}
+				if attrs, ok := verbAttrMap[verb]; ok {
+					for _, attribute := range r.MatchAttributes {
+						attrs.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrs
+				} else {
+					attrSet := sets.String{}
+					for _, attribute := range r.MatchAttributes {
+						attrSet.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrSet
+				}
+			}
+		}
+
+		//TODO - mouuii change role model to policy model
+		opaRole := &role{Name: policy.Name, Namespace: policy.Namespace}
+		for resource, verbs := range resourceVerbs {
+			ruleList := resourceMappings.GetPolicyRules(resource, verbs.List(), verbAttrMap)
+			opaRole.Rules = append(opaRole.Rules, ruleList...)
+		}
+		for _, r := range policy.Rules {
+			if r.Kind != models.KindResource {
+				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
+					r.Verbs = AllMethods
+				}
+				for _, v := range r.Verbs {
+					for _, endpoint := range r.Resources {
+						opaRole.Rules = append(opaRole.Rules, &rule{Method: v, Endpoint: endpoint})
+					}
+				}
+			}
+		}
+		sort.Sort(opaRole.Rules)
+		data.Roles = append(data.Roles, opaRole)
+	}
+	sort.Sort(data.Roles)
+	return data
+}
+
+func generateOPABindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding) *opaRoleBindings {
 	data := &opaRoleBindings{}
 
 	userRoleMap := make(map[string]map[string][]*roleRef)
@@ -254,10 +391,35 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 
 	sort.Sort(data.RoleBindings)
 
+	userPolicyMap := make(map[string]map[string][]*roleRef)
+
+	for _, rb := range pbs {
+		for _, s := range rb.Subjects {
+			if s.Kind == models.UserKind {
+				if _, ok := userPolicyMap[s.UID]; !ok {
+					userPolicyMap[s.UID] = make(map[string][]*roleRef)
+				}
+				userPolicyMap[s.UID][rb.Namespace] = append(userPolicyMap[s.UID][rb.Namespace], &roleRef{Name: rb.PolicyRef.Name, Namespace: rb.PolicyRef.Namespace})
+			}
+		}
+	}
+
+	for u, nb := range userPolicyMap {
+		var bindingsData []*bindingPolicy
+		for n, b := range nb {
+			sort.Sort(roleRefs(b))
+			bindingsData = append(bindingsData, &bindingPolicy{Namespace: n, RoleRefs: b})
+		}
+		sort.Sort(bindingPolicys(bindingsData))
+		data.PolicyBindings = append(data.PolicyBindings, &policyBinding{UID: u, Bindings: bindingsData})
+	}
+
+	sort.Sort(data.PolicyBindings)
+
 	return data
 }
 
-func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
+func generateOPAExemptionURLs(policies []*models.PolicyMeta) *exemptionURLs {
 	data := &exemptionURLs{}
 
 	for _, r := range publicURLs {
@@ -284,7 +446,7 @@ func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 	}
 	sort.Sort(data.Privileged)
 
-	resourceMappings := getResourceActionMappings(policies)
+	resourceMappings := getResourceActionMappings(false, policies)
 	for _, resourceMappings := range resourceMappings {
 		for _, rs := range resourceMappings {
 			for _, r := range rs {
@@ -308,14 +470,11 @@ func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 	return data
 }
 
-func generateOPAPolicy() []byte {
+func generateOPAPolicyRego() []byte {
 	return authz
 }
 
 func GenerateOPABundle() error {
-	log.Info("Generating OPA bundle")
-	defer log.Info("OPA bundle is generated")
-
 	rs, err := mongodb.NewRoleColl().List()
 	if err != nil {
 		log.Errorf("Failed to list roles, err: %s", err)
@@ -324,20 +483,31 @@ func GenerateOPABundle() error {
 	if err != nil {
 		log.Errorf("Failed to list roleBindings, err: %s", err)
 	}
-	ps, err := mongodb.NewPolicyColl().List()
+
+	pbs, err := mongodb.NewPolicyBindingColl().List()
+	if err != nil {
+		log.Errorf("Failed to list roleBindings, err: %s", err)
+	}
+
+	pms, err := mongodb.NewPolicyMetaColl().List()
+	if err != nil {
+		log.Errorf("Failed to list policyMetas, err: %s", err)
+	}
+	policies, err := mongodb.NewPolicyColl().List()
 	if err != nil {
 		log.Errorf("Failed to list policies, err: %s", err)
 	}
 
 	bundle := &opa.Bundle{
 		Data: []*opa.DataSpec{
-			{Data: generateOPAPolicy(), Path: policyPath},
-			{Data: generateOPARoles(rs, ps), Path: rolesPath},
-			{Data: generateOPARoleBindings(bs), Path: rolebindingsPath},
-			{Data: generateOPAExemptionURLs(ps), Path: exemptionsPath},
+			{Data: generateOPAPolicyRego(), Path: policyRegoPath},
+			{Data: generateOPARoles(rs, pms), Path: rolesPath},
+			{Data: generateOPAPolicies(policies, pms), Path: policiesPath},
+			{Data: generateOPABindings(bs, pbs), Path: bindingsPath},
+			{Data: generateOPAExemptionURLs(pms), Path: exemptionsPath},
 			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
-		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot},
+		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot, policiesRoot},
 	}
 
 	hash, err := bundle.Rehash()

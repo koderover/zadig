@@ -22,3 +22,14 @@ type ExternalSystemDetail struct {
 	Server   string `json:"server"`
 	APIToken string `json:"api_token,omitempty"`
 }
+
+type WorkflowConcurrencySettings struct {
+	WorkflowConcurrency int64 `json:"workflow_concurrency"`
+	BuildConcurrency    int64 `json:"build_concurrency"`
+}
+
+type SonarIntegration struct {
+	ID            string `json:"id"`
+	ServerAddress string `json:"server_address"`
+	Token         string `json:"token"`
+}

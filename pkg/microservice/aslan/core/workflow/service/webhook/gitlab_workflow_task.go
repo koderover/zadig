@@ -221,7 +221,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			return false, err
 		}
 
-		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
+		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 		if err != nil {
 			gpem.log.Errorf("NewClient error: %s", err)
 			return false, err
@@ -361,7 +361,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("GetCodeHost codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
-	cli, err := gitlabtool.NewClient(ch.Address, ch.AccessToken)
+	cli, err := gitlabtool.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	if err != nil {
 		return fmt.Errorf("gitlabtool.NewClient codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
@@ -432,7 +432,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		if test.Repo.Strategy == TestRepoStrategyCurrentRepo {
 			for _, repo := range moduleTest.Repos {
 				if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
-					repo.Branch = item.MainRepo.Branch
+					repo.Branch = branref
 					repo.PR = prId
 				}
 			}
@@ -469,13 +469,15 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			}
 			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
 		}
-		for _, repo := range resp.Repos {
+
+		repos := commonservice.FindReposByTarget(targetElem.ProductName, targetElem.ServiceName, targetElem.Name, resp)
+		for _, repo := range repos {
 			if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
 				repo.Branch = branref
 				repo.PR = prId
 			}
 		}
-		targetElem.Build = &commonmodels.BuildArgs{Repos: resp.Repos}
+		targetElem.Build = &commonmodels.BuildArgs{Repos: repos}
 
 		targetElem.Deploy = make([]commonmodels.DeployEnv, 0)
 		if deployed {
@@ -553,7 +555,6 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					branref = mergeEvent.ObjectAttributes.SourceBranch
 				}
 				prID = evt.ObjectAttributes.IID
-				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 			case *gitlab.TagEvent:
 				tagEvent = evt
 				if (item.MainRepo.RepoOwner + "/" + item.MainRepo.RepoName) != tagEvent.Project.PathWithNamespace {
@@ -676,7 +677,7 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 
-	client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
+	client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -746,7 +747,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	}
 	//按照用户设置的环境回收策略进行环境回收
 	if workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyAlways || (workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyTaskStatus && taskStatus == string(config.StatusPassed)) {
-		err = commonservice.DeleteProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, requestID, log)
+		err = environmentservice.DeleteProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, requestID, log)
 		if err != nil {
 			log.Errorf("CreateEnvAndTaskByPR DeleteProduct err:%v ", err)
 			return err

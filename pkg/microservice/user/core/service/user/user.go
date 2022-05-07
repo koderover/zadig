@@ -18,12 +18,14 @@ package user
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/dexidp/dex/connector/ldap"
 	ldapv3 "github.com/go-ldap/ldap/v3"
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -37,7 +39,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/mail"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type User struct {
@@ -63,16 +67,6 @@ type QueryArgs struct {
 	Page         int      `json:"page,omitempty"`
 }
 
-type UserInfo struct {
-	LastLoginTime int64  `json:"lastLoginTime"`
-	Uid           string `json:"uid"`
-	Name          string `json:"name"`
-	IdentityType  string `gorm:"default:'unknown'" json:"identity_type"`
-	Email         string `json:"email"`
-	Phone         string `json:"phone"`
-	Account       string `json:"account"`
-}
-
 type Password struct {
 	Uid         string `json:"uid"`
 	OldPassword string `json:"oldPassword"`
@@ -82,11 +76,6 @@ type Password struct {
 type ResetParams struct {
 	Uid      string `json:"uid"`
 	Password string `json:"password"`
-}
-
-type UsersResp struct {
-	Users      []UserInfo `json:"users"`
-	TotalCount int64      `json:"totalCount"`
 }
 
 type SyncUserInfo struct {
@@ -160,7 +149,7 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
+func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 	user, err := orm.GetUserByUid(uid, core.DB)
 	if err != nil {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
@@ -175,17 +164,50 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 		return nil, err
 	}
 	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
-	return &userInfo[0], nil
+	userInfoRes := &userInfo[0]
+	userInfoRes.APIToken = user.APIToken
+	//TODO Create a permanent OpenAPI token
+	if user.APIToken == "" {
+		token, err := login.CreateToken(&login.Claims{
+			Name:              user.Name,
+			UID:               user.UID,
+			Email:             user.Email,
+			PreferredUsername: user.Account,
+			StandardClaims: jwt.StandardClaims{
+				Audience: setting.ProductName,
+				//24*365*100=876000
+				ExpiresAt: time.Now().Add(876000 * time.Hour).Unix(),
+			},
+			FederatedClaims: login.FederatedClaims{
+				ConnectorId: user.IdentityType,
+				UserId:      user.Account,
+			},
+		})
+		if err != nil {
+			logger.Errorf("LocalLogin user:%s create token error, error msg:%s", user.Account, err.Error())
+			return nil, err
+		}
+		userInfoRes.APIToken = token
+		userWithToken := &models.User{
+			APIToken: token,
+		}
+		err = orm.UpdateUser(uid, userWithToken, core.DB)
+		if err != nil {
+			logger.Errorf("UpdateUser user:%s save token error:%s", user.Account, err.Error())
+			return nil, err
+		}
+	}
+	return userInfoRes, nil
 }
 
-func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
+func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
 	user, err := orm.GetUser(args.Account, args.IdentityType, core.DB)
 	if err != nil {
 		logger.Errorf("SearchUserByAccount GetUser By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
 	if user == nil {
-		return &UsersResp{
+		return &types.UsersResp{
 			Users:      nil,
 			TotalCount: 0,
 		}, nil
@@ -196,20 +218,20 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp
 		return nil, err
 	}
 	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
-	return &UsersResp{
+	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: int64(len(usersInfo)),
 	}, nil
 }
 
-func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
+func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
 	count, err := orm.GetUsersCount(args.Name)
 	if err != nil {
 		logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
 	if count == 0 {
-		return &UsersResp{
+		return &types.UsersResp{
 			TotalCount: 0,
 		}, nil
 	}
@@ -229,21 +251,21 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error)
 		return nil, err
 	}
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
-	return &UsersResp{
+	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: count,
 	}, nil
 }
 
-func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *zap.SugaredLogger) []UserInfo {
+func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *zap.SugaredLogger) []types.UserInfo {
 	userLoginMap := make(map[string]models.UserLogin)
 	for _, userLogin := range userLogins {
 		userLoginMap[userLogin.UID] = userLogin
 	}
-	var usersInfo []UserInfo
+	var usersInfo []types.UserInfo
 	for _, user := range users {
 		if userLogin, ok := userLoginMap[user.UID]; ok {
-			usersInfo = append(usersInfo, UserInfo{
+			usersInfo = append(usersInfo, types.UserInfo{
 				LastLoginTime: userLogin.LastLoginTime,
 				Uid:           user.UID,
 				Phone:         user.Phone,
@@ -259,7 +281,7 @@ func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *
 	return usersInfo
 }
 
-func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*UsersResp, error) {
+func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersResp, error) {
 	users, err := orm.ListUsersByUIDs(uids, core.DB)
 	if err != nil {
 		logger.Errorf("SearchUsersByUIDs SeachUsers By uids:%s error, error msg:%s", uids, err.Error())
@@ -271,7 +293,7 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*UsersResp, er
 		return nil, err
 	}
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
-	return &UsersResp{
+	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: int64(len(usersInfo)),
 	}, nil
@@ -396,7 +418,11 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("CreateUser CreateUser :%v error, error msg:%s", user, err.Error())
-		return nil, err
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+			return nil, e.ErrCreateUser.AddErr(err).AddDesc("存在相同用户名")
+		}
+		return nil, e.ErrCreateUser.AddErr(err)
 	}
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(args.Password), bcrypt.DefaultCost)
 	userLogin := &models.UserLogin{

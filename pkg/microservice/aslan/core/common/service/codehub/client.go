@@ -24,8 +24,8 @@ type Client struct {
 	*codehub.CodeHubClient
 }
 
-func NewClient(ak, sk, region string) *Client {
-	c := codehub.NewCodeHubClient(ak, sk, region)
+func NewClient(ak, sk, region, proxyAddr string, enableProxy bool) *Client {
+	c := codehub.NewCodeHubClient(ak, sk, region, proxyAddr, enableProxy)
 	return &Client{
 		CodeHubClient: c,
 	}

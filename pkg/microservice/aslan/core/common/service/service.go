@@ -130,7 +130,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
 			}
 
-			details, err := systemconfig.New().ListCodeHosts()
+			details, err := systemconfig.New().ListCodeHostsInternal()
 			if err != nil {
 				log.Errorf("无法从原有数据中恢复加载信息, listCodehostDetail failed err: %+v", err)
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
@@ -315,9 +315,18 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		return resp, e.ErrGetTemplate.AddDesc(errMsg)
 	}
 
+	if resp.Type == setting.PMDeployType {
+		err = fillPmInfo(resp)
+		if err != nil {
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s fillPmInfo error: %v", serviceName, err)
+			log.Error(errMsg)
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		}
+	}
+
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
 		if gitlabAddress, err := GetGitlabAddress(resp.SrcPath); err == nil {
-			if details, err := systemconfig.New().ListCodeHosts(); err == nil {
+			if details, err := systemconfig.New().ListCodeHostsInternal(); err == nil {
 				for _, detail := range details {
 					if strings.Contains(detail.Address, gitlabAddress) {
 						resp.GerritCodeHostID = detail.ID
@@ -409,6 +418,35 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	return resp, nil
 }
 
+func fillPmInfo(svc *commonmodels.Service) error {
+	pms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
+	if err != nil {
+		if commonrepo.IsErrNoDocuments(err) {
+			return nil
+		}
+		return err
+	}
+	pmMaps := make(map[string]*commonmodels.PrivateKey, len(pms))
+	for _, pm := range pms {
+		pmMaps[pm.ID.Hex()] = pm
+	}
+	for _, envStatus := range svc.EnvStatuses {
+		if pm, ok := pmMaps[envStatus.HostID]; ok {
+			envStatus.PmInfo = &commonmodels.PmInfo{
+				ID:       pm.ID,
+				Name:     pm.Name,
+				IP:       pm.IP,
+				Port:     pm.Port,
+				Status:   pm.Status,
+				Label:    pm.Label,
+				IsProd:   pm.IsProd,
+				Provider: pm.Provider,
+			}
+		}
+	}
+	return nil
+}
+
 func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
 	//该请求来自环境中的服务更新时，from=createEnv
 	if args.ServiceTmplObject.From == "" {
@@ -482,7 +520,6 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 				return e.ErrUpdateService.AddDesc("update current build failed")
 			}
 		}
-
 	}
 
 	if err := commonrepo.NewServiceColl().Create(preService); err != nil {
@@ -502,7 +539,7 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 
 func needProcessWebhook(source string) bool {
 	if source == setting.ServiceSourceTemplate || source == setting.SourceFromZadig || source == setting.SourceFromGerrit ||
-		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate {
+		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate || source == setting.SourceFromChartRepo {
 		return false
 	}
 	return true
@@ -668,6 +705,17 @@ func ExtractRegistryNamespace(imageURI string) string {
 	return strings.Join(nsComponent, "/")
 }
 
+func generateUniquePath(pathData map[string]string) string {
+	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
+	values := make([]string, 0)
+	for _, key := range keys {
+		if value := pathData[key]; value != "" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, "-")
+}
+
 func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*commonmodels.Container, error) {
 	flatMap, err := converter.Flatten(nested)
 	if err != nil {
@@ -678,14 +726,22 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 		return nil, err
 	}
 	ret := make([]*commonmodels.Container, 0)
+	usedImagePath := sets.NewString()
 	for _, searchResult := range matchedPath {
+		uniquePath := generateUniquePath(searchResult)
+		if usedImagePath.Has(uniquePath) {
+			continue
+		}
+		usedImagePath.Insert(uniquePath)
 		imageUrl, err := GeneImageURI(searchResult, flatMap)
 		if err != nil {
 			return nil, err
 		}
+		name := ExtractImageName(imageUrl)
 		ret = append(ret, &commonmodels.Container{
-			Name:  ExtractImageName(imageUrl),
-			Image: imageUrl,
+			Name:      name,
+			ImageName: name,
+			Image:     imageUrl,
 			ImagePath: &commonmodels.ImagePathSpec{
 				Repo:  searchResult[setting.PathSearchComponentRepo],
 				Image: searchResult[setting.PathSearchComponentImage],
@@ -759,6 +815,7 @@ func GetPresetRules() []*templatemodels.ImageSearchingRule {
 
 type Variable struct {
 	SERVICE        string
+	IMAGE_NAME     string
 	TIMESTAMP      string
 	TASK_ID        string
 	REPO_COMMIT_ID string

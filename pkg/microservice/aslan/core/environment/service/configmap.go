@@ -17,19 +17,25 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commontpl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -56,11 +62,13 @@ type RollBackConfigMapArgs struct {
 }
 
 type UpdateConfigMapArgs struct {
-	EnvName     string            `json:"env_name"`
-	ProductName string            `json:"product_name"`
-	ServiceName string            `json:"service_name"`
-	ConfigName  string            `json:"config_name"`
-	Data        map[string]string `json:"data"`
+	EnvName              string   `json:"env_name"`
+	ProductName          string   `json:"product_name"`
+	ServiceName          string   `json:"service_name"`
+	ConfigName           string   `json:"config_name"`
+	YamlData             string   `json:"yaml_data"`
+	RestartAssociatedSvc bool     `json:"restart_associated_svc"`
+	Services             []string `json:"services"`
 }
 
 type configMap struct {
@@ -77,6 +85,16 @@ type configMapWithHistory struct {
 	HistoricalRevisions []*configMap `json:"historicalRevisions"`
 }
 
+type ListConfigMapRes struct {
+	CmName         string            `json:"cm_name"`
+	Immutable      bool              `json:"immutable"`
+	CmData         map[string]string `json:"cm_data"`
+	YamlData       string            `json:"yaml_data"`
+	UpdateUserName string            `json:"update_username"`
+	CreateTime     time.Time         `json:"create_time"`
+	Services       []string          `json:"services"`
+}
+
 func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
 	icm := wrapper.ConfigMap(cm)
 	u, _ := icm.LastUpdateTime()
@@ -90,8 +108,11 @@ func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
 	}
 }
 
-func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*configMapWithHistory, error) {
-	selector := labels.Set{setting.ProductLabel: args.ProductName, setting.ServiceLabel: args.ServiceName}.AsSelector()
+func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListConfigMapRes, error) {
+	selector := labels.Set{setting.ProductLabel: args.ProductName}.AsSelector()
+	if args.ServiceName != "" {
+		selector = labels.Set{setting.ProductLabel: args.ProductName, setting.ServiceLabel: args.ServiceName}.AsSelector()
+	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
@@ -111,43 +132,86 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*configM
 		return nil, e.ErrListConfigMaps.AddDesc(err.Error())
 	}
 
-	// 为了兼容老数据，需要找到当前使用的cm，即labels中没有config-backup=true的cm
-	// 当前使用的cm需要放在数组的首位，备份的cm则按照创建时间倒序
-	cmWithHistory := make(map[string][]*configMap)
-	cmWithName := make(map[string]*configMap)
-	for _, cm := range cms {
-		icm := wrapper.ConfigMap(cm)
-		res := generateConfigMapResponse(cm)
-		if icm.Active() {
-			cmWithName[res.Name] = res
-		} else {
-			owner := icm.Owner()
-			if owner == "" {
-				continue
+	envSvcDepends, err := commonrepo.NewEnvSvcDependColl().List(&commonrepo.ListEnvSvcDependOption{ProductName: args.ProductName, EnvName: args.EnvName})
+	if err != nil && commonrepo.IsErrNoDocuments(err) {
+		return nil, e.ErrListResources.AddDesc(err.Error())
+	}
+
+	var res []*ListConfigMapRes
+	var mutex sync.Mutex
+	var wg sync.WaitGroup
+	cmProcess := func(cm *corev1.ConfigMap) error {
+		for labelKey, labelVal := range cm.GetLabels() {
+			if labelKey == setting.ConfigBackupLabel && labelVal == setting.LabelValueTrue {
+				return nil
 			}
-			cmWithHistory[owner] = append(cmWithHistory[owner], res)
 		}
+		cm.SetManagedFields(nil)
+		cm.SetResourceVersion("")
+		if cm.APIVersion == "" {
+			cm.APIVersion = "v1"
+		}
+		if cm.Kind == "" {
+			cm.Kind = "ConfigMap"
+		}
+		yamlData, err := yaml.Marshal(cm)
+		if err != nil {
+			return err
+		}
+
+		var tempSvcs []string
+	LB:
+		for _, svcDepend := range envSvcDepends {
+			for _, ccm := range svcDepend.ConfigMaps {
+				if ccm == cm.Name {
+					tempSvcs = append(tempSvcs, svcDepend.ServiceModule)
+					continue LB
+				}
+			}
+		}
+
+		immutable := false
+		if cm.Immutable != nil {
+			immutable = *cm.Immutable
+		}
+		resElem := &ListConfigMapRes{
+			CmName:     cm.Name,
+			Immutable:  immutable,
+			CmData:     cm.Data,
+			YamlData:   string(yamlData),
+			Services:   tempSvcs,
+			CreateTime: cm.GetCreationTimestamp().Time,
+		}
+		mutex.Lock()
+		res = append(res, resElem)
+		mutex.Unlock()
+		return nil
 	}
 
-	res := make([]*configMapWithHistory, 0, len(cmWithName))
-	for name, cm := range cmWithName {
-		history := cmWithHistory[name]
-		if len(history) > 1 {
-			sort.SliceStable(history, func(i, j int) bool {
-				return history[i].lastUpdateTime.After(history[j].lastUpdateTime)
-			})
-		}
-
-		res = append(res, &configMapWithHistory{
-			Current:             cm,
-			HistoricalRevisions: history,
-		})
+	for _, cmElem := range cms {
+		wg.Add(1)
+		go func(cm *corev1.ConfigMap) {
+			defer wg.Done()
+			err := cmProcess(cm)
+			if err != nil {
+				log.Errorf("ListConfigMaps ns:%s name:%s cmProcess err:%s", cm.Namespace, cm.Name, err)
+			}
+		}(cmElem)
 	}
-
+	wg.Wait()
 	return res, nil
 }
 
-func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateConfigMap(args *UpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
+	cm := &corev1.ConfigMap{}
+	err = json.Unmarshal(js, cm)
+	if err != nil {
+		return e.ErrUpdateConfigMap.AddErr(err)
+	}
+	if cm.Name != args.Name {
+		return e.ErrUpdateConfigMap.AddDesc("configMap Yaml Name is incorrect")
+	}
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -155,72 +219,55 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
-	if err != nil {
-		return e.ErrUpdateConfigMap.AddErr(err)
-	}
 
 	namespace := product.Namespace
-	cfg, found, err := getter.GetConfigMap(namespace, args.ConfigName, kubeClient)
-	if err != nil {
-		log.Error(err)
-		return e.ErrGetConfigMap.AddDesc(err.Error())
-	} else if !found {
-		return e.ErrGetConfigMap.AddDesc("configMap not found")
-	}
-
-	if err := archiveConfigMap(namespace, cfg, kubeClient, log); err != nil {
-		return err
-	}
-
-	// 将configMap中的变量进行渲染
 	renderSet, err := commonservice.GetRenderSet(namespace, 0, log)
 	if err != nil {
 		log.Errorf("Failed to find render set for product template %s, err: %v", product.ProductName, err)
 		return err
 	}
-
-	// 渲染变量
-	for key, value := range args.Data {
+	for key, value := range cm.Data {
 		for _, kv := range renderSet.KVs {
 			value = strings.Replace(value, kv.Alias, kv.Value, -1)
 		}
 		value = kube.ParseSysKeys(product.Namespace, product.EnvName, product.ProductName, args.ServiceName, value)
-		args.Data[key] = value
+		cm.Data[key] = value
 	}
 
-	cfg.Data = args.Data
-	// 记录修改configmap的用户
-	cfg.Labels[setting.UpdateBy] = kube.MakeSafeLabelValue(userName)
-	cfg.Labels[setting.UpdateByID] = userID
-	cfg.Labels[setting.UpdateTime] = time.Now().Format("20060102150405")
-	cfg.Labels[setting.DirtyLabel] = setting.LabelValueTrue
-
-	as := cfg.GetAnnotations()
-	if as == nil {
-		as = make(map[string]string)
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
+		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	as[setting.ModifiedByAnnotation] = userName
-	as[setting.EditorIDAnnotation] = userID
-	as[setting.LastUpdateTimeAnnotation] = util.FormatTime(time.Now())
-	cfg.SetAnnotations(as)
-
-	if err := updater.UpdateConfigMap(cfg, kubeClient); err != nil {
+	if err := updater.UpdateConfigMap(namespace, cm, clientset); err != nil {
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
-
-	restartArgs := &SvcOptArgs{
-		EnvName:     envName,
-		ProductName: args.ProductName,
-		ServiceName: args.ServiceName,
+	envcm := &models.EnvConfigMap{
+		ProductName:    args.ProductName,
+		UpdateUserName: userName,
+		EnvName:        args.EnvName,
+		Name:           cm.Name,
+		YamlData:       args.YamlData,
 	}
-
-	if err := restartPod(restartArgs, namespace, kubeClient, log); err != nil {
-		log.Error(err)
+	if err := commonrepo.NewConfigMapColl().Create(envcm, true); err != nil {
+		return e.ErrUpdateConfigMap.AddDesc(err.Error())
+	}
+	tplProduct, err := commontpl.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		return e.ErrUpdateConfigMap.AddDesc(err.Error())
+	}
+	//TODO: helm not support restart service
+	if !args.RestartAssociatedSvc || tplProduct.ProductFeature.DeployType != setting.K8SDeployType {
+		return nil
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		return e.ErrUpdateConfigMap.AddErr(err)
+	}
+	if err := restartPod(cm.Name, args.ProductName, args.EnvName, namespace, config.CommonEnvCfgTypeConfigMap, clientset, kubeClient); err != nil {
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
-
 	return nil
 }
 
@@ -234,6 +281,12 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
+		return e.ErrUpdateConfigMap.AddErr(err)
+	}
+
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
 
@@ -267,7 +320,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	if updateTime, ok := srcCfg.Labels[setting.UpdateTime]; ok {
 		destinSrc.Labels[setting.UpdateTime] = updateTime
 	}
-	if err := updater.UpdateConfigMap(destinSrc, kubeClient); err != nil {
+	if err := updater.UpdateConfigMap(namespace, destinSrc, clientset); err != nil {
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
@@ -278,7 +331,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 		ServiceName: args.ServiceName,
 	}
 
-	if err := restartPod(restartArgs, namespace, kubeClient, log); err != nil {
+	if err := restartK8sPod(restartArgs, namespace, clientset); err != nil {
 		log.Error(err)
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
@@ -346,9 +399,80 @@ func cleanArchiveConfigMap(namespace string, ls map[string]string, kubeClient cl
 	}
 }
 
-func restartPod(args *SvcOptArgs, ns string, kubeClient client.Client, log *zap.SugaredLogger) error {
-	selector := labels.Set{setting.ProductLabel: args.ProductName, setting.ServiceLabel: args.ServiceName}.AsSelector()
+type MigrateHistoryConfigMapsRes struct {
+}
 
-	log.Infof("deleting pod from %s where %s", ns, selector)
-	return updater.DeletePods(ns, selector, kubeClient)
+func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogger) ([]*models.EnvConfigMap, error) {
+
+	res := make([]*models.EnvConfigMap, 0)
+	products := make([]*models.Product, 0)
+	var err error
+	if productName != "" {
+		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:          productName,
+			EnvName:       envName,
+			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
+		})
+	} else {
+		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
+		})
+	}
+	if err != nil && err != mongo.ErrNoDocuments {
+		return nil, err
+	}
+
+	for _, product := range products {
+		if product.IsExisted {
+			continue
+		}
+		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+		if err != nil {
+			return nil, e.ErrListResources.AddErr(err)
+		}
+		cms, err := getter.ListConfigMaps(product.Namespace, labels.Set{setting.ProductLabel: product.ProductName, setting.ConfigBackupLabel: setting.LabelValueTrue}.AsSelector(), kubeClient)
+		if err != nil {
+			return nil, e.ErrListResources.AddErr(err)
+		}
+
+		for _, cm := range cms {
+			cmNames := strings.Split(cm.Name, "-bak-")
+			cmName := cmNames[0]
+			envCm := &models.EnvConfigMap{
+				ProductName: product.ProductName,
+				EnvName:     product.EnvName,
+				Namespace:   product.Namespace,
+				Name:        cmName,
+			}
+			cmLables := cm.GetLabels()
+			if _, ok := cmLables[setting.UpdateTime]; ok {
+				tm, err := time.Parse("20060102150405", cmLables[setting.UpdateTime])
+				if err != nil {
+					return nil, e.ErrListResources.AddErr(err)
+				}
+				envCm.CreateTime = tm.Unix()
+			}
+
+			delete(cmLables, setting.UpdateTime)
+			delete(cmLables, setting.ConfigBackupLabel)
+			cm.SetLabels(cmLables)
+			cm.SetManagedFields(nil)
+			cm.SetResourceVersion("")
+			cm.SetAnnotations(make(map[string]string))
+			cm.SetName(cmName)
+
+			yamlData, err := yaml.Marshal(cm)
+			if err != nil {
+				log.Error(err)
+				return nil, e.ErrListResources.AddDesc(err.Error())
+			}
+			envCm.YamlData = string(yamlData)
+			err = commonrepo.NewConfigMapColl().Create(envCm, false)
+			if err != nil {
+				return nil, e.ErrListResources.AddErr(err)
+			}
+			res = append(res, envCm)
+		}
+	}
+	return res, nil
 }

@@ -27,9 +27,11 @@ import (
 type LoadSource string
 
 const (
-	LoadFromRepo          LoadSource = "repo"
+	LoadFromRepo          LoadSource = "repo" //exclude gerrit
+	LoadFromGerrit        LoadSource = "gerrit"
 	LoadFromPublicRepo    LoadSource = "publicRepo"
 	LoadFromChartTemplate LoadSource = "chartTemplate"
+	LoadFromChartRepo     LoadSource = "chartRepo"
 )
 
 type HelmLoadSource struct {
@@ -38,21 +40,20 @@ type HelmLoadSource struct {
 
 type HelmServiceCreationArgs struct {
 	HelmLoadSource
-	Name       string      `json:"name"`
-	CreatedBy  string      `json:"createdBy"`
-	CreateFrom interface{} `json:"createFrom"`
-}
-
-type ValuesDataArgs struct {
-	YamlSource    string              `json:"yamlSource,omitempty"`
-	GitRepoConfig *service.RepoConfig `json:"gitRepoConfig,omitempty"`
+	Name           string                  `json:"name"`
+	CreatedBy      string                  `json:"createdBy"`
+	AutoSync       bool                    `json:"auto_sync"`
+	CreateFrom     interface{}             `json:"createFrom"`
+	ValuesData     *service.ValuesDataArgs `json:"valuesData"`
+	CreationDetail interface{}             `json:"-"`
 }
 
 type BulkHelmServiceCreationArgs struct {
 	HelmLoadSource
-	CreateFrom interface{}     `json:"createFrom"`
-	CreatedBy  string          `json:"createdBy"`
-	ValuesData *ValuesDataArgs `json:"valuesData"`
+	CreateFrom interface{}             `json:"createFrom"`
+	CreatedBy  string                  `json:"createdBy"`
+	ValuesData *service.ValuesDataArgs `json:"valuesData"`
+	AutoSync   bool                    `json:"auto_sync"`
 }
 
 type FailedService struct {
@@ -84,6 +85,12 @@ type CreateFromChartTemplate struct {
 	Variables    []*Variable `json:"variables"`
 }
 
+type CreateFromChartRepo struct {
+	ChartRepoName string `json:"chartRepoName"`
+	ChartName     string `json:"chartName"`
+	ChartVersion  string `json:"chartVersion"`
+}
+
 func PublicRepoToPrivateRepoArgs(args *CreateFromPublicRepo) (*CreateFromRepo, error) {
 	if args.RepoLink == "" {
 		return nil, fmt.Errorf("empty link")
@@ -113,6 +120,8 @@ func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 		a.CreateFrom = &CreateFromPublicRepo{}
 	case LoadFromChartTemplate:
 		a.CreateFrom = &CreateFromChartTemplate{}
+	case LoadFromChartRepo:
+		a.CreateFrom = &CreateFromChartRepo{}
 	}
 
 	type tmp HelmServiceCreationArgs

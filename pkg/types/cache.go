@@ -30,6 +30,11 @@ const (
 	StaticProvision  ProvisionType = "static"
 )
 
+// Note:
+// In the current design, when the object storage is used as the cache medium, the default object storage
+// will be used as the cache medium, but in the near future users may be allowed to select different object storage
+// as the cache medium according to the cluster.
+// So it is temporarily reserved in `v1.10.0`, but do not use.
 type ObjectProperties struct {
 	ID string `json:"id" bson:"id"`
 }
@@ -39,6 +44,7 @@ type NFSProperties struct {
 	StorageClass     string        `json:"storage_class"       bson:"storage_class"`
 	StorageSizeInGiB int64         `json:"storage_size_in_gib" bson:"storage_size_in_gib"`
 	PVC              string        `json:"pvc"                 bson:"pvc"`
+	Subpath          string        `json:"subpath"             bson:"subpath"`
 }
 
 type Cache struct {

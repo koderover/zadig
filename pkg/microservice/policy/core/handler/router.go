@@ -34,14 +34,26 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		roles.DELETE("/:name", DeleteRole)
 	}
 
-	publicRoles := router.Group("public-roles")
+	policies := router.Group("policies")
 	{
-		publicRoles.POST("", CreatePublicRole)
-		publicRoles.GET("", ListPublicRoles)
-		publicRoles.GET("/:name", GetPublicRole)
-		publicRoles.PATCH("/:name", UpdatePublicRole)
-		publicRoles.PUT("/:name", UpdateOrCreatePublicRole)
-		publicRoles.DELETE("/:name", DeletePublicRole)
+		policies.POST("", CreatePolicies)
+		policies.POST("/bulk-delete", DeletePolicies)
+		policies.PATCH("/:name", UpdatePolicy)
+		policies.PUT("/:name", UpdateOrCreatePolicy)
+		policies.GET("", ListPolicies)
+		policies.GET("/:name", GetPolicy)
+		policies.GET("/bulk", GetPolicies)
+		policies.DELETE("/:name", DeletePolicy)
+	}
+
+	presetRoles := router.Group("preset-roles")
+	{
+		presetRoles.POST("", CreatePresetRole)
+		presetRoles.GET("", ListPresetRoles)
+		presetRoles.GET("/:name", GetPresetRole)
+		presetRoles.PATCH("/:name", UpdatePresetRole)
+		presetRoles.PUT("/:name", UpdateOrCreatePresetRole)
+		presetRoles.DELETE("/:name", DeletePresetRole)
 	}
 
 	systemRoles := router.Group("system-roles")
@@ -59,11 +71,23 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		roleBindings.GET("", ListRoleBindings)
 		roleBindings.DELETE("/:name", DeleteRoleBinding)
 		roleBindings.POST("/bulk-delete", DeleteRoleBindings)
+		roleBindings.POST("/update", UpdateRoleBindings)
+	}
+
+	policyBindings := router.Group("policybindings")
+	{
+		policyBindings.POST("", CreatePolicyBinding)
+		policyBindings.PUT("/:name", UpdatePolicyBinding)
+		policyBindings.GET("", ListPolicyBindings)
+		policyBindings.DELETE("/:name", DeletePolicyBinding)
+		policyBindings.POST("/bulk-delete", DeletePolicyBindings)
 	}
 
 	systemRoleBindings := router.Group("system-rolebindings")
 	{
 		systemRoleBindings.POST("", CreateSystemRoleBinding)
+		systemRoleBindings.POST("/search", SearchSystemRoleBinding)
+		systemRoleBindings.POST("/update", UpdateSystemRoleBindings)
 		systemRoleBindings.GET("", ListSystemRoleBindings)
 		systemRoleBindings.DELETE("/:name", DeleteSystemRoleBinding)
 		systemRoleBindings.PUT("/:name", CreateOrUpdateSystemRoleBinding)
@@ -79,7 +103,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		bundles.GET("/:name", DownloadBundle)
 	}
 
-	policyRegistrations := router.Group("policies")
+	policyRegistrations := router.Group("policymetas")
 	{
 		policyRegistrations.PUT("/:resourceName", CreateOrUpdatePolicyRegistration)
 	}
@@ -95,6 +119,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 	policyUserPermission := router.Group("permission")
 	{
+		policyUserPermission.POST("resources", GetUserResourcesPermission)
 		policyUserPermission.GET("/:uid", GetUserPermission)
+
 	}
 }

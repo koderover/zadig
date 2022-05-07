@@ -16,31 +16,22 @@ limitations under the License.
 
 package models
 
+import (
+	"github.com/koderover/zadig/pkg/setting"
+)
+
+// Policy is a namespaced or cluster scoped, logical grouping of PolicyRules that can be referenced as a unit by a PolicyBinding.
+// for a cluster scoped Policy, namespace is empty.
 type Policy struct {
-	Resource    string        `bson:"resource"    json:"resource"`
-	Alias       string        `bson:"alias"       json:"alias"`
-	Description string        `bson:"description" json:"description"`
-	Rules       []*PolicyRule `bson:"rules"       json:"rules"`
-}
-
-type PolicyRule struct {
-	Action      string        `bson:"action"      json:"action"`
-	Alias       string        `bson:"alias"       json:"alias"`
-	Description string        `bson:"description" json:"description"`
-	Rules       []*ActionRule `bson:"rules"       json:"rules"`
-}
-
-type ActionRule struct {
-	Method          string      `bson:"method"                     json:"method"`
-	Endpoint        string      `bson:"endpoint"                   json:"endpoint"`
-	ResourceType    string      `bson:"resource_type,omitempty"    json:"resourceType,omitempty"`
-	IDRegex         string      `bson:"id_regex,omitempty"         json:"idRegex,omitempty"`
-	MatchAttributes []Attribute `bson:"match_attributes,omitempty" json:"matchAttributes,omitempty"`
-}
-
-type Attribute struct {
-	Key   string `bson:"key"   json:"key"`
-	Value string `bson:"value" json:"value"`
+	Name        string               `bson:"name"              json:"name"`
+	Namespace   string               `bson:"namespace"         json:"namespace"`
+	Description string               `bson:"description"       json:"description"`
+	CreateTime  int64                `bson:"create_time"       json:"create_time"`
+	UpdateTime  int64                `bson:"update_time"       json:"update_time"`
+	Rules       []*Rule              `bson:"rules"             json:"rules"`
+	CreateBy    string               `bson:"create_by"         json:"create_by"`
+	UpdateBy    string               `bson:"update_by"         json:"update_by"`
+	Type        setting.ResourceType `bson:"type"              json:"type"`
 }
 
 func (Policy) TableName() string {

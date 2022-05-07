@@ -73,7 +73,7 @@ func RestartWorkflowTaskV3(c *gin.Context) {
 func CancelWorkflowTaskV3(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "取消", "工作流taskV3", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "取消", "工作流taskV3", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

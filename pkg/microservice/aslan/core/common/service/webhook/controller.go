@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitee"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	codehostdb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
@@ -155,16 +156,18 @@ func removeWebhook(t *task, logger *zap.Logger) {
 
 	switch t.from {
 	case setting.SourceFromGithub:
-		cl = github.NewClient(t.token, config.ProxyHTTPSAddr())
+		cl = github.NewClient(t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	case setting.SourceFromGitlab:
-		cl, err = gitlab.NewClient(t.address, t.token)
+		cl, err = gitlab.NewClient(t.address, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 		if err != nil {
 			t.err = err
 			t.doneCh <- struct{}{}
 			return
 		}
 	case setting.SourceFromCodeHub:
-		cl = codehub.NewClient(t.ak, t.sk, t.region)
+		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
+	case setting.SourceFromGitee:
+		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}
@@ -226,9 +229,9 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	switch t.from {
 	case setting.SourceFromGithub:
-		cl = github.NewClient(t.token, config.ProxyHTTPSAddr())
+		cl = github.NewClient(t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	case setting.SourceFromGitlab:
-		cl, err = gitlab.NewClient(t.address, t.token)
+		cl, err = gitlab.NewClient(t.address, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 		if err != nil {
 			t.err = err
 			t.doneCh <- struct{}{}
@@ -236,7 +239,9 @@ func addWebhook(t *task, logger *zap.Logger) {
 		}
 
 	case setting.SourceFromCodeHub:
-		cl = codehub.NewClient(t.ak, t.sk, t.region)
+		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
+	case setting.SourceFromGitee:
+		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}

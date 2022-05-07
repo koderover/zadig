@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -39,7 +40,7 @@ type Task struct {
 	StartTime    int64                    `bson:"start_time"                json:"start_time,omitempty"`
 	EndTime      int64                    `bson:"end_time"                  json:"end_time,omitempty"`
 	SubTasks     []map[string]interface{} `bson:"sub_tasks"                 json:"sub_tasks"`
-	Stages       []*Stage                 `bson:"stages"                    json:"stages"`
+	Stages       []*common.Stage          `bson:"stages"                    json:"stages"`
 	ReqID        string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
 	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
 	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`
@@ -178,6 +179,7 @@ type TestArgs struct {
 
 type ArtifactArgs struct {
 	Name         string      `bson:"name"                      json:"name"`
+	ImageName    string      `bson:"image_name,omitempty"      json:"image_name,omitempty"`
 	ServiceName  string      `bson:"service_name"              json:"service_name"`
 	Image        string      `bson:"image"                     json:"image"`
 	Deploy       []DeployEnv `bson:"deploy"                    json:"deploy"`
@@ -211,17 +213,18 @@ type HookPayload struct {
 }
 
 type TargetArgs struct {
-	Name             string            `bson:"name"                      json:"name"`
-	ServiceName      string            `bson:"service_name"              json:"service_name"`
-	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
-	Build            *BuildArgs        `bson:"build"                     json:"build"`
-	Version          string            `bson:"version"                   json:"version"`
-	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`
-	Image            string            `bson:"image"                     json:"image"`
-	BinFile          string            `bson:"bin_file"                  json:"bin_file"`
-	Envs             []*KeyVal         `bson:"envs"                      json:"envs"`
-	HasBuild         bool              `bson:"has_build"                 json:"has_build"`
-	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args"        json:"jenkins_build_args"`
+	Name             string            `bson:"name"                          json:"name"`
+	ImageName        string            `bson:"image_name"                    json:"image_name"`
+	ServiceName      string            `bson:"service_name"                  json:"service_name"`
+	ServiceType      string            `bson:"service_type,omitempty"        json:"service_type,omitempty"`
+	ProductName      string            `bson:"product_name"                  json:"product_name"`
+	Build            *BuildArgs        `bson:"build"                         json:"build"`
+	Deploy           []DeployEnv       `bson:"deploy"                        json:"deploy"`
+	Image            string            `bson:"image,omitempty"               json:"image,omitempty"`
+	BinFile          string            `bson:"bin_file"                      json:"bin_file"`
+	Envs             []*KeyVal         `bson:"envs"                          json:"envs"`
+	HasBuild         bool              `bson:"has_build"                     json:"has_build"`
+	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args,omitempty"  json:"jenkins_build_args,omitempty"`
 }
 
 type TestTaskArgs struct {
@@ -259,6 +262,7 @@ type ImageData struct {
 	ImageUrl   string `bson:"image_url"   json:"image_url"      yaml:"image_url"`
 	ImageName  string `bson:"image_name"  json:"image_name"     yaml:"image_name"`
 	ImageTag   string `bson:"image_tag"   json:"image_tag"      yaml:"image_tag"`
+	CustomTag  string `bson:"custom_tag"  json:"custom_tag"     yaml:"custom_tag"`
 	RegistryID string `bson:"registry_id" json:"registry_id"    yaml:"registry_id"`
 }
 
@@ -310,16 +314,6 @@ type TriggerBy struct {
 	MergeRequestID string `json:"merge_request_id,omitempty" bson:"merge_request_id,omitempty"`
 	// 触发此次任务的commit id
 	CommitID string `json:"commit_id,omitempty" bson:"commit_id,omitempty"`
-}
-
-type Stage struct {
-	// 注意: 同一个stage暂时不能运行不同类型的Task
-	TaskType    config.TaskType                   `bson:"type"               json:"type"`
-	Status      config.Status                     `bson:"status"             json:"status"`
-	RunParallel bool                              `bson:"run_parallel"       json:"run_parallel"`
-	Desc        string                            `bson:"desc,omitempty"     json:"desc,omitempty"`
-	SubTasks    map[string]map[string]interface{} `bson:"sub_tasks"          json:"sub_tasks"`
-	AfterAll    bool                              `json:"after_all" bson:"after_all"`
 }
 
 func (Task) TableName() string {

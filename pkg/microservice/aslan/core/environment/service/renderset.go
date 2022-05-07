@@ -17,24 +17,26 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
-	"github.com/pkg/errors"
 )
 
 type DefaultValuesResp struct {
-	DefaultValues string `json:"defaultValues"`
+	DefaultValues string                     `json:"defaultValues"`
+	YamlData      *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
 
 type YamlContentRequestArg struct {
@@ -46,45 +48,61 @@ type YamlContentRequestArg struct {
 	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
 }
 
-func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
-
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-
-	opt := &commonrepo.RenderSetFindOption{
-		Name: renderSetName,
+func fromGitRepo(source string) bool {
+	if source == "" {
+		return true
 	}
-	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if source == setting.SourceFromGitRepo {
+		return true
+	}
+	return false
+}
+
+func unMarshalJson(source interface{}) (*models.CreateFromRepo, error) {
+	bs, err := json.Marshal(source)
 	if err != nil {
 		return nil, err
 	}
+	ret := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
 
-	if !existed {
-		return nil, nil
+// SyncYamlFromSource sync values.yaml from source
+// NOTE currently only support gitHub and gitlab
+func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
+	if yamlData == nil || !yamlData.AutoSync {
+		return false, "", nil
+	}
+	if !fromGitRepo(yamlData.Source) {
+		return false, "", nil
 	}
 
-	ret := make([]*commonservice.RenderChartArg, 0)
-
-	matchedRenderChartModels := make([]*template.RenderChart, 0)
-	if len(serviceName) == 0 {
-		matchedRenderChartModels = rendersetObj.ChartInfos
-	} else {
-		serverList := strings.Split(serviceName, ",")
-		stringSet := sets.NewString(serverList...)
-		for _, singleChart := range rendersetObj.ChartInfos {
-			if !stringSet.Has(singleChart.ServiceName) {
-				continue
-			}
-			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
-		}
+	sourceDetail, err := unMarshalJson(yamlData.SourceDetail)
+	if err != nil {
+		return false, "", err
 	}
-
-	for _, singleChart := range matchedRenderChartModels {
-		rcaObj := new(commonservice.RenderChartArg)
-		rcaObj.LoadFromRenderChartModel(singleChart)
-		rcaObj.EnvName = envName
-		ret = append(ret, rcaObj)
+	if sourceDetail.GitRepoConfig == nil {
+		log.Warnf("git repo config is nil")
+		return false, "", nil
 	}
-	return ret, nil
+	repoConfig := sourceDetail.GitRepoConfig
+
+	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+		CodehostID: repoConfig.CodehostID,
+		Owner:      repoConfig.Owner,
+		Repo:       repoConfig.Repo,
+		Path:       sourceDetail.LoadPath,
+		Branch:     repoConfig.Branch,
+	})
+	if err != nil {
+		return false, "", err
+	}
+	equal, err := yamlutil.CheckEqual(valuesYAML, []byte(curValue))
+	if err != nil || equal {
+		return false, "", err
+	}
+	return true, string(valuesYAML), nil
 }
 
 func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
@@ -119,6 +137,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	ret.DefaultValues = rendersetObj.DefaultValues
+	ret.YamlData = rendersetObj.YamlData
 	return ret, nil
 }
 

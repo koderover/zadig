@@ -20,20 +20,43 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type RoleBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Role   string `json:"role"`
-	Public bool   `json:"public"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Role   string               `json:"role"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
+}
+
+type PolicyBinding struct {
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Policy string               `json:"policy"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*RoleBinding, error) {
 	url := "/rolebindings"
 
 	res := make([]*RoleBinding, 0)
+	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(&res))
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *Client) ListPolicyBindings(header http.Header, qs url.Values) ([]*PolicyBinding, error) {
+	url := "/policybindings"
+
+	res := make([]*PolicyBinding, 0)
 	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(&res))
 	if err != nil {
 		return nil, err
@@ -51,4 +74,21 @@ func (c *Client) DeleteRoleBindings(userID string, header http.Header, qs url.Va
 		return []byte{}, err
 	}
 	return res.Body(), err
+}
+
+type SearchSystemRoleBindingArgs struct {
+	Uids []string `json:"uids"`
+}
+
+func (c *Client) SearchSystemRoleBindings(uids []string) (map[string][]*types.RoleBinding, error) {
+	url := "system-rolebindings/search"
+	args := SearchSystemRoleBindingArgs{
+		Uids: uids,
+	}
+	result := map[string][]*types.RoleBinding{}
+	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(&result))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

@@ -123,21 +123,25 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 	ScheduleNames := sets.NewString(
 		CleanJobScheduler, UpsertWorkflowScheduler, UpsertTestScheduler,
 		InitStatScheduler, InitOperationStatScheduler,
-		CleanProductScheduler, InitHealthCheckScheduler, UpsertColliePipelineScheduler)
+		CleanProductScheduler, InitHealthCheckScheduler, InitHealthCheckPmHostScheduler, UpsertColliePipelineScheduler)
 
 	// 停掉已被删除的pipeline对应的scheduler
 	for name := range c.Schedulers {
 		if _, ok := taskMap[name]; !ok && !ScheduleNames.Has(name) {
-			//排除非容器部署服务健康检查定时器
+			// exclude service heath check timers
 			if strings.HasPrefix(name, "service-") && strings.Contains(name, "pm") {
 				continue
 			}
-			// 排除测试定时任务定时器
+			// exclude test timers
 			if strings.HasPrefix(name, "test-timer-") {
 				continue
 			}
-			// 排除自由编排工作流定时器
+			// exclude collie pipeline timers
 			if strings.HasPrefix(name, "collie-pipeline-timer-") {
+				continue
+			}
+			// exclude helm env values sync timers
+			if strings.HasPrefix(name, "helm-values-sync-") {
 				continue
 			}
 			log.Warnf("[%s]deleted workflow detached", name)

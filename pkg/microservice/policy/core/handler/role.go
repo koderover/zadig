@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -88,7 +89,7 @@ func UpdateOrCreateRole(c *gin.Context) {
 	ctx.Err = service.UpdateOrCreateRole(projectName, args, ctx.Logger)
 }
 
-func UpdatePublicRole(c *gin.Context) {
+func UpdatePresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -99,10 +100,10 @@ func UpdatePublicRole(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateRole("", args, ctx.Logger)
+	ctx.Err = service.UpdateRole(service.PresetScope, args, ctx.Logger)
 }
 
-func UpdateOrCreatePublicRole(c *gin.Context) {
+func UpdateOrCreatePresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -113,7 +114,7 @@ func UpdateOrCreatePublicRole(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreateRole("", args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreateRole(service.PresetScope, args, ctx.Logger)
 }
 
 func ListRoles(c *gin.Context) {
@@ -142,7 +143,7 @@ func GetRole(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetRole(projectName, c.Param("name"), ctx.Logger)
 }
 
-func CreatePublicRole(c *gin.Context) {
+func CreatePresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -151,23 +152,23 @@ func CreatePublicRole(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-
-	ctx.Err = service.CreateRole("", args, ctx.Logger)
+	args.Type = setting.ResourceTypeSystem
+	ctx.Err = service.CreateRole(service.PresetScope, args, ctx.Logger)
 }
 
-func ListPublicRoles(c *gin.Context) {
+func ListPresetRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoles("", ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoles(service.PresetScope, ctx.Logger)
 	return
 }
 
-func GetPublicRole(c *gin.Context) {
+func GetPresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetRole("", c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRole(service.PresetScope, c.Param("name"), ctx.Logger)
 }
 
 func DeleteRole(c *gin.Context) {
@@ -203,11 +204,11 @@ func DeleteRoles(c *gin.Context) {
 	ctx.Err = service.DeleteRoles(args.Names, projectName, ctx.Logger)
 }
 
-func DeletePublicRole(c *gin.Context) {
+func DeletePresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeleteRole(name, "", ctx.Logger)
+	ctx.Err = service.DeleteRole(name, service.PresetScope, ctx.Logger)
 	return
 }
 
@@ -220,8 +221,7 @@ func CreateSystemRole(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-
-	ctx.Err = service.CreateRole("*", args, ctx.Logger)
+	ctx.Err = service.CreateRole(service.SystemScope, args, ctx.Logger)
 }
 
 func UpdateOrCreateSystemRole(c *gin.Context) {
@@ -235,14 +235,14 @@ func UpdateOrCreateSystemRole(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreateRole("*", args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreateRole(service.SystemScope, args, ctx.Logger)
 }
 
 func ListSystemRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoles("*", ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoles(service.SystemScope, ctx.Logger)
 	return
 }
 
@@ -250,6 +250,6 @@ func DeleteSystemRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeleteRole(name, "*", ctx.Logger)
+	ctx.Err = service.DeleteRole(name, service.SystemScope, ctx.Logger)
 	return
 }

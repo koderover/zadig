@@ -26,6 +26,7 @@ var (
 	// RenderTemplateAlias ...
 	RenderTemplateAlias = regexp.MustCompile(`{{\s?\.\w+\s?}}`)
 	ServiceNameAlias    = regexp.MustCompile(`\$Service\$`)
+	ProductNameAlias    = regexp.MustCompile(`\$Product\$`)
 	NameSpaceRegex      = regexp.MustCompile(NameSpaceRegexString)
 )
 
@@ -106,6 +107,7 @@ const (
 	QueueItemPending Status = "pending"
 	StatusChanged    Status = "changed"
 	StatusNotRun     Status = "notRun"
+	StatusPrepare    Status = "prepare"
 )
 
 type TaskStatus string
@@ -139,6 +141,7 @@ const (
 	TaskResetImage      TaskType = "reset_image"
 	TaskDistribute      TaskType = "distribute"
 	TaskTrigger         TaskType = "trigger"
+	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
 )
 
@@ -217,4 +220,13 @@ const (
 const (
 	RoleBindingNameEdit = setting.ProductName + "-edit"
 	RoleBindingNameView = setting.ProductName + "-view"
+)
+
+type CommonEnvCfgType string
+
+const (
+	CommonEnvCfgTypeIngress   CommonEnvCfgType = "Ingress"
+	CommonEnvCfgTypeConfigMap CommonEnvCfgType = "ConfigMap"
+	CommonEnvCfgTypeSecret    CommonEnvCfgType = "Secret"
+	CommonEnvCfgTypePvc       CommonEnvCfgType = "PVC"
 )

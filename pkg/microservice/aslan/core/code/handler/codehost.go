@@ -34,7 +34,7 @@ func GetCodeHostList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codeHostSlice := make([]*systemconfig.CodeHost, 0)
-	codeHosts, err := systemconfig.New().ListCodeHosts()
+	codeHosts, err := systemconfig.New().ListCodeHostsInternal()
 	ctx.Err = err
 	for _, codeHost := range codeHosts {
 		codeHost.AccessToken = setting.MaskValue
@@ -74,14 +74,14 @@ func CodeHostGetProjectsList(c *gin.Context) {
 
 	namespaceType := c.DefaultQuery("type", "group")
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
+	repoOwner := c.Query("repoOwner")
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
-	if namespace == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty namespace")
+	if repoOwner == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
 	if namespaceType == "" {
@@ -102,7 +102,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 	chID, _ := strconv.Atoi(codehostID)
 	ctx.Resp, ctx.Err = service.CodeHostListProjects(
 		chID,
-		strings.Replace(namespace, "%2F", "/", -1),
+		strings.Replace(repoOwner, "%2F", "/", -1),
 		namespaceType,
 		args.Page,
 		args.PerPage,
@@ -110,8 +110,8 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		ctx.Logger)
 }
 
-type CodeHostGetBranchListArgs struct {
-	PerPage int    `json:"per_page"     form:"per_page,default=30"`
+type CodeHostGetPageNateListArgs struct {
+	PerPage int    `json:"per_page"     form:"per_page,default=100"`
 	Page    int    `json:"page"         form:"page,default=1"`
 	Key     string `json:"key"          form:"key"`
 }
@@ -121,9 +121,9 @@ func CodeHostGetBranchList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
-	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
-	args := new(CodeHostGetBranchListArgs)
+	repoOwner := c.Query("repoOwner")
+	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
+	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -133,20 +133,20 @@ func CodeHostGetBranchList(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
-	if namespace == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty namespace")
+	if repoOwner == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectName")
+	if repoName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
 	ctx.Resp, ctx.Err = service.CodeHostListBranches(
 		chID,
-		projectName,
-		strings.Replace(namespace, "%2F", "/", -1),
+		repoName,
+		strings.Replace(repoOwner, "%2F", "/", -1),
 		args.Key,
 		args.Page,
 		args.PerPage,
@@ -158,24 +158,28 @@ func CodeHostGetTagList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
-	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
-
+	repoOwner := c.Query("repoOwner")
+	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
+	args := new(CodeHostGetPageNateListArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
-	if namespace == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty namespace")
+	if repoOwner == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectName")
+	if repoName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListTags(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
 }
 
 func CodeHostGetPRList(c *gin.Context) {
@@ -183,26 +187,32 @@ func CodeHostGetPRList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
-	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
+	repoOwner := c.Query("repoOwner")
+	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
+
+	args := new(CodeHostGetPageNateListArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
-	if namespace == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty namespace")
+	if repoOwner == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectName")
+	if repoName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 
 	targetBr := c.Query("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListPRs(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), targetBr, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
 }
 
 func ListRepoInfos(c *gin.Context) {
@@ -215,8 +225,7 @@ func ListRepoInfos(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid repo args")
 		return
 	}
-	param := c.Query("param")
-	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, param, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, ctx.Logger)
 }
 
 type BranchesRequest struct {

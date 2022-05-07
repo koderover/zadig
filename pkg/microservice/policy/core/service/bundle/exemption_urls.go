@@ -46,6 +46,10 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/system/registry"},
+	},
+	{
+		Methods:   []string{"GET"},
 		Endpoints: []string{"api/aslan/testing/report"},
 	},
 	{
@@ -92,6 +96,22 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/callback"},
 	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/environment/environments/?*/check/workloads/k8services"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/environment/environments/?*/check/sharenv/enable/ready"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/environment/environments/?*/check/sharenv/disable/ready"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/service/services/?*/environments/deployable"},
+	},
 }
 
 // actions which are allowed for system admins only.
@@ -103,6 +123,14 @@ var systemAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/project/products"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/cleanCache/cron"},
+	},
+	{
+		Methods:   []string{"GET", "POST", "PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/sonar/?*"},
 	},
 	{
 		Methods:   []string{"POST"},
@@ -123,6 +151,10 @@ var systemAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"PUT"},
 		Endpoints: []string{"api/aslan/cluster/clusters/?*/reconnect"},
+	},
+	{
+		Methods:   []string{"GET", "POST", "PUT", "DELETE"},
+		Endpoints: []string{"api/collaboration/collaborations"},
 	},
 	{
 		Methods:   []string{"POST", "PUT"},
@@ -257,6 +289,22 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/system-roles/?*"},
 	},
 	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/public-policies"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/v1/public-policies/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/system-policies"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/system-policies/?*"},
+	},
+	{
 		Methods:   []string{"GET", "POST"},
 		Endpoints: []string{"api/v1/system-rolebindings"},
 	},
@@ -265,28 +313,12 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/system-rolebindings/?*"},
 	},
 	{
-		Methods:   []string{"POST"},
-		Endpoints: []string{"api/aslan/template/yaml"},
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/system-policybindings"},
 	},
 	{
-		Methods:   []string{"PUT", "DELETE"},
-		Endpoints: []string{"api/aslan/template/yaml/?*"},
-	},
-	{
-		Methods:   []string{"POST"},
-		Endpoints: []string{"api/aslan/template/dockerfile"},
-	},
-	{
-		Methods:   []string{"PUT", "DELETE"},
-		Endpoints: []string{"api/aslan/template/dockerfile/?*"},
-	},
-	{
-		Methods:   []string{"POST"},
-		Endpoints: []string{"api/aslan/template/charts"},
-	},
-	{
-		Methods:   []string{"PUT", "DELETE"},
-		Endpoints: []string{"api/aslan/template/charts/?*"},
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/system-policybindings/?*"},
 	},
 }
 
@@ -311,6 +343,10 @@ var projectAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/users/search"},
+	},
+	{
+		Methods:   []string{"GET", "POST", "PUT", "DELETE"},
+		Endpoints: []string{"api/collaboration/collaborations"},
 	},
 	{
 		Methods:   []string{"GET"},
@@ -341,6 +377,34 @@ var projectAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/public-roles/?*"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/policies"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/policies/?*"},
+	},
+	{
+		Methods:   []string{"POST", "DELETE"},
+		Endpoints: []string{"api/v1/policies"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/v1/policies/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/policies/bulk-delete"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/public-policies"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/public-policies/?*"},
+	},
+	{
 		Methods:   []string{"GET", "POST"},
 		Endpoints: []string{"api/v1/rolebindings"},
 	},
@@ -355,6 +419,22 @@ var projectAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/rolebindings/bulk-delete"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/policybindings"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/picket/policybindings"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/policybindings/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/policybindings/bulk-delete"},
 	},
 }
 

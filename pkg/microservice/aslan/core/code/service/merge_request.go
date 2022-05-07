@@ -17,53 +17,29 @@ limitations under the License.
 package service
 
 import (
-	"context"
-
-	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
 )
 
-func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, log *zap.SugaredLogger) ([]*PullRequest, error) {
-	ch, err := systemconfig.New().GetCodeHost(codeHostID)
+func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.PullRequest, error) {
+	cli, err := open.OpenClient(codeHostID, log)
 	if err != nil {
-		return nil, e.ErrCodehostListPrs.AddDesc("git client is nil")
+		log.Errorf("open client err:%s", err)
+		return nil, err
 	}
-
-	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListPrs.AddDesc(err.Error())
-		}
-
-		prs, err := client.ListOpenedProjectMergeRequests(namespace, projectName, targetBr, nil)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListPrs.AddDesc(err.Error())
-		}
-
-		return ToPullRequests(prs), nil
-
-	} else if ch.Type == gerrit.CodehostTypeGerrit {
-		return nil, nil
-	} else if ch.Type == CodeHostCodeHub {
-		return nil, nil
-	} else {
-		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
-		pullRequests, err := gh.ListPullRequests(context.TODO(), namespace, projectName, &github.PullRequestListOptions{
-			ListOptions: github.ListOptions{PerPage: 100},
-		})
-		if err != nil {
-			return nil, err
-		}
-		return ToPullRequests(pullRequests), nil
+	prs, err := cli.ListPrs(client.ListOpt{
+		Namespace:   namespace,
+		ProjectName: projectName,
+		Key:         key,
+		Page:        page,
+		PerPage:     perPage,
+		TargeBr:     targetBr,
+	})
+	if err != nil {
+		log.Errorf("list prs err:%s", err)
+		return nil, err
 	}
+	return prs, nil
 }

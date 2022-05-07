@@ -29,10 +29,26 @@ func GetUserPermission(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
 
 	ctx.Resp, ctx.Err = service.GetPermission(projectName, c.Param("uid"), ctx.Logger)
+}
+
+type GetUserResourcesPermissionReq struct {
+	ProjectName  string   `json:"project_name"      form:"project_name"`
+	Uid          string   `json:"uid"               form:"uid"`
+	Resources    []string `json:"resources"         form:"resources"`
+	ResourceType string   `json:"resource_type"     form:"resource_type"`
+}
+
+func GetUserResourcesPermission(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(GetUserResourcesPermissionReq)
+
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetResourcesPermission(req.Uid, req.ProjectName, req.ResourceType, req.Resources, ctx.Logger)
 }

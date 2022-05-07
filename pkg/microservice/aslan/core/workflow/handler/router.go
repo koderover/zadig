@@ -104,7 +104,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workflow.POST("/:productName/auto", AutoCreateWorkflow)
 		workflow.POST("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, CreateWorkflow)
-		workflow.PUT("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
+		workflow.PUT("/:workflowName", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
 		workflow.GET("/testName/:testName", ListTestWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
@@ -122,13 +122,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		//todo 修改权限的uuid
 		workflowtask.GET("/targets/:productName/:namespace", GetWorkflowArgs)
 		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
-		workflowtask.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowTask)
-		workflowtask.PUT("", gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
+		workflowtask.POST("/:id", gin2.UpdateOperationLogStatus, CreateWorkflowTask)
+		workflowtask.PUT("/:id", gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
 		workflowtask.GET("/max/:max/start/:start/pipelines/:name", ListWorkflowTasksResult)
 		workflowtask.GET("/filters/pipelines/:name", GetFiltersPipeline)
 		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)
 		workflowtask.POST("/id/:id/pipelines/:name/restart", gin2.UpdateOperationLogStatus, RestartWorkflowTask)
 		workflowtask.DELETE("/id/:id/pipelines/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV2)
+		workflowtask.GET("/callback/id/:id/name/:name", GetWorkflowTaskCallback)
 	}
 
 	serviceTask := router.Group("servicetask")
@@ -160,5 +161,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
 		taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
 		taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
+	}
+
+	bundles := router.Group("bundle-resources")
+	{
+		bundles.GET("", GetBundleResources)
 	}
 }

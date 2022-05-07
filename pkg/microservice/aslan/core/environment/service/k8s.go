@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,6 +91,16 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), exitedProd.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
@@ -122,7 +133,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd,
 		svc,
 		exitedProd.GetServiceMap()[svc.ServiceName],
-		newRender, inf, kubeClient, k.log)
+		newRender, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
@@ -221,6 +232,16 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 		errList = multierror.Append(errList, err)
 	}
 
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new istio client: %s", err)
+	}
+
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var resources []*unstructured.Unstructured
@@ -232,7 +253,7 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(false, prod, svc, nil, renderSet, informer, kubeClient, k.log)
+			items, err := upsertService(false, prod, svc, nil, renderSet, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {
@@ -269,4 +290,8 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 	}
 
 	return nil
+}
+
+func (k *K8sService) initEnvConfigSet(envName, productName, userName string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+	return initEnvConfigSetAction(envName, productName, userName, envConfigYamls, inf, kubeClient)
 }

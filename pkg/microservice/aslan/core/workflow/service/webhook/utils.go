@@ -20,7 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -150,6 +152,20 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			return err
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
+
+		// generate new revision
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
+		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		if err != nil {
+			return fmt.Errorf("get next service template revision error: %v", err)
+		}
+
+		args.Revision = rev
+		// update service template
+		if err := commonrepo.NewServiceColl().Create(args); err != nil {
+			log.Errorf("Failed to sync service %s from github path %s error: %v", args.ServiceName, args.SrcPath, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
+		}
 	} else if args.Type == setting.HelmDeployType {
 		if args.Source == setting.SourceFromGitlab {
 			// Set args.Commit
@@ -170,15 +186,6 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		}
 	}
 
-	// 设置新的版本号
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
-	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
-	if err != nil {
-		return fmt.Errorf("get next service template revision error: %v", err)
-	}
-
-	args.Revision = rev
-
 	return nil
 }
 
@@ -187,24 +194,35 @@ func syncLatestCommit(service *commonmodels.Service) error {
 		return fmt.Errorf("url不能是空的")
 	}
 
-	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(service.SrcPath)
+	_, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(service.SrcPath)
 	if err != nil {
 		return fmt.Errorf("url 必须包含 owner/repo/tree/branch/path，具体请参考 Placeholder 提示")
 	}
 
-	client, err := getGitlabClientByAddress(address)
+	client, err := getGitlabClientByCodehostId(service.CodehostID)
 	if err != nil {
 		return err
+	}
+
+	if len(service.BranchName) > 0 {
+		branch = service.BranchName
+	}
+	if len(service.LoadPath) > 0 {
+		path = service.LoadPath
 	}
 
 	commit, err := GitlabGetLatestCommit(client, owner, repo, branch, path)
 	if err != nil {
 		return err
 	}
-	service.Commit = &commonmodels.Commit{
-		SHA:     commit.ID,
-		Message: commit.Message,
+
+	if commit != nil {
+		service.Commit = &commonmodels.Commit{
+			SHA:     commit.ID,
+			Message: commit.Message,
+		}
 	}
+
 	return nil
 }
 
@@ -244,7 +262,22 @@ func getCodehubClientByAddress(address string) (*codehub.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
-	client := codehub.NewClient(codehost.AccessKey, codehost.SecretKey, codehost.Region)
+	client := codehub.NewClient(codehost.AccessKey, codehost.SecretKey, codehost.Region, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+
+	return client, nil
+}
+
+func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
+	codehost, err := systemconfig.New().GetCodeHost(codehostId)
+	if err != nil {
+		log.Error(err)
+		return nil, e.ErrCodehostListProjects.AddDesc(fmt.Sprintf("failed to get codehost:%d, err: %s", codehost, err))
+	}
+	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+	if err != nil {
+		log.Error(err)
+		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
+	}
 
 	return client, nil
 }
@@ -259,7 +292,7 @@ func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
-	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken)
+	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -334,12 +367,12 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 		return nil
 	}
 
-	address, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
+	_, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
 	if err != nil {
 		return fmt.Errorf("url format failed")
 	}
 
-	client, err := getGitlabClientByAddress(address)
+	client, err := getGitlabClientByCodehostId(args.CodehostID)
 	if err != nil {
 		return err
 	}
@@ -680,4 +713,28 @@ func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 	}
 
 	return nil
+}
+
+func getServiceSrcPath(service *commonmodels.Service) (string, error) {
+	if service.LoadPath != "" {
+		return service.LoadPath, nil
+	}
+	_, _, _, _, p, _, err := GetOwnerRepoBranchPath(service.SrcPath)
+	return p, err
+}
+
+// check if sub path is a part of parent path
+// eg: parent: k1/k2   sub: k1/k2/k3  return true
+// parent k1/k2-2  sub: k1/k2/k3 return false
+func subElem(parent, sub string) bool {
+	up := ".." + string(os.PathSeparator)
+	rel, err := filepath.Rel(parent, sub)
+	if err != nil {
+		log.Errorf("failed to check path is relative, parent: %s, sub: %s", parent, sub)
+		return false
+	}
+	if !strings.HasPrefix(rel, up) && rel != ".." {
+		return true
+	}
+	return false
 }

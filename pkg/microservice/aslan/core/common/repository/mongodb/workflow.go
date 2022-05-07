@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -33,6 +34,44 @@ import (
 type ListWorkflowOption struct {
 	IsSort   bool
 	Projects []string
+	Names    []string
+	Ids      []string
+}
+
+type Workflow struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"projectName"`
+}
+
+type ListWorkflowOpt struct {
+	Workflows []Workflow
+}
+
+func (c *WorkflowColl) ListByWorkflows(opt ListWorkflowOpt) ([]*models.Workflow, error) {
+	var res []*models.Workflow
+
+	if len(opt.Workflows) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, workflow := range opt.Workflows {
+		condition = append(condition, bson.M{
+			"name":              workflow.Name,
+			"product_tmpl_name": workflow.ProjectName,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 type WorkflowColl struct {
@@ -65,6 +104,20 @@ func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error)
 	query := bson.M{}
 	if len(opt.Projects) > 0 {
 		query["product_tmpl_name"] = bson.M{"$in": opt.Projects}
+	}
+	if len(opt.Names) > 0 {
+		query["name"] = bson.M{"$in": opt.Names}
+	}
+	if len(opt.Ids) > 0 {
+		var oids []primitive.ObjectID
+		for _, id := range opt.Ids {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
+		}
+		query["_id"] = bson.M{"$in": oids}
 	}
 
 	resp := make([]*models.Workflow, 0)
@@ -151,6 +204,21 @@ func (c *WorkflowColl) Create(args *models.Workflow) error {
 	args.UpdateTime = time.Now().Unix()
 
 	_, err := c.InsertOne(context.TODO(), args)
+	return err
+}
+
+func (c *WorkflowColl) BulkCreate(args []*models.Workflow) error {
+	if len(args) == 0 {
+		return nil
+	}
+	var ois []interface{}
+	for _, arg := range args {
+		arg.CreateTime = time.Now().Unix()
+		arg.UpdateTime = time.Now().Unix()
+		ois = append(ois, arg)
+	}
+
+	_, err := c.InsertMany(context.TODO(), ois)
 	return err
 }
 

@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
@@ -146,7 +147,7 @@ func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
 
 func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
 	query := bson.M{"id": host.ID, "deleted_at": 0}
-	change := bson.M{"$set": bson.M{
+	modifyValue := bson.M{
 		"type":           host.Type,
 		"address":        host.Address,
 		"namespace":      host.Namespace,
@@ -155,8 +156,18 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 		"region":         host.Region,
 		"username":       host.Username,
 		"password":       host.Password,
+		"enable_proxy":   host.EnableProxy,
 		"updated_at":     time.Now().Unix(),
-	}}
+	}
+	if host.Type == setting.SourceFromGerrit {
+		modifyValue["access_token"] = host.AccessToken
+	} else if host.Type == setting.SourceFromGitee {
+		modifyValue["access_token"] = host.AccessToken
+		modifyValue["refresh_token"] = host.RefreshToken
+		modifyValue["updated_at"] = host.UpdatedAt
+	}
+
+	change := bson.M{"$set": modifyValue}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	return host, err
 }

@@ -17,44 +17,29 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/label"
 )
 
 // GetPermission user's permission for frontend
-func GetPermission(ns, uid string, log *zap.SugaredLogger) (map[string][]string, error) {
-	roles := []*models.Role{}
-	rolebindingsReadOnly, err := mongodb.NewRoleBindingColl().ListBy(ns, "*")
+func GetPermission(ns, uid string, logger *zap.SugaredLogger) (map[string][]string, error) {
+	//1.get user's all role in some project
+	roleBindings, err := ListUserAllRoleBindings(ns, uid)
 	if err != nil {
-		log.Errorf("list readonly RoleBinding err:%s,ns:%s,uid:*", err, ns)
+		logger.Errorf("ListUserAllRoleBindings err:%s", err)
 		return nil, err
 	}
-
-	rolebindingsAdmin, err := mongodb.NewRoleBindingColl().ListBy("*", uid)
+	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
 	if err != nil {
-		log.Errorf("list admin RoleBinding err:%s,ns:*,uid:%s", err)
 		return nil, err
 	}
-
-	// 1.2 get normal rolebindings
-	rolebindingsNormal, err := mongodb.NewRoleBindingColl().ListBy(ns, uid)
-	if err != nil {
-		log.Errorf("list normal RoleBindings err:%s,ns:%s,uid:%s", err, ns, uid)
-		return nil, err
-	}
-
-	rolebindings := append(rolebindingsReadOnly, rolebindingsNormal...)
-	rolebindings = append(rolebindings, rolebindingsAdmin...)
-	for _, v := range rolebindings {
-		tmpRoles, err := mongodb.NewRoleColl().ListBySpaceAndName(v.RoleRef.Namespace, v.RoleRef.Name)
-		if err != nil {
-			continue
-		}
-		roles = append(roles, tmpRoles...)
-	}
+	//2.get user's all rules
 	rolesSet := map[string]sets.String{}
 	rolesResp := map[string][]string{}
 	for _, role := range roles {
@@ -73,4 +58,104 @@ func GetPermission(ns, uid string, log *zap.SugaredLogger) (map[string][]string,
 		rolesResp[k] = v.List()
 	}
 	return rolesResp, nil
+}
+
+//GetResourcesPermission get resources action list for frontend to show icon
+func GetResourcesPermission(uid string, projectName string, resourceType string, resources []string, logger *zap.SugaredLogger) (map[string][]string, error) {
+	// 1. get all policyBindings
+	policyBindings, err := ListPolicyBindings(projectName, uid, logger)
+	if err != nil {
+		logger.Errorf("ListPolicyBindings err:%s", err)
+		return nil, err
+	}
+	var policies []*Policy
+	for _, v := range policyBindings {
+		policy, err := GetPolicy(projectName, v.Policy, logger)
+		if err != nil {
+			logger.Warnf("GetPolicy err:%s", err)
+			continue
+		}
+		policies = append(policies, policy)
+	}
+
+	queryResourceSet := sets.NewString(resources...)
+	resourceM := make(map[string]sets.String)
+	for _, v := range resources {
+		resourceM[v] = sets.NewString()
+	}
+	for _, policy := range policies {
+		for _, rule := range policy.Rules {
+			if rule.Resources[0] == resourceType {
+				for _, resource := range rule.RelatedResources {
+					if queryResourceSet.Has(resource) {
+						resourceM[resource] = resourceM[resource].Insert(rule.Verbs...)
+					}
+				}
+			}
+
+		}
+	}
+	// 2. get all roleBindings
+	roleBindings, err := ListUserAllRoleBindings(projectName, uid)
+	if err != nil {
+		logger.Errorf("ListUserAllRoleBindings err:%s", err)
+		return nil, err
+	}
+	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
+	if err != nil {
+		logger.Errorf("ListUserAllRolesByRoleBindings err:%s", err)
+		return nil, err
+	}
+	for _, role := range roles {
+		if role.Name == string(setting.SystemAdmin) || role.Name == string(setting.ProjectAdmin) {
+			for k, _ := range resourceM {
+				resourceM[k] = sets.NewString("*")
+			}
+			break
+		}
+		for _, rule := range role.Rules {
+			if rule.Resources[0] == resourceType && resourceType != string(config.ResourceTypeProduct) {
+				for k, v := range resourceM {
+					resourceM[k] = v.Insert(rule.Verbs...)
+				}
+			}
+			if (rule.Resources[0] == "Environment" || rule.Resources[0] == "ProductionEnvironment") && resourceType == string(config.ResourceTypeProduct) {
+				var rs []label.Resource
+				for _, v := range resources {
+					r := label.Resource{
+						Name:        v,
+						ProjectName: projectName,
+						Type:        string(config.ResourceTypeProduct),
+					}
+					rs = append(rs, r)
+				}
+
+				labelRes, err := label.New().ListLabelsByResources(label.ListLabelsByResourcesReq{rs})
+				if err != nil {
+					continue
+				}
+				for _, resource := range resources {
+					resourceKey := fmt.Sprintf("%s-%s-%s", config.ResourceTypeProduct, projectName, resource)
+					if labels, ok := labelRes.Labels[resourceKey]; ok {
+						for _, label := range labels {
+							if label.Key == "production" {
+								if rule.Resources[0] == "Environment" && label.Value == "false" {
+									resourceM[resource] = resourceM[resource].Insert(rule.Verbs...)
+								}
+								if rule.Resources[0] == "ProductionEnvironment" && label.Value == "true" {
+									resourceM[resource] = resourceM[resource].Insert(rule.Verbs...)
+								}
+							}
+						}
+					}
+				}
+
+			}
+		}
+	}
+	resourceRes := make(map[string][]string)
+	for k, v := range resourceM {
+		resourceRes[k] = v.List()
+	}
+	return resourceRes, nil
 }

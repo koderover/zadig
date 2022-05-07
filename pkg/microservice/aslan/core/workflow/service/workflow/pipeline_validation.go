@@ -29,8 +29,8 @@ import (
 
 	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -46,8 +46,8 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/gitee"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -57,6 +57,7 @@ import (
 const (
 	NameSpaceRegexString   = "[^a-z0-9.-]"
 	defaultNameRegexString = "^[a-zA-Z0-9-_]{1,50}$"
+	InterceptCommitID      = 8
 )
 
 var (
@@ -343,7 +344,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 			build.AuthorName = commit.AuthorName
 		}
 	} else if codeHostInfo.Type == systemconfig.CodeHubProvider {
-		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region)
+		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" && build.Branch != "" {
 			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
 			for _, branchInfo := range branchList {
@@ -355,8 +356,55 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				}
 			}
 		}
+	} else if codeHostInfo.Type == systemconfig.GiteeProvider {
+		gitCli := gitee.NewClient(codeHostInfo.ID, codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
+		if build.CommitID == "" {
+			if build.Tag != "" && build.PR == 0 {
+				tags, err := gitCli.ListTags(context.Background(), codeHostInfo.AccessToken, build.RepoOwner, build.RepoName)
+				if err != nil {
+					log.Errorf("failed to gitee ListTags err:%s", err)
+					return
+				}
+
+				for _, tag := range tags {
+					if tag.Name == build.Tag {
+						build.CommitID = tag.Commit.Sha
+						commitInfo, err := gitCli.GetSingleCommitOfProject(context.Background(), codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.CommitID)
+						if err != nil {
+							log.Errorf("failed to gitee GetCommit %s err:%s", tag.Commit.Sha, err)
+							return
+						}
+						build.CommitMessage = commitInfo.Commit.Message
+						build.AuthorName = commitInfo.Commit.Author.Name
+						return
+					}
+				}
+			} else if build.Branch != "" && build.PR == 0 {
+				branch, err := gitCli.GetSingleBranch(codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.Branch)
+				if err != nil {
+					log.Errorf("failed to gitee GetSingleBranch  repoOwner:%s,repoName:%s,repoBranch:%s err:%s", build.RepoOwner, build.RepoName, build.Branch, err)
+					return
+				}
+				build.CommitID = branch.Commit.Sha
+				build.CommitMessage = branch.Commit.Commit.Message
+				build.AuthorName = branch.Commit.Commit.Author.Name
+			} else if build.PR > 0 {
+				prCommits, err := gitCli.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, nil)
+				sort.SliceStable(prCommits, func(i, j int) bool {
+					return prCommits[i].Commit.Committer.Date.Unix() > prCommits[j].Commit.Committer.Date.Unix()
+				})
+				if err == nil && len(prCommits) > 0 {
+					for _, commit := range prCommits {
+						build.CommitID = commit.Sha
+						build.CommitMessage = commit.Commit.Message
+						build.AuthorName = commit.Commit.Author.Name
+						return
+					}
+				}
+			}
+		}
 	} else {
-		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr())
+		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
 			if build.Tag != "" && build.PR == 0 {
@@ -490,14 +538,18 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 
 // releaseCandidate 根据 TaskID 生成编译镜像Tag或者二进制包后缀
 // TODO: max length of a tag is 128
-func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliveryType string) string {
+func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageName, deliveryType string) string {
 	timeStamp := time.Now().Format("20060102150405")
+
+	if imageName == "" {
+		imageName = b.ServiceName
+	}
 	if len(b.JobCtx.Builds) == 0 {
 		switch deliveryType {
 		case config.TarResourceType:
 			return fmt.Sprintf("%s-%s", b.ServiceName, timeStamp)
 		default:
-			return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
+			return fmt.Sprintf("%s:%s", imageName, timeStamp)
 		}
 	}
 
@@ -513,6 +565,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 		reg             = regexp.MustCompile(`[^\w.-]`)
 		customImageRule *template.CustomRule
 		customTarRule   *template.CustomRule
+		commitID        = first.CommitID
 	)
 
 	if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
@@ -522,9 +575,13 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 		customTarRule = project.CustomTarRule
 	}
 
+	if len(commitID) > InterceptCommitID {
+		commitID = commitID[0:InterceptCommitID]
+	}
+
 	candidate := &candidate{
 		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
-		CommitID:    first.CommitID,
+		CommitID:    commitID,
 		PR:          first.PR,
 		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
 		EnvName:     envName,
@@ -532,6 +589,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 		TaskID:      taskID,
 		ProductName: productName,
 		ServiceName: b.ServiceName,
+		ImageName:   imageName,
 	}
 	switch deliveryType {
 	case config.TarResourceType:
@@ -554,6 +612,7 @@ type candidate struct {
 	Timestamp   string
 	ProductName string
 	ServiceName string
+	ImageName   string
 	EnvName     string
 }
 
@@ -587,8 +646,16 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 	}
 
 	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
-		candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
-		candidate.Tag, candidate.Branch, strconv.Itoa(candidate.PR),
+		SERVICE:        candidate.ServiceName,
+		IMAGE_NAME:     candidate.ImageName,
+		TIMESTAMP:      candidate.Timestamp,
+		TASK_ID:        strconv.FormatInt(candidate.TaskID, 10),
+		REPO_COMMIT_ID: candidate.CommitID,
+		PROJECT:        candidate.ProductName,
+		ENV_NAME:       candidate.EnvName,
+		REPO_TAG:       candidate.Tag,
+		REPO_BRANCH:    candidate.Branch,
+		REPO_PR:        strconv.Itoa(candidate.PR),
 	})
 	return currentRule
 }
@@ -618,6 +685,7 @@ func prepareTaskEnvs(pt *task.Task, log *zap.SugaredLogger) []*commonmodels.KeyV
 		&commonmodels.KeyVal{Key: "IMAGE", Value: pt.TaskArgs.Deploy.Image},
 		&commonmodels.KeyVal{Key: "PKG_FILE", Value: pt.TaskArgs.Deploy.PackageFile},
 		&commonmodels.KeyVal{Key: "LOG_FILE", Value: "/tmp/user_script.log"},
+		&commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"},
 	)
 
 	// 设置编译模块参数化配置信息
@@ -678,7 +746,7 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 
 	reg, _, err := commonservice.FindDefaultRegistry(true, log)
 	if err != nil {
-		log.Errorf("can't find default candidate registry: %v", err)
+		log.Errorf("can't find default candidate registry: %s", err)
 		return e.ErrFindRegistry.AddDesc(err.Error())
 	}
 
@@ -689,11 +757,19 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 	return nil
 }
 
-// validateServiceContainer validate container with envName like dev
-func validateServiceContainer(envName, productName, serviceName, container string) (string, error) {
+// getImageInfoFromWorkload find the current image info from the cluster
+func getImageInfoFromWorkload(envName, productName, serviceName, container string) (string, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	serviceInfo, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
 	})
 	if err != nil {
 		return "", err
@@ -704,9 +780,66 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	return validateServiceContainer2(
-		product, serviceName, container, kubeClient,
-	)
+	if product.Source == setting.SourceFromHelm {
+		return findCurrentlyUsingImage(product, serviceName, container)
+	}
+
+	switch serviceInfo.WorkloadType {
+	case setting.StatefulSet:
+		var statefulSet *appsv1.StatefulSet
+		statefulSet, _, err = getter.GetStatefulSet(product.Namespace, serviceName, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, c := range statefulSet.Spec.Template.Spec.Containers {
+			if c.Name == container {
+				return c.Image, nil
+			}
+		}
+		return "", errors.New("no container in statefulset found")
+	case setting.Deployment:
+		var deployment *appsv1.Deployment
+		deployment, _, err = getter.GetDeployment(product.Namespace, serviceName, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, c := range deployment.Spec.Template.Spec.Containers {
+			if c.Name == container {
+				return c.Image, nil
+			}
+		}
+		return "", errors.New("no container in deployment found")
+	default:
+		// since in some version of the service, there are no workload type, we need to do something with this
+		selector := labels.Set{setting.ProductLabel: product.ProductName, setting.ServiceLabel: serviceName}.AsSelector()
+		var deployments []*appsv1.Deployment
+		deployments, err = getter.ListDeployments(product.Namespace, selector, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, deploy := range deployments {
+			for _, c := range deploy.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+		var statefulSets []*appsv1.StatefulSet
+		statefulSets, err = getter.ListStatefulSets(product.Namespace, selector, kubeClient)
+		if err != nil {
+			return "", err
+		}
+		for _, sts := range statefulSets {
+			for _, c := range sts.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+
+		log.Errorf("No workload found with container: %s", container)
+		return "", errors.New("no workload found with container")
+	}
 }
 
 type ContainerNotFound struct {
@@ -739,44 +872,6 @@ func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, con
 		}
 	}
 	return "", fmt.Errorf("failed to find image url")
-}
-
-// validateServiceContainer2 validate container with raw namespace like dev-product
-func validateServiceContainer2(productInfo *commonmodels.Product, serviceName, container string, kubeClient client.Client) (string, error) {
-	namespace, productName, envName, source := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName, productInfo.Source
-	if source == setting.SourceFromHelm {
-		return findCurrentlyUsingImage(productInfo, serviceName, container)
-	}
-
-	var selector labels.Selector
-	//helm和托管类型的服务查询所有标签的pod
-	if source != setting.SourceFromHelm && source != setting.SourceFromExternal {
-		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
-		//selector = builder.BuildSelector()
-	}
-
-	pods, err := getter.ListPods(namespace, selector, kubeClient)
-	if err != nil {
-		return "", fmt.Errorf("[%s] ListPods %s/%s error: %v", namespace, productName, serviceName, err)
-	}
-
-	for _, p := range pods {
-		pod := wrapper.Pod(p).Resource()
-		for _, c := range pod.ContainerStatuses {
-			if c.Name == container || commonservice.ExtractImageName(c.Image) == container {
-				return c.Image, nil
-			}
-		}
-	}
-	log.Errorf("[%s]container %s not found", namespace, container)
-
-	return "", &ContainerNotFound{
-		ServiceName: serviceName,
-		Container:   container,
-		EnvName:     envName,
-		ProductName: productName,
-	}
 }
 
 // IsProductAuthed 查询指定产品是否授权给用户, 或者用户所在的组

@@ -17,11 +17,26 @@ limitations under the License.
 package updater
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
+	"context"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
-func DeleteReplicaSets(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &appsv1.ReplicaSet{}, cl)
+func DeleteReplicaSets(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	err := clientset.AppsV1().ReplicaSets(namespace).DeleteCollection(
+		context.TODO(),
+		metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		},
+		metav1.ListOptions{
+			LabelSelector: selector.String(),
+		},
+	)
+
+	return util.IgnoreNotFoundError(err)
 }

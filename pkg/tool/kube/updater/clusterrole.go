@@ -17,15 +17,36 @@ limitations under the License.
 package updater
 
 import (
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	"context"
+
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
-func DeleteClusterRoles(selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions("", selector, &rbacv1beta1.ClusterRole{}, cl)
-}
+func DeleteClusterRoles(selector labels.Selector, clientset *kubernetes.Clientset) error {
+	version, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		return err
+	}
 
-func CreateClusterRole(role *rbacv1beta1.ClusterRole, cl client.Client) error {
-	return createObject(role, cl)
+	deletePolicy := metav1.DeletePropagationForeground
+	if kubeclient.VersionLessThan122(version) {
+		err = clientset.RbacV1beta1().ClusterRoles().DeleteCollection(context.TODO(), metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		}, metav1.ListOptions{
+			LabelSelector: selector.String(),
+		})
+	} else {
+		err = clientset.RbacV1().ClusterRoles().DeleteCollection(context.TODO(), metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		}, metav1.ListOptions{
+			LabelSelector: selector.String(),
+		})
+	}
+
+	return util.IgnoreNotFoundError(err)
 }

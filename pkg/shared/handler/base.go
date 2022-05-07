@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"go.uber.org/zap"
 
 	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
@@ -35,17 +36,28 @@ import (
 
 // Context struct
 type Context struct {
-	Logger    *zap.SugaredLogger
-	Err       error
-	Resp      interface{}
-	UserName  string
-	UserID    string
-	RequestID string
+	Logger       *zap.SugaredLogger
+	Err          error
+	Resp         interface{}
+	Account      string
+	UserName     string
+	UserID       string
+	IdentityType string
+	RequestID    string
 }
 
 type jwtClaims struct {
-	Name string `json:"name"`
-	UID  string `json:"uid"`
+	Name            string          `json:"name"`
+	Email           string          `json:"email"`
+	UID             string          `json:"uid"`
+	Account         string          `json:"preferred_username"`
+	FederatedClaims FederatedClaims `json:"federated_claims"`
+	jwt.StandardClaims
+}
+
+type FederatedClaims struct {
+	ConnectorId string `json:"connector_id"`
+	UserId      string `json:"user_id"`
 }
 
 // TODO: We need to implement a `context.Context` that conforms to the golang standard library.
@@ -60,13 +72,17 @@ func NewContext(c *gin.Context) *Context {
 		if err != nil {
 			logger.Warnf("Failed to get user from token, err: %s", err)
 		}
+	} else {
+		claims.Name = "system"
 	}
 
 	return &Context{
-		UserName:  claims.Name,
-		UserID:    claims.UID,
-		Logger:    ginzap.WithContext(c).Sugar(),
-		RequestID: c.GetString(setting.RequestID),
+		UserName:     claims.Name,
+		UserID:       claims.UID,
+		Account:      claims.Account,
+		IdentityType: claims.FederatedClaims.ConnectorId,
+		Logger:       ginzap.WithContext(c).Sugar(),
+		RequestID:    c.GetString(setting.RequestID),
 	}
 }
 
@@ -80,8 +96,12 @@ func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	if res == "" {
 		return nil, true
 	}
+	var resources []string
+	if err := json.Unmarshal([]byte(res), &resources); err != nil {
+		return nil, false
+	}
 
-	return strings.Split(res, ","), true
+	return resources, true
 }
 
 func getUserFromJWT(token string) (jwtClaims, error) {

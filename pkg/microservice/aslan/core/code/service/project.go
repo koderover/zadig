@@ -17,84 +17,28 @@ limitations under the License.
 package service
 
 import (
-	"context"
-
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/codehub"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
 )
 
-func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page, perPage int, keyword string, log *zap.SugaredLogger) ([]*Project, error) {
-	ch, err := systemconfig.New().GetCodeHost(codeHostID)
+func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page, perPage int, keyword string, log *zap.SugaredLogger) ([]*client.Project, error) {
+	cli, err := open.OpenClient(codeHostID, log)
 	if err != nil {
-		log.Error(err)
-		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
+		log.Errorf("open client err:%s", err)
+		return nil, err
 	}
-	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
-		}
-
-		if namespaceType == GroupKind {
-			projects, err := client.ListGroupProjects(namespace, keyword, nil)
-			if err != nil {
-				log.Error(err)
-				return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
-			}
-			return ToProjects(projects), nil
-		}
-
-		// user
-		projects, err := client.ListUserProjects(namespace, keyword, &gitlab.ListOptions{
-			Page:        page,
-			PerPage:     perPage,
-			NoPaginated: true,
-		})
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
-		}
-		return ToProjects(projects), nil
-
-	} else if ch.Type == gerrit.CodehostTypeGerrit {
-		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
-		projects, err := cli.ListProjectsByKey(keyword)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
-		}
-		return ToProjects(projects), nil
-	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
-		projects, err := codeHubClient.RepoList(namespace, keyword, 100)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
-		}
-		return ToProjects(projects), nil
-	} else {
-		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
-		repos, err := gh.ListRepositoriesForAuthenticatedUser(context.TODO(), nil)
-		if err != nil {
-			return nil, err
-		}
-		var projects []*Project
-		for _, p := range ToProjects(repos) {
-			if p.Namespace != namespace {
-				continue
-			}
-			projects = append(projects, p)
-		}
-
-		return projects, nil
+	projects, err := cli.ListProjects(client.ListOpt{
+		Namespace:     namespace,
+		NamespaceType: namespaceType,
+		Key:           keyword,
+		Page:          page,
+		PerPage:       perPage,
+	})
+	if err != nil {
+		log.Errorf("list projects err:%s", err)
+		return nil, err
 	}
+	return projects, nil
 }

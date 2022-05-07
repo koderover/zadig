@@ -19,7 +19,9 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,6 +31,7 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func GetProductTemplate(c *gin.Context) {
@@ -44,7 +47,26 @@ func GetProductTemplateServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productTemplatName := c.Param("name")
-	ctx.Resp, ctx.Err = projectservice.GetProductTemplateServices(productTemplatName, ctx.Logger)
+
+	envType := types.EnvType(c.Query("envType"))
+	isBaseEnvStr := c.Query("isBaseEnv")
+	baseEnvName := c.Query("baseEnv")
+
+	if envType == "" {
+		envType = types.GeneralEnv
+	}
+
+	var isBaseEnv bool
+	var err error
+	if envType == types.ShareEnv {
+		isBaseEnv, err = strconv.ParseBool(isBaseEnvStr)
+		if err != nil {
+			ctx.Err = fmt.Errorf("failed to parse %s to bool: %s", isBaseEnvStr, err)
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetProductTemplateServices(productTemplatName, envType, isBaseEnv, baseEnvName, ctx.Logger)
 }
 
 func CreateProductTemplate(c *gin.Context) {

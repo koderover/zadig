@@ -37,29 +37,30 @@ func Execute() error {
 	})
 
 	start := time.Now()
-	log.Info("Build start.")
 
 	var err error
+	var reaperType types.ReaperType
 	defer func() {
 		// Create dog food file to tell wd that task has finished.
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
+			log.Errorf("Failed to run: %s.", err)
 		}
 		log.Infof("Job Status: %s", resultMsg)
 
 		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
 		if dogFoodErr != nil {
-			log.Errorf("Failed to create dog food: %s", dogFoodErr)
-		} else {
-			log.Infof("Build end. Duration: %.2f seconds.", time.Since(start).Seconds())
+			log.Errorf("Failed to create dog food: %s.", dogFoodErr)
 		}
+
+		log.Infof("====================== %s End. Duration: %.2f seconds ======================", reaperType, time.Since(start).Seconds())
 
 		// Note: Mark the task has been completed through the dogfood file, indirectly notify wd to do follow-up
 		//       operations, and wait for a fixed time.
 		//       Since `wd` will automatically delete the job after detecting the dogfile, this time has little
 		//       effect on the overall construction time.
-		time.Sleep(1 * time.Minute)
+		time.Sleep(30 * time.Second)
 	}()
 
 	var r *reaper.Reaper
@@ -67,6 +68,9 @@ func Execute() error {
 	if err != nil {
 		return fmt.Errorf("failed to new reaper: %s", err)
 	}
+
+	reaperType = r.Type
+	log.Infof("====================== %s Start ======================", reaperType)
 
 	if err = r.BeforeExec(); err != nil {
 		return fmt.Errorf("failed to prepare before building: %s", err)
@@ -78,7 +82,7 @@ func Execute() error {
 		}
 	}
 
-	if err = r.AfterExec(err); err != nil {
+	if err = r.AfterExec(); err != nil {
 		return fmt.Errorf("failed to work after building: %s", err)
 	}
 

@@ -51,10 +51,15 @@ type Product struct {
 	Source       string                        `bson:"source"                    json:"source"`
 	IsOpenSource bool                          `bson:"is_opensource"             json:"is_opensource"`
 	RegistryID   string                        `bson:"registry_id"               json:"registry_id"`
+	BaseName     string                        `bson:"base_name"                 json:"base_name"`
 	// IsExisted is true if this environment is created from an existing one
 	IsExisted bool `bson:"is_existed"                json:"is_existed"`
 	// TODO: temp flag
 	IsForkedProduct bool `bson:"-" json:"-"`
+
+	// New Since v1.11.0.
+	ShareEnv       ProductShareEnv `bson:"share_env" json:"share_env"`
+	EnvConfigYamls []string        `bson:"env_config_yamls,omitempty"   json:"env_config_yamls,omitempty"`
 }
 
 type RenderInfo struct {
@@ -84,6 +89,12 @@ type ProductService struct {
 type ServiceConfig struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
 	Revision   int64  `bson:"revision"              json:"revision"`
+}
+
+type ProductShareEnv struct {
+	Enable  bool   `bson:"enable"   json:"enable"`
+	IsBase  bool   `bson:"is_base"  json:"is_base"`
+	BaseEnv string `bson:"base_env" json:"base_env"`
 }
 
 func (Product) TableName() string {

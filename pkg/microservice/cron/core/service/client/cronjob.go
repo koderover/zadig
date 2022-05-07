@@ -24,6 +24,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"time"
 
 	"go.uber.org/zap"
@@ -66,6 +67,17 @@ func (c *Client) TriggerCleanProducts(log *zap.SugaredLogger) error {
 	return err
 }
 
+// TriggerCleanCIResources trigger clean CollaborationInstance Resources
+func (c *Client) TriggerCleanCIResources(log *zap.SugaredLogger) error {
+	url := fmt.Sprintf("%s/collaboration/collaborations/cron/clean", c.APIBase)
+	log.Info("start clean CollaborationInstance Resources..")
+	err := c.sendRequest(url)
+	if err != nil {
+		log.Errorf("trigger clean CollaborationInstance Resources error :%s", err)
+	}
+	return err
+}
+
 // RunPipelineTask ...
 func (c *Client) RunPipelineTask(args *service.TaskArgs, log *zap.SugaredLogger) error {
 	url := fmt.Sprintf("%s/workflow/v2/tasks", c.APIBase)
@@ -83,7 +95,7 @@ func (c *Client) RunPipelineTask(args *service.TaskArgs, log *zap.SugaredLogger)
 }
 
 func (c *Client) RunWorkflowTask(args *service.WorkflowTaskArgs, log *zap.SugaredLogger) error {
-	url := fmt.Sprintf("%s/workflow/workflowtask", c.APIBase)
+	url := path.Join(c.APIBase, "workflow/workflowtask", args.WorkflowName)
 	log.Info("start run scheduled task..")
 	body, err := json.Marshal(args)
 	if err != nil {

@@ -167,19 +167,42 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 		}
 		switch u.GetKind() {
 		case setting.Ingress:
-			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+			clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
 			if err != nil {
-				log.Errorf("failed to init kubeClient, clusterID: %s", product.ClusterID)
+				log.Errorf("failed to init clientset, clusterID: %s", product.ClusterID)
 				return nil
 			}
-			// need to get ingress from k8s
-			// serializer.NewDecoder()YamlToIngress() only supports ingress resource with apiVersion: apiVersion: extensions/v1beta1
-			ing, found, err := getter.GetIngress(product.Namespace, u.GetName(), kubeClient)
-			if err != nil || !found {
-				log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
+
+			inf, err := informer.NewInformer(product.ClusterID, product.Namespace, clientset)
+			if err != nil {
+				log.Errorf("failed to create informer from clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
+				return nil
+			}
+
+			version, err := clientset.Discovery().ServerVersion()
+			if err != nil {
+				log.Warnf("Failed to determine server version, error is: %s", err)
 				continue
 			}
-			hostInfos = append(hostInfos, wrapper.Ingress(ing).HostInfo()...)
+
+			if kubeclient.VersionLessThan122(version) {
+				// get the ingress info from kubernetes. For cluster version 1.22- we only search for
+				// extensions/v1beta1.
+				// FIXME: add networking.k8s.io/v1beta1 & networking.k8s.io/v1 support for cluster 1.22-
+				ing, found, err := getter.GetExtensionsV1Beta1Ingress(product.Namespace, u.GetName(), inf)
+				if err != nil || !found {
+					log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
+					continue
+				}
+				hostInfos = append(hostInfos, wrapper.Ingress(ing).HostInfo()...)
+			} else {
+				ing, err := getter.GetNetworkingV1Ingress(product.Namespace, u.GetName(), inf)
+				if err != nil {
+					log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
+					continue
+				}
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ing)...)
+			}
 		}
 	}
 	ingressInfo.HostInfo = hostInfos

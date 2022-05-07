@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -50,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	commontypes "github.com/koderover/zadig/pkg/types"
@@ -111,7 +114,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 	}
 
 	if err := containerlog.GetContainerLogs(namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, clientSet); err != nil {
-		return err
+		return fmt.Errorf("failed to get container logs: %s", err)
 	}
 
 	if tempFileName, err := util.GenerateTmpFile(); err == nil {
@@ -224,6 +227,20 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ServiceName:     serviceName,
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
+		UploadEnabled:   b.JobCtx.UploadEnabled,
+		UploadInfo:      b.JobCtx.UploadInfo,
+	}
+
+	// Currently only the build stage will have this info. For the rest we will skip this context
+	if b.JobCtx.UploadStorageInfo != nil {
+		ctx.UploadStorageInfo = &commontypes.ObjectStorageInfo{
+			Endpoint: b.JobCtx.UploadStorageInfo.Endpoint,
+			AK:       b.JobCtx.UploadStorageInfo.AK,
+			SK:       b.JobCtx.UploadStorageInfo.SK,
+			Bucket:   b.JobCtx.UploadStorageInfo.Bucket,
+			Insecure: b.JobCtx.UploadStorageInfo.Insecure,
+			Provider: b.JobCtx.UploadStorageInfo.Provider,
+		}
 	}
 
 	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
@@ -265,16 +282,29 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			CheckoutRef:  build.CheckoutRef,
 			User:         build.Username,
 			Password:     build.Password,
+			EnableProxy:  build.EnableProxy,
 		}
 		ctx.Repos = append(ctx.Repos, repo)
 	}
 
+	envmaps := make(map[string]string)
 	for _, ev := range b.JobCtx.EnvVars {
 		val := fmt.Sprintf("%s=%s", ev.Key, ev.Value)
 		if ev.IsCredential {
 			ctx.SecretEnvs = append(ctx.SecretEnvs, val)
 		} else {
 			ctx.Envs = append(ctx.Envs, val)
+		}
+		envmaps[ev.Key] = ev.Value
+	}
+
+	if b.JobCtx.UploadEnabled {
+		for _, upload := range b.JobCtx.UploadInfo {
+			// since the frontend won't change the file path, the backend will have to add it
+			upload.FilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
+			// then we replace it with our env variables
+			upload.FilePath = replaceEnvWithValue(upload.FilePath, envmaps)
+			upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		}
 	}
 
@@ -321,12 +351,10 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	ctx.Caches = b.JobCtx.Caches
 
-	if b.JobCtx.TestResultPath != "" {
-		ctx.GinkgoTest = &types.GinkgoTest{
-			ResultPath:     b.JobCtx.TestResultPath,
-			TestReportPath: b.JobCtx.TestReportPath,
-			ArtifactPaths:  b.JobCtx.ArtifactPaths,
-		}
+	ctx.GinkgoTest = &types.GinkgoTest{
+		ResultPath:     b.JobCtx.TestResultPath,
+		TestReportPath: b.JobCtx.TestReportPath,
+		ArtifactPaths:  b.JobCtx.ArtifactPaths,
 	}
 
 	ctx.StorageEndpoint = pipelineTask.ConfigPayload.S3Storage.Endpoint
@@ -379,7 +407,7 @@ const (
 func getJobLabels(jobLabel *JobLabel) map[string]string {
 	retMap := map[string]string{
 		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
-		jobLabelServiceKey: strings.ToLower(jobLabel.ServiceName),
+		jobLabelServiceKey: strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),
 		jobLabelSTypeKey:   strings.Replace(jobLabel.TaskType, "_", "-", -1),
 		jobLabelPTypeKey:   jobLabel.PipelineType,
 	}
@@ -445,9 +473,9 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	}
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
-		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
+		reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
 		if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
-			reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
+			reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
 				pipelineTask.ConfigPayload.Proxy.GetProxyURL(),
 				reaperBinaryFile,
 			)
@@ -543,6 +571,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
 			MountPath: mountPath,
+			SubPath:   ctx.Cache.NFSProperties.Subpath,
 		})
 	}
 
@@ -555,29 +584,47 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		job.Spec.Template.Spec.Affinity = affinity
 	}
 
-	if linkedNs != "" && execNs != "" && pipelineTask.ConfigPayload.CustomDNSSupported {
-		job.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
-			Searches: []string{
-				linkedNs + ".svc.cluster.local",
-				execNs + ".svc.cluster.local",
-				"svc.cluster.local",
-				"cluster.local",
-			},
-		}
+	// Note:
+	// The following logic is valid for the testing task and configures dNSconfig as follows:
+	// ```
+	// dnsConfig:
+	//   nameservers:
+	//   - 192.168.0.157
+	//   options:
+	//   - name: ndots
+	//     value: "5"
+	//   searches:
+	//   - piggymetrics-env-dev.svc.cluster.local
+	//   - koderover-agent.svc.cluster.local
+	//   - svc.cluster.local
+	//   - cluster.local
+	// ```
+	//
+	// These are intra-cluster domain names that can be satisfied by default `ClusterFirst` DNSPolicy.
+	// No one knows why there is such logic, comment it out, run it for a while and then delete it.
+	//
+	// if linkedNs != "" && execNs != "" && pipelineTask.ConfigPayload.CustomDNSSupported {
+	// 	job.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
+	// 		Searches: []string{
+	// 			linkedNs + ".svc.cluster.local",
+	// 			execNs + ".svc.cluster.local",
+	// 			"svc.cluster.local",
+	// 			"cluster.local",
+	// 		},
 
-		if addresses, lookupErr := lookupKubeDNSServerHost(); lookupErr == nil {
-			job.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
-			// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-config
-			// There can be at most 3 IP addresses specified
-			job.Spec.Template.Spec.DNSConfig.Nameservers = addresses[:Min(3, len(addresses))]
-			value := "5"
-			job.Spec.Template.Spec.DNSConfig.Options = []corev1.PodDNSConfigOption{
-				{Name: "ndots", Value: &value},
-			}
-		} else {
-			log.SugaredLogger().Errorf("failed to find ip of kube dns %v", lookupErr)
-		}
-	}
+	// 	if addresses, lookupErr := lookupKubeDNSServerHost(); lookupErr == nil {
+	// 		job.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
+	// 		// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-config
+	// 		// There can be at most 3 IP addresses specified
+	// 		job.Spec.Template.Spec.DNSConfig.Nameservers = addresses[:Min(3, len(addresses))]
+	// 		value := "5"
+	// 		job.Spec.Template.Spec.DNSConfig.Options = []corev1.PodDNSConfigOption{
+	// 			{Name: "ndots", Value: &value},
+	// 		}
+	// 	} else {
+	// 		log.SugaredLogger().Errorf("failed to find ip of kube dns %v", lookupErr)
+	// 	}
+	// }
 
 	return job, nil
 }
@@ -754,15 +801,62 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 
 //waitJobEnd
 //Returns job status
-func waitJobEnd(ctx context.Context, taskTimeout int, namspace, jobName string, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
-	return waitJobEndWithFile(ctx, taskTimeout, namspace, jobName, false, kubeClient, xl)
+func waitJobEnd(ctx context.Context, taskTimeout int, namspace, jobName string, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
+	return waitJobEndWithFile(ctx, taskTimeout, namspace, jobName, false, kubeClient, clientset, restConfig, xl)
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
+func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
+	xl.Infof("Wait job to start: %s/%s", namespace, jobName)
+	podTimeout := time.After(120 * time.Second)
+
+	var started bool
+	for {
+		select {
+		case <-podTimeout:
+			return config.StatusTimeout
+		default:
+			time.Sleep(time.Second)
+
+			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
+			if err != nil {
+				xl.Errorf("Failed to get job `%s` in namespace `%s`: %s", jobName, namespace, err)
+				continue
+			}
+
+			podLabels := labels.Set{
+				jobLabelPTypeKey:   job.Labels[jobLabelPTypeKey],
+				jobLabelServiceKey: job.Labels[jobLabelServiceKey],
+				jobLabelTaskKey:    job.Labels[jobLabelTaskKey],
+				jobLabelSTypeKey:   job.Labels[jobLabelSTypeKey],
+			}
+			pods, err := getter.ListPods(namespace, podLabels.AsSelector(), kubeClient)
+			if err != nil {
+				xl.Errorf("Failed to get pods in namespace `%s` for Job `%s`: %s", namespace, jobName, err)
+				continue
+			}
+
+			for _, pod := range pods {
+				if pod.Status.Phase == corev1.PodRunning {
+					started = true
+					break
+				}
+			}
+		}
+
+		if started {
+			break
+		}
+	}
+
+	return config.StatusRunning
+}
+
+func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
 	timeout := time.After(time.Duration(taskTimeout) * time.Second)
 	podTimeout := time.After(120 * time.Second)
-	// 等待job运行
+
+	xl.Infof("Timeout of preparing Pod: %s. Timeout of running task: %s.", 120*time.Second, time.Duration(taskTimeout)*time.Second)
 
 	var started bool
 	for {
@@ -826,9 +920,12 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					}
 
 					if !ipod.Finished() {
-						jobStatus, exists, err = checkDogFoodExistsInContainer(namespace, ipod.Name, ipod.ContainerNames()[0])
+						jobStatus, exists, err = checkDogFoodExistsInContainer(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0])
 						if err != nil {
-							xl.Errorf("Failed to check dog food file %s: %s.", pods[0].Name, err)
+							// Note:
+							// Currently, this error indicates "the target Pod cannot be accessed" or "the target Pod can be accessed, but the dog food file does not exist".
+							// In these two scenarios, `Info` is used to print logs because they are not business semantic exceptions.
+							xl.Infof("Result of checking dog food file %s: %s", pods[0].Name, err)
 							break
 						}
 						if !exists {
@@ -857,11 +954,10 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 		time.Sleep(time.Second * 1)
 	}
-
 }
 
-func checkDogFoodExistsInContainer(namespace string, pod string, container string) (commontypes.JobStatus, bool, error) {
-	stdout, _, success, err := podexec.ExecWithOptions(podexec.ExecOptions{
+func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string) (commontypes.JobStatus, bool, error) {
+	stdout, _, success, err := podexec.KubeExec(clientset, restConfig, podexec.ExecOptions{
 		Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", setting.DogFood)},
 		Namespace:     namespace,
 		PodName:       pod,
@@ -966,4 +1062,53 @@ func genRegistrySecretName(reg *task.RegistryNamespace) (string, error) {
 	}
 
 	return secretName, nil
+}
+
+func replaceEnvWithValue(str string, envs map[string]string) string {
+	ret := str
+	for key, value := range envs {
+		strKey := fmt.Sprintf("$%s", key)
+		ret = strings.ReplaceAll(ret, strKey, value)
+	}
+	return ret
+}
+
+func checkJobExists(ctx context.Context, ns string, jobLabels *JobLabel, kclient client.Client) (jobObj *batchv1.Job, exist bool, err error) {
+	labelsMap := getJobLabels(jobLabels)
+	labelSelector := labels.SelectorFromSet(labels.Set(labelsMap))
+
+	jobList := &batchv1.JobList{}
+	err = kclient.List(ctx, jobList, &client.ListOptions{
+		Namespace:     ns,
+		LabelSelector: labelSelector,
+	})
+	if err != nil || len(jobList.Items) == 0 {
+		return nil, false, kubeutil.IgnoreNotFoundError(err)
+	}
+
+	if len(jobList.Items) != 1 {
+		return nil, true, fmt.Errorf("more than 1 job with labels: %v", labelsMap)
+	}
+
+	return &(jobList.Items[0]), true, nil
+}
+
+func checkConfigMapExists(ctx context.Context, ns string, jobLabels *JobLabel, kclient client.Client) (cmObj *corev1.ConfigMap, exist bool, err error) {
+	labelsMap := getJobLabels(jobLabels)
+	labelSelector := labels.SelectorFromSet(labels.Set(labelsMap))
+
+	cmList := &corev1.ConfigMapList{}
+	err = kclient.List(ctx, cmList, &client.ListOptions{
+		Namespace:     ns,
+		LabelSelector: labelSelector,
+	})
+	if err != nil || len(cmList.Items) == 0 {
+		return nil, false, kubeutil.IgnoreNotFoundError(err)
+	}
+
+	if len(cmList.Items) != 1 {
+		return nil, true, fmt.Errorf("more than 1 ConfigMap with labels: %v", labelsMap)
+	}
+
+	return &(cmList.Items[0]), true, nil
 }

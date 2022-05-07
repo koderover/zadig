@@ -27,7 +27,7 @@ import (
 )
 
 type Notification struct {
-	ID         primitive.ObjectID  `bson:"_id,omitempty"           json:"id,omitempty"`
+	ID         primitive.ObjectID  `bson:"_id,omitempty"                json:"id,omitempty"`
 	CodehostID int                 `bson:"codehost_id"                  json:"codehost_id"`
 	Tasks      []*NotificationTask `bson:"tasks,omitempty"              json:"tasks,omitempty"`
 	PrID       int                 `bson:"pr_id"                        json:"pr_id"`
@@ -41,6 +41,8 @@ type Notification struct {
 	PrTask     *PrTaskInfo         `bson:"pr_task_info,omitempty"       json:"pr_task_info,omitempty"`
 	Label      string              `bson:"label"                        json:"label"  `
 	Revision   string              `bson:"revision"                     json:"revision"`
+	RepoOwner  string              `bson:"repo_owner"                   json:"repo_owner"`
+	RepoName   string              `bson:"repo_name"                    json:"repo_name"`
 }
 
 type PrTaskInfo struct {

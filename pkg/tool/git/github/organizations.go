@@ -32,6 +32,10 @@ func (c *Client) ListOrganizationsForAuthenticatedUser(ctx context.Context, opts
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*github.Organization
 	os, ok := organizations.([]interface{})
 	if !ok {

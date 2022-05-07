@@ -38,21 +38,24 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflows.GET("v3", ListWorkflowsV3)
 	}
 
-	rolebindings := router.Group("rolebindings")
+	rolebindings := router.Group("bindings")
 	{
-		rolebindings.GET("", ListRoleBindings)
-	}
-	codehosts := router.Group("codehosts")
-	{
-		codehosts.GET("", ListCodeHost)
+		rolebindings.GET("", ListBindings)
 	}
 	users := router.Group("users")
 	{
+		users.POST("", SearchUsers)
 		users.DELETE("/:id", DeleteUser)
 	}
 	downloads := router.Group("kubeconfig")
 	{
 		downloads.GET("", GetKubeConfig)
 	}
-
+	stat := router.Group("stat")
+	{
+		stat.GET("dashboard/overview", Overview)
+		stat.GET("dashboard/deploy", Deploy)
+		stat.GET("dashboard/test", Test)
+		stat.GET("dashboard/build", Build)
+	}
 }

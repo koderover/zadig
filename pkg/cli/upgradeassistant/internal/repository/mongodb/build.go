@@ -65,3 +65,19 @@ func (c *BuildColl) List(opt *BuildListOption) ([]*models.Build, error) {
 
 	return resp, nil
 }
+
+func (c *BuildColl) Update(build *models.Build) error {
+	if build == nil {
+		return errors.New("nil Module args")
+	}
+
+	query := bson.M{"name": build.Name}
+	if build.ProductName != "" {
+		query["product_name"] = build.ProductName
+	}
+
+	updateBuild := bson.M{"$set": build}
+
+	_, err := c.Collection.UpdateOne(context.TODO(), query, updateBuild)
+	return err
+}

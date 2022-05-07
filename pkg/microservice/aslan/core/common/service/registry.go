@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -97,14 +98,30 @@ func FindDefaultRegistry(getRealCredential bool, log *zap.SugaredLogger) (reg *m
 	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, getRealCredential, log)
 }
 
-func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
+func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
 	resp, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %s", err)
 		return resp, fmt.Errorf("RegistryNamespace.List error: %s", err)
 	}
-
+	var aesKey *GetAesKeyFromEncryptedKeyResp
+	if len(encryptedKey) > 0 {
+		aesKey, err = GetAesKeyFromEncryptedKey(encryptedKey, log)
+		if err != nil {
+			log.Errorf("RegistryNamespace.List GetAesKeyFromEncryptedKey error: %s", err)
+			return nil, err
+		}
+	}
 	if !getRealCredential {
+		if len(encryptedKey) > 0 {
+			for _, reg := range resp {
+				reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
+				if err != nil {
+					log.Errorf("RegistryNamespace.List AesEncryptByKey error: %s", err)
+					return nil, err
+				}
+			}
+		}
 		return resp, nil
 	}
 
@@ -121,6 +138,14 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 			}
 			reg.AccessKey = realAK
 			reg.SecretKey = realSK
+		}
+		if len(encryptedKey) == 0 {
+			continue
+		}
+		reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("RegistryNamespace.List AesEncryptByKey error: %s", err)
+			return nil, err
 		}
 	}
 	return resp, nil
@@ -149,7 +174,7 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 		}
 	}
 
-	err = kube.CreateOrUpdateRegistrySecret(namespace, reg, kubeClient)
+	err = kube.CreateOrUpdateDefaultRegistrySecret(namespace, reg, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] CreateDockerSecret error: %s", namespace, err)
 		return e.ErrUpdateSecret.AddDesc(e.CreateDefaultRegistryErrMsg)

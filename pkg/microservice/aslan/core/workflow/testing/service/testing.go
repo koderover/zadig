@@ -298,9 +298,9 @@ func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, l
 		return "", e.ErrGetTestReport.AddDesc("invalid taskID")
 	}
 
-	task, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, config.WorkflowType)
+	task, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, config.PipelineType(pipelineType))
 	if err != nil {
-		log.Errorf("find task failed, pipelineName: %s, type: %s, taskID: %s, err: %s", pipelineName, config.WorkflowType, taskIDStr, err)
+		log.Errorf("find task failed, pipelineName: %s, type: %s, taskID: %s, err: %s", pipelineName, config.PipelineType(pipelineType), taskIDStr, err)
 		return "", e.ErrGetTestReport.AddErr(err)
 	}
 
@@ -373,7 +373,7 @@ func validateTestReportParam(pipelineName, pipelineType, taskIDStr, testName str
 		return fmt.Errorf("testName cannot be empty")
 	}
 
-	if pipelineType != string(config.WorkflowType) {
+	if pipelineType != string(config.WorkflowType) && pipelineType != string(config.TestType) {
 		log.Warn("pipelineType is invalid")
 		return fmt.Errorf("pipelineType is invalid")
 	}

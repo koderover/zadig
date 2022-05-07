@@ -17,20 +17,33 @@ limitations under the License.
 package helmclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 
+	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
+	"helm.sh/helm/v3/pkg/plugin"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v3/pkg/storage"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"helm.sh/helm/v3/pkg/strvals"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -38,18 +51,99 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
+const (
+	HelmPluginsDirectory = "/app/.helm/helmplugin"
+)
+
+var repoInfo *repo.File
+var generalSettings *cli.EnvSettings
+
+// enable support of oci registry
+func init() {
+	os.Setenv("HELM_EXPERIMENTAL_OCI", "1")
+	os.Setenv("HELM_PLUGINS", HelmPluginsDirectory)
+	repoInfo = &repo.File{}
+	generalSettings = cli.New()
+	generalSettings.PluginsDirectory = HelmPluginsDirectory
+}
+
 type HelmClient struct {
 	*hc.HelmClient
+	kubeClient client.Client
+	Namespace  string
+	lock       *sync.Mutex
+	RestConfig *rest.Config
+}
+
+// NewClient returns a new Helm client with no construct parameters
+// used to update helm repo data and download index.yaml or helm charts
+func NewClient() (*HelmClient, error) {
+	hcClient, err := hc.New(&hc.Options{
+		RepositoryConfig: generalSettings.RepositoryConfig,
+		RepositoryCache:  generalSettings.RepositoryCache,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	helmClient := hcClient.(*hc.HelmClient)
+	helmClient.Settings = generalSettings
+	return &HelmClient{
+		helmClient,
+		nil,
+		"",
+		&sync.Mutex{},
+		nil,
+	}, nil
+}
+
+// NewClientFromNamespace returns a new Helm client constructed with the provided clusterID and namespace
+// a kubeClient will be initialized to support necessary k8s operations when install/upgrade helm charts
+func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
+		Options: &hc.Options{
+			Namespace: namespace,
+			DebugLog:  log.Debugf,
+		},
+		RestConfig: restConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	helmClient := hcClient.(*hc.HelmClient)
+	return &HelmClient{
+		helmClient,
+		kubeClient,
+		namespace,
+		&sync.Mutex{},
+		restConfig,
+	}, nil
 }
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
-func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error) {
+// used to list/uninstall helm release
+func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, error) {
 	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
 		Options: &hc.Options{
 			Namespace: ns,
@@ -64,12 +158,16 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 	helmClient := hcClient.(*hc.HelmClient)
 	return &HelmClient{
 		helmClient,
+		nil,
+		ns,
+		&sync.Mutex{},
+		restConfig,
 	}, nil
 }
 
 type KV struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
 }
 
 // MergeOverrideValues merge override yaml and override kvs
@@ -93,7 +191,7 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		}
 		kvStr := make([]string, 0)
 		for _, kv := range kvList {
-			kvStr = append(kvStr, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
+			kvStr = append(kvStr, fmt.Sprintf("%s=%v", kv.Key, kv.Value))
 		}
 		// override values for --set option
 		err = strvals.ParseInto(strings.Join(kvStr, ","), valuesMap)
@@ -265,8 +363,12 @@ func (hClient *HelmClient) upgradeCRD(ctx context.Context, k8sClient *clientset.
 // check weather to install or upgrade chart by current status
 // return error if neither install nor upgrade action is legal
 func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) {
+	historyReleaseCount := 10
+	if spec.MaxHistory > 0 {
+		historyReleaseCount = spec.MaxHistory
+	}
 	// find history of particular release
-	releases, err := hClient.ListReleaseHistory(spec.ReleaseName, 10)
+	releases, err := hClient.ListReleaseHistory(spec.ReleaseName, historyReleaseCount)
 	if err != nil && err != driver.ErrReleaseNotFound {
 		return false, err
 	}
@@ -283,16 +385,16 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 		return false, errors.New("another operation (install/upgrade/rollback) is in progress, please try later")
 	}
 
-	// release with deployed/failed/superseded status: normal upgrade operation
-	if lastRelease.Info.Status == release.StatusDeployed || lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded {
-		return false, nil
-	}
-
 	// find deployed revision with status deployed from history, would be upgrade operation
 	for _, rel := range releases {
 		if rel.Info.Status == release.StatusDeployed {
 			return false, nil
 		}
+	}
+
+	// release with failed/superseded status: legal upgrade operation
+	if lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded {
+		return false, hClient.ensureUpgrade(historyReleaseCount, spec.ReleaseName, releases)
 	}
 
 	// if replace set to true, install will be a legal operation
@@ -301,6 +403,18 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 	}
 
 	return false, fmt.Errorf("can't install or upgrade chart with status: %s", lastRelease.Info.Status)
+}
+
+// ensure new release revision can be saved
+func (hClient *HelmClient) ensureUpgrade(maxHistoryCount int, releaseName string, releases []*release.Release) error {
+	if maxHistoryCount <= 0 || len(releases) < maxHistoryCount {
+		return nil
+	}
+	if hClient.kubeClient == nil {
+		return errors.New("kubeClient is nil")
+	}
+	secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, releaseName, releases[len(releases)-1].Version)
+	return updater.DeleteSecretWithName(hClient.Namespace, secretName, hClient.kubeClient)
 }
 
 // getChart returns a chart matching the provided chart name and options.
@@ -324,14 +438,14 @@ func (hClient *HelmClient) getChart(chartName string, chartPathOptions *action.C
 
 func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
 	c := hClient.HelmClient
-	client := action.NewInstall(c.ActionConfig)
-	mergeInstallOptions(spec, client)
+	install := action.NewInstall(c.ActionConfig)
+	mergeInstallOptions(spec, install)
 
-	if client.Version == "" {
-		client.Version = ">0.0.0-0"
+	if install.Version == "" {
+		install.Version = ">0.0.0-0"
 	}
 
-	helmChart, chartPath, err := hClient.getChart(spec.ChartName, &client.ChartPathOptions)
+	helmChart, chartPath, err := hClient.getChart(spec.ChartName, &install.ChartPathOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -346,16 +460,16 @@ func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec)
 
 	if req := helmChart.Metadata.Dependencies; req != nil {
 		if err := action.CheckDependencies(helmChart, req); err != nil {
-			if !client.DependencyUpdate {
+			if !install.DependencyUpdate {
 				return nil, err
 			}
 			man := &downloader.Manager{
 				ChartPath:        chartPath,
-				Keyring:          client.ChartPathOptions.Keyring,
+				Keyring:          install.ChartPathOptions.Keyring,
 				SkipUpdate:       false,
 				Getters:          c.Providers,
-				RepositoryConfig: c.Settings.RepositoryConfig,
-				RepositoryCache:  c.Settings.RepositoryCache,
+				RepositoryConfig: generalSettings.RepositoryConfig,
+				RepositoryCache:  generalSettings.RepositoryCache,
 			}
 			if err := man.Update(); err != nil {
 				return nil, err
@@ -368,7 +482,7 @@ func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec)
 		return nil, err
 	}
 
-	rel, err := client.RunWithContext(ctx, helmChart, values)
+	rel, err := install.RunWithContext(ctx, helmChart, values)
 	if err != nil {
 		return rel, err
 	}
@@ -380,14 +494,14 @@ func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec)
 
 func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
 	c := hClient.HelmClient
-	client := action.NewUpgrade(c.ActionConfig)
-	mergeUpgradeOptions(spec, client)
+	upgrade := action.NewUpgrade(c.ActionConfig)
+	mergeUpgradeOptions(spec, upgrade)
 
-	if client.Version == "" {
-		client.Version = ">0.0.0-0"
+	if upgrade.Version == "" {
+		upgrade.Version = ">0.0.0-0"
 	}
 
-	helmChart, _, err := hClient.getChart(spec.ChartName, &client.ChartPathOptions)
+	helmChart, _, err := hClient.getChart(spec.ChartName, &upgrade.ChartPathOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -411,13 +525,11 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 		}
 	}
 
-	rel, err := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+	rel, err := upgrade.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
 	if err != nil {
 		return rel, err
 	}
-
 	c.DebugLog("release upgraded successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
-
 	return rel, nil
 }
 
@@ -433,6 +545,164 @@ func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.C
 	} else {
 		return hClient.upgradeChart(ctx, spec)
 	}
+}
+
+// UpdateChartRepo works like executing `helm repo update`
+// environment `HELM_REPO_USERNAME` and `HELM_REPO_PASSWORD` are only required for ali acr repos
+func (hClient *HelmClient) UpdateChartRepo(repoEntry *repo.Entry) (string, error) {
+	chartRepo, err := repo.NewChartRepository(repoEntry, hClient.Providers)
+	if err != nil {
+		return "", err
+	}
+	chartRepo.CachePath = hClient.Settings.RepositoryCache
+
+	repoUrl, err := url.Parse(repoEntry.URL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse repo url: %s, err: %w", repoEntry.URL, err)
+	}
+	if repoUrl.Scheme == "acr" {
+		// export envionment-variables for ali acr chart repo
+		os.Setenv("HELM_REPO_USERNAME", repoEntry.Username)
+		os.Setenv("HELM_REPO_PASSWORD", repoEntry.Password)
+	}
+
+	// update repo info
+	repoInfo.Update(repoEntry)
+
+	// download index.yaml
+	indexFilePath, err := chartRepo.DownloadIndexFile()
+	if err != nil {
+		return "", err
+	}
+
+	err = repoInfo.WriteFile(hClient.Settings.RepositoryConfig, 0o644)
+	if err != nil {
+		return "", err
+	}
+	return indexFilePath, err
+}
+
+// FetchIndexYaml fetch index.yaml from remote chart repo
+// `helm repo add` and `helm repo update` will be executed
+func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFile, error) {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
+	indexFilePath, err := hClient.UpdateChartRepo(repoEntry)
+	if err != nil {
+		return nil, err
+	}
+	// Read the index file for the repository to get chart information and return chart URL
+	repoIndex, err := repo.LoadIndexFile(indexFilePath)
+	return repoIndex, err
+}
+
+// DownloadChart works like executing `helm pull repoName/chartName --version=version'
+// since pulling from OCI Registry is still considered as an EXPERIMENTAL feature
+// we DO NOT support pulling charts by pulling OCI Artifacts from OCI Registry
+// NOTE consider using os.execCommand('helm pull') to reduce code complexity of offering compatibility since third-party plugins CANNOT be used as SDK
+func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
+	_, err := hClient.UpdateChartRepo(repoEntry)
+	if err != nil {
+		return nil
+	}
+	pull := action.NewPull()
+	pull.Password = repoEntry.Username
+	pull.Username = repoEntry.Password
+	pull.Version = chartVersion
+	pull.Settings = generalSettings
+	pull.DestDir = destDir
+	pull.UntarDir = destDir
+	pull.Untar = unTar
+	_, err = pull.Run(chartRef)
+	return err
+}
+
+func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string) error {
+	base := filepath.Join(hClient.Settings.PluginsDirectory, "helm-acr")
+	prog := exec.Command(filepath.Join(base, "bin/helm-cm-push"), chartPath, repoEntry.Name)
+	plugin.SetupPluginEnv(hClient.Settings, "cm-push", base)
+	prog.Env = os.Environ()
+	buf := bytes.NewBuffer(nil)
+	prog.Stdout = buf
+	prog.Stderr = os.Stderr
+	if err := prog.Run(); err != nil {
+		if eErr, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("plugin exited with error: %s", string(eErr.Stderr))
+		}
+		return err
+	}
+	return nil
+}
+
+func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath string) error {
+	chartClient, err := cm.NewClient(
+		cm.URL(repoEntry.URL),
+		cm.Username(repoEntry.Username),
+		cm.Password(repoEntry.Password),
+	)
+	if err != nil {
+		return err
+	}
+	resp, err := chartClient.UploadChartPackage(chartPath, false)
+	if err != nil {
+		return fmt.Errorf("failed to prepare pushing chart: %s, error: %w", chartPath, err)
+
+	}
+
+	defer resp.Body.Close()
+	err = handlePushResponse(resp)
+	if err != nil {
+		return fmt.Errorf("failed to push chart: %s, error: %w", chartPath, err)
+	}
+	return nil
+}
+
+func getChartmuseumError(b []byte, code int) error {
+	var er struct {
+		Error string `json:"error"`
+	}
+	err := json.Unmarshal(b, &er)
+	if err != nil || er.Error == "" {
+		return fmt.Errorf("%d: could not properly parse response JSON: %s", code, string(b))
+	}
+	return fmt.Errorf("chart museum errCode: %d, err: %s", code, er.Error)
+}
+
+func handlePushResponse(resp *http.Response) error {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return getChartmuseumError(b, resp.StatusCode)
+	}
+	log.Info("push chart to chart repo done")
+	return nil
+}
+
+func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) error {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
+	_, err := hClient.UpdateChartRepo(repoEntry)
+	if err != nil {
+		return nil
+	}
+	repoUrl, err := url.Parse(repoEntry.URL)
+	if err != nil {
+		return fmt.Errorf("failed to parse repo url: %s, err: %w", repoEntry.URL, err)
+	}
+	if repoUrl.Scheme == "acr" {
+		return hClient.pushAcrChart(repoEntry, chartPath)
+	} else {
+		return hClient.pushChartMuseum(repoEntry, chartPath)
+	}
+}
+
+// NOTE: When using this method, pay attention to whether restConfig is present in the original client.
+func (hClient *HelmClient) Clone() (*HelmClient, error) {
+	return NewClientFromRestConf(hClient.RestConfig, hClient.Namespace)
 }
 
 // mergeInstallOptions merges values of the provided chart to helm install options used by the client.

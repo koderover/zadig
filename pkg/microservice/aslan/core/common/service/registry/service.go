@@ -18,6 +18,8 @@ package registry
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -79,18 +81,24 @@ type Service interface {
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
 }
 
-func NewV2Service(provider string) Service {
+func NewV2Service(provider string, tlsEnabled bool, tlsCert string) Service {
+	// since SWR & AWS services are provided by known provider, we assume it is signed by well known CA
 	switch provider {
 	case config.RegistryTypeSWR:
 		return &swrService{}
 	case config.RegistryTypeAWS:
 		return &ecrService{}
 	default:
-		return &v2RegistryService{}
+		return &v2RegistryService{
+			EnableHTTPS: tlsEnabled,
+			CustomCert:  tlsCert,
+		}
 	}
 }
 
 type v2RegistryService struct {
+	EnableHTTPS bool
+	CustomCert  string
 }
 
 type authClient struct {
@@ -115,10 +123,21 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 		KeepAlive: 30 * time.Second,
 	}
 
+	tlsConfig := &tls.Config{}
+
+	if s.EnableHTTPS && s.CustomCert != "" {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM([]byte(s.CustomCert))
+		tlsConfig.RootCAs = caCertPool
+	} else if !s.EnableHTTPS {
+		tlsConfig.InsecureSkipVerify = true
+	}
+
 	base := &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
 		DialContext:         direct.DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     tlsConfig,
 		DisableKeepAlives:   true,
 	}
 

@@ -24,6 +24,8 @@ import (
 	"github.com/bndr/gojenkins"
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/jenkinsplugin/core/service"
@@ -44,6 +46,8 @@ func InitializeJenkinsBuildPlugin(taskType config.TaskType) TaskPlugin {
 	return &JenkinsBuildPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -52,6 +56,8 @@ type JenkinsBuildPlugin struct {
 	Name          config.TaskType
 	KubeNamespace string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	JobName       string
 	FileName      string
 	Task          *task.JenkinsBuild
@@ -195,7 +201,7 @@ func (j *JenkinsBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 
 // Wait ...
 func (j *JenkinsBuildPlugin) Wait(ctx context.Context) {
-	jobStatus := waitJobEnd(ctx, j.TaskTimeout(), j.KubeNamespace, j.JobName, j.kubeClient, j.Log)
+	jobStatus := waitJobEnd(ctx, j.TaskTimeout(), j.KubeNamespace, j.JobName, j.kubeClient, j.clientset, j.restConfig, j.Log)
 	jenkinsClient, err := gojenkins.CreateJenkins(nil, j.Task.JenkinsIntegration.URL, j.Task.JenkinsIntegration.Username, j.Task.JenkinsIntegration.Password).Init(ctx)
 	if err != nil {
 		j.SetStatus(config.StatusFailed)

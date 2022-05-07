@@ -26,7 +26,7 @@ type enabledStatus struct {
 }
 
 func ThirdPartyLoginEnabled() *enabledStatus {
-	connectors, err := systemconfig.New().ListConnectors()
+	connectors, err := systemconfig.New().ListConnectorsInternal()
 	if err != nil {
 		log.Warnf("Failed to list connectors, err: %s", err)
 	}

@@ -257,7 +257,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		case setting.LocalClusterID:
 			namespace = config.Namespace()
 		default:
-			namespace = AttachedClusterNamespace
+			namespace = setting.AttachedClusterNamespace
 		}
 
 		pvcName := fmt.Sprintf("cache-%s-%d", args.Cache.NFSProperties.StorageClass, args.Cache.NFSProperties.StorageSizeInGiB)
@@ -375,7 +375,12 @@ func setClusterCache(args *K8SCluster) error {
 
 	// Since the attached cluster cannot access the minio in the local cluster, if the default object storage
 	// is minio, the attached cluster cannot be configured to use minio as a cache.
-	if args.ID != setting.LocalClusterID && strings.Contains(defaultStorage.Endpoint, ZadigMinioSVC) {
+	//
+	// Note:
+	// - Since the local cluster will be written to the database when Zadig is created, empty ID indicates
+	//   that the cluster is attached.
+	// - Currently, we do not support attaching the local cluster again.
+	if (args.ID == "" || args.ID != setting.LocalClusterID) && strings.Contains(defaultStorage.Endpoint, ZadigMinioSVC) {
 		return nil
 	}
 

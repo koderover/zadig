@@ -94,6 +94,14 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 
 	for name := range desiredSet {
 		info := nameMap[name]
+		var deployType string
+		if info.CreateEnvType == "external" {
+			deployType = "external"
+		} else if info.BasicFacility == "cloud_host" {
+			deployType = "cloud_host"
+		} else {
+			deployType = info.DeployType
+		}
 		res = append(res, &ProjectDetailedRepresentation{
 			ProjectBriefRepresentation: &ProjectBriefRepresentation{
 				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
@@ -105,7 +113,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 			UpdatedBy:  info.UpdatedBy,
 			Onboard:    info.OnboardStatus != 0,
 			Public:     info.Public,
-			DeployType: info.DeployType,
+			DeployType: deployType,
 		})
 	}
 

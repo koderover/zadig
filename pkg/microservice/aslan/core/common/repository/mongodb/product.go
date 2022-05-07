@@ -44,15 +44,22 @@ type ProductFindOptions struct {
 type ProductListOptions struct {
 	EnvName             string
 	Name                string
+	Namespace           string
 	IsPublic            bool
 	ClusterID           string
 	IsSortByUpdateTime  bool
 	IsSortByProductName bool
-	ExcludeStatus       string
+	ExcludeStatus       []string
 	ExcludeSource       string
 	Source              string
 	InProjects          []string
 	InEnvs              []string
+	InIDs               []string
+
+	// New Since v1.11.0
+	ShareEnvEnable  *bool
+	ShareEnvIsBase  *bool
+	ShareEnvBaseEnv *string
 }
 
 type projectEnvs struct {
@@ -153,6 +160,42 @@ func (c *ProductColl) EnvCount() (int64, error) {
 	return count, nil
 }
 
+type Product struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"projectName"`
+}
+
+type ListProductOpt struct {
+	Products []Product
+}
+
+func (c *ProductColl) ListByProducts(opt ListProductOpt) ([]*models.Product, error) {
+	var res []*models.Product
+
+	if len(opt.Products) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, pro := range opt.Products {
+		condition = append(condition, bson.M{
+			"env_name":     pro.Name,
+			"product_name": pro.ProjectName,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	var ret []*models.Product
 	query := bson.M{}
@@ -168,6 +211,9 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	if opt.Name != "" {
 		query["product_name"] = opt.Name
 	}
+	if opt.Namespace != "" {
+		query["namespace"] = opt.Namespace
+	}
 	if opt.IsPublic {
 		query["is_public"] = opt.IsPublic
 	}
@@ -180,11 +226,31 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	if opt.ExcludeSource != "" {
 		query["source"] = bson.M{"$ne": opt.ExcludeSource}
 	}
-	if opt.ExcludeStatus != "" {
-		query["status"] = bson.M{"$ne": opt.ExcludeStatus}
+	if len(opt.ExcludeStatus) > 0 {
+		query["status"] = bson.M{"$nin": opt.ExcludeStatus}
 	}
 	if len(opt.InProjects) > 0 {
 		query["product_name"] = bson.M{"$in": opt.InProjects}
+	}
+	if len(opt.InIDs) > 0 {
+		var oids []primitive.ObjectID
+		for _, id := range opt.InIDs {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
+		}
+		query["_id"] = bson.M{"$in": oids}
+	}
+	if opt.ShareEnvEnable != nil {
+		query["share_env.enable"] = *opt.ShareEnvEnable
+	}
+	if opt.ShareEnvIsBase != nil {
+		query["share_env.is_base"] = *opt.ShareEnvIsBase
+	}
+	if opt.ShareEnvBaseEnv != nil {
+		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
 	}
 
 	ctx := context.Background()
@@ -306,6 +372,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 		"revision":    args.Revision,
 		"render":      args.Render,
 		"error":       args.Error,
+		"share_env":   args.ShareEnv,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

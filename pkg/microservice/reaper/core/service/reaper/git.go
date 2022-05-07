@@ -44,14 +44,17 @@ func (r *Reaper) RunGitGc(folder string) error {
 func (r *Reaper) runGitCmds() error {
 
 	envs := r.getUserEnvs()
-
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
 	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.Type == "http" {
 		noProxy := ""
+		proxyFlag := false
 		for _, repo := range r.Ctx.Repos {
-			if repo.Source == meta.ProviderGithub {
-				envs = append(envs, fmt.Sprintf("http_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
-				envs = append(envs, fmt.Sprintf("https_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
+			if repo.EnableProxy {
+				if !proxyFlag {
+					envs = append(envs, fmt.Sprintf("http_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
+					envs = append(envs, fmt.Sprintf("https_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
+					proxyFlag = true
+				}
 			} else {
 				uri, err := url.Parse(repo.Address)
 				if err == nil {
@@ -199,6 +202,8 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, repo.Owner, repo.Name)),
 			DisableTrace: true,
 		})
+	} else if repo.Source == meta.ProviderGitee {
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else {
 		// github
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})

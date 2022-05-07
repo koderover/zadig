@@ -35,6 +35,7 @@ const (
 	TaskResetImage      TaskType = "reset_image"
 	TaskDistribute      TaskType = "distribute"
 	TaskTrigger         TaskType = "trigger"
+	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
 )
 
@@ -54,6 +55,7 @@ const (
 	StatusQueued     Status = "queued"
 	StatusBlocked    Status = "blocked"
 	QueueItemPending Status = "pending"
+	StatusPrepare    Status = "prepare"
 )
 
 type PipelineType string

@@ -18,6 +18,8 @@ package models
 
 import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/setting"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // TODO: move Revision out of Service.
@@ -54,6 +56,7 @@ type Service struct {
 	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
 	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
+	ReleaseNaming    string           `bson:"release_naming"                 json:"release_naming"`
 	CodehostID       int              `bson:"codehost_id,omitempty"          json:"codehost_id,omitempty"`
 	RepoOwner        string           `bson:"repo_owner,omitempty"           json:"repo_owner,omitempty"`
 	RepoName         string           `bson:"repo_name,omitempty"            json:"repo_name,omitempty"`
@@ -61,11 +64,12 @@ type Service struct {
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
 	LoadPath         string           `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
-	CreateFrom       interface{}      `bson:"create_from,omitempty"               json:"create_from,omitempty"`
+	CreateFrom       interface{}      `bson:"create_from,omitempty"          json:"create_from,omitempty"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 	TemplateID       string           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
+	AutoSync         bool             `bson:"auto_sync"                      json:"auto_sync"`
 }
 
 type CreateFromRepo struct {
@@ -83,6 +87,17 @@ type CreateFromChartTemplate struct {
 	TemplateName string                     `bson:"template_name" json:"template_name"`
 	ServiceName  string                     `bson:"service_name" json:"service_name"`
 	Variables    []*Variable                `bson:"variables" json:"variables"`
+}
+
+type CreateFromChartRepo struct {
+	ChartRepoName string `json:"chart_repo_name" bson:"chart_repo_name"`
+	ChartName     string `json:"chart_name"      bson:"chart_name"`
+	ChartVersion  string `json:"chart_version"   bson:"chart_version"`
+}
+
+type CreateFromYamlTemplate struct {
+	TemplateID string      `bson:"template_id"   json:"template_id"`
+	Variables  []*Variable `bson:"variables"     json:"variables"`
 }
 
 type GUIConfig struct {
@@ -124,8 +139,9 @@ type ImagePathSpec struct {
 
 // Container ...
 type Container struct {
-	Name      string         `bson:"name"           json:"name"`
-	Image     string         `bson:"image"          json:"image"`
+	Name      string         `bson:"name"                          json:"name"`
+	Image     string         `bson:"image"                         json:"image"`
+	ImageName string         `bson:"image_name,omitempty"          json:"image_name,omitempty"`
 	ImagePath *ImagePathSpec `bson:"image_path,omitempty"          json:"imagePath,omitempty"`
 }
 
@@ -214,10 +230,22 @@ type HelmServiceRespArgs struct {
 }
 
 type EnvStatus struct {
-	HostID  string `bson:"host_id,omitempty"           json:"host_id"`
-	EnvName string `bson:"env_name,omitempty"          json:"env_name"`
-	Address string `bson:"address,omitempty"           json:"address"`
-	Status  string `bson:"status,omitempty"            json:"status"`
+	HostID  string  `bson:"host_id,omitempty"           json:"host_id"`
+	EnvName string  `bson:"env_name,omitempty"          json:"env_name"`
+	Address string  `bson:"address,omitempty"           json:"address"`
+	Status  string  `bson:"status,omitempty"            json:"status"`
+	PmInfo  *PmInfo `bson:"-"                           json:"pm_info"`
+}
+
+type PmInfo struct {
+	ID       primitive.ObjectID   `json:"id,omitempty"`
+	Name     string               `json:"name"`
+	IP       string               `json:"ip"`
+	Port     int64                `json:"port"`
+	Status   setting.PMHostStatus `json:"status"`
+	Label    string               `json:"label"`
+	IsProd   bool                 `json:"is_prod"`
+	Provider int8                 `json:"provider"`
 }
 
 type EnvConfig struct {
@@ -236,6 +264,13 @@ type PmHealthCheck struct {
 	UnhealthyThreshold  int    `bson:"unhealthy_threshold,omitempty"   json:"unhealthy_threshold,omitempty"`
 	CurrentHealthyNum   int    `bson:"current_healthy_num,omitempty"   json:"current_healthy_num,omitempty"`
 	CurrentUnhealthyNum int    `bson:"current_unhealthy_num,omitempty" json:"current_unhealthy_num,omitempty"`
+}
+
+func (s *Service) GetReleaseNaming() string {
+	if len(s.ReleaseNaming) > 0 {
+		return s.ReleaseNaming
+	}
+	return setting.ReleaseNamingPlaceholder
 }
 
 func (Service) TableName() string {

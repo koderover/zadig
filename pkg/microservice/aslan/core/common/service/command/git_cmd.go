@@ -97,7 +97,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, bran
 	tokens = append(tokens, repo.OauthToken)
 	cmds = append(cmds, buildGitCommands(repo)...)
 
-	if repo.Source == setting.SourceFromGithub {
+	if codehostDetail.EnableProxy {
 		httpsProxy := config.ProxyHTTPSAddr()
 		httpProxy := config.ProxyHTTPAddr()
 		if httpsProxy != "" {
@@ -161,6 +161,10 @@ func buildGitCommands(repo *Repo) []*Command {
 	workDir := filepath.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
 		os.MkdirAll(workDir, 0777)
+	}
+
+	if strings.Contains(repoName, "-new") {
+		repo.Name = strings.TrimSuffix(repo.Name, "-new")
 	}
 
 	// 预防非正常退出导致git被锁住

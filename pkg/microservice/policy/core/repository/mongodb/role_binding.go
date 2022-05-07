@@ -115,6 +115,28 @@ func (c *RoleBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding
 	return res, nil
 }
 
+func (c *RoleBindingColl) ListSystemRoleBindingsByUIDs(uids []string) ([]*models.RoleBinding, error) {
+	var res []*models.RoleBinding
+
+	ctx := context.Background()
+	query := bson.M{"namespace": "*"}
+	if len(uids) > 0 {
+		query["subjects.uid"] = bson.M{"$in": uids}
+	}
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (c *RoleBindingColl) Delete(name string, projectName string) error {
 	query := bson.M{"name": name, "namespace": projectName}
 	_, err := c.DeleteOne(context.TODO(), query)
@@ -131,7 +153,7 @@ func (c *RoleBindingColl) DeleteMany(names []string, projectName string, userID 
 	}
 
 	if userID != "" {
-		query = bson.M{"subjects.uid": userID}
+		query["subjects.uid"] = userID
 	}
 	_, err := c.Collection.DeleteMany(context.TODO(), query)
 
@@ -202,4 +224,40 @@ func (c *RoleBindingColl) UpdateOrCreate(obj *models.RoleBinding) error {
 	_, err := c.ReplaceOne(context.TODO(), query, obj, opts)
 
 	return err
+}
+
+type RoleBinding struct {
+	Uid       string `json:"uid"`
+	Namespace string `json:"namespace"`
+}
+
+type ListRoleBindingsOpt struct {
+	RoleBindings []RoleBinding
+}
+
+func (c *RoleBindingColl) ListByRoleBindingOpt(opt ListRoleBindingsOpt) ([]*models.RoleBinding, error) {
+	var res []*models.RoleBinding
+
+	if len(opt.RoleBindings) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, meta := range opt.RoleBindings {
+		condition = append(condition, bson.M{
+			"namespace":    meta.Namespace,
+			"subjects.uid": meta.Uid,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
 }

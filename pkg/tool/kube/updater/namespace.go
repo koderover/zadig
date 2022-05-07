@@ -17,36 +17,19 @@ limitations under the License.
 package updater
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
 )
 
-func DeleteMatchingNamespace(ns string, selector labels.Selector, cl client.Client) error {
-	namespace, found, err := getter.GetNamespace(ns, cl)
-	if err != nil {
-		return err
-	} else if !found {
-		return nil
-	}
-
-	if !selector.Matches(labels.Set(namespace.Labels)) {
-		return nil
-	}
-
-	return DeleteNamespace(ns, cl)
-}
-
-func DeleteNamespace(ns string, cl client.Client) error {
-	return deleteObjectWithDefaultOptions(&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "",
-			Name:      ns,
-		},
-	}, cl)
+func DeleteNamespace(name string, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	return clientset.CoreV1().Namespaces().Delete(context.TODO(), name, metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	})
 }
 
 func CreateNamespace(ns *corev1.Namespace, cl client.Client) error {

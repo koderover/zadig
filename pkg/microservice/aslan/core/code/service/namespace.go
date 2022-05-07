@@ -17,17 +17,10 @@ limitations under the License.
 package service
 
 import (
-	"context"
-
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/codehub"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
 )
 
 const (
@@ -38,54 +31,16 @@ const (
 	CodeHostCodeHub = "codehub"
 )
 
-func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*Namespace, error) {
-	ch, err := systemconfig.New().GetCodeHost(codeHostID)
+func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*client.Namespace, error) {
+	cli, err := open.OpenClient(codeHostID, log)
 	if err != nil {
-		return nil, e.ErrCodehostListNamespaces.AddDesc("git client is nil")
+		log.Errorf("open client err:%s", err)
+		return nil, err
 	}
-
-	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListNamespaces.AddDesc(err.Error())
-		}
-
-		nsList, err := client.ListNamespaces(keyword, nil)
-		if err != nil {
-			return nil, err
-		}
-		return ToNamespaces(nsList), nil
-	} else if ch.Type == gerrit.CodehostTypeGerrit {
-		return []*Namespace{{
-			Name: gerrit.DefaultNamespace,
-			Path: gerrit.DefaultNamespace,
-			Kind: OrgKind,
-		}}, nil
-	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
-		codeHubNamespace, err := codeHubClient.NamespaceList()
-		if err != nil {
-			return nil, err
-		}
-		return ToNamespaces(codeHubNamespace), nil
-	} else {
-		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
-		namespaces := make([]*Namespace, 0)
-
-		user, err := gh.GetAuthenticatedUser(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-		namespaces = append(namespaces, ToNamespaces(user)...)
-
-		organizations, err := gh.ListOrganizationsForAuthenticatedUser(context.TODO(), nil)
-		if err != nil {
-			return nil, err
-		}
-		namespaces = append(namespaces, ToNamespaces(organizations)...)
-
-		return namespaces, nil
+	ns, err := cli.ListNamespaces(keyword)
+	if err != nil {
+		log.Errorf("list namespace err:%s", err)
+		return nil, err
 	}
+	return ns, nil
 }

@@ -17,20 +17,26 @@ limitations under the License.
 package updater
 
 import (
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	"context"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
-func DeleteRoleBindings(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &rbacv1beta1.RoleBinding{}, cl)
-}
+func DeleteRoleBindings(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	err := clientset.RbacV1().RoleBindings(namespace).DeleteCollection(
+		context.TODO(),
+		metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		},
+		metav1.ListOptions{
+			LabelSelector: selector.String(),
+		},
+	)
 
-func CreateRoleBinding(rb *rbacv1beta1.RoleBinding, cl client.Client) error {
-	return createObject(rb, cl)
+	return util.IgnoreNotFoundError(err)
 }
-
-func UpdateRoleBinding(rb *rbacv1beta1.RoleBinding, cl client.Client) error {
-	return updateObject(rb, cl)
-}
-

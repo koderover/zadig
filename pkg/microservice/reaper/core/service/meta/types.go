@@ -125,6 +125,11 @@ type Context struct {
 	Cache        types.Cache        `yaml:"cache"`
 	CacheDirType types.CacheDirType `yaml:"cache_dir_type"`
 	CacheUserDir string             `yaml:"cache_user_dir"`
+
+	// Upload To S3 related context
+	UploadEnabled     bool                             `yaml:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `yaml:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `yaml:"upload_info"`
 }
 
 type ArtifactInfo struct {
@@ -171,6 +176,7 @@ type SSH struct {
 	Name       string `json:"name"`
 	UserName   string `json:"user_name"`
 	IP         string `json:"ip"`
+	Port       int64  `json:"port"`
 	IsProd     bool   `json:"is_prod"`
 	Label      string `json:"label"`
 	PrivateKey string `json:"private_key"`
@@ -263,6 +269,7 @@ type Repo struct {
 	User         string `yaml:"username"`
 	Password     string `yaml:"password"`
 	CheckoutRef  string `yaml:"checkout_ref"`
+	EnableProxy  bool   `yaml:"enable_proxy"`
 }
 
 // PRRef returns refs format
@@ -397,6 +404,8 @@ func (g *Git) SSHCloneURL(source, owner, name string) string {
 func (g *Git) HTTPSCloneURL(source, token, owner, name string) string {
 	if strings.ToLower(source) == ProviderGitlab {
 		return fmt.Sprintf("https://%s/%s/%s.git", g.GetGitlabHost(), owner, name)
+	} else if strings.ToLower(source) == ProviderGitee {
+		return fmt.Sprintf("https://%s:%s@%s/%s/%s.git", OauthTokenPrefix, token, "gitee.com", owner, name)
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
 	return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, g.GetGithubHost(), owner, name)

@@ -49,7 +49,7 @@ func RestartService(c *gin.Context) {
 		ServiceName: c.Param("serviceName"),
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")), "", ctx.Logger)
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
 }
 
@@ -59,7 +59,7 @@ func UpdateService(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")), "", ctx.Logger)
 
 	svcRev := new(service.SvcRevision)
 	if err := c.BindJSON(svcRev); err != nil {
@@ -95,7 +95,7 @@ func RestartNewService(c *gin.Context) {
 		c, ctx.UserName,
 		c.Query("projectName"),
 		"重启",
-		"集成环境-服务",
+		"环境-服务",
 		fmt.Sprintf(
 			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
 		),
@@ -122,7 +122,7 @@ func ScaleNewService(c *gin.Context) {
 		c, ctx.UserName,
 		projectName,
 		"伸缩",
-		"集成环境-服务",
+		"环境-服务",
 		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
 		"", ctx.Logger)
 
@@ -148,7 +148,7 @@ func ScaleService(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "伸缩", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "伸缩", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")), "", ctx.Logger)
 
 	number, err := strconv.Atoi(c.Query("number"))
 	if err != nil {

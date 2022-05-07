@@ -120,3 +120,78 @@ type NodeResp struct {
 	Nodes  []*internalresource.Node `json:"data"`
 	Labels []string                 `json:"labels"`
 }
+
+type ShareEnvReady struct {
+	IsReady bool                `json:"is_ready"`
+	Checks  ShareEnvReadyChecks `json:"checks"`
+}
+
+type ShareEnvReadyChecks struct {
+	NamespaceHasIstioLabel  bool `json:"namespace_has_istio_label"`
+	VirtualServicesDeployed bool `json:"virtualservice_deployed"`
+	PodsHaveIstioProxy      bool `json:"pods_have_istio_proxy"`
+	WorkloadsReady          bool `json:"workloads_ready"`
+	WorkloadsHaveK8sService bool `json:"workloads_have_k8s_service"`
+}
+
+// Note: `WorkloadsHaveK8sService` is an optional condition.
+func (s *ShareEnvReady) CheckAndSetReady(state ShareEnvOp) {
+	if !s.Checks.WorkloadsReady {
+		s.IsReady = false
+		return
+	}
+
+	switch state {
+	case ShareEnvEnable:
+		if !s.Checks.NamespaceHasIstioLabel || !s.Checks.VirtualServicesDeployed || !s.Checks.PodsHaveIstioProxy {
+			s.IsReady = false
+		} else {
+			s.IsReady = true
+		}
+	default:
+		if !s.Checks.NamespaceHasIstioLabel && !s.Checks.VirtualServicesDeployed && !s.Checks.PodsHaveIstioProxy {
+			s.IsReady = true
+		} else {
+			s.IsReady = false
+		}
+	}
+}
+
+type EnvoyClusterConfigLoadAssignment struct {
+	ClusterName string             `json:"cluster_name"`
+	Endpoints   []EnvoyLBEndpoints `json:"endpoints"`
+}
+
+type EnvoyLBEndpoints struct {
+	LBEndpoints []EnvoyEndpoints `json:"lb_endpoints"`
+}
+
+type EnvoyEndpoints struct {
+	Endpoint EnvoyEndpoint `json:"endpoint"`
+}
+
+type EnvoyEndpoint struct {
+	Address EnvoyAddress `json:"address"`
+}
+
+type EnvoyAddress struct {
+	SocketAddress EnvoySocketAddress `json:"socket_address"`
+}
+
+type EnvoySocketAddress struct {
+	Protocol  string `json:"protocol"`
+	Address   string `json:"address"`
+	PortValue int    `json:"port_value"`
+}
+
+type ShareEnvOp string
+
+const (
+	ShareEnvEnable  ShareEnvOp = "enable"
+	ShareEnvDisable ShareEnvOp = "disable"
+)
+
+type MatchedEnv struct {
+	EnvName   string
+	Namespace string
+}

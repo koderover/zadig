@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func GetPublicRepoTree(repoLink, path string, logger *zap.SugaredLogger) ([]*git.TreeNode, error) {
@@ -195,7 +196,7 @@ func GetCodehubRepoInfo(codehostID int, repoUUID, branchName, path string, log *
 		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
 	}
 
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	treeNodes, err := codeHubClient.FileTree(repoUUID, branchName, path)
 	if err != nil {
 		log.Errorf("Failed to list tree from codehub err:%s", err)
@@ -210,4 +211,19 @@ func GetCodehubRepoInfo(codehostID int, repoUUID, branchName, path string, log *
 		})
 	}
 	return fileInfos, nil
+}
+
+func GetContents(codeHostID int, owner, repo, path, branch string, isDir bool, logger *zap.SugaredLogger) (string, error) {
+	getter, err := fs.GetTreeGetter(codeHostID)
+	if err != nil {
+		logger.Errorf("Failed to get tree getter, err: %s", err)
+		return "", e.ErrListWorkspace.AddDesc(err.Error())
+	}
+
+	yamlInfos, err := getter.GetYAMLContents(owner, repo, path, branch, isDir, false)
+	if err != nil {
+		return "", e.ErrListWorkspace.AddDesc(err.Error())
+	}
+
+	return util.CombineManifests(yamlInfos), nil
 }

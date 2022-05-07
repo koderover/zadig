@@ -30,7 +30,7 @@ type Testing struct {
 	Desc        string              `bson:"desc"                     json:"desc"`
 	Timeout     int                 `bson:"timeout"                  json:"timeout"`
 	Team        string              `bson:"team"                     json:"team"`
-	Repos       []*types.Repository `bson:"repos,omitempty"          json:"repos"`
+	Repos       []*types.Repository `bson:"repos"                    json:"repos"`
 	PreTest     *PreTest            `bson:"pre_test"                 json:"pre_test"`
 	Scripts     string              `bson:"scripts"                  json:"scripts"`
 	UpdateTime  int64               `bson:"update_time"              json:"update_time"`
@@ -45,21 +45,26 @@ type Testing struct {
 	// TODO: Deprecated.
 	Caches []string `bson:"caches"                   json:"caches"`
 
-	ArtifactPaths   []string         `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
-	TestCaseNum     int              `bson:"-"                        json:"test_case_num,omitempty"`
-	ExecuteNum      int              `bson:"-"                        json:"execute_num,omitempty"`
-	PassRate        float64          `bson:"-"                        json:"pass_rate,omitempty"`
-	AvgDuration     float64          `bson:"-"                        json:"avg_duration,omitempty"`
-	Workflows       []*Workflow      `bson:"-"                        json:"workflows,omitempty"`
-	Schedules       *ScheduleCtrl    `bson:"schedules,omitempty"      json:"schedules,omitempty"`
-	HookCtl         *TestingHookCtrl `bson:"hook_ctl"                 json:"hook_ctl"`
-	NotifyCtl       *NotifyCtl       `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
-	ScheduleEnabled bool             `bson:"schedule_enabled"         json:"-"`
+	ArtifactPaths []string         `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
+	TestCaseNum   int              `bson:"-"                        json:"test_case_num,omitempty"`
+	ExecuteNum    int              `bson:"-"                        json:"execute_num,omitempty"`
+	PassRate      float64          `bson:"-"                        json:"pass_rate,omitempty"`
+	AvgDuration   float64          `bson:"-"                        json:"avg_duration,omitempty"`
+	Workflows     []*Workflow      `bson:"-"                        json:"workflows,omitempty"`
+	Schedules     *ScheduleCtrl    `bson:"schedules,omitempty"      json:"schedules,omitempty"`
+	HookCtl       *TestingHookCtrl `bson:"hook_ctl"                 json:"hook_ctl"`
+	// TODO: Deprecated.
+	NotifyCtl *NotifyCtl `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
+	// New since V1.12.0.
+	NotifyCtls      []*NotifyCtl `bson:"notify_ctls"     json:"notify_ctls"`
+	ScheduleEnabled bool         `bson:"schedule_enabled"         json:"-"`
 
 	// New since V1.10.0.
-	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
-	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
-	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
+	CacheEnable  bool               `bson:"cache_enable"              json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"            json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"            json:"cache_user_dir"`
+	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
+	AdvancedSettingsModified bool `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
 }
 
 type TestingHookCtrl struct {

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -37,39 +36,22 @@ func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmode
 		return serviceObjects, e.ErrListTemplate.AddDesc(errMsg)
 	}
 
-	//获取该项目下的的build的targets
-	buildTargets := sets.NewString()
-	builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName})
-	if err != nil {
-		log.Errorf("[Build.List] %s error: %v", productName, err)
-		return nil, e.ErrListBuildModule.AddErr(err)
-	}
-	for _, build := range builds {
-		for _, serviceModuleTarget := range build.Targets {
-			buildTargets.Insert(fmt.Sprintf("%s-%s", serviceModuleTarget.ServiceName, serviceModuleTarget.ServiceModule))
-		}
-	}
-
 	for _, svc := range services {
 		switch svc.Type {
 		case setting.K8SDeployType, setting.HelmDeployType:
 			for _, container := range svc.Containers {
-				if !buildTargets.Has(fmt.Sprintf("%s-%s", svc.ServiceName, container.Name)) {
-					serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
-						ProductName:   svc.ProductName,
-						ServiceName:   svc.ServiceName,
-						ServiceModule: container.Name,
-					})
-				}
-			}
-		case setting.PMDeployType:
-			if !buildTargets.Has(fmt.Sprintf("%s-%s", svc.ServiceName, svc.ServiceName)) {
 				serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
 					ProductName:   svc.ProductName,
 					ServiceName:   svc.ServiceName,
-					ServiceModule: svc.ServiceName,
+					ServiceModule: container.Name,
 				})
 			}
+		case setting.PMDeployType:
+			serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
+				ProductName:   svc.ProductName,
+				ServiceName:   svc.ServiceName,
+				ServiceModule: svc.ServiceName,
+			})
 		}
 	}
 

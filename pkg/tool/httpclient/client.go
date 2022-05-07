@@ -148,6 +148,7 @@ func (c *Client) Request(method, url string, rfs ...RequestFunc) (*resty.Respons
 	for _, rf := range rfs {
 		rf(r)
 	}
+
 	return c.wrapError(r.Execute(method, url))
 }
 

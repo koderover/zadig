@@ -436,7 +436,7 @@ func checkLatestTaskStaus(pipelineName, mergeRequestID, commitID string, detail 
 	}
 
 	// 比较本次patchset 和 上一个触发任务的patchset 的change file是否相同
-	cli := gerrit.NewClient(detail.Address, detail.AccessToken)
+	cli := gerrit.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	isDiff, err := cli.CompareTwoPatchset(mergeRequestID, commitID, tasks[0].TriggerBy.CommitID)
 	if err != nil {
 		log.Errorf("CompareTwoPatchset failed, mergeRequestID:%s, patchsetID:%s, oldPatchsetID:%s, err:%v", mergeRequestID, commitID, tasks[0].TriggerBy.CommitID, err)

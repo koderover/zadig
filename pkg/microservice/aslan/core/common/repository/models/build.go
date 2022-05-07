@@ -24,15 +24,17 @@ import (
 )
 
 type Build struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Name    string             `bson:"name"                         json:"name"`
-	Team    string             `bson:"team,omitempty"               json:"team,omitempty"`
-	Source  string             `bson:"source,omitempty"             json:"source,omitempty"`
-	Timeout int                `bson:"timeout"                      json:"timeout"`
+	ID         primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
+	Name       string             `bson:"name"                         json:"name"`
+	Team       string             `bson:"team,omitempty"               json:"team,omitempty"`
+	Source     string             `bson:"source,omitempty"             json:"source,omitempty"`
+	TemplateID string             `bson:"template_id"                  json:"template_id"`
+	Timeout    int                `bson:"timeout"                      json:"timeout"`
 	// 在任一编译配置模板中只能出现一次
 	// 对于k8s部署是传入容器名称
 	// 对于物理机部署是服务名称
 	Targets      []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
+	TargetRepos  []*TargetRepo          `bson:"-"                             json:"target_repos"`
 	Description  string                 `bson:"desc,omitempty"                json:"desc"`
 	UpdateTime   int64                  `bson:"update_time"                   json:"update_time"`
 	UpdateBy     string                 `bson:"update_by"                     json:"update_by"`
@@ -43,16 +45,17 @@ type Build struct {
 	PostBuild    *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
 
 	// TODO: Deprecated.
-	Caches []string `bson:"caches"                        json:"caches"`
-
+	Caches          []string `bson:"caches"                        json:"caches"`
 	ProductName     string   `bson:"product_name"                  json:"product_name"`
-	SSHs            []string `bson:"sshs,omitempty"                json:"sshs,omitempty"`
+	SSHs            []string `bson:"sshs"                          json:"sshs"`
 	PMDeployScripts string   `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
 
 	// New since V1.10.0.
-	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
-	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
-	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
+	CacheEnable  bool               `bson:"cache_enable"   json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type" json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir" json:"cache_user_dir"`
+	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
+	AdvancedSettingsModified bool `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
 }
 
 // PreBuild prepares an environment for a job
@@ -94,13 +97,20 @@ type BuildObj struct {
 }
 
 type PostBuild struct {
-	DockerBuild *DockerBuild `bson:"docker_build,omitempty" json:"docker_build"`
-	FileArchive *FileArchive `bson:"file_archive,omitempty" json:"file_archive,omitempty"`
-	Scripts     string       `bson:"scripts"             json:"scripts"`
+	DockerBuild         *DockerBuild         `bson:"docker_build,omitempty" json:"docker_build"`
+	ObjectStorageUpload *ObjectStorageUpload `bson:"object_storage_upload"  json:"object_storage_upload"`
+	FileArchive         *FileArchive         `bson:"file_archive,omitempty" json:"file_archive,omitempty"`
+	Scripts             string               `bson:"scripts"                json:"scripts"`
 }
 
 type FileArchive struct {
 	FileLocation string `bson:"file_location" json:"file_location"`
+}
+
+type ObjectStorageUpload struct {
+	Enabled         bool                             `bson:"enabled"           json:"enabled"`
+	ObjectStorageID string                           `bson:"object_storage_id" json:"object_storage_id"`
+	UploadDetail    []*types.ObjectStoragePathDetail `bson:"upload_detail"     json:"upload_detail"`
 }
 
 type DockerBuild struct {
@@ -119,13 +129,9 @@ type DockerBuild struct {
 }
 
 type JenkinsBuild struct {
-	JobName           string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParam []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
-}
-
-type JenkinsBuildParam struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
+	JenkinsID         string                     `bson:"jenkins_id"          json:"jenkins_id"`
+	JobName           string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParam []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 type Parameter struct {
@@ -141,9 +147,22 @@ type ParamVal struct {
 }
 
 type ServiceModuleTarget struct {
-	ProductName   string `bson:"product_name"                  json:"product_name"`
-	ServiceName   string `bson:"service_name"                  json:"service_name"`
-	ServiceModule string `bson:"service_module"                json:"service_module"`
+	ProductName   string              `bson:"product_name"                  json:"product_name"`
+	ServiceName   string              `bson:"service_name"                  json:"service_name"`
+	ServiceModule string              `bson:"service_module"                json:"service_module"`
+	BuildName     string              `bson:"build_name"                    json:"build_name"`
+	Repos         []*types.Repository `bson:"repos,omitempty"  json:"repos,omitempty"`
+}
+
+type ServiceModuleTargetBase struct {
+	ProductName   string `json:"product_name"`
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module"`
+}
+
+type TargetRepo struct {
+	Service *ServiceModuleTargetBase `json:"service"`
+	Repos   []*types.Repository      `json:"repos"`
 }
 
 type KeyVal struct {
@@ -157,6 +176,13 @@ type KeyVal struct {
 type Item struct {
 	Name    string `bson:"name"                   json:"name"`
 	Version string `bson:"version"                json:"version"`
+}
+
+func (build *Build) SafeRepos() []*types.Repository {
+	if len(build.Repos) == 0 {
+		return []*types.Repository{}
+	}
+	return build.Repos
 }
 
 func (Build) TableName() string {

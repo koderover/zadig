@@ -239,9 +239,9 @@ type yamlLoader interface {
 func getLoader(ch *systemconfig.CodeHost) (yamlLoader, error) {
 	switch ch.Type {
 	case setting.SourceFromGithub:
-		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
+		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
 	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.Address, ch.AccessToken)
+		return gitlabservice.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	default:
 		// should not have happened here
 		log.DPanicf("invalid source: %s", ch.Type)

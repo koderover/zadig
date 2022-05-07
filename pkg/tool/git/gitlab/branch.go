@@ -29,6 +29,10 @@ func (c *Client) ListBranches(owner, repo, key string, opts *ListOptions) ([]*gi
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*gitlab.Branch
 	bs, ok := branches.([]interface{})
 	if !ok {

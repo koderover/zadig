@@ -58,6 +58,7 @@ type Build struct {
 	IsRestart         bool                 `bson:"is_restart"                      json:"is_restart"`
 	// Get the host bound to the environment of the cloud host service configuration
 	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
+	EnvHostNames map[string][]string `bson:"env_host_names,omitempty"        json:"env_host_names,omitempty"`
 	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
 	ClusterID    string              `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
 
@@ -197,6 +198,11 @@ type JobCtx struct {
 	ClassicBuild    bool   `bson:"classic_build"                  json:"classic_build"`
 	PostScripts     string `bson:"post_scripts,omitempty"         json:"post_scripts"`
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
+
+	// Upload To S3 related context
+	UploadEnabled     bool                             `json:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `json:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `json:"upload_info"`
 }
 
 type SSH struct {
@@ -204,6 +210,7 @@ type SSH struct {
 	Name       string `json:"name"`
 	UserName   string `json:"user_name"`
 	IP         string `json:"ip"`
+	Port       int64  `json:"port"`
 	IsProd     bool   `json:"is_prod"`
 	Label      string `json:"label"`
 	PrivateKey string `json:"private_key"`
@@ -281,6 +288,7 @@ type Repository struct {
 	ProjectUUID string `bson:"project_uuid,omitempty"       json:"project_uuid,omitempty"`
 	RepoUUID    string `bson:"repo_uuid,omitempty"          json:"repo_uuid,omitempty"`
 	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
+	EnableProxy bool   `bson:"enable_proxy,omitempty"       json:"enable_proxy,omitempty"`
 }
 
 type BuildStep struct {

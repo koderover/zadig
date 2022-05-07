@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/s3"
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
@@ -48,8 +49,9 @@ type Reaper struct {
 	StartTime       time.Time
 	ActiveWorkspace string
 	UserEnvs        map[string]string
-	cm              CacheManager
-	dogFeed         bool
+	Type            types.ReaperType
+
+	cm CacheManager
 }
 
 func NewReaper() (*Reaper, error) {
@@ -63,14 +65,17 @@ func NewReaper() (*Reaper, error) {
 		return nil, fmt.Errorf("cannot unmarshal job data: %v", err)
 	}
 
-	// 初始化容器Envs, 格式为: "key=value".
-	// ctx.Envs = os.Environ()
-	// 初始化容器Path
 	ctx.Paths = config.Path()
 
 	reaper := &Reaper{
 		Ctx: ctx,
 		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName, ctx.AesKey),
+	}
+
+	if ctx.TestType == "" {
+		reaper.Type = types.BuildReaperType
+	} else {
+		reaper.Type = types.TestReaperType
 	}
 
 	workspace := "/workspace"
@@ -111,7 +116,7 @@ func (r *Reaper) CompressCache(storageURI string) error {
 	if err := r.cm.Archive(cacheDir, r.GetCacheFile()); err != nil {
 		return fmt.Errorf("failed to cache %s: %s", cacheDir, err)
 	}
-	log.Infof("Succeed to cache %s", cacheDir)
+	log.Infof("Succeed to cache %s.", cacheDir)
 
 	// remove workspace
 	err := os.RemoveAll(r.ActiveWorkspace)
@@ -170,35 +175,40 @@ func (r *Reaper) EnsureDir(dir string) error {
 func (r *Reaper) BeforeExec() error {
 	r.StartTime = time.Now()
 
-	log.Info("wait for docker daemon to start ...")
+	log.Infof("Checking Docker Connectivity.")
+	startTimeCheckDocker := time.Now()
 	for i := 0; i < 15; i++ {
 		if err := dockerInfo().Run(); err == nil {
 			break
 		}
 		time.Sleep(time.Second * 1)
 	}
+	log.Infof("Check ended. Duration: %.2f seconds.", time.Since(startTimeCheckDocker).Seconds())
 
 	if r.Ctx.DockerRegistry != nil {
 		if r.Ctx.DockerRegistry.UserName != "" {
-			log.Infof("login docker registry %s", r.Ctx.DockerRegistry.Host)
+			log.Infof("Logining Docker Registry: %s.", r.Ctx.DockerRegistry.Host)
+			startTimeDockerLogin := time.Now()
 			cmd := dockerLogin(r.Ctx.DockerRegistry.UserName, r.Ctx.DockerRegistry.Password, r.Ctx.DockerRegistry.Host)
 			var out bytes.Buffer
 			cmd.Stdout = &out
 			cmd.Stderr = &out
 			if err := cmd.Run(); err != nil {
-				log.Errorf("docker login failed with error: %s\n%s", err, out.String())
-				return fmt.Errorf("docker login failed with error: %s", err)
+				return fmt.Errorf("failed to login docker registry: %s", err)
 			}
+
+			log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
 		}
 	}
 
 	if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
-		log.Info("extracting workspace ...")
+		log.Info("Pulling Cache.")
+		startTimePullCache := time.Now()
 		if err := r.DecompressCache(); err != nil {
 			// If the workflow runs for the first time, there may be no cache.
-			log.Infof("no previous cache is found: %s", err)
+			log.Infof("Failed to pull cache: %s. Duration: %.2f seconds.", err, time.Since(startTimePullCache).Seconds())
 		} else {
-			log.Info("succeed to extract workspace")
+			log.Infof("Succeed to pull cache. Duration: %.2f seconds.", time.Since(startTimePullCache).Seconds())
 		}
 	}
 
@@ -232,7 +242,6 @@ func (r *Reaper) BeforeExec() error {
 
 	if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
 		r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
-		log.Infof("clean test result path %s", r.Ctx.GinkgoTest.ResultPath)
 		if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
 			log.Warning(err.Error())
 		}
@@ -293,26 +302,35 @@ func (r *Reaper) dockerCommands() []*exec.Cmd {
 }
 
 func (r *Reaper) runDockerBuild() error {
-	if r.Ctx.DockerBuildCtx != nil {
-		err := r.prepareDockerfile()
-		if err != nil {
-			return err
-		}
-		if r.Ctx.Proxy != nil {
-			r.setProxy(r.Ctx.DockerBuildCtx, r.Ctx.Proxy)
-		}
+	if r.Ctx.DockerBuildCtx == nil {
+		return nil
+	}
 
-		envs := r.getUserEnvs()
-		for _, c := range r.dockerCommands() {
-			c.Stdout = os.Stdout
-			c.Stderr = os.Stderr
-			c.Dir = r.ActiveWorkspace
-			c.Env = envs
-			if err := c.Run(); err != nil {
-				return err
-			}
+	log.Info("Preparing Dockerfile.")
+	startTimePrepareDockerfile := time.Now()
+	err := r.prepareDockerfile()
+	if err != nil {
+		return fmt.Errorf("failed to prepare dockerfile: %s", err)
+	}
+	log.Infof("Preparation ended. Duration: %.2f seconds.", time.Since(startTimePrepareDockerfile).Seconds())
+
+	if r.Ctx.Proxy != nil {
+		r.setProxy(r.Ctx.DockerBuildCtx, r.Ctx.Proxy)
+	}
+
+	log.Info("Runing Docker Build.")
+	startTimeDockerBuild := time.Now()
+	envs := r.getUserEnvs()
+	for _, c := range r.dockerCommands() {
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		c.Dir = r.ActiveWorkspace
+		c.Env = envs
+		if err := c.Run(); err != nil {
+			return fmt.Errorf("failed to run docker build: %s", err)
 		}
 	}
+	log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(startTimeDockerBuild).Seconds())
 
 	return nil
 }
@@ -331,113 +349,148 @@ func (r *Reaper) prepareDockerfile() error {
 }
 
 func (r *Reaper) Exec() error {
+	log.Info("Installing Dependency Packages.")
+	startTimeInstallDeps := time.Now()
 	if err := r.runIntallationScripts(); err != nil {
-		return err
+		return fmt.Errorf("failed to install dependency packages: %s", err)
 	}
+	log.Infof("Install ended. Duration: %.2f seconds.", time.Since(startTimeInstallDeps).Seconds())
 
+	log.Info("Cloning Repository.")
+	startTimeCloneRepo := time.Now()
 	if err := r.runGitCmds(); err != nil {
-		return err
+		return fmt.Errorf("failed to clone repository: %s", err)
 	}
+	log.Infof("Clone ended. Duration: %.2f seconds.", time.Since(startTimeCloneRepo).Seconds())
 
 	if err := r.createReadme(ReadmeFile); err != nil {
-		log.Warningf("create readme file error: %v", err)
+		log.Warningf("Failed to create README file: %s", err)
 	}
 
+	log.Info("Executing User Build Script.")
+	startTimeRunBuildScript := time.Now()
 	if err := r.runScripts(); err != nil {
-		return err
+		return fmt.Errorf("failed to execute user build script: %s", err)
 	}
+	log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
 
 	return r.runDockerBuild()
 }
 
-func (r *Reaper) AfterExec(upStreamErr error) error {
-	if r.Ctx.GinkgoTest != nil && r.Ctx.GinkgoTest.ResultPath != "" {
+func (r *Reaper) AfterExec() error {
+	if r.Ctx.GinkgoTest != nil {
 		resultPath := r.Ctx.GinkgoTest.ResultPath
-		if !strings.HasPrefix(resultPath, "/") {
+		if resultPath != "" && !strings.HasPrefix(resultPath, "/") {
 			resultPath = filepath.Join(r.ActiveWorkspace, resultPath)
 		}
+
 		if r.Ctx.TestType == "" {
 			r.Ctx.TestType = setting.FunctionTest
 		}
-		if r.Ctx.TestType == setting.FunctionTest {
-			log.Info("Merge test result.")
-			if err := mergeGinkgoTestResults(
-				r.Ctx.Archive.File,
-				resultPath,
-				r.Ctx.Archive.Dir,
-				r.StartTime,
-			); err != nil {
-				log.Errorf("Failed to merge results of ginkgo test: %s", err)
-				return err
+
+		switch r.Ctx.TestType {
+		case setting.FunctionTest:
+			err := mergeGinkgoTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir, r.StartTime)
+			if err != nil {
+				return fmt.Errorf("failed to merge test result: %s", err)
 			}
-		} else if r.Ctx.TestType == setting.PerformanceTest {
-			log.Info("Archive performance test result.")
-			if err := JmeterTestResults(
-				r.Ctx.Archive.File,
-				resultPath,
-				r.Ctx.Archive.Dir,
-			); err != nil {
-				log.Errorf("Failed to archive results of performance test: %s", err)
-				return err
+		case setting.PerformanceTest:
+			err := JmeterTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir)
+			if err != nil {
+				return fmt.Errorf("failed to archive performance test result: %s", err)
 			}
 		}
 
 		if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
 			if err := artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
-				log.Errorf("Failed to upload artifacts: %s", err)
-				return err
+				return fmt.Errorf("failed to upload artifacts: %s", err)
 			}
 		}
 
 		if err := r.archiveTestFiles(); err != nil {
-			log.Errorf("Failed to archive test files: %s", err)
-			return err
+			return fmt.Errorf("failed to archive test files: %s", err)
 		}
 
 		if err := r.archiveHTMLTestReportFile(); err != nil {
-			log.Errorf("Failed to archive html test report: %s", err)
-			return err
+			return fmt.Errorf("failed to archive HTML test report: %s", err)
 		}
-	}
-
-	if upStreamErr != nil {
-		return nil
 	}
 
 	if r.Ctx.ArtifactInfo == nil {
 		if err := r.archiveS3Files(); err != nil {
-			log.Errorf("Failed to archive S3 files: %s", err)
-			return err
+			return fmt.Errorf("failed to archive S3 files: %s", err)
 		}
+
 		if err := r.RunPostScripts(); err != nil {
-			log.Errorf("Failed to run postscripts: %s", err)
-			return err
+			return fmt.Errorf("failed to run postscripts: %s", err)
 		}
 	} else {
 		if err := r.downloadArtifactFile(); err != nil {
-			log.Errorf("Failed to download artifact files: %s", err)
-			return err
+			return fmt.Errorf("failed to download artifact files: %s", err)
+		}
+	}
+
+	if r.Ctx.UploadEnabled {
+		forcedPathStyle := true
+		if r.Ctx.UploadStorageInfo.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
+		}
+		client, err := s3.NewClient(r.Ctx.UploadStorageInfo.Endpoint, r.Ctx.UploadStorageInfo.AK, r.Ctx.UploadStorageInfo.SK, r.Ctx.UploadStorageInfo.Insecure, forcedPathStyle)
+		if err != nil {
+			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
+		}
+		for _, upload := range r.Ctx.UploadInfo {
+			info, err := os.Stat(upload.FilePath)
+			if err != nil {
+				return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %s", upload.FilePath, upload.DestinationPath, err)
+			}
+			// if the given path is a directory
+			if info.IsDir() {
+				// we get ALL files in this directory and upload it to the object storage
+				files, err := ioutil.ReadDir(upload.FilePath)
+				if err != nil {
+					return fmt.Errorf("failed to read file information in directory: [%s], the error is: %s", upload.FilePath, err)
+				}
+				for _, file := range files {
+					if !file.IsDir() {
+						key := filepath.Join(upload.DestinationPath, file.Name())
+						originalFilePath := filepath.Join(upload.FilePath, file.Name())
+						err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, originalFilePath, key)
+						if err != nil {
+							fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", originalFilePath, key, err)
+						}
+					}
+				}
+			} else {
+				key := filepath.Join(upload.DestinationPath, info.Name())
+				err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, upload.FilePath, key)
+				if err != nil {
+					fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", upload.FilePath, key, err)
+				}
+			}
 		}
 	}
 
 	if r.Ctx.ArtifactPath != "" {
 		if err := artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
-			log.Errorf("Failed to upload artifacts: %s", err)
-			return err
+			return fmt.Errorf("failed to upload artifacts: %s", err)
 		}
 	}
 
 	if err := r.RunPMDeployScripts(); err != nil {
-		log.Errorf("Failed to run deploy scripts on physical machine: %s", err)
-		return err
+		return fmt.Errorf("failed to run deploy scripts on physical machine: %s", err)
 	}
 
 	// Upload workspace cache if the user turns on caching and uses object storage.
 	// Note: Whether the cache is uploaded successfully or not cannot hinder the progress of the overall process,
 	//       so only exceptions are printed here and the process is not interrupted.
 	if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
+		log.Info("Uploading Build Cache.")
+		startTimeUploadBuildCache := time.Now()
 		if err := r.CompressCache(r.Ctx.StorageURI); err != nil {
-			log.Warnf("Failed to run compress cache: %s", err)
+			log.Warnf("Failed to upload build cache: %s. Duration: %.2f seconds.", err, time.Since(startTimeUploadBuildCache).Seconds())
+		} else {
+			log.Infof("Upload ended. Duration: %.2f seconds.", time.Since(startTimeUploadBuildCache).Seconds())
 		}
 	}
 

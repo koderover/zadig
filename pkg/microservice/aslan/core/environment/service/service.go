@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
@@ -43,6 +44,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func GetServiceContainer(envName, productName, serviceName, container string, log *zap.SugaredLogger) error {
@@ -66,11 +68,6 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
-	}
-
-	// TODO: 目前强制定死扩容数量为0-20, 以后可以改成配置
-	if number > 20 || number < 0 {
-		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..20]")
 	}
 
 	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
@@ -104,10 +101,6 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 }
 
 func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
-	if args.Number > 20 || args.Number < 0 {
-		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..20]")
-	}
-
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -150,14 +143,14 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	}
 
 	// aws secrets needs to be refreshed
-	regs, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	regs, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
 		return err
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, false, kubeClient); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -198,6 +191,18 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
+	inf, err := informer.NewInformer(env.ClusterID, env.Namespace, clientset)
+	if err != nil {
+		log.Errorf("Failed to create informer for namespace [%s] in cluster [%s], the error is: %s", env.Namespace, env.ClusterID, err)
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
@@ -318,13 +323,37 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, kubeClient, log))
 
 			case setting.Ingress:
-				ing, found, err := getter.GetIngress(namespace, u.GetName(), kubeClient)
-				if err != nil || !found {
-					log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+
+				version, err := clientset.Discovery().ServerVersion()
+				if err != nil {
+					log.Warnf("Failed to determine server version, error is: %s", err)
 					continue
 				}
+				if kubeclient.VersionLessThan122(version) {
+					ing, found, err := getter.GetExtensionsV1Beta1Ingress(namespace, u.GetName(), inf)
+					if err != nil || !found {
+						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						continue
+					}
 
-				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
+					ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
+				} else {
+					ing, err := getter.GetNetworkingV1Ingress(namespace, u.GetName(), inf)
+					if err != nil {
+						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						continue
+					}
+
+					ingress := &internalresource.Ingress{
+						Name:     ing.Name,
+						Labels:   ing.Labels,
+						HostInfo: wrapper.GetIngressHostInfo(ing),
+						IPs:      []string{},
+						Age:      util.Age(ing.CreationTimestamp.Unix()),
+					}
+
+					ret.Ingress = append(ret.Ingress, ingress)
+				}
 
 			case setting.Service:
 				svc, found, err := getter.GetService(namespace, u.GetName(), kubeClient)
@@ -355,6 +384,16 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		return err
 	}
 
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productObj.ClusterID)
+	if err != nil {
+		return err
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productObj.ClusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
@@ -365,14 +404,14 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	}
 
 	// aws secrets needs to be refreshed
-	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	regs, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
 		return err
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, false, kubeClient); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -381,7 +420,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	}
 
 	switch productObj.Source {
-	case setting.SourceFromHelm, setting.SourceFromExternal:
+	case setting.SourceFromExternal:
 		errList := new(multierror.Error)
 		serviceObj, found, err := getter.GetService(productObj.Namespace, args.ServiceName, kubeClient)
 		if err != nil || !found {
@@ -407,7 +446,22 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				}
 			}
 		}
+	case setting.SourceFromHelm:
+		deploy, found, err := getter.GetDeployment(productObj.Namespace, args.ServiceName, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.Deployment, err.Error())
+		}
+		if found {
+			return updater.RestartDeployment(productObj.Namespace, deploy.Name, kubeClient)
+		}
 
+		sts, found, err := getter.GetStatefulSet(productObj.Namespace, args.ServiceName, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.StatefulSet, err.Error())
+		}
+		if found {
+			return updater.RestartStatefulSet(productObj.Namespace, sts.Name, kubeClient)
+		}
 	default:
 		var serviceTmpl *commonmodels.Service
 		var newRender *commonmodels.RenderSet
@@ -442,7 +496,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 					productObj,
 					productService,
 					productService,
-					newRender, inf, kubeClient, log)
+					newRender, inf, kubeClient, istioClient, log)
 
 				// 如果创建依赖服务组有返回错误, 停止等待
 				if err != nil {

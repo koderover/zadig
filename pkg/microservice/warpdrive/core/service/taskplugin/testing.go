@@ -27,17 +27,20 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	commontypes "github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -45,6 +48,8 @@ func InitializeTestTaskPlugin(taskType config.TaskType) TaskPlugin {
 	return &TestPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -55,6 +60,8 @@ type TestPlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.Testing
 	Log           *zap.SugaredLogger
 }
@@ -107,19 +114,25 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	// TODO: Since the namespace field has been used continuously since v1.10.0, the processing logic related to namespace needs to
 	// be deleted in v1.11.0.
-	p.KubeNamespace = pipelineTask.ConfigPayload.Test.KubeNamespace
-	if p.Task.Namespace != "" {
-		p.KubeNamespace = p.Task.Namespace
-		kubeClient, err := kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+	switch p.Task.ClusterID {
+	case setting.LocalClusterID:
+		p.KubeNamespace = zadigconfig.Namespace()
+	default:
+		p.KubeNamespace = setting.AttachedClusterNamespace
+
+		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
-			msg := fmt.Sprintf("failed to get kube client: %s", err)
-			p.Log.Error(msg)
+			p.Log.Error(err)
 			p.Task.TaskStatus = config.StatusFailed
-			p.Task.Error = msg
+			p.Task.Error = err.Error()
 			return
 		}
-		p.kubeClient = kubeClient
+
+		p.kubeClient = crClient
+		p.clientset = clientset
+		p.restConfig = restConfig
 	}
+
 	// not local cluster
 	var (
 		replaceDindServer = "." + DindServer
@@ -144,21 +157,18 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	p.Task.Error = ""
 	var linkedNamespace string
 	var envName string
+
+	workflowName := pipelineTask.PipelineName
 	if pipelineTask.Type == config.SingleType {
 		linkedNamespace = pipelineTask.TaskArgs.Test.Namespace
 	} else if pipelineTask.Type == config.WorkflowType {
 		product := &types.Product{EnvName: pipelineTask.WorkflowArgs.Namespace, ProductName: pipelineTask.WorkflowArgs.ProductTmplName}
 		linkedNamespace = product.ProductName + "-env-" + product.EnvName
 		envName = pipelineTask.WorkflowArgs.Namespace
-	}
 
-	//if linkedNamespace == "" {
-	//	msg := "namespace for testing is empty"
-	//	p.Log.Error(msg)
-	//	p.Task.TaskStatus = task.StatusFailed
-	//	p.Task.Error = msg
-	//	return
-	//}
+		workflowName = pipelineTask.WorkflowArgs.WorkflowName
+	}
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "WORKFLOW", Value: workflowName})
 
 	namespaceEnvVar := &task.KeyVal{Key: "DEPLOY_ENV", Value: p.KubeNamespace, IsCredential: false}
 	linkedNamespaceEnvVar := &task.KeyVal{Key: "LINKED_ENV", Value: linkedNamespace, IsCredential: false}
@@ -173,6 +183,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, namespaceEnvVar)
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, linkedNamespaceEnvVar)
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameEnvVar)
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "SERVICE_MODULE", Value: pipelineTask.ServiceName})
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "PROJECT", Value: pipelineTask.ProductName})
 
 	var testReportFile string // html 测试报告
 	fileName := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, pipelineTask.ServiceName)
@@ -182,10 +194,18 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		testReportFile = fmt.Sprintf("%s-%s-%d-%s-%s-html", config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, p.Task.TestModuleName)
 	} else if pipelineTask.Type == config.TestType {
 		fileName = fmt.Sprintf("%s-%s-%d-%s-%s", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)
+		testReportFile = fmt.Sprintf("%s-%s-%d-%s-%s-html", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, p.Task.TestModuleName)
 	}
 
 	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)
 	testReportFile = strings.Replace(strings.ToLower(testReportFile), "_", "-", -1)
+
+	// Since we allow users to use custom environment variables, variable resolution is required.
+	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == commontypes.NFSMedium &&
+		pipelineCtx.CacheDirType == commontypes.UserDefinedCacheDir {
+		pipelineCtx.CacheUserDir = p.renderEnv(pipelineCtx.CacheUserDir)
+		pipelineCtx.Cache.NFSProperties.Subpath = p.renderEnv(pipelineCtx.Cache.NFSProperties.Subpath)
+	}
 
 	jobCtx := JobCtxBuilder{
 		JobName:        p.JobName,
@@ -269,10 +289,12 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.Task.Error = msg
 		return
 	}
+
+	p.Task.TaskStatus = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
 }
 
 func (p *TestPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
 }
 
@@ -288,17 +310,17 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 		PipelineType: string(pipelineTask.Type),
 	}
 
-	// 日志保存失败与否都清理job
+	// Clean up tasks that user canceled or timed out.
 	defer func() {
-		if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-			p.Log.Error(err)
-			p.Task.Error = err.Error()
-		}
-		if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-			p.Log.Error(err)
-			p.Task.Error = err.Error()
-		}
-		return
+		go func() {
+			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
+
+			if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
+		}()
 	}()
 
 	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.Task.ClusterID, p.FileName, jobLabel, p.kubeClient)
@@ -322,9 +344,6 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 
 	//如果用户配置了测试结果目录需要收集,则下载测试结果,发送到aslan server
 	//Note here: p.Task.TestName目前只有默认值test
-	if p.Task.JobCtx.TestResultPath == "" {
-		return
-	}
 
 	testReport := new(types.TestReport)
 	if pipelineTask.TestReports == nil {
@@ -351,10 +370,12 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 	}
 	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 	if err == nil {
-		prefix := store.GetObjectPath("/")
-		if files, err := s3client.ListFiles(store.Bucket, prefix, true); err == nil {
-			if len(files) > 0 {
-				p.Task.JobCtx.IsHasArtifact = true
+		if len(p.Task.JobCtx.ArtifactPaths) > 0 {
+			prefix := store.GetObjectPath("/")
+			if files, err := s3client.ListFiles(store.Bucket, prefix, true); err == nil {
+				if len(files) > 0 {
+					p.Task.JobCtx.IsHasArtifact = true
+				}
 			}
 		}
 	}
@@ -374,7 +395,7 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 		return
 	}
 
-	if p.Task.JobCtx.TestType == setting.FunctionTest {
+	if p.Task.JobCtx.TestType == setting.FunctionTest && p.Task.JobCtx.TestResultPath != "" {
 		b, err := os.ReadFile(tmpFilename)
 		if err != nil {
 			p.Log.Error(fmt.Sprintf("get test result file error: %v", err))
@@ -518,4 +539,22 @@ func (p *TestPlugin) IsTaskEnabled() bool {
 
 func (p *TestPlugin) ResetError() {
 	p.Task.Error = ""
+}
+
+// Note: Since there are few environment variables and few variables to be replaced,
+// this method is temporarily used.
+func (p *TestPlugin) renderEnv(data string) string {
+	mapper := func(data string) string {
+		for _, envar := range p.Task.JobCtx.EnvVars {
+			if data != envar.Key {
+				continue
+			}
+
+			return envar.Value
+		}
+
+		return fmt.Sprintf("$%s", data)
+	}
+
+	return os.Expand(data, mapper)
 }

@@ -25,6 +25,7 @@ type Workload struct {
 }
 
 type ContainerImage struct {
-	Name  string `json:"name"`
-	Image string `json:"image"`
+	Name      string `json:"name"`
+	Image     string `json:"image"`
+	ImageName string `json:"image_name"`
 }

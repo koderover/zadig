@@ -46,6 +46,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		bundles.GET("", GetBundleResources)
 	}
 
+	istio := router.Group("istio")
+	{
+		istio.GET("/check/:id", CheckIstiod)
+	}
+
 	router.GET("/:id/storageclasses", ListStorageClasses)
 	router.GET("/:id/:namespace/pvcs", ListPVCs)
 }

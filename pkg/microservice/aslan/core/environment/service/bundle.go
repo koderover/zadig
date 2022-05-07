@@ -19,26 +19,49 @@ package service
 import (
 	"strconv"
 
+	"go.uber.org/zap"
+
+	commonConfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
+	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type resourceSpec struct {
-	ResourceID  string                 `json:"resourceID"`
-	ProjectName string                 `json:"projectName"`
-	Spec        map[string]interface{} `json:"spec"`
+	ResourceID  string   `json:"resourceID"`
+	ProjectName string   `json:"projectName"`
+	Spec        []string `json:"spec"`
 }
 
-func GetBundleResources() ([]*resourceSpec, error) {
+func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 	var res []*resourceSpec
 
 	envs, err := mongodb.NewProductColl().List(nil)
 	if err != nil {
-		log.Errorf("Failed to list envs, err: %s", err)
+		logger.Errorf("Failed to list envs, err: %s", err)
 		return nil, err
 	}
 
+	// get labels by workflow resources ids
+	var resources []labeldb.Resource
+	for _, env := range envs {
+		resource := labeldb.Resource{
+			Name:        env.EnvName,
+			ProjectName: env.ProductName,
+			Type:        string(config.ResourceTypeProduct),
+		}
+		resources = append(resources, resource)
+	}
+	labelsResp, err := service.ListLabelsByResources(resources, logger)
+	if err != nil {
+		logger.Errorf("ListLabelsByResources err:%s", err)
+		return nil, err
+	}
+
+	// production attribute
 	clusterMap := make(map[string]*models.K8SCluster)
 	clusters, err := mongodb.NewK8SClusterColl().List(nil)
 	if err != nil {
@@ -51,20 +74,25 @@ func GetBundleResources() ([]*resourceSpec, error) {
 	}
 
 	for _, env := range envs {
+		resourceKey := commonConfig.BuildResourceKey(string(config.ResourceTypeProduct), env.ProductName, env.EnvName)
+		resourceSpec := &resourceSpec{
+			ResourceID:  env.EnvName,
+			ProjectName: env.ProductName,
+		}
+		if labels, ok := labelsResp.Labels[resourceKey]; ok {
+			for _, v := range labels {
+				resourceSpec.Spec = append(resourceSpec.Spec, v.Key+":"+v.Value)
+			}
+		}
+
 		clusterID := env.ClusterID
 		production := false
 		cluster, ok := clusterMap[clusterID]
 		if ok {
 			production = cluster.Production
 		}
-
-		res = append(res, &resourceSpec{
-			ResourceID:  env.EnvName,
-			ProjectName: env.ProductName,
-			Spec: map[string]interface{}{
-				"production": strconv.FormatBool(production),
-			},
-		})
+		resourceSpec.Spec = append(resourceSpec.Spec, "production:"+strconv.FormatBool(production))
+		res = append(res, resourceSpec)
 	}
 
 	return res, nil

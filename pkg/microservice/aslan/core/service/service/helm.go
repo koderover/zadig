@@ -18,9 +18,11 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -31,6 +33,7 @@ import (
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
@@ -46,8 +49,10 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -101,6 +106,15 @@ type helmServiceCreationArgs struct {
 	ValuePaths       []string
 	ValuesYaml       string
 	Variables        []*Variable
+	GerritRepoName   string
+	GerritBranchName string
+	GerritRemoteName string
+	GerritPath       string
+	GerritCodeHostID int
+	ChartRepoName    string
+	ValuesSource     *commonservice.ValuesDataArgs
+	CreationDetail   interface{}
+	AutoSync         bool
 }
 
 type ChartTemplateData struct {
@@ -155,8 +169,48 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	return helmService, nil
 }
 
-func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
+func getCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
+	bs, err := json.Marshal(createFrom)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromChartTemplate{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
 
+func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
+	if serviceTemplate.Source != setting.SourceFromChartTemplate {
+		return nil
+	}
+	creation, err := getCreateFromChartTemplate(serviceTemplate.CreateFrom)
+	if err != nil {
+		return fmt.Errorf("failed to get creation detail: %s", err)
+	}
+
+	templateChart, err := commonrepo.NewChartColl().Get(creation.TemplateName)
+	if err != nil {
+		return err
+	}
+	variables := make([]*models.Variable, 0)
+	curValueMap := make(map[string]string)
+	for _, kv := range creation.Variables {
+		curValueMap[kv.Key] = kv.Value
+	}
+
+	for _, v := range templateChart.ChartVariables {
+		value := v.Value
+		if cv, ok := curValueMap[v.Key]; ok {
+			value = cv
+		}
+		variables = append(variables, &models.Variable{Key: v.Key, Value: value})
+	}
+	creation.Variables = variables
+	serviceTemplate.CreateFrom = creation
+	return nil
+}
+
+func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
 		return nil, err
@@ -166,13 +220,25 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 	for _, container := range serviceTemplate.Containers {
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
-		buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
-		if buildObj != nil {
-			serviceModule.BuildName = buildObj.Name
+
+		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceName, Targets: []string{container.Name}})
+		if err != nil {
+			return nil, err
 		}
+		buildNames := sets.NewString()
+		for _, buildObj := range buildObjs {
+			buildNames.Insert(buildObj.Name)
+		}
+		serviceModule.BuildNames = buildNames.List()
 		serviceModules = append(serviceModules, serviceModule)
 	}
+	err = fillServiceTemplateVariables(serviceTemplate)
+	if err != nil {
+		// NOTE source template may be deleted, error should not block the following logic
+		log.Warnf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
+	}
 	helmServiceModule.Service = serviceTemplate
+	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
 	helmServiceModule.ServiceModules = serviceModules
 	return helmServiceModule, err
 }
@@ -232,7 +298,7 @@ func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*
 	// get chart template from local disk
 	localBase := configbase.LocalChartTemplatePath(templateName)
 	s3Base := configbase.ObjectStorageChartTemplatePath(templateName)
-	if err = fsservice.PreloadFiles(templateName, localBase, s3Base, logger); err != nil {
+	if err = fsservice.PreloadFiles(templateName, localBase, s3Base, templateChart.Source, logger); err != nil {
 		logger.Errorf("Failed to download template %s, err: %s", templateName, err)
 		return nil, err
 	}
@@ -294,9 +360,11 @@ func copyChartRevision(projectName, serviceName string, revision int64) error {
 	return nil
 }
 
-func clearChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
+func clearChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger, source ...string) {
 	clearChartFilesInS3Storage(projectName, serviceName, revision, logger)
-	clearLocalChartFiles(projectName, serviceName, revision, logger)
+	if len(source) == 0 {
+		clearLocalChartFiles(projectName, serviceName, revision, logger)
+	}
 }
 
 // clear chart files in s3 storage
@@ -326,9 +394,112 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
+	case LoadFromGerrit:
+		return CreateOrUpdateHelmServiceFromGerrit(projectName, args, logger)
+	case LoadFromChartRepo:
+		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, logger)
 	default:
 		return nil, fmt.Errorf("invalid source")
 	}
+}
+
+func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+	chartRepoArgs, ok := args.CreateFrom.(*CreateFromChartRepo)
+	if !ok {
+		return nil, e.ErrCreateTemplate.AddDesc("invalid argument")
+	}
+
+	chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoArgs.ChartRepoName})
+	if err != nil {
+		log.Errorf("failed to query chart-repo info, productName: %s, err: %s", projectName, err)
+		return nil, e.ErrCreateTemplate.AddDesc(fmt.Sprintf("failed to query chart-repo info, productName: %s, repoName: %s", projectName, chartRepoArgs.ChartRepoName))
+	}
+
+	hClient, err := helmclient.NewClient()
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to init chart client for repo: %s", chartRepo.RepoName))
+	}
+
+	chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, chartRepoArgs.ChartName)
+	localPath := config.LocalServicePath(projectName, chartRepoArgs.ChartName)
+	// remove local file to untar
+	_ = os.RemoveAll(localPath)
+	err = hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, chartRepoArgs.ChartVersion, localPath, true)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to download chart %s/%s-%s", chartRepo.RepoName, chartRepoArgs.ChartName, chartRepoArgs.ChartVersion))
+	}
+
+	serviceName := chartRepoArgs.ChartName
+	rev, err := getNextServiceRevision(projectName, serviceName)
+	if err != nil {
+		log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
+	var finalErr error
+	// clear files from both s3 and local when error occurred in next stages
+	defer func() {
+		if finalErr != nil {
+			clearChartFiles(projectName, serviceName, rev, log)
+		}
+	}()
+
+	// read values.yaml
+	fsTree := os.DirFS(config.LocalServicePath(projectName, chartRepoArgs.ChartName))
+	valuesYAML, err := readValuesYAML(fsTree, chartRepoArgs.ChartName, log)
+	if err != nil {
+		finalErr = e.ErrCreateTemplate.AddErr(err)
+		return nil, finalErr
+	}
+
+	// upload to s3 storage
+	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
+	err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, s3Base, log)
+	if err != nil {
+		finalErr = e.ErrCreateTemplate.AddErr(err)
+		return nil, finalErr
+	}
+
+	// copy service revision data from latest
+	err = copyChartRevision(projectName, serviceName, rev)
+	if err != nil {
+		log.Errorf("Failed to copy file %s, err: %s", serviceName, err)
+		finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", serviceName)
+		return nil, finalErr
+	}
+
+	svc, err := createOrUpdateHelmService(
+		fsTree,
+		&helmServiceCreationArgs{
+			ChartName:       chartRepoArgs.ChartName,
+			ChartVersion:    chartRepoArgs.ChartVersion,
+			ChartRepoName:   chartRepoArgs.ChartRepoName,
+			ServiceRevision: rev,
+			MergedValues:    string(valuesYAML),
+			ServiceName:     serviceName,
+			ProductName:     projectName,
+			CreateBy:        args.CreatedBy,
+			Source:          setting.SourceFromChartRepo,
+		},
+		log,
+	)
+	if err != nil {
+		log.Errorf("Failed to create service %s in project %s, error: %s", serviceName, projectName, err)
+		finalErr = e.ErrCreateTemplate.AddErr(err)
+		return nil, finalErr
+	}
+
+	compareHelmVariable([]*templatemodels.RenderChart{
+		{
+			ServiceName:  chartRepoArgs.ChartName,
+			ChartVersion: svc.HelmChart.Version,
+			ValuesYaml:   svc.HelmChart.ValuesYaml,
+		},
+	}, projectName, args.CreatedBy, log)
+
+	return &BulkHelmServiceCreationResponse{
+		SuccessServices: []string{serviceName},
+	}, nil
 }
 
 func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
@@ -341,6 +512,14 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	if err != nil {
 		return nil, err
 	}
+
+	return createOrUpdateHelmServiceFromChartTemplate(templateArgs, templateChartInfo, projectName, args, logger)
+}
+
+func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTemplate, templateChartInfo *ChartTemplateData, projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+
+	// NOTE we may need a better way to handle service name with spaces
+	args.Name = strings.TrimSpace(args.Name)
 
 	var values [][]byte
 	if len(templateChartInfo.DefaultValuesYAML) > 0 {
@@ -363,11 +542,11 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	from := filepath.Join(localBase, base)
 	to := filepath.Join(config.LocalServicePath(projectName, args.Name), args.Name)
 	// remove old files
-	if err = os.RemoveAll(to); err != nil {
+	if err := os.RemoveAll(to); err != nil {
 		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
 		return nil, err
 	}
-	if err = copy.Copy(from, to); err != nil {
+	if err := copy.Copy(from, to); err != nil {
 		logger.Errorf("Failed to copy file from %s to %s, err: %s", from, to, err)
 		return nil, err
 	}
@@ -424,6 +603,9 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			HelmTemplateName: templateArgs.TemplateName,
 			ValuesYaml:       templateArgs.ValuesYAML,
 			Variables:        templateArgs.Variables,
+			ValuesSource:     args.ValuesData,
+			CreationDetail:   args.CreationDetail,
+			AutoSync:         args.AutoSync,
 		},
 		logger,
 	)
@@ -435,7 +617,8 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	}
 
 	compareHelmVariable([]*templatemodels.RenderChart{
-		{ServiceName: args.Name,
+		{
+			ServiceName:  args.Name,
 			ChartVersion: svc.HelmChart.Version,
 			ValuesYaml:   svc.HelmChart.ValuesYaml,
 		},
@@ -456,6 +639,135 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *system
 		return "", ch, err
 	}
 	return ch.Type, ch, nil
+}
+
+func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+	var (
+		filePaths []string
+		response  = &BulkHelmServiceCreationResponse{}
+		base      string
+	)
+	resByte, resByteErr := json.Marshal(args.CreateFrom)
+	if resByteErr != nil {
+		log.Errorf("failed to json.Marshal err:%s", resByteErr)
+		return nil, resByteErr
+	}
+	var createFromRepo CreateFromRepo
+	jsonResErr := json.Unmarshal(resByte, &createFromRepo)
+	if jsonResErr != nil {
+		log.Errorf("failed to json.Unmarshal err:%s", resByteErr)
+		return nil, jsonResErr
+	}
+
+	filePaths = createFromRepo.Paths
+	base = path.Join(config.S3StoragePath(), createFromRepo.Repo)
+	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(filePaths))
+	var wg wait.Group
+	var mux sync.RWMutex
+	for _, p := range filePaths {
+		filePath := strings.TrimLeft(p, "/")
+		wg.Start(func() {
+			var (
+				serviceName  string
+				chartVersion string
+				valuesYAML   []byte
+				finalErr     error
+			)
+			defer func() {
+				mux.Lock()
+				if finalErr != nil {
+					response.FailedServices = append(response.FailedServices, &FailedService{
+						Path:  filePath,
+						Error: finalErr.Error(),
+					})
+				} else {
+					response.SuccessServices = append(response.SuccessServices, serviceName)
+				}
+				mux.Unlock()
+			}()
+
+			currentFilePath := path.Join(base, filePath)
+			log.Infof("Loading chart under path %s", currentFilePath)
+			serviceName, chartVersion, finalErr = readChartYAMLFromLocal(currentFilePath, log)
+			if finalErr != nil {
+				return
+			}
+			valuesYAML, finalErr = readValuesYAMLFromLocal(currentFilePath, log)
+			if finalErr != nil {
+				return
+			}
+
+			log.Info("Found valid chart, Starting to save and upload files")
+			rev, err := getNextServiceRevision(projectName, serviceName)
+			if err != nil {
+				log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
+
+			// clear files from s3 when error occurred in next stages
+			defer func() {
+				if finalErr != nil {
+					clearChartFiles(projectName, serviceName, rev, log, string(args.Source))
+				}
+			}()
+
+			// copy to latest dir and upload to s3
+			if err = commonservice.CopyAndUploadService(projectName, serviceName, currentFilePath, []string{fmt.Sprintf("%s-%d", serviceName, rev)}); err != nil {
+				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
+
+			err = copyChartRevision(projectName, serviceName, rev)
+			if err != nil {
+				log.Errorf("Failed to copy file %s, err: %s", serviceName, err)
+				finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", serviceName)
+				return
+			}
+
+			svc, err := createOrUpdateHelmService(
+				nil,
+				&helmServiceCreationArgs{
+					ChartName:        serviceName,
+					ChartVersion:     chartVersion,
+					ServiceRevision:  rev,
+					MergedValues:     string(valuesYAML),
+					ServiceName:      serviceName,
+					FilePath:         filePath,
+					ProductName:      projectName,
+					CreateBy:         args.CreatedBy,
+					CodehostID:       createFromRepo.CodehostID,
+					Owner:            createFromRepo.Owner,
+					Repo:             createFromRepo.Repo,
+					Branch:           createFromRepo.Branch,
+					Source:           string(args.Source),
+					GerritCodeHostID: createFromRepo.CodehostID,
+					GerritPath:       currentFilePath,
+					GerritRepoName:   createFromRepo.Repo,
+					GerritBranchName: createFromRepo.Branch,
+					GerritRemoteName: "origin",
+				},
+				log,
+			)
+			if err != nil {
+				log.Errorf("Failed to create service %s in project %s, error: %s", serviceName, projectName, err)
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
+
+			helmRenderCharts = append(helmRenderCharts, &templatemodels.RenderChart{
+				ServiceName:  serviceName,
+				ChartVersion: svc.HelmChart.Version,
+				ValuesYaml:   svc.HelmChart.ValuesYaml,
+			})
+		})
+	}
+
+	wg.Wait()
+
+	compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+	return response, nil
 }
 
 func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
@@ -642,7 +954,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer wg.Done()
-			renderChart, err := handleSingleService(projectName, repoConfig, path, from, args.CreatedBy, templateChartData, logger)
+			renderChart, err := handleSingleService(projectName, repoConfig, args, path, from, templateChartData, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
@@ -679,9 +991,8 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 	return resp, nil
 }
 
-func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath, createBy string,
-	templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
-
+func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, args *BulkHelmServiceCreationArgs, path, fromPath string, templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
+	createBy, valuesData := args.CreatedBy, args.ValuesData
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
@@ -706,6 +1017,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 
 	serviceName := filepath.Base(path)
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
+	serviceName = strings.TrimSpace(serviceName)
 
 	to := filepath.Join(config.LocalServicePath(projectName, serviceName), serviceName)
 	// remove old files
@@ -767,6 +1079,8 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			HelmTemplateName: templateChartData.TemplateName,
 			ValuePaths:       []string{path},
 			ValuesYaml:       string(valuesYAML),
+			ValuesSource:     valuesData,
+			AutoSync:         args.AutoSync,
 		},
 		logger,
 	)
@@ -797,8 +1111,32 @@ func readChartYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) (str
 	return chart.Name, chart.Version, nil
 }
 
+func readChartYAMLFromLocal(base string, logger *zap.SugaredLogger) (string, string, error) {
+	chartFile, err := util.ReadFile(filepath.Join(base, setting.ChartYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err)
+		return "", "", err
+	}
+	chart := new(Chart)
+	if err = yaml.Unmarshal(chartFile, chart); err != nil {
+		log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err)
+		return "", "", err
+	}
+
+	return chart.Name, chart.Version, nil
+}
+
 func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
 	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
+		return nil, err
+	}
+	return content, nil
+}
+
+func readValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, error) {
+	content, err := util.ReadFile(filepath.Join(base, setting.ValuesYaml))
 	if err != nil {
 		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
 		return nil, err
@@ -837,11 +1175,32 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 				Value: variable.Value,
 			})
 		}
+		if args.ValuesSource != nil && args.ValuesSource.GitRepoConfig != nil {
+			yamlData.Source = args.ValuesSource.YamlSource
+			repoData := &models.CreateFromRepo{
+				GitRepoConfig: &templatemodels.GitRepoConfig{
+					CodehostID: args.ValuesSource.GitRepoConfig.CodehostID,
+					Owner:      args.ValuesSource.GitRepoConfig.Owner,
+					Repo:       args.ValuesSource.GitRepoConfig.Repo,
+					Branch:     args.ValuesSource.GitRepoConfig.Branch,
+				},
+			}
+			if len(args.ValuesSource.GitRepoConfig.ValuesPaths) > 0 {
+				repoData.LoadPath = args.ValuesSource.GitRepoConfig.ValuesPaths[0]
+			}
+			yamlData.SourceDetail = repoData
+		}
 		return &models.CreateFromChartTemplate{
 			YamlData:     yamlData,
 			TemplateName: args.HelmTemplateName,
 			ServiceName:  args.ServiceName,
 			Variables:    variables,
+		}
+	case setting.SourceFromChartRepo:
+		return models.CreateFromChartRepo{
+			ChartRepoName: args.ChartRepoName,
+			ChartName:     args.ChartName,
+			ChartVersion:  args.ChartVersion,
 		}
 	}
 	return nil
@@ -874,7 +1233,18 @@ func renderVariablesToYaml(valuesYaml string, productName, serviceName string, v
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*commonmodels.Service, error) {
-	chartName, chartVersion, err := readChartYAML(fsTree, args.ServiceName, logger)
+	var (
+		chartName, chartVersion string
+		err                     error
+	)
+	switch args.Source {
+	case string(LoadFromGerrit):
+		base := path.Join(config.S3StoragePath(), args.GerritRepoName)
+		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
+	default:
+		chartName, chartVersion, err = readChartYAML(fsTree, args.ServiceName, logger)
+	}
+
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
 		return nil, err
@@ -894,31 +1264,45 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	}
 
 	serviceObj := &commonmodels.Service{
-		ServiceName: args.ServiceName,
-		Type:        setting.HelmDeployType,
-		Revision:    args.ServiceRevision,
-		ProductName: args.ProductName,
-		Visibility:  setting.PrivateVisibility,
-		CreateTime:  time.Now().Unix(),
-		CreateBy:    args.CreateBy,
-		Containers:  containerList,
-		CodehostID:  args.CodehostID,
-		RepoOwner:   args.Owner,
-		RepoName:    args.Repo,
-		BranchName:  args.Branch,
-		LoadPath:    args.FilePath,
-		SrcPath:     args.RepoLink,
-		CreateFrom:  geneCreationDetail(args),
-		Source:      args.Source,
+		ServiceName:   args.ServiceName,
+		Type:          setting.HelmDeployType,
+		Revision:      args.ServiceRevision,
+		ProductName:   args.ProductName,
+		Visibility:    setting.PrivateVisibility,
+		CreateTime:    time.Now().Unix(),
+		CreateBy:      args.CreateBy,
+		Containers:    containerList,
+		CodehostID:    args.CodehostID,
+		RepoOwner:     args.Owner,
+		RepoName:      args.Repo,
+		BranchName:    args.Branch,
+		LoadPath:      args.FilePath,
+		SrcPath:       args.RepoLink,
+		Source:        args.Source,
+		ReleaseNaming: setting.DefaultReleaseNaming,
+		AutoSync:      args.AutoSync,
 		HelmChart: &commonmodels.HelmChart{
 			Name:       chartName,
 			Version:    chartVersion,
 			ValuesYaml: valuesYaml,
 		},
 	}
+	if args.CreationDetail != nil {
+		serviceObj.CreateFrom = args.CreationDetail
+	} else {
+		serviceObj.CreateFrom = geneCreationDetail(args)
+	}
+
+	switch args.Source {
+	case string(LoadFromGerrit):
+		serviceObj.GerritPath = args.GerritPath
+		serviceObj.GerritCodeHostID = args.GerritCodeHostID
+		serviceObj.GerritRepoName = args.GerritRepoName
+		serviceObj.GerritBranchName = args.GerritBranchName
+		serviceObj.GerritRemoteName = args.GerritRemoteName
+	}
 
 	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
-
 	currentSvcTmpl, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName:         args.ProductName,
 		ServiceName:         args.ServiceName,
@@ -930,12 +1314,31 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
+	// update status of current service template to deleting
+	if currentSvcTmpl != nil {
+		err = commonrepo.NewServiceColl().UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting)
+		if err != nil {
+			log.Errorf("Failed to set status of current service templates, serviceName: %s, err: %s", args.ServiceName, err)
+			return nil, err
+		}
+		serviceObj.ReleaseNaming = currentSvcTmpl.GetReleaseNaming()
+	}
+
+	// create new service template
 	if err = commonrepo.NewServiceColl().Create(serviceObj); err != nil {
 		log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
 		return nil, err
 	}
 
-	commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, logger)
+	switch args.Source {
+	case string(LoadFromGerrit):
+		if err := createGerritWebhookByService(args.CodehostID, args.ServiceName, args.Repo, args.Branch); err != nil {
+			log.Errorf("Failed to create gerrit webhook, err: %s", err)
+			return nil, err
+		}
+	default:
+		commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, logger)
+	}
 
 	if err = templaterepo.NewProductColl().AddService(args.ProductName, args.ServiceName); err != nil {
 		log.Errorf("Failed to add service %s to project %s, err: %s", args.ProductName, args.ServiceName, err)
@@ -974,7 +1377,9 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}
+
 	var fis []*types.FileInfo
+
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())

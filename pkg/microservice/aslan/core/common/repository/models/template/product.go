@@ -96,14 +96,17 @@ type EnvRenderKV struct {
 }
 
 type GitRepoConfig struct {
-	CodehostID int    `bson:"codehost_id,omitempty"`
-	Owner      string `bson:"owner,omitempty"`
-	Repo       string `bson:"repo,omitempty"`
-	Branch     string `bson:"branch,omitempty"`
+	CodehostID int    `bson:"codehost_id,omitempty" json:"codehost_id"`
+	Owner      string `bson:"owner,omitempty"       json:"owner"`
+	Repo       string `bson:"repo,omitempty"        json:"repo"`
+	Branch     string `bson:"branch,omitempty"      json:"branch"`
 }
 
 type CustomYaml struct {
-	YamlContent string `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+	YamlContent  string      `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+	Source       string      `bson:"source" json:"source"`
+	AutoSync     bool        `bson:"auto_sync" json:"auto_sync"`
+	SourceDetail interface{} `bson:"source_detail" json:"source_detail"`
 }
 
 // RenderChart ...
@@ -150,6 +153,7 @@ type CustomRule struct {
 	BranchRule      string `bson:"branch_rule,omitempty"         json:"branch_rule,omitempty"`
 	PRAndBranchRule string `bson:"pr_and_branch_rule,omitempty"  json:"pr_and_branch_rule,omitempty"`
 	TagRule         string `bson:"tag_rule,omitempty"            json:"tag_rule,omitempty"`
+	JenkinsRule     string `bson:"jenkins_rule,omitempty"        json:"jenkins_rule,omitempty"`
 }
 
 type DeliveryVersionHook struct {
