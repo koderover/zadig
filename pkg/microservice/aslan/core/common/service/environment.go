@@ -312,7 +312,7 @@ type Workload struct {
 }
 
 // fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
-// TODO optimize this function, use release.template to find related resources
+// TODO optimize this function, use release.template to filter related resources
 func fillServiceName(envName, productName string, workloads []*Workload) error {
 	if len(envName) == 0 {
 		return nil
@@ -395,6 +395,12 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
 
+	err = fillServiceName(envName, productName, workLoads)
+	// err of getting service name should not block the return of workloads
+	if err != nil {
+		log.Errorf("failed to set service name for workloads, error: %s", err)
+	}
+
 	// 对于workload过滤
 	for _, f := range filter {
 		workLoads = f(workLoads)
@@ -449,11 +455,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	allServices, err := getter.ListServicesWithCache(nil, informer)
 	if err != nil {
 		log.Errorf("[%s][%s] list service error: %s", envName, namespace, err)
-	}
-
-	err = fillServiceName(envName, productName, workLoads)
-	if err != nil {
-		log.Errorf("failed to set service name for workloads, error: %s", err)
 	}
 
 	for _, workload := range workLoads {
