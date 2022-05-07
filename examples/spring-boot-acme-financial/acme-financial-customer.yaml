@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: acme-financial-customer
+  name: acme-financial-customer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: acme-financial-customer
+  template:
+    metadata:
+      labels:
+        app: acme-financial-customer
+    spec:
+      initContainers:
+        - name: init-skywalking-agent
+          image: ccr.ccs.tencentyun.com/koderover-public/skywalking-agent:8.8.0
+          command:
+            - 'sh'
+            - '-c'
+            - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+          volumeMounts:
+            - mountPath: /vmskywalking/agent
+              name: skywalking-agent
+      containers:
+      - env:
+        - name: JAVA_OPTS
+          value: "-javaagent:/opt/skywalking/agent/skywalking-agent.jar"
+        - name: SW_AGENT_NAME
+          value: "acme-financial-customer"
+        - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
+          value: "skywalking-oap.skywalking.svc.cluster.local:11800"
+        image: ccr.ccs.tencentyun.com/koderover-public/acme-financial-customer:v0.1
+        imagePullPolicy: Always
+        name: customer
+        ports:
+        - containerPort: 8084
+          protocol: TCP
+        volumeMounts:
+          - mountPath: /opt/skywalking/agent
+            name: skywalking-agent
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: acme-financial-customer
+  name: acme-financial-customer
+spec:
+  ports:
+  - name: http
+    port: 8084
+    protocol: TCP
+    targetPort: 8084
+  selector:
+    app: acme-financial-customer
+  sessionAffinity: None
+  type: ClusterIP
