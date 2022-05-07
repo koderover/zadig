@@ -16,9 +16,6 @@ var envMetaBytes []byte
 //go:embed workflow_meta.yaml
 var workflowPolicyMeta []byte
 
-//go:embed system_metas.yaml
-var systemPolicyMeta []byte
-
 //go:embed other_metas.yaml
 var otherPolicyMeta []byte
 
@@ -128,17 +125,6 @@ func (m *MetaEnvironment) Policies() []*policy.PolicyMeta {
 	}
 
 	return []*policy.PolicyMeta{envMeta, proEnvMeta}
-}
-
-type MetaSystem struct {
-}
-
-func (m *MetaSystem) Policies() []*policy.PolicyMeta {
-	systemMetas := []*policy.PolicyMeta{}
-	if err := yaml.Unmarshal(systemPolicyMeta, &systemMetas); err != nil {
-		log.DPanic(err)
-	}
-	return systemMetas
 }
 
 type MetaOthers struct {
