@@ -380,5 +380,121 @@
       rules:
         - method: GET
           endpoint: "/api/aslan/delivery/artifacts"
+- resource: Workflow
+  alias: "工作流"
+  description: ""
+  rules:
+    - action: get_workflow
+      alias: "查看"
+      description: ""
+      rules:
+        - method: GET
+          endpoint: "/api/aslan/delivery/releases"
+        - method: GET
+          endpoint: "api/aslan/workflow/workflow"
+          matchAttributes:
+            - key: "placeholder"
+              value: "placeholder"
+        - method: GET
+          endpoint: "/api/aslan/environment/environments"
+          matchAttributes:
+            - key: "placeholder"
+              value: "placeholder"
+        - method: GET
+          endpoint: "api/aslan/workflow/workflow"
+        - method: GET
+          endpoint: "/api/aslan/workflow/workflow/find/?*"
+        - method: GET
+          endpoint: "/api/aslan/workflow/workflowtask/max/?*/start/?*/pipelines/?*"
+        - method: GET
+          endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*"
+        - method: GET
+          endpoint: "/api/aslan/workflow/sse/workflows/id/?*/pipelines/?*"
+        - method: GET
+          endpoint: "/api/aslan/logs/sse/workflow/build/?*/?*/?*/?*"
+        - method: GET
+          endpoint: "/api/aslan/logs/log/workflow/?*/tasks/?*/service/?*"
+        - method: GET
+          endpoint: "/api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*"
+        - method: GET
+          endpoint: "/api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*"
+        - method: GET
+          endpoint: "/api/aslan/testing/itreport/workflow/?*/id/?*/names/?*/service/?*"
+        - method: GET
+          endpoint: "/api/directory/workflowTask"
+        - method: GET
+          endpoint: "/api/aslan/workflow/v3"
+        - method: GET
+          endpoint: "/api/aslan/workflow/v3/?*"
+        - method: GET
+          endpoint: "/api/aslan/workflow/v3/?*/args"
+        - method: GET
+          endpoint: "/api/aslan/workflow/servicetask/workflows/?*/?*/?*/?*"
+    - action: edit_workflow
+      alias: "编辑"
+      description: ""
+      rules:
+        - method: PUT
+          endpoint: "api/aslan/workflow/workflow/:name"
+        - method: GET
+          endpoint: "/api/aslan/workflow/workflow/preset/?*"
+        - method: GET
+          endpoint: "/api/aslan/testing/testdetail"
+        - method: PUT
+          endpoint: "/api/aslan/workflow/v3/?*"
+          #一个服务关联多个构建
+        - method: GET
+          endpoint: "/api/aslan/build/build/serviceModule"
+    - action: create_workflow
+      alias: "新建"
+      description: ""
+      rules:
+        #一个服务关联多个构建
+        - method: GET
+          endpoint: "/api/aslan/build/build/serviceModule"
+        - method: POST
+          endpoint: "api/aslan/workflow/workflow"
+        - method: PUT
+          endpoint: "/api/aslan/workflow/workflow/old/?*/new/?*"
+        - method: POST
+          endpoint: "/api/directory/workflowTask/create"
+        - method: GET
+          endpoint: "/api/aslan/testing/testdetail"
+        - method: POST
+          endpoint: "/api/aslan/workflow/v3"
+    - action: delete_workflow
+      alias: "删除"
+      description: ""
+      rules:
+        - method: DELETE
+          endpoint: "/api/aslan/workflow/workflow/?*"
+        - method: DELETE
+          endpoint: "/api/aslan/workflow/v3/?*"
+    - action: run_workflow
+      alias: "执行"
+      description: ""
+      rules:
+        - method: POST
+          endpoint: "/api/aslan/workflow/workflowtask/:name"
+        - method: PUT
+          endpoint: "/api/aslan/workflow/workflowtask/:name"
+        - method: POST
+          endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/:name/restart"
+        - method: DELETE
+          endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/:name"
+        - method: POST
+          endpoint: "/api/directory/workflowTask/id/?*/pipelines/?*/restart"
+        - method: POST
+          endpoint: "/api/directory/workflowTask/id/?*/pipelines/?*/cancel"
+        - method: GET
+          endpoint: "/api/aslan/project/products/?*/services"
+        - method: GET
+          endpoint: "/api/aslan/workflow/v3/?*/args"
+        - method: POST
+          endpoint: "/api/aslan/workflow/v3/workflowtask"
+        - method: POST
+          endpoint: "/api/aslan/workflow/v3/workflowtask/id/?*/name/?*/restart"
+        - method: DELETE
+          endpoint: "/api/aslan/workflow/v3/workflowtask/id/?*/name/?*"
 
 
