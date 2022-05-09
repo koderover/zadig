@@ -46,6 +46,8 @@ type GitRepoInfo struct {
 	RepoUUID      string                `json:"repo_uuid,omitempty"`
 	RepoID        string                `json:"repo_id,omitempty"`
 	Key           string                `json:"key"`
+	// FilterRegexp is the regular expression filter for the branches and tags
+	FilterRegexp string `json:"filter_regexp,omitempty"`
 }
 
 // ListRepoInfos ...
@@ -124,6 +126,24 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 	}
 
 	wg.Wait()
+	for _, info := range infos {
+		if info.FilterRegexp != "" {
+			newBranchList := make([]*client.Branch, 0)
+			for _, branch := range info.Branches {
+				if match, _ := regexp.MatchString(info.FilterRegexp, branch.Name); match {
+					newBranchList = append(newBranchList, branch)
+				}
+			}
+			newTagList := make([]*client.Tag, 0)
+			for _, tag := range info.Tags {
+				if match, _ := regexp.MatchString(info.FilterRegexp, tag.Name); match {
+					newTagList = append(newTagList, tag)
+				}
+			}
+			info.Branches = newBranchList
+			info.Tags = newTagList
+		}
+	}
 	if err := errList.ErrorOrNil(); err != nil {
 		log.Errorf("list repo info error: %v", err)
 	}
