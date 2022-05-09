@@ -157,7 +157,7 @@ func CreateScanningTask(c *gin.Context) {
 	if err != nil {
 		log.Errorf("Create scanning task c.GetRawData() err : %v", err)
 	}
-	if err = json.Unmarshal(data, req); err != nil {
+	if err = json.Unmarshal(data, &req); err != nil {
 		log.Errorf("Create scanning task json.Unmarshal err : %v", err)
 	}
 
