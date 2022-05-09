@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: acme-financial-ui
+  name: acme-financial-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: acme-financial-ui
+  template:
+    metadata:
+      labels:
+        app: acme-financial-ui
+    spec:
+      initContainers:
+        - name: init-skywalking-agent
+          image: ccr.ccs.tencentyun.com/koderover-public/skywalking-agent:8.8.0
+          command:
+            - 'sh'
+            - '-c'
+            - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - mountPath: /vmskywalking/agent
+              name: skywalking-agent
+      containers:
+      - env:
+        - name: JAVA_OPTS
+          value: "-javaagent:/opt/skywalking/agent/skywalking-agent.jar"
+        - name: SW_AGENT_NAME
+          value: "acme-financial-ui"
+        - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
+          value: "skywalking-oap.skywalking.svc.cluster.local:11800"
+        image: ccr.ccs.tencentyun.com/koderover-public/acme-financial-ui:v0.1
+        imagePullPolicy: Always
+        name: ui
+        ports:
+        - containerPort: 8081
+          protocol: TCP
+        resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
+        volumeMounts:
+          - mountPath: /opt/skywalking/agent
+            name: skywalking-agent
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: acme-financial-ui
+  name: acme-financial-ui
+spec:
+  ports:
+  - name: http
+    port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: acme-financial-ui
+  sessionAffinity: None
+  type: NodePort
