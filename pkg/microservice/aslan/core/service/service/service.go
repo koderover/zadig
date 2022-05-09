@@ -964,8 +964,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				log.Errorf("yaml unmarshal err: %s", err)
-				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
+				errorDetails = append(errorDetails, fmt.Sprintf("Invalid yaml format. The content must be a series of valid Kubernetes resources. err: %s", err))
 			}
 		}
 	}
