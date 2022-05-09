@@ -651,7 +651,7 @@
         - method: GET
           endpoint: "/api/podexec/?*/?*/?*/?*/podExec/:name"
     - action: ssh_pm
-      alias: "主机登陆"
+      alias: "主机登录"
       description: ""
       rules:
         - method: GET
