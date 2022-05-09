@@ -17,12 +17,22 @@ limitations under the License.
 package service
 
 import (
-	"go.uber.org/zap"
-
+	"context"
+	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
+	"go.uber.org/zap"
+	"sort"
+	"time"
 )
 
 func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogger) error {
@@ -135,4 +145,205 @@ func DeleteScanningModuleByID(id string, log *zap.SugaredLogger) error {
 		log.Errorf("failed to delete scanning from mongodb, the error is: %s", err)
 	}
 	return err
+}
+
+func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log *zap.SugaredLogger) error {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return err
+	}
+
+	scanningName := fmt.Sprintf("%s-%s", scanningInfo.Name, "scanning-job")
+
+	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ScanningTaskFmt, scanningName))
+	if err != nil {
+		log.Errorf("failed to generated task id for scanning task, error: %s", err)
+		return e.ErrGetCounter.AddDesc(err.Error())
+	}
+
+	imageInfo, err := commonrepo.NewBasicImageColl().Find(id)
+	if err != nil {
+		log.Errorf("failed to get image information to create scanning task, error: %s", err)
+		return err
+	}
+
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
+	if err != nil {
+		log.Errorf("ListRegistryNamespaces err:%v", err)
+	}
+
+	repos := make([]*types.Repository, 0)
+	for _, arg := range req {
+		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
+		if err != nil {
+			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
+			return err
+		}
+		repos = append(repos, &types.Repository{
+			Source:      rep.Type,
+			RepoOwner:   arg.RepoOwner,
+			RepoName:    arg.RepoName,
+			Branch:      arg.Branch,
+			PR:          arg.PR,
+			CodehostID:  arg.CodehostID,
+			OauthToken:  rep.AccessToken,
+			Address:     rep.Address,
+			Username:    rep.Username,
+			Password:    rep.Password,
+			EnableProxy: rep.EnableProxy,
+		})
+	}
+
+	scanningTask := &task.Scanning{
+		TaskType:   config.TaskScanning,
+		Status:     config.StatusCreated,
+		Name:       scanningInfo.Name,
+		ImageInfo:  imageInfo.Value,
+		ResReq:     scanningInfo.AdvancedSetting.ResReq,
+		ResReqSpec: scanningInfo.AdvancedSetting.ResReqSpec,
+		Registries: registries,
+		Parameter:  scanningInfo.Parameter,
+		Script:     scanningInfo.Script,
+		Timeout:    DefaultScanningTimeout,
+		Repos:      repos,
+	}
+
+	if scanningInfo.ScannerType == "sonar" {
+		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+		if err != nil {
+			log.Errorf("failed to get sonar integration information to create scanning task, error: %s", err)
+			return err
+		}
+
+		scanningTask.SonarInfo = &types.SonarInfo{
+			Token:         sonarInfo.Token,
+			ServerAddress: sonarInfo.ServerAddress,
+		}
+	}
+
+	proxies, _ := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+	if len(proxies) != 0 {
+		scanningTask.Proxy = proxies[0]
+	}
+
+	scanningSubtask, err := scanningTask.ToSubTask()
+	if err != nil {
+		log.Errorf("failed to convert scanning subtask, error: %s", err)
+		return e.ErrCreateTask.AddDesc(err.Error())
+	}
+
+	stages := make([]*commonmodels.Stage, 0)
+	workflowservice.AddSubtaskToStage(&stages, scanningSubtask, scanningInfo.Name)
+	sort.Sort(workflowservice.ByStageKind(stages))
+
+	configPayload := commonservice.GetConfigPayload(0)
+
+	finalTask := &task.Task{
+		TaskID:        nextTaskID,
+		ProductName:   scanningInfo.ProjectName,
+		PipelineName:  scanningName,
+		Type:          config.ScanningType,
+		Status:        config.StatusCreated,
+		TaskCreator:   username,
+		CreateTime:    time.Now().Unix(),
+		Stages:        stages,
+		ConfigPayload: configPayload,
+	}
+
+	if len(finalTask.Stages) <= 0 {
+		return e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
+	}
+
+	if err := workflowservice.CreateTask(finalTask); err != nil {
+		log.Error(err)
+		return e.ErrCreateTask
+	}
+
+	return nil
+}
+
+func ListScanningTask(id string, pageNum, pageSize int64, log *zap.SugaredLogger) (*ListScanningTaskResp, error) {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return nil, err
+	}
+
+	scanningName := fmt.Sprintf("%s-%s", scanningInfo.Name, "scanning-job")
+	listTaskOpt := &commonrepo.ListTaskOption{
+		PipelineName: scanningName,
+		Limit:        int(pageSize),
+		Skip:         int((pageNum - 1) * pageSize),
+		Detail:       true,
+		Type:         config.ScanningType,
+	}
+	countTaskOpt := &commonrepo.CountTaskOption{
+		PipelineNames: []string{scanningName},
+		Type:          config.ScanningType,
+	}
+	resp, err := commonrepo.NewTaskColl().List(listTaskOpt)
+	if err != nil {
+		log.Errorf("failed to list scanning task for scanning: %s, the error is: %s", id, err)
+		return nil, err
+	}
+	cnt, err := commonrepo.NewTaskColl().Count(countTaskOpt)
+	if err != nil {
+		log.Errorf("failed to count scanning task for scanning: %s, the error is: %s", id, err)
+		return nil, err
+	}
+
+	scanTasks := make([]*ScanningTaskResp, 0)
+
+	for _, scanningTask := range resp {
+		taskInfo := &ScanningTaskResp{
+			ScanID:    scanningTask.TaskID,
+			Status:    string(scanningTask.Status),
+			Creator:   scanningTask.TaskCreator,
+			CreatedAt: scanningTask.CreateTime,
+		}
+		if scanningTask.Status == config.StatusPassed || scanningTask.Status == config.StatusCancelled || scanningTask.Status == config.StatusFailed {
+			taskInfo.RunTime = scanningTask.EndTime - scanningTask.StartTime
+		}
+		scanTasks = append(scanTasks, taskInfo)
+	}
+
+	return &ListScanningTaskResp{
+		ScanInfo: &ScanningInfo{
+			Editor:    scanningInfo.UpdatedBy,
+			UpdatedAt: scanningInfo.UpdatedAt,
+		},
+		ScanTasks:  scanTasks,
+		TotalTasks: cnt,
+	}, nil
+}
+
+func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger) (*ScanningTaskDetail, error) {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return nil, err
+	}
+
+	scanningName := fmt.Sprintf("%s-%s", scanningInfo.Name, "scanning-job")
+	resp, err := commonrepo.NewTaskColl().Find(taskID, scanningName, config.ScanningType)
+	if err != nil {
+		log.Errorf("failed to get task information, error: %s", err)
+		return nil, err
+	}
+
+	sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+	if err != nil {
+		log.Errorf("failed to get sonar integration info, error: %s", err)
+		return nil, err
+	}
+
+	return &ScanningTaskDetail{
+		Creator:    resp.TaskCreator,
+		Status:     string(resp.Status),
+		CreateTime: resp.CreateTime,
+		EndTime:    resp.EndTime,
+		RepoInfo:   []*types.Repository{},
+		ResultLink: sonarInfo.ServerAddress,
+	}, nil
 }

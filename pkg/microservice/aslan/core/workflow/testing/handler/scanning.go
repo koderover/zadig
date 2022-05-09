@@ -18,9 +18,14 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -135,4 +140,124 @@ func DeleteScanningModule(c *gin.Context) {
 	}
 
 	ctx.Err = service.DeleteScanningModuleByID(id, ctx.Logger)
+}
+
+func CreateScanningTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	if id == "" {
+		ctx.Err = fmt.Errorf("id must be provided")
+		return
+	}
+
+	req := make([]*service.ScanningRepoInfo, 0)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("Create scanning task c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, req); err != nil {
+		log.Errorf("Create scanning task json.Unmarshal err : %v", err)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代码扫描任务", id, string(data), ctx.Logger)
+
+	ctx.Err = service.CreateScanningTask(id, req, ctx.UserName, ctx.Logger)
+}
+
+type listQuery struct {
+	PageSize int64 `json:"page_size" form:"page_size,default=100"`
+	PageNum  int64 `json:"page_num"  form:"page_num,default=1"`
+}
+
+func ListScanningTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	if id == "" {
+		ctx.Err = fmt.Errorf("id must be provided")
+		return
+	}
+
+	// Query Verification
+	args := &listQuery{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListScanningTask(id, args.PageNum, args.PageSize, ctx.Logger)
+}
+
+func GetScanningTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	if id == "" {
+		ctx.Err = fmt.Errorf("id must be provided")
+		return
+	}
+
+	taskIDStr := c.Param("scan_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("scan_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetScanningTaskInfo(id, taskID, ctx.Logger)
+}
+
+func GetScanningTaskSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	if id == "" {
+		ctx.Err = fmt.Errorf("id must be provided")
+		return
+	}
+
+	taskIDStr := c.Param("scan_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("scan_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
+		startTime := time.Now()
+		err := wait.PollImmediateUntil(time.Second, func() (bool, error) {
+			res, err := service.GetScanningTaskInfo(id, taskID, ctx.Logger)
+			if err != nil {
+				ctx.Logger.Errorf("[%s] Get scanning task info error: %s", ctx.UserName, err)
+				return false, err
+			}
+
+			msgChan <- res
+
+			if time.Since(startTime).Minutes() == float64(60) {
+				ctx.Logger.Warnf("[%s] Query Get scanning task info API over 60 minutes", ctx.UserName)
+			}
+
+			return false, nil
+		}, ctx1.Done())
+
+		if err != nil && err != wait.ErrWaitTimeout {
+			ctx.Logger.Error(err)
+		}
+	}, ctx.Logger)
 }

@@ -22,23 +22,28 @@ import (
 )
 
 type ScanningAdvancedSetting struct {
-	Timeout    int64               `bson:"timeout"`
-	ResReq     setting.Request     `json:"res_req"`
-	ResReqSpec setting.RequestSpec `json:"res_req_spec"`
-	HookCtl    *ScanningHookCtl    `json:"hook_ctl"`
+	Timeout    int64               `bson:"timeout"      json:"timeout"`
+	ResReq     setting.Request     `bson:"res_req"      json:"res_req"`
+	ResReqSpec setting.RequestSpec `bson:"res_req_spec" json:"res_req_spec"`
+	HookCtl    *ScanningHookCtl    `bson:"hook_ctl"     json:"hook_ctl"`
 }
 
 type ScanningHookCtl struct {
-	Enabled bool            `json:"enabled"`
-	Items   []*ScanningHook `json:"items"`
+	Enabled bool            `bson:"enabled" json:"enabled"`
+	Items   []*ScanningHook `bson:"items"   json:"items"`
 }
 
 type ScanningHook struct {
-	CodehostID   int                    `json:"codehost_id"`
-	Source       string                 `json:"source"`
-	RepoOwner    string                 `json:"repo_owner"`
-	RepoName     string                 `json:"repo_name"`
-	Branch       string                 `json:"branch"`
-	Events       []config.HookEventType `json:"events"`
-	MatchFolders []string               `json:"match_folders"`
+	CodehostID   int                    `bson:"codehost_id"   json:"codehost_id"`
+	Source       string                 `bson:"source"        json:"source"`
+	RepoOwner    string                 `bson:"repo_owner"    json:"repo_owner"`
+	RepoName     string                 `bson:"repo_name"     json:"repo_name"`
+	Branch       string                 `bson:"branch"        json:"branch"`
+	Events       []config.HookEventType `bson:"events"        json:"events"`
+	MatchFolders []string               `bson:"match_folders" json:"match_folders"`
+}
+
+type SonarInfo struct {
+	ServerAddress string `bson:"server_address" json:"server_address"`
+	Token         string `bson:"token"          json:"token"`
 }

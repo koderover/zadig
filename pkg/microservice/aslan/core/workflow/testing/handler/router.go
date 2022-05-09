@@ -58,11 +58,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	scanner := router.Group("scanning")
 	{
+		// code scan config apis
 		scanner.POST("", GetScanningProductName, gin2.UpdateOperationLogStatus, CreateScanningModule)
 		scanner.PUT("/:id", GetScanningProductName, gin2.UpdateOperationLogStatus, UpdateScanningModule)
 		scanner.GET("", ListScanningModule)
 		scanner.GET("/:id", GetScanningModule)
 		scanner.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteScanningModule)
+
+		// code scan tasks apis
+		scanner.POST("/:id/task", gin2.UpdateOperationLogStatus, CreateScanningTask)
+		scanner.GET("/:id/task", ListScanningTask)
+		scanner.GET("/:id/task/:scan_id", GetScanningTask)
+		scanner.GET("/:id/task/:scan_id/sse", GetScanningTaskSSE)
 	}
 
 	testStat := router.Group("teststat")

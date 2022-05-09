@@ -21,6 +21,8 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
+const DefaultScanningTimeout = 60 * 60
+
 type Scanning struct {
 	ID          string              `json:"id"`
 	Name        string              `json:"name"`
@@ -45,9 +47,46 @@ type ListScanningRespItem struct {
 	UpdatedAt  int64              `json:"updated_at"`
 }
 
+type ScanningRepoInfo struct {
+	CodehostID int    `json:"codehost_id"`
+	Source     string `json:"source"`
+	RepoOwner  string `json:"repo_owner"`
+	RepoName   string `json:"repo_name"`
+	PR         int    `json:"pr"`
+	Branch     string `json:"branch"`
+}
+
 type ScanningStatistic struct {
 	TimesRun       int64 `json:"times_run"`
 	AverageRuntime int64 `json:"run_time_average"`
+}
+
+type ListScanningTaskResp struct {
+	ScanInfo   *ScanningInfo       `json:"scan_info"`
+	ScanTasks  []*ScanningTaskResp `json:"scan_tasks"`
+	TotalTasks int                 `json:"total_tasks"`
+}
+
+type ScanningInfo struct {
+	Editor    string `json:"editor"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+type ScanningTaskResp struct {
+	ScanID    int64  `json:"scan_id"`
+	Status    string `json:"status"`
+	RunTime   int64  `json:"run_time"`
+	Creator   string `json:"creator"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type ScanningTaskDetail struct {
+	Creator    string              `json:"creator"`
+	Status     string              `json:"status"`
+	CreateTime int64               `json:"create_time"`
+	EndTime    int64               `json:"end_time"`
+	RepoInfo   []*types.Repository `json:"repo_info"`
+	ResultLink string              `json:"result_link,omitempty"`
 }
 
 func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
