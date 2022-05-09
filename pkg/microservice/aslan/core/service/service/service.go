@@ -1095,7 +1095,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		}
 	}()
 
-	return service.AutoDeployHelmServiceToEnvs(userName, requestID, serviceTemplate.ProductName, []*commonmodels.Service{serviceTemplate}, log)
+	return nil
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {

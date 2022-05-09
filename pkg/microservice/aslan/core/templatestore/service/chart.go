@@ -314,8 +314,8 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 	return err
 }
 
-func SyncHelmTemplateReference(name string, logger *zap.SugaredLogger) error {
-	return service.SyncServiceFromTemplate(setting.SourceFromChartTemplate, "", name, logger)
+func SyncHelmTemplateReference(userName, name string, logger *zap.SugaredLogger) error {
+	return service.SyncServiceFromTemplate(userName, setting.SourceFromChartTemplate, "", name, logger)
 }
 
 func UpdateChartTemplateVariables(name string, args []*commonmodels.Variable, logger *zap.SugaredLogger) error {

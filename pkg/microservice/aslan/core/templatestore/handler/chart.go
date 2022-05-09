@@ -104,7 +104,7 @@ func SyncChartTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = templateservice.SyncHelmTemplateReference(c.Param("name"), ctx.Logger)
+	ctx.Err = templateservice.SyncHelmTemplateReference(ctx.UserName, c.Param("name"), ctx.Logger)
 }
 
 func RemoveChartTemplate(c *gin.Context) {
