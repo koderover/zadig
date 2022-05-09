@@ -162,7 +162,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		return e.ErrGetCounter.AddDesc(err.Error())
 	}
 
-	imageInfo, err := commonrepo.NewBasicImageColl().Find(id)
+	imageInfo, err := commonrepo.NewBasicImageColl().Find(scanningInfo.ImageID)
 	if err != nil {
 		log.Errorf("failed to get image information to create scanning task, error: %s", err)
 		return err
