@@ -111,7 +111,7 @@ func SyncYamlTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = templateservice.SyncYamlTemplateReference(c.Param("id"), ctx.Logger)
+	ctx.Err = templateservice.SyncYamlTemplateReference(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 type getYamlTemplateVariablesReq struct {
