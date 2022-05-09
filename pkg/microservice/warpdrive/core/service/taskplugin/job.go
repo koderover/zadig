@@ -374,6 +374,10 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ctx.ArtifactPath = b.JobCtx.ArtifactPath
 	}
 
+	if pipelineTask.Type == config.ScanningType {
+		ctx.ScannerFlag = true
+	}
+
 	return ctx
 }
 

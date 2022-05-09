@@ -19,6 +19,7 @@ package types
 type ReaperType string
 
 const (
-	BuildReaperType ReaperType = "Build"
-	TestReaperType  ReaperType = "Test"
+	BuildReaperType    ReaperType = "Build"
+	TestReaperType     ReaperType = "Test"
+	ScanningReaperType ReaperType = "Scanning"
 )

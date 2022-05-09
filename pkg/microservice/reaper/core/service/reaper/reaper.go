@@ -72,10 +72,12 @@ func NewReaper() (*Reaper, error) {
 		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName, ctx.AesKey),
 	}
 
-	if ctx.TestType == "" {
-		reaper.Type = types.BuildReaperType
-	} else {
+	if ctx.TestType != "" {
 		reaper.Type = types.TestReaperType
+	} else if ctx.ScannerFlag {
+		reaper.Type = types.ScanningReaperType
+	} else {
+		reaper.Type = types.BuildReaperType
 	}
 
 	workspace := "/workspace"
@@ -175,79 +177,82 @@ func (r *Reaper) EnsureDir(dir string) error {
 func (r *Reaper) BeforeExec() error {
 	r.StartTime = time.Now()
 
-	log.Infof("Checking Docker Connectivity.")
-	startTimeCheckDocker := time.Now()
-	for i := 0; i < 15; i++ {
-		if err := dockerInfo().Run(); err == nil {
-			break
+	// the execution preparation are not required, so we skip it if the reaper type is scanning
+	if r.Type != types.ScanningReaperType {
+		log.Infof("Checking Docker Connectivity.")
+		startTimeCheckDocker := time.Now()
+		for i := 0; i < 15; i++ {
+			if err := dockerInfo().Run(); err == nil {
+				break
+			}
+			time.Sleep(time.Second * 1)
 		}
-		time.Sleep(time.Second * 1)
-	}
-	log.Infof("Check ended. Duration: %.2f seconds.", time.Since(startTimeCheckDocker).Seconds())
+		log.Infof("Check ended. Duration: %.2f seconds.", time.Since(startTimeCheckDocker).Seconds())
 
-	if r.Ctx.DockerRegistry != nil {
-		if r.Ctx.DockerRegistry.UserName != "" {
-			log.Infof("Logining Docker Registry: %s.", r.Ctx.DockerRegistry.Host)
-			startTimeDockerLogin := time.Now()
-			cmd := dockerLogin(r.Ctx.DockerRegistry.UserName, r.Ctx.DockerRegistry.Password, r.Ctx.DockerRegistry.Host)
-			var out bytes.Buffer
-			cmd.Stdout = &out
-			cmd.Stderr = &out
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("failed to login docker registry: %s", err)
+		if r.Ctx.DockerRegistry != nil {
+			if r.Ctx.DockerRegistry.UserName != "" {
+				log.Infof("Logining Docker Registry: %s.", r.Ctx.DockerRegistry.Host)
+				startTimeDockerLogin := time.Now()
+				cmd := dockerLogin(r.Ctx.DockerRegistry.UserName, r.Ctx.DockerRegistry.Password, r.Ctx.DockerRegistry.Host)
+				var out bytes.Buffer
+				cmd.Stdout = &out
+				cmd.Stderr = &out
+				if err := cmd.Run(); err != nil {
+					return fmt.Errorf("failed to login docker registry: %s", err)
+				}
+
+				log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
+			}
+		}
+
+		if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
+			log.Info("Pulling Cache.")
+			startTimePullCache := time.Now()
+			if err := r.DecompressCache(); err != nil {
+				// If the workflow runs for the first time, there may be no cache.
+				log.Infof("Failed to pull cache: %s. Duration: %.2f seconds.", err, time.Since(startTimePullCache).Seconds())
+			} else {
+				log.Infof("Succeed to pull cache. Duration: %.2f seconds.", time.Since(startTimePullCache).Seconds())
+			}
+		}
+
+		if err := os.MkdirAll(path.Join(os.Getenv("HOME"), "/.ssh"), os.ModePerm); err != nil {
+			return fmt.Errorf("create ssh folder error: %v", err)
+		}
+
+		if r.Ctx.Archive != nil && len(r.Ctx.Archive.Dir) > 0 {
+			if err := os.MkdirAll(r.Ctx.Archive.Dir, os.ModePerm); err != nil {
+				return fmt.Errorf("create DistDir error: %v", err)
+			}
+		}
+
+		if r.Ctx.Git != nil {
+			if err := r.Ctx.Git.WriteGithubSSHFile(); err != nil {
+				return fmt.Errorf("write github ssh file error: %v", err)
 			}
 
-			log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
-		}
-	}
+			if err := r.Ctx.Git.WriteGitlabSSHFile(); err != nil {
+				return fmt.Errorf("write gitlab ssh file error: %v", err)
+			}
 
-	if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
-		log.Info("Pulling Cache.")
-		startTimePullCache := time.Now()
-		if err := r.DecompressCache(); err != nil {
-			// If the workflow runs for the first time, there may be no cache.
-			log.Infof("Failed to pull cache: %s. Duration: %.2f seconds.", err, time.Since(startTimePullCache).Seconds())
-		} else {
-			log.Infof("Succeed to pull cache. Duration: %.2f seconds.", time.Since(startTimePullCache).Seconds())
-		}
-	}
+			if err := r.Ctx.Git.WriteKnownHostFile(); err != nil {
+				return fmt.Errorf("write known_host file error: %v", err)
+			}
 
-	if err := os.MkdirAll(path.Join(os.Getenv("HOME"), "/.ssh"), os.ModePerm); err != nil {
-		return fmt.Errorf("create ssh folder error: %v", err)
-	}
-
-	if r.Ctx.Archive != nil && len(r.Ctx.Archive.Dir) > 0 {
-		if err := os.MkdirAll(r.Ctx.Archive.Dir, os.ModePerm); err != nil {
-			return fmt.Errorf("create DistDir error: %v", err)
-		}
-	}
-
-	if r.Ctx.Git != nil {
-		if err := r.Ctx.Git.WriteGithubSSHFile(); err != nil {
-			return fmt.Errorf("write github ssh file error: %v", err)
+			if err := r.Ctx.Git.WriteSSHConfigFile(r.Ctx.Proxy); err != nil {
+				return fmt.Errorf("write ssh config error: %v", err)
+			}
 		}
 
-		if err := r.Ctx.Git.WriteGitlabSSHFile(); err != nil {
-			return fmt.Errorf("write gitlab ssh file error: %v", err)
-		}
+		if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
+			r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
+			if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
+				log.Warning(err.Error())
+			}
 
-		if err := r.Ctx.Git.WriteKnownHostFile(); err != nil {
-			return fmt.Errorf("write known_host file error: %v", err)
-		}
-
-		if err := r.Ctx.Git.WriteSSHConfigFile(r.Ctx.Proxy); err != nil {
-			return fmt.Errorf("write ssh config error: %v", err)
-		}
-	}
-
-	if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
-		r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
-		if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
-			log.Warning(err.Error())
-		}
-
-		if err := os.MkdirAll(r.Ctx.GinkgoTest.ResultPath, os.ModePerm); err != nil {
-			return fmt.Errorf("create test result path error: %v", err)
+			if err := os.MkdirAll(r.Ctx.GinkgoTest.ResultPath, os.ModePerm); err != nil {
+				return fmt.Errorf("create test result path error: %v", err)
+			}
 		}
 	}
 
@@ -369,6 +374,7 @@ func (r *Reaper) Exec() error {
 
 	log.Info("Executing User Build Script.")
 	startTimeRunBuildScript := time.Now()
+	time.Sleep(3600 * time.Second)
 	if err := r.runScripts(); err != nil {
 		return fmt.Errorf("failed to execute user build script: %s", err)
 	}
