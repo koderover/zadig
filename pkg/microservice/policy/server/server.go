@@ -96,7 +96,7 @@ func migratePolicyMeta() error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      setting.PolicyMetaConfigName,
+			Name:      setting.PolicyMetaConfigMapName,
 			Namespace: namespace,
 		},
 		Data: map[string]string{
@@ -112,7 +112,7 @@ func migratePolicyMeta() error {
 		log.DPanic(err)
 	}
 
-	_, found, err := getter.GetConfigMap(namespace, "policymeta", client)
+	_, found, err := getter.GetConfigMap(namespace, setting.PolicyMetaConfigMapName, client)
 	if err != nil {
 		log.Errorf("get config map err:%s", err)
 	}
@@ -148,7 +148,7 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 			if !ok {
 				return
 			}
-			if configMap.Name == setting.PolicyMetaConfigName {
+			if configMap.Name == setting.PolicyMetaConfigMapName {
 				if b, ok := configMap.Data["meta.yaml"]; ok {
 					log.Infof("****update start")
 					for _, v := range meta.PolicyMetasFromBytes([]byte(b)) {
