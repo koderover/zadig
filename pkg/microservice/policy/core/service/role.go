@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
@@ -165,67 +164,6 @@ func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) 
 	}
 
 	return mongodb.NewRoleBindingColl().DeleteByRoles(names, projectName)
-}
-
-type GetUserRulesResp struct {
-	IsSystemAdmin     bool                `json:"is_system_admin"`
-	ProjectAdminList  []string            `json:"project_admin_list"`
-	ProjectVerbSetMap map[string][]string `json:"project_verb_set_map"`
-}
-
-func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error) {
-	roleBindings, err := mongodb.NewRoleBindingColl().ListRoleBindingsByUIDs([]string{uid})
-	if err != nil {
-		return nil, err
-	}
-	if len(roleBindings) == 0 {
-		return nil, nil
-	}
-	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
-	if err != nil {
-		return nil, err
-	}
-	roleMap := make(map[string]*models.Role)
-	for _, role := range roles {
-		roleMap[role.Name] = role
-	}
-	isSystemAdmin := false
-	projectAdminSet := sets.NewString()
-	projectVerbSetMap := make(map[string][]string)
-	for _, rolebinding := range roleBindings {
-		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) {
-			isSystemAdmin = true
-		} else if rolebinding.RoleRef.Name == string(setting.ProjectAdmin) {
-			projectAdminSet.Insert(rolebinding.Namespace)
-		}
-		var role *models.Role
-		if roleRef, ok := roleMap[rolebinding.RoleRef.Name]; ok {
-			role = roleRef
-		} else {
-			log.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
-			return nil, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
-		}
-		if verbs, ok := projectVerbSetMap[rolebinding.Namespace]; ok {
-			verbSet := sets.NewString(verbs...)
-			for _, rule := range role.Rules {
-				verbSet.Insert(rule.Verbs...)
-			}
-			projectVerbSetMap[rolebinding.Namespace] = verbSet.List()
-
-		} else {
-			verbSet := sets.NewString()
-			for _, rule := range role.Rules {
-				verbSet.Insert(rule.Verbs...)
-			}
-			projectVerbSetMap[rolebinding.Namespace] = verbSet.List()
-		}
-	}
-	return &GetUserRulesResp{
-		IsSystemAdmin:     isSystemAdmin,
-		ProjectVerbSetMap: projectVerbSetMap,
-		ProjectAdminList:  projectAdminSet.List(),
-	}, nil
-
 }
 
 func ListUserAllRolesByRoleBindings(roleBindings []*models.RoleBinding) ([]*models.Role, error) {

@@ -401,11 +401,11 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			rules = append(rules, &policy.Rule{
 				Verbs:     product.Verbs,
 				Kind:      "resource",
-				Resources: []string{string(config2.ResourceTypeProduct)},
+				Resources: []string{string(config2.ResourceTypeEnvironment)},
 				MatchAttributes: []policy.MatchAttribute{
 					{
 						Key:   "policy",
-						Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeProduct), product.Name),
+						Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name),
 					},
 				},
 			})
@@ -460,11 +460,11 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			rules = append(rules, &policy.Rule{
 				Verbs:     product.Verbs,
 				Kind:      "resource",
-				Resources: []string{string(config2.ResourceTypeProduct)},
+				Resources: []string{string(config2.ResourceTypeEnvironment)},
 				MatchAttributes: []policy.MatchAttribute{
 					{
 						Key:   "policy",
-						Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeProduct), product.BaseName),
+						Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeEnvironment), product.BaseName),
 					},
 				},
 			})
@@ -528,7 +528,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			labels = append(labels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
-					string(config2.ResourceTypeProduct), product.Name),
+					string(config2.ResourceTypeEnvironment), product.Name),
 				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
@@ -548,7 +548,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			labels = append(labels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeProduct), product.Name),
+					string(config2.ResourceTypeEnvironment), product.Name),
 				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
@@ -566,7 +566,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			deleteLabels = append(deleteLabels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeProduct), product.BaseName),
+					string(config2.ResourceTypeEnvironment), product.BaseName),
 				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
@@ -586,7 +586,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			deleteLabels = append(deleteLabels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
-					string(config2.ResourceTypeProduct), product.BaseName),
+					string(config2.ResourceTypeEnvironment), product.BaseName),
 				Type: setting.ResourceTypeSystem,
 			})
 		}
@@ -635,7 +635,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, product := range item.UpdateSpec.Products {
 			labels = append(labels, mongodb2.Label{
 				Key:   "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name),
+				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.New.Name),
 				Type:  setting.ResourceTypeSystem,
 			})
 		}
@@ -683,7 +683,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 		for _, product := range mode.Products {
-			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeProduct), product.Name)
+			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name)
 			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
@@ -697,7 +697,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Resource: mongodb2.Resource{
 					Name:        name,
 					ProjectName: projectName,
-					Type:        string(config2.ResourceTypeProduct),
+					Type:        string(config2.ResourceTypeEnvironment),
 				},
 			})
 		}
@@ -723,7 +723,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 		for _, product := range item.NewSpec.Products {
-			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.Name)
+			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name)
 			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
@@ -736,7 +736,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				LabelID: labelId,
 				Resource: mongodb2.Resource{
 					Name:        name,
-					Type:        string(config2.ResourceTypeProduct),
+					Type:        string(config2.ResourceTypeEnvironment),
 					ProjectName: projectName,
 				},
 			})
@@ -791,7 +791,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		}
 		for _, product := range item.UpdateSpec.Products {
 			if product.Old.CollaborationType == config.CollaborationShare && product.New.CollaborationType == config.CollaborationNew {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name)
+				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.New.Name)
 				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
@@ -800,7 +800,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        buildName(product.New.Name, item.CollaborationMode, identityType, userName),
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})
@@ -808,13 +808,13 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        product.Old.BaseName,
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})
 			}
 			if product.Old.CollaborationType == config.CollaborationNew && product.New.CollaborationType == config.CollaborationShare {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name)
+				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.New.Name)
 				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
@@ -823,7 +823,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        product.New.Name,
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})
@@ -831,7 +831,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        product.Old.Name,
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})

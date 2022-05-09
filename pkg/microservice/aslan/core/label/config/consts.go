@@ -19,6 +19,6 @@ package config
 type ResourceType string
 
 const (
-	ResourceTypeWorkflow ResourceType = "Workflow"
-	ResourceTypeProduct  ResourceType = "Environment"
+	ResourceTypeWorkflow    ResourceType = "Workflow"
+	ResourceTypeEnvironment ResourceType = "Environment"
 )

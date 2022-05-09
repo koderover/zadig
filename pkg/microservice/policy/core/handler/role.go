@@ -143,13 +143,6 @@ func GetRole(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetRole(projectName, c.Param("name"), ctx.Logger)
 }
 
-func GetUserRules(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.GetUserRules(ctx.UserID, ctx.Logger)
-}
-
 func CreatePresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
