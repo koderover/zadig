@@ -160,7 +160,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 	return updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
 }
 
-func updateHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
+func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
 	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
 	// service not applied in this environment
 	if _, ok := productSvcMap[serviceName]; !ok {
@@ -182,6 +182,20 @@ func updateHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *comm
 	}
 	if renderChart == nil {
 		return fmt.Errorf("failed to find renderchart for service: %s", renderChart.ServiceName)
+	}
+
+	chartArg := &commonservice.RenderChartArg{}
+	chartArg.FillRenderChartModel(renderChart, renderChart.ChartVersion)
+	newRenderSet, err := diffRenderSet(userName, productInfo.ProductName, productInfo.EnvName, productInfo, []*commonservice.RenderChartArg{chartArg}, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("failed to build renderset for service: %s, err: %s", renderChart.ServiceName, err)
+	}
+
+	// update renderChart
+	for _, _renderChart := range newRenderSet.ChartInfos {
+		if _renderChart.ServiceName == serviceName {
+			renderChart = _renderChart
+		}
 	}
 
 	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
@@ -231,7 +245,7 @@ func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Ser
 }
 
 // updateHelmSvcInAllEnvs updates helm svc in all envs in which the svc is already installed
-func updateHelmSvcInAllEnvs(productName string, templateSvcs []*commonmodels.Service) error {
+func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*commonmodels.Service) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name: productName,
 	})
@@ -241,7 +255,7 @@ func updateHelmSvcInAllEnvs(productName string, templateSvcs []*commonmodels.Ser
 	retErr := &multierror.Error{}
 	for _, product := range products {
 		for _, templateSvc := range templateSvcs {
-			err := updateHelmServiceInEnv(product, templateSvc)
+			err := updateHelmServiceInEnv(userName, product, templateSvc)
 			if err != nil {
 				retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
 			}
@@ -277,7 +291,7 @@ func AutoDeployHelmServiceToEnvs(userName, requestID, projectName string, servic
 		return nil
 	}
 	go func() {
-		err = updateHelmSvcInAllEnvs(projectName, serviceTemplates)
+		err = updateHelmSvcInAllEnvs(userName, projectName, serviceTemplates)
 		if err != nil {
 			commonservice.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
 		}

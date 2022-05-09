@@ -129,8 +129,8 @@ func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
 	return err
 }
 
-func SyncYamlTemplateReference(id string, logger *zap.SugaredLogger) error {
-	return service.SyncServiceFromTemplate(setting.ServiceSourceTemplate, id, "", logger)
+func SyncYamlTemplateReference(userName, id string, logger *zap.SugaredLogger) error {
+	return service.SyncServiceFromTemplate(userName, setting.ServiceSourceTemplate, id, "", logger)
 }
 
 func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.ServiceReference, error) {
