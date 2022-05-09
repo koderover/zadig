@@ -21,6 +21,13 @@ spec:
             - 'sh'
             - '-c'
             - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
           volumeMounts:
             - mountPath: /vmskywalking/agent
               name: skywalking-agent
@@ -38,13 +45,19 @@ spec:
         ports:
         - containerPort: 8081
           protocol: TCP
+        resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
         volumeMounts:
           - mountPath: /opt/skywalking/agent
             name: skywalking-agent
       volumes:
         - name: skywalking-agent
           emptyDir: {}
-
 ---
 apiVersion: v1
 kind: Service

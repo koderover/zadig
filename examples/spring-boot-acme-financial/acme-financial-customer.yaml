@@ -24,6 +24,13 @@ spec:
           volumeMounts:
             - mountPath: /vmskywalking/agent
               name: skywalking-agent
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
       containers:
       - env:
         - name: JAVA_OPTS
@@ -41,10 +48,16 @@ spec:
         volumeMounts:
           - mountPath: /opt/skywalking/agent
             name: skywalking-agent
+        resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
       volumes:
         - name: skywalking-agent
           emptyDir: {}
-
 ---
 apiVersion: v1
 kind: Service
