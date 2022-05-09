@@ -87,7 +87,7 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
 		return
 	}
-	args.CreatedBy = ctx.UserName
+	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, ctx.Logger)
 }
@@ -107,7 +107,7 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
 		return
 	}
-	args.CreatedBy = ctx.UserName
+	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectName, args, ctx.Logger)
 }
