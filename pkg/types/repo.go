@@ -54,6 +54,8 @@ type Repository struct {
 	Password    string `bson:"password,omitempty"           json:"password,omitempty"`
 	// Now EnableProxy is not something we store. We decide this on runtime
 	EnableProxy bool `bson:"-"       json:"enable_proxy,omitempty"`
+	// FilterRegexp is the regular expression filter for the branches and tags
+	FilterRegexp string `bson:"-"    json:"filter_regexp,omitempty"`
 }
 
 type BranchFilterInfo struct {
