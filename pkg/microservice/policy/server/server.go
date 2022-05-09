@@ -86,7 +86,7 @@ func Serve(ctx context.Context) error {
 
 // migratePolicyMeta migrate the policy meta db date
 func migratePolicyMeta() error {
-	namespace := "zadig-dev2"
+	namespace := commonconfig.Namespace()
 	policyMetas := meta.DefaultPolicyMetas()
 	log.Info(len(policyMetas))
 	metasBytes, _ := yaml.Marshal(policyMetas)
@@ -96,7 +96,7 @@ func migratePolicyMeta() error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "policymeta",
+			Name:      setting.PolicyMetaConfigName,
 			Namespace: namespace,
 		},
 		Data: map[string]string{
@@ -140,7 +140,7 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 	if clusterId == "" {
 		clusterId = setting.LocalClusterID
 	}
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(cls, time.Hour*24, informers.WithNamespace("zadig-dev2"))
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(cls, time.Hour*24, informers.WithNamespace(commonconfig.Namespace()))
 	configMapsInformer := informerFactory.Core().V1().ConfigMaps().Informer()
 	configMapsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -148,7 +148,7 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 			if !ok {
 				return
 			}
-			if configMap.Name == "policymeta" {
+			if configMap.Name == setting.PolicyMetaConfigName {
 				if b, ok := configMap.Data["meta.yaml"]; ok {
 					log.Infof("****update start")
 					for _, v := range meta.PolicyMetasFromBytes([]byte(b)) {

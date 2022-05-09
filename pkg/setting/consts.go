@@ -207,6 +207,8 @@ const (
 	RSASecretName = "zadig-rsa-key"
 
 	DefaultImagePullSecret = "default-registry-secret"
+
+	PolicyMetaConfigName = "zadig-policy-meta"
 )
 
 const (
