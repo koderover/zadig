@@ -994,15 +994,14 @@ func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
 			return "", err
 		}
 
+		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
 		cerSvc := prod.GetServiceMap()
 		svcInfo, found := cerSvc[args.ServiceName]
-		if !found {
-			return "", fmt.Errorf("services %s is not exist in env %s", args.ServiceName, prod.Namespace)
-		}
-		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
-		parsedYaml, err = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
-		if err != nil {
-			return "", err
+		if found {
+			parsedYaml, err = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
