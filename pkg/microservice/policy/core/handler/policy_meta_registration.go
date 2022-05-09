@@ -40,6 +40,7 @@ func CreateOrUpdatePolicyRegistration(c *gin.Context) {
 func GetPolicyRegistrationDefinitions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.GetPolicyRegistrationDefinitions(ctx.Logger)
+	scope := c.Query("scope")
+	envType := c.Query("env_type")
+	ctx.Resp, ctx.Err = service.GetPolicyRegistrationDefinitions(scope, envType, ctx.Logger)
 }

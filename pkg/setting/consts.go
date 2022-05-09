@@ -83,6 +83,7 @@ const (
 	KubernetesServicePort = "KUBERNETES_SERVICE_PORT"
 	Token                 = "X-API-Tunnel-Token"
 	Params                = "X-API-Tunnel-Params"
+	AslanBaseAddr         = "ASLAN_BASE_ADDR"
 
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"
@@ -126,21 +127,22 @@ const (
 
 // k8s concepts
 const (
-	Secret             = "Secret"
-	ConfigMap          = "ConfigMap"
-	Ingress            = "Ingress"
-	Service            = "Service"
-	Deployment         = "Deployment"
-	StatefulSet        = "StatefulSet"
-	Pod                = "Pod"
-	ReplicaSet         = "ReplicaSet"
-	Job                = "Job"
-	CronJob            = "CronJob"
-	ClusterRoleBinding = "ClusterRoleBinding"
-	ServiceAccount     = "ServiceAccount"
-	ClusterRole        = "ClusterRole"
-	Role               = "Role"
-	RoleBinding        = "RoleBinding"
+	Secret                = "Secret"
+	ConfigMap             = "ConfigMap"
+	Ingress               = "Ingress"
+	PersistentVolumeClaim = "PersistentVolumeClaim"
+	Service               = "Service"
+	Deployment            = "Deployment"
+	StatefulSet           = "StatefulSet"
+	Pod                   = "Pod"
+	ReplicaSet            = "ReplicaSet"
+	Job                   = "Job"
+	CronJob               = "CronJob"
+	ClusterRoleBinding    = "ClusterRoleBinding"
+	ServiceAccount        = "ServiceAccount"
+	ClusterRole           = "ClusterRole"
+	Role                  = "Role"
+	RoleBinding           = "RoleBinding"
 
 	// labels
 	TaskLabel                       = "s-task"
@@ -202,6 +204,8 @@ const (
 
 	APIVersionAppsV1 = "apps/v1"
 
+	RSASecretName = "zadig-rsa-key"
+
 	DefaultImagePullSecret = "default-registry-secret"
 )
 
@@ -215,35 +219,37 @@ const (
 
 	DefaultIngressClass = "koderover-nginx"
 
-	// K8SDeployType 容器化部署方式
+	// K8SDeployType Containerized Deployment
 	K8SDeployType = "k8s"
-	// helm 部署
+	// helm deployment
 	HelmDeployType = "helm"
-	// PMDeployType physical machine deploy 脚本物理机部署方式
+	// PMDeployType physical machine deploy method
 	PMDeployType = "pm"
 
-	// 基础设施 k8s类型
+	// Infrastructure k8s type
 	BasicFacilityK8S = "kubernetes"
-	// 基础设施 云主机
+	// Infrastructure Cloud Hosting
 	BasicFacilityCVM = "cloud_host"
 
-	// SourceFromZadig 配置来源由平台管理
+	// SourceFromZadig Configuration sources are managed by the platform
 	SourceFromZadig = "spock"
-	// SourceFromGitlab 配置来源为gitlab
+	// SourceFromGitlab The configuration source is gitlab
 	SourceFromGitlab = "gitlab"
-	// SourceFromGithub 配置来源为github
+	// SourceFromGithub The configuration source is github
 	SourceFromGithub = "github"
-	// SourceFromGitlab 配置来源为gerrit
+	// SourceFromGitlab The configuration source is gerrit
 	SourceFromGerrit = "gerrit"
-	// SourceFromCodeHub 配置来源为codehub
+	// SourceFromCodeHub The configuration source is codehub
 	SourceFromCodeHub = "codehub"
-	// SourceFromChartTemplate 配置来源为helmTemplate
+	// SourceFromGitee Configure the source as gitee
+	SourceFromGitee = "gitee"
+	// SourceFromChartTemplate The configuration source is helmTemplate
 	SourceFromChartTemplate = "chartTemplate"
-	// SourceFromPublicRepo 配置来源为publicRepo
+	// SourceFromPublicRepo The configuration source is publicRepo
 	SourceFromPublicRepo = "publicRepo"
 	SourceFromChartRepo  = "chartRepo"
 
-	// SourceFromGUI 配置来源为gui
+	// SourceFromGUI The configuration source is gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm
 	SourceFromHelm = "helm"
@@ -252,6 +258,7 @@ const (
 	// service from yaml template
 	ServiceSourceTemplate = "template"
 	SourceFromPM          = "pm"
+	SourceFromGitRepo     = "repo"
 
 	ProdENV = "prod"
 	TestENV = "test"
@@ -263,7 +270,7 @@ const (
 
 	PublicService = "public"
 
-	// onboarding流程第二步
+	// The second step of the onboarding process
 	OnboardingStatusSecond = 2
 
 	Unset            = "UNSET"
@@ -508,9 +515,6 @@ const (
 
 // helm related
 const (
-	ValuesYamlSourceFreeEdit = "freeEdit"
-	ValuesYamlSourceGitRepo  = "gitRepo"
-
 	// components used to search image paths from yaml
 	PathSearchComponentRepo  = "repo"
 	PathSearchComponentImage = "image"
@@ -590,6 +594,15 @@ const (
 	Abnormal     K8SClusterStatus = "abnormal"
 )
 
+type PMHostStatus string
+
+const (
+	PMHostStatusNormal   PMHostStatus = "normal"
+	PMHostStatusAbnormal PMHostStatus = "abnormal"
+)
+
+const PMHostDefaultPort int64 = 22
+
 type ResetImagePolicyType string
 
 const (
@@ -600,6 +613,8 @@ const (
 )
 
 const LocalClusterID = "0123456789abcdef12345678"
+
+const DefaultLoginLocal = "local"
 
 const RequestModeOpenAPI = "openAPI"
 
@@ -626,3 +641,10 @@ const (
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.
 // Note: **Restricted because of product design since v1.9.0**.
 const AttachedClusterNamespace = "koderover-agent"
+
+const ArtifactResultOut = "artifactResultOut.tar.gz"
+
+const (
+	DefaultReleaseNaming     = "$Service$"
+	ReleaseNamingPlaceholder = "$Namespace$-$Service$"
+)

@@ -67,6 +67,18 @@ func AesEncrypt(src string) (string, error) {
 	return dest, nil
 }
 
+func AesEncryptByKey(src, aesKey string) (string, error) {
+	client, err := NewAes(aesKey)
+	if err != nil {
+		return "", err
+	}
+	dest, err := client.Encrypt(src)
+	if err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
 func AesDecrypt(src string, aesKey ...string) (string, error) {
 	var (
 		err    error

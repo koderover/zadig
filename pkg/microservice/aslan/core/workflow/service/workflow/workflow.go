@@ -285,7 +285,69 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 		}
 		resp.Schedules = &schedule
 	}
+	if resp.BuildStage.Enabled {
+		// make a map of current target modules
+		buildMap := map[string]bool{}
+
+		moList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
+		if err != nil {
+			return resp, e.ErrListTemplate.AddDesc(err.Error())
+		}
+		for _, build := range resp.BuildStage.Modules {
+			key := fmt.Sprintf("%s-%s-%s", build.Target.ProductName, build.Target.ServiceName, build.Target.ServiceModule)
+			buildMap[key] = true
+			if build.Target.BuildName == "" {
+				build.Target.BuildName = findBuildName(key, moList)
+			}
+		}
+
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
+		if err != nil {
+			log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
+			return resp, e.ErrListTemplate.AddDesc(err.Error())
+		}
+
+		for _, serviceTmpl := range services {
+			switch serviceTmpl.Type {
+			case setting.PMDeployType:
+				// PM service does not have such logic
+				break
+
+			case setting.K8SDeployType, setting.HelmDeployType:
+				for _, container := range serviceTmpl.Containers {
+					key := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, container.Name)
+					// if no target info is found for this container, meaning that this is a new service for that workflow
+					// then we need to add it to the response
+					if _, ok := buildMap[key]; !ok {
+						resp.BuildStage.Modules = append(resp.BuildStage.Modules, &commonmodels.BuildModule{
+							HideServiceModule: false,
+							BuildModuleVer:    "stable",
+							Target: &commonmodels.ServiceModuleTarget{
+								ProductName:   serviceTmpl.ProductName,
+								ServiceName:   serviceTmpl.ServiceName,
+								ServiceModule: container.Name,
+								BuildName:     findBuildName(key, moList),
+							},
+						})
+					}
+				}
+			}
+		}
+	}
+
 	return resp, nil
+}
+
+func findBuildName(key string, moList []*commonmodels.Build) string {
+	for _, mo := range moList {
+		for _, moTarget := range mo.Targets {
+			moduleTargetStr := fmt.Sprintf("%s-%s-%s", moTarget.ProductName, moTarget.ServiceName, moTarget.ServiceModule)
+			if key == moduleTargetStr {
+				return mo.Name
+			}
+		}
+	}
+	return ""
 }
 
 type PreSetResp struct {
@@ -363,11 +425,12 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 			for _, moTarget := range mo.Targets {
 				moduleTargetStr := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
 				if moduleTargetStr == k {
-					if len(mo.Repos) == 0 {
-						preSet.Repos = make([]*types.Repository, 0)
+					if mo.TemplateID != "" {
+						preSet.Repos = moTarget.Repos
 					} else {
-						preSet.Repos = mo.Repos
+						preSet.Repos = mo.SafeRepos()
 					}
+					preSet.Target.BuildName = mo.Name
 				}
 			}
 		}
@@ -384,7 +447,7 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	}
 
 	if !checkWorkflowSubModule(workflow) {
-		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
+		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
 	}
 
 	if err := validateWorkflowHookNames(workflow); err != nil {
@@ -446,7 +509,7 @@ func checkWorkflowSubModule(workflow *commonmodels.Workflow) bool {
 
 func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
 	if !checkWorkflowSubModule(workflow) {
-		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
+		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
 	}
 
 	currentWorkflow, err := commonrepo.NewWorkflowColl().Find(workflow.Name)

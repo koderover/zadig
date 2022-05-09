@@ -42,6 +42,7 @@ func NewClient() *client {
 }
 
 type task struct {
+	ID                                                          int
 	owner, namespace, repo, address, token, ref, ak, sk, region string
 	from                                                        string
 	add, enableProxy                                            bool
@@ -50,6 +51,7 @@ type task struct {
 }
 
 type TaskOption struct {
+	ID          int
 	Name        string
 	Owner       string
 	Namespace   string
@@ -70,6 +72,7 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 	}
 
 	t := &task{
+		ID:          taskOption.ID,
 		owner:       taskOption.Owner,
 		namespace:   taskOption.Namespace,
 		repo:        taskOption.Repo,
@@ -106,6 +109,7 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 	}
 
 	t := &task{
+		ID:          taskOption.ID,
 		owner:       taskOption.Owner,
 		namespace:   taskOption.Namespace,
 		repo:        taskOption.Repo,

@@ -24,6 +24,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type DeleteUserResp struct {
@@ -36,4 +38,51 @@ func DeleteUser(userID string, header http.Header, qs url.Values, _ *zap.Sugared
 		return []byte{}, err
 	}
 	return policy.New().DeleteRoleBindings(userID, header, qs)
+}
+
+func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *zap.SugaredLogger) (*types.UsersResp, error) {
+	users, err := user.New().SearchUsers(header, qs, args)
+	if err != nil {
+		log.Errorf("search users err :%s", err)
+		return nil, err
+	}
+	tmpUids := []string{}
+	for _, user := range users.Users {
+		tmpUids = append(tmpUids, user.Uid)
+	}
+
+	systemMap, err := policy.New().SearchSystemRoleBindings(tmpUids)
+	if err != nil {
+		log.Errorf("search system user bindings err :%s", err)
+		return nil, err
+	}
+
+	res := &types.UsersResp{
+		Users:      make([]types.UserInfo, 0),
+		TotalCount: users.TotalCount,
+	}
+	for _, user := range users.Users {
+		userInfo := types.UserInfo{
+			LastLoginTime: user.LastLoginTime,
+			Uid:           user.Uid,
+			Name:          user.Name,
+			IdentityType:  user.IdentityType,
+			Email:         user.Email,
+			Phone:         user.Phone,
+			Account:       user.Account,
+			APIToken:      user.APIToken,
+		}
+		if rb, ok := systemMap[user.Uid]; ok {
+			userInfo.SystemRoleBindings = rb
+			for _, binding := range rb {
+				if binding.Role == string(setting.SystemAdmin) {
+					userInfo.Admin = true
+					break
+				}
+			}
+		}
+		res.Users = append(res.Users, userInfo)
+	}
+
+	return res, nil
 }

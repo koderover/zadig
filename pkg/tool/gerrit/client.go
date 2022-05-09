@@ -50,6 +50,22 @@ func (c *Client) ListProjects() ([]*gerrit.ProjectInfo, error) {
 	return c.ListProjectsByKey("")
 }
 
+// convert keyword like `hello world` to `.*hello.*world.*`
+func keywordToRegexp(keyword string) string {
+	splits := strings.Split(keyword, " ")
+	regSlices := make([]string, 0, len(splits))
+	for _, split := range splits {
+		s := strings.TrimSpace(split)
+		if s != "" {
+			regSlices = append(regSlices, regexp.QuoteMeta(s))
+		}
+	}
+	if len(regSlices) == 0 {
+		return ".*"
+	}
+	return ".*" + strings.Join(regSlices, ".*") + ".*"
+}
+
 func (c *Client) ListProjectsByKey(keyword string) ([]*gerrit.ProjectInfo, error) {
 	opts := &gerrit.ProjectOptions{
 		Tree: false,
@@ -59,8 +75,13 @@ func (c *Client) ListProjectsByKey(keyword string) ([]*gerrit.ProjectInfo, error
 		},
 	}
 
+	// query with substring if no space included, otherwise use regexp
 	if keyword != "" {
-		opts.Substring = keyword
+		if !strings.Contains(keyword, " ") {
+			opts.Substring = keyword
+		} else {
+			opts.Regex = keywordToRegexp(keyword)
+		}
 	}
 
 	resp, _, err := c.cli.Projects.ListProjects(opts)

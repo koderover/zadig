@@ -41,6 +41,7 @@ type Deploy struct {
 	ServiceName      string                       `bson:"service_name"                  json:"service_name"`
 	ServiceType      string                       `bson:"service_type"                  json:"service_type"`
 	ServiceRevision  int64                        `bson:"service_revision,omitempty"    json:"service_revision,omitempty"`
+	ReleaseName      string                       `bson:"release_name"                  json:"release_name"`
 	ContainerName    string                       `bson:"container_name"                json:"container_name"`
 	Image            string                       `bson:"image"                         json:"image"`
 	Timeout          int                          `bson:"timeout,omitempty"             json:"timeout,omitempty"`

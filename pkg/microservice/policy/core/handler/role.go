@@ -221,7 +221,6 @@ func CreateSystemRole(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	args.Type = setting.ResourceTypeSystem
 	ctx.Err = service.CreateRole(service.SystemScope, args, ctx.Logger)
 }
 

@@ -166,7 +166,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 
 		// tag image
 		for _, registry := range targetRegistries {
-			targetImage := buildTargetImage(singleImage.ImageName, singleImage.ImageTag, registry.Host, registry.Namespace)
+			targetImage := buildTargetImage(singleImage.ImageName, singleImage.CustomTag, registry.Host, registry.Namespace)
 			err = dockerClient.ImageTag(context.TODO(), singleImage.ImageUrl, targetImage)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to tag image from: %s to: %s", singleImage.ImageUrl, targetImage)
@@ -176,6 +176,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 				ImageUrl:   targetImage,
 				ImageName:  singleImage.ImageName,
 				ImageTag:   singleImage.ImageTag,
+				CustomTag:  singleImage.CustomTag,
 				RegistryID: singleImage.RegistryID,
 			})
 		}

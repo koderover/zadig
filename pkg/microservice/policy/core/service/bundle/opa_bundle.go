@@ -243,7 +243,7 @@ func (o policyBindings) Less(i, j int) bool {
 
 func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *opaRoles {
 	data := &opaRoles{}
-	resourceMappings := getResourceActionMappings(policyMetas)
+	resourceMappings := getResourceActionMappings(false, policyMetas)
 
 	for _, ro := range roles {
 		verbAttrMap := make(map[string]sets.String)
@@ -304,7 +304,7 @@ func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *o
 
 func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.PolicyMeta) *opaPolicies {
 	data := &opaPolicies{}
-	resourceMappings := getResourceActionMappings(policyMetas)
+	resourceMappings := getResourceActionMappings(true, policyMetas)
 
 	for _, policy := range policies {
 		verbAttrMap := make(map[string]sets.String)
@@ -399,7 +399,7 @@ func generateOPABindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding)
 				if _, ok := userPolicyMap[s.UID]; !ok {
 					userPolicyMap[s.UID] = make(map[string][]*roleRef)
 				}
-				userPolicyMap[s.UID][rb.Namespace] = append(userRoleMap[s.UID][rb.Namespace], &roleRef{Name: rb.PolicyRef.Name, Namespace: rb.PolicyRef.Namespace})
+				userPolicyMap[s.UID][rb.Namespace] = append(userPolicyMap[s.UID][rb.Namespace], &roleRef{Name: rb.PolicyRef.Name, Namespace: rb.PolicyRef.Namespace})
 			}
 		}
 	}
@@ -446,7 +446,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *exemptionURLs {
 	}
 	sort.Sort(data.Privileged)
 
-	resourceMappings := getResourceActionMappings(policies)
+	resourceMappings := getResourceActionMappings(false, policies)
 	for _, resourceMappings := range resourceMappings {
 		for _, rs := range resourceMappings {
 			for _, r := range rs {

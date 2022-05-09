@@ -36,6 +36,5 @@ spec:
             requests:
               cpu: 100m
               memory: 100M
-
-
-
+      imagePullSecrets:
+        - name: default-registry-secret

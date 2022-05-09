@@ -104,7 +104,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workflow.POST("/:productName/auto", AutoCreateWorkflow)
 		workflow.POST("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, CreateWorkflow)
-		workflow.PUT("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
+		workflow.PUT("/:workflowName", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
 		workflow.GET("/testName/:testName", ListTestWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
@@ -122,8 +122,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		//todo 修改权限的uuid
 		workflowtask.GET("/targets/:productName/:namespace", GetWorkflowArgs)
 		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
-		workflowtask.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowTask)
-		workflowtask.PUT("", gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
+		workflowtask.POST("/:id", gin2.UpdateOperationLogStatus, CreateWorkflowTask)
+		workflowtask.PUT("/:id", gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
 		workflowtask.GET("/max/:max/start/:start/pipelines/:name", ListWorkflowTasksResult)
 		workflowtask.GET("/filters/pipelines/:name", GetFiltersPipeline)
 		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)

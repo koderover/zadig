@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -257,6 +258,7 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			ResourceServerImage: rsImage,
 			ClientToken:         token,
 			HubServerBaseAddr:   hubBase.String(),
+			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
 		})
 	} else {
@@ -265,6 +267,7 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			ResourceServerImage: rsImage,
 			ClientToken:         token,
 			HubServerBaseAddr:   hubBase.String(),
+			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
 			Namespace:           cluster.Namespace,
 		})
@@ -284,6 +287,7 @@ type TemplateSchema struct {
 	HubServerBaseAddr   string
 	Namespace           string
 	UseDeployment       bool
+	AslanBaseAddr       string
 }
 
 var YamlTemplate = template.Must(template.New("agentYaml").Parse(`
@@ -337,6 +341,25 @@ rules:
   - '*'
 
 ---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-agent
+  namespace: koderover-agent
+  labels:
+    app: koderover-agent-agent
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: koderover-agent-agent
+
+---
+
 apiVersion: apps/v1
 {{- if .UseDeployment }}
 kind: Deployment
@@ -386,6 +409,8 @@ spec:
           value: "{{.ClientToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
+        - name: ASLAN_BASE_ADDR
+          value: "{{.AslanBaseAddr}}"
         resources:
           limits:
             cpu: 1000m
@@ -485,7 +510,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/library-docker:stable-dind
+          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
           args:
             - --mtu=1376
           env:
@@ -567,6 +592,25 @@ rules:
   - '*'
 
 ---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-agent
+  namespace: {{.Namespace}}
+  labels:
+    app: koderover-agent-agent
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: koderover-agent-agent
+
+---
+
 apiVersion: apps/v1
 {{- if .UseDeployment }}
 kind: Deployment
@@ -616,6 +660,8 @@ spec:
           value: "{{.ClientToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
+        - name: ASLAN_BASE_ADDR
+          value: "{{.AslanBaseAddr}}"
         resources:
           limits:
             cpu: 1000m
@@ -716,7 +762,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/library-docker:stable-dind
+          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
           args:
             - --mtu=1376
           env:

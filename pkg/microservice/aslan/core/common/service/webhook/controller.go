@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitee"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	codehostdb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
@@ -166,6 +167,8 @@ func removeWebhook(t *task, logger *zap.Logger) {
 		}
 	case setting.SourceFromCodeHub:
 		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
+	case setting.SourceFromGitee:
+		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}
@@ -243,6 +246,8 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	case setting.SourceFromCodeHub:
 		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
+	case setting.SourceFromGitee:
+		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}

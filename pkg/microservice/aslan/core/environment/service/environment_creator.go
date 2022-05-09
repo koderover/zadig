@@ -18,21 +18,23 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type CreateProductParam struct {
@@ -75,7 +77,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 		return productResp.Status, nil
 	}
 
-	productObject, err := GetInitProduct(productName, log)
+	productObject, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
 	if err != nil {
 		log.Errorf("AutoCreateProduct err:%v", err)
 		return "", err
@@ -140,6 +142,20 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
 
 	//判断namespace是否存在
 	namespace := args.GetNamespace()
@@ -147,14 +163,8 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		args.Namespace = namespace
 	}
 
-	restConfig, err := kube.GetRESTConfig(args.ClusterID)
+	helmClient, err := helmtool.NewClientFromNamespace(args.ClusterID, args.Namespace)
 	if err != nil {
-		log.Errorf("GetRESTConfig error: %v", err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
-	helmClient, err := helmclient.NewClientFromRestConf(restConfig, args.Namespace)
-	if err != nil {
-		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
@@ -197,12 +207,10 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	if renderSet == nil {
-		renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
-		if err != nil {
-			log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
+	renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
+	if err != nil {
+		log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
+		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
 	// 设置产品render revision
@@ -223,8 +231,22 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	eventStart := time.Now().Unix()
-
-	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, kubeClient, log)
+	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
+	if err != nil {
+		log.Errorf("failed to create informer from clientset for clusterID: %s, the error is: %s", clusterID, err)
+		return nil
+	}
+	err = helmInitEnvConfigSet(args.EnvName, args.ProductName, user, args.EnvConfigYamls, inf, kubeClient)
+	if err != nil {
+		log.Errorf("failed to helmInitEnvConfigSet [%s][P:%s]: %s, the error is: %s", args.EnvName, args.ProductName, err)
+		if err := commonrepo.NewProductColl().UpdateStatus(args.EnvName, args.ProductName, setting.ProductStatusFailed); err != nil {
+			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateStatus error: %s", args.EnvName, args.ProductName, err)
+		}
+		if err := commonrepo.NewProductColl().UpdateErrors(args.EnvName, args.ProductName, err.Error()); err != nil {
+			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateErrors error: %s", args.EnvName, args.ProductName, err)
+		}
+	}
+	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, kubeClient, istioClient, log)
 	return nil
 }
 
@@ -272,7 +294,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, nil, log)
+	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, nil, nil, log)
 	return nil
 }
 
@@ -309,6 +331,15 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new istio client: %s", err)
 	}
 
 	//判断namespace是否存在
@@ -360,6 +391,6 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, inf, kubeClient, log)
+	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, inf, kubeClient, istioClient, log)
 	return nil
 }

@@ -101,6 +101,7 @@ type TreeGetter interface {
 	GetTreeContents(owner, repo, path, branch string) (afero.Fs, error)
 	GetFileContent(owner, repo, path, branch string) ([]byte, error)
 	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
+	GetYAMLContents(owner, repo, path, branch string, isDir, split bool) ([]string, error)
 }
 
 func GetPublicTreeGetter(repoLink string) (TreeGetter, error) {

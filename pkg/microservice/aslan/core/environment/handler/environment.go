@@ -142,7 +142,6 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 		arg.ProductName = projectName
 		envNameList = append(envNameList, arg.EnvName)
 	}
-
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
@@ -367,6 +366,24 @@ func EstimatedValues(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
 }
 
+func SyncHelmProductRenderset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		return
+	}
+
+	ctx.Err = service.SyncHelmProductEnvironment(projectName, envName, ctx.RequestID, ctx.Logger)
+}
+
 func UpdateHelmProductRenderset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -430,7 +447,7 @@ func updateMultiHelmEnv(c *gin.Context, ctx *internalhandler.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
-		ctx.RequestID, args, ctx.Logger,
+		ctx.RequestID, ctx.UserName, args, ctx.Logger,
 	)
 }
 
@@ -496,7 +513,7 @@ func DeleteProduct(c *gin.Context) {
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境", envName, "", ctx.Logger)
-	ctx.Err = commonservice.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
+	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
 }
 
 func DeleteProductServices(c *gin.Context) {
@@ -517,8 +534,26 @@ func DeleteProductServices(c *gin.Context) {
 	}
 	projectName := c.Query("projectName")
 	envName := c.Param("name")
+
+	// For environment sharing, if the environment is the base environment and the service to be deleted has been deployed in the subenvironment,
+	// we should prompt the user that `Delete the service in the subenvironment before deleting the service in the base environment`.
+	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectName, envName, args.ServiceNames)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	if len(svcsInSubEnvs) > 0 {
+		data := make(map[string]interface{}, len(svcsInSubEnvs))
+		for k, v := range svcsInSubEnvs {
+			data[k] = v
+		}
+
+		ctx.Err = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境的服务", envName, "", ctx.Logger)
-	ctx.Err = service.DeleteProductServices(envName, projectName, args.ServiceNames, ctx.Logger)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectName, args.ServiceNames, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {

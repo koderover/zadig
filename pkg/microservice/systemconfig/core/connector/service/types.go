@@ -44,10 +44,10 @@ const (
 
 type Connector struct {
 	ConnectorBase
-
-	ID     string      `json:"id"`
-	Name   string      `json:"name"`
-	Config interface{} `json:"config"`
+	IsDefault bool        `json:"is_default"`
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Config    interface{} `json:"config"`
 }
 
 type ConnectorBase struct {

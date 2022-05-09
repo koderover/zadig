@@ -24,12 +24,13 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/koderover/zadig/pkg/setting"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
 // PreloadFiles downloads a tarball from object storage and extracts it to a local path for further usage.
 // It happens only if files do not exist in local disk.
-func PreloadFiles(name, localBase, s3Base string, logger *zap.SugaredLogger) error {
+func PreloadFiles(name, localBase, s3Base, source string, logger *zap.SugaredLogger) error {
 	ok, err := fsutil.DirExists(localBase)
 	if err != nil {
 		logger.Errorf("Failed to check if dir %s is exiting, err: %s", localBase, err)
@@ -39,9 +40,17 @@ func PreloadFiles(name, localBase, s3Base string, logger *zap.SugaredLogger) err
 		return nil
 	}
 
-	if err = DownloadAndExtractFilesFromS3(name, localBase, s3Base, logger); err != nil {
-		logger.Errorf("Failed to download files from s3, err: %s", err)
-		return err
+	switch source {
+	case setting.SourceFromGerrit:
+		if err = DownloadAndCopyFilesFromGerrit(name, localBase, logger); err != nil {
+			logger.Errorf("Failed to download files from s3, err: %s", err)
+			return err
+		}
+	default:
+		if err = DownloadAndExtractFilesFromS3(name, localBase, s3Base, logger); err != nil {
+			logger.Errorf("Failed to download files from s3, err: %s", err)
+			return err
+		}
 	}
 
 	return nil
@@ -81,13 +90,16 @@ func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath stri
 	wg.Start(func() {
 		copyErr := copy.Copy(currentChartPath, localBase)
 		if copyErr != nil {
-			logger.Errorf("failed to copy chart info, err %s", err)
+			logger.Errorf("failed to copy chart info, err %s", copyErr)
 			err = copyErr
 		}
 	})
 
 	wg.Start(func() {
 		fileTree := os.DirFS(currentChartPath)
+		if s3Base == "" {
+			return
+		}
 		err2 := ArchiveAndUploadFilesToS3(fileTree, names, s3Base, logger)
 		if err2 != nil {
 			logger.Errorf("Failed to upload files to s3, err: %s", err2)
@@ -96,7 +108,6 @@ func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath stri
 	})
 
 	wg.Wait()
-
 	return err
 }
 

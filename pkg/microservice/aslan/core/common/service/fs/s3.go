@@ -20,12 +20,18 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
@@ -106,7 +112,6 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 		logger.Errorf("Failed to create temp dir, err: %s", err)
 	}
 	defer os.RemoveAll(tmpDir)
-
 	s3, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err: %s", err)
@@ -133,10 +138,8 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	}
 
 	if err = fsutil.Untar(localPath, localBase); err != nil {
-		if err = fsutil.Untar(localPath, filepath.Join(localBase, name)); err != nil {
-			logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
-			return err
-		}
+		logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
+		return err
 	}
 	return nil
 }
@@ -166,4 +169,28 @@ func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.Sugared
 	}
 
 	return client.DeleteObjects(s3.Bucket, s3PathList)
+}
+
+func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredLogger) error {
+	chartTemplate, err := mongodb.NewChartColl().Get(name)
+	base := path.Join(config.S3StoragePath(), chartTemplate.Repo)
+	if err := os.RemoveAll(base); err != nil {
+		logger.Errorf("Failed to remove dir, err:%s", err)
+	}
+	detail, err := systemconfig.New().GetCodeHost(chartTemplate.CodeHostID)
+	if err != nil {
+		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
+		return err
+	}
+	err = command.RunGitCmds(detail, "default", "default", chartTemplate.Repo, chartTemplate.Branch, "origin")
+	if err != nil {
+		log.Errorf("Failed to runGitCmds, err:%s", err)
+		return err
+	}
+
+	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
+		log.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
+		return err
+	}
+	return nil
 }

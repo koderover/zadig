@@ -58,6 +58,16 @@ func (c *SystemSettingColl) Get() (*models.SystemSetting, error) {
 	return resp, err
 }
 
+func (c *SystemSettingColl) UpdateDefaultLoginSetting(defaultLogin string) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	change := bson.M{"$set": bson.M{
+		"default_login": defaultLogin,
+	}}
+	query := bson.M{"_id": id}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *SystemSettingColl) UpdateConcurrencySetting(workflowConcurrency, buildConcurrency int64) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	change := bson.M{"$set": bson.M{
@@ -76,6 +86,7 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 		return c.CreateOrUpdate(setting.LocalClusterID, &models.SystemSetting{
 			WorkflowConcurrency: 2,
 			BuildConcurrency:    5,
+			DefaultLogin:        setting.DefaultLoginLocal,
 		})
 	}
 	return nil

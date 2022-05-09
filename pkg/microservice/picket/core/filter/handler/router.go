@@ -42,17 +42,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		rolebindings.GET("", ListBindings)
 	}
-	codehosts := router.Group("codehosts")
-	{
-		codehosts.GET("", ListCodeHost)
-	}
 	users := router.Group("users")
 	{
+		users.POST("", SearchUsers)
 		users.DELETE("/:id", DeleteUser)
 	}
 	downloads := router.Group("kubeconfig")
 	{
 		downloads.GET("", GetKubeConfig)
 	}
-
+	stat := router.Group("stat")
+	{
+		stat.GET("dashboard/overview", Overview)
+		stat.GET("dashboard/deploy", Deploy)
+		stat.GET("dashboard/test", Test)
+		stat.GET("dashboard/build", Build)
+	}
 }

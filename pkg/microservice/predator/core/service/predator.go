@@ -18,11 +18,12 @@ package service
 
 // Context ...
 type Context struct {
-	JobType        string          `yaml:"job_type"`
-	DockerRegistry *DockerRegistry `yaml:"docker_registry"`
-	DockerBuildCtx *DockerBuildCtx `yaml:"build_ctx"`
-	OnSetup        string          `yaml:"setup,omitempty"`
-	ReleaseImages  []RepoImage     `yaml:"release_images"`
+	JobType        string            `yaml:"job_type"`
+	DockerRegistry *DockerRegistry   `yaml:"docker_registry"`
+	DockerBuildCtx *DockerBuildCtx   `yaml:"build_ctx"`
+	OnSetup        string            `yaml:"setup,omitempty"`
+	ReleaseImages  []RepoImage       `yaml:"release_images"`
+	DistributeList []*DistributeInfo `yaml:"distribute_info"`
 }
 
 type RepoImage struct {
@@ -32,6 +33,24 @@ type RepoImage struct {
 	Password  string `yaml:"password"`
 	Host      string `yaml:"host"`
 	Namespace string `yaml:"namespace"`
+}
+
+// DistributeInfo will be convert into yaml, adding yaml
+type DistributeInfo struct {
+	Image               string `yaml:"image"`
+	ReleaseName         string `yaml:"release_name"`
+	DistributeStartTime int64  `yaml:"distribute_start_time"`
+	DistributeEndTime   int64  `yaml:"distribute_end_time"`
+	DistributeStatus    string `yaml:"distribute_status"`
+	DeployEnabled       bool   `yaml:"deploy_enabled"`
+	DeployEnv           string `yaml:"deploy_env"`
+	DeployNamespace     string `yaml:"deploy_namespace"`
+	DeployStartTime     int64  `yaml:"deploy_start_time"`
+	DeployEndTime       int64  `yaml:"deploy_end_time"`
+	DeployStatus        string `yaml:"deploy_status"`
+	RepoID              string `yaml:"repo_id"`
+	RepoAK              string `yaml:"repo_ak"`
+	RepoSK              string `yaml:"repo_sk"`
 }
 
 // DockerBuildCtx ...

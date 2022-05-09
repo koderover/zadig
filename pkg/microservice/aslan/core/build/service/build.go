@@ -43,6 +43,12 @@ type BuildResp struct {
 	ProductName string                              `json:"productName"`
 }
 
+type ServiceModuleAndBuildResp struct {
+	ServiceName   string       `json:"service_name"`
+	ServiceModule string       `json:"service_module"`
+	ModuleBuilds  []*BuildResp `json:"module_builds"`
+}
+
 func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.Build, error) {
 	opt := &commonrepo.BuildFindOption{
 		Name:        name,
@@ -106,6 +112,59 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	}
 
 	return resp, nil
+}
+
+func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, e.ErrListBuildModule.AddErr(err)
+	}
+
+	serviceModuleAndBuildResp := make([]*ServiceModuleAndBuildResp, 0)
+	for _, serviceTmpl := range services {
+		for _, container := range serviceTmpl.Containers {
+			opt := &commonrepo.BuildListOption{
+				ServiceName: serviceTmpl.ServiceName,
+				Targets:     []string{container.Name},
+			}
+			if serviceTmpl.Visibility != setting.PublicService {
+				opt.ProductName = productName
+			}
+
+			buildModules, err := commonrepo.NewBuildColl().List(opt)
+			if err != nil {
+				return nil, e.ErrListBuildModule.AddErr(err)
+			}
+			var resp []*BuildResp
+			for _, build := range buildModules {
+				resp = append(resp, &BuildResp{
+					ID:   build.ID.Hex(),
+					Name: build.Name,
+				})
+			}
+			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
+				ServiceName:   serviceTmpl.ServiceName,
+				ServiceModule: container.Name,
+				ModuleBuilds:  resp,
+			})
+		}
+	}
+	return serviceModuleAndBuildResp, nil
+}
+
+func fillBuildRepoData(build *commonmodels.Build) {
+	if build.TemplateID == "" {
+		return
+	}
+	build.Targets = make([]*commonmodels.ServiceModuleTarget, 0, len(build.TargetRepos))
+	for _, target := range build.TargetRepos {
+		build.Targets = append(build.Targets, &commonmodels.ServiceModuleTarget{
+			ProductName:   target.Service.ProductName,
+			ServiceName:   target.Service.ServiceName,
+			ServiceModule: target.Service.ServiceModule,
+			Repos:         target.Repos,
+		})
+	}
 }
 
 func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
@@ -319,6 +378,7 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 }
 
 func correctFields(build *commonmodels.Build) {
+	fillBuildRepoData(build)
 	// make sure cache has no empty field
 	caches := make([]string, 0)
 	for _, cache := range build.Caches {

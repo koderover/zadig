@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
 var restartPatchTemplate = template.Must(template.New("restart-patch-template").Parse(`{
@@ -69,7 +71,7 @@ func RestartDeployment(ns, name string, cl client.Client) error {
 
 func DeleteDeployments(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
 	deletePolicy := metav1.DeletePropagationForeground
-	return clientset.AppsV1().Deployments(namespace).DeleteCollection(
+	err := clientset.AppsV1().Deployments(namespace).DeleteCollection(
 		context.TODO(),
 		metav1.DeleteOptions{
 			PropagationPolicy: &deletePolicy,
@@ -78,6 +80,8 @@ func DeleteDeployments(namespace string, selector labels.Selector, clientset *ku
 			LabelSelector: selector.String(),
 		},
 	)
+
+	return util.IgnoreNotFoundError(err)
 }
 
 func UpdateDeploymentImage(ns, name, container, image string, cl client.Client) error {

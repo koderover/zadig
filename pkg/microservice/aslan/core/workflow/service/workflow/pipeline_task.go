@@ -114,7 +114,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 			}
 
 			if build.Registries == nil {
-				registries, err := commonservice.ListRegistryNamespaces(true, log)
+				registries, err := commonservice.ListRegistryNamespaces("", true, log)
 				if err != nil {
 					log.Errorf("ListRegistryNamespaces err:%v", err)
 				} else {
@@ -148,7 +148,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 			}
 
 			if testing.Registries == nil {
-				registries, err := commonservice.ListRegistryNamespaces(true, log)
+				registries, err := commonservice.ListRegistryNamespaces("", true, log)
 				if err != nil {
 					log.Errorf("ListRegistryNamespaces err:%v", err)
 				} else {
@@ -232,7 +232,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	repos, err := commonservice.ListRegistryNamespaces(false, log)
+	repos, err := commonservice.ListRegistryNamespaces("", false, log)
 	if err != nil {
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
@@ -317,7 +317,8 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Detail: true, Type: typeString}
 		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
 		for _, svc := range filters {
-			serviceNameFiltersMap[svc] = nil
+			containerName := strings.Split(svc, "_")[0]
+			serviceNameFiltersMap[containerName] = nil
 		}
 	case "taskStatus":
 		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuses: filters, Detail: true, Type: typeString}
@@ -346,7 +347,8 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		if buildStage != nil {
 			for serviceName := range buildStage.SubTasks {
 				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[serviceName]; ok {
+					containerName := strings.Split(serviceName, "_")[0]
+					if _, ok := serviceNameFiltersMap[containerName]; ok {
 						existSvc = true
 					}
 				}
@@ -355,7 +357,8 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		} else if deployStage != nil {
 			for serviceName := range deployStage.SubTasks {
 				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[serviceName]; ok {
+					containerName := strings.Split(serviceName, "_")[0]
+					if _, ok := serviceNameFiltersMap[containerName]; ok {
 						existSvc = true
 					}
 				}
@@ -438,11 +441,13 @@ func GetFiltersPipelineTaskV2(projectName, pipelineName, querytype string, typeS
 			}
 			if buildStage != nil {
 				for serviceName := range buildStage.SubTasks {
-					svcSets.Insert(serviceName)
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
 				}
 			} else if deployStage != nil {
 				for serviceName := range deployStage.SubTasks {
-					svcSets.Insert(serviceName)
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
 				}
 			}
 			buildStage, deployStage = nil, nil
@@ -711,7 +716,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 	testTask.JobCtx.Caches = testModule.Caches
 	testTask.JobCtx.ArtifactPaths = testModule.ArtifactPaths
 	if testTask.Registries == nil {
-		registries, err := commonservice.ListRegistryNamespaces(true, log)
+		registries, err := commonservice.ListRegistryNamespaces("", true, log)
 		if err != nil {
 			log.Errorf("ListRegistryNamespaces err:%v", err)
 		} else {
@@ -1064,10 +1069,13 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 	return fileBytes, packageFile, err
 }
 
-func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
-	s3Storage, client, artifactFiles, err := GetArtifactAndS3Info(pipelineName, "", taskID, log)
+func GetArtifactFileContent(pipelineName string, taskID int64, notHistoryFileFlag bool, log *zap.SugaredLogger) ([]byte, error) {
+	s3Storage, client, artifactFiles, artifactResultOutByts, err := GetArtifactAndS3Info(pipelineName, "", taskID, notHistoryFileFlag, log)
 	if err != nil {
 		return nil, fmt.Errorf("download artifact err: %s", err)
+	}
+	if notHistoryFileFlag {
+		return artifactResultOutByts, nil
 	}
 	tempDir, _ := ioutil.TempDir("", "")
 	sourcePath := path.Join(tempDir, "artifact")
@@ -1109,13 +1117,13 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	return fileBytes, err
 }
 
-func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, error) {
+func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, notHistoryFileFlag bool, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, []byte, error) {
 	fis := make([]string, 0)
 
 	storage, err := s3.FindDefaultS3()
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
-		return nil, nil, fis, err
+		return nil, nil, fis, nil, err
 	}
 
 	if storage.Subfolder != "" {
@@ -1130,13 +1138,29 @@ func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, log *zap.Sugar
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
-		return nil, nil, fis, err
+		return nil, nil, fis, nil, err
 	}
+
+	if notHistoryFileFlag {
+		objectKey := storage.GetObjectPath(fmt.Sprintf("%s/%s/%s", dir, "workspace", setting.ArtifactResultOut))
+		object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 2})
+		if err != nil {
+			log.Errorf("GetTestArtifactInfo GetFile err:%s", err)
+			return nil, nil, fis, nil, err
+		}
+		fileByts, err := ioutil.ReadAll(object.Body)
+		if err != nil {
+			log.Errorf("GetTestArtifactInfo ioutil.ReadAll err:%s", err)
+			return nil, nil, fis, nil, err
+		}
+		return storage, client, fis, fileByts, nil
+	}
+
 	prefix := storage.GetObjectPath(dir)
 	files, err := client.ListFiles(storage.Bucket, prefix, true)
 	if err != nil || len(files) <= 0 {
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		return nil, nil, fis, err
+		return nil, nil, fis, nil, err
 	}
-	return storage, client, files, nil
+	return storage, client, files, nil, nil
 }

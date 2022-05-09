@@ -92,6 +92,17 @@ func initPipelineTask(pipelineTask *task.Task, xl *zap.SugaredLogger) {
 	}
 }
 
+func updatePluginSubTask(plugin plugins.TaskPlugin, pipelineTask *task.Task, pos int, servicename string, xl *zap.SugaredLogger) {
+	helmDeployPlugin, ok := plugin.(*plugins.HelmDeployTaskPlugin)
+	if ok && helmDeployPlugin != nil {
+		for _, p := range helmDeployPlugin.ContentPlugins {
+			updatePipelineSubTask(p.Task, pipelineTask, pos, p.Task.ContainerName, xl)
+		}
+	} else {
+		updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+	}
+}
+
 // Notes:
 // 1.0中pos代表subtasks位置
 // 2.0中pos代表stages位置

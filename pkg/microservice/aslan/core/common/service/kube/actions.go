@@ -17,7 +17,11 @@ limitations under the License.
 package kube
 
 import (
+	"context"
 	"fmt"
+	"regexp"
+	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,23 +31,87 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
 
-func CreateNamespace(namespace string, kubeClient client.Client) error {
-	err := updater.CreateNamespaceByName(namespace, map[string]string{setting.EnvCreatedBy: setting.EnvCreator}, kubeClient)
+var registrySecretSuffix = "-registry-secret"
+
+func CreateNamespace(namespace string, enableShare bool, kubeClient client.Client) error {
+	labels := map[string]string{
+		setting.EnvCreatedBy: setting.EnvCreator,
+	}
+	if enableShare {
+		labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
+	}
+
+	err := updater.CreateNamespaceByName(namespace, labels, kubeClient)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return err
+	}
+
+	nsObj := &corev1.Namespace{}
+	// It may fail to obtain the namespace immediately after it is created due to synchronization delay.
+	// Try twice.
+	for i := 0; i < 2; i++ {
+		err = kubeClient.Get(context.TODO(), client.ObjectKey{
+			Name: namespace,
+		}, nsObj)
+		if err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return err
+	}
+
+	if nsObj.Status.Phase == corev1.NamespaceTerminating {
+		return fmt.Errorf("namespace `%s` is in terminating state, please wait for a whilie and try again.", namespace)
 	}
 
 	return nil
 }
 
-func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {
+func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Client) error {
+	data := make(map[string][]byte)
+
+	data["publicKey"] = publicKey
+	data["privateKey"] = privateKey
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: config.Namespace(),
+			Name:      setting.RSASecretName,
+		},
+		Data: data,
+		Type: corev1.SecretTypeOpaque,
+	}
+	return updater.UpdateOrCreateSecret(secret, kubeClient)
+}
+
+func CreateOrUpdateDefaultRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {
+	return CreateOrUpdateRegistrySecret(namespace, reg, true, kubeClient)
+}
+
+func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, isDefault bool, kubeClient client.Client) error {
+	var secretName string
+	var err error
+	if !isDefault {
+		secretName, err = genRegistrySecretName(reg)
+		if err != nil {
+			return fmt.Errorf("failed to generate registry secret name: %s", err)
+		}
+	} else {
+		secretName = setting.DefaultImagePullSecret
+	}
+
 	data := make(map[string][]byte)
 
 	dockerConfig := fmt.Sprintf(
@@ -58,12 +126,54 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      setting.DefaultImagePullSecret,
+			Name:      secretName,
 		},
 		Data: data,
 		Type: corev1.SecretTypeDockercfg,
 	}
 	return updater.UpdateOrCreateSecret(secret, kubeClient)
+}
+
+func genRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
+	if reg.IsDefault {
+		return setting.DefaultImagePullSecret, nil
+	}
+
+	arr := strings.Split(reg.Namespace, "/")
+	namespaceInRegistry := arr[len(arr)-1]
+
+	// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+	if namespaceInRegistry == "" {
+		uriDecipher := strings.Split(reg.RegAddr, ".")
+		namespaceInRegistry = uriDecipher[0]
+	}
+
+	filteredName, err := formatRegistryName(namespaceInRegistry)
+	if err != nil {
+		return "", err
+	}
+
+	secretName := filteredName + registrySecretSuffix
+	if reg.RegType != "" {
+		secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
+	}
+
+	return secretName, nil
+}
+
+// Note: The name of a Secret object must be a valid DNS subdomain name:
+//   https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
+func formatRegistryName(namespaceInRegistry string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
+	if err != nil {
+		return "", err
+	}
+	processedName := reg.ReplaceAllString(namespaceInRegistry, "")
+	processedName = strings.ToLower(processedName)
+	if len(processedName) > 237 {
+		processedName = processedName[:237]
+	}
+	return processedName, nil
 }
 
 // GetDirtyResources searches for dirty active resources in the given namespace, and return their metadata.

@@ -22,11 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
 func DeletePersistentVolumes(selector labels.Selector, clientset *kubernetes.Clientset) error {
 	deletePolicy := metav1.DeletePropagationForeground
-	return clientset.CoreV1().PersistentVolumes().DeleteCollection(
+	err := clientset.CoreV1().PersistentVolumes().DeleteCollection(
 		context.TODO(),
 		metav1.DeleteOptions{
 			PropagationPolicy: &deletePolicy,
@@ -35,4 +37,6 @@ func DeletePersistentVolumes(selector labels.Selector, clientset *kubernetes.Cli
 			LabelSelector: selector.String(),
 		},
 	)
+
+	return util.IgnoreNotFoundError(err)
 }

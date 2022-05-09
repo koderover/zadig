@@ -79,6 +79,10 @@ func createObject(obj client.Object, cl client.Client) error {
 	return cl.Create(context.TODO(), obj)
 }
 
+func createObjectNeverAnnotation(obj client.Object, cl client.Client) error {
+	return cl.Create(context.TODO(), obj)
+}
+
 func updateOrCreateObject(obj client.Object, cl client.Client) error {
 	err := updateObject(obj, cl)
 	if err != nil {
@@ -104,6 +108,33 @@ func createOrPatchObject(modified client.Object, cl client.Client) error {
 	// fill gvk in case it is missing.
 	// for objects retrieved from APIServer, gvk is not set, so we need to set it
 	// for objects in cache, gvk is set, nothing will be changed here
+	gvk := modified.GetObjectKind().GroupVersionKind()
+	current, err := util.SetGroupVersionKind(c, &gvk)
+	if err != nil {
+		return err
+	}
+
+	patchBytes, patchType, err := patcher.GeneratePatchBytes(current, modified)
+	if err != nil {
+		return err
+	}
+
+	if len(patchBytes) == 0 || patchType == "" || string(patchBytes) == "{}" {
+		return nil
+	}
+
+	return patchObjectWithType(current.(client.Object), patchBytes, patchType, cl)
+}
+
+func createOrPatchObjectNeverAnnotation(modified client.Object, cl client.Client) error {
+	c := modified.DeepCopyObject().(client.Object)
+	found, err := getter.GetResourceInCache(modified.GetNamespace(), modified.GetName(), c, cl)
+	if err != nil {
+		return err
+	} else if !found {
+		return createObjectNeverAnnotation(modified, cl)
+	}
+
 	gvk := modified.GetObjectKind().GroupVersionKind()
 	current, err := util.SetGroupVersionKind(c, &gvk)
 	if err != nil {

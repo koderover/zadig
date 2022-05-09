@@ -145,10 +145,13 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 		TaskEnvs:    pipelineTask.TaskArgs.BuildArgs,
 	}
 	body, err = json.Marshal(webhookPayload)
+
+	headers := make(map[string]string)
 	for _, header := range p.Task.Headers {
-		httpclient.SetHeader(header.Key, header.Value)
+		headers[header.Key] = header.Value
 	}
-	_, err = httpClient.Post(url, httpclient.SetHeader(ZadigEvent, EventName), httpclient.SetBody(body))
+	headers[ZadigEvent] = EventName
+	_, err = httpClient.Post(url, httpclient.SetHeaders(headers), httpclient.SetBody(body))
 	if err != nil {
 		return
 	}

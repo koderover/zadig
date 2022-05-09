@@ -23,6 +23,7 @@ import (
 
 	"github.com/27149chen/afero"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -31,17 +32,29 @@ import (
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/log"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-func ListHelmRepos(log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
+func ListHelmRepos(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
+	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("ListHelmRepos GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
 	helmRepos, err := commonrepo.NewHelmRepoColl().List()
 	if err != nil {
 		log.Errorf("ListHelmRepos err:%v", err)
 		return []*commonmodels.HelmRepo{}, nil
 	}
-
+	for _, helmRepo := range helmRepos {
+		helmRepo.Password, err = crypto.AesEncryptByKey(helmRepo.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("ListHelmRepos AesEncryptByKey err:%v", err)
+			return nil, err
+		}
+	}
 	return helmRepos, nil
 }
 
@@ -145,4 +158,13 @@ func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service) error {
 		return err
 	}
 	return nil
+}
+
+func GeneHelmRepo(chartRepo *commonmodels.HelmRepo) *repo.Entry {
+	return &repo.Entry{
+		Name:     chartRepo.RepoName,
+		URL:      chartRepo.URL,
+		Username: chartRepo.Username,
+		Password: chartRepo.Password,
+	}
 }

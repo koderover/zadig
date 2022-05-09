@@ -19,6 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
 	"github.com/koderover/zadig/pkg/microservice/picket/core/filter/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
@@ -29,4 +30,18 @@ func DeleteUser(c *gin.Context) {
 
 	uid := c.Param("id")
 	ctx.Resp, ctx.Err = service.DeleteUser(uid, c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+}
+
+func SearchUsers(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &user.SearchArgs{}
+
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Logger.Errorf("bindjson err :%s", err)
+		ctx.Err = err
+		return
+	}
+	ctx.Resp, ctx.Err = service.SearchUsers(c.Request.Header, c.Request.URL.Query(), req, ctx.Logger)
 }

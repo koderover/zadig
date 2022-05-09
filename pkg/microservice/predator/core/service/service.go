@@ -102,13 +102,15 @@ func (p *Predator) Exec() error {
 
 // AfterExec ...
 func (p *Predator) AfterExec() error {
-	for _, image := range p.Ctx.ReleaseImages {
-		err := writeDockerConfig(image.Host, image.Username, image.Password)
+	for _, distribute := range p.Ctx.DistributeList {
+		// get the docker host info from the image
+		splitString := strings.Split(distribute.Image, "/")
+		err := writeDockerConfig(splitString[0], distribute.RepoAK, distribute.RepoSK)
 		if err != nil {
 			return fmt.Errorf("failed to write docker config file %v", err)
 		}
 
-		cmd := dockerPush(image.Name)
+		cmd := dockerPush(distribute.Image)
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 		cmd.Dir = p.Ctx.DockerBuildCtx.WorkDir
@@ -161,8 +163,9 @@ func (p *Predator) dockerCommands() []*exec.Cmd {
 		})
 	} else if p.Ctx.JobType == setting.ReleaseImageJob {
 		cmds = append(cmds, dockerPull(p.Ctx.DockerBuildCtx.ImageName))
-		for _, image := range p.Ctx.ReleaseImages {
-			cmds = append(cmds, dockerTag(p.Ctx.DockerBuildCtx.ImageName, image.Name))
+		// no more ReleaseImages in release_image job type
+		for _, distribute := range p.Ctx.DistributeList {
+			cmds = append(cmds, dockerTag(p.Ctx.DockerBuildCtx.ImageName, distribute.Image))
 		}
 	}
 

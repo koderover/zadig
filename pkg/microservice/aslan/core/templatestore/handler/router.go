@@ -26,16 +26,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	// chart templates
 	// ---------------------------------------------------------------------------------------
-	install := router.Group("charts")
+	chart := router.Group("charts")
 	{
-		install.GET("", ListChartTemplates)
-		install.GET("/:name", GetChartTemplate)
-		install.GET("/:name/files", ListFiles)
-		install.GET("/:name/variables", GetTemplateVariables)
-		install.POST("", AddChartTemplate)
-		install.PUT("/:name", UpdateChartTemplate)
-		install.PUT("/:name/variables", UpdateChartTemplateVariables)
-		install.DELETE("/:name", RemoveChartTemplate)
+		chart.GET("", ListChartTemplates)
+		chart.GET("/:name", GetChartTemplate)
+		chart.GET("/:name/files", ListFiles)
+		chart.GET("/:name/variables", GetTemplateVariables)
+		chart.POST("", AddChartTemplate)
+		chart.PUT("/:name", UpdateChartTemplate)
+		chart.POST("/:name/reference", SyncChartTemplateReference)
+		chart.PUT("/:name/variables", UpdateChartTemplateVariables)
+		chart.DELETE("/:name", RemoveChartTemplate)
 	}
 
 	dockerfile := router.Group("dockerfile")
@@ -57,6 +58,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		yaml.GET("/:id", GetYamlTemplateDetail)
 		yaml.DELETE("/:id", DeleteYamlTemplate)
 		yaml.GET("/:id/reference", GetYamlTemplateReference)
+		yaml.POST("/:id/reference", SyncYamlTemplateReference)
 		yaml.POST("/getVariables", GetYamlTemplateVariables)
+	}
+
+	build := router.Group("build")
+	{
+		build.POST("", AddBuildTemplate)
+		build.PUT("/:id", UpdateBuildTemplate)
+		build.GET("", ListBuildTemplates)
+		build.GET("/:id", GetBuildTemplate)
+		build.DELETE("/:id", RemoveBuildTemplate)
 	}
 }

@@ -206,11 +206,6 @@ func (r *Reaper) runScripts() error {
 	// avoid non-blocking IO for stdout to workaround "stdout: write error"
 	for _, script := range r.Ctx.Scripts {
 		scripts = append(scripts, script)
-		// TODO: This may cause nodejs compilation problems, but it is not completely determined, so keep it for now.
-		if strings.Contains(script, "yarn ") || strings.Contains(script, "npm ") || strings.Contains(script, "bower ") {
-			scripts = append(scripts, "echo 'turn off O_NONBLOCK after using node'")
-			scripts = append(scripts, "python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'")
-		}
 	}
 
 	userScriptFile := "user_script.sh"
@@ -347,6 +342,7 @@ func (r *Reaper) RunPMDeployScripts() error {
 
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_IP=%s", ssh.Name, ssh.IP))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_PORT=%d", ssh.Name, ssh.Port))
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_USERNAME=%s", ssh.Name, ssh.UserName))
 
 		r.Ctx.SecretEnvs = append(r.Ctx.SecretEnvs, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))

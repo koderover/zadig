@@ -29,14 +29,18 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 )
 
-func (c *Client) ListEnvs(log *zap.SugaredLogger) ([]*service.ProductRevision, error) {
+type EvnListOption struct {
+	BasicFacility string
+	DeployType    string
+}
 
+func (c *Client) ListEnvs(log *zap.SugaredLogger, option *EvnListOption) ([]*service.ProductRevision, error) {
 	var (
 		err  error
 		resp = make([]*service.ProductRevision, 0)
 	)
 
-	url := fmt.Sprintf("%s/environment/revision/products?basicFacility=%s", c.APIBase, "cloud_host")
+	url := fmt.Sprintf("%s/environment/revision/products?basicFacility=%s&deployType=%s", c.APIBase, option.BasicFacility, option.DeployType)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("ListEnvs new http request error: %v", err)
@@ -80,8 +84,34 @@ func (c *Client) GetEnvService(productName, envName string, log *zap.SugaredLogg
 			}
 		}
 	}
-
 	return envObj, errors.WithMessage(err, "failed to get service")
+}
+
+func (c *Client) GetRenderset(name string, revision int64, log *zap.SugaredLogger) (*service.ProductRenderset, error) {
+	var (
+		err          error
+		rendersetObj = new(service.ProductRenderset)
+	)
+	url := fmt.Sprintf("%s/project/renders/render/%s/revision/%d", c.APIBase, name, revision)
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Errorf("GetService new http request error: %v", err)
+		return nil, err
+	}
+
+	var ret *http.Response
+	if ret, err = c.Conn.Do(request); err == nil {
+		defer func() { _ = ret.Body.Close() }()
+		var body []byte
+		body, err = ioutil.ReadAll(ret.Body)
+		if err == nil {
+			if err = json.Unmarshal(body, &rendersetObj); err == nil {
+				return rendersetObj, nil
+			}
+		}
+	}
+
+	return rendersetObj, errors.WithMessage(err, "failed to get renderset")
 }
 
 func (c *Client) GetService(serviceName, productName, serviceType string, revision int64, log *zap.SugaredLogger) (*service.Service, error) {
@@ -134,6 +164,25 @@ func (c *Client) UpdateService(args *service.ServiceTmplObject, log *zap.Sugared
 		}
 	}
 
+	return nil
+}
+
+func (c *Client) SyncEnvVariables(productName, envName string, log *zap.SugaredLogger) error {
+	url := fmt.Sprintf("%s/environment/environments/%s/syncVariables?projectName=%s", c.APIBase, envName, productName)
+	request, err := http.NewRequest("PUT", url, nil)
+	if err != nil {
+		log.Errorf("SyncEnvVariables new http request error: %v", err)
+		return err
+	}
+
+	var ret *http.Response
+	if ret, err = c.Conn.Do(request); err == nil {
+		defer func() { _ = ret.Body.Close() }()
+		_, err := ioutil.ReadAll(ret.Body)
+		if err != nil {
+			return errors.WithMessage(err, "failed to sync product variables ")
+		}
+	}
 	return nil
 }
 

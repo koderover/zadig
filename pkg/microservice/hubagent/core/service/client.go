@@ -31,7 +31,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/hubagent/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -98,13 +97,6 @@ func (c *Client) getParams() (*input, error) {
 }
 
 func Init() error {
-	log.Init(&log.Config{
-		Level:       commonconfig.LogLevel(),
-		Filename:    commonconfig.LogFile(),
-		SendToFile:  commonconfig.SendLogToFile(),
-		Development: commonconfig.Mode() != setting.ReleaseMode,
-	})
-
 	token := config.HubAgentToken()
 	if token == "" {
 		return fmt.Errorf("token must be configured")

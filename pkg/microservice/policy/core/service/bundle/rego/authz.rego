@@ -114,8 +114,19 @@ access_is_granted {
     rule.method == http_request.method
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
 
-    all_attributes_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
+    any_attribute_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
 }
+
+access_is_granted {
+    not url_is_privileged
+
+    some rule
+
+    allowed_system_role_plain_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
 
 access_is_granted {
     some rule
@@ -124,7 +135,7 @@ access_is_granted {
     rule.method == http_request.method
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
 
-    all_attributes_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
+    any_attribute_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
 }
 
 rule_is_matched_for_filtering {
@@ -166,7 +177,12 @@ attributes_match(attributes, res) {
 }
 
 attribute_match(attribute, res) {
-    res.spec[attribute.key] == attribute.value
+    resValue := res.spec[_]
+    value_match(resValue, sprintf("%s:%s",[attribute.key,attribute.value]))
+}
+
+value_match(resValue, value) {
+   resValue == value
 }
 
 project_name_is_match(res) {
@@ -215,7 +231,7 @@ user_matched_role_rule_for_filtering[rule] {
 }
 
 
-all_attributes_match(attributes, resourceType, resourceID) {
+any_attribute_match(attributes, resourceType, resourceID) {
     res := data.resources[resourceType][_]
     res.resourceID == resourceID
     project_name_is_match(res)
@@ -223,23 +239,6 @@ all_attributes_match(attributes, resourceType, resourceID) {
     attributes_match(attributes, res)
 }
 
-attributes_match(attributes, res) {
-    attribute := attributes[_]
-    attribute_match(attribute, res)
-}
-
-attributes_mismatch(attributes, res) {
-    attribute := attributes[_]
-    attribute_mismatch(attribute, res)
-}
-
-attribute_mismatch(attribute, res) {
-    res.spec[attribute.key] != attribute.value
-}
-
-attribute_mismatch(attribute, res) {
-    not res.spec[attribute.key]
-}
 
 get_resource_id(idRegex) = id {
     output := regex.find_all_string_submatch_n(trim(idRegex, "/"), concat("/", input.parsed_path), -1)
@@ -298,11 +297,13 @@ user_projects[project] {
     some i
     data.bindings.role_bindings[i].uid == claims.uid
     project := data.bindings.role_bindings[i].bindings[_].namespace
+    project !="*"
 }
 user_projects[project] {
     some i
     data.bindings.policy_bindings[i].uid == claims.uid
     project := data.bindings.policy_bindings[i].bindings[_].namespace
+    project !="*"
 }
 
 # get all projects which are visible by all users (the user name is "*")
@@ -361,6 +362,14 @@ allowed_roles[role_ref] {
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
+allowed_system_roles[role_ref]{
+    some i
+    some j
+    data.bindings.role_bindings[i].uid == claims.uid
+    data.bindings.role_bindings[i].bindings[j].namespace == "*"
+    role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
+}
+
 # if the proejct is visible by all users (the user name is "*"), the bound roles are also allowed
 allowed_roles[role_ref] {
     some i
@@ -396,6 +405,16 @@ allowed_role_rules[rule] {
     rule := data.roles.roles[i].rules[_]
 }
 
+allowed_system_role_rules[rule] {
+    some role_ref
+    allowed_system_roles[role_ref]
+
+    some i
+    data.roles.roles[i].name == role_ref.name
+    role_ref.namespace == "*"
+    rule := data.roles.roles[i].rules[_]
+}
+
 allowed_policy_rules[rule] {
     some policy_ref
     allowed_policies[policy_ref]
@@ -418,6 +437,12 @@ allowed_role_plain_rules[rule] {
     not rule.matchExpressions
 }
 
+allowed_system_role_plain_rules[rule] {
+    rule := allowed_system_role_rules[_]
+    not rule.matchAttributes
+    not rule.matchExpressions
+}
+
 allowed_policy_attributive_rules[rule] {
     rule := allowed_policy_rules[_]
     rule.matchAttributes
@@ -427,6 +452,7 @@ allowed_role_attributive_rules[rule] {
     rule := allowed_role_rules[_]
     rule.matchAttributes
 }
+
 allowed_policy_attributive_rules[rule] {
     rule := allowed_policy_rules[_]
     rule.matchExpressions

@@ -21,6 +21,7 @@ import (
 	"net/url"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func (c *Client) DeleteUser(userId string, header http.Header, qs url.Values) ([]byte, error) {
@@ -32,4 +33,26 @@ func (c *Client) DeleteUser(userId string, header http.Header, qs url.Values) ([
 	}
 
 	return res.Body(), nil
+}
+
+func (c *Client) SearchUsers(header http.Header, qs url.Values, body interface{}) (*types.UsersResp, error) {
+	url := "/users/search"
+	result := &types.UsersResp{}
+	_, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetBody(body), httpclient.SetResult(result))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+type SearchArgs struct {
+	Name         string   `json:"name,omitempty"`
+	Account      string   `json:"account,omitempty"`
+	IdentityType string   `json:"identity_type,omitempty"`
+	UIDs         []string `json:"uids,omitempty"`
+	PerPage      int      `json:"per_page,omitempty"`
+	Page         int      `json:"page,omitempty"`
+}
+
+type SearchRes struct {
 }

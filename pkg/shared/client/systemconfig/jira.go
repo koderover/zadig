@@ -31,7 +31,7 @@ type JiraInfo struct {
 }
 
 func (c *Client) GetJiraInfo() (*JiraInfo, error) {
-	url := "/jira"
+	url := "/jira/internal"
 
 	jira := &JiraInfo{}
 	_, err := c.Get(url, httpclient.SetResult(jira))

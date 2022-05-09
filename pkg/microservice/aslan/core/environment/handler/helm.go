@@ -38,3 +38,12 @@ func GetChartInfos(c *gin.Context) {
 	projectName := c.Query("projectName")
 	ctx.Resp, ctx.Err = service.GetChartInfos(projectName, envName, servicesName, ctx.Logger)
 }
+
+func GetImageInfos(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	servicesName := c.Query("serviceName")
+	ctx.Resp, ctx.Err = service.GetImageInfos(projectName, envName, servicesName, ctx.Logger)
+}

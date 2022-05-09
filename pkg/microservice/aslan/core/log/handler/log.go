@@ -70,7 +70,7 @@ func GetTestJobContainerLogs(c *gin.Context) {
 	}
 
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetTestJobContainerLogs(c.Param("pipelineName"), c.Param("testName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = logservice.GetTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("testName"), taskID, ctx.Logger)
 }
 
 func GetWorkflowTestJobContainerLogs(c *gin.Context) {
@@ -84,7 +84,7 @@ func GetWorkflowTestJobContainerLogs(c *gin.Context) {
 	}
 
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetWorkflowTestJobContainerLogs(c.Param("pipelineName"), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = logservice.GetWorkflowTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
 }
 
 func GetContainerLogs(c *gin.Context) {

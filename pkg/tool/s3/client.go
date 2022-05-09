@@ -18,7 +18,9 @@ package s3
 
 import (
 	"fmt"
+	"mime"
 	"os"
+	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -191,6 +193,14 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 	}
 }
 
+func detectMimetype(path string) string {
+	fileext := filepath.Ext(path)
+	if fileext == "" {
+		return ""
+	}
+	return mime.TypeByExtension(fileext)
+}
+
 // Upload uploads a file from src to the bucket with the specified objectKey
 func (c *Client) Upload(bucketName, src string, objectKey string) error {
 	file, err := os.OpenFile(src, os.O_RDONLY, 0600)
@@ -203,8 +213,41 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(objectKey),
 	}
+	mimetype := detectMimetype(src)
+	if mimetype != "" {
+		input.ContentType = &mimetype
+	}
 	_, err = c.PutObject(input)
 	return err
+}
+
+func (c *Client) GetFile(bucketName, objectKey string, option *DownloadOption) (*s3.GetObjectOutput, error) {
+	retry := 0
+	var err error
+
+	for retry < option.RetryNum {
+		opt := &s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(objectKey),
+		}
+		obj, err1 := c.GetObject(opt)
+		if err1 != nil {
+			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
+				if option.IgnoreNotExistError {
+					return nil, nil
+				}
+				return nil, err1
+			}
+
+			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
+			err = err1
+			retry++
+			continue
+		}
+
+		return obj, nil
+	}
+	return nil, err
 }
 
 // ListFiles with given prefix

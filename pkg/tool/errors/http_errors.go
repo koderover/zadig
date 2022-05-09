@@ -193,6 +193,16 @@ var (
 	ErrUpdateService = NewHTTPError(6092, "更新服务失败")
 	// ErrListPodEvents ...
 	ErrListPodEvents = NewHTTPError(6093, "列出服务事件失败")
+	//ErrListResources ...
+	ErrListResources = NewHTTPError(6094, "列出对象资源失败")
+	//ErrUpdateResource ...
+	ErrUpdateResource = NewHTTPError(6095, "更新对象资源失败")
+	//ErrDeleteResource ...
+	ErrDeleteResource = NewHTTPError(6096, "删除对象资源失败")
+	// ErrLoginPm ...
+	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
+
+	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
 
 	//-----------------------------------------------------------------------------------------------
 	// it report APIs Range: 6100 - 6199

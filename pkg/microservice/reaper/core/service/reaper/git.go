@@ -204,6 +204,8 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, owner, repo.Name)),
 			DisableTrace: true,
 		})
+	} else if repo.Source == meta.ProviderGitee {
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else {
 		// github
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.Name)), DisableTrace: true})

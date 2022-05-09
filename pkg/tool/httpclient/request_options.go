@@ -43,6 +43,12 @@ func SetHeader(header, value string) RequestFunc {
 	}
 }
 
+func SetHeaders(headers map[string]string) RequestFunc {
+	return func(r *resty.Request) {
+		r.SetHeaders(headers)
+	}
+}
+
 func SetHeadersFromHTTPHeader(header http.Header) RequestFunc {
 	return func(r *resty.Request) {
 		r.Header = header

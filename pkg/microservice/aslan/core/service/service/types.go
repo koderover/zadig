@@ -40,21 +40,22 @@ type HelmLoadSource struct {
 
 type HelmServiceCreationArgs struct {
 	HelmLoadSource
-	Name       string      `json:"name"`
-	CreatedBy  string      `json:"createdBy"`
-	CreateFrom interface{} `json:"createFrom"`
-}
-
-type ValuesDataArgs struct {
-	YamlSource    string              `json:"yamlSource,omitempty"`
-	GitRepoConfig *service.RepoConfig `json:"gitRepoConfig,omitempty"`
+	Name           string                  `json:"name"`
+	CreatedBy      string                  `json:"createdBy"`
+	RequestID      string                  `json:"-"`
+	AutoSync       bool                    `json:"auto_sync"`
+	CreateFrom     interface{}             `json:"createFrom"`
+	ValuesData     *service.ValuesDataArgs `json:"valuesData"`
+	CreationDetail interface{}             `json:"-"`
 }
 
 type BulkHelmServiceCreationArgs struct {
 	HelmLoadSource
-	CreateFrom interface{}     `json:"createFrom"`
-	CreatedBy  string          `json:"createdBy"`
-	ValuesData *ValuesDataArgs `json:"valuesData"`
+	CreateFrom interface{}             `json:"createFrom"`
+	CreatedBy  string                  `json:"createdBy"`
+	RequestID  string                  `json:"-"`
+	ValuesData *service.ValuesDataArgs `json:"valuesData"`
+	AutoSync   bool                    `json:"auto_sync"`
 }
 
 type FailedService struct {

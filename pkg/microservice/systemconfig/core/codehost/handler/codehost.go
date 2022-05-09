@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CreateCodeHost(c *gin.Context) {
@@ -41,7 +42,18 @@ func CreateCodeHost(c *gin.Context) {
 func ListCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.List(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Resp, ctx.Err = service.List(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+}
+
+func ListCodeHostInternal(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func DeleteCodeHost(c *gin.Context) {

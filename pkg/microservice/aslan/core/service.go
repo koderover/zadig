@@ -23,11 +23,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
@@ -42,8 +46,10 @@ import (
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/pkg/tool/rsa"
 )
 
 const (
@@ -100,6 +106,33 @@ func registerPolicies() {
 	}
 }
 
+func initRsaKey() {
+	client, err := kubeclient.GetKubeClient(commonconfig.HubServerServiceAddress(), setting.LocalClusterID)
+	if err != nil {
+		log.DPanic(err)
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), setting.LocalClusterID)
+	if err != nil {
+		log.DPanic(err)
+	}
+	_, err = clientset.CoreV1().Secrets(commonconfig.Namespace()).Get(context.TODO(), setting.RSASecretName, metav1.GetOptions{})
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err, publicKey, privateKey := rsa.GetRsaKey()
+			if err != nil {
+				log.DPanic(err)
+			}
+			err = kube.CreateOrUpdateRSASecret(publicKey, privateKey, client)
+			if err != nil {
+				log.DPanic(err)
+			}
+		} else {
+			log.DPanic(err)
+		}
+	}
+}
+
 func Start(ctx context.Context) {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
@@ -111,6 +144,7 @@ func Start(ctx context.Context) {
 	initDatabase()
 
 	initService()
+	initDinD()
 
 	systemservice.SetProxyConfig()
 
@@ -122,7 +156,12 @@ func Start(ctx context.Context) {
 
 	registerPolicies()
 
+	//Parse the workload dependencies configMap, PVC, ingress, secret
+	go environmentservice.StartClusterInformer()
+
 	go StartControllers(ctx.Done())
+
+	initRsaKey()
 }
 
 func Stop(ctx context.Context) {
@@ -143,6 +182,13 @@ func initService() {
 
 	if err := workflowservice.SubScribeNSQ(); err != nil {
 		errors = multierror.Append(errors, err)
+	}
+}
+
+func initDinD() {
+	err := systemservice.SyncDinDForRegistries()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -210,6 +256,12 @@ func initDatabase() {
 		commonrepo.NewChartColl(),
 		commonrepo.NewDockerfileTemplateColl(),
 		commonrepo.NewProjectClusterRelationColl(),
+		commonrepo.NewConfigMapColl(),
+		commonrepo.NewIngressColl(),
+		commonrepo.NewSecretColl(),
+		commonrepo.NewPvcColl(),
+		commonrepo.NewEnvSvcDependColl(),
+		commonrepo.NewBuildTemplateColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

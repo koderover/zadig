@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func GetEmailHost(c *gin.Context) {
@@ -30,10 +31,22 @@ func GetEmailHost(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetEmailHost(ctx.Logger)
 }
 
-func InternalGetEmailHost(c *gin.Context) {
+func GetEmailHostInternal(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.InternalGetEmailHost(ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetEmailHostInternal(ctx.Logger)
+}
+
+func GetEncryptedEmailHost(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetEncryptedEmailHost(encryptedKey, ctx.Logger)
 }
 
 func CreateEmailHost(c *gin.Context) {

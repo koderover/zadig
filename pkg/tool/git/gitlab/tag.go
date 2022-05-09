@@ -29,6 +29,10 @@ func (c *Client) ListTags(owner, repo string, opts *ListOptions, key string) ([]
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*gitlab.Tag
 	ts, ok := tags.([]interface{})
 	if !ok {

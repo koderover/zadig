@@ -23,6 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
 func DeleteRoles(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
@@ -30,9 +32,10 @@ func DeleteRoles(namespace string, selector labels.Selector, clientset *kubernet
 	if err != nil {
 		return err
 	}
+
 	deletePolicy := metav1.DeletePropagationForeground
 	if kubeclient.VersionLessThan122(version) {
-		return clientset.RbacV1beta1().Roles(namespace).DeleteCollection(
+		err = clientset.RbacV1beta1().Roles(namespace).DeleteCollection(
 			context.TODO(),
 			metav1.DeleteOptions{
 				PropagationPolicy: &deletePolicy,
@@ -40,15 +43,17 @@ func DeleteRoles(namespace string, selector labels.Selector, clientset *kubernet
 				LabelSelector: selector.String(),
 			},
 		)
+	} else {
+		err = clientset.RbacV1().Roles(namespace).DeleteCollection(
+			context.TODO(),
+			metav1.DeleteOptions{
+				PropagationPolicy: &deletePolicy,
+			},
+			metav1.ListOptions{
+				LabelSelector: selector.String(),
+			},
+		)
 	}
 
-	return clientset.RbacV1().Roles(namespace).DeleteCollection(
-		context.TODO(),
-		metav1.DeleteOptions{
-			PropagationPolicy: &deletePolicy,
-		},
-		metav1.ListOptions{
-			LabelSelector: selector.String(),
-		},
-	)
+	return util.IgnoreNotFoundError(err)
 }

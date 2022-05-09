@@ -25,5 +25,5 @@ type Stage struct {
 	RunParallel bool                              `bson:"run_parallel"       json:"run_parallel"`
 	Desc        string                            `bson:"desc,omitempty"     json:"desc,omitempty"`
 	SubTasks    map[string]map[string]interface{} `bson:"sub_tasks"          json:"sub_tasks"`
-	AfterAll    bool                              `json:"after_all" bson:"after_all"`
+	AfterAll    bool                              `bson:"after_all"          json:"after_all"`
 }

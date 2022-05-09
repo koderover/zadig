@@ -109,7 +109,7 @@ func (m resourceActionMappings) GetPolicyRules(resource string, actions []string
 	return res
 }
 
-func getResourceActionMappings(policies []*models.PolicyMeta) resourceActionMappings {
+func getResourceActionMappings(isPolicy bool, policies []*models.PolicyMeta) resourceActionMappings {
 	data := make(resourceActionMappings)
 	for _, p := range policies {
 		if _, ok := data[p.Resource]; !ok {
@@ -120,6 +120,9 @@ func getResourceActionMappings(policies []*models.PolicyMeta) resourceActionMapp
 			for _, ar := range r.Rules {
 				var as []*Attribute
 				for _, a := range ar.MatchAttributes {
+					if a.Key == "production" && isPolicy {
+						continue
+					}
 					as = append(as, &Attribute{Key: a.Key, Value: a.Value})
 				}
 

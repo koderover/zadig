@@ -33,18 +33,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
+	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
 // UpsertEnvServiceScheduler ...
 func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
-	envs, err := c.AslanCli.ListEnvs(log)
+	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{BasicFacility: setting.BasicFacilityCVM})
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	//当前的环境数据和上次做比较，如果环境有删除或者环境中的服务有删除，要清理掉定时器
-	c.compareProductRevision(envs, log)
+	c.comparePMProductRevision(envs, log)
 
 	log.Info("start init env scheduler..")
 	taskMap := make(map[string]bool)
@@ -195,6 +196,7 @@ func BuildScheduledEnvJob(scheduler *gocron.Scheduler, healthCheck *service.PmHe
 	}
 	return scheduler.Every(interval).Seconds()
 }
+
 func runProbe(healthCheck *service.PmHealthCheck, address string, log *zap.SugaredLogger) (string, error) {
 	var (
 		message string
@@ -309,28 +311,59 @@ func formatURL(protocol, address, path string, port int) (string, error) {
 	return fmt.Sprintf("%s://%s:%d/%s", protocol, address, port, path), nil
 }
 
-// 先比较环境，再比较服务
-func (c *CronClient) compareProductRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
-	if len(c.lastProductRevisions) == 0 {
-		c.lastProductRevisions = currentProductRevisions
+func buildEnvNameKey(productRevision *service.ProductRevision) string {
+	return "helm-values-sync-" + productRevision.ProductName + "-" + productRevision.EnvName
+}
+
+func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	if len(c.lastHelmProductRevisions) == 0 {
+		c.lastHelmProductRevisions = currentProductRevisions
+		return
+	}
+	deleteProductRevisions := make([]*service.ProductRevision, 0)
+	curEnvSet := sets.NewString()
+	for _, r := range currentProductRevisions {
+		curEnvSet.Insert(buildEnvNameKey(r))
+	}
+	for _, lastProductRevision := range c.lastHelmProductRevisions {
+		if !curEnvSet.Has(buildEnvNameKey(lastProductRevision)) {
+			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
+		}
+	}
+	// delete related schedulers when env is deleted
+	for _, env := range deleteProductRevisions {
+		envKey := buildEnvNameKey(env)
+		if _, ok := c.SchedulerController[envKey]; ok {
+			c.SchedulerController[envKey] <- true
+		}
+		if _, ok := c.Schedulers[envKey]; ok {
+			c.Schedulers[envKey].Clear()
+			delete(c.Schedulers, envKey)
+		}
+	}
+	c.lastHelmProductRevisions = currentProductRevisions
+}
+
+// compare environments and then services
+func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	if len(c.lastPMProductRevisions) == 0 {
+		c.lastPMProductRevisions = currentProductRevisions
 		return
 	}
 	deleteProductRevisions := make([]*service.ProductRevision, 0)
 	lastProductSvcRevisionMap := make(map[string][]*service.SvcRevision)
 	currentProductSvcRevisionMap := make(map[string][]*service.SvcRevision)
-	for _, lastProductRevision := range c.lastProductRevisions {
+	for _, lastProductRevision := range c.lastPMProductRevisions {
 		isContain := false
 		for _, currentProductRevision := range currentProductRevisions {
 			if currentProductRevision.ProductName == lastProductRevision.ProductName &&
 				currentProductRevision.EnvName == lastProductRevision.EnvName {
-
 				currentProductSvcRevisionMap[currentProductRevision.ProductName+"-"+currentProductRevision.EnvName] = currentProductRevision.ServiceRevisions
 				lastProductSvcRevisionMap[lastProductRevision.ProductName+"-"+lastProductRevision.EnvName] = lastProductRevision.ServiceRevisions
 				isContain = true
 				break
 			}
 		}
-
 		if !isContain {
 			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
 		}
@@ -451,7 +484,7 @@ func (c *CronClient) compareProductRevision(currentProductRevisions []*service.P
 		}
 	}
 
-	c.lastProductRevisions = currentProductRevisions
+	c.lastPMProductRevisions = currentProductRevisions
 }
 
 const (

@@ -3,10 +3,12 @@ module github.com/koderover/zadig
 go 1.16
 
 require (
+	gitee.com/openeuler/go-gitee v0.0.0-20220323055843-285220630cbc
 	github.com/27149chen/afero v1.6.2
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
+	github.com/antihax/optional v1.0.0
 	github.com/aws/aws-sdk-go v1.34.28
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bndr/gojenkins v1.1.0
@@ -15,6 +17,7 @@ require (
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/chartmuseum/helm-push v0.10.1
+	github.com/containers/image v3.0.2+incompatible
 	github.com/coocood/freecache v1.1.0
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/dexidp/dex v0.0.0-20210802203454-3fac2ab6bc3b
@@ -26,10 +29,12 @@ require (
 	github.com/garyburd/redigo v1.6.2 // indirect
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-co-op/gocron v1.13.0
 	github.com/go-ldap/ldap/v3 v3.3.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
@@ -79,6 +84,8 @@ require (
 	gorm.io/driver/mysql v1.1.2
 	gorm.io/gorm v1.21.16
 	helm.sh/helm/v3 v3.7.2
+	istio.io/api v0.0.0-20220304035241-8c47cbbea144
+	istio.io/client-go v0.0.0-20220304040955-30b642d5ba34
 	k8s.io/api v0.22.4
 	k8s.io/apiextensions-apiserver v0.22.4
 	k8s.io/apimachinery v0.22.4

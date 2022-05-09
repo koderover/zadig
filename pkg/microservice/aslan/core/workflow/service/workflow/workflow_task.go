@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/url"
@@ -26,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	gotempl "text/template"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -38,6 +41,7 @@ import (
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -88,17 +92,17 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		}
 		target := &commonmodels.TargetArgs{Name: containerArr[2], ServiceName: containerArr[1], Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
 
-		moBuild := findModuleByTargetAndVersion(allModules, container)
+		moBuild, _ := findModuleByTargetAndVersion(allModules, container)
 		if moBuild == nil {
 			moBuild = &commonmodels.Build{}
 			target.HasBuild = false
 		}
-
-		if len(moBuild.Repos) == 0 {
-			target.Build.Repos = make([]*types.Repository, 0)
-		} else {
-			target.Build.Repos = moBuild.Repos
+		err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
+		if err != nil {
+			return resp, e.ErrListBuildModule.AddErr(err)
 		}
+
+		target.Build.Repos = moBuild.SafeRepos()
 
 		if moBuild.PreBuild != nil {
 			EnsureBuildResp(moBuild)
@@ -106,11 +110,14 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		}
 
 		if moBuild.JenkinsBuild != nil {
-			jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+			jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 			for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-				jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-					Name:  jenkinsBuildParam.Name,
-					Value: jenkinsBuildParam.Value,
+				jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+					Name:         jenkinsBuildParam.Name,
+					Value:        jenkinsBuildParam.Value,
+					Type:         jenkinsBuildParam.Type,
+					ChoiceOption: jenkinsBuildParam.ChoiceOption,
+					AutoGenerate: jenkinsBuildParam.AutoGenerate,
 				})
 			}
 			target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -246,10 +253,85 @@ func getProjectTargets(productName string) []string {
 	return targets
 }
 
-func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) *commonmodels.Build {
+func findModuleByContainer(productName, serviceModuleTarget string, buildStageModules []*commonmodels.BuildModule, allModules []*commonmodels.Build, log *zap.SugaredLogger) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
+	// find build name
+	var buildName string
+	for _, buildStageModule := range buildStageModules {
+		if buildStageModule.Target == nil {
+			return nil, nil
+		}
+		targetStr := fmt.Sprintf("%s%s%s%s%s", buildStageModule.Target.ProductName, SplitSymbol, buildStageModule.Target.ServiceName, SplitSymbol, buildStageModule.Target.ServiceModule)
+		if serviceModuleTarget == targetStr {
+			buildName = buildStageModule.Target.BuildName
+			break
+		}
+	}
+	if buildName == "" {
+		// Compatible with old data if buildName is empty
+		productTmpl, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			log.Errorf("failed to find project,err:%s", err)
+			return nil, nil
+		}
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		if err != nil {
+			log.Errorf("failed to list services,err:%s", err)
+			return nil, nil
+		}
+
+		for _, serviceTmpl := range services {
+			if serviceTmpl.Type != setting.PMDeployType {
+				for _, container := range serviceTmpl.Containers {
+					targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+					if serviceModuleTarget == targetStr {
+						buildName = findBuildNameByContainerName(container.Name, serviceTmpl)
+					}
+				}
+			} else if serviceTmpl.Type == setting.PMDeployType {
+				targetStr := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
+				if serviceModuleTarget == targetStr {
+					buildName = findBuildNameByContainerName(serviceTmpl.ServiceName, serviceTmpl)
+				}
+			}
+		}
+	}
+	if buildName != "" {
+		for _, module := range allModules {
+			if module.Name == buildName {
+				for _, target := range module.Targets {
+					targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
+					if targetStr == serviceModuleTarget {
+						return module, target
+					}
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func findBuildNameByContainerName(containerName string, serviceTmpl *commonmodels.Service) string {
+	opt := &commonrepo.BuildListOption{
+		ServiceName: serviceTmpl.ServiceName,
+		Targets:     []string{containerName},
+	}
+	if serviceTmpl.Visibility != setting.PublicService {
+		opt.ProductName = serviceTmpl.ProductName
+	}
+
+	buildModules, err := commonrepo.NewBuildColl().List(opt)
+	if err != nil || len(buildModules) == 0 {
+		return ""
+	}
+	buildName := buildModules[0].Name
+	return buildName
+}
+
+func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
 	containerArr := strings.Split(serviceModuleTarget, SplitSymbol)
 	if len(containerArr) != 3 {
-		return nil
+		return nil, nil
 	}
 
 	opt := &commonrepo.ServiceFindOption{
@@ -265,11 +347,11 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 		for _, target := range mo.Targets {
 			targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
 			if targetStr == strings.Join(containerArr, SplitSymbol) {
-				return mo
+				return mo, target
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func EnsureBuildResp(mb *commonmodels.Build) {
@@ -277,9 +359,7 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 		mb.Targets = make([]*commonmodels.ServiceModuleTarget, 0)
 	}
 
-	if len(mb.Repos) == 0 {
-		mb.Repos = make([]*types.Repository, 0)
-	}
+	mb.Repos = mb.SafeRepos()
 
 	if mb.PreBuild != nil {
 		if len(mb.PreBuild.Installs) == 0 {
@@ -378,16 +458,22 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				Build:       &commonmodels.BuildArgs{},
 				HasBuild:    true,
 			}
-			moBuild := findModuleByTargetAndVersion(allModules, container)
+
+			moBuild, targetInfo := findModuleByContainer(workflow.ProductTmplName, container, workflow.BuildStage.Modules, allModules, log)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false
 			}
+			target.BuildName = moBuild.Name
+			err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
+			if err != nil {
+				return resp, e.ErrListBuildModule.AddErr(err)
+			}
 
-			if len(moBuild.Repos) == 0 {
-				target.Build.Repos = make([]*types.Repository, 0)
+			if moBuild.TemplateID != "" {
+				target.Build.Repos = targetInfo.Repos
 			} else {
-				target.Build.Repos = moBuild.Repos
+				target.Build.Repos = moBuild.SafeRepos()
 			}
 
 			if moBuild.PreBuild != nil {
@@ -396,11 +482,14 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			}
 
 			if moBuild.JenkinsBuild != nil {
-				jenkinsBuildParams := make([]*commonmodels.JenkinsBuildParam, 0)
+				jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 				for _, jenkinsBuildParam := range moBuild.JenkinsBuild.JenkinsBuildParam {
-					jenkinsBuildParams = append(jenkinsBuildParams, &commonmodels.JenkinsBuildParam{
-						Name:  jenkinsBuildParam.Name,
-						Value: jenkinsBuildParam.Value,
+					jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+						Name:         jenkinsBuildParam.Name,
+						Value:        jenkinsBuildParam.Value,
+						Type:         jenkinsBuildParam.Type,
+						ChoiceOption: jenkinsBuildParam.ChoiceOption,
+						AutoGenerate: jenkinsBuildParam.AutoGenerate,
 					})
 				}
 				target.JenkinsBuildArgs = &commonmodels.JenkinsBuildArgs{
@@ -533,7 +622,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 	}
 
-	// 获取全局configpayload
+	// get global configPayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	if len(env.RegistryID) == 0 {
 		reg, _, err := commonservice.FindDefaultRegistry(false, log)
@@ -571,6 +660,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ProductName: args.ProductTmplName,
 				Variables:   target.Envs,
 				Env:         env,
+				BuildName:   target.BuildName,
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
@@ -579,6 +669,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ServiceName:      target.ServiceName,
 				ProductName:      args.ProductTmplName,
 				JenkinsBuildArgs: target.JenkinsBuildArgs,
+				BuildName:        target.BuildName,
 			}, log)
 		}
 		if err != nil {
@@ -587,7 +678,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 
 		if env != nil {
-			// 生成部署的subtask
+			// generate subtasks to deploy
 			for _, deployEnv := range target.Deploy {
 				if deployEnv.Type == setting.PMDeployType {
 					continue
@@ -605,6 +696,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 						return nil, e.ErrCreateTask.AddErr(err)
 					}
 					if resetImageTask != nil {
+						resetImageTask["release_name"] = deployTask["release_name"]
 						subTasks = append(subTasks, resetImageTask)
 					}
 				}
@@ -629,6 +721,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
+						serviceModule,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -706,7 +799,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			}
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
-
 		for _, stask := range task.SubTasks {
 			AddSubtaskToStage(&stages, stask, target.Name+"_"+target.ServiceName)
 		}
@@ -821,7 +913,7 @@ func generateNextTaskID(workflowName string) (int64, error) {
 }
 
 func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache, resetCache bool) {
-	repos, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	repos, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
@@ -899,6 +991,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				}
 				// If the service component owned by the build contains any service component of the service, the match is considered successful
 				match := false
+				repos := build.Repos
 				for _, container := range serviceTmpl.Containers {
 					serviceModuleTarget := &commonmodels.ServiceModuleTarget{
 						ProductName:   serviceTmpl.ProductName,
@@ -910,6 +1003,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 							target.Name = container.Name
 							target.ServiceName = serviceTmpl.ServiceName
 							match = true
+							repos = buildTarget.Repos
 							break
 						}
 					}
@@ -921,7 +1015,8 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				if target.Build == nil {
 					continue
 				}
-				for _, buildRepo := range build.Repos {
+
+				for _, buildRepo := range repos {
 					for _, targetRepo := range target.Build.Repos {
 						if targetRepo.RepoName == buildRepo.RepoName {
 							// openAPI only pass repoName, branch, pr
@@ -976,7 +1071,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
-	registries, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	registries, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query registries")
 	}
@@ -1058,6 +1153,11 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				}
 				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
 					distributeTasks, err = formatDistributeSubtasks(
+						&commonmodels.ServiceModuleTarget{
+							ProductName:   args.ProductTmplName,
+							ServiceName:   imageInfo.ServiceName,
+							ServiceModule: imageInfo.ServiceModule,
+						},
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1305,14 +1405,18 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return deployTask.ToSubTask()
 	case setting.HelmDeployType:
 		deployTask.ServiceType = setting.HelmDeployType
-		for _, services := range prodEnv.Services {
-			for _, service := range services {
-				if service.ServiceName == deployTask.ServiceName {
-					deployTask.ServiceRevision = service.Revision
-					return deployTask.ToSubTask()
-				}
-			}
+		if pSvc, ok := prodEnv.GetServiceMap()[deployTask.ServiceName]; ok {
+			deployTask.ServiceRevision = pSvc.Revision
 		}
+		revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			ServiceName: deployTask.ServiceName,
+			Revision:    deployTask.ServiceRevision,
+			ProductName: prodEnv.ProductName,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", deployTask.ServiceName, deployTask.ServiceRevision, err)
+		}
+		deployTask.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodEnv.ProductName, prodEnv.Namespace, prodEnv.EnvName, deployTask.ServiceName)
 		return deployTask.ToSubTask()
 	}
 	return resp, fmt.Errorf("env type not match")
@@ -1360,20 +1464,67 @@ func artifactToSubTasks(name, image string) (map[string]interface{}, error) {
 	artifactTask := taskmodels.Artifact{TaskType: config.TaskArtifact, Enabled: true}
 	artifactTask.Name = name
 	artifactTask.Image = image
-
 	return artifactTask.ToSubTask()
 }
 
-func formatDistributeSubtasks(releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
+func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, releaseImages []commonmodels.RepoImage, imageRepo, jumpboxHost, destStorageURL string, distribute *commonmodels.ProductDistribute) ([]map[string]interface{}, error) {
 	var resp []map[string]interface{}
-
+	productName := serviceModule.ProductName
 	if distribute.ImageDistribute {
 		t := taskmodels.ReleaseImage{
-			TaskType:  config.TaskReleaseImage,
-			Enabled:   true,
-			ImageRepo: imageRepo,
-			Releases:  releaseImages,
+			TaskType:    config.TaskReleaseImage,
+			Enabled:     true,
+			ProductName: productName,
 		}
+		// get product Info for further use
+		productInfo, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			return nil, err
+		}
+		distributeInfo := make([]*taskmodels.DistributeInfo, 0)
+		// now we add distributeInfo in
+		for _, repoInfo := range releaseImages {
+			envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+				EnvName: repoInfo.DeployEnv,
+				Name:    productName,
+			})
+			if err != nil {
+				return nil, err
+			}
+			releaseName := ""
+			if repoInfo.DeployEnabled {
+				if productInfo.ProductFeature != nil && productInfo.ProductFeature.DeployType == setting.HelmDeployType {
+					svcMap := envInfo.GetServiceMap()
+					pSvc, ok := svcMap[serviceModule.ServiceName]
+					if !ok {
+						return nil, fmt.Errorf("can't find service: %s in product: %s:%s", serviceModule.ServiceName, productName, repoInfo.DeployEnv)
+					}
+					templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+						ServiceName: serviceModule.ServiceName,
+						Revision:    pSvc.Revision,
+						Type:        setting.HelmDeployType,
+						ProductName: productName,
+					})
+					if err != nil {
+						return nil, err
+					}
+					releaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), productName, envInfo.Namespace, repoInfo.DeployEnv, serviceModule.ServiceName)
+				}
+			}
+			distributeInfo = append(distributeInfo, &taskmodels.DistributeInfo{
+				DeployEnabled:     repoInfo.DeployEnabled,
+				DeployEnv:         repoInfo.DeployEnv,
+				DeployServiceType: productInfo.ProductFeature.DeployType,
+				DeployClusterID:   envInfo.ClusterID,
+				DeployNamespace:   envInfo.Namespace,
+				ReleaseName:       releaseName,
+				RepoID:            repoInfo.RepoID,
+			})
+		}
+		t.DistributeInfo = distributeInfo
+		t.Releases = releaseImages
+
+		// convert to subtask
 		subtask, err := t.ToSubTask()
 		if err != nil {
 			return resp, err
@@ -1477,7 +1628,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 	testArgs := args.Tests
 	testCreator := args.WorkflowTaskCreator
 
-	registries, err := commonservice.ListRegistryNamespaces(true, log)
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
 	}
@@ -1518,6 +1669,21 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 		testTask.JobCtx.TestResultPath = testModule.TestResultPath
 		testTask.JobCtx.TestReportPath = testModule.TestReportPath
 
+		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testModule.PreTest.ClusterID)
+		if err != nil {
+			return nil, err
+		}
+		testTask.Cache = clusterInfo.Cache
+
+		// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+		if testTask.Cache.MediumType == "" {
+			testTask.CacheEnable = false
+		} else {
+			testTask.CacheEnable = testModule.CacheEnable
+			testTask.CacheDirType = testModule.CacheDirType
+			testTask.CacheUserDir = testModule.CacheUserDir
+		}
+
 		if testTask.Registries == nil {
 			testTask.Registries = registries
 		}
@@ -1542,6 +1708,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			}
 			envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.WorkflowType)})
 			envs = append(envs, &commonmodels.KeyVal{Key: "SERVICES", Value: services})
+			envs = append(envs, &commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"})
 
 			testTask.JobCtx.EnvVars = envs
 			testTask.ImageID = testModule.PreTest.ImageID
@@ -1622,7 +1789,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
-	repos, err := commonservice.ListRegistryNamespaces(true, log)
+	repos, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
@@ -1666,6 +1833,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 							return nil, err
 						}
 						if resetImageTask != nil {
+							resetImageTask["release_name"] = deployTask["release_name"]
 							subTasks = append(subTasks, resetImageTask)
 						}
 					}
@@ -1708,6 +1876,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				}
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
+						serviceModule,
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
 						workflow.DistributeStage.JumpBoxHost,
@@ -1859,6 +2028,40 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	return resp, nil
 }
 
+// fillBuildDetail fill the contents for builds created from build templates
+func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string) error {
+	if moduleBuild.TemplateID == "" {
+		return nil
+	}
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		ID: moduleBuild.TemplateID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+	}
+
+	moduleBuild.Timeout = buildTemplate.Timeout
+	moduleBuild.PreBuild = buildTemplate.PreBuild
+	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.Scripts = buildTemplate.Scripts
+	moduleBuild.PostBuild = buildTemplate.PostBuild
+	moduleBuild.SSHs = buildTemplate.SSHs
+	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
+	moduleBuild.CacheEnable = buildTemplate.CacheEnable
+	moduleBuild.CacheDirType = buildTemplate.CacheDirType
+	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
+	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+
+	// repos are configured by service modules
+	for _, serviceConfig := range moduleBuild.Targets {
+		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
+			moduleBuild.Repos = serviceConfig.Repos
+			break
+		}
+	}
+	return nil
+}
+
 func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredLogger) ([]map[string]interface{}, error) {
 	var (
 		subTasks    = make([]map[string]interface{}, 0)
@@ -1893,12 +2096,16 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 	}
 
-	registries, err := commonservice.ListRegistryNamespaces(true, log)
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
 	for _, module := range modules {
+		err = fillBuildDetail(module, args.ServiceName, args.Target)
+		if err != nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
 		build := &taskmodels.Build{
 			TaskType:     config.TaskBuild,
 			Enabled:      true,
@@ -1958,9 +2165,12 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.ImageFrom = commonmodels.ImageFromKoderover
 		}
 
+		envHostInfos := make(map[string]*commonmodels.PrivateKey)
 		if serviceTmpl != nil {
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
+			envHostNames := make(map[string][]string)
+
 			for _, envConfig := range serviceTmpl.EnvConfigs {
 				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 				if err != nil {
@@ -1968,16 +2178,19 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 					continue
 				}
 				ips := sets.NewString()
-				ips = extractHostIPs(privateKeys, ips)
+				names := sets.NewString()
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
 				if err != nil {
 					log.Errorf("ListNameByArgs labels err:%s", err)
 					continue
 				}
-				ips = extractHostIPs(privateKeys, ips)
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				envHost[envConfig.EnvName] = ips.List()
+				envHostNames[envConfig.EnvName] = names.List()
 			}
 			build.EnvHostInfo = envHost
+			build.EnvHostNames = envHostNames
 		}
 
 		if args.Env != nil {
@@ -1988,7 +2201,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.InstallItems = make([]*commonmodels.Item, 0)
 		}
 
-		build.JobCtx.Builds = module.Repos
+		build.JobCtx.Builds = module.SafeRepos()
 		for _, repo := range build.JobCtx.Builds {
 			repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
 			if err != nil {
@@ -2027,11 +2240,26 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				ssh.Name = latestKeyInfo.Name
 				ssh.UserName = latestKeyInfo.UserName
 				ssh.IP = latestKeyInfo.IP
+				ssh.Port = latestKeyInfo.Port
+				if ssh.Port == 0 {
+					ssh.Port = setting.PMHostDefaultPort
+				}
 				ssh.PrivateKey = latestKeyInfo.PrivateKey
 
 				privateKeys = append(privateKeys, ssh)
+				delete(envHostInfos, sshID)
 			}
 			build.JobCtx.SSHs = privateKeys
+		}
+		// Sync from the configuration in the environment
+		for _, privateKey := range envHostInfos {
+			build.JobCtx.SSHs = append(build.JobCtx.SSHs, &taskmodels.SSH{
+				Name:       privateKey.Name,
+				UserName:   privateKey.UserName,
+				IP:         privateKey.IP,
+				Port:       privateKey.Port,
+				PrivateKey: privateKey.PrivateKey,
+			})
 		}
 
 		build.JobCtx.EnvVars = module.PreBuild.Envs
@@ -2082,6 +2310,26 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.JobCtx.PostScripts = module.PostBuild.Scripts
 		}
 
+		if module.PostBuild != nil && module.PostBuild.ObjectStorageUpload != nil {
+			build.JobCtx.UploadEnabled = module.PostBuild.ObjectStorageUpload.Enabled
+			if module.PostBuild.ObjectStorageUpload.Enabled {
+				storageInfo, err := commonrepo.NewS3StorageColl().Find(module.PostBuild.ObjectStorageUpload.ObjectStorageID)
+				if err != nil {
+					log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
+					return nil, err
+				}
+				build.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
+					Endpoint: storageInfo.Endpoint,
+					AK:       storageInfo.Ak,
+					SK:       storageInfo.Sk,
+					Bucket:   storageInfo.Bucket,
+					Insecure: storageInfo.Insecure,
+					Provider: storageInfo.Provider,
+				}
+				build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
+			}
+		}
+
 		build.JobCtx.Caches = module.Caches
 
 		if args.FileName != "" {
@@ -2103,11 +2351,41 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	return subTasks, nil
 }
 
-func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
+func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String, envHostInfos map[string]*commonmodels.PrivateKey) (sets.String, sets.String) {
 	for _, privateKey := range privateKeys {
 		ips.Insert(privateKey.IP)
+		names.Insert(privateKey.Name)
+		envHostInfos[privateKey.ID.Hex()] = privateKey
 	}
-	return ips
+	return ips, names
+}
+
+func getServiceNaming(projectName, envName, serviceName string) (string, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return "", err
+	}
+	if productInfo.Source != setting.SourceFromHelm {
+		return "", nil
+	}
+	svcMap := productInfo.GetServiceMap()
+	pSvc, ok := svcMap[serviceName]
+	if !ok {
+		return "", fmt.Errorf("can't find service: %s in product: %s:%s", serviceName, projectName, envName)
+	}
+	templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    pSvc.Revision,
+		Type:        setting.HelmDeployType,
+		ProductName: projectName,
+	})
+	if err != nil {
+		return "", nil
+	}
+	return util.GeneReleaseName(templateSvc.GetReleaseNaming(), projectName, productInfo.Namespace, envName, serviceName), nil
 }
 
 func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) error {
@@ -2174,7 +2452,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
 				exitedProd, err := commonrepo.NewProductColl().Find(opt)
 				if err != nil {
-					log.Errorf("can't find product by envName:%s error msg: %v", taskOpt.EnvName, err)
+					log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
@@ -2188,14 +2466,14 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				if len(exitedProd.RegistryID) > 0 {
 					reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
-						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
 					reg, _, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
-						log.Errorf("can't find default candidate registry: %v", err)
+						log.Errorf("can't find default candidate registry: %s", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				}
@@ -2280,22 +2558,82 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 			if t.Enabled {
 				// 分析镜像名称
 				image := ""
-				for _, jenkinsBuildParams := range t.JenkinsBuildArgs.JenkinsBuildParams {
+				for i, jenkinsBuildParams := range t.JenkinsBuildArgs.JenkinsBuildParams {
 					if jenkinsBuildParams.Name != "IMAGE" {
 						continue
 					}
-					if value, ok := jenkinsBuildParams.Value.(string); ok {
+
+					if jenkinsBuildParams.AutoGenerate {
+						opt := &commonrepo.ProductFindOptions{EnvName: taskOpt.EnvName, Name: taskOpt.Task.ProductName}
+						exitedProd, err := commonrepo.NewProductColl().Find(opt)
+						if err != nil {
+							log.Errorf("can't find product by envName:%s error msg: %s", taskOpt.EnvName, err)
+							return e.ErrFindRegistry.AddDesc(err.Error())
+						}
+
+						var reg *commonmodels.RegistryNamespace
+						if len(exitedProd.RegistryID) > 0 {
+							reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+							if err != nil {
+								log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
+									exitedProd.RegistryID, err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						} else {
+							reg, _, err = commonservice.FindDefaultRegistry(true, log)
+							if err != nil {
+								log.Errorf("can't find default candidate registry: %s", err)
+								return e.ErrFindRegistry.AddDesc(err.Error())
+							}
+						}
+						project, err := templaterepo.NewProductColl().Find(taskOpt.Task.ProductName)
+						if err != nil {
+							log.Errorf("find project err:%s", err)
+							return err
+						}
+
+						if project.CustomImageRule != nil && project.CustomImageRule.JenkinsRule != "" {
+							va := commonservice.Variable{
+								SERVICE:    t.ServiceName,
+								TIMESTAMP:  time.Now().Format("20060102150405"),
+								IMAGE_NAME: taskOpt.ImageName,
+								PROJECT:    taskOpt.Task.ProductName,
+								ENV_NAME:   taskOpt.EnvName,
+								TASK_ID:    strconv.FormatInt(taskOpt.Task.TaskID, 10),
+							}
+							tm, err := gotempl.New("jenkins").Parse(project.CustomImageRule.JenkinsRule)
+							if err != nil {
+								log.Errorf("Parse template err:%s", err)
+								return err
+							}
+							var replaceRuleVariable = gotempl.Must(tm, err)
+							payload := bytes.NewBufferString("")
+							err = replaceRuleVariable.Execute(payload, va)
+							if err != nil {
+								log.Errorf("Execute template err:%s", err)
+								return err
+							}
+							image = GetImage(reg, payload.String())
+						} else {
+							image = GetImage(reg, fmt.Sprintf("%s:%s", taskOpt.ImageName, time.Now().Format("20060102150405")))
+						}
+
+						t.JenkinsBuildArgs.JenkinsBuildParams[i].Value = image
+						break
+					} else if value, ok := jenkinsBuildParams.Value.(string); ok {
 						image = value
 						break
 					}
 				}
-
 				if image == "" || !strings.Contains(image, ":") {
 					return &ImageIllegal{}
 				}
 
 				taskOpt.Task.TaskArgs.Deploy.Image = image
 				t.Image = image
+				if taskOpt.IsWorkflowTask {
+					t.ServiceName = t.ServiceName + "_" + t.Service
+				}
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
@@ -2401,7 +2739,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 			if t.Enabled {
 				t.SetNamespace(taskOpt.Task.TaskArgs.Deploy.Namespace)
-				image, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
+				image, err := getImageInfoFromWorkload(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
 				if err != nil {
 					log.Error(err)
 					return err
@@ -2430,12 +2768,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				containerName := t.ContainerName
 				if taskOpt.IsWorkflowTask {
 					containerName = strings.TrimSuffix(containerName, "_"+t.ServiceName)
-				}
-
-				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, containerName)
-				if err != nil {
-					log.Error(err)
-					return err
 				}
 
 				// Task creator can be webhook trigger or cronjob trigger or validated user
@@ -2533,15 +2865,46 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					}
 				}
 
+				var distributes []*taskmodels.DistributeInfo
+				for _, distribute := range t.DistributeInfo {
+					d := &taskmodels.DistributeInfo{
+						DeployEnabled:       distribute.DeployEnabled,
+						DeployEnv:           distribute.DeployEnv,
+						DeployNamespace:     distribute.DeployNamespace,
+						DeployContainerName: taskOpt.Task.ServiceName, // This is a match for target.Name
+						DeployServiceName:   taskOpt.ServiceName,      // this is a match for target.ServiceName
+						DeployServiceType:   distribute.DeployServiceType,
+						DeployClusterID:     distribute.DeployClusterID,
+						RepoID:              distribute.RepoID,
+					}
+					if distribute.DeployEnabled {
+						releaseNaming, err := getServiceNaming(taskOpt.Task.ProductName, distribute.DeployEnv, taskOpt.ServiceName)
+						if err != nil {
+							return fmt.Errorf("failed to find release naming for service: %s, err: %s", taskOpt.ServiceName, err)
+						}
+						d.ReleaseName = releaseNaming
+					}
+					if v, ok := taskOpt.Task.ConfigPayload.RepoConfigs[distribute.RepoID]; ok {
+						d.Image = util.ReplaceRepo(taskOpt.Task.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)
+					}
+					distributes = append(distributes, d)
+				}
+
 				t.Releases = repos
+				t.DistributeInfo = distributes
 				if len(t.Releases) == 0 {
 					t.Enabled = false
 				} else {
 					t.ImageRelease = t.Releases[0].Name
 				}
 
+				if len(t.DistributeInfo) == 0 {
+					t.Enabled = false
+				}
+
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
+					log.Errorf("release task to subtask error: %s", err)
 					return err
 				}
 			}

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -48,6 +49,7 @@ import (
 	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type CustomParseDataArgs struct {
@@ -62,7 +64,7 @@ type ImageParseData struct {
 	PresetId int    `json:"presetId,omitempty"`
 }
 
-func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*template.Product, error) {
+func GetProductTemplateServices(productName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, log *zap.SugaredLogger) (*template.Product, error) {
 	resp, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("GetProductTemplate error: %v", err)
@@ -77,6 +79,15 @@ func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*te
 	if resp.Services == nil {
 		resp.Services = make([][]string, 0)
 	}
+
+	if envType == types.ShareEnv && !isBaseEnv {
+		// At this point the request is from the environment share.
+		resp.Services, err = environmentservice.GetEnvServiceList(context.TODO(), productName, baseEnvName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service list from env %s of product %s: %s", baseEnvName, productName, err)
+		}
+	}
+
 	return resp, nil
 }
 
@@ -622,7 +633,7 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 		log.Errorf("Failed to delete roleBinding, err: %s", err)
 		return e.ErrForkProduct
 	}
-	if err := commonservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
+	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			if description != "not found" {
@@ -715,7 +726,7 @@ func DeleteProductsAsync(userName, productName, requestID string, log *zap.Sugar
 	}
 	errList := new(multierror.Error)
 	for _, env := range envs {
-		err = commonservice.DeleteProduct(userName, env.EnvName, productName, requestID, log)
+		err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
@@ -804,7 +815,7 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 	return ret, nil
 }
 
-func UpdateCustomMatchRules(productName string, userName string, matchRules []*ImageParseData) error {
+func UpdateCustomMatchRules(productName, userName, requestID string, matchRules []*ImageParseData) error {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("query product:%s fail, err:%s", productName, err.Error())
@@ -846,7 +857,7 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 	if err != nil {
 		return err
 	}
-	err = reParseServices(userName, services, imageRulesToSave)
+	err = reParseServices(userName, requestID, services, imageRulesToSave)
 	if err != nil {
 		return err
 	}
@@ -861,15 +872,17 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 }
 
 // reparse values.yaml for each service
-func reParseServices(userName string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
+func reParseServices(userName, requestID string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
 	updatedServiceTmpls := make([]*commonmodels.Service, 0)
 
 	var err error
+	var projectName string
 	for _, serviceTmpl := range serviceList {
 		if serviceTmpl.Type != setting.HelmDeployType || serviceTmpl.HelmChart == nil {
 			continue
 		}
 		valuesYaml := serviceTmpl.HelmChart.ValuesYaml
+		projectName = serviceTmpl.ProductName
 
 		valuesMap := make(map[string]interface{})
 		err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
@@ -920,7 +933,7 @@ func reParseServices(userName string, serviceList []*commonmodels.Service, match
 		return err
 	}
 
-	return nil
+	return environmentservice.AutoDeployHelmServiceToEnvs(userName, requestID, projectName, updatedServiceTmpls, log.SugaredLogger())
 }
 
 func DeleteCollabrationMode(productName string, userName string, log *zap.SugaredLogger) error {

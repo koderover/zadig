@@ -21,26 +21,25 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CodeHostListTags(codeHostID int, projectName string, namespace string, key string, page int, perPage int, log *zap.SugaredLogger) ([]*client.Tag, error) {
-	ch, err := systemconfig.New().GetCodeHost(codeHostID)
-	if err != nil {
-		log.Error(err)
-		return nil, e.ErrCodehostListTags.AddDesc("git client is nil")
-	}
 
-	codehostClient, err := open.OpenClient(ch.ID, log)
+	cli, err := open.OpenClient(codeHostID, log)
 	if err != nil {
+		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	return codehostClient.ListTags(client.ListOpt{
+	tags, err := cli.ListTags(client.ListOpt{
 		Namespace:   namespace,
 		ProjectName: projectName,
 		Key:         key,
 		Page:        page,
 		PerPage:     page,
 	})
+	if err != nil {
+		log.Errorf("list tags err:%s", err)
+		return nil, err
+	}
+	return tags, nil
 }

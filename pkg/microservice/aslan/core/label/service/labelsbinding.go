@@ -107,6 +107,7 @@ type DeleteLabelBindingsArgs struct {
 }
 
 func DeleteLabelBindings(dr *DeleteLabelBindingsArgs, userName string, logger *zap.SugaredLogger) error {
+	logger.Infof("DeleteLabelBindings:%v userName:%s", dr, userName)
 	return mongodb.NewLabelBindingColl().BulkDelete(dr.LabelBindings)
 }
 

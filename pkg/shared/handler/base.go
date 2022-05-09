@@ -72,6 +72,8 @@ func NewContext(c *gin.Context) *Context {
 		if err != nil {
 			logger.Warnf("Failed to get user from token, err: %s", err)
 		}
+	} else {
+		claims.Name = "system"
 	}
 
 	return &Context{

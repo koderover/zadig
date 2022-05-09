@@ -48,9 +48,12 @@ type Workflow struct {
 	SecurityStage   *SecurityStage     `bson:"security_stage"               json:"security_stage"`
 	DistributeStage *DistributeStage   `bson:"distribute_stage"             json:"distribute_stage"`
 	ExtensionStage  *ExtensionStage    `bson:"extension_stage"              json:"extension_stage"`
-	NotifyCtl       *NotifyCtl         `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
-	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
-	BaseName        string             `bson:"base_name" json:"base_name"`
+	// TODO: Deprecated.
+	NotifyCtl *NotifyCtl `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
+	// New since V1.12.0.
+	NotifyCtls []*NotifyCtl      `bson:"notify_ctls"        json:"notify_ctls"`
+	HookCtl    *WorkflowHookCtrl `bson:"hook_ctl"                     json:"hook_ctl"`
+	BaseName   string            `bson:"base_name" json:"base_name"`
 
 	// ResetImage indicate whether reset image to original version after completion
 	ResetImage       bool                         `bson:"reset_image"                  json:"reset_image"`
@@ -284,12 +287,14 @@ type ExtensionStage struct {
 }
 
 type RepoImage struct {
-	RepoID    string `json:"repo_id" bson:"repo_id"`
-	Name      string `json:"name" bson:"name" yaml:"name"`
-	Username  string `json:"-" yaml:"username"`
-	Password  string `json:"-" yaml:"password"`
-	Host      string `json:"host" yaml:"host"`
-	Namespace string `json:"namespace" yaml:"namespace"`
+	RepoID        string `json:"repo_id" bson:"repo_id"`
+	Name          string `json:"name" bson:"name" yaml:"name"`
+	Username      string `json:"-" yaml:"username"`
+	Password      string `json:"-" yaml:"password"`
+	Host          string `json:"host" yaml:"host"`
+	Namespace     string `json:"namespace" yaml:"namespace"`
+	DeployEnabled bool   `json:"deploy_enabled" yaml:"deploy_enabled"`
+	DeployEnv     string `json:"deploy_env"   yaml:"deploy_env"`
 }
 
 type ProductDistribute struct {
@@ -361,11 +366,12 @@ type TargetArgs struct {
 	Envs             []*KeyVal         `bson:"envs"                          json:"envs"`
 	HasBuild         bool              `bson:"has_build"                     json:"has_build"`
 	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args,omitempty"  json:"jenkins_build_args,omitempty"`
+	BuildName        string            `bson:"build_name,omitempty"          json:"build_name"`
 }
 
 type JenkinsBuildArgs struct {
-	JobName            string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParams []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
+	JobName            string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParams []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 type BuildArgs struct {

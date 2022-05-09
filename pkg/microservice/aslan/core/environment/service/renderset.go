@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -24,13 +25,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type DefaultValuesResp struct {
-	DefaultValues string `json:"defaultValues"`
+	DefaultValues string                     `json:"defaultValues"`
+	YamlData      *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
 
 type YamlContentRequestArg struct {
@@ -41,6 +47,63 @@ type YamlContentRequestArg struct {
 	Branch      string `json:"branch" form:"branch"`
 	RepoLink    string `json:"repoLink" form:"repoLink"`
 	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
+}
+
+func fromGitRepo(source string) bool {
+	if source == "" {
+		return true
+	}
+	if source == setting.SourceFromGitRepo {
+		return true
+	}
+	return false
+}
+
+func unMarshalJson(source interface{}) (*models.CreateFromRepo, error) {
+	bs, err := json.Marshal(source)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
+
+// SyncYamlFromSource sync values.yaml from source
+// NOTE currently only support gitHub and gitlab
+func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
+	if yamlData == nil || !yamlData.AutoSync {
+		return false, "", nil
+	}
+	if !fromGitRepo(yamlData.Source) {
+		return false, "", nil
+	}
+
+	sourceDetail, err := unMarshalJson(yamlData.SourceDetail)
+	if err != nil {
+		return false, "", err
+	}
+	if sourceDetail.GitRepoConfig == nil {
+		log.Warnf("git repo config is nil")
+		return false, "", nil
+	}
+	repoConfig := sourceDetail.GitRepoConfig
+
+	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+		CodehostID: repoConfig.CodehostID,
+		Owner:      repoConfig.Owner,
+		Repo:       repoConfig.Repo,
+		Path:       sourceDetail.LoadPath,
+		Branch:     repoConfig.Branch,
+	})
+	if err != nil {
+		return false, "", err
+	}
+	equal, err := yamlutil.CheckEqual(valuesYAML, []byte(curValue))
+	if err != nil || equal {
+		return false, "", err
+	}
+	return true, string(valuesYAML), nil
 }
 
 func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
@@ -75,6 +138,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	ret.DefaultValues = rendersetObj.DefaultValues
+	ret.YamlData = rendersetObj.YamlData
 	return ret, nil
 }
 

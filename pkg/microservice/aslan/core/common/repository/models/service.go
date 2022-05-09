@@ -18,6 +18,8 @@ package models
 
 import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/setting"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // TODO: move Revision out of Service.
@@ -54,6 +56,7 @@ type Service struct {
 	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
 	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
+	ReleaseNaming    string           `bson:"release_naming"                 json:"release_naming"`
 	CodehostID       int              `bson:"codehost_id,omitempty"          json:"codehost_id,omitempty"`
 	RepoOwner        string           `bson:"repo_owner,omitempty"           json:"repo_owner,omitempty"`
 	RepoNamespace    string           `bson:"repo_namespace,omitempty"       json:"repo_namespace,omitempty"`
@@ -67,6 +70,7 @@ type Service struct {
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 	TemplateID       string           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
+	AutoSync         bool             `bson:"auto_sync"                      json:"auto_sync"`
 }
 
 type CreateFromRepo struct {
@@ -90,6 +94,11 @@ type CreateFromChartRepo struct {
 	ChartRepoName string `json:"chart_repo_name" bson:"chart_repo_name"`
 	ChartName     string `json:"chart_name"      bson:"chart_name"`
 	ChartVersion  string `json:"chart_version"   bson:"chart_version"`
+}
+
+type CreateFromYamlTemplate struct {
+	TemplateID string      `bson:"template_id"   json:"template_id"`
+	Variables  []*Variable `bson:"variables"     json:"variables"`
 }
 
 type GUIConfig struct {
@@ -222,10 +231,22 @@ type HelmServiceRespArgs struct {
 }
 
 type EnvStatus struct {
-	HostID  string `bson:"host_id,omitempty"           json:"host_id"`
-	EnvName string `bson:"env_name,omitempty"          json:"env_name"`
-	Address string `bson:"address,omitempty"           json:"address"`
-	Status  string `bson:"status,omitempty"            json:"status"`
+	HostID  string  `bson:"host_id,omitempty"           json:"host_id"`
+	EnvName string  `bson:"env_name,omitempty"          json:"env_name"`
+	Address string  `bson:"address,omitempty"           json:"address"`
+	Status  string  `bson:"status,omitempty"            json:"status"`
+	PmInfo  *PmInfo `bson:"-"                           json:"pm_info"`
+}
+
+type PmInfo struct {
+	ID       primitive.ObjectID   `json:"id,omitempty"`
+	Name     string               `json:"name"`
+	IP       string               `json:"ip"`
+	Port     int64                `json:"port"`
+	Status   setting.PMHostStatus `json:"status"`
+	Label    string               `json:"label"`
+	IsProd   bool                 `json:"is_prod"`
+	Provider int8                 `json:"provider"`
 }
 
 type EnvConfig struct {
@@ -251,6 +272,13 @@ func (svc *Service) GetRepoNamespace() string {
 		return svc.RepoNamespace
 	}
 	return svc.RepoOwner
+}
+
+func (svc *Service) GetReleaseNaming() string {
+	if len(svc.ReleaseNaming) > 0 {
+		return svc.ReleaseNaming
+	}
+	return setting.ReleaseNamingPlaceholder
 }
 
 func (Service) TableName() string {

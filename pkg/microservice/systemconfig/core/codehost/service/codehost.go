@@ -28,11 +28,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 const callback = "/api/directory/codehosts/callback"
@@ -56,12 +59,52 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 	return mongodb.NewCodehostColl().AddCodeHost(codehost)
 }
 
-func List(address, owner, source string, _ *zap.SugaredLogger) ([]*models.CodeHost, error) {
+func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
+	if err != nil {
+		log.Errorf("ListCodeHost GetTextFromEncryptedKey error:%s", err)
+		return nil, err
+	}
+	var result []*models.CodeHost
+	for _, codeHost := range codeHosts {
+		if len(codeHost.Password) > 0 {
+			codeHost.Password, err = crypto.AesEncryptByKey(codeHost.Password, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+		if len(codeHost.ClientSecret) > 0 {
+			codeHost.ClientSecret, err = crypto.AesEncryptByKey(codeHost.ClientSecret, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+		result = append(result, codeHost)
+	}
+	return result, nil
+}
+
+func ListInternal(address, owner, source string, _ *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().List(&mongodb.ListArgs{
 		Address: address,
 		Owner:   owner,
 		Source:  source,
 	})
+}
+
+func List(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+	codeHosts, err := mongodb.NewCodehostColl().List(&mongodb.ListArgs{
+		Address: address,
+		Owner:   owner,
+		Source:  source,
+	})
+	if err != nil {
+		log.Errorf("ListCodeHost error:%s", err)
+		return nil, err
+	}
+	return encypteCodeHost(encryptedKey, codeHosts, log)
 }
 
 func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
@@ -170,6 +213,11 @@ func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*o
 		}), nil
 	case systemconfig.GitLabProvider:
 		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"}, oauth2.Endpoint{
+			AuthURL:  address + "/oauth/authorize",
+			TokenURL: address + "/oauth/token",
+		}), nil
+	case systemconfig.GiteeProvider:
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"projects", "pull_requests", "hook", "groups"}, oauth2.Endpoint{
 			AuthURL:  address + "/oauth/authorize",
 			TokenURL: address + "/oauth/token",
 		}), nil

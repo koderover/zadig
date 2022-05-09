@@ -185,3 +185,31 @@ func GetCodehubRepoInfo(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetCodehubRepoInfo(codehostID, repoUUID, branchName, path, ctx.Logger)
 }
+
+func GetContents(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	codehostIDStr := c.Param("codehostId")
+	codehostID, err := strconv.Atoi(codehostIDStr)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+		return
+	}
+
+	repoName := c.Query("repoName")
+	if repoName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("repoName cannot be empty")
+		return
+	}
+	branchName := c.Query("branchName")
+	path := c.Query("path")
+	isDir, err := strconv.ParseBool(c.Query("isDir"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam isDir")
+		return
+	}
+	repoOwner := c.Query("repoOwner")
+
+	ctx.Resp, ctx.Err = service.GetContents(codehostID, repoOwner, repoName, path, branchName, isDir, ctx.Logger)
+}

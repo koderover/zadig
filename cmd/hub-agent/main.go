@@ -17,13 +17,22 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"log"
+	"os/signal"
+	"syscall"
 
 	"github.com/koderover/zadig/pkg/microservice/hubagent/server"
 )
 
 func main() {
-	if err := server.Serve(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+
+	if err := server.Serve(ctx); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -19,6 +19,8 @@ package util
 import (
 	"regexp"
 	"strings"
+
+	ref "github.com/containers/image/docker/reference"
 )
 
 func GetJiraKeys(title string) (keys []string) {
@@ -37,15 +39,19 @@ func ReplaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-// image ccr.ccs.tencentyun.com/koderover/nginx:stable
-// return nginx
-func GetImageName(image string) string {
+// Test case reference https://github.com/containers/image/blob/main/docker/reference/reference_test.go
+func ExtractImageName(image string) string {
 	imageNameStr := ""
-	imageArr := strings.Split(image, ":")
-	if len(imageArr) > 0 {
-		imageNameArr := strings.Split(imageArr[0], "/")
+
+	reference, err := ref.Parse(image)
+	if err != nil {
+		return imageNameStr
+	}
+	if named, ok := reference.(ref.Named); ok {
+		imageNameArr := strings.Split(named.Name(), "/")
 		imageNameStr = imageNameArr[len(imageNameArr)-1]
 	}
+
 	return imageNameStr
 }
 

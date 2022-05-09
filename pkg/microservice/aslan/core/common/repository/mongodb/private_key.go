@@ -131,17 +131,25 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 	}
 
 	query := bson.M{"_id": oid}
-	change := bson.M{"$set": bson.M{
-		"name":        args.Name,
-		"user_name":   args.UserName,
-		"ip":          args.IP,
-		"label":       args.Label,
-		"is_prod":     args.IsProd,
-		"private_key": args.PrivateKey,
-		"provider":    args.Provider,
-		"update_by":   args.UpdateBy,
-		"update_time": time.Now().Unix(),
-	}}
+	change := bson.M{}
+	if args.UpdateStatus {
+		change = bson.M{"$set": bson.M{
+			"status": args.Status,
+		}}
+	} else {
+		change = bson.M{"$set": bson.M{
+			"name":        args.Name,
+			"user_name":   args.UserName,
+			"ip":          args.IP,
+			"port":        args.Port,
+			"label":       args.Label,
+			"is_prod":     args.IsProd,
+			"private_key": args.PrivateKey,
+			"provider":    args.Provider,
+			"update_by":   args.UpdateBy,
+			"update_time": time.Now().Unix(),
+		}}
+	}
 
 	_, err = c.UpdateOne(context.TODO(), query, change)
 	return err
@@ -194,7 +202,12 @@ func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.Priva
 
 	opt := options.Find()
 	selector := bson.D{
+		{"_id", 1},
 		{"ip", 1},
+		{"port", 1},
+		{"name", 1},
+		{"user_name", 1},
+		{"private_key", 1},
 	}
 	opt.SetProjection(selector)
 	cursor, err := c.Collection.Find(ctx, query, opt)

@@ -33,7 +33,7 @@ import (
 type CollaborationInstanceFindOptions struct {
 	ProjectName string
 	Name        string
-	UserUID     string
+	UserUID     []string
 }
 
 type CollaborationInstanceListOptions struct {
@@ -74,8 +74,8 @@ func (c *CollaborationInstanceColl) EnsureIndex(ctx context.Context) error {
 func (c *CollaborationInstanceColl) Find(opt *CollaborationInstanceFindOptions) (*models.CollaborationInstance, error) {
 	res := &models.CollaborationInstance{}
 	query := bson.M{}
-	if opt.UserUID != "" {
-		query["user_uid"] = opt.UserUID
+	if len(opt.UserUID) > 0 {
+		query["user_uid"] = bson.M{"$in": opt.UserUID}
 	}
 	if opt.ProjectName != "" {
 		query["project_name"] = opt.ProjectName
@@ -144,7 +144,7 @@ func (c *CollaborationInstanceColl) BulkDelete(opt CollaborationInstanceListOpti
 	for _, findOpt := range opt.FindOpts {
 		condition = append(condition, bson.M{
 			"project_name":       findOpt.ProjectName,
-			"user_uid":           findOpt.UserUID,
+			"user_uid":           bson.M{"$in": findOpt.UserUID},
 			"collaboration_name": findOpt.Name,
 		})
 	}
@@ -163,8 +163,8 @@ func (c *CollaborationInstanceColl) DeleteByProject(projectName string) error {
 func (c *CollaborationInstanceColl) List(opt *CollaborationInstanceFindOptions) ([]*models.CollaborationInstance, error) {
 	var ret []*models.CollaborationInstance
 	query := bson.M{}
-	if opt.UserUID != "" {
-		query["user_uid"] = opt.UserUID
+	if len(opt.UserUID) > 0 {
+		query["user_uid"] = bson.M{"$in": opt.UserUID}
 	}
 	if opt.ProjectName != "" {
 		query["project_name"] = opt.ProjectName

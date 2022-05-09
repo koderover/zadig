@@ -21,15 +21,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
 	t "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kodo"
 )
 
@@ -218,4 +223,55 @@ func ToExtensionTask(sb map[string]interface{}) (*task.Extension, error) {
 		return nil, fmt.Errorf("convert interface to extensionTask error: %s", err)
 	}
 	return extension, nil
+}
+
+func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
+	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
+	}
+
+	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	return controllerRuntimeClient, clientset, restConfig, nil
+}
+
+// InstantiateBuildSysVariables instantiate system variables for build module
+func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
+	ret := make([]*task.KeyVal, 0)
+	for index, repo := range jobCtx.Builds {
+
+		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
+		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
+
+		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+
+		repoIndex := fmt.Sprintf("REPO_%d", index)
+		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
+
+		if len(repo.Branch) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
+		}
+
+		if len(repo.Tag) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
+		}
+
+		if repo.PR > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
+		}
+
+		if len(repo.CommitID) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
+		}
+	}
+	return ret
 }

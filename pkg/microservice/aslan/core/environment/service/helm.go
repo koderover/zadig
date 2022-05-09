@@ -26,7 +26,10 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/informers"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -38,9 +41,12 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 type HelmReleaseResp struct {
@@ -59,6 +65,20 @@ type ChartInfo struct {
 type HelmChartsResp struct {
 	ChartInfos []*ChartInfo      `json:"chartInfos"`
 	FileInfos  []*types.FileInfo `json:"fileInfos"`
+}
+
+type ImageData struct {
+	ImageName string `json:"imageName"`
+	ImageTag  string `json:"imageTag"`
+}
+
+type ServiceImages struct {
+	ServiceName string       `json:"serviceName"`
+	Images      []*ImageData `json:"imageData"`
+}
+
+type ChartImagesResp struct {
+	ServiceImages []*ServiceImages `json:"serviceImages"`
 }
 
 func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmReleaseResp, error) {
@@ -85,16 +105,15 @@ func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmR
 	}
 
 	// filter releases, only list releases deployed by zadig
-	serviceMap := prod.GetServiceMap()
-	serviceSet := sets.NewString()
-	for serviceName := range serviceMap {
-		serviceSet.Insert(serviceName)
+	releaseNameMap, err := commonservice.GetReleaseNameToServiceNameMap(prod)
+	if err != nil {
+		return nil, err
 	}
 
 	ret := make([]*HelmReleaseResp, 0, len(releases))
 	for _, release := range releases {
-		serviceName := util.ExtraServiceName(release.Name, prod.Namespace)
-		if !serviceSet.Has(serviceName) {
+		serviceName, ok := releaseNameMap[release.Name]
+		if !ok {
 			continue
 		}
 		ret = append(ret, &HelmReleaseResp{
@@ -174,7 +193,7 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service, r
 		return err
 	}
 
-	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	releaseName := util.GeneReleaseName(serviceObj.GetReleaseNaming(), prod.ProductName, prod.Namespace, prod.EnvName, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)
@@ -288,4 +307,196 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	ret.FileInfos = fis
 
 	return ret, nil
+}
+
+func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLogger) (*ChartImagesResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product: %s:%s to get image infos, err: %s", productName, envName, err)
+	}
+
+	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get rest config: %s:%s to get image infos, err: %s", productName, envName, err)
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init kube client: %s:%s to get image infos, err: %s", productName, envName, err)
+	}
+
+	// filter releases, only list releases deployed by zadig
+	serviceMap := prod.GetServiceMap()
+	templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service tempaltes,  err: %s", err)
+	}
+	templateSvcMap := make(map[string]*models.Service)
+	for _, ts := range templateSvcs {
+		templateSvcMap[ts.ServiceName] = ts
+	}
+	services := strings.Split(serviceNames, ",")
+
+	ret := &ChartImagesResp{}
+
+	for _, svcName := range services {
+		prodSvc, ok := serviceMap[svcName]
+		if !ok || prodSvc == nil {
+			return nil, fmt.Errorf("failed to find service: %s in product", svcName)
+		}
+
+		ts, ok := templateSvcMap[svcName]
+		if !ok {
+			return nil, fmt.Errorf("failed to find template service: %s", svcName)
+		}
+
+		releaseName := util.GeneReleaseName(ts.GetReleaseNaming(), productName, prod.Namespace, prod.EnvName, svcName)
+		valuesYaml, err := helmClient.GetReleaseValues(releaseName, true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get values for relase: %s, err: %s", releaseName, err)
+		}
+
+		flatMap, err := converter.Flatten(valuesYaml)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get flat map url for release :%s", releaseName)
+		}
+
+		svcImage := &ServiceImages{
+			ServiceName: svcName,
+			Images:      nil,
+		}
+
+		for _, container := range prodSvc.Containers {
+			if container.ImagePath == nil {
+				return nil, fmt.Errorf("failed to parse image for container:%s", container.Image)
+			}
+			imageSearchRule := &template.ImageSearchingRule{
+				Repo:  container.ImagePath.Repo,
+				Image: container.ImagePath.Image,
+				Tag:   container.ImagePath.Tag,
+			}
+			pattern := imageSearchRule.GetSearchingPattern()
+			imageUrl, err := commonservice.GeneImageURI(pattern, flatMap)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get image url for container:%s", container.Image)
+			}
+
+			svcImage.Images = append(svcImage.Images, &ImageData{
+				util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
+				commonservice.ExtractImageTag(imageUrl),
+			})
+		}
+		ret.ServiceImages = append(ret.ServiceImages, svcImage)
+	}
+	return ret, nil
+}
+
+func helmInitEnvConfigSet(envName, productName, userName string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+	return initEnvConfigSetAction(envName, productName, userName, envConfigYamls, inf, kubeClient)
+}
+
+func initEnvConfigSetAction(envName, productName, userName string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+	errList := &multierror.Error{
+		ErrorFormat: func(es []error) string {
+			format := "创建环境配置"
+			if len(es) == 1 {
+				return fmt.Sprintf(format+" %s 失败:%s", envName, es[0])
+			}
+			points := make([]string, len(es))
+			for i, err := range es {
+				points[i] = fmt.Sprintf("* %s", err)
+			}
+			return fmt.Sprintf(format+" %s 失败:\n%s", envName, strings.Join(points, "\n"))
+		},
+	}
+
+	clusterLabels := getPredefinedClusterLabels(productName, "", envName)
+	delete(clusterLabels, "s-service")
+	for _, envConfigYaml := range envConfigYamls {
+		manifests := releaseutil.SplitManifests(envConfigYaml)
+		resources := make([]*unstructured.Unstructured, 0, len(manifests))
+		for _, item := range manifests {
+			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+			if err != nil {
+				log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %s", item, err)
+				errList = multierror.Append(errList, err)
+				continue
+			}
+			resources = append(resources, u)
+		}
+		for _, u := range resources {
+			switch u.GetKind() {
+			case setting.ConfigMap, setting.Ingress, setting.Secret, setting.PersistentVolumeClaim:
+				ls := kube.MergeLabels(clusterLabels, u.GetLabels())
+				u.SetNamespace(productName + "-env-" + envName)
+				u.SetLabels(ls)
+
+				err := updater.CreateOrPatchUnstructuredNeverAnnotation(u, kubeClient)
+				if err != nil {
+					log.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
+					errList = multierror.Append(errList, err)
+					continue
+				}
+				u.SetManagedFields(nil)
+				yamlData, err := yaml.Marshal(u.UnstructuredContent())
+				if err != nil {
+					log.Errorf("Failed to initEnvConfigSet yaml.Marshal %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
+					errList = multierror.Append(errList, err)
+					continue
+				}
+				switch u.GetKind() {
+				case setting.ConfigMap:
+					envCm := &models.EnvConfigMap{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewConfigMapColl().Create(envCm, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				case setting.Ingress:
+					envIngress := &models.EnvIngress{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewIngressColl().Create(envIngress, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				case setting.Secret:
+					envSecret := &models.EnvSecret{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewSecretColl().Create(envSecret, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				case setting.PersistentVolumeClaim:
+					envPvc := &models.EnvPvc{
+						ProductName:    productName,
+						UpdateUserName: userName,
+						EnvName:        envName,
+						Name:           u.GetName(),
+						YamlData:       string(yamlData),
+					}
+					if err := commonrepo.NewPvcColl().Create(envPvc, true); err != nil {
+						errList = multierror.Append(errList, err)
+					}
+				}
+			default:
+				errList = multierror.Append(errList, fmt.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, "kind not support"))
+			}
+		}
+	}
+	if len(errList.Errors) == 0 {
+		return nil
+	}
+	return errList
 }

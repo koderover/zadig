@@ -124,32 +124,46 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 		httpclient.SetHostURL(p.Task.URL),
 	)
 	url := p.Task.Path
-	for _, header := range p.Task.Headers {
-		httpclient.SetHeader(header.Key, header.Value)
-	}
-
 	webhookPayload := &task.WebhookPayload{
-		EventName:    "workflow",
-		ProjectName:  pipelineTask.ProductName,
-		TaskName:     pipelineTask.PipelineName,
-		TaskID:       pipelineTask.TaskID,
-		ServiceInfos: p.Task.ServiceInfos,
-		Creator:      pipelineTask.TaskCreator,
+		EventName:      "workflow",
+		ProjectName:    pipelineTask.ProductName,
+		TaskName:       pipelineTask.PipelineName,
+		TaskID:         pipelineTask.TaskID,
+		ServiceInfos:   p.Task.ServiceInfos,
+		Creator:        pipelineTask.TaskCreator,
+		WorkflowStatus: getPipelineStatus(pipelineTask),
 	}
 	body, err = json.Marshal(webhookPayload)
 	if err != nil {
 		return
 	}
+
+	p.Task.Payload = string(body)
+	headers := make(map[string]string)
 	for _, header := range p.Task.Headers {
-		httpclient.SetHeader(header.Key, header.Value)
+		headers[header.Key] = header.Value
 	}
-	_, err = httpClient.Post(url, httpclient.SetHeader(ZadigEvent, EventName), httpclient.SetBody(body))
+	headers[ZadigEvent] = EventName
+	response, err := httpClient.Post(url, httpclient.SetHeaders(headers), httpclient.SetBody(body))
 	if err != nil {
 		return
 	}
+	responseBody := string(response.Body())
+	responseCode := response.StatusCode()
+	p.Task.ResponseBody = &responseBody
+	p.Task.ResponseCode = &responseCode
 	if !p.Task.IsCallback {
 		p.SetExtensionStatusCompleted(config.StatusPassed)
 	}
+}
+
+func getPipelineStatus(pipelineTask *task.Task) config.Status {
+	for _, stage := range pipelineTask.Stages {
+		if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
+			return stage.Status
+		}
+	}
+	return config.StatusPassed
 }
 
 // Wait ...

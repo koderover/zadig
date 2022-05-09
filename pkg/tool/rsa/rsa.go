@@ -23,6 +23,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"io/ioutil"
+	"log"
+	"runtime"
 )
 
 //var defaultPrivateKey = []byte(`
@@ -152,6 +154,87 @@ func LoadPubKey(filename string) (err error) {
 	}
 	pub = pubInterface.(*rsa.PublicKey)
 	return
+}
+
+const (
+	privateKeyPrefix = "RSA PRIVATE KEY"
+	publicKeyPrefix  = "RSA PUBLIC KEY"
+)
+
+func EncryptByPublicKey(plainText, key []byte) (cryptText []byte, err error) {
+	block, _ := pem.Decode(key)
+	defer func() {
+		if err := recover(); err != nil {
+			switch err.(type) {
+			case runtime.Error:
+				log.Println("runtime err:", err, "Check that the key is correct")
+			default:
+				log.Println("error:", err)
+			}
+		}
+	}()
+	publicKeyInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	publicKey := publicKeyInterface.(*rsa.PublicKey)
+
+	cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, publicKey, plainText)
+	if err != nil {
+		return nil, err
+	}
+	return cipherText, nil
+}
+
+func DecryptByPrivateKey(cryptText, key []byte) (plainText []byte, err error) {
+	block, _ := pem.Decode(key)
+
+	defer func() {
+		if err := recover(); err != nil {
+			switch err.(type) {
+			case runtime.Error:
+				log.Println("runtime err:", err, "Check that the key is correct")
+			default:
+				log.Println("error:", err)
+			}
+		}
+	}()
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return []byte{}, err
+	}
+	plainText, err = rsa.DecryptPKCS1v15(rand.Reader, privateKey, cryptText)
+	if err != nil {
+		return []byte{}, err
+	}
+	return plainText, nil
+}
+
+func GetRsaKey() (error, []byte, []byte) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return err, nil, nil
+	}
+	x509PrivateKey := x509.MarshalPKCS1PrivateKey(privateKey)
+	privateBlock := pem.Block{
+		Type:  privateKeyPrefix,
+		Bytes: x509PrivateKey,
+	}
+	privateKeyRes := pem.EncodeToMemory(&privateBlock)
+
+	publicKey := privateKey.PublicKey
+	x509PublicKey, err := x509.MarshalPKIXPublicKey(&publicKey)
+	if err != nil {
+		return err, nil, nil
+	}
+
+	publicBlock := pem.Block{
+		Type:  publicKeyPrefix,
+		Bytes: x509PublicKey,
+	}
+
+	publicKeyRes := pem.EncodeToMemory(&publicBlock)
+	return nil, publicKeyRes, privateKeyRes
 }
 
 //RSA解密

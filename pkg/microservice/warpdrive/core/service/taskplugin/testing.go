@@ -27,6 +27,8 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	zadigconfig "github.com/koderover/zadig/pkg/config"
@@ -35,7 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
@@ -47,6 +48,8 @@ func InitializeTestTaskPlugin(taskType config.TaskType) TaskPlugin {
 	return &TestPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -57,6 +60,8 @@ type TestPlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.Testing
 	Log           *zap.SugaredLogger
 }
@@ -115,15 +120,17 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	default:
 		p.KubeNamespace = setting.AttachedClusterNamespace
 
-		kubeClient, err := kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
-			msg := fmt.Sprintf("failed to get kube client: %s", err)
-			p.Log.Error(msg)
+			p.Log.Error(err)
 			p.Task.TaskStatus = config.StatusFailed
-			p.Task.Error = msg
+			p.Task.Error = err.Error()
 			return
 		}
-		p.kubeClient = kubeClient
+
+		p.kubeClient = crClient
+		p.clientset = clientset
+		p.restConfig = restConfig
 	}
 
 	// not local cluster
@@ -150,21 +157,18 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	p.Task.Error = ""
 	var linkedNamespace string
 	var envName string
+
+	workflowName := pipelineTask.PipelineName
 	if pipelineTask.Type == config.SingleType {
 		linkedNamespace = pipelineTask.TaskArgs.Test.Namespace
 	} else if pipelineTask.Type == config.WorkflowType {
 		product := &types.Product{EnvName: pipelineTask.WorkflowArgs.Namespace, ProductName: pipelineTask.WorkflowArgs.ProductTmplName}
 		linkedNamespace = product.ProductName + "-env-" + product.EnvName
 		envName = pipelineTask.WorkflowArgs.Namespace
-	}
 
-	//if linkedNamespace == "" {
-	//	msg := "namespace for testing is empty"
-	//	p.Log.Error(msg)
-	//	p.Task.TaskStatus = task.StatusFailed
-	//	p.Task.Error = msg
-	//	return
-	//}
+		workflowName = pipelineTask.WorkflowArgs.WorkflowName
+	}
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "WORKFLOW", Value: workflowName})
 
 	namespaceEnvVar := &task.KeyVal{Key: "DEPLOY_ENV", Value: p.KubeNamespace, IsCredential: false}
 	linkedNamespaceEnvVar := &task.KeyVal{Key: "LINKED_ENV", Value: linkedNamespace, IsCredential: false}
@@ -179,6 +183,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, namespaceEnvVar)
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, linkedNamespaceEnvVar)
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameEnvVar)
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "SERVICE_MODULE", Value: pipelineTask.ServiceName})
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "PROJECT", Value: pipelineTask.ProductName})
 
 	var testReportFile string // html 测试报告
 	fileName := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, pipelineTask.ServiceName)
@@ -198,6 +204,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == commontypes.NFSMedium &&
 		pipelineCtx.CacheDirType == commontypes.UserDefinedCacheDir {
 		pipelineCtx.CacheUserDir = p.renderEnv(pipelineCtx.CacheUserDir)
+		pipelineCtx.Cache.NFSProperties.Subpath = p.renderEnv(pipelineCtx.Cache.NFSProperties.Subpath)
 	}
 
 	jobCtx := JobCtxBuilder{
@@ -287,7 +294,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 }
 
 func (p *TestPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
 }
 

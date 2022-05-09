@@ -46,6 +46,7 @@ type GitRepoInfo struct {
 	ProjectUUID   string                `json:"project_uuid,omitempty"`
 	RepoUUID      string                `json:"repo_uuid,omitempty"`
 	RepoID        string                `json:"repo_id,omitempty"`
+	Key           string                `json:"key"`
 }
 
 func (repo *GitRepoInfo) GetNamespace() string {
@@ -94,6 +95,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
+				Key:         info.Key,
 			})
 			if err != nil {
 				errList = multierror.Append(errList, err)
@@ -117,6 +119,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			info.Tags, err = codehostClient.ListTags(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
+				Key:         info.Key,
 			})
 			if err != nil {
 				errList = multierror.Append(errList, err)

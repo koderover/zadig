@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -98,6 +100,11 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("Failed to process webhook, err: %s", err)
 	}
 
+	err = DisableCronjobForWorkflow(workflow)
+	if err != nil {
+		log.Errorf("Failed to stop cronjob for workflow: %s, error: %s", workflow.Name, err)
+	}
+
 	go gerrit.DeleteGerritWebhook(workflow, log)
 
 	//删除所属的所有定时任务
@@ -154,6 +161,32 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	return nil
 }
 
+func DisableCronjobForWorkflow(workflow *models.Workflow) error {
+	disableIDList := make([]string, 0)
+	payload := &CronjobPayload{
+		Name:    workflow.Name,
+		JobType: config.WorkflowCronjob,
+		Action:  setting.TypeEnableCronjob,
+	}
+	if workflow.ScheduleEnabled {
+		jobList, err := mongodb.NewCronjobColl().List(&mongodb.ListCronjobParam{
+			ParentName: workflow.Name,
+			ParentType: config.WorkflowCronjob,
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, job := range jobList {
+			disableIDList = append(disableIDList, job.ID.Hex())
+		}
+		payload.DeleteList = disableIDList
+	}
+
+	pl, _ := json.Marshal(payload)
+	return nsq.Publish(setting.TopicCronjob, pl)
+}
+
 func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger *zap.SugaredLogger) error {
 	currentSet := toHookSet(currentHooks)
 	updatedSet := toHookSet(updatedHooks)
@@ -182,8 +215,9 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromGitee:
 				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
+					ID:          ch.ID,
 					Name:        wh.name,
 					Owner:       wh.owner,
 					Namespace:   wh.namespace,
@@ -218,8 +252,9 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromGitee:
 				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
+					ID:        ch.ID,
 					Name:      wh.name,
 					Owner:     wh.owner,
 					Namespace: wh.namespace,
