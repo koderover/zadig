@@ -37,6 +37,7 @@ const (
 	TaskTrigger         TaskType = "trigger"
 	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
+	TaskScanning        TaskType = "scanning"
 )
 
 type Status string
