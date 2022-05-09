@@ -147,3 +147,7 @@ func GetWorkflowBuildV3JobContainerLogs(workflowName, buildType string, taskID i
 
 	return buildLog, nil
 }
+
+func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	return "====================== Code scanning Start ======================", nil
+}

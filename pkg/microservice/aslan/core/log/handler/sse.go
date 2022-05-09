@@ -252,3 +252,49 @@ func GetWorkflowBuildV3JobContainerLogsSSE(c *gin.Context) {
 			ctx.Logger)
 	}, ctx.Logger)
 }
+
+func GetScanningContainerLogsSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	id := c.Param("id")
+	if id == "" {
+		ctx.Err = fmt.Errorf("id must be provided")
+		return
+	}
+
+	taskIDStr := c.Param("scan_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("scan_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	tails, err := strconv.ParseInt(c.Param("lines"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	options := &logservice.GetContainerOptions{
+		Namespace:    config.Namespace(),
+		PipelineName: c.Param("workflowName"),
+		SubTask:      "scanning",
+		TailLines:    tails,
+		TaskID:       taskID,
+		PipelineType: string(config.ScanningType),
+		EnvName:      c.Query("envName"),
+		ProductName:  c.Query("projectName"),
+		ServiceName:  fmt.Sprintf("%s-job", c.Param("workflowName")),
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.TaskContainerLogStream(
+			ctx1, streamChan,
+			options,
+			ctx.Logger)
+	}, ctx.Logger)
+}
