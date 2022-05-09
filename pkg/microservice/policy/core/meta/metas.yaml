@@ -370,7 +370,7 @@
   alias: "交付中心"
   description: ""
   rules:
-    - action: realase_get
+    - action: release_get
       alias: "版本管理|查看"
       description: "查看"
       rules:
