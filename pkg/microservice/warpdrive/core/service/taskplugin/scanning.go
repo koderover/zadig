@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -105,23 +106,25 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.restConfig = restConfig
 	}
 
-	additionalKV := make([]*task.KeyVal, 0)
-	if p.Task.SonarInfo != nil {
-		additionalKV = append(additionalKV, &task.KeyVal{
-			Key:   "SONAR_HOST_URL",
-			Value: p.Task.SonarInfo.ServerAddress,
-		})
-		additionalKV = append(additionalKV, &task.KeyVal{
-			Key:   "SONAR_LOGIN",
-			Value: p.Task.SonarInfo.Token,
-		})
-	}
-
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
 		PipelineCtx: pipelineCtx,
+		// Since only one repository is supported per scanning, we just hard code it
 		JobCtx: task.JobCtx{
-			EnvVars: additionalKV,
+			Builds: []*task.Repository{
+				{
+					Source:      p.Task.Repos[0].Source,
+					RepoOwner:   p.Task.Repos[0].RepoOwner,
+					RepoName:    p.Task.Repos[0].RepoName,
+					Branch:      p.Task.Repos[0].Branch,
+					PR:          p.Task.Repos[0].PR,
+					OauthToken:  p.Task.Repos[0].OauthToken,
+					Address:     p.Task.Repos[0].Address,
+					Username:    p.Task.Repos[0].Username,
+					Password:    p.Task.Repos[0].Password,
+					EnableProxy: p.Task.Repos[0].EnableProxy,
+				},
+			},
 		},
 	}
 
@@ -164,6 +167,20 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		// this is a useless field, so we will just leave it empty
 		"",
 	)
+
+	if p.Task.SonarInfo != nil {
+		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, []corev1.EnvVar{
+			{
+				Name:  "SONAR_HOST_URL",
+				Value: p.Task.SonarInfo.ServerAddress,
+			},
+			// 连接对应wd上的dockerdeamon
+			{
+				Name:  "SONAR_LOGIN",
+				Value: p.Task.SonarInfo.Token,
+			},
+		}...)
+	}
 
 	job.Namespace = p.KubeNamespace
 
