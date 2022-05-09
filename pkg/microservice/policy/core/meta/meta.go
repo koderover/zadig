@@ -14,22 +14,63 @@ import (
 //go:embed metas.yaml
 var PolicyMetas []byte
 
+var defaultMetaGetter MetaGetter
+
+func init() {
+	defaultMetaGetter = newDefaultMetaGetter()
+}
+
+func DefaultPolicyMetas() []*types.PolicyMeta {
+	return defaultMetaGetter.Policies()
+}
+
+func PolicyMetasFromBytes(bs []byte) []*types.PolicyMeta {
+	return newMetaGetter(bs).Policies()
+}
+
 type MetaGetter interface {
 	Policies() []*types.PolicyMeta
 }
 
-type MetaOthers struct {
+type MetaFromEmbedData struct {
+	Metas []*types.PolicyMeta
 }
 
-func (m *MetaOthers) Policies() []*types.PolicyMeta {
-	policyMetas := []*types.PolicyMeta{}
-	if err := yaml.Unmarshal(PolicyMetas, &policyMetas); err != nil {
+func (m *MetaFromEmbedData) Policies() []*types.PolicyMeta {
+	m.Metas = processMetas(m.Metas)
+	return m.Metas
+}
+
+type MetaAllConfig struct {
+	Metas []*types.PolicyMeta
+	Bytes []byte
+}
+
+func (m *MetaAllConfig) Policies() []*types.PolicyMeta {
+	m.Metas = processMetas(m.Metas)
+	return m.Metas
+}
+
+func newMetaGetter(b []byte) MetaGetter {
+	m := &MetaAllConfig{Bytes: b}
+	if err := yaml.Unmarshal(m.Bytes, &m.Metas); err != nil {
+		log.Warnf("fail to new meta getter err:%s, use the default meta getter", err)
+		return defaultMetaGetter
+	}
+	return m
+}
+
+func newDefaultMetaGetter() MetaGetter {
+	m := &MetaFromEmbedData{}
+	if err := yaml.Unmarshal(PolicyMetas, &m.Metas); err != nil {
 		log.DPanic(err)
 	}
-
+	return m
+}
+func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 	proEnvMeta := &types.PolicyMeta{}
 
-	for _, meta := range policyMetas {
+	for _, meta := range metas {
 		if meta.Resource == "Workflow" {
 			for _, ruleMeta := range meta.Rules {
 				tmpRules := []*types.ActionRule{}
@@ -91,24 +132,6 @@ func (m *MetaOthers) Policies() []*types.PolicyMeta {
 			}
 		}
 	}
-	policyMetas = append(policyMetas, proEnvMeta)
-	return policyMetas
-}
-
-type MetaAll struct {
-	metaGetters []MetaGetter
-}
-
-func (m *MetaAll) Policies() []*types.PolicyMeta {
-	all := []*types.PolicyMeta{}
-	for _, v := range m.metaGetters {
-		all = append(all, v.Policies()...)
-	}
-	return all
-}
-
-func NewMetaGetter() MetaGetter {
-	all := &MetaAll{}
-	all.metaGetters = append(all.metaGetters, new(MetaOthers))
-	return all
+	metas = append(metas, proEnvMeta)
+	return metas
 }

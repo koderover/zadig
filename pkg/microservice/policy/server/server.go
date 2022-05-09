@@ -21,10 +21,24 @@ import (
 	"net/http"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/yaml"
+
+	commonconfig "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/meta"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/microservice/policy/server/rest"
+	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -50,8 +64,15 @@ func Serve(ctx context.Context) error {
 			log.Errorf("Failed to stop server, error: %s", err)
 		}
 	}()
+	go func() {
+		if err := client.Start(ctx); err != nil {
+			panic(err)
+		}
+	}()
 
-	migratePolicyMeta()
+	if err := migratePolicyMeta(); err != nil {
+		log.Errorf("fatil to migrage policyMeta")
+	}
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Errorf("Failed to start http server, error: %s", err)
@@ -64,10 +85,83 @@ func Serve(ctx context.Context) error {
 }
 
 // migratePolicyMeta migrate the policy meta db date
-func migratePolicyMeta() {
-	for _, v := range meta.NewMetaGetter().Policies() {
+func migratePolicyMeta() error {
+	namespace := "zadig-dev2"
+	policyMetas := meta.DefaultPolicyMetas()
+	log.Info(len(policyMetas))
+	metasBytes, _ := yaml.Marshal(policyMetas)
+	metaConfigMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "policymeta",
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"meta.yaml": string(metasBytes),
+		},
+	}
+	client, err := kubeclient.GetKubeClient(commonconfig.HubServerServiceAddress(), setting.LocalClusterID)
+	if err != nil {
+		log.DPanic(err)
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), setting.LocalClusterID)
+	if err != nil {
+		log.DPanic(err)
+	}
+
+	_, found, err := getter.GetConfigMap(namespace, "policymeta", client)
+	if err != nil {
+		log.Errorf("get config map err:%s", err)
+	}
+	if !found {
+		err := updater.CreateConfigMap(metaConfigMap, client)
+		if err != nil {
+			log.Infof("create config map err:%s", err)
+		}
+	} else {
+		if err := updater.UpdateConfigMap(namespace, metaConfigMap, clientset); err != nil {
+			log.Infof("update config map err:%s", err)
+		}
+	}
+
+	for _, v := range meta.DefaultPolicyMetas() {
 		if err := service.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
 			log.DPanic(err)
 		}
 	}
+	_, err = NewClusterInformerFactory("", clientset)
+	return err
+}
+
+func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (informers.SharedInformerFactory, error) {
+	if clusterId == "" {
+		clusterId = setting.LocalClusterID
+	}
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(cls, time.Hour*24, informers.WithNamespace("zadig-dev2"))
+	configMapsInformer := informerFactory.Core().V1().ConfigMaps().Informer()
+	configMapsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			configMap, ok := newObj.(*corev1.ConfigMap)
+			if !ok {
+				return
+			}
+			if configMap.Name == "policymeta" {
+				if b, ok := configMap.Data["meta.yaml"]; ok {
+					log.Infof("****update start")
+					for _, v := range meta.PolicyMetasFromBytes([]byte(b)) {
+						log.Infof("***name %v", v.Resource)
+						if err := service.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
+							log.DPanic(err)
+						}
+					}
+				}
+			}
+		},
+	})
+	stop := make(chan struct{})
+	informerFactory.Start(stop)
+	return informerFactory, nil
 }
