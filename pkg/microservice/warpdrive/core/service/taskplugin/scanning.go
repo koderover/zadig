@@ -199,11 +199,38 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 }
 
 func (p *ScanPlugin) Wait(ctx context.Context) {
-
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
+	p.SetStatus(status)
 }
 
 func (p *ScanPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
+	jobLabel := &JobLabel{
+		PipelineName: pipelineTask.PipelineName,
+		ServiceName:  serviceName,
+		TaskID:       pipelineTask.TaskID,
+		TaskType:     string(p.Type()),
+		PipelineType: string(pipelineTask.Type),
+	}
 
+	// Clean up tasks that user canceled or timed out.
+	defer func() {
+		go func() {
+			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
+
+			if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
+		}()
+	}()
+
+	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.Task.ClusterID, p.FileName, jobLabel, p.kubeClient)
+	if err != nil {
+		p.Log.Error(err)
+		p.Task.Error = err.Error()
+		return
+	}
 }
 
 func (p *ScanPlugin) SetTask(t map[string]interface{}) error {
