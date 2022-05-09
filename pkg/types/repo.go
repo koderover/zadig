@@ -56,6 +56,16 @@ type Repository struct {
 	EnableProxy bool `bson:"-"       json:"enable_proxy,omitempty"`
 }
 
+type BranchFilterInfo struct {
+	// repository identifier
+	CodehostID int    `bson:"codehost_id"  json:"codehost_id"`
+	RepoOwner  string `bson:"repo_owner"   json:"repo_owner"`
+	RepoName   string `bson:"repo_name"    json:"repo_name"`
+
+	// actual regular expression filter
+	FilterRegExp string `bson:"filter_regexp" json:"filter_regexp"`
+}
+
 // GetReleaseCandidateTag 返回待发布对象Tag
 // Branch: 20060102150405-{TaskID}-master
 // PR: 20060102150405-{TaskID}-pr-1765
