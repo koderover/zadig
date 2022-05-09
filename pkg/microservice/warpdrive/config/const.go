@@ -75,6 +75,8 @@ const (
 	WorkflowTypeV3 PipelineType = "workflow_v3"
 	// ArtifactType artifact build
 	ArtifactType PipelineType = "artifact"
+	// ScanningType is the type for scanning
+	ScanningType PipelineType = "scanning"
 )
 
 type NotifyType int

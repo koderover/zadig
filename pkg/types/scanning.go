@@ -22,6 +22,7 @@ import (
 )
 
 type ScanningAdvancedSetting struct {
+	ClusterID  string              `bson:"cluster_id"   json:"cluster_id"`
 	Timeout    int64               `bson:"timeout"      json:"timeout"`
 	ResReq     setting.Request     `bson:"res_req"      json:"res_req"`
 	ResReqSpec setting.RequestSpec `bson:"res_req_spec" json:"res_req_spec"`

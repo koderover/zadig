@@ -206,6 +206,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		Parameter:  scanningInfo.Parameter,
 		Script:     scanningInfo.Script,
 		Timeout:    DefaultScanningTimeout,
+		ClusterID:  scanningInfo.AdvancedSetting.ClusterID,
 		Repos:      repos,
 	}
 
