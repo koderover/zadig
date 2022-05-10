@@ -22,13 +22,18 @@ type ExemptionURLs struct {
 }
 
 func init() {
+	log.Init(&log.Config{
+		Level:    "debug",
+		NoCaller: true,
+	})
 	if err := yaml.Unmarshal(urls, &defaultExemURLs); err != nil {
 		log.DPanic(err)
 	}
 }
 
-func DefaultExemptionsUrls() *ExemptionURLs {
+func GetExemptionsUrls() *ExemptionURLs {
 	if !useConfigMapUrls || configMapExemURLs == nil {
+		log.Infof("DefaultExemptionsUrls data use configMap")
 		return defaultExemURLs
 	}
 	return configMapExemURLs

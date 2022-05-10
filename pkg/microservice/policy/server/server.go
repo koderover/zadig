@@ -27,6 +27,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/yaml"
 
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core"
@@ -39,8 +42,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func Serve(ctx context.Context) error {
@@ -102,7 +103,7 @@ func migratePolicyMeta() error {
 	if err != nil {
 		return err
 	}
-	urls := meta.DefaultExemptionsUrls()
+	urls := meta.GetExemptionsUrls()
 	urlsBytes, err := yaml.Marshal(urls)
 	if err != nil {
 		return err
@@ -185,17 +186,18 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 			}
 			if configMap.Name == setting.PolicyMetaConfigMapName {
 				if b, ok := configMap.Data["meta.yaml"]; ok {
-					log.Infof("****update start")
+					log.Infof("start to update the meta configMap")
 					for _, v := range meta.PolicyMetasFromBytes([]byte(b)) {
-						log.Infof("***name %v", v.Resource)
 						if err := service.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
-							log.DPanic(err)
+							log.Errorf("fail to CreateOrUpdatePolicyRegistration,err:%s", err)
+							continue
 						}
 					}
 				}
 			}
 			if configMap.Name == setting.PolicyURLConfigMapName {
-				if b, ok := configMap.Data["urls.meta"]; ok {
+				if b, ok := configMap.Data["urls.yaml"]; ok {
+					log.Infof("start to refresh url configMap data")
 					if err := meta.RefreshConfigMapByte([]byte(b)); err != nil {
 						log.Errorf("refresh err:%s", err)
 					}

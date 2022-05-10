@@ -420,10 +420,16 @@ func generateOPABindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding)
 	return data
 }
 
+type ExemptionURLs struct {
+	Public     Rules `json:"public"`     // public urls are not controlled by AuthN and AuthZ
+	Privileged Rules `json:"privileged"` // privileged urls can only be visited by system admins
+	Registered Rules `json:"registered"` // registered urls are the entire list of urls which are controlled by AuthZ, which means that if an url is not in this list, it is not controlled by AuthZ
+}
+
 func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 	data := &ExemptionURLs{}
 
-	for _, r := range meta.DefaultExemptionsUrls().Public {
+	for _, r := range meta.GetExemptionsUrls().Public {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
 		}
@@ -435,7 +441,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 	}
 	sort.Sort(data.Public)
 
-	for _, r := range meta.DefaultExemptionsUrls().SystemAdmin {
+	for _, r := range meta.GetExemptionsUrls().SystemAdmin {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
 		}
@@ -455,6 +461,9 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 			}
 		}
 	}
+
+	adminURLs := append(meta.GetExemptionsUrls().SystemAdmin, meta.GetExemptionsUrls().ProjectAdmin...)
+
 	for _, r := range adminURLs {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
