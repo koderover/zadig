@@ -135,6 +135,8 @@ type Context struct {
 	ScannerFlag    bool   `yaml:"scanner_flag"`
 	ScannerType    string `yaml:"scanner_type"`
 	SonarParameter string `yaml:"sonar_parameter"`
+	SonarServer    string `yaml:"sonar_server"`
+	SonarLogin     string `yaml:"sonar_login"`
 }
 
 type ArtifactInfo struct {

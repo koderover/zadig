@@ -264,7 +264,8 @@ func (r *Reaper) runSonarScanner() error {
 	for _, repo := range r.Ctx.Repos {
 		log.Infof("Writing sonar-project.properties for repo: %s", repo.Name)
 		repoConfigPath := filepath.Join("/workspace", repo.Name, "sonar-project.properties")
-		err := os.WriteFile(repoConfigPath, []byte(r.Ctx.SonarParameter), fs.ModeAppend)
+		configContent := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", r.Ctx.SonarParameter)
+		err := os.WriteFile(repoConfigPath, []byte(configContent), fs.ModeAppend)
 		if err != nil {
 			log.Errorf("failed to write sonar-project.properties for repo: %s, the error is: %s", repo.Name, err)
 			return err

@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -140,6 +139,8 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	// if the scanning task is of sonar type, then we add the sonar parameter to the context
 	if p.Task.SonarInfo != nil {
 		reaperContext.SonarParameter = p.Task.Parameter
+		reaperContext.SonarServer = p.Task.SonarInfo.ServerAddress
+		reaperContext.SonarLogin = p.Task.SonarInfo.Token
 		reaperContext.ScannerType = ScanningTypeSonar
 	} else {
 		reaperContext.ScannerType = ScanningTypeOther
@@ -184,20 +185,6 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		// this is a useless field, so we will just leave it empty
 		"",
 	)
-
-	if p.Task.SonarInfo != nil {
-		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, []corev1.EnvVar{
-			{
-				Name:  "SONAR_HOST_URL",
-				Value: p.Task.SonarInfo.ServerAddress,
-			},
-			// 连接对应wd上的dockerdeamon
-			{
-				Name:  "SONAR_LOGIN",
-				Value: p.Task.SonarInfo.Token,
-			},
-		}...)
-	}
 
 	job.Namespace = p.KubeNamespace
 
