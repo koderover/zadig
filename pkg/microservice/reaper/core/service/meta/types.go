@@ -132,8 +132,9 @@ type Context struct {
 	UploadInfo        []*types.ObjectStoragePathDetail `yaml:"upload_info"`
 
 	// scanner used flag
-	ScannerFlag bool   `yaml:"scanner_flag"`
-	ScannerType string `yaml:"scanner_type"`
+	ScannerFlag    bool   `yaml:"scanner_flag"`
+	ScannerType    string `yaml:"scanner_type"`
+	SonarParameter string `yaml:"sonar_parameter"`
 }
 
 type ArtifactInfo struct {

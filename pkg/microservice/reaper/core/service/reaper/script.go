@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -256,6 +257,22 @@ func (r *Reaper) runScripts() error {
 	wg.Wait()
 
 	return cmd.Wait()
+}
+
+func (r *Reaper) runSonarScanner() error {
+	// first we write the sonar scanner config to the config file
+	for _, repo := range r.Ctx.Repos {
+		log.Infof("Writing sonar-project.properties for repo: %s", repo.Name)
+		repoConfigPath := filepath.Join("/workspace", repo.Name)
+		err := os.WriteFile(repoConfigPath, []byte(r.Ctx.SonarParameter), fs.ModeAppend)
+		if err != nil {
+			log.Errorf("failed to write sonar-project.properties for repo: %s, the error is: %s", repo.Name, err)
+			return err
+		}
+	}
+	// then we simply run the sonar-scanner command to commence the scan
+	cmd := exec.Command("sonar-scanner")
+	return cmd.Run()
 }
 
 func (r *Reaper) prepareScriptsEnv() []string {

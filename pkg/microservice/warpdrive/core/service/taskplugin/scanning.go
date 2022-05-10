@@ -59,6 +59,8 @@ func (p *ScanPlugin) SetAckFunc(func()) {
 
 const (
 	ScanningTaskTimeout = 60 * 60 // 60 minutes
+	ScanningTypeSonar   = "sonarQube"
+	ScanningTypeOther   = "other"
 )
 
 func (p *ScanPlugin) Init(jobname, filename string, xl *zap.SugaredLogger) {
@@ -133,7 +135,17 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		},
 	}
 
-	jobCtxBytes, err := yaml.Marshal(jobCtx.BuildReaperContext(pipelineTask, serviceName))
+	reaperContext := jobCtx.BuildReaperContext(pipelineTask, serviceName)
+
+	// if the scanning task is of sonar type, then we add the sonar parameter to the context
+	if p.Task.SonarInfo != nil {
+		reaperContext.SonarParameter = p.Task.Parameter
+		reaperContext.ScannerType = ScanningTypeSonar
+	} else {
+		reaperContext.ScannerType = ScanningTypeOther
+	}
+
+	jobCtxBytes, err := yaml.Marshal(reaperContext)
 	if err != nil {
 		msg := fmt.Sprintf("cannot reaper.Context data: %v", err)
 		p.Log.Error(msg)
@@ -173,9 +185,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		"",
 	)
 
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>> sonar info is: ", p.Task.SonarInfo)
 	if p.Task.SonarInfo != nil {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>> sonar info is not empty <<<<<<<<<<<<<<<<<<<<<")
 		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, []corev1.EnvVar{
 			{
 				Name:  "SONAR_HOST_URL",

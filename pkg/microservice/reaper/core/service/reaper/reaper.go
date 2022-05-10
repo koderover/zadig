@@ -372,13 +372,23 @@ func (r *Reaper) Exec() error {
 		log.Warningf("Failed to create README file: %s", err)
 	}
 
-	log.Info("Executing User Build Script.")
-	startTimeRunBuildScript := time.Now()
-	time.Sleep(3600 * time.Second)
-	if err := r.runScripts(); err != nil {
-		return fmt.Errorf("failed to execute user build script: %s", err)
+	// for build/test/scanner of type other than sonar, we run the script
+	if !r.Ctx.ScannerFlag || r.Ctx.ScannerType != types.ScanningTypeSonar {
+		log.Info("Executing User Build Script.")
+		startTimeRunBuildScript := time.Now()
+		if err := r.runScripts(); err != nil {
+			return fmt.Errorf("failed to execute user build script: %s", err)
+		}
+		log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
+	} else {
+		// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
+		log.Info("Executing SonarQube Scanning process.")
+		startTimeRunSonar := time.Now()
+		if err := r.runSonarScanner(); err != nil {
+			return fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
+		}
+		log.Infof("Sonar scan ended. Duration %.2f seconds.", time.Since(startTimeRunSonar).Seconds())
 	}
-	log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
 
 	return r.runDockerBuild()
 }
