@@ -154,7 +154,11 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			info.Tags = newTagList
 
 			match, err := regexp.MatchString(info.FilterRegexp, info.DefaultBranch)
-			if err == nil && !match {
+			if err != nil {
+				log.Errorf("failed to compile regular expression: %s, the error is: %s", info.FilterRegexp, err)
+				return nil, err
+			}
+			if !match {
 				info.DefaultBranch = ""
 			}
 		}
