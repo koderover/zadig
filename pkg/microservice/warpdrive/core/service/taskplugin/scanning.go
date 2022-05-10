@@ -106,25 +106,29 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.restConfig = restConfig
 	}
 
+	repo := &task.Repository{
+		Source:      p.Task.Repos[0].Source,
+		RepoOwner:   p.Task.Repos[0].RepoOwner,
+		RepoName:    p.Task.Repos[0].RepoName,
+		Branch:      p.Task.Repos[0].Branch,
+		PR:          p.Task.Repos[0].PR,
+		OauthToken:  p.Task.Repos[0].OauthToken,
+		Address:     p.Task.Repos[0].Address,
+		Username:    p.Task.Repos[0].Username,
+		Password:    p.Task.Repos[0].Password,
+		EnableProxy: p.Task.Repos[0].EnableProxy,
+		RemoteName:  p.Task.Repos[0].RemoteName,
+	}
+	if repo.RemoteName == "" {
+		repo.RemoteName = "origin"
+	}
+
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
 		PipelineCtx: pipelineCtx,
 		// Since only one repository is supported per scanning, we just hard code it
 		JobCtx: task.JobCtx{
-			Builds: []*task.Repository{
-				{
-					Source:      p.Task.Repos[0].Source,
-					RepoOwner:   p.Task.Repos[0].RepoOwner,
-					RepoName:    p.Task.Repos[0].RepoName,
-					Branch:      p.Task.Repos[0].Branch,
-					PR:          p.Task.Repos[0].PR,
-					OauthToken:  p.Task.Repos[0].OauthToken,
-					Address:     p.Task.Repos[0].Address,
-					Username:    p.Task.Repos[0].Username,
-					Password:    p.Task.Repos[0].Password,
-					EnableProxy: p.Task.Repos[0].EnableProxy,
-				},
-			},
+			Builds: []*task.Repository{repo},
 		},
 	}
 
