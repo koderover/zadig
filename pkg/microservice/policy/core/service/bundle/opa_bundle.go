@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/meta"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -84,10 +85,10 @@ type opaRoleBindings struct {
 type role struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
-	Rules     rules  `json:"rules"`
+	Rules     Rules  `json:"rules"`
 }
 
-type rule struct {
+type Rule struct {
 	Method           string       `json:"method"`
 	Endpoint         string       `json:"endpoint"`
 	ResourceType     string       `json:"resourceType,omitempty"`
@@ -173,11 +174,11 @@ type roleRef struct {
 	Namespace string `json:"namespace"`
 }
 
-type rules []*rule
+type Rules []*Rule
 
-func (o rules) Len() int      { return len(o) }
-func (o rules) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
-func (o rules) Less(i, j int) bool {
+func (o Rules) Len() int      { return len(o) }
+func (o Rules) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o Rules) Less(i, j int) bool {
 	if o[i].Endpoint == o[j].Endpoint {
 		if o[i].Method == o[j].Method {
 			return o[i].MatchAttributes.LessOrEqual(o[j].MatchAttributes)
@@ -290,7 +291,7 @@ func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *o
 				}
 				for _, v := range r.Verbs {
 					for _, endpoint := range r.Resources {
-						opaRole.Rules = append(opaRole.Rules, &rule{Method: v, Endpoint: endpoint})
+						opaRole.Rules = append(opaRole.Rules, &Rule{Method: v, Endpoint: endpoint})
 					}
 				}
 			}
@@ -351,7 +352,7 @@ func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.Policy
 				}
 				for _, v := range r.Verbs {
 					for _, endpoint := range r.Resources {
-						opaRole.Rules = append(opaRole.Rules, &rule{Method: v, Endpoint: endpoint})
+						opaRole.Rules = append(opaRole.Rules, &Rule{Method: v, Endpoint: endpoint})
 					}
 				}
 			}
@@ -419,28 +420,28 @@ func generateOPABindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding)
 	return data
 }
 
-func generateOPAExemptionURLs(policies []*models.PolicyMeta) *exemptionURLs {
-	data := &exemptionURLs{}
+func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
+	data := &ExemptionURLs{}
 
-	for _, r := range publicURLs {
+	for _, r := range meta.DefaultExemptionsUrls().Public {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
 		}
 		for _, method := range r.Methods {
 			for _, endpoint := range r.Endpoints {
-				data.Public = append(data.Public, &rule{Method: method, Endpoint: endpoint})
+				data.Public = append(data.Public, &Rule{Method: method, Endpoint: endpoint})
 			}
 		}
 	}
 	sort.Sort(data.Public)
 
-	for _, r := range systemAdminURLs {
+	for _, r := range meta.DefaultExemptionsUrls().SystemAdmin {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
 		}
 		for _, method := range r.Methods {
 			for _, endpoint := range r.Endpoints {
-				data.Privileged = append(data.Privileged, &rule{Method: method, Endpoint: endpoint})
+				data.Privileged = append(data.Privileged, &Rule{Method: method, Endpoint: endpoint})
 			}
 		}
 	}
@@ -460,7 +461,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *exemptionURLs {
 		}
 		for _, method := range r.Methods {
 			for _, endpoint := range r.Endpoints {
-				data.Registered = append(data.Registered, &rule{Method: method, Endpoint: endpoint})
+				data.Registered = append(data.Registered, &Rule{Method: method, Endpoint: endpoint})
 			}
 		}
 	}

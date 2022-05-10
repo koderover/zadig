@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/yaml"
 
@@ -36,10 +35,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/policy/server/rest"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/tool/kube/client"
+	toolClient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func Serve(ctx context.Context) error {
@@ -65,7 +66,7 @@ func Serve(ctx context.Context) error {
 		}
 	}()
 	go func() {
-		if err := client.Start(ctx); err != nil {
+		if err := toolClient.Start(ctx); err != nil {
 			panic(err)
 		}
 	}()
@@ -86,10 +87,26 @@ func Serve(ctx context.Context) error {
 
 // migratePolicyMeta migrate the policy meta db date
 func migratePolicyMeta() error {
+	client, err := kubeclient.GetKubeClient(commonconfig.HubServerServiceAddress(), setting.LocalClusterID)
+	if err != nil {
+		log.DPanic(err)
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), setting.LocalClusterID)
+	if err != nil {
+		log.DPanic(err)
+	}
+
 	namespace := commonconfig.Namespace()
 	policyMetas := meta.DefaultPolicyMetas()
-	log.Info(len(policyMetas))
-	metasBytes, _ := yaml.Marshal(policyMetas)
+	metasBytes, err := yaml.Marshal(policyMetas)
+	if err != nil {
+		return err
+	}
+	urls := meta.DefaultExemptionsUrls()
+	urlsBytes, err := yaml.Marshal(urls)
+	if err != nil {
+		return err
+	}
 	metaConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -103,28 +120,26 @@ func migratePolicyMeta() error {
 			"meta.yaml": string(metasBytes),
 		},
 	}
-	client, err := kubeclient.GetKubeClient(commonconfig.HubServerServiceAddress(), setting.LocalClusterID)
-	if err != nil {
-		log.DPanic(err)
-	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), setting.LocalClusterID)
-	if err != nil {
-		log.DPanic(err)
+
+	urlConfigMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      setting.PolicyURLConfigMapName,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"urls.yaml": string(urlsBytes),
+		},
 	}
 
-	_, found, err := getter.GetConfigMap(namespace, setting.PolicyMetaConfigMapName, client)
-	if err != nil {
-		log.Errorf("get config map err:%s", err)
+	if err := initConfigMap(metaConfigMap, client, clientset); err != nil {
+		log.Errorf("init config map err:%s", err)
 	}
-	if !found {
-		err := updater.CreateConfigMap(metaConfigMap, client)
-		if err != nil {
-			log.Infof("create config map err:%s", err)
-		}
-	} else {
-		if err := updater.UpdateConfigMap(namespace, metaConfigMap, clientset); err != nil {
-			log.Infof("update config map err:%s", err)
-		}
+	if err := initConfigMap(urlConfigMap, client, clientset); err != nil {
+		log.Errorf("init config map err:%s", err)
 	}
 
 	for _, v := range meta.DefaultPolicyMetas() {
@@ -134,6 +149,26 @@ func migratePolicyMeta() error {
 	}
 	_, err = NewClusterInformerFactory("", clientset)
 	return err
+}
+
+func initConfigMap(cm *corev1.ConfigMap, client client.Client, clientset *kubernetes.Clientset) error {
+	_, found, err := getter.GetConfigMap(cm.Namespace, cm.Name, client)
+	if err != nil {
+		log.Errorf("get config map err:%s", err)
+	}
+	if !found {
+		err := updater.CreateConfigMap(cm, client)
+		if err != nil {
+			log.Infof("create config map err:%s", err)
+			return err
+		}
+	} else {
+		if err := updater.UpdateConfigMap(cm.Namespace, cm, clientset); err != nil {
+			log.Infof("update config map err:%s", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (informers.SharedInformerFactory, error) {
@@ -156,6 +191,13 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 						if err := service.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
 							log.DPanic(err)
 						}
+					}
+				}
+			}
+			if configMap.Name == setting.PolicyURLConfigMapName {
+				if b, ok := configMap.Data["urls.meta"]; ok {
+					if err := meta.RefreshConfigMapByte([]byte(b)); err != nil {
+						log.Errorf("refresh err:%s", err)
 					}
 				}
 			}

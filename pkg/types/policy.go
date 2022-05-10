@@ -69,3 +69,8 @@ type Attribute struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
+
+type PolicyRule struct {
+	Methods   []string `json:"methods"`
+	Endpoints []string `json:"endpoints"`
+}

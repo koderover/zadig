@@ -209,6 +209,7 @@ const (
 	DefaultImagePullSecret = "default-registry-secret"
 
 	PolicyMetaConfigMapName = "zadig-policy-meta"
+	PolicyURLConfigMapName  = "zadig-policy-url"
 )
 
 const (
