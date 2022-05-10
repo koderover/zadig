@@ -152,6 +152,11 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			}
 			info.Branches = newBranchList
 			info.Tags = newTagList
+
+			match, err := regexp.MatchString(info.FilterRegexp, info.DefaultBranch)
+			if err == nil && !match {
+				info.DefaultBranch = ""
+			}
 		}
 	}
 	if err := errList.ErrorOrNil(); err != nil {
