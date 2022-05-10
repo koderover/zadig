@@ -499,6 +499,7 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	plugin.Init(jobName, fileName, xl)
 
 	//设置待执行的subtask
+	fmt.Printf("subtask map is %+v", subTask)
 	err := plugin.SetTask(subTask)
 
 	if err != nil {
