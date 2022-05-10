@@ -561,7 +561,7 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 	if err != nil {
 		return nil, err
 	}
-	// map[ReleaseName] => serviceName
+	// map[serviceName] => ReleaseName
 	releaseNameMap := make(map[string]string)
 	for _, svcInfo := range templateServices {
 		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)

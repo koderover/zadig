@@ -1633,9 +1633,11 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 	}
 
 	updatedRcMap := make(map[string]*templatemodels.RenderChart)
+	changedCharts := make([]*commonservice.RenderChartArg, 0)
 
 	// update override values
 	for serviceName, arg := range requestValueMap {
+		arg.EnvName = envName
 		rcValues, ok := valuesInRenderset[serviceName]
 		if !ok {
 			log.Errorf("failed to find current chart values for service: %s", serviceName)
@@ -1645,6 +1647,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		// service need to update when update to the latest version
 		if args.UpdateServiceTmpl {
 			updatedRcMap[serviceName] = rcValues
+			changedCharts = append(changedCharts, arg)
 		}
 
 		needUpdate, needSave := checkOverrideValuesChange(rcValues, arg)
@@ -1657,26 +1660,15 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		}
 	}
 
-	// update service to latest revision
+	// update service to latest revision acts like update service templates
 	if args.UpdateServiceTmpl {
-		services := make([]*templatemodels.ServiceInfo, 0, len(args.ChartValues))
-		for _, service := range args.ChartValues {
-			services = append(services, &templatemodels.ServiceInfo{
-				Name:  service.ServiceName,
-				Owner: productName,
-			})
+		updateEnvArg := &UpdateMultiHelmProductArg{
+			ProductName: productName,
+			EnvNames:    []string{envName},
+			ChartValues: changedCharts,
 		}
-
-		serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(services, setting.HelmDeployType)
-		if err != nil {
-			return e.ErrUpdateEnv.AddErr(err)
-		}
-
-		// update service revision/values.yaml to the latest
-		err = updateProductServiceRevision(product, serviceTmpls, productRenderset)
-		if err != nil {
-			return e.ErrUpdateEnv.AddErr(err)
-		}
+		_, err = UpdateMultipleHelmEnv(requestID, userName, updateEnvArg, log)
+		return err
 	}
 
 	rcList := make([]*templatemodels.RenderChart, 0)

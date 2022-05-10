@@ -436,15 +436,13 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	}
 
 	arg := new(service.EnvRendersetArg)
-	data, err := c.GetRawData()
+	err = c.BindJSON(arg)
 	if err != nil {
-		log.Errorf("UpdateHelmProductDefaultValues c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductDefaultValues json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新全局变量", "", string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新全局变量", envName, fmt.Sprintf("%+v", arg), ctx.Logger)
 
 	ctx.Err = service.UpdateHelmProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
@@ -460,15 +458,13 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	}
 
 	arg := new(service.EnvRendersetArg)
-	data, err := c.GetRawData()
+	err = c.BindJSON(arg)
 	if err != nil {
-		log.Errorf("UpdateHelmProductCharts c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductCharts json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新服务", "", string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新服务", "", fmt.Sprintf("%+v", arg), ctx.Logger)
 
 	ctx.Err = service.UpdateHelmProductCharts(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
