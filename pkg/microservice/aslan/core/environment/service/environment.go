@@ -1184,7 +1184,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productName,
 	// merge chart infos, use chart info in product to override charts in template_project
 	sourceRenderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{Name: sourceRendersetName})
 	if err != nil {
-		return errors.Wrapf(err, "failed to find source renderset: %s", productInfo.Namespace)
+		return fmt.Errorf("failed to find source renderset: %s, err: %s", productInfo.Namespace, err)
 	}
 	sourceChartMap := make(map[string]*templatemodels.RenderChart)
 	for _, singleChart := range sourceRenderSet.ChartInfos {
@@ -1518,7 +1518,7 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 
 	equal, err := yamlutil.Equal(productRenderset.DefaultValues, args.DefaultValues)
 	if err != nil {
-		return e.ErrUpdateEnv.AddErr(errors.Wrapf(err, "failed to unmarshal default values in renderset"))
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err))
 	}
 
 	productRenderset.DefaultValues = args.DefaultValues
@@ -1570,7 +1570,7 @@ func updateProductServiceRevision(product *commonmodels.Product, tmplServices []
 			Revision:    prodSvc.Revision,
 		})
 		if err != nil {
-			return errors.Wrapf(err, "failed to find service %s with revision %d in project %s", serviceName, prodSvc.Revision, projectName)
+			return fmt.Errorf("failed to find service %s with revision %d in project %s, err: %s", serviceName, prodSvc.Revision, projectName, err)
 		}
 		imageRelatedKey := getImageChangeInvolvedKeys(prodSvc, revisionSvc, tmplSvc)
 

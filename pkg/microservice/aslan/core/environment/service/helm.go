@@ -24,10 +24,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/release"
@@ -145,18 +144,18 @@ func GetChartValues(projectName, envName, serviceName string) (*ValuesResp, erro
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find project: %s", projectName)
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
 	}
 
 	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
 	if err != nil {
 		log.Errorf("GetRESTConfig error: %s", err)
-		return nil, errors.Wrapf(err, "failed to get k8s rest config")
+		return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
 	}
 	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, projectName, err)
-		return nil, errors.Wrapf(err, "failed to init helm client")
+		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
 	}
 
 	serviceMap := prod.GetServiceMap()
@@ -194,18 +193,18 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find project: %s", projectName)
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
 	}
 
 	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
 	if err != nil {
 		log.Errorf("GetRESTConfig error: %v", err)
-		return nil, errors.Wrapf(err, "failed to get k8s rest config")
+		return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
 	}
 	helmClientInterface, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", envName, projectName, err)
-		return nil, errors.Wrapf(err, "failed to init helm client")
+		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
 	}
 
 	filter := &ReleaseFilter{}
@@ -213,18 +212,18 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 		data, err := jsonutil.ToJSON(filterStr)
 		if err != nil {
 			log.Warnf("invalid filter, err: %s", err)
-			return nil, errors.Wrapf(err, "invalid filter")
+			return nil, fmt.Errorf("invalid filter, err: %s", err)
 		}
 
 		if err = json.Unmarshal(data, filter); err != nil {
 			log.Warnf("Invalid filter, err: %s", err)
-			return nil, errors.Wrapf(err, "invalid filter")
+			return nil, fmt.Errorf("invalid filter, err: %s", err)
 		}
 	}
 
 	releases, err := listReleaseInNamespace(helmClientInterface, filter)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list release")
+		return nil, fmt.Errorf("failed to list release, err: %s", err)
 	}
 	releaseMap := make(map[string]*release.Release)
 	for _, re := range releases {
