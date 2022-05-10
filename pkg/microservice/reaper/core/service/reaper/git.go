@@ -20,11 +20,14 @@ import (
 	"bufio"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	c "github.com/koderover/zadig/pkg/microservice/reaper/core/service/cmd"
@@ -83,7 +86,7 @@ func (r *Reaper) runGitCmds() error {
 	//cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "524288000"), DisableTrace: true})
 	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
 	var tokens []string
-
+	var hostNames = sets.NewString()
 	for _, repo := range r.Ctx.Repos {
 		if repo == nil || len(repo.Name) == 0 {
 			continue
@@ -109,7 +112,13 @@ func (r *Reaper) runGitCmds() error {
 			tokens = append(tokens, repo.SSHKey)
 		}
 		tokens = append(tokens, repo.OauthToken)
-		cmds = append(cmds, r.buildGitCommands(repo)...)
+		cmds = append(cmds, r.buildGitCommands(repo, hostNames)...)
+	}
+	// write ssh key
+	if len(hostNames.List()) > 0 {
+		if err := writeSSHConfigFile(hostNames, r.Ctx.Proxy); err != nil {
+			return err
+		}
 	}
 
 	for _, c := range cmds {
@@ -151,7 +160,7 @@ func (r *Reaper) runGitCmds() error {
 	return nil
 }
 
-func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
+func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.Command {
 
 	cmds := make([]*c.Command, 0)
 
@@ -210,7 +219,18 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == config.SSHAuthType {
+			host, err := getHost(repo.OtherAddress)
+			if err == nil && !hostNames.Has(host) {
+				if err := writeSSHFile(repo.SSHKey, host); err != nil {
+					log.Errorf("Failed to write ssh file %s: %s", repo.SSHKey, err)
+				}
+				hostNames.Insert(host)
+			}
 
+			cmds = append(cmds, &c.Command{
+				Cmd:          c.RemoteAdd(repo.RemoteName, repo.OtherAddress),
+				DisableTrace: true,
+			})
 		} else if repo.AuthType == config.PrivateAccessTokenAuthType {
 			u, _ := url.Parse(repo.OtherAddress)
 			cmds = append(cmds, &c.Command{
@@ -252,4 +272,41 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 	setCmdsWorkDir(workDir, cmds)
 
 	return cmds
+}
+
+func writeSSHFile(sshKey, hostName string) error {
+	if sshKey == "" {
+		return nil
+	}
+
+	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", strings.Replace(hostName, ".", "", -1))
+	file := path.Join(config.Home(), pathName)
+	return ioutil.WriteFile(file, []byte(sshKey), 0400)
+}
+
+func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
+	var out string
+	for _, hostName := range hostNames.List() {
+		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, strings.Replace(hostName, ".", "", -1))
+		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
+			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
+		}
+	}
+
+	file := path.Join(config.Home(), "/.ssh/config")
+	return ioutil.WriteFile(file, []byte(out), 0600)
+}
+
+// git@github.com:koderover/zadig.git
+// return github.com
+func getHost(address string) (string, error) {
+	address = strings.Replace(address, ":", "/", 1)
+	address = strings.Replace(address, "git@", "https://", 1)
+
+	URL, err := url.Parse(address)
+	if err != nil {
+		return "", fmt.Errorf("invalid Url")
+	}
+	host := URL.Host
+	return host, nil
 }
