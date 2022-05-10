@@ -272,7 +272,30 @@ func (r *Reaper) runSonarScanner() error {
 	}
 	// then we simply run the sonar-scanner command to commence the scan
 	cmd := exec.Command("sonar-scanner")
-	return cmd.Run()
+	fileName := filepath.Join(os.TempDir(), "sonar.log")
+	//如果文件不存在就创建文件，避免后面使用变量出错
+	util.WriteFile(fileName, []byte{}, 0700)
+	var wg sync.WaitGroup
+
+	cmdStdoutReader, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdoutReader, false, fileName)
+	}()
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	wg.Wait()
+
+	return cmd.Wait()
 }
 
 func (r *Reaper) prepareScriptsEnv() []string {
