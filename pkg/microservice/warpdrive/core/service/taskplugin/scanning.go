@@ -173,6 +173,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	)
 
 	if p.Task.SonarInfo != nil {
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>> sonar info is not empty <<<<<<<<<<<<<<<<<<<<<")
 		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, []corev1.EnvVar{
 			{
 				Name:  "SONAR_HOST_URL",

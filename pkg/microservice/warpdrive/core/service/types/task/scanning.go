@@ -13,7 +13,7 @@ type Scanning struct {
 	Name      string              `bson:"name"            json:"name"`
 	Error     string              `bson:"error,omitempty" json:"error,omitempty"`
 	ImageInfo string              `bson:"image_info"      json:"image_info"`
-	SonarInfo *types.SonarInfo    `bson:"sonar_id"        json:"sonar_id"`
+	SonarInfo *types.SonarInfo    `bson:"sonar_info"      json:"sonar_info"`
 	Repos     []*types.Repository `bson:"repos"           json:"repos"`
 	Proxy     *models.Proxy       `bson:"proxy"           json:"proxy"`
 	ClusterID string              `bson:"cluster_id"      json:"cluster_id"`
