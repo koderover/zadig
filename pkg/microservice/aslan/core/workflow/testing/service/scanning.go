@@ -210,7 +210,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		Repos:      repos,
 	}
 
-	if scanningInfo.ScannerType == "sonar" {
+	if scanningInfo.ScannerType == "sonarQube" {
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
 		if err != nil {
 			log.Errorf("failed to get sonar integration information to create scanning task, error: %s", err)
