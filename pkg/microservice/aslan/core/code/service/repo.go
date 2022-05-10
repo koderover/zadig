@@ -133,7 +133,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				match, err := regexp.MatchString(info.FilterRegexp, branch.Name)
 				if err != nil {
 					log.Errorf("failed to match regular expression: %s on branch name :%s, error: %s", info.FilterRegexp, branch.Name, err)
-					continue
+					return nil, err
 				}
 				if match {
 					newBranchList = append(newBranchList, branch)
@@ -144,7 +144,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				match, err := regexp.MatchString(info.FilterRegexp, tag.Name)
 				if err != nil {
 					log.Errorf("failed to match regular expression: %s on tag name :%s, error: %s", info.FilterRegexp, tag.Name, err)
-					continue
+					return nil, err
 				}
 				if match {
 					newTagList = append(newTagList, tag)
