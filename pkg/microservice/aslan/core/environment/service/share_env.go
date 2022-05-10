@@ -661,13 +661,32 @@ func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 
 func buildEnvoyStoreCacheOperation() (*types.Struct, error) {
 	inlineCode := `function envoy_on_request(request_handle)
-  local requestID = request_handle:headers():get("x-request-id")
+  function split_str(s, delimiter)
+    res = {}
+    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+      table.insert(res, match)
+    end
+
+    return res
+  end
+
+  local traceid = request_handle:headers():get("sw8")
+  if traceid then
+    arr = split_str(traceid, "-")
+    traceid = arr[2]
+  else
+    traceid = request_handle:headers():get("x-request-id")
+    if not traceid then
+      traceid = request_handle:headers():get("x-b3-traceid")
+    end
+  end
+
   local env = request_handle:headers():get("x-env")
   local headers, body = request_handle:httpCall(
     "cache",
     {
       [":method"] = "POST",
-      [":path"] = string.format("/api/cache/%s/%s", requestID, env),
+      [":path"] = string.format("/api/cache/%s/%s", traceid, env),
       [":authority"] = "cache",
     },
     "",
@@ -688,12 +707,31 @@ end
 
 func buildEnvoyGetCacheOperation() (*types.Struct, error) {
 	inlineCode := `function envoy_on_request(request_handle)
-  local requestID = request_handle:headers():get("x-request-id")
+  function split_str(s, delimiter)
+    res = {}
+    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+      table.insert(res, match)
+    end
+
+    return res
+  end
+
+  local traceid = request_handle:headers():get("sw8")
+  if traceid then
+    arr = split_str(traceid, "-")
+    traceid = arr[2]
+  else
+    traceid = request_handle:headers():get("x-request-id")
+    if not traceid then
+      traceid = request_handle:headers():get("x-b3-traceid")
+    end
+  end
+
   local headers, body = request_handle:httpCall(
     "cache",
     {
       [":method"] = "GET",
-      [":path"] = string.format("/api/cache/%s", requestID),
+      [":path"] = string.format("/api/cache/%s", traceid),
       [":authority"] = "cache",
     },
     "",
