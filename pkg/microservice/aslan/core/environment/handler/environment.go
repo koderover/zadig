@@ -438,7 +438,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	arg := new(service.EnvRendersetArg)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -460,7 +460,7 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	arg := new(service.EnvRendersetArg)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 

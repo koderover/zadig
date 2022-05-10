@@ -198,12 +198,12 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 
 	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
 	if err != nil {
-		log.Errorf("GetRESTConfig error: %v", err)
+		log.Errorf("GetRESTConfig error: %s", err)
 		return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
 	}
 	helmClientInterface, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
 	if err != nil {
-		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", envName, projectName, err)
+		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, projectName, err)
 		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
 	}
 
