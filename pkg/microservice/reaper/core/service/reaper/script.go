@@ -273,6 +273,8 @@ func (r *Reaper) runSonarScanner() error {
 	}
 	// then we simply run the sonar-scanner command to commence the scan
 	cmd := exec.Command("sonar-scanner")
+	// since currently only one codehost is supported, we will just use the first repository
+	cmd.Dir = filepath.Join("/workspace", r.Ctx.Repos[0].Name)
 	fileName := filepath.Join(os.TempDir(), "sonar.log")
 	//如果文件不存在就创建文件，避免后面使用变量出错
 	util.WriteFile(fileName, []byte{}, 0700)
