@@ -385,6 +385,7 @@ func (r *Reaper) Exec() error {
 		log.Info("Executing SonarQube Scanning process.")
 		startTimeRunSonar := time.Now()
 		if err := r.runSonarScanner(); err != nil {
+			time.Sleep(10 * time.Minute)
 			return fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
 		}
 		log.Infof("Sonar scan ended. Duration %.2f seconds.", time.Since(startTimeRunSonar).Seconds())
