@@ -165,6 +165,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 	}
 	if err := errList.ErrorOrNil(); err != nil {
 		log.Errorf("list repo info error: %v", err)
+		return nil, err
 	}
 	return infos, nil
 }
