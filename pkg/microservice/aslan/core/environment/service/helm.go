@@ -321,6 +321,11 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 			respObj.AppVersion = svcDataSet.SvcRelease.Chart.AppVersion()
 			respObj.Status = getReleaseStatus(svcDataSet.SvcRelease)
 		}
+
+		if svcDataSet.ProdSvc.Error != "" {
+			respObj.Status = setting.HelmReleaseStatusFailed
+		}
+
 		ret = append(ret, respObj)
 	}
 

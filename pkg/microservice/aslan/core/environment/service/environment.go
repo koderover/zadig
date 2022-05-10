@@ -1644,20 +1644,8 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 			return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to find current chart values for service: %s", serviceName))
 		}
 
-		// service need to update when update to the latest version
-		if args.UpdateServiceTmpl {
-			updatedRcMap[serviceName] = rcValues
-			changedCharts = append(changedCharts, arg)
-		}
-
-		needUpdate, needSave := checkOverrideValuesChange(rcValues, arg)
-		if !needSave {
-			continue
-		}
-		arg.FillRenderChartModel(rcValues, rcValues.ChartVersion)
-		if needUpdate {
-			updatedRcMap[serviceName] = rcValues
-		}
+		changedCharts = append(changedCharts, arg)
+		updatedRcMap[serviceName] = rcValues
 	}
 
 	// update service to latest revision acts like update service templates
@@ -3766,25 +3754,27 @@ func proceedHelmRelease(productName, envName string, productResp *commonmodels.P
 	}
 
 	prodServiceMap := productResp.GetServiceMap()
-	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
-		var err error
+	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) (err error) {
 		defer func() {
-			if err != nil {
-				if prodSvc, ok := prodServiceMap[serviceObj.ServiceName]; ok {
+			if prodSvc, ok := prodServiceMap[serviceObj.ServiceName]; ok {
+				if err != nil {
 					prodSvc.Error = err.Error()
+				} else {
+					prodSvc.Error = ""
 				}
 			}
 		}()
-		param, err := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
-		if err != nil {
-			return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, err)
+		param, errBuildParam := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
+		if errBuildParam != nil {
+			err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, errBuildParam)
+			return
 		}
 		errInstall := installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, errInstall)
-			return errors.Wrapf(errInstall, "failed to upgrade service %s", serviceObj.ServiceName)
+			err = fmt.Errorf("failed to upgrade service %s, err: %s", serviceObj.ServiceName, errInstall)
 		}
-		return nil
+		return
 	}
 
 	errList := new(multierror.Error)
@@ -3814,13 +3804,13 @@ func proceedHelmRelease(productName, envName string, productResp *commonmodels.P
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
-		if errList.ErrorOrNil() != nil {
-			return errList.ErrorOrNil()
-		}
 		err := commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update service group %d. Error: %v", groupIndex, err)
 			return err
+		}
+		if errList.ErrorOrNil() != nil {
+			return errList.ErrorOrNil()
 		}
 	}
 	return nil

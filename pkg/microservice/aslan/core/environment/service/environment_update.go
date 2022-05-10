@@ -81,6 +81,31 @@ func InstallService(helmClient *helmtool.HelmClient, param *ReleaseInstallParam)
 	return nil
 }
 
+func setProductServiceError(productInfo *commonmodels.Product, serviceName string, err error) error {
+	foundSvc := false
+	// update service revision data in product
+	for groupIndex, svcGroup := range productInfo.Services {
+		for _, svc := range svcGroup {
+			if svc.ServiceName == serviceName {
+				if err != nil {
+					svc.Error = err.Error()
+				} else {
+					svc.Error = ""
+				}
+				foundSvc = true
+				break
+			}
+		}
+		if foundSvc {
+			if err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, groupIndex, svcGroup); err != nil {
+				return fmt.Errorf("failed to update service group: %s:%s, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
+			}
+			break
+		}
+	}
+	return nil
+}
+
 func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceName string, serviceRevision int64) error {
 	foundSvc := false
 	// update service revision data in product
@@ -103,7 +128,7 @@ func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceNa
 }
 
 // reInstallHelmServiceInEnv uninstall the service and reinstall to update releaseNaming rule
-func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
+func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) (finalError error) {
 	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
 	productSvc, ok := productSvcMap[serviceName]
 	// service not applied in this environment
@@ -111,11 +136,17 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return nil
 	}
 
-	renderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	var err error
+	defer func() {
+		finalError = setProductServiceError(productInfo, templateSvc.ServiceName, err)
+	}()
+
+	renderInfo, errRender := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		Name:     productInfo.Render.Name,
 		Revision: productInfo.Render.Revision})
-	if err != nil {
-		return fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
+	if errRender != nil {
+		err = fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, errRender)
+		return
 	}
 
 	var renderChart *templatemodels.RenderChart
@@ -125,17 +156,20 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		}
 	}
 	if renderChart == nil {
-		return fmt.Errorf("failed to find renderchart: %s", renderChart.ServiceName)
+		err = fmt.Errorf("failed to find renderchart: %s", renderChart.ServiceName)
+		return
 	}
 
-	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
-	if err != nil {
-		return err
+	helmClient, errCreateClient := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if errCreateClient != nil {
+		err = fmt.Errorf("failed to create helm client, err: %s", errCreateClient)
+		return
 	}
 
-	prodSvcTemp, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName})
-	if err != nil {
-		return fmt.Errorf("failed to get service: %s with revision: %d, err: %s", serviceName, productSvc.Revision, productInfo.ProductName)
+	prodSvcTemp, errFindProd := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName})
+	if errFindProd != nil {
+		err = fmt.Errorf("failed to get service: %s with revision: %d, err: %s", serviceName, productSvc.Revision, errFindProd)
+		return
 	}
 
 	// nothing would happen if release naming rule are same
@@ -143,35 +177,44 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return nil
 	}
 
-	if err := UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
-		return fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
+	if err = UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
+		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
+		return
 	}
 
-	param, err := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
-	if err != nil {
-		return fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, err)
+	param, errBuildParam := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
+	if errBuildParam != nil {
+		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
+		return
 	}
 
 	err = InstallService(helmClient, param)
 	if err != nil {
-		return fmt.Errorf("fauled to install release for service: %s, err: %s", templateSvc.ServiceName, err)
+		return
 	}
 
-	return updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+	return
 }
 
-func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
+func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, templateSvc *commonmodels.Service) (finalError error) {
 	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
 	// service not applied in this environment
 	if _, ok := productSvcMap[serviceName]; !ok {
 		return nil
 	}
 
-	renderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	var err error
+	defer func() {
+		finalError = setProductServiceError(productInfo, templateSvc.ServiceName, err)
+	}()
+
+	renderInfo, errFindRender := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		Name:     productInfo.Render.Name,
 		Revision: productInfo.Render.Revision})
-	if err != nil {
-		return fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
+	if errFindRender != nil {
+		err = fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, errFindRender)
+		return
 	}
 
 	var renderChart *templatemodels.RenderChart
@@ -181,14 +224,16 @@ func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, 
 		}
 	}
 	if renderChart == nil {
-		return fmt.Errorf("failed to find renderchart for service: %s", renderChart.ServiceName)
+		err = fmt.Errorf("failed to find renderchart for service: %s", renderChart.ServiceName)
+		return
 	}
 
 	chartArg := &commonservice.RenderChartArg{}
 	chartArg.FillRenderChartModel(renderChart, renderChart.ChartVersion)
-	newRenderSet, err := diffRenderSet(userName, productInfo.ProductName, productInfo.EnvName, productInfo, []*commonservice.RenderChartArg{chartArg}, log.SugaredLogger())
-	if err != nil {
-		return fmt.Errorf("failed to build renderset for service: %s, err: %s", renderChart.ServiceName, err)
+	newRenderSet, errDiffRender := diffRenderSet(userName, productInfo.ProductName, productInfo.EnvName, productInfo, []*commonservice.RenderChartArg{chartArg}, log.SugaredLogger())
+	if errDiffRender != nil {
+		err = fmt.Errorf("failed to build renderset for service: %s, err: %s", renderChart.ServiceName, errDiffRender)
+		return
 	}
 
 	// update renderChart
@@ -198,14 +243,15 @@ func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, 
 		}
 	}
 
-	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
-	if err != nil {
-		return err
+	helmClient, errCreateClient := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if errCreateClient != nil {
+		err = fmt.Errorf("failed to create helm client, err: %s", errCreateClient)
+		return
 	}
 
-	param, err := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
+	param, errBuildParam := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
 	if err != nil {
-		return fmt.Errorf("failed to generate install param, service: %s err: %s", templateSvc.ServiceName, err)
+		return fmt.Errorf("failed to generate install param, service: %s err: %s", templateSvc.ServiceName, errBuildParam)
 	}
 
 	err = InstallService(helmClient, param)
@@ -213,7 +259,8 @@ func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, 
 		return fmt.Errorf("fauled to install release for service: %s, err: %s", templateSvc.ServiceName, err)
 	}
 
-	return updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+	return
 }
 
 func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
@@ -238,7 +285,6 @@ func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Ser
 		err := reInstallHelmServiceInEnv(product, templateSvc)
 		if err != nil {
 			retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
-
 		}
 	}
 	return retErr.ErrorOrNil()
