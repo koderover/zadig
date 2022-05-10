@@ -137,7 +137,10 @@ func SugaredLogger() *zap.SugaredLogger {
 
 func getLogger() *zap.Logger {
 	if logger == nil {
-		panic("Logger is not initialized yet!")
+		Init(&Config{
+			Level:    "debug",
+			NoCaller: true,
+		})
 	}
 
 	return logger
@@ -149,7 +152,10 @@ func getSugaredLogger() *zap.SugaredLogger {
 
 func getSimpleLogger() *zap.SugaredLogger {
 	if simpleLogger == nil {
-		panic("Logger is not initialized yet!")
+		Init(&Config{
+			Level:    "debug",
+			NoCaller: true,
+		})
 	}
 
 	return simpleLogger
