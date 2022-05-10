@@ -243,6 +243,8 @@ const (
 	SourceFromCodeHub = "codehub"
 	// SourceFromGitee Configure the source as gitee
 	SourceFromGitee = "gitee"
+	// SourceFromGitee Configure the source as other
+	SourceFromOther = "other"
 	// SourceFromChartTemplate The configuration source is helmTemplate
 	SourceFromChartTemplate = "chartTemplate"
 	// SourceFromPublicRepo The configuration source is publicRepo

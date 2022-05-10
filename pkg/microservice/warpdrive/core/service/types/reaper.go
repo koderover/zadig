@@ -210,21 +210,25 @@ type Install struct {
 
 // Repo ...
 type Repo struct {
-	Source       string `yaml:"source"`
-	Address      string `yaml:"address"`
-	Owner        string `yaml:"owner"`
-	Name         string `yaml:"name"`
-	RemoteName   string `yaml:"remote_name"`
-	Branch       string `yaml:"branch"`
-	PR           int    `yaml:"pr"`
-	Tag          string `yaml:"tag"`
-	CheckoutPath string `yaml:"checkout_path"`
-	SubModules   bool   `yaml:"submodules"`
-	OauthToken   string `yaml:"oauthToken"`
-	User         string `yaml:"username"`
-	Password     string `yaml:"password"`
-	CheckoutRef  string `yaml:"checkout_ref"`
-	EnableProxy  bool   `yaml:"enable_proxy"`
+	Source             string          `yaml:"source"`
+	Address            string          `yaml:"address"`
+	Owner              string          `yaml:"owner"`
+	Name               string          `yaml:"name"`
+	RemoteName         string          `yaml:"remote_name"`
+	Branch             string          `yaml:"branch"`
+	PR                 int             `yaml:"pr"`
+	Tag                string          `yaml:"tag"`
+	CheckoutPath       string          `yaml:"checkout_path"`
+	SubModules         bool            `yaml:"submodules"`
+	OauthToken         string          `yaml:"oauthToken"`
+	User               string          `yaml:"username"`
+	Password           string          `yaml:"password"`
+	CheckoutRef        string          `yaml:"checkout_ref"`
+	EnableProxy        bool            `yaml:"enable_proxy"`
+	OtherAddress       string          `yaml:"other_address,omitempty"`
+	AuthType           config.AuthType `yaml:"auth_type,omitempty"`
+	SSHKey             string          `yaml:"ssh_key,omitempty"`
+	PrivateAccessToken string          `yaml:"private_access_token,omitempty"`
 }
 
 // PRRef returns refs format

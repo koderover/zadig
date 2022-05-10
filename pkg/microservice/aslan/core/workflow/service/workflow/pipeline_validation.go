@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -403,9 +404,8 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				}
 			}
 		}
-	} else {
+	} else if codeHostInfo.Type == systemconfig.GitHubProvider {
 		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
-		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
 			if build.Tag != "" && build.PR == 0 {
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
@@ -454,28 +454,37 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				log.Warnf("github setBuildInfo failed, use build %+v", build)
 				return
 			}
-			//if build.Branch != "" && build.PR > 0 {
-			//	prCommits := make([]*github.RepositoryCommit, 0)
-			//	opt := &github.ListOptions{Page: 1, PerPage: 100}
-			//	for opt.Page > 0 {
-			//		list, resp, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
-			//		if err != nil {
-			//			fmt.Printf("ListCommits error: %v\n", err)
-			//			return
-			//		}
-			//		prCommits = append(prCommits, list...)
-			//		opt.Page = resp.NextPage
-			//	}
-			//
-			//	if len(prCommits) > 0 {
-			//		commit := prCommits[len(prCommits)-1]
-			//		build.CommitID = *commit.SHA
-			//	}
-			//}
 		}
+	} else if codeHostInfo.Type == systemconfig.OtherProvider {
+		build.AuthType = codeHostInfo.AuthType
+		build.SSHKey = codeHostInfo.SSHKey
+		build.PrivateAccessToken = codeHostInfo.PrivateAccessToken
+		if build.RemoteName == "" {
+			build.RemoteName = "origin"
+		}
+		if build.AuthType == config.PrivateAccessTokenAuthType {
+			build.RepoOwner, build.RepoName = parseOwnerAndRepo(build.OtherAddress)
+		}
+		return
+	}
+}
 
+// ParseOwnerAndRepo extracts the owner and repo info from the given link,
+// the link must have to following format: http(s)://example.com/owner/repo
+func parseOwnerAndRepo(repoLink string) (string, string) {
+	repoLink = strings.TrimRight(repoLink, ".git")
+	uri, err := url.Parse(repoLink)
+	if err != nil {
+		return "", ""
 	}
 
+	uriPath := strings.Trim(uri.Path, "/")
+	ownerAndRepo := strings.Split(uriPath, "/")
+	if len(ownerAndRepo) != 2 {
+		return "", ""
+	}
+
+	return ownerAndRepo[0], ownerAndRepo[1]
 }
 
 // 根据传入的build arg设置build参数

@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	c "github.com/koderover/zadig/pkg/microservice/reaper/core/service/cmd"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -103,6 +104,9 @@ func (r *Reaper) runGitCmds() error {
 			}
 		} else if repo.Source == meta.ProviderCodehub {
 			tokens = append(tokens, repo.Password)
+		} else if repo.Source == meta.ProviderOther {
+			tokens = append(tokens, repo.PrivateAccessToken)
+			tokens = append(tokens, repo.SSHKey)
 		}
 		tokens = append(tokens, repo.OauthToken)
 		cmds = append(cmds, r.buildGitCommands(repo)...)
@@ -204,6 +208,16 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 		})
 	} else if repo.Source == meta.ProviderGitee {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
+	} else if repo.Source == meta.ProviderOther {
+		if repo.AuthType == config.SSHAuthType {
+
+		} else if repo.AuthType == config.PrivateAccessTokenAuthType {
+			u, _ := url.Parse(repo.OtherAddress)
+			cmds = append(cmds, &c.Command{
+				Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.PrivateAccessToken, u.Host, repo.Owner, repo.Name, u.Scheme)),
+				DisableTrace: true,
+			})
+		}
 	} else {
 		// github
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
