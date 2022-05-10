@@ -106,6 +106,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.restConfig = restConfig
 	}
 
+	// Since only one repository is supported per scanning, we just hard code it
 	repo := &task.Repository{
 		Source:      p.Task.Repos[0].Source,
 		RepoOwner:   p.Task.Repos[0].RepoOwner,
@@ -126,7 +127,6 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
 		PipelineCtx: pipelineCtx,
-		// Since only one repository is supported per scanning, we just hard code it
 		JobCtx: task.JobCtx{
 			Builds: []*task.Repository{repo},
 		},
