@@ -289,7 +289,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 		TailLines:    tails,
 		TaskID:       taskID,
 		PipelineType: string(config.ScanningType),
-		ServiceName:  scanningName,
+		ServiceName:  resp.Name,
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
