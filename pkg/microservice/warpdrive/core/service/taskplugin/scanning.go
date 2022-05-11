@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 func InitializeScanningTaskPlugin(taskType config.TaskType) TaskPlugin {
@@ -143,6 +144,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		reaperContext.ScannerType = ScanningTypeSonar
 	} else {
 		reaperContext.ScannerType = ScanningTypeOther
+		reaperContext.Scripts = append(reaperContext.Scripts, strings.Split(replaceWrapLine(p.Task.Script), "\n")...)
 	}
 
 	jobCtxBytes, err := yaml.Marshal(reaperContext)
