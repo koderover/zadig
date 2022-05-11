@@ -143,7 +143,7 @@ func DeleteScanningModule(c *gin.Context) {
 }
 
 type createScanningTaskResp struct {
-	TaskID int64 json:"task_id"
+	TaskID int64 `json:"task_id"`
 }
 
 func CreateScanningTask(c *gin.Context) {
