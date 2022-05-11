@@ -289,8 +289,6 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 		TailLines:    tails,
 		TaskID:       taskID,
 		PipelineType: string(config.ScanningType),
-		EnvName:      c.Query("envName"),
-		ProductName:  c.Query("projectName"),
 		ServiceName:  scanningName,
 	}
 
