@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"strconv"
 
 	"github.com/gin-contrib/sse"
@@ -279,16 +280,18 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 		tails = int64(10)
 	}
 
+	resp, err := service.GetScanningModuleByID(id, ctx.Logger)
+	scanningName := fmt.Sprintf("%s-%s", resp.Name, "scanning-job")
 	options := &logservice.GetContainerOptions{
 		Namespace:    config.Namespace(),
-		PipelineName: c.Param("workflowName"),
+		PipelineName: scanningName,
 		SubTask:      "scanning",
 		TailLines:    tails,
 		TaskID:       taskID,
 		PipelineType: string(config.ScanningType),
 		EnvName:      c.Query("envName"),
 		ProductName:  c.Query("projectName"),
-		ServiceName:  fmt.Sprintf("%s-job", c.Param("workflowName")),
+		ServiceName:  scanningName,
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
