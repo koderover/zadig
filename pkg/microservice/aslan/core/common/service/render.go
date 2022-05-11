@@ -181,9 +181,8 @@ func (args *RenderChartArg) DiffValues(target *RenderChartArg) RenderChartDiffRe
 	equal, _ := yamlutil.Equal(args.OverrideYaml, target.OverrideYaml)
 	if equal {
 		return LogicSame
-	} else {
-		return Different
 	}
+	return Different
 }
 
 func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {
@@ -254,7 +253,7 @@ func ValidateRenderSet(productName, renderName string, serviceInfo *templatemode
 		//}
 	} else {
 		//  单个服务是否全覆盖判断
-		if err := IsAllKeyCoveredService(serviceInfo.Owner, serviceInfo.Name, resp, log); err != nil {
+		if err := IsAllKeyCoveredService(serviceInfo.Owner, serviceInfo.Name, resp); err != nil {
 			log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
 			return resp, err
 		}
@@ -608,7 +607,7 @@ func IsAllKeyCovered(arg *commonmodels.RenderSet, log *zap.SugaredLogger) error 
 }
 
 // IsAllKeyCoveredService 检查是否覆盖所有服务key
-func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet, _ *zap.SugaredLogger) error {
+func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet) error {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   serviceName,
 		ProductName:   productName,

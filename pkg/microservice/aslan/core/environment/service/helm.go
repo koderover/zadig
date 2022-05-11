@@ -60,19 +60,19 @@ type HelmReleaseQueryArgs struct {
 }
 
 type ReleaseFilter struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	Name   string        `json:"name"`
+	Status ReleaseStatus `json:"status"`
 }
 
 type HelmReleaseResp struct {
-	ReleaseName string `json:"releaseName"`
-	ServiceName string `json:"serviceName"`
-	Revision    int    `json:"revision"`
-	Chart       string `json:"chart"`
-	AppVersion  string `json:"appVersion"`
-	Status      string `json:"status"`
-	Updatable   bool   `json:"updatable"`
-	Error       string `json:"error"`
+	ReleaseName string        `json:"releaseName"`
+	ServiceName string        `json:"serviceName"`
+	Revision    int           `json:"revision"`
+	Chart       string        `json:"chart"`
+	AppVersion  string        `json:"appVersion"`
+	Status      ReleaseStatus `json:"status"`
+	Updatable   bool          `json:"updatable"`
+	Error       string        `json:"error"`
 }
 
 type ChartInfo struct {
@@ -95,15 +95,24 @@ type SvcDataSet struct {
 	SvcRelease *release.Release
 }
 
+type ReleaseStatus string
+
+const (
+	HelmReleaseStatusPending     ReleaseStatus = "pending"
+	HelmReleaseStatusDeployed    ReleaseStatus = "deployed"
+	HelmReleaseStatusFailed      ReleaseStatus = "failed"
+	HelmReleaseStatusNotDeployed ReleaseStatus = "notDeployed"
+)
+
 func listReleaseInNamespace(helmClient *helmtool.HelmClient, filter *ReleaseFilter) ([]*release.Release, error) {
 	listClient := action.NewList(helmClient.ActionConfig)
 
 	switch filter.Status {
-	case setting.HelmReleaseStatusDeployed:
+	case HelmReleaseStatusDeployed:
 		listClient.StateMask = action.ListDeployed
-	case setting.HelmReleaseStatusFailed:
+	case HelmReleaseStatusFailed:
 		listClient.StateMask = action.ListFailed | action.ListSuperseded
-	case setting.HelmReleaseStatusPending:
+	case HelmReleaseStatusPending:
 		listClient.StateMask = action.ListPendingRollback | action.ListPendingUpgrade | action.ListPendingInstall | action.ListUninstalling
 	default:
 		listClient.StateMask = action.ListAll
@@ -113,16 +122,16 @@ func listReleaseInNamespace(helmClient *helmtool.HelmClient, filter *ReleaseFilt
 	return listClient.Run()
 }
 
-func getReleaseStatus(re *release.Release) string {
+func getReleaseStatus(re *release.Release) ReleaseStatus {
 	switch re.Info.Status {
 	case release.StatusDeployed:
-		return setting.HelmReleaseStatusDeployed
+		return HelmReleaseStatusDeployed
 	case release.StatusFailed, release.StatusSuperseded:
-		return setting.HelmReleaseStatusFailed
+		return HelmReleaseStatusFailed
 	case release.StatusPendingRollback, release.StatusPendingUpgrade, release.StatusPendingInstall, release.StatusUninstalling:
-		return setting.HelmReleaseStatusPending
+		return HelmReleaseStatusPending
 	default:
-		return setting.HelmReleaseStatusFailed
+		return HelmReleaseStatusFailed
 	}
 }
 
@@ -265,22 +274,22 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 		}
 		// filter by status
 		switch filter.Status {
-		case setting.HelmReleaseStatusDeployed:
+		case HelmReleaseStatusDeployed:
 			if svcDataSet.SvcRelease == nil || svcDataSet.SvcRelease.Info.Status != release.StatusDeployed {
 				return false
 			}
-		case setting.HelmReleaseStatusFailed:
+		case HelmReleaseStatusFailed:
 			if svcDataSet.SvcRelease != nil && svcDataSet.SvcRelease.Info.Status != release.StatusFailed && svcDataSet.SvcRelease.Info.Status != release.StatusSuperseded {
 				return false
 			}
 			if svcDataSet.ProdSvc.Error == "" {
 				return false
 			}
-		case setting.HelmReleaseStatusPending:
+		case HelmReleaseStatusPending:
 			if svcDataSet.SvcRelease == nil || (!svcDataSet.SvcRelease.Info.Status.IsPending() && svcDataSet.SvcRelease.Info.Status != release.StatusUninstalling) {
 				return false
 			}
-		case setting.HelmReleaseStatusNotDeployed:
+		case HelmReleaseStatusNotDeployed:
 			if svcDataSet.SvcRelease != nil {
 				return false
 			}
@@ -309,7 +318,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 
 		respObj := &HelmReleaseResp{
 			ServiceName: svcDataSet.ProdSvc.ServiceName,
-			Status:      setting.HelmReleaseStatusNotDeployed,
+			Status:      HelmReleaseStatusNotDeployed,
 			Updatable:   updatable,
 			Error:       svcDataSet.ProdSvc.Error,
 		}
@@ -323,7 +332,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 		}
 
 		if svcDataSet.ProdSvc.Error != "" {
-			respObj.Status = setting.HelmReleaseStatusFailed
+			respObj.Status = HelmReleaseStatusFailed
 		}
 
 		ret = append(ret, respObj)

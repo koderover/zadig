@@ -200,11 +200,6 @@ const (
 	JobReady     = "Completed"
 	PodNotReady  = "not ready"
 
-	HelmReleaseStatusPending     = "pending"
-	HelmReleaseStatusDeployed    = "deployed"
-	HelmReleaseStatusFailed      = "failed"
-	HelmReleaseStatusNotDeployed = "notDeployed"
-
 	APIVersionAppsV1 = "apps/v1"
 
 	RSASecretName = "zadig-rsa-key"

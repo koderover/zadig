@@ -232,13 +232,13 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			data, err := jsonutil.ToJSON(filter)
 			if err != nil {
-				log.Warnf("Invalid filter, err: %s", err)
+				log.Errorf("Invalid filter, err: %s", err)
 				return workloads
 			}
 
 			f := &workloadFilter{}
 			if err = json.Unmarshal(data, f); err != nil {
-				log.Warnf("Invalid filter, err: %s", err)
+				log.Errorf("Invalid filter, err: %s", err)
 				return workloads
 			}
 
@@ -270,8 +270,9 @@ type workloadFilter struct {
 	ServiceNameList sets.String `json:"-"`
 }
 
+type wfAlias workloadFilter
+
 func (f *workloadFilter) UnmarshalJSON(data []byte) error {
-	type wfAlias workloadFilter
 	aliasData := &wfAlias{}
 	if err := json.Unmarshal(data, aliasData); err != nil {
 		return err
@@ -398,7 +399,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	err = fillServiceName(envName, productName, workLoads)
 	// err of getting service name should not block the return of workloads
 	if err != nil {
-		log.Errorf("failed to set service name for workloads, error: %s", err)
+		log.Warnf("failed to set service name for workloads, error: %s", err)
 	}
 
 	// 对于workload过滤
