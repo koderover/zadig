@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitee"
 	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
@@ -113,6 +114,8 @@ func GetTreeGetter(codeHostID int) (TreeGetter, error) {
 		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
 	case setting.SourceFromGitlab:
 		return gitlabservice.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+	case setting.SourceFromGitee:
+		return gitee.NewClient(ch.ID, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	default:
 		// should not have happened here
 		log.DPanicf("invalid source: %s", ch.Type)
