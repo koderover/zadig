@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -240,6 +241,18 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 
 	configPayload := commonservice.GetConfigPayload(0)
 
+	defaultS3, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("cannot find the default s3 to store the logs, error: %s", err)
+		return e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
+	}
+
+	defaultURL, err := defaultS3.GetEncryptedURL()
+	if err != nil {
+		log.Errorf("cannot convert the s3 config to an encrypted URI, error: %s", err)
+		return e.ErrS3Storage.AddErr(err)
+	}
+
 	finalTask := &task.Task{
 		TaskID:        nextTaskID,
 		ProductName:   scanningInfo.ProjectName,
@@ -250,6 +263,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		CreateTime:    time.Now().Unix(),
 		Stages:        stages,
 		ConfigPayload: configPayload,
+		StorageURI:    defaultURL,
 	}
 
 	if len(finalTask.Stages) <= 0 {
