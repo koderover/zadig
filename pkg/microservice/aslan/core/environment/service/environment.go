@@ -1644,6 +1644,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 			return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to find current chart values for service: %s", serviceName))
 		}
 
+		arg.FillRenderChartModel(rcValues, rcValues.ChartVersion)
 		changedCharts = append(changedCharts, arg)
 		updatedRcMap[serviceName] = rcValues
 	}
