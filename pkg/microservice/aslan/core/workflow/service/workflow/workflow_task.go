@@ -413,6 +413,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 	if workflow.BuildStage.Enabled {
 		for _, buildModule := range workflow.BuildStage.Modules {
 			buildKey := fmt.Sprintf("%s/%s", buildModule.Target.ServiceModule, buildModule.Target.ServiceName)
+			log.Infof("adding filterInfo for service module of: %s", buildKey)
 			filtermap[buildKey] = buildModule.BranchFilter
 		}
 	}
@@ -487,6 +488,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			for _, repoInfo := range target.Build.Repos {
 				if filterList, ok := filtermap[key]; ok {
 					for _, filter := range filterList {
+						log.Infof("finding filter info for key: [%s], filterInfo is: [%+v]", key, *filter)
 						// make sure they are the same repository
 						if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
 							repoInfo.FilterRegexp = filter.FilterRegExp
