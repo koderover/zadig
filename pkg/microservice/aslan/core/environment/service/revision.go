@@ -220,7 +220,7 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	var err error
 	serviceRev, err = compareServicesRev(svcTmplNameList, svcList, allServiceTmpls, allRender, newRender, log)
 	if err != nil {
-		log.Errorf("Failed to compare service revision. Error: %v", err)
+		log.Errorf("Failed to compare service revision, %s:%s, Error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return serviceRev, e.ErrListProductsRevision.AddDesc(err.Error())
 	}
 
