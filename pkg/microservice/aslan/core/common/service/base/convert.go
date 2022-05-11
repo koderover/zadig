@@ -36,6 +36,14 @@ func ToPreview(sb map[string]interface{}) (*Preview, error) {
 	return pre, nil
 }
 
+func ToScanning(sb map[string]interface{}) (*task.Scanning, error) {
+	var pre *task.Scanning
+	if err := task.IToi(sb, &pre); err != nil {
+		return nil, fmt.Errorf("convert interface to SubTaskPreview error: %v", err)
+	}
+	return pre, nil
+}
+
 func ToBuildTask(sb map[string]interface{}) (*task.Build, error) {
 	var t *task.Build
 	if err := task.IToi(sb, &t); err != nil {

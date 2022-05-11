@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -353,15 +354,19 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	repoInfo := resp.Stages[0]
-	fmt.Printf(">>>>>>>>>>> resp.SubTask[0] is: %+v <<<<<<<<<<<<<<<<", repoInfo)
+	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]
+	scanningTaskInfo, err := base.ToScanning(repoInfo)
+	if err != nil {
+		log.Errorf("failed to convert the content into scanning subtask, the error is: %s", err)
+		return nil, fmt.Errorf("failed to convert the content into scanning subtask, the error is: %s", err)
+	}
 
 	return &ScanningTaskDetail{
 		Creator:    resp.TaskCreator,
 		Status:     string(resp.Status),
 		CreateTime: resp.CreateTime,
 		EndTime:    resp.EndTime,
-		RepoInfo:   []*types.Repository{},
+		RepoInfo:   scanningTaskInfo.Repos,
 		ResultLink: sonarInfo.ServerAddress,
 	}, nil
 }
