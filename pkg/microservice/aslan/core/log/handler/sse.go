@@ -275,7 +275,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 		return
 	}
 
-	tails, err := strconv.ParseInt(c.Param("lines"), 10, 64)
+	tails, err := strconv.ParseInt(c.Query("lines"), 10, 64)
 	if err != nil {
 		tails = int64(10)
 	}
