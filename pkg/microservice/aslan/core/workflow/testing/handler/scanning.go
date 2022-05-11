@@ -163,7 +163,7 @@ func CreateScanningTask(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代码扫描任务", id, string(data), ctx.Logger)
 
-	ctx.Err = service.CreateScanningTask(id, req, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CreateScanningTask(id, req, ctx.UserName, ctx.Logger)
 }
 
 type listQuery struct {

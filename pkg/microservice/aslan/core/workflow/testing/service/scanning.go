@@ -148,11 +148,11 @@ func DeleteScanningModuleByID(id string, log *zap.SugaredLogger) error {
 	return err
 }
 
-func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log *zap.SugaredLogger) error {
+func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log *zap.SugaredLogger) (int64, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
-		return err
+		return 0, err
 	}
 
 	scanningName := fmt.Sprintf("%s-%s", scanningInfo.Name, "scanning-job")
@@ -160,13 +160,13 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ScanningTaskFmt, scanningName))
 	if err != nil {
 		log.Errorf("failed to generated task id for scanning task, error: %s", err)
-		return e.ErrGetCounter.AddDesc(err.Error())
+		return 0, e.ErrGetCounter.AddDesc(err.Error())
 	}
 
 	imageInfo, err := commonrepo.NewBasicImageColl().Find(scanningInfo.ImageID)
 	if err != nil {
 		log.Errorf("failed to get image information to create scanning task, error: %s", err)
-		return err
+		return 0, err
 	}
 
 	registries, err := commonservice.ListRegistryNamespaces("", true, log)
@@ -179,7 +179,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
 		if err != nil {
 			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
-			return err
+			return 0, err
 		}
 		repos = append(repos, &types.Repository{
 			Source:      rep.Type,
@@ -215,7 +215,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
 		if err != nil {
 			log.Errorf("failed to get sonar integration information to create scanning task, error: %s", err)
-			return err
+			return 0, err
 		}
 
 		scanningTask.SonarInfo = &types.SonarInfo{
@@ -232,7 +232,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	scanningSubtask, err := scanningTask.ToSubTask()
 	if err != nil {
 		log.Errorf("failed to convert scanning subtask, error: %s", err)
-		return e.ErrCreateTask.AddDesc(err.Error())
+		return 0, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
@@ -244,13 +244,13 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	defaultS3, err := s3.FindDefaultS3()
 	if err != nil {
 		log.Errorf("cannot find the default s3 to store the logs, error: %s", err)
-		return e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
+		return 0, e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
 	}
 
 	defaultURL, err := defaultS3.GetEncryptedURL()
 	if err != nil {
 		log.Errorf("cannot convert the s3 config to an encrypted URI, error: %s", err)
-		return e.ErrS3Storage.AddErr(err)
+		return 0, e.ErrS3Storage.AddErr(err)
 	}
 
 	finalTask := &task.Task{
@@ -267,15 +267,15 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	}
 
 	if len(finalTask.Stages) <= 0 {
-		return e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
+		return 0, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
 	}
 
 	if err := workflowservice.CreateTask(finalTask); err != nil {
 		log.Error(err)
-		return e.ErrCreateTask
+		return 0, e.ErrCreateTask
 	}
 
-	return nil
+	return nextTaskID, nil
 }
 
 func ListScanningTask(id string, pageNum, pageSize int64, log *zap.SugaredLogger) (*ListScanningTaskResp, error) {
