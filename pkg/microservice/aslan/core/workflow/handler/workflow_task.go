@@ -188,8 +188,9 @@ func GetWorkflowTask(c *gin.Context) {
 			Version: v.VersionInfo.Version,
 		})
 	}
+	log.Infof("****** %v", len(toReleases))
 	var toTask dto.Task
-	copier.Copy(toTask, task)
+	copier.Copy(&toTask, task)
 	toTask.Releases = toReleases
 	ctx.Resp = toTask
 	ctx.Err = err

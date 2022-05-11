@@ -66,10 +66,10 @@ type Task struct {
 	Features         []string                     `bson:"features"               json:"features"`
 	IsRestart        bool                         `bson:"is_restart"             json:"is_restart"`
 	StorageEndpoint  string                       `bson:"storage_endpoint"       json:"storage_endpoint"`
-	Releases         []Release
+	Releases         []Release                    `json:"releases"`
 }
 
 type Release struct {
-	ID      primitive.ObjectID
-	Version string
+	ID      primitive.ObjectID `json:"id"`
+	Version string             `json:"version"`
 }
