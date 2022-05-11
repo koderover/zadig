@@ -244,15 +244,19 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 		return nil, fmt.Errorf("failed to build release-service map: %s", err)
 	}
 
-	serviceMap := prod.GetServiceMap()
-	prodServiceRevisionMap := make(map[string]*models.ProductService)
 	svcDatSetMap := make(map[string]*SvcDataSet)
-	for serviceName, prodSvc := range serviceMap {
-		prodServiceRevisionMap[serviceName] = prodSvc
-		releaseName := releaseNameMap[serviceName]
-		svcDatSetMap[serviceName] = &SvcDataSet{
-			ProdSvc:    prodSvc,
-			SvcRelease: releaseMap[releaseName],
+	svcDataList := make([]*SvcDataSet, 0)
+
+	for _, svcGroup := range prod.Services {
+		for _, prodSvc := range svcGroup {
+			serviceName := prodSvc.ServiceName
+			releaseName := releaseNameMap[serviceName]
+			svcDataSet := &SvcDataSet{
+				ProdSvc:    prodSvc,
+				SvcRelease: releaseMap[releaseName],
+			}
+			svcDatSetMap[serviceName] = svcDataSet
+			svcDataList = append(svcDataList, svcDataSet)
 		}
 	}
 
@@ -298,13 +302,8 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 	}
 
 	ret := make([]*HelmReleaseResp, 0)
-	// filter releases, only list releases deployed by zadig
-	//releaseNameMap, err := commonservice.GetReleaseNameToServiceNameMap(prod)
-	//if err != nil {
-	//	return nil, err
-	//}
 
-	for _, svcDataSet := range svcDatSetMap {
+	for _, svcDataSet := range svcDataList {
 		if !filterFunc(svcDataSet) {
 			continue
 		}
