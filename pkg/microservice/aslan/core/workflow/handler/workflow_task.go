@@ -189,7 +189,10 @@ func GetWorkflowTask(c *gin.Context) {
 		})
 	}
 	var toTask dto.Task
-	copier.Copy(&toTask, task)
+	if err := copier.Copy(&toTask, task); err != nil {
+		ctx.Err = err
+		return
+	}
 	toTask.Releases = toReleases
 	ctx.Resp = toTask
 	ctx.Err = err

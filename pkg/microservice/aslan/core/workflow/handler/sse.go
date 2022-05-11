@@ -21,10 +21,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
@@ -137,7 +136,9 @@ func GetWorkflowTaskSSE(c *gin.Context) {
 				})
 			}
 			var task dto.Task
-			copier.Copy(&task, res)
+			if err := copier.Copy(&task, res); err != nil {
+				return false, err
+			}
 			task.Releases = re
 
 			msgChan <- task
