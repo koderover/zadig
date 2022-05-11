@@ -142,6 +142,10 @@ func DeleteScanningModule(c *gin.Context) {
 	ctx.Err = service.DeleteScanningModuleByID(id, ctx.Logger)
 }
 
+type createScanningTaskResp struct {
+	TaskID int64 json:"task_id"
+}
+
 func CreateScanningTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -163,7 +167,12 @@ func CreateScanningTask(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代码扫描任务", id, string(data), ctx.Logger)
 
-	ctx.Resp, ctx.Err = service.CreateScanningTask(id, req, ctx.UserName, ctx.Logger)
+	resp, err := service.CreateScanningTask(id, req, ctx.UserName, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = &createScanningTaskResp{TaskID: resp}
 }
 
 type listQuery struct {
