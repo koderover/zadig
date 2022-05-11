@@ -115,12 +115,18 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 		for _, scanTask := range res.ScanTasks {
 			timesTaken += scanTask.RunTime
 		}
+		var avgRuntime int64
+		if len(res.ScanTasks) > 0 {
+			avgRuntime = timesTaken / int64(len(res.ScanTasks))
+		} else {
+			avgRuntime = 0
+		}
 		resp = append(resp, &ListScanningRespItem{
 			ID:   scanning.ID.Hex(),
 			Name: scanning.Name,
 			Statistics: &ScanningStatistic{
 				TimesRun:       int64(res.TotalTasks),
-				AverageRuntime: timesTaken / int64(len(res.ScanTasks)),
+				AverageRuntime: avgRuntime,
 			},
 			CreatedAt: scanning.CreatedAt,
 			UpdatedAt: scanning.UpdatedAt,
