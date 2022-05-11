@@ -285,7 +285,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	options := &logservice.GetContainerOptions{
 		Namespace:    config.Namespace(),
 		PipelineName: scanningName,
-		SubTask:      "scanning",
+		SubTask:      string(config.TaskScanning),
 		TailLines:    tails,
 		TaskID:       taskID,
 		PipelineType: string(config.ScanningType),
