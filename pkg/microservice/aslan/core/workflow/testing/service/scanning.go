@@ -353,7 +353,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	repoInfo := resp.SubTasks[0]
+	repoInfo := resp.Stages[0]
 	fmt.Printf(">>>>>>>>>>> resp.SubTask[0] is: %+v <<<<<<<<<<<<<<<<", repoInfo)
 
 	return &ScanningTaskDetail{
