@@ -97,7 +97,7 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 					verbsSet.Insert(rule.Verbs...)
 					labelVerbMap[labelKeyKey] = verbsSet.List()
 				} else {
-					labelVerbMap[labelKeyKey] = verbs
+					labelVerbMap[labelKeyKey] = rule.Verbs
 				}
 			}
 		}
@@ -158,7 +158,7 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 type GetUserRulesByProjectResp struct {
 	IsSystemAdmin       bool                `json:"is_system_admin"`
 	IsProjectAdmin      bool                `json:"is_project_admin"`
-	ProjectVerbs        []string            `json:"project_verb_map"`
+	ProjectVerbs        []string            `json:"project_verbs"`
 	WorkflowVerbsMap    map[string][]string `json:"workflow_verbs_map"`
 	EnvironmentVerbsMap map[string][]string `json:"environment_verbs_map"`
 }
