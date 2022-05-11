@@ -361,6 +361,13 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, fmt.Errorf("failed to convert the content into scanning subtask, the error is: %s", err)
 	}
 
+	// for security reasons, we set all sensitive information to empty
+	for _, repo := range scanningTaskInfo.Repos {
+		repo.OauthToken = ""
+		repo.Password = ""
+		repo.Username = ""
+	}
+
 	return &ScanningTaskDetail{
 		Creator:    resp.TaskCreator,
 		Status:     string(resp.Status),
