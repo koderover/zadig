@@ -111,12 +111,16 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 			log.Errorf("failed to get scanning task statistics")
 			return nil, 0, err
 		}
+		var timesTaken int64
+		for _, scanTask := range res.ScanTasks {
+			timesTaken += scanTask.RunTime
+		}
 		resp = append(resp, &ListScanningRespItem{
 			ID:   scanning.ID.Hex(),
 			Name: scanning.Name,
 			Statistics: &ScanningStatistic{
 				TimesRun:       int64(res.TotalTasks),
-				AverageRuntime: 0,
+				AverageRuntime: timesTaken / int64(len(res.ScanTasks)),
 			},
 			CreatedAt: scanning.CreatedAt,
 			UpdatedAt: scanning.UpdatedAt,
