@@ -171,7 +171,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		return 0, err
 	}
 
-	scanningName := fmt.Sprintf("%s-%s", scanningInfo.Name, "scanning-job")
+	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, id, "scanning-job")
 
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ScanningTaskFmt, scanningName))
 	if err != nil {
@@ -302,7 +302,7 @@ func ListScanningTask(id string, pageNum, pageSize int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	scanningName := fmt.Sprintf("%s-%s", scanningInfo.Name, "scanning-job")
+	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, id, "scanning-job")
 	listTaskOpt := &commonrepo.ListTaskOption{
 		PipelineName: scanningName,
 		Limit:        int(pageSize),
@@ -357,7 +357,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	scanningName := fmt.Sprintf("%s-%s", scanningInfo.Name, "scanning-job")
+	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
 	resp, err := commonrepo.NewTaskColl().Find(taskID, scanningName, config.ScanningType)
 	if err != nil {
 		log.Errorf("failed to get task information, error: %s", err)

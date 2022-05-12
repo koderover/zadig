@@ -55,7 +55,19 @@ func (c *ScanningColl) GetCollectionName() string {
 }
 
 func (c *ScanningColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "name", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+	}
+
+	_, err := c.Indexes().CreateMany(ctx, mod)
+
+	return err
 }
 
 func (c *ScanningColl) Create(scanning *models.Scanning) error {

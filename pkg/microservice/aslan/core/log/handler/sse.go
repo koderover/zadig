@@ -281,7 +281,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	}
 
 	resp, err := service.GetScanningModuleByID(id, ctx.Logger)
-	scanningName := fmt.Sprintf("%s-%s", resp.Name, "scanning-job")
+	scanningName := fmt.Sprintf("%s-%s-%s", resp.Name, id, "scanning-job")
 	options := &logservice.GetContainerOptions{
 		Namespace:    config.Namespace(),
 		PipelineName: scanningName,
