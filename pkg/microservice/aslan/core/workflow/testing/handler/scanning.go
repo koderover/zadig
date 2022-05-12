@@ -218,7 +218,7 @@ func GetScanningTask(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
 		return
 	}
 
@@ -243,7 +243,7 @@ func GetScanningTaskSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
 		return
 	}
 
