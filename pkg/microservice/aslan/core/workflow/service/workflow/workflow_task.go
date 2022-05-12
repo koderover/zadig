@@ -481,7 +481,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			if moBuild.TemplateID != "" {
 				target.Build.Repos = targetInfo.Repos
 			} else {
-				target.Build.Repos = moBuild.SafeRepos()
+				target.Build.Repos = append([]*types.Repository{}, moBuild.SafeRepos()...)
 			}
 
 			if moBuild.PreBuild != nil {
