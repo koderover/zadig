@@ -25,15 +25,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/jinzhu/copier"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/dto"
 )
 
 // GetWorkflowArgs find workflow args
@@ -162,7 +165,38 @@ func GetWorkflowTask(c *gin.Context) {
 	if workflowType == string(config.TestType) {
 		workflowTypeString = config.TestType
 	}
-	ctx.Resp, ctx.Err = workflow.GetPipelineTaskV2(taskID, c.Param("name"), workflowTypeString, ctx.Logger)
+	task, err := workflow.GetPipelineTaskV2(taskID, c.Param("name"), workflowTypeString, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	releases, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
+		TaskId:       int(task.TaskID),
+		ServiceName:  task.ServiceName,
+		ProjectName:  task.ProductName,
+		WorkflowName: task.PipelineName,
+	}, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	var toReleases []dto.Release
+	for _, v := range releases {
+		toReleases = append(toReleases, dto.Release{
+			ID:      v.VersionInfo.ID,
+			Version: v.VersionInfo.Version,
+		})
+	}
+	var toTask dto.Task
+	if err := copier.Copy(&toTask, task); err != nil {
+		ctx.Err = err
+		return
+	}
+	toTask.Releases = toReleases
+	ctx.Resp = toTask
+	ctx.Err = err
+	return
 }
 
 func RestartWorkflowTask(c *gin.Context) {
