@@ -218,22 +218,18 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	} else if repo.Source == meta.ProviderGitee {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else if repo.Source == meta.ProviderOther {
-		log.Infof("repo.AuthType:%s", repo.AuthType)
 		if repo.AuthType == config.SSHAuthType {
 			host := getHost(repo.OtherAddress)
-			log.Infof("host:%s", host)
 			if !hostNames.Has(host) {
-				log.Info("111")
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("Failed to write ssh file %s: %s", repo.SSHKey, err)
 				}
 				hostNames.Insert(host)
-				log.Infof("hostname:%s", strings.Join(hostNames.List(), ","))
 			}
 
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, repo.OtherAddress),
-				DisableTrace: true,
+				DisableTrace: false,
 			})
 		} else if repo.AuthType == config.PrivateAccessTokenAuthType {
 			u, _ := url.Parse(repo.OtherAddress)
@@ -296,7 +292,7 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
 		}
 	}
-
+	fmt.Println(fmt.Sprintf("out:%s", out))
 	file := path.Join(config.Home(), "/.ssh/config")
 	return ioutil.WriteFile(file, []byte(out), 0600)
 }
