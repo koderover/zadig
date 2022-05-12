@@ -219,8 +219,8 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == config.SSHAuthType {
-			host, err := getHost(repo.OtherAddress)
-			if err == nil && !hostNames.Has(host) {
+			host := getHost(repo.OtherAddress)
+			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("Failed to write ssh file %s: %s", repo.SSHKey, err)
 				}
@@ -299,14 +299,9 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 
 // git@github.com:koderover/zadig.git
 // return github.com
-func getHost(address string) (string, error) {
-	address = strings.Replace(address, ":", "/", 1)
-	address = strings.Replace(address, "git@", "https://", 1)
-
-	URL, err := url.Parse(address)
-	if err != nil {
-		return "", fmt.Errorf("invalid Url")
-	}
-	host := URL.Host
-	return host, nil
+func getHost(address string) string {
+	hostArr := strings.Split(address, ":")
+	host := hostArr[0]
+	host = strings.TrimPrefix(host, "git@")
+	return host
 }
