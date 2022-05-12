@@ -200,6 +200,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
 			return 0, err
 		}
+		log.Infof("the response we got is: %+v", rep)
 		repos = append(repos, &types.Repository{
 			Source:      rep.Type,
 			RepoOwner:   arg.RepoOwner,
