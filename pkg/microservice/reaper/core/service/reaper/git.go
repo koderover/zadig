@@ -287,7 +287,7 @@ func writeSSHFile(sshKey, hostName string) error {
 }
 
 func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
-	var out string
+	out := "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
 	for _, hostName := range hostNames.List() {
 		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, strings.Replace(hostName, ".", "", -1))
 		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
