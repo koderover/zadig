@@ -481,7 +481,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			if moBuild.TemplateID != "" {
 				target.Build.Repos = targetInfo.Repos
 			} else {
-				target.Build.Repos = append([]*types.Repository{}, moBuild.SafeRepos()...)
+				target.Build.Repos = moBuild.SafeReposDeepCopy()
 			}
 
 			if moBuild.PreBuild != nil {
@@ -514,23 +514,12 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 	for _, target := range targets {
 		key := fmt.Sprintf("%s/%s", target.Name, target.ServiceName)
 		log.Infof("the build list is: %v", target.Build.Repos)
-		for i, repoInfo := range target.Build.Repos {
+		for _, repoInfo := range target.Build.Repos {
 			if filterList, ok := filtermap[key]; ok {
 				for _, filter := range filterList {
 					// make sure they are the same repository
 					if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
-						target.Build.Repos[i] = &types.Repository{
-							Address:      repoInfo.Address,
-							Branch:       repoInfo.Branch,
-							CodehostID:   repoInfo.CodehostID,
-							FilterRegexp: filter.FilterRegExp,
-							IsPrimary:    repoInfo.IsPrimary,
-							OauthToken:   repoInfo.OauthToken,
-							RemoteName:   repoInfo.RemoteName,
-							RepoName:     repoInfo.RemoteName,
-							RepoOwner:    repoInfo.RepoOwner,
-							Source:       repoInfo.Source,
-						}
+						repoInfo.FilterRegexp = filter.FilterRegExp
 						break
 					}
 				}
