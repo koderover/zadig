@@ -64,7 +64,6 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 					triggerRepoInfo := make([]*scanningservice.ScanningRepoInfo, 0)
 					// for now only one repo is supported
-					log.Infof("codehostID is: %d", item.CodehostID)
 					repoInfo := &scanningservice.ScanningRepoInfo{
 						CodehostID: item.CodehostID,
 						Source:     item.Source,
@@ -72,6 +71,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						RepoName:   item.RepoName,
 						Branch:     item.Branch,
 					}
+					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
 					repoInfo.PR = mergeRequestID
 
