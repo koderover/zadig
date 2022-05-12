@@ -499,6 +499,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 					}
 				}
 			}
+			log.Infof("replace filterRegExp done for target %s", key)
 
 			if moBuild.PreBuild != nil {
 				EnsureBuildResp(moBuild)
