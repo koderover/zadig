@@ -127,6 +127,9 @@ type gitlabPushEventMatcherForScanning struct {
 
 func (gpem gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gpem.event
+	if hookRepo == nil {
+		return false, nil
+	}
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
@@ -157,6 +160,9 @@ type gitlabMergeEventMatcherForScanning struct {
 
 func (gmem gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gmem.event
+	if hookRepo == nil {
+		return false, nil
+	}
 	// TODO: match codehost
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
