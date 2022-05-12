@@ -518,9 +518,18 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				for _, filter := range filterList {
 					// make sure they are the same repository
 					if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
-						tmpVar := *repoInfo
-						target.Build.Repos[i] = &(tmpVar)
-						target.Build.Repos[i].FilterRegexp = filter.FilterRegExp
+						target.Build.Repos[i] = &types.Repository{
+							Address:      repoInfo.Address,
+							Branch:       repoInfo.Branch,
+							CodehostID:   repoInfo.CodehostID,
+							FilterRegexp: filter.FilterRegExp,
+							IsPrimary:    repoInfo.IsPrimary,
+							OauthToken:   repoInfo.OauthToken,
+							RemoteName:   repoInfo.RemoteName,
+							RepoName:     repoInfo.RemoteName,
+							RepoOwner:    repoInfo.RepoOwner,
+							Source:       repoInfo.Source,
+						}
 						break
 					}
 				}
