@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/koderover/zadig/pkg/types"
 	"os"
 	"path"
 	"path/filepath"
@@ -570,6 +571,18 @@ func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
 		}
 	}
 	return false
+}
+
+func ConvertScanningHookToMainHookRepo(hook *types.ScanningHook) *commonmodels.MainHookRepo {
+	return &commonmodels.MainHookRepo{
+		Source:       hook.Source,
+		RepoOwner:    hook.RepoOwner,
+		RepoName:     hook.RepoName,
+		Branch:       hook.Branch,
+		MatchFolders: hook.MatchFolders,
+		CodehostID:   hook.CodehostID,
+		Events:       hook.Events,
+	}
 }
 
 func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) bool {

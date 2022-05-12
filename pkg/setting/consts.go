@@ -336,6 +336,7 @@ const (
 	WorkflowTaskV3Fmt = "WorkflowTaskV3:%s"
 	TestTaskFmt       = "TestTask:%s"
 	ServiceTaskFmt    = "ServiceTask:%s"
+	ScanningTaskFmt   = "ScanningTask:%s"
 )
 
 // Product Status

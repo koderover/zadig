@@ -141,6 +141,14 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerScanningByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	}
 
 	if mergeEvent != nil {
@@ -167,6 +175,14 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			if err = TriggerTestByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerScanningByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
