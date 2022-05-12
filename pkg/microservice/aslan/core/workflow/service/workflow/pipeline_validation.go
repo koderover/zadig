@@ -472,7 +472,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 // ParseOwnerAndRepo extracts the owner and repo info from the given link,
 // the link must have to following format: http(s)://example.com/owner/repo
 func parseOwnerAndRepo(repoLink string) (string, string) {
-	repoLink = strings.TrimRight(repoLink, ".git")
+	repoLink = strings.TrimSuffix(repoLink, ".git")
 	uri, err := url.Parse(repoLink)
 	if err != nil {
 		return "", ""
