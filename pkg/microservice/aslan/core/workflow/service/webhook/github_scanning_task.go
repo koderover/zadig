@@ -51,6 +51,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {
 				matcher := createGithubEventMatcherForScanning(event, diffSrv, scanning, log)
 				if matcher == nil {
+					log.Infof("got a nil matcher for trigger: %s/%s, stopping...", item.RepoOwner, item.RepoName)
 					continue
 				}
 				if matches, err := matcher.Match(item); err != nil {
