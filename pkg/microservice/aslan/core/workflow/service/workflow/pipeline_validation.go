@@ -588,10 +588,6 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		commitID = commitID[0:InterceptCommitID]
 	}
 
-	if first.Tag == "" {
-		first.Tag = first.Branch
-	}
-
 	candidate := &candidate{
 		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
 		CommitID:    commitID,
