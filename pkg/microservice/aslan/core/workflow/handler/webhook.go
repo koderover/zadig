@@ -81,5 +81,11 @@ func processGithub(payload []byte, req *http.Request, requestID string, log *zap
 		log.Errorf("error happens to trigger ProcessGithubWebHookForTest %v", err)
 		errs = multierror.Append(errs, err)
 	}
+	// webhooks for scanning task
+	err = webhook.ProcessGithubWebhookForScanning(payload, req, requestID, log)
+	if err != nil {
+		log.Errorf("error happens to trigger Scanning for github %v", err)
+		errs = multierror.Append(errs, err)
+	}
 	return errs.ErrorOrNil()
 }

@@ -409,6 +409,40 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 	return nil
 }
 
+func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
+	hookType := github.WebHookType(req)
+	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
+		return nil
+	}
+
+	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	if err != nil {
+		return err
+	}
+
+	event, err := github.ParseWebHook(github.WebHookType(req), payload)
+	if err != nil {
+		log.Errorf("Failed to parse webhook, err: %s", err)
+		return err
+	}
+
+	deliveryID := github.DeliveryID(req)
+
+	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
+
+	switch et := event.(type) {
+	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
+		if err = TriggerScanningByGithubEvent(et, requestID, log); err != nil {
+			log.Errorf("TriggerTestByGithubEvent error: %s", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	default:
+		log.Warn("Unsupported event type")
+		return nil
+	}
+	return nil
+}
+
 func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	forwardedProto := req.Header.Get("X-Forwarded-Proto")
 	forwardedHost := req.Header.Get("X-Forwarded-Host")
