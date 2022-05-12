@@ -116,17 +116,15 @@ func (r *Reaper) runGitCmds() error {
 	}
 	// write ssh key
 	if len(hostNames.List()) > 0 {
-		fmt.Println(fmt.Sprintf("hostNames:%s", strings.Join(hostNames.List(), ",")))
 		if err := writeSSHConfigFile(hostNames, r.Ctx.Proxy); err != nil {
 			return err
 		}
-		fmt.Println("222")
 	}
 
 	for _, c := range cmds {
 		cmdOutReader, err := c.Cmd.StdoutPipe()
 		if err != nil {
-			//return err
+			return err
 		}
 
 		outScanner := bufio.NewScanner(cmdOutReader)
@@ -138,7 +136,7 @@ func (r *Reaper) runGitCmds() error {
 
 		cmdErrReader, err := c.Cmd.StderrPipe()
 		if err != nil {
-			//return err
+			return err
 		}
 
 		errScanner := bufio.NewScanner(cmdErrReader)
@@ -156,7 +154,7 @@ func (r *Reaper) runGitCmds() error {
 			if c.IgnoreError {
 				continue
 			}
-			//return err
+			return err
 		}
 	}
 	return nil
@@ -231,7 +229,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, repo.OtherAddress),
-				DisableTrace: false,
+				DisableTrace: true,
 			})
 		} else if repo.AuthType == config.PrivateAccessTokenAuthType {
 			u, _ := url.Parse(repo.OtherAddress)
