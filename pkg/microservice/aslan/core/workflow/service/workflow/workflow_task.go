@@ -513,6 +513,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 
 	for _, target := range targets {
 		key := fmt.Sprintf("%s/%s", target.Name, target.ServiceName)
+		log.Infof("the build list is: %v", target.Build.Repos)
 		for i, repoInfo := range target.Build.Repos {
 			if filterList, ok := filtermap[key]; ok {
 				for _, filter := range filterList {
@@ -535,6 +536,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				}
 			}
 		}
+		log.Infof("the build list after is: %v", target.Build.Repos)
 	}
 
 	resp.Target = targets
