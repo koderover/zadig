@@ -307,5 +307,8 @@ func getHost(address string) string {
 	hostArr := strings.Split(address, ":")
 	host := hostArr[0]
 	host = strings.TrimPrefix(host, "git@")
+	if len(hostArr) > 2 {
+		return fmt.Sprintf("%s:%s", host, hostArr[1])
+	}
 	return host
 }

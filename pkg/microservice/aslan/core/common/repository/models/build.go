@@ -17,8 +17,12 @@ limitations under the License.
 package models
 
 import (
+	"net/url"
+	"strings"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -184,10 +188,37 @@ func (build *Build) SafeRepos() []*types.Repository {
 	}
 	for _, repo := range build.Repos {
 		if repo.Source == setting.SourceFromOther {
-			//repo.RepoName =
+			repo.RepoOwner, repo.RepoName = parseOwnerAndRepo(repo.OtherAddress, repo.AuthType)
 		}
 	}
 	return build.Repos
+}
+
+// ParseOwnerAndRepo extracts the owner and repo info from the given link,
+// the link must have to following format: http(s)://example.com/owner/repo
+func parseOwnerAndRepo(repoLink string, authType config.AuthType) (string, string) {
+	var ownerAndRepo []string
+	repoLink = strings.TrimSuffix(repoLink, ".git")
+	switch authType {
+	case config.SSHAuthType:
+		repoLinkArr := strings.Split(repoLink, ":")
+		currentRepoLink := repoLinkArr[len(repoLinkArr)-1]
+		uriPath := strings.Trim(currentRepoLink, "/")
+		ownerAndRepo = strings.Split(uriPath, "/")
+	case config.PrivateAccessTokenAuthType:
+		uri, err := url.Parse(repoLink)
+		if err != nil {
+			return "", ""
+		}
+
+		uriPath := strings.Trim(uri.Path, "/")
+		ownerAndRepo = strings.Split(uriPath, "/")
+	}
+	if len(ownerAndRepo) != 2 {
+		return "", ""
+	}
+
+	return ownerAndRepo[0], ownerAndRepo[1]
 }
 
 func (Build) TableName() string {
