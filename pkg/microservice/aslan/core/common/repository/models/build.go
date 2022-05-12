@@ -194,7 +194,7 @@ func (build *Build) SafeReposDeepCopy() []*types.Repository {
 		tmpRepo := *repo
 		resp = append(resp, &tmpRepo)
 	}
-	return build.Repos
+	return resp
 }
 
 func (Build) TableName() string {
