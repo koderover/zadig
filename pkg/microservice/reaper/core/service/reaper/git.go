@@ -292,7 +292,6 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
 		}
 	}
-	fmt.Println(fmt.Sprintf("out:%s", out))
 	file := path.Join(config.Home(), "/.ssh/config")
 	return ioutil.WriteFile(file, []byte(out), 0600)
 }
