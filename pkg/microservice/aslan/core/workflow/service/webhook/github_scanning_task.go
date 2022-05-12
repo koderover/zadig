@@ -34,7 +34,7 @@ type gitEventMatcherForScanning interface {
 
 func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.SugaredLogger) error {
 	//1.find configured testing
-	scanningList, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{}, 0, 0)
+	scanningList, _, err := commonrepo.NewScanningColl().List(nil, 0, 0)
 	if err != nil {
 		log.Errorf("failed to list scanning %v", err)
 		return err
@@ -49,7 +49,6 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 	for _, scanning := range scanningList {
 		log.Infof("scanning.AdvancedSetting.Hookctl is: [%s], scanning.AdvancedSetting.HookCtl.Enabled is: [%s], scanningName is: [%s]", scanning.AdvancedSetting.HookCtl, scanning.AdvancedSetting.HookCtl.Enabled, scanning.ID)
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
-			log.Infof("!!!!!!!!!!!!!!!!!!!!")
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {
 				matcher := createGithubEventMatcherForScanning(event, diffSrv, scanning, log)
 				if matcher == nil {
