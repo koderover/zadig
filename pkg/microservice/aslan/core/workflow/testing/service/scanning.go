@@ -110,7 +110,7 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 	for _, scanning := range scanningList {
 		res, err := ListScanningTask(scanning.ID.Hex(), 0, 0, log)
 		if err != nil {
-			log.Errorf("failed to get scanning task statistics")
+			log.Errorf("failed to get scanning task statistics, error is: %s", err)
 			return nil, 0, err
 		}
 		var timesTaken int64

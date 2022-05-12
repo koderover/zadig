@@ -248,7 +248,6 @@ func GetScanningTaskSSE(c *gin.Context) {
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
-		startTime := time.Now()
 		err := wait.PollImmediateUntil(time.Second, func() (bool, error) {
 			res, err := service.GetScanningTaskInfo(id, taskID, ctx.Logger)
 			if err != nil {
@@ -257,10 +256,6 @@ func GetScanningTaskSSE(c *gin.Context) {
 			}
 
 			msgChan <- res
-
-			if time.Since(startTime).Minutes() == float64(60) {
-				ctx.Logger.Warnf("[%s] Query Get scanning task info API over 60 minutes", ctx.UserName)
-			}
 
 			return false, nil
 		}, ctx1.Done())
