@@ -218,6 +218,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	} else if repo.Source == meta.ProviderGitee {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else if repo.Source == meta.ProviderOther {
+		log.Infof("repo.AuthType:%s", repo.AuthType)
 		if repo.AuthType == config.SSHAuthType {
 			host := getHost(repo.OtherAddress)
 			log.Infof("host:%s", host)
