@@ -528,7 +528,31 @@ func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
 	}
 	rs.SetKVAlias()
 	for _, v := range rs.KVs {
-		origin = strings.Replace(origin, v.Alias, v.Value, -1)
+		if v.State == "unused" {
+			continue
+		}
+		origin = replaceAliasValue(origin, v)
+	}
+	return origin
+}
+
+func replaceAliasValue(origin string, v *templatemodels.RenderKV) string {
+	for {
+		idx := strings.Index(origin, v.Alias)
+		if idx < 0 {
+			break
+		}
+		spaces := ""
+		start := 0
+		for i := idx - 1; i >= 0; i-- {
+			if string(origin[i]) != " " {
+				break
+			}
+			start++
+		}
+		spaces = origin[idx-start : idx]
+		valueStr := strings.Replace(v.Value, "\n", fmt.Sprintf("%s%s", "\n", spaces), -1)
+		origin = strings.Replace(origin, v.Alias, valueStr, 1)
 	}
 	return origin
 }
