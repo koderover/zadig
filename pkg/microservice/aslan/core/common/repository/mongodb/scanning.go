@@ -72,7 +72,7 @@ func (c *ScanningColl) EnsureIndex(ctx context.Context) error {
 
 func (c *ScanningColl) Create(scanning *models.Scanning) error {
 	if scanning == nil {
-		return errors.New("nil testing args")
+		return errors.New("nil scanning args")
 	}
 
 	scanning.CreatedAt = time.Now().Unix()

@@ -19,7 +19,6 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"strconv"
 
 	"github.com/gin-contrib/sse"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	logservice "github.com/koderover/zadig/pkg/microservice/aslan/core/log/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util/ginzap"

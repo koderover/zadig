@@ -35,18 +35,20 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+var MissingIDError = e.ErrInvalidParam.AddDesc("ID must be provided")
+
 func GetScanningProductName(c *gin.Context) {
-	args := new(commonmodels.Testing)
+	args := new(commonmodels.Scanning)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("c.GetRawData() err : %v", err)
+		log.Errorf("c.GetRawData() err : %s", err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("json.Unmarshal err : %v", err)
+		log.Errorf("json.Unmarshal err : %s", err)
 		return
 	}
-	c.Set("productName", args.ProductName)
+	c.Set("productName", args.ProjectName)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
@@ -98,7 +100,7 @@ func UpdateScanningModule(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.Err = MissingIDError
 		return
 	}
 
@@ -120,7 +122,7 @@ func GetScanningModule(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.Err = MissingIDError
 		return
 	}
 
@@ -135,7 +137,7 @@ func DeleteScanningModule(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.Err = MissingIDError
 		return
 	}
 
@@ -152,7 +154,7 @@ func CreateScanningTask(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.Err = MissingIDError
 		return
 	}
 
@@ -186,7 +188,7 @@ func ListScanningTask(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.Err = MissingIDError
 		return
 	}
 
@@ -206,7 +208,7 @@ func GetScanningTask(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.Err = MissingIDError
 		return
 	}
 
@@ -231,7 +233,7 @@ func GetScanningTaskSSE(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.Err = MissingIDError
 		return
 	}
 

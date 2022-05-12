@@ -19,6 +19,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
+
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
@@ -32,9 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
-	"go.uber.org/zap"
-	"sort"
-	"time"
 )
 
 func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogger) error {
@@ -188,6 +190,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
+		return 0, err
 	}
 
 	repos := make([]*types.Repository, 0)
@@ -241,7 +244,11 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		}
 	}
 
-	proxies, _ := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+	proxies, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+	if err != nil {
+		log.Errorf("failed to get proxy info to create scanning task, error: %s", err)
+		return 0, err
+	}
 	if len(proxies) != 0 {
 		scanningTask.Proxy = proxies[0]
 	}

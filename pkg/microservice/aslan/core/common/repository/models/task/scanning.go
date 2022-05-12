@@ -18,6 +18,7 @@ package task
 
 import (
 	"fmt"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
@@ -49,7 +50,7 @@ type Scanning struct {
 func (t *Scanning) ToSubTask() (map[string]interface{}, error) {
 	var task map[string]interface{}
 	if err := models.IToi(t, &task); err != nil {
-		return nil, fmt.Errorf("convert ScanningTask to interface error: %v", err)
+		return nil, fmt.Errorf("convert ScanningTask to interface error: %s", err)
 	}
 	return task, nil
 }
