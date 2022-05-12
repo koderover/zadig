@@ -220,11 +220,14 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == config.SSHAuthType {
 			host := getHost(repo.OtherAddress)
+			log.Infof("host:%s", host)
 			if !hostNames.Has(host) {
+				log.Info("111")
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("Failed to write ssh file %s: %s", repo.SSHKey, err)
 				}
 				hostNames.Insert(host)
+				log.Infof("hostname:%s", strings.Join(hostNames.List(), ","))
 			}
 
 			cmds = append(cmds, &c.Command{
