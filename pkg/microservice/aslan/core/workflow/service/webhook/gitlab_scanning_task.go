@@ -17,8 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"strconv"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
@@ -57,12 +55,11 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 					mErr = multierror.Append(mErr, err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item, scanning.Name)
-					var mergeRequestID, commitID string
+					var mergeRequestID int
 					if ev, isPr := event.(*gitlab.MergeEvent); isPr {
 						// 如果是merge request，且该webhook触发器配置了自动取消，
 						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
-						mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
-						commitID = ev.ObjectAttributes.LastCommit.ID
+						mergeRequestID = ev.ObjectAttributes.IID
 					}
 
 					triggerRepoInfo := make([]*scanningservice.ScanningRepoInfo, 0)
@@ -74,15 +71,8 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						RepoName:   item.RepoName,
 						Branch:     item.Branch,
 					}
-					if mergeRequestID != "" {
-						prID, err := strconv.Atoi(mergeRequestID)
-						if err != nil {
-							log.Errorf("failed to convert mergeRequestID: %s to int, error: %s", mergeRequestID, err)
-							mErr = multierror.Append(mErr, err)
-							continue
-						}
-						repoInfo.PR = prID
-					}
+
+					repoInfo.PR = mergeRequestID
 
 					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, "webhook", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
