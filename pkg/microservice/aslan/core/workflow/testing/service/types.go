@@ -110,7 +110,7 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		ID:              scanning.ID.Hex(),
 		Name:            scanning.Name,
 		ProjectName:     scanning.ProjectName,
-		Description:     scanning.ProjectName,
+		Description:     scanning.Description,
 		ScannerType:     scanning.ScannerType,
 		ImageID:         scanning.ImageID,
 		SonarID:         scanning.SonarID,

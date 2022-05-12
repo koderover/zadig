@@ -215,6 +215,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	scanningTask := &task.Scanning{
 		TaskType:   config.TaskScanning,
 		Status:     config.StatusCreated,
+		ScanningID: scanningInfo.ID.Hex(),
 		Name:       scanningInfo.Name,
 		ImageInfo:  imageInfo.Value,
 		ResReq:     scanningInfo.AdvancedSetting.ResReq,
