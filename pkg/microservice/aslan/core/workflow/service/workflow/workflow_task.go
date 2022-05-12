@@ -513,22 +513,19 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 
 	for _, target := range targets {
 		key := fmt.Sprintf("%s/%s", target.Name, target.ServiceName)
-		for _, repoInfo := range target.Build.Repos {
+		for i, repoInfo := range target.Build.Repos {
 			if filterList, ok := filtermap[key]; ok {
 				for _, filter := range filterList {
-					log.Infof("finding filter info for key: [%s], filterInfo is: [%+v]", key, *filter)
 					// make sure they are the same repository
 					if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
-						log.Infof("changing filterRegExp for repo: [%s/%s] from [%s] to [%s]", repoInfo.RepoOwner, repoInfo.RepoName, repoInfo.FilterRegexp, filter.FilterRegExp)
-						repoInfo.FilterRegexp = filter.FilterRegExp
-						log.Infof("the search for key [%s] has ended, the filter regExp is : [%s]", key, filter.FilterRegExp)
+						tmpVar := *repoInfo
+						target.Build.Repos[i] = &(tmpVar)
+						target.Build.Repos[i].FilterRegexp = filter.FilterRegExp
 						break
 					}
 				}
 			}
 		}
-
-		log.Infof("replace filterRegExp done for target %s", key)
 	}
 
 	resp.Target = targets
