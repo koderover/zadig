@@ -413,7 +413,6 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 	if workflow.BuildStage.Enabled {
 		for _, buildModule := range workflow.BuildStage.Modules {
 			buildKey := fmt.Sprintf("%s/%s", buildModule.Target.ServiceModule, buildModule.Target.ServiceName)
-			log.Infof("adding filterInfo for service module of: %s", buildKey)
 			filtermap[buildKey] = buildModule.BranchFilter
 		}
 	}
