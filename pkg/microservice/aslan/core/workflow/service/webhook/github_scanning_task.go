@@ -45,6 +45,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
 
+	log.Infof("Matching scanning list to find matched task to run.")
 	for _, scanning := range scanningList {
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {

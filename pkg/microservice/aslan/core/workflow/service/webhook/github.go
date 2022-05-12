@@ -433,7 +433,7 @@ func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestI
 	switch et := event.(type) {
 	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
 		if err = TriggerScanningByGithubEvent(et, requestID, log); err != nil {
-			log.Errorf("TriggerTestByGithubEvent error: %s", err)
+			log.Errorf("TriggerScanningByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	default:
