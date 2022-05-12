@@ -182,6 +182,11 @@ func (build *Build) SafeRepos() []*types.Repository {
 	if len(build.Repos) == 0 {
 		return []*types.Repository{}
 	}
+	for _, repo := range build.Repos {
+		if repo.Source == setting.SourceFromOther {
+			//repo.RepoName =
+		}
+	}
 	return build.Repos
 }
 

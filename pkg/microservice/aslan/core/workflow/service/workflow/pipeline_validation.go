@@ -459,12 +459,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 		build.AuthType = codeHostInfo.AuthType
 		build.SSHKey = codeHostInfo.SSHKey
 		build.PrivateAccessToken = codeHostInfo.PrivateAccessToken
-		if build.RemoteName == "" {
-			build.RemoteName = "origin"
-		}
-		if build.AuthType == config.PrivateAccessTokenAuthType {
-			build.RepoOwner, build.RepoName = parseOwnerAndRepo(build.OtherAddress)
-		}
+		build.RepoOwner, build.RepoName = parseOwnerAndRepo(build.OtherAddress)
 		return
 	}
 }
