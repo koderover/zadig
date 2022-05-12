@@ -492,6 +492,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 						// make sure they are the same repository
 						if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
 							repoInfo.FilterRegexp = filter.FilterRegExp
+							log.Infof("the search for key [%s] has ended, the filter regExp is : [%s]", key, filter.FilterRegExp)
 							break
 						}
 					}
