@@ -428,7 +428,7 @@ func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestI
 
 	deliveryID := github.DeliveryID(req)
 
-	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
+	log.Infof("[Webhook] event: %s delivery id: %s received for scanning trigger", hookType, deliveryID)
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
