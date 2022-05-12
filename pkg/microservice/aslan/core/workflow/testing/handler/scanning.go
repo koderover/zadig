@@ -67,7 +67,6 @@ func CreateScanningModule(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "项目管理-代码扫描", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err != nil {
 		ctx.Err = fmt.Errorf("create scanning module err : %s", err)
@@ -91,7 +90,6 @@ func UpdateScanningModule(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "修改", "项目管理-代码扫描", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err != nil {
 		ctx.Err = fmt.Errorf("update scanning module err : %s", err)
