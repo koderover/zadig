@@ -71,6 +71,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						RepoName:   item.RepoName,
 						Branch:     item.Branch,
 					}
+					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
 					repoInfo.PR = mergeRequestID
 
