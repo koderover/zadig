@@ -393,8 +393,6 @@
       description: ""
       rules:
         - method: GET
-          endpoint: "/api/aslan/delivery/releases"
-        - method: GET
           endpoint: "api/aslan/workflow/workflow"
           matchAttributes:
             - key: "placeholder"
@@ -509,6 +507,8 @@
       description: ""
       rules:
         - method: GET
+          endpoint: "/api/aslan/environment/environments/:name/helm/values"
+        - method: GET
           endpoint: "/api/aslan/environment/environments"
         - method: GET
           endpoint: "/api/aslan/environment/environments/:name"
@@ -574,6 +574,10 @@
       alias: "配置"
       description: ""
       rules:
+        - method: PUT
+          endpoint: "/api/aslan/environment/environments/:name/helm/default-values"
+        - method: PUT
+          endpoint: "/api/aslan/environment/environments/:name/helm/charts"
         # ----托管场景下配置服务需要接口------
         - method: GET
           endpoint: "/api/aslan/build/targets"
