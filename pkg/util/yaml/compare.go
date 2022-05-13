@@ -22,23 +22,22 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func CheckEqual(source, target []byte) (bool, error) {
-	if source == nil && target == nil {
+func Equal(source, target string) (bool, error) {
+	if source == target {
 		return true, nil
 	}
-	if source == nil && target != nil {
-		return false, nil
-	}
-	if source != nil && target == nil {
-		return false, nil
-	}
-	sourceMap := make(map[string]interface{})
-	if err := yaml.Unmarshal(source, &sourceMap); err != nil {
+
+	sourceYamlObj, targetYamlObj := make(map[string]interface{}), make(map[string]interface{})
+
+	err := yaml.Unmarshal([]byte(source), &sourceYamlObj)
+	if err != nil {
 		return false, err
 	}
-	targetMap := make(map[string]interface{})
-	if err := yaml.Unmarshal(target, &targetMap); err != nil {
+
+	err = yaml.Unmarshal([]byte(target), &targetYamlObj)
+	if err != nil {
 		return false, err
 	}
-	return reflect.DeepEqual(sourceMap, targetMap), nil
+
+	return reflect.DeepEqual(sourceYamlObj, targetYamlObj), nil
 }

@@ -37,6 +37,7 @@ const (
 	TaskTrigger         TaskType = "trigger"
 	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
+	TaskScanning        TaskType = "scanning"
 )
 
 type Status string
@@ -75,6 +76,8 @@ const (
 	WorkflowTypeV3 PipelineType = "workflow_v3"
 	// ArtifactType artifact build
 	ArtifactType PipelineType = "artifact"
+	// ScanningType is the type for scanning
+	ScanningType PipelineType = "scanning"
 )
 
 type NotifyType int

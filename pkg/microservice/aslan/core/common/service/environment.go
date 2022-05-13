@@ -141,11 +141,12 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 }
 
 // fill service display name if necessary
-func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product) {
-	if productInfo.Source == setting.SourceFromHelm {
-		for _, svc := range svcList {
-			svc.ServiceDisplayName = svc.ServiceName
-		}
+func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
+	if productInfo.Source != setting.SourceFromHelm {
+		return
+	}
+	for _, svc := range svcList {
+		svc.ServiceDisplayName = svc.ServiceName
 	}
 }
 
@@ -231,13 +232,13 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			data, err := jsonutil.ToJSON(filter)
 			if err != nil {
-				log.Warnf("Invalid filter, err: %s", err)
+				log.Errorf("Invalid filter, err: %s", err)
 				return workloads
 			}
 
 			f := &workloadFilter{}
 			if err = json.Unmarshal(data, f); err != nil {
-				log.Warnf("Invalid filter, err: %s", err)
+				log.Errorf("Invalid filter, err: %s", err)
 				return workloads
 			}
 
@@ -256,18 +257,47 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 	if err != nil {
 		return count, resp, err
 	}
-	fillServiceDisplayName(resp, productInfo)
+
+	fillServiceInfo(resp, productInfo)
 	return count, resp, nil
 }
 
 type FilterFunc func(services []*Workload) []*Workload
 
 type workloadFilter struct {
-	Name string `json:"name"`
+	Name            string      `json:"name"`
+	ServiceName     string      `json:"serviceName"`
+	ServiceNameList sets.String `json:"-"`
+}
+
+type wfAlias workloadFilter
+
+func (f *workloadFilter) UnmarshalJSON(data []byte) error {
+	aliasData := &wfAlias{}
+	if err := json.Unmarshal(data, aliasData); err != nil {
+		return err
+	}
+	f.Name = aliasData.Name
+	f.ServiceName = aliasData.ServiceName
+	if f.ServiceName != "*" {
+		serviceNames := strings.Split(f.ServiceName, "|")
+		f.ServiceNameList = sets.NewString(serviceNames...)
+	}
+	return nil
 }
 
 func (f *workloadFilter) Match(workload *Workload) bool {
-	return strings.Contains(workload.Name, f.Name)
+	if len(f.Name) > 0 {
+		if !strings.Contains(workload.Name, f.Name) {
+			return false
+		}
+	}
+	if len(f.ServiceNameList) > 0 {
+		if !f.ServiceNameList.Has(workload.ServiceName) {
+			return false
+		}
+	}
+	return true
 }
 
 type Workload struct {
@@ -278,8 +308,36 @@ type Workload struct {
 	Spec        corev1.PodTemplateSpec `json:"-"`
 	Images      []string               `json:"-"`
 	Ready       bool                   `json:"ready"`
-	ServiceName string                 `json:"service_name"`
 	Annotation  map[string]string      `json:"-"`
+	ServiceName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
+}
+
+// fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
+// TODO optimize this function, use release.template to filter related resources
+func fillServiceName(envName, productName string, workloads []*Workload) error {
+	if len(envName) == 0 {
+		return nil
+	}
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return err
+	}
+	if productInfo.Source != setting.SourceFromHelm {
+		return nil
+	}
+	releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+	if err != nil {
+		return err
+	}
+	for _, wl := range workloads {
+		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
+			wl.ServiceName = releaseNameMap[chartRelease]
+		}
+	}
+	return nil
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -302,6 +360,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
+
 	for _, v := range listDeployments {
 		workLoads = append(workLoads, &Workload{
 			Name:       v.Name,
@@ -336,6 +395,12 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
+
+	err = fillServiceName(envName, productName, workLoads)
+	// err of getting service name should not block the return of workloads
+	if err != nil {
+		log.Warnf("failed to set service name for workloads, error: %s", err)
+	}
 
 	// 对于workload过滤
 	for _, f := range filter {
@@ -486,6 +551,21 @@ func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, er
 	releaseNameMap := make(map[string]string)
 	for _, svcInfo := range templateServices {
 		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
+	}
+	return releaseNameMap, nil
+}
+
+// GetServiceNameToReleaseNameMap generates mapping relationship: serviceName=>releaseName
+func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, error) {
+	productName, envName := prod.ProductName, prod.EnvName
+	templateServices, err := GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, err
+	}
+	// map[serviceName] => ReleaseName
+	releaseNameMap := make(map[string]string)
+	for _, svcInfo := range templateServices {
+		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)
 	}
 	return releaseNameMap, nil
 }

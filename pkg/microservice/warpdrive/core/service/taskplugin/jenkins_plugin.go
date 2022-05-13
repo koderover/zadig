@@ -205,14 +205,26 @@ func (j *JenkinsBuildPlugin) Wait(ctx context.Context) {
 	jenkinsClient, err := gojenkins.CreateJenkins(nil, j.Task.JenkinsIntegration.URL, j.Task.JenkinsIntegration.Username, j.Task.JenkinsIntegration.Password).Init(ctx)
 	if err != nil {
 		j.SetStatus(config.StatusFailed)
+		msg := fmt.Sprintf("failed to create jenkins client, error: %s", err)
+		j.Log.Error(msg)
+		j.Task.Error = msg
+		return
 	}
 	job, err := jenkinsClient.GetJob(ctx, j.Task.JenkinsBuildArgs.JobName)
 	if err != nil {
 		j.SetStatus(config.StatusFailed)
+		msg := fmt.Sprintf("failed to get jenkins job, error: %s", err)
+		j.Log.Error(msg)
+		j.Task.Error = msg
+		return
 	}
 	build, err := job.GetLastCompletedBuild(ctx)
 	if err != nil {
 		j.SetStatus(config.StatusFailed)
+		msg := fmt.Sprintf("failed to get last completed build, error: %s", err)
+		j.Log.Error(msg)
+		j.Task.Error = msg
+		return
 	}
 	jenkinsBuildStatus := j.matchStatus(jobStatus, build.GetResult())
 	j.SetStatus(jenkinsBuildStatus)
