@@ -38,12 +38,13 @@ func (*Router) Policies() []*policy.PolicyMeta {
 		// should not have happened here
 		log.DPanic(err)
 	}
-	buildRes := &policy.PolicyMeta{}
+	buildRes := []*policy.PolicyMeta{}
 	err = yaml.Unmarshal(buildPolicymeta, buildRes)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
 	}
+	buildRes = append(buildRes, serviceRes)
 
-	return []*policy.PolicyMeta{serviceRes, buildRes}
+	return buildRes
 }
