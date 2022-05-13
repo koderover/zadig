@@ -125,7 +125,7 @@ type gitlabPushEventMatcherForScanning struct {
 	event    *gitlab.PushEvent
 }
 
-func (gpem gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gpem.event
 	if hookRepo == nil {
 		return false, nil
@@ -160,7 +160,7 @@ type gitlabMergeEventMatcherForScanning struct {
 	event    *gitlab.MergeEvent
 }
 
-func (gmem gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gmem.event
 	if hookRepo == nil {
 		return false, nil
@@ -196,6 +196,6 @@ type gitlabTagEventMatcherForScanning struct {
 	event    *gitlab.TagEvent
 }
 
-func (gtem gitlabTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	return false, nil
 }
