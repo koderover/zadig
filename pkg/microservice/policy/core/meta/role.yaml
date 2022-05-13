@@ -1,0 +1,125 @@
+- name: admin
+  type: system
+  desc: 拥有系统中任何操作的权限
+  rules:
+    - verbs:
+        - '*'
+      resources:
+        - '*'
+- name: contributor
+  type: system
+  rules:
+    - verbs:
+        - get_workflow
+        - run_workflow
+      resources:
+        - Workflow
+      kind: resource
+    - verbs:
+        - get_environment
+        - config_environment
+        - manage_environment
+        - delete_environment
+      resources:
+        - Environment
+      kind: resource
+    - verbs:
+        - get_service
+      resources:
+        - Service
+      kind: resource
+    - verbs:
+        - get_build
+      resources:
+        - Build
+      kind: resource
+    - verbs:
+        - get_test
+      resources:
+        - Test
+      kind: resource
+- name: project-admin
+  type: system
+  rules:
+    - verbs:
+        - '*'
+      resources:
+        - '*'
+- name: read-only
+  type: system
+  rules:
+    - verbs:
+        - get_workflow
+      resources:
+        - Workflow
+      kind: resource
+    - verbs:
+        - get_environment
+      resources:
+        - Environment
+      kind: resource
+    - verbs:
+        - get_environment
+      resources:
+        - ProductionEnvironment
+      kind: resource
+    - verbs:
+        - get_service
+      resources:
+        - Service
+      kind: resource
+    - verbs:
+        - get_build
+      resources:
+        - Build
+      kind: resource
+    - verbs:
+        - get_test
+      resources:
+        - Test
+      kind: resource
+    - verbs:
+        - get_delivery
+      resources:
+        - Delivery
+      kind: resource
+- name: read-project-only
+  type: system
+  namespace: ""
+  rules:
+    - verbs:
+        - get_workflow
+      resources:
+        - Workflow
+      kind: resource
+      match_attributes:
+        - key: placeholder
+          value: placeholder
+    - verbs:
+        - get_environment
+      resources:
+        - Environment
+      kind: resource
+      match_attributes:
+        - key: placeholder
+          value: placeholder
+    - verbs:
+        - get_service
+      resources:
+        - Service
+      kind: resource
+    - verbs:
+        - get_build
+      resources:
+        - Build
+      kind: resource
+    - verbs:
+        - get_test
+      resources:
+        - Test
+      kind: resource
+    - verbs:
+        - get_delivery
+      resources:
+        - Delivery
+      kind: resource

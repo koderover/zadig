@@ -73,7 +73,13 @@ func Serve(ctx context.Context) error {
 	}()
 
 	if err := migratePolicyMeta(); err != nil {
-		log.Errorf("fatil to migrage policyMeta")
+		log.Errorf("fail to migrate policyMeta, err:%s", err)
+		return err
+	}
+
+	if err := migrateRole(); err != nil {
+		log.Errorf("fail to migrate role , err:%s", err)
+		return err
 	}
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -84,6 +90,25 @@ func Serve(ctx context.Context) error {
 	<-stopChan
 
 	return nil
+}
+
+func migrateRole() error {
+
+	bs := meta.PresetRolesBytes()
+	roles := []*service.Role{}
+
+	if err := yaml.Unmarshal(bs, &roles); err != nil {
+		log.Errorf("yaml unmarshl err:%s", err)
+		return err
+	}
+	for _, role := range roles {
+		if err := service.UpdateOrCreateRole(role.Namespace, role, nil); err != nil {
+			log.Errorf("UpdateOrCreateRole err:%s", err)
+			return err
+		}
+	}
+	return nil
+
 }
 
 // migratePolicyMeta migrate the policy meta db date
