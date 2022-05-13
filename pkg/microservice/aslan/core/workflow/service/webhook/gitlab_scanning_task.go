@@ -130,8 +130,6 @@ func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHoo
 	if hookRepo == nil {
 		return false, nil
 	}
-	gpem.log.Infof("ev is: %v", ev)
-	gpem.log.Infof("hookrepo is: %v", hookRepo)
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
