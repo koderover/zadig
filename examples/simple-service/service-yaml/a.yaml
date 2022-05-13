@@ -31,7 +31,7 @@ spec:
         app: a
     spec:
       containers:
-      - name: nginx-1
+      - name: myapp-1
         image: ccr.ccs.tencentyun.com/koderover-rc/myapp-1:v0.1__linux_amd64
         imagePullPolicy: Always
         command: ["/myapp-1"]
