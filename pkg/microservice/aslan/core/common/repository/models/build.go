@@ -186,11 +186,6 @@ func (build *Build) SafeRepos() []*types.Repository {
 	if len(build.Repos) == 0 {
 		return []*types.Repository{}
 	}
-	for _, repo := range build.Repos {
-		if repo.Source == setting.SourceFromOther {
-			repo.RepoOwner, repo.RepoName = parseOwnerAndRepo(repo.OtherAddress, repo.AuthType)
-		}
-	}
 	return build.Repos
 }
 
@@ -220,6 +215,21 @@ func parseOwnerAndRepo(repoLink string, authType types.AuthType) (string, string
 	}
 
 	return ownerAndRepo[0], ownerAndRepo[1]
+}
+
+func (build *Build) SafeReposDeepCopy() []*types.Repository {
+	if len(build.Repos) == 0 {
+		return []*types.Repository{}
+	}
+	resp := make([]*types.Repository, 0)
+	for _, repo := range build.Repos {
+		tmpRepo := *repo
+		if tmpRepo.Source == setting.SourceFromOther {
+			tmpRepo.RepoOwner, tmpRepo.RepoName = parseOwnerAndRepo(tmpRepo.OtherAddress, tmpRepo.AuthType)
+		}
+		resp = append(resp, &tmpRepo)
+	}
+	return resp
 }
 
 func (Build) TableName() string {
