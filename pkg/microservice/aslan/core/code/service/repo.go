@@ -143,7 +143,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				match, err := regexp.MatchString(info.FilterRegexp, branch.Name)
 				if err != nil {
 					log.Errorf("failed to match regular expression: %s on branch name :%s, error: %s", info.FilterRegexp, branch.Name, err)
-					continue
+					return nil, err
 				}
 				if match {
 					newBranchList = append(newBranchList, branch)
@@ -154,7 +154,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				match, err := regexp.MatchString(info.FilterRegexp, tag.Name)
 				if err != nil {
 					log.Errorf("failed to match regular expression: %s on tag name :%s, error: %s", info.FilterRegexp, tag.Name, err)
-					continue
+					return nil, err
 				}
 				if match {
 					newTagList = append(newTagList, tag)
@@ -162,10 +162,20 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			}
 			info.Branches = newBranchList
 			info.Tags = newTagList
+
+			match, err := regexp.MatchString(info.FilterRegexp, info.DefaultBranch)
+			if err != nil {
+				log.Errorf("failed to compile regular expression: %s, the error is: %s", info.FilterRegexp, err)
+				return nil, err
+			}
+			if !match {
+				info.DefaultBranch = ""
+			}
 		}
 	}
 	if err := errList.ErrorOrNil(); err != nil {
 		log.Errorf("list repo info error: %v", err)
+		return nil, err
 	}
 	return infos, nil
 }

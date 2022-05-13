@@ -128,6 +128,13 @@ type Context struct {
 	UploadEnabled     bool                             `yaml:"upload_enabled"`
 	UploadStorageInfo *types.ObjectStorageInfo         `yaml:"upload_storage_info"`
 	UploadInfo        []*types.ObjectStoragePathDetail `yaml:"upload_info"`
+
+	// scanner used flag
+	ScannerFlag    bool   `yaml:"scanner_flag"`
+	ScannerType    string `yaml:"scanner_type"`
+	SonarParameter string `yaml:"sonar_parameter"`
+	SonarServer    string `yaml:"sonar_server"`
+	SonarLogin     string `yaml:"sonar_login"`
 }
 
 type ArtifactInfo struct {

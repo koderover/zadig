@@ -483,19 +483,6 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				target.Build.Repos = moBuild.SafeRepos()
 			}
 
-			key := fmt.Sprintf("%s/%s", containerArr[2], containerArr[1])
-			for _, repoInfo := range target.Build.Repos {
-				if filterList, ok := filtermap[key]; ok {
-					for _, filter := range filterList {
-						// make sure they are the same repository
-						if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
-							repoInfo.FilterRegexp = filter.FilterRegExp
-							break
-						}
-					}
-				}
-			}
-
 			if moBuild.PreBuild != nil {
 				EnsureBuildResp(moBuild)
 				target.Envs = moBuild.PreBuild.Envs
@@ -520,6 +507,21 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			}
 
 			targets = append(targets, target)
+		}
+	}
+
+	for _, target := range targets {
+		key := fmt.Sprintf("%s/%s", target.Name, target.ServiceName)
+		for _, repoInfo := range target.Build.Repos {
+			if filterList, ok := filtermap[key]; ok {
+				for _, filter := range filterList {
+					// make sure they are the same repository
+					if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
+						repoInfo.FilterRegexp = filter.FilterRegExp
+						break
+					}
+				}
+			}
 		}
 	}
 

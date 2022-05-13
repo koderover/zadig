@@ -50,6 +50,7 @@ var SubtaskOrder = map[config.TaskType]int{
 	config.TaskType("reset_image"):     15,
 	config.TaskType("trigger"):         16,
 	config.TaskType("extension"):       17,
+	config.TaskType("scanning"):        18,
 }
 
 type ByStageKind []*commonmodels.Stage

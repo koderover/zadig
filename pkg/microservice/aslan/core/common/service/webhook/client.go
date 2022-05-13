@@ -27,6 +27,7 @@ const (
 	ColliePrefix   = "collie-"
 	ServicePrefix  = "service-"
 	TestingPrefix  = "testing-"
+	ScannerPrefix  = "scanning-"
 
 	taskTimeoutSecond = 10
 )

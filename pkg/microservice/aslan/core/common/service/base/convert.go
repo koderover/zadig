@@ -31,7 +31,15 @@ type Preview struct {
 func ToPreview(sb map[string]interface{}) (*Preview, error) {
 	var pre *Preview
 	if err := task.IToi(sb, &pre); err != nil {
-		return nil, fmt.Errorf("convert interface to SubTaskPreview error: %v", err)
+		return nil, fmt.Errorf("convert interface to SubTaskPreview error: %s", err)
+	}
+	return pre, nil
+}
+
+func ToScanning(sb map[string]interface{}) (*task.Scanning, error) {
+	var pre *task.Scanning
+	if err := task.IToi(sb, &pre); err != nil {
+		return nil, fmt.Errorf("convert interface to Scanning error: %s", err)
 	}
 	return pre, nil
 }
@@ -39,7 +47,7 @@ func ToPreview(sb map[string]interface{}) (*Preview, error) {
 func ToBuildTask(sb map[string]interface{}) (*task.Build, error) {
 	var t *task.Build
 	if err := task.IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to BuildTaskV2 error: %v", err)
+		return nil, fmt.Errorf("convert interface to BuildTaskV2 error: %s", err)
 	}
 	return t, nil
 }

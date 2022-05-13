@@ -194,13 +194,11 @@ const (
 	// annotations
 	HelmReleaseNameAnnotation = "meta.helm.sh/release-name"
 
-	EnvCreatedBy              = "createdBy"
-	EnvCreator                = "koderover"
-	PodReady                  = "ready"
-	JobReady                  = "Completed"
-	PodNotReady               = "not ready"
-	HelmReleaseStatusPending  = "Pending"
-	HelmReleaseStatusDeployed = "Deployed"
+	EnvCreatedBy = "createdBy"
+	EnvCreator   = "koderover"
+	PodReady     = "ready"
+	JobReady     = "Completed"
+	PodNotReady  = "not ready"
 
 	APIVersionAppsV1 = "apps/v1"
 
@@ -340,6 +338,7 @@ const (
 	WorkflowTaskV3Fmt = "WorkflowTaskV3:%s"
 	TestTaskFmt       = "TestTask:%s"
 	ServiceTaskFmt    = "ServiceTask:%s"
+	ScanningTaskFmt   = "ScanningTask:%s"
 )
 
 // Product Status

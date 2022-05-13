@@ -116,6 +116,14 @@ func ToBuildTask(sb map[string]interface{}) (*task.Build, error) {
 	return t, nil
 }
 
+func ToScanningTask(sb map[string]interface{}) (*task.Scanning, error) {
+	var t *task.Scanning
+	if err := IToi(sb, &t); err != nil {
+		return nil, fmt.Errorf("convert interface to Scanning task error: %s", err)
+	}
+	return t, nil
+}
+
 func ToArtifactTask(sb map[string]interface{}) (*task.ArtifactPackage, error) {
 	var t *task.ArtifactPackage
 	if err := IToi(sb, &t); err != nil {
