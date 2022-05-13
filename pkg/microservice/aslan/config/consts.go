@@ -230,10 +230,3 @@ const (
 	CommonEnvCfgTypeSecret    CommonEnvCfgType = "Secret"
 	CommonEnvCfgTypePvc       CommonEnvCfgType = "PVC"
 )
-
-type AuthType string
-
-const (
-	SSHAuthType                AuthType = "SSH"
-	PrivateAccessTokenAuthType AuthType = "PrivateAccessToken"
-)

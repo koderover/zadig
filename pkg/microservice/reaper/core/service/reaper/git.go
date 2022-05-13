@@ -33,6 +33,7 @@ import (
 	c "github.com/koderover/zadig/pkg/microservice/reaper/core/service/cmd"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func (r *Reaper) RunGitGc(folder string) error {
@@ -218,7 +219,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	} else if repo.Source == meta.ProviderGitee {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else if repo.Source == meta.ProviderOther {
-		if repo.AuthType == config.SSHAuthType {
+		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.OtherAddress)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
@@ -231,7 +232,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 				Cmd:          c.RemoteAdd(repo.RemoteName, repo.OtherAddress),
 				DisableTrace: true,
 			})
-		} else if repo.AuthType == config.PrivateAccessTokenAuthType {
+		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
 			u, err := url.Parse(repo.OtherAddress)
 			if err != nil {
 				log.Errorf("failed to parse url,err:%s", err)

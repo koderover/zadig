@@ -19,8 +19,8 @@ package systemconfig
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
@@ -46,12 +46,12 @@ type CodeHost struct {
 	Username  string `json:"username"`
 	Password  string `json:"password"`
 	// the field determine whether the proxy is enabled
-	EnableProxy        bool            `json:"enable_proxy"`
-	UpdatedAt          int64           `json:"updated_at"`
-	OtherAddress       string          `json:"other_address,omitempty"`
-	AuthType           config.AuthType `json:"auth_type,omitempty"`
-	SSHKey             string          `json:"ssh_key,omitempty"`
-	PrivateAccessToken string          `json:"private_access_token,omitempty"`
+	EnableProxy        bool           `json:"enable_proxy"`
+	UpdatedAt          int64          `json:"updated_at"`
+	OtherAddress       string         `json:"other_address,omitempty"`
+	AuthType           types.AuthType `json:"auth_type,omitempty"`
+	SSHKey             string         `json:"ssh_key,omitempty"`
+	PrivateAccessToken string         `json:"private_access_token,omitempty"`
 }
 
 type Option struct {

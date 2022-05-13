@@ -22,7 +22,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -197,16 +196,16 @@ func (build *Build) SafeRepos() []*types.Repository {
 
 // ParseOwnerAndRepo extracts the owner and repo info from the given link,
 // the link must have to following format: http(s)://example.com/owner/repo
-func parseOwnerAndRepo(repoLink string, authType config.AuthType) (string, string) {
+func parseOwnerAndRepo(repoLink string, authType types.AuthType) (string, string) {
 	var ownerAndRepo []string
 	repoLink = strings.TrimSuffix(repoLink, ".git")
 	switch authType {
-	case config.SSHAuthType:
+	case types.SSHAuthType:
 		repoLinkArr := strings.Split(repoLink, ":")
 		currentRepoLink := repoLinkArr[len(repoLinkArr)-1]
 		uriPath := strings.Trim(currentRepoLink, "/")
 		ownerAndRepo = strings.Split(uriPath, "/")
-	case config.PrivateAccessTokenAuthType:
+	case types.PrivateAccessTokenAuthType:
 		uri, err := url.Parse(repoLink)
 		if err != nil {
 			log.Errorf("failed to parse url, err:%s", err)

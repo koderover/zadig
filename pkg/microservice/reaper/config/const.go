@@ -20,10 +20,3 @@ const (
 	ConstructCachePath = "cache"
 	FilepathParam      = "${FILEPATH}"
 )
-
-type AuthType string
-
-const (
-	SSHAuthType                AuthType = "SSH"
-	PrivateAccessTokenAuthType AuthType = "PrivateAccessToken"
-)

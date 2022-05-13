@@ -130,10 +130,3 @@ const (
 
 	APIServer = "https://api.github.com/"
 )
-
-type AuthType string
-
-const (
-	SSHAuthType                AuthType = "SSH"
-	PrivateAccessTokenAuthType AuthType = "PrivateAccessToken"
-)
