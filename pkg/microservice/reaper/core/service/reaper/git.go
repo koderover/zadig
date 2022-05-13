@@ -222,7 +222,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 			host := getHost(repo.OtherAddress)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
-					log.Errorf("Failed to write ssh file %s: %s", repo.SSHKey, err)
+					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
 				}
 				hostNames.Insert(host)
 			}
@@ -232,11 +232,15 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 				DisableTrace: true,
 			})
 		} else if repo.AuthType == config.PrivateAccessTokenAuthType {
-			u, _ := url.Parse(repo.OtherAddress)
-			cmds = append(cmds, &c.Command{
-				Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.PrivateAccessToken, u.Host, repo.Owner, repo.Name, u.Scheme)),
-				DisableTrace: true,
-			})
+			u, err := url.Parse(repo.OtherAddress)
+			if err != nil {
+				log.Errorf("failed to parse url,err:%s", err)
+			} else {
+				cmds = append(cmds, &c.Command{
+					Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.PrivateAccessToken, u.Host, repo.Owner, repo.Name, u.Scheme)),
+					DisableTrace: true,
+				})
+			}
 		}
 	} else {
 		// github
@@ -276,7 +280,11 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 
 func writeSSHFile(sshKey, hostName string) error {
 	if sshKey == "" {
-		return nil
+		return fmt.Errorf("ssh cannot be empty")
+	}
+
+	if hostName == "" {
+		return fmt.Errorf("hostName cannot be empty")
 	}
 
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", strings.Replace(hostName, ".", "", -1))

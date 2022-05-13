@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -208,6 +209,7 @@ func parseOwnerAndRepo(repoLink string, authType config.AuthType) (string, strin
 	case config.PrivateAccessTokenAuthType:
 		uri, err := url.Parse(repoLink)
 		if err != nil {
+			log.Errorf("failed to parse url, err:%s", err)
 			return "", ""
 		}
 
