@@ -43,7 +43,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 	for _, scanning := range scanningList {
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
-			log.Infof("find %d hooks in testing %s", len(scanning.AdvancedSetting.HookCtl.Items), scanning.Name)
+			log.Infof("find %d hooks in scanning %s", len(scanning.AdvancedSetting.HookCtl.Items), scanning.Name)
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {
 				// 2. match webhook
 				matcher := createGitlabEventMatcherForScanning(event, diffSrv, scanning, log)
@@ -130,6 +130,8 @@ func (gpem gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook
 	if hookRepo == nil {
 		return false, nil
 	}
+	gpem.log.Infof("ev.project is: %v", ev.Project)
+	gpem.log.Infof("hookrepo is: %v", hookRepo)
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
