@@ -55,6 +55,14 @@ func InitbasicImageInfos() []*commonmodels.BasicImage {
 			UpdateTime: time.Now().Unix(),
 			UpdateBy:   "system",
 		},
+		{
+			Value:      "sonarsource/sonar-scanner-cli",
+			Label:      "sonar:latest",
+			CreateTime: time.Now().Unix(),
+			UpdateTime: time.Now().Unix(),
+			UpdateBy:   "system",
+			ImageType:  "sonar",
+		},
 	}
 
 	return basicImageInfos
