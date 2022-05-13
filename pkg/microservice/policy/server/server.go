@@ -103,7 +103,7 @@ func migratePolicyMeta() error {
 	if err != nil {
 		return err
 	}
-	urls := meta.GetExemptionsUrls()
+	urls := meta.GetDefaultEmbedUrlConfig()
 	urlsBytes, err := yaml.Marshal(urls)
 	if err != nil {
 		return err
