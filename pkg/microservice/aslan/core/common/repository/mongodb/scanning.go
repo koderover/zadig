@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -31,46 +32,88 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type SonarIntegrationColl struct {
+type ScanningListOption struct {
+	ProjectName string
+}
+
+type ScanningColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewSonarIntegrationColl() *SonarIntegrationColl {
-	name := models.SonarIntegration{}.TableName()
-	return &SonarIntegrationColl{
+func NewScanningColl() *ScanningColl {
+	name := models.Scanning{}.TableName()
+	return &ScanningColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *SonarIntegrationColl) GetCollectionName() string {
+func (c *ScanningColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *SonarIntegrationColl) EnsureIndex(ctx context.Context) error {
-	return nil
-}
-
-func (c *SonarIntegrationColl) Create(ctx context.Context, args *models.SonarIntegration) error {
-	if args == nil {
-		return errors.New("sonar integration is nil")
+func (c *ScanningColl) EnsureIndex(ctx context.Context) error {
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "name", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
 	}
 
-	_, err := c.InsertOne(ctx, args)
+	_, err := c.Indexes().CreateMany(ctx, mod)
 
 	return err
 }
 
-func (c *SonarIntegrationColl) List(ctx context.Context, pageNum, pageSize int64) ([]*models.SonarIntegration, int64, error) {
+func (c *ScanningColl) Create(scanning *models.Scanning) error {
+	if scanning == nil {
+		return errors.New("nil scanning args")
+	}
+
+	scanning.CreatedAt = time.Now().Unix()
+
+	_, err := c.InsertOne(context.TODO(), scanning)
+	return err
+}
+
+func (c *ScanningColl) Update(idString string, scanning *models.Scanning) error {
+	if scanning == nil {
+		return fmt.Errorf("nil object")
+	}
+	id, err := primitive.ObjectIDFromHex(idString)
+	if err != nil {
+		return fmt.Errorf("invalid id")
+	}
+
+	scanning.UpdatedAt = time.Now().Unix()
+
+	filter := bson.M{"_id": id}
+	update := bson.M{"$set": scanning}
+
+	_, err = c.UpdateOne(context.TODO(), filter, update)
+	return err
+}
+
+func (c *ScanningColl) List(listOption *ScanningListOption, pageNum, pageSize int64) ([]*models.Scanning, int64, error) {
 	query := bson.M{}
-	resp := make([]*models.SonarIntegration, 0)
+	resp := make([]*models.Scanning, 0)
+	ctx := context.Background()
 
 	opt := options.Find()
 
 	if pageNum != 0 && pageSize != 0 {
-		opt = opt.SetSkip((pageNum - 1) * pageSize).SetLimit(pageSize)
+		opt.
+			SetSkip((pageNum - 1) * pageSize).
+			SetLimit(pageSize)
+	}
+
+	if listOption != nil {
+		query["project_name"] = listOption.ProjectName
 	}
 
 	cursor, err := c.Collection.Find(ctx, query, opt)
@@ -90,43 +133,28 @@ func (c *SonarIntegrationColl) List(ctx context.Context, pageNum, pageSize int64
 	return resp, count, nil
 }
 
-func (c *SonarIntegrationColl) GetByID(ctx context.Context, idstring string) (*models.SonarIntegration, error) {
-	resp := new(models.SonarIntegration)
+func (c *ScanningColl) GetByID(idstring string) (*models.Scanning, error) {
+	resp := new(models.Scanning)
 	id, err := primitive.ObjectIDFromHex(idstring)
 	if err != nil {
 		return nil, err
 	}
 	query := bson.M{"_id": id}
 
-	err = c.FindOne(ctx, query).Decode(&resp)
+	err = c.FindOne(context.TODO(), query).Decode(&resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (c *SonarIntegrationColl) Update(ctx context.Context, idString string, obj *models.SonarIntegration) error {
-	if obj == nil {
-		return fmt.Errorf("nil object")
-	}
-	id, err := primitive.ObjectIDFromHex(idString)
-	if err != nil {
-		return fmt.Errorf("invalid id")
-	}
-	filter := bson.M{"_id": id}
-	update := bson.M{"$set": obj}
-
-	_, err = c.UpdateOne(ctx, filter, update)
-	return err
-}
-
-func (c *SonarIntegrationColl) DeleteByID(ctx context.Context, idstring string) error {
+func (c *ScanningColl) DeleteByID(idstring string) error {
 	id, err := primitive.ObjectIDFromHex(idstring)
 	if err != nil {
 		return err
 	}
 	query := bson.M{"_id": id}
 
-	_, err = c.DeleteOne(ctx, query)
+	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }

@@ -51,6 +51,11 @@ func V1110ToV1120() error {
 		return err
 	}
 
+	if err := integrateSonar(); err != nil {
+		log.Errorf("add sonar integration err:%s", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -272,6 +277,19 @@ func buildAddJenkinsID() error {
 	}
 
 	return err
+}
+
+func integrateSonar() error {
+	sonarImageList, err := internalmongodb.NewBasicImageColl().GetSonarTypeImage()
+	if err != nil {
+		return fmt.Errorf("failed to list basic images of type sonar ,err: %s", err)
+	}
+
+	// if no sonar image list is included, we add one
+	if len(sonarImageList) == 0 {
+		return internalmongodb.NewBasicImageColl().CreateZadigSonarImage()
+	}
+	return nil
 }
 
 func buildAddJenkinsIDRollBack() error {

@@ -36,6 +36,7 @@ type BasicImageOpt struct {
 	Value     string `bson:"value"`
 	Label     string `bson:"label"`
 	ImageFrom string `bson:"image_from"`
+	ImageType string `bson:"image_type"`
 }
 
 type BasicImageColl struct {
@@ -86,6 +87,9 @@ func (c *BasicImageColl) List(opt *BasicImageOpt) ([]*models.BasicImage, error) 
 	if opt != nil && opt.Value != "" {
 		query["value"] = opt.Value
 	}
+	if opt != nil && opt.ImageType != "" {
+		query["image_type"] = opt.ImageType
+	}
 
 	ctx := context.Background()
 	resp := make([]*models.BasicImage, 0)
@@ -130,6 +134,7 @@ func (c *BasicImageColl) Update(id string, args *models.BasicImage) error {
 		"label":       args.Label,
 		"value":       args.Value,
 		"image_from":  args.ImageFrom,
+		"image_type":  args.ImageType,
 		"update_by":   args.UpdateBy,
 		"update_time": time.Now().Unix(),
 	}}

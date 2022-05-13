@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -247,6 +248,47 @@ func (r *Reaper) runScripts() error {
 		defer wg.Done()
 
 		r.handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName)
+	}()
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	wg.Wait()
+
+	return cmd.Wait()
+}
+
+func (r *Reaper) runSonarScanner() error {
+	// first we write the sonar scanner config to the config file
+	for _, repo := range r.Ctx.Repos {
+		log.Infof("Writing sonar-project.properties for repo: %s", repo.Name)
+		repoConfigPath := filepath.Join("/workspace", repo.Name, "sonar-project.properties")
+		configContent := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", r.Ctx.SonarLogin, r.Ctx.SonarServer, r.Ctx.SonarParameter)
+		err := os.WriteFile(repoConfigPath, []byte(configContent), fs.ModeAppend)
+		if err != nil {
+			log.Errorf("failed to write sonar-project.properties for repo: %s, the error is: %s", repo.Name, err)
+			return err
+		}
+	}
+	// then we simply run the sonar-scanner command to commence the scan
+	cmd := exec.Command("sonar-scanner")
+	// since currently only one codehost is supported, we will just use the first repository
+	cmd.Dir = filepath.Join("/workspace", r.Ctx.Repos[0].Name)
+	fileName := filepath.Join(os.TempDir(), "sonar.log")
+	util.WriteFile(fileName, []byte{}, 0700)
+	var wg sync.WaitGroup
+
+	cmdStdoutReader, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdoutReader, false, fileName)
 	}()
 
 	if err := cmd.Start(); err != nil {

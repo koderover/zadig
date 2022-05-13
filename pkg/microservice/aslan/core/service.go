@@ -233,6 +233,7 @@ func initDatabase() {
 		commonrepo.NewPvcColl(),
 		commonrepo.NewEnvSvcDependColl(),
 		commonrepo.NewBuildTemplateColl(),
+		commonrepo.NewScanningColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

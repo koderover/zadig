@@ -88,6 +88,8 @@ const (
 	WorkflowTypeV3 PipelineType = "workflow_v3"
 	// ArtifactPackageType package artifact
 	ArtifactType PipelineType = "artifact"
+	// ScanningType is the type for scanning
+	ScanningType PipelineType = "scanning"
 )
 
 type Status string
@@ -133,6 +135,7 @@ const (
 	TaskArtifactDeploy  TaskType = "artifact_deploy"
 	TaskDeploy          TaskType = "deploy"
 	TaskTestingV2       TaskType = "testingv2"
+	TaskScanning        TaskType = "scanning"
 	TaskDistributeToS3  TaskType = "distribute2kodo"
 	TaskReleaseImage    TaskType = "release_image"
 	TaskJira            TaskType = "jira"
