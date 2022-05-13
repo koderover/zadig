@@ -39,7 +39,7 @@ func (*Router) Policies() []*policy.PolicyMeta {
 		log.DPanic(err)
 	}
 	buildRes := []*policy.PolicyMeta{}
-	err = yaml.Unmarshal(buildPolicymeta, buildRes)
+	err = yaml.Unmarshal(buildPolicymeta, &buildRes)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
