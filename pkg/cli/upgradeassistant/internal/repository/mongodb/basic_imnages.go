@@ -72,7 +72,7 @@ func (c *BasicImageColl) CreateZadigSonarImage() error {
 		Label:      "sonar:latest",
 		CreateTime: time.Now().Unix(),
 		UpdateTime: time.Now().Unix(),
-		UpdateBy:   "Zadig",
+		UpdateBy:   "system",
 		ImageType:  "sonar",
 	}
 
