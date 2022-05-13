@@ -43,7 +43,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 	for _, scanning := range scanningList {
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
-			log.Infof("find %d hooks in testing %s", len(scanning.AdvancedSetting.HookCtl.Items), scanning.Name)
+			log.Infof("find %d hooks in scanning %s", len(scanning.AdvancedSetting.HookCtl.Items), scanning.Name)
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {
 				// 2. match webhook
 				matcher := createGitlabEventMatcherForScanning(event, diffSrv, scanning, log)
@@ -125,8 +125,11 @@ type gitlabPushEventMatcherForScanning struct {
 	event    *gitlab.PushEvent
 }
 
-func (gpem gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gpem.event
+	if hookRepo == nil {
+		return false, nil
+	}
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
@@ -155,8 +158,11 @@ type gitlabMergeEventMatcherForScanning struct {
 	event    *gitlab.MergeEvent
 }
 
-func (gmem gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gmem.event
+	if hookRepo == nil {
+		return false, nil
+	}
 	// TODO: match codehost
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
@@ -188,6 +194,6 @@ type gitlabTagEventMatcherForScanning struct {
 	event    *gitlab.TagEvent
 }
 
-func (gtem gitlabTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	return false, nil
 }

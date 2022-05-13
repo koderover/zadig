@@ -107,6 +107,9 @@ type githubPushEventMatcherForScanning struct {
 
 func (gpem githubPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gpem.event
+	if hookRepo == nil {
+		return false, nil
+	}
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
@@ -137,6 +140,9 @@ type githubMergeEventMatcherForScanning struct {
 
 func (gmem githubMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
 	ev := gmem.event
+	if hookRepo == nil {
+		return false, nil
+	}
 	// TODO: match codehost
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.PullRequest.Base.Repo.FullName {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
