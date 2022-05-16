@@ -72,6 +72,13 @@ rules:
           - key: "production"
             value: "false"
       - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/helm/values"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/values$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
         endpoint: "/api/aslan/environment/environments/?*/helm/charts"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$"
@@ -211,6 +218,20 @@ rules:
           - key: "production"
             value: "false"
       - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/helm/default-values"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/default-values$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/helm/charts"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: PUT
         endpoint: "/api/aslan/service/workloads"
         matchAttributes:
           - key: "production"
@@ -342,7 +363,7 @@ rules:
           - key: "production"
             value: "false"
   - action: ssh_pm
-    alias: "主机登陆"
+    alias: "主机登录"
     description: ""
     rules:
       - method: GET

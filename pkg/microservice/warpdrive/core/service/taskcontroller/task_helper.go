@@ -571,6 +571,7 @@ func initTaskPlugins(execHandler *ExecHandler) {
 		config.TaskTrigger:         plugins.InitializeTriggerTaskPlugin,
 		config.TaskArtifactPackage: plugins.InitializeArtifactPackagePlugin,
 		config.TaskExtension:       plugins.InitializeExtensionTaskPlugin,
+		config.TaskScanning:        plugins.InitializeScanningTaskPlugin,
 	}
 	for name, pluginInitiator := range pluginConf {
 		registerTaskPlugin(execHandler, name, pluginInitiator)

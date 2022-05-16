@@ -200,7 +200,7 @@ var (
 	//ErrDeleteResource ...
 	ErrDeleteResource = NewHTTPError(6096, "删除对象资源失败")
 	// ErrLoginPm ...
-	ErrLoginPm = NewHTTPError(6099, "登陆主机失败")
+	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
 
 	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
 
@@ -465,6 +465,10 @@ var (
 	ErrDeleteTestModule = NewHTTPError(6533, "删除测试模块失败")
 	// ErrGetTestReport ...
 	ErrGetTestReport = NewHTTPError(6534, "获取html测试报告失败")
+	// ErrCreateScanningModule ...
+	ErrCreateScanningModule = NewHTTPError(6535, "新建扫描模块失败")
+	// ErrCreateScanningModule ...
+	ErrUpdateScanningModule = NewHTTPError(6536, "更新扫描模块失败")
 
 	// Workflow APIs Range: 6540 - 6550
 	//-----------------------------------------------------------------------------------------------

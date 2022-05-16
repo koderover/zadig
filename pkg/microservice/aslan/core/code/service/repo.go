@@ -46,6 +46,8 @@ type GitRepoInfo struct {
 	RepoUUID      string                `json:"repo_uuid,omitempty"`
 	RepoID        string                `json:"repo_id,omitempty"`
 	Key           string                `json:"key"`
+	// FilterRegexp is the regular expression filter for the branches and tags
+	FilterRegexp string `json:"filter_regexp,omitempty"`
 }
 
 // ListRepoInfos ...
@@ -124,8 +126,46 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 	}
 
 	wg.Wait()
+	for _, info := range infos {
+		if info.FilterRegexp != "" {
+			newBranchList := make([]*client.Branch, 0)
+			for _, branch := range info.Branches {
+				match, err := regexp.MatchString(info.FilterRegexp, branch.Name)
+				if err != nil {
+					log.Errorf("failed to match regular expression: %s on branch name :%s, error: %s", info.FilterRegexp, branch.Name, err)
+					return nil, err
+				}
+				if match {
+					newBranchList = append(newBranchList, branch)
+				}
+			}
+			newTagList := make([]*client.Tag, 0)
+			for _, tag := range info.Tags {
+				match, err := regexp.MatchString(info.FilterRegexp, tag.Name)
+				if err != nil {
+					log.Errorf("failed to match regular expression: %s on tag name :%s, error: %s", info.FilterRegexp, tag.Name, err)
+					return nil, err
+				}
+				if match {
+					newTagList = append(newTagList, tag)
+				}
+			}
+			info.Branches = newBranchList
+			info.Tags = newTagList
+
+			match, err := regexp.MatchString(info.FilterRegexp, info.DefaultBranch)
+			if err != nil {
+				log.Errorf("failed to compile regular expression: %s, the error is: %s", info.FilterRegexp, err)
+				return nil, err
+			}
+			if !match {
+				info.DefaultBranch = ""
+			}
+		}
+	}
 	if err := errList.ErrorOrNil(); err != nil {
 		log.Errorf("list repo info error: %v", err)
+		return nil, err
 	}
 	return infos, nil
 }

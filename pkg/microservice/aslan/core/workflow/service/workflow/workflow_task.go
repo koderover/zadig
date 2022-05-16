@@ -409,6 +409,13 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 		log.Errorf("Workflow.Find error: %v", err)
 		return resp, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
+	filtermap := make(map[string][]*types.BranchFilterInfo)
+	if workflow.BuildStage.Enabled {
+		for _, buildModule := range workflow.BuildStage.Modules {
+			buildKey := fmt.Sprintf("%s/%s", buildModule.Target.ServiceModule, buildModule.Target.ServiceName)
+			filtermap[buildKey] = buildModule.BranchFilter
+		}
+	}
 	if workflow.DistributeStage != nil {
 		resp.DistributeEnabled = workflow.DistributeStage.Enabled
 	}
@@ -473,7 +480,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			if moBuild.TemplateID != "" {
 				target.Build.Repos = targetInfo.Repos
 			} else {
-				target.Build.Repos = moBuild.SafeRepos()
+				target.Build.Repos = moBuild.SafeReposDeepCopy()
 			}
 
 			if moBuild.PreBuild != nil {
@@ -500,6 +507,21 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			}
 
 			targets = append(targets, target)
+		}
+	}
+
+	for _, target := range targets {
+		key := fmt.Sprintf("%s/%s", target.Name, target.ServiceName)
+		for _, repoInfo := range target.Build.Repos {
+			if filterList, ok := filtermap[key]; ok {
+				for _, filter := range filterList {
+					// make sure they are the same repository
+					if filter.CodehostID == repoInfo.CodehostID && filter.RepoOwner == repoInfo.RepoOwner && filter.RepoName == repoInfo.RepoName {
+						repoInfo.FilterRegexp = filter.FilterRegExp
+						break
+					}
+				}
+			}
 		}
 	}
 

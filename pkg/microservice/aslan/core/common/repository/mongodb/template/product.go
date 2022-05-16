@@ -274,6 +274,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"enabled":               args.Enabled,
 		"description":           args.Description,
 		"timeout":               args.Timeout,
+		"auto_deploy":           args.AutoDeploy,
 		"shared_services":       args.SharedServices,
 		"image_searching_rules": args.ImageSearchingRules,
 		"custom_tar_rule":       args.CustomTarRule,

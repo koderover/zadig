@@ -21,7 +21,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -98,6 +98,13 @@ func UpdateChartTemplateVariables(c *gin.Context) {
 	}
 
 	ctx.Err = templateservice.UpdateChartTemplateVariables(c.Param("name"), args, ctx.Logger)
+}
+
+func SyncChartTemplateReference(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = templateservice.SyncHelmTemplateReference(ctx.UserName, c.Param("name"), ctx.Logger)
 }
 
 func RemoveChartTemplate(c *gin.Context) {

@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +43,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -55,11 +57,12 @@ import (
 )
 
 type ServiceOption struct {
-	ServiceModules []*ServiceModule           `json:"service_module"`
-	SystemVariable []*Variable                `json:"system_variable"`
-	CustomVariable []*templatemodels.RenderKV `json:"custom_variable"`
-	Yaml           string                     `json:"yaml"`
-	Service        *commonmodels.Service      `json:"service,omitempty"`
+	ServiceModules   []*ServiceModule           `json:"service_module"`
+	SystemVariable   []*Variable                `json:"system_variable"`
+	CustomVariable   []*templatemodels.RenderKV `json:"custom_variable"`
+	TemplateVariable []*Variable                `json:"template_variable"`
+	Yaml             string                     `json:"yaml"`
+	Service          *commonmodels.Service      `json:"service,omitempty"`
 }
 
 type ServiceModule struct {
@@ -134,6 +137,13 @@ type YamlValidatorReq struct {
 	Yaml        string `json:"yaml,omitempty"`
 }
 
+type YamlViewServiceTemplateReq struct {
+	ServiceName string                     `json:"service_name"`
+	ProjectName string                     `json:"project_name"`
+	EnvName     string                     `json:"env_name"`
+	Variables   []*templatemodels.RenderKV `json:"variables"`
+}
+
 type ReleaseNamingRule struct {
 	NamingRule  string `json:"naming"`
 	ServiceName string `json:"service_name"`
@@ -181,6 +191,24 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, l
 	return serviceOption, err
 }
 
+func GetTemplateVariables(args *commonmodels.Service) []*Variable {
+	if args.TemplateID == "" {
+		return nil
+	}
+	templateInfo, err := commonrepo.NewYamlTemplateColl().GetById(args.TemplateID)
+	if err != nil {
+		log.Errorf("failed to find template with id: %s for service: %s, err: %s", args.TemplateID, args.ServiceName, err)
+		return nil
+	}
+
+	variables, err := buildYamlTemplateVariables(args, templateInfo)
+	if err != nil {
+		log.Errorf("failed to extract template variables for service: %s, err: %s", args.ServiceName, err)
+		return nil
+	}
+	return variables
+}
+
 func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
 	serviceOption := new(ServiceOption)
 
@@ -216,6 +244,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Key:   "$EnvName$",
 			Value: ""},
 	}
+	serviceOption.TemplateVariable = GetTemplateVariables(args)
 	renderKVs, err := commonservice.ListServicesRenderKeys([]*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}, log)
 	if err != nil {
 		log.Errorf("ListServicesRenderKeys %s error: %v", args.ServiceName, err)
@@ -762,6 +791,11 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 	}
 	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
+	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
 	return GetServiceOption(args, log)
 }
 
@@ -930,12 +964,68 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				log.Errorf("yaml unmarshal err: %s", err)
-				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
+				errorDetails = append(errorDetails, fmt.Sprintf("Invalid yaml format. The content must be a series of valid Kubernetes resources. err: %s", err))
 			}
 		}
 	}
 	return errorDetails
+}
+
+func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		ProductName:   args.ProjectName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	}
+	svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
+	if err != nil {
+		return "", err
+	}
+
+	renderSet := new(commonmodels.RenderSet)
+	renderSet.KVs = args.Variables
+	parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, renderSet)
+	if args.EnvName != "" {
+		prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProjectName,
+			EnvName: args.EnvName,
+		})
+		if err != nil {
+			return "", err
+		}
+
+		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
+		cerSvc := prod.GetServiceMap()
+		svcInfo, found := cerSvc[args.ServiceName]
+		if found {
+			parsedYaml, err = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	return parsedYaml, nil
+}
+
+func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) (string, error) {
+	replaceMap := make(map[string]string)
+	for _, container := range replace {
+		replaceMap[container.Name] = container.Image
+	}
+
+	for _, container := range ori {
+		imageRex, err := regexp.Compile("image:\\s*" + container.Image)
+		if err != nil {
+			return "", err
+		}
+		if _, ok := replaceMap[container.Name]; !ok {
+			continue
+		}
+		tmpl = imageRex.ReplaceAllLiteralString(tmpl, fmt.Sprintf("image: %s", replaceMap[container.Name]))
+	}
+
+	return tmpl, nil
 }
 
 func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
@@ -996,7 +1086,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 
 	go func() {
 		// reinstall services in envs
-		err = service.UpdateSvcInAllEnvs(projectName, args.ServiceName, serviceTemplate)
+		err = service.ReInstallHelmSvcInAllEnvs(projectName, serviceTemplate)
 		if err != nil {
 			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
 			commonservice.SendErrorMessage(userName, title, requestID, err, log)
