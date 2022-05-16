@@ -102,6 +102,13 @@ spec:
           - containerPort: 8000
         image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-notification-service:v0.3.0 
         name: notification-service
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1G
+          requests:
+            cpu: 500m
+            memory: 512M      
         imagePullPolicy: Always
         volumeMounts:
           - mountPath: /opt/skywalking/agent

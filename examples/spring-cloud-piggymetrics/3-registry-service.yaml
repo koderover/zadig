@@ -70,6 +70,13 @@ spec:
            name: special-config-env
         image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-registry:v0.3.0
         name: registry
+        resources:
+          limits:
+            cpu: 800m
+            memory: 1G
+          requests:
+            cpu: 400m
+            memory: 768M        
         imagePullPolicy: Always
         ports:
         - containerPort: 8761

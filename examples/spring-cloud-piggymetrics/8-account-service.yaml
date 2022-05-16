@@ -80,9 +80,15 @@ spec:
            name: special-config-env              
         ports:
           - containerPort: 6000
-        # image: sqshq/piggymetrics-account-service
         image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-account-service:v0.3.0
         name: account-service
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1G
+          requests:
+            cpu: 500m
+            memory: 512M        
         imagePullPolicy: Always
         volumeMounts:
           - mountPath: /opt/skywalking/agent

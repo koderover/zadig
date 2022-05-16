@@ -90,6 +90,13 @@ spec:
            name: special-config-env              
         image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-auth-service:v0.3.0
         name: auth-service
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1G
+          requests:
+            cpu: 500m
+            memory: 512M
         imagePullPolicy: Always
         ports:
           - containerPort: 5000

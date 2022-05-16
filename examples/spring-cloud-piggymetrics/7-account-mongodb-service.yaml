@@ -53,4 +53,11 @@ spec:
         ports:
           - containerPort: 27017
         image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-mongodb:v0.1.1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1G
+          requests:
+            cpu: 100m
+            memory: 256M        
       restartPolicy: Always

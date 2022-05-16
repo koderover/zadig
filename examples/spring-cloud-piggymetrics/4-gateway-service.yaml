@@ -77,6 +77,13 @@ spec:
            name: special-config-env
         image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-gateway:v0.3.0
         name: gateway
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1G
+          requests:
+            cpu: 500m
+            memory: 512M
         imagePullPolicy: Always
         ports:
         - containerPort: 4000
