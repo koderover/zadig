@@ -1,0 +1,90 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+  name: gateway
+spec:
+  # comment or delete the following line if you want to use a LoadBalancer
+  type: NodePort 
+  # if your cluster supports it, uncomment the following to automatically create
+  # an external load-balanced IP for the frontend service.
+  # type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 4000
+    # comment or delete the following line if you want to use a LoadBalancer
+    nodePort: 30080
+  selector:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+     project: piggymetrics
+     tier: frontend
+     app: gateway  
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        project: piggymetrics
+        tier: frontend
+        app: gateway
+    spec:
+      initContainers:
+        - name: init-skywalking-agent
+          image: ccr.ccs.tencentyun.com/koderover-rc/skywalking-agent:8.8.0
+          command:
+            - 'sh'
+            - '-c'
+            - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+          volumeMounts:
+            - mountPath: /vmskywalking/agent
+              name: skywalking-agent
+      containers:
+      - name: gateway
+        env:
+        - name: JAVA_OPTS
+          value: "-javaagent:/opt/skywalking/agent/skywalking-agent.jar -Duser.timezone=GMT+8"
+        - name: SW_AGENT_NAME
+          value: "gateway"
+        - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
+          value: "skywalking-oap.skywalking.svc.cluster.local:11800"
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        envFrom:
+        - configMapRef:
+           name: special-config-env
+        image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-gateway:v0.3.0
+        name: gateway
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 4000
+        volumeMounts:
+          - mountPath: /opt/skywalking/agent
+            name: skywalking-agent
+      restartPolicy: Always
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}

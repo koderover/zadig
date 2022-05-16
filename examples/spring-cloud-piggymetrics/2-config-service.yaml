@@ -1,0 +1,115 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: config
+  name: config
+spec:
+  ports:
+  - name: http
+    port: 8888
+    targetPort: 8888
+  selector:
+    project: piggymetrics
+    tier: infrastructure
+    app: config
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: config
+  name: config
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+     project: piggymetrics
+     tier: infrastructure
+     app: config    
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:    
+        project: piggymetrics
+        tier: infrastructure
+        app: config
+    spec:
+      initContainers:
+        - name: init-skywalking-agent
+          image: ccr.ccs.tencentyun.com/koderover-rc/skywalking-agent:8.8.0
+          command:
+            - 'sh'
+            - '-c'
+            - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+          volumeMounts:
+            - mountPath: /vmskywalking/agent
+              name: skywalking-agent
+      containers:
+      - env:
+        - name: JAVA_OPTS
+          value: "-javaagent:/opt/skywalking/agent/skywalking-agent.jar -Duser.timezone=GMT+8"
+        - name: SW_AGENT_NAME
+          value: "config"
+        - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
+          value: "skywalking-oap.skywalking.svc.cluster.local:11800"
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        envFrom:
+        - configMapRef:
+           name: special-config-env
+        image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-config:v0.3.0
+        name: config
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8888
+        volumeMounts:
+          - mountPath: /opt/skywalking/agent
+            name: skywalking-agent
+      restartPolicy: Always
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: piggymetrics
+type: Opaque
+data: 
+  config_service_password: Q09ORklHX1NFUlZJQ0VfUEFTU1dPUkQ=
+  auth_mongodb_password: QVVUSF9NT05HT0RCX1BBU1NXT1JE
+  notification_service_password: Tk9USUZJQ0FUSU9OX1NFUlZJQ0VfUEFTU1dPUkQ=
+  notification_mongodb_password: Tk9USUZJQ0FUSU9OX01PTkdPREJfUEFTU1dPUkQ=
+  statistics_service_password: U1RBVElTVElDU19TRVJWSUNFX1BBU1NXT1JE
+  statistics_mongodb_password: U1RBVElTVElDU19NT05HT0RCX1BBU1NXT1JE
+  account_service_password: QUNDT1VOVF9TRVJWSUNFX1BBU1NXT1JE
+  account_mongodb_password: QUNDT1VOVF9NT05HT0RCX1BBU1NXT1JE
+  notification_email_host: c210cC5nbWFpbC5jb20=
+  notification_email_port: NDY1
+  notification_email_user: ZGV2LXVzZXI=
+  notification_email_pass: ZGV2LXBhc3N3b3Jk
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: special-config-env
+data:
+  registry_service_host: registry
+  auth_service_host: auth-service
+  auth_mongodb_host: auth-mongodb
+  account_mongodb_host: account-mongodb
+  notification_mongodb_host: notification-mongodb
+  statistics_mongodb_host: statistics-mongodb
+  rabbitmq_host: rabbitmq
