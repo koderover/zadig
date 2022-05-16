@@ -9,6 +9,3 @@ def square(x):
 
 def test_the_square_of_5_is_25():
     assert square(5) == 25
-
-def test_the_square_of_negative_5_is_negative_25():
-    assert square(-5) == -25
