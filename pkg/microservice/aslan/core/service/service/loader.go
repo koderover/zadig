@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
+	"github.com/koderover/zadig/pkg/tool/gitee"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -64,6 +65,8 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 		ret, err = preloadGerritService(ch, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
 		ret, err = preloadCodehubService(ch, repoName, repoUUID, branchName, path, isDir)
+	case setting.SourceFromGitee:
+		ret, err = preloadGiteeService(ch, repoOwner, repoName, branchName, remoteName, path, isDir)
 	default:
 		return nil, e.ErrPreloadServiceTemplate.AddDesc("Not supported code source")
 	}
@@ -85,6 +88,8 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, log)
 	case setting.SourceFromCodeHub:
 		return loadCodehubService(username, ch, repoOwner, repoName, repoUUID, branchName, args, log)
+	case setting.SourceFromGitee:
+		return loadGiteeService(username, ch, repoOwner, repoName, repoUUID, branchName, args, log)
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
 	}
@@ -106,6 +111,8 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
 		return validateServiceUpdateCodehub(detail, serviceName, repoName, repoUUID, branchName, path, isDir)
+	case setting.SourceFromGitee:
+		return validateServiceUpdateGitee(detail, serviceName, repoOwner, repoName, branchName, remoteName, path, isDir)
 	default:
 		return e.ErrValidateServiceUpdate.AddDesc("Not supported code source")
 	}
@@ -139,7 +146,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 			log.Errorf("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
-		if isValidGerritServiceDir(fileInfos) {
+		if isValidServiceDir(fileInfos) {
 			svcName := loadPath
 			if loadPath == "" {
 				svcName = repoName
@@ -158,7 +165,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 					log.Errorf("Failed to get subdir content from gerrit with path: %s, the error is: %+v", subDirPath, err)
 					return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 				}
-				if isValidGerritServiceDir(subtree) {
+				if isValidServiceDir(subtree) {
 					ret = append(ret, getFileName(file.Name()))
 					isGrandParent = true
 				}
@@ -226,6 +233,67 @@ func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, br
 		return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
 	}
 
+	return ret, nil
+}
+
+//Get a list of services that gitee can load based on repo information
+func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName, loadPath string, isDir bool) ([]string, error) {
+	ret := make([]string, 0)
+
+	base := path.Join(config.S3StoragePath(), repoName)
+	if _, err := os.Stat(base); os.IsNotExist(err) {
+		err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+		if err != nil {
+			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
+		}
+	}
+
+	filePath := path.Join(base, loadPath)
+
+	if !isDir {
+		if !isYaml(loadPath) {
+			log.Errorf("trying to preload a non-yaml file")
+			return nil, e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
+		}
+		pathSegment := strings.Split(loadPath, "/")
+		fileName := pathSegment[len(pathSegment)-1]
+		ret = append(ret, getFileName(fileName))
+	} else {
+		fileInfos, err := ioutil.ReadDir(filePath)
+		if err != nil {
+			log.Errorf("Failed to read directory info of path: %s, the error is: %s", filePath, err)
+			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
+		}
+		if isValidServiceDir(fileInfos) {
+			svcName := loadPath
+			if loadPath == "" {
+				svcName = repoName
+			}
+			pathList := strings.Split(svcName, "/")
+			folderName := pathList[len(pathList)-1]
+			ret = append(ret, folderName)
+			return ret, nil
+		}
+		isGrandParent := false
+		for _, file := range fileInfos {
+			if file.IsDir() {
+				subDirPath := fmt.Sprintf("%s/%s", filePath, file.Name())
+				subtree, err := ioutil.ReadDir(subDirPath)
+				if err != nil {
+					log.Errorf("Failed to get subdir content from gitee with path: %s, the error is: %s", subDirPath, err)
+					return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
+				}
+				if isValidServiceDir(subtree) {
+					ret = append(ret, getFileName(file.Name()))
+					isGrandParent = true
+				}
+			}
+		}
+		if !isGrandParent {
+			log.Errorf("invalid folder selected since no yaml is presented in path: %s", filePath)
+			return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
+		}
+	}
 	return ret, nil
 }
 
@@ -302,7 +370,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 		log.Errorf("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
-	if isValidGerritServiceDir(fileInfos) {
+	if isValidServiceDir(fileInfos) {
 		return loadServiceFromGerrit(fileInfos, ch.ID, username, branchName, args.LoadPath, filePath, repoOwner, remoteName, repoName, args, commitInfo, log)
 	}
 	for _, entry := range fileInfos {
@@ -313,7 +381,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 			log.Errorf("Failed to read subdir info from gerrit package of path: %s, the error is: %+v", subtreePath, err)
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
-		if isValidGerritServiceDir(subtreeInfo) {
+		if isValidServiceDir(subtreeInfo) {
 			if err := loadServiceFromGerrit(subtreeInfo, ch.ID, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, log); err != nil {
 				return err
 			}
@@ -327,7 +395,7 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 	var splittedYaml []string
 	fileName := pathList[len(pathList)-1]
 	serviceName := getFileName(fileName)
-	yamlList, err := extractGerritYamls(path, tree)
+	yamlList, err := extractYamls(path, tree)
 	if err != nil {
 		log.Errorf("Failed to extract yamls from gerrit package, the error is: %+v", err)
 		return err
@@ -497,6 +565,137 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 	return err
 }
 
+// Load services from gitee based on repo information
+func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+	if remoteName == "" {
+		remoteName = "origin"
+	}
+	base := path.Join(config.S3StoragePath(), repoName)
+	if _, err := os.Stat(base); os.IsNotExist(err) {
+		err = command.RunGitCmds(ch, repoOwner, repoName, branchName, remoteName)
+		if err != nil {
+			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+		}
+	}
+
+	giteeCli := gitee.NewClient(ch.ID, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+	branch, err := giteeCli.GetSingleBranch(ch.AccessToken, repoOwner, repoName, branchName)
+	if err != nil {
+		log.Errorf("Failed to get latest commit info from repo: %s, the error is: %s", repoName, err)
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	}
+	commitInfo := &models.Commit{
+		SHA:     branch.Commit.Sha,
+		Message: branch.Commit.Commit.Message,
+	}
+
+	filePath := path.Join(base, args.LoadPath)
+	if !args.LoadFromDir {
+		contentBytes, err := ioutil.ReadFile(path.Join(base, args.LoadPath))
+		if err != nil {
+			log.Errorf("Failed to read file of path: %s, the error is: %s", args.LoadPath, err)
+			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+		}
+		pathSegments := strings.Split(args.LoadPath, "/")
+		fileName := pathSegments[len(pathSegments)-1]
+		svcName := getFileName(fileName)
+		splittedYaml := SplitYaml(string(contentBytes))
+		createSvcArgs := &models.Service{
+			CodehostID:  ch.ID,
+			RepoName:    repoName,
+			RepoOwner:   repoOwner,
+			BranchName:  branchName,
+			LoadPath:    args.LoadPath,
+			LoadFromDir: args.LoadFromDir,
+			KubeYamls:   splittedYaml,
+			CreateBy:    username,
+			ServiceName: svcName,
+			Type:        args.Type,
+			ProductName: args.ProductName,
+			Source:      setting.SourceFromGitee,
+			Yaml:        string(contentBytes),
+			Commit:      commitInfo,
+			Visibility:  args.Visibility,
+		}
+		_, err = CreateServiceTemplate(username, createSvcArgs, log)
+		if err != nil {
+			_, messageMap := e.ErrorMessage(err)
+			if description, ok := messageMap["description"]; ok {
+				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
+			}
+			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+		}
+		return nil
+	}
+	fileInfos, err := ioutil.ReadDir(filePath)
+	if err != nil {
+		log.Errorf("Failed to read directory info of path: %s, the error is: %s", filePath, err)
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	}
+	if isValidServiceDir(fileInfos) {
+		return loadServiceFromGitee(fileInfos, ch.ID, username, branchName, args.LoadPath, filePath, repoOwner, remoteName, repoName, args, commitInfo, log)
+	}
+	for _, entry := range fileInfos {
+		subtreeLoadPath := fmt.Sprintf("%s/%s", args.LoadPath, entry.Name())
+		subtreePath := fmt.Sprintf("%s/%s", filePath, entry.Name())
+		subtreeInfo, err := ioutil.ReadDir(subtreePath)
+		if err != nil {
+			log.Errorf("Failed to read subdir info from gitee package of path: %s, the error is: %+v", subtreePath, err)
+			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+		}
+		if isValidServiceDir(subtreeInfo) {
+			if err := loadServiceFromGitee(subtreeInfo, ch.ID, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, log); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func loadServiceFromGitee(tree []os.FileInfo, id int, username, branchName, loadPath, path, repoOwner, remoteName, repoName string, args *LoadServiceReq, commit *models.Commit, log *zap.SugaredLogger) error {
+	pathList := strings.Split(path, "/")
+	var splittedYaml []string
+	fileName := pathList[len(pathList)-1]
+	serviceName := getFileName(fileName)
+	yamlList, err := extractYamls(path, tree)
+	if err != nil {
+		log.Errorf("Failed to extract yamls from gitee package, the error is: %+v", err)
+		return err
+	}
+	for _, yamlEntry := range yamlList {
+		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
+	}
+	yml := joinYamls(yamlList)
+	createSvcArgs := &models.Service{
+		CodehostID:  id,
+		BranchName:  branchName,
+		RepoName:    repoName,
+		RepoOwner:   repoOwner,
+		LoadPath:    loadPath,
+		LoadFromDir: args.LoadFromDir,
+		KubeYamls:   splittedYaml,
+		CreateBy:    username,
+		ServiceName: serviceName,
+		Type:        args.Type,
+		ProductName: args.ProductName,
+		Source:      setting.SourceFromGitee,
+		Yaml:        yml,
+		Commit:      commit,
+		Visibility:  args.Visibility,
+	}
+
+	_, err = CreateServiceTemplate(username, createSvcArgs, log)
+	if err != nil {
+		_, messageMap := e.ErrorMessage(err)
+		if description, ok := messageMap["description"]; ok {
+			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
+		} else {
+			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+		}
+	}
+	return err
+}
+
 // 根据github repo决定服务是否可以更新这个repo地址
 func validateServiceUpdateGithub(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
 	ctx := context.Background()
@@ -625,7 +824,7 @@ func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, rep
 		log.Errorf("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
 		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 	}
-	if isValidGerritServiceDir(fileInfos) {
+	if isValidServiceDir(fileInfos) {
 		svcName := loadPath
 		if loadPath == "" {
 			svcName = repoName
@@ -681,6 +880,51 @@ func validateServiceUpdateCodehub(detail *systemconfig.CodeHost, serviceName, re
 	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
 }
 
+// Determine whether the service can update the repo address according to the gitee repo
+func validateServiceUpdateGitee(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, remoteName, loadPath string, isDir bool) error {
+	base := path.Join(config.S3StoragePath(), repoName)
+	if _, err := os.Stat(base); os.IsNotExist(err) {
+		err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+		if err != nil {
+			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
+		}
+	}
+
+	filePath := path.Join(base, loadPath)
+	if !isDir {
+		if !isYaml(loadPath) {
+			log.Errorf("trying to preload a non-yaml file")
+			return e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
+		}
+		pathSegment := strings.Split(loadPath, "/")
+		fileName := pathSegment[len(pathSegment)-1]
+		if getFileName(fileName) != serviceName {
+			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", fileName, serviceName)
+			return e.ErrValidateServiceUpdate.AddDesc("文件名称和服务名称不一致")
+		}
+		return nil
+	}
+	fileInfos, err := ioutil.ReadDir(filePath)
+	if err != nil {
+		log.Errorf("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
+		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
+	}
+	if isValidServiceDir(fileInfos) {
+		svcName := loadPath
+		if loadPath == "" {
+			svcName = repoName
+		}
+		pathList := strings.Split(svcName, "/")
+		folderName := pathList[len(pathList)-1]
+		if folderName != serviceName {
+			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", folderName, serviceName)
+			return e.ErrValidateServiceUpdate.AddDesc("文件夹名称和服务名称不一致")
+		}
+		return nil
+	}
+	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
+}
+
 func isValidGithubServiceDir(child []*github.RepositoryContent) bool {
 	for _, entry := range child {
 		if entry.GetType() == "file" && isYaml(entry.GetName()) {
@@ -699,7 +943,7 @@ func isValidGitlabServiceDir(child []*gitlab.TreeNode) bool {
 	return false
 }
 
-func isValidGerritServiceDir(child []os.FileInfo) bool {
+func isValidServiceDir(child []os.FileInfo) bool {
 	for _, file := range child {
 		if !file.IsDir() && isYaml(file.Name()) {
 			return true
@@ -737,7 +981,7 @@ func extractCodehubYamls(client *codehub.CodeHubClient, tree []*codehub.TreeNode
 	return ret, nil
 }
 
-func extractGerritYamls(basePath string, tree []os.FileInfo) ([]string, error) {
+func extractYamls(basePath string, tree []os.FileInfo) ([]string, error) {
 	var ret []string
 	for _, entry := range tree {
 		if !entry.IsDir() && isYaml(entry.Name()) {

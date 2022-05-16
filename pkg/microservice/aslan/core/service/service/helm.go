@@ -396,8 +396,8 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
-	case LoadFromGerrit:
-		return CreateOrUpdateHelmServiceFromGerrit(projectName, args, logger)
+	case LoadFromGerrit, setting.SourceFromGitee:
+		return CreateOrUpdateHelmServiceFromRepo(projectName, args, logger)
 	case LoadFromChartRepo:
 		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, logger)
 	default:
@@ -656,7 +656,7 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *system
 	return ch.Type, ch, nil
 }
 
-func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	var (
 		filePaths []string
 		response  = &BulkHelmServiceCreationResponse{}
@@ -742,29 +742,34 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 				return
 			}
 
+			helmServiceCreationArgs := &helmServiceCreationArgs{
+				ChartName:       serviceName,
+				ChartVersion:    chartVersion,
+				ServiceRevision: rev,
+				MergedValues:    string(valuesYAML),
+				ServiceName:     serviceName,
+				FilePath:        filePath,
+				ProductName:     projectName,
+				CreateBy:        args.CreatedBy,
+				RequestID:       args.RequestID,
+				CodehostID:      createFromRepo.CodehostID,
+				Owner:           createFromRepo.Owner,
+				Repo:            createFromRepo.Repo,
+				Branch:          createFromRepo.Branch,
+				Source:          string(args.Source),
+			}
+
+			if string(args.Source) == setting.SourceFromGerrit {
+				helmServiceCreationArgs.GerritCodeHostID = createFromRepo.CodehostID
+				helmServiceCreationArgs.GerritPath = currentFilePath
+				helmServiceCreationArgs.GerritRepoName = createFromRepo.Repo
+				helmServiceCreationArgs.GerritBranchName = createFromRepo.Branch
+				helmServiceCreationArgs.GerritRemoteName = "origin"
+			}
+
 			svc, err := createOrUpdateHelmService(
 				nil,
-				&helmServiceCreationArgs{
-					ChartName:        serviceName,
-					ChartVersion:     chartVersion,
-					ServiceRevision:  rev,
-					MergedValues:     string(valuesYAML),
-					ServiceName:      serviceName,
-					FilePath:         filePath,
-					ProductName:      projectName,
-					CreateBy:         args.CreatedBy,
-					RequestID:        args.RequestID,
-					CodehostID:       createFromRepo.CodehostID,
-					Owner:            createFromRepo.Owner,
-					Repo:             createFromRepo.Repo,
-					Branch:           createFromRepo.Branch,
-					Source:           string(args.Source),
-					GerritCodeHostID: createFromRepo.CodehostID,
-					GerritPath:       currentFilePath,
-					GerritRepoName:   createFromRepo.Repo,
-					GerritBranchName: createFromRepo.Branch,
-					GerritRemoteName: "origin",
-				},
+				helmServiceCreationArgs,
 				log,
 			)
 			if err != nil {
