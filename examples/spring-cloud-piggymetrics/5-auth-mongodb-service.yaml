@@ -1,4 +1,3 @@
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -42,7 +41,7 @@ spec:
         app: auth-mongodb
     spec:
       containers:
-      - image: afermon/piggymetrics-mongodb
+      - image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-mongodb:v0.1.1
         name: auth-mongodb
         env:
           - name: MONGODB_PASSWORD
@@ -54,4 +53,3 @@ spec:
           - containerPort: 27017
         resources: {}
       restartPolicy: Always
-status: {}
