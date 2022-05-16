@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/setting"
+
 	t "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"go.uber.org/zap"
@@ -282,4 +284,12 @@ func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 		}
 	}
 	return ret
+}
+
+func getReaperImage(reaperImage, buildOS, imageFrom string) string {
+	jobImage := strings.ReplaceAll(reaperImage, "${BuildOS}", buildOS)
+	if imageFrom == setting.ImageFromCustom {
+		jobImage = buildOS
+	}
+	return jobImage
 }
