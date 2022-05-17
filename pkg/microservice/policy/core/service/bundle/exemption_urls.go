@@ -62,7 +62,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET", "POST"},
-		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve", "api/v1/login-enabled", "login/pure"},
+		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve", "api/v1/login-enabled", "login/password"},
 	},
 	{
 		Methods:   []string{"GET"},
