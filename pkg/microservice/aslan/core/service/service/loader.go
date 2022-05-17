@@ -600,11 +600,13 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 		fileName := pathSegments[len(pathSegments)-1]
 		svcName := getFileName(fileName)
 		splittedYaml := SplitYaml(string(contentBytes))
+		srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
 		createSvcArgs := &models.Service{
 			CodehostID:  ch.ID,
 			RepoName:    repoName,
 			RepoOwner:   repoOwner,
 			BranchName:  branchName,
+			SrcPath:     srcPath,
 			LoadPath:    args.LoadPath,
 			LoadFromDir: args.LoadFromDir,
 			KubeYamls:   splittedYaml,
@@ -657,6 +659,7 @@ func loadServiceFromGitee(tree []os.FileInfo, ch *systemconfig.CodeHost, usernam
 	var splittedYaml []string
 	fileName := pathList[len(pathList)-1]
 	serviceName := getFileName(fileName)
+	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 	yamlList, err := extractYamls(path, tree)
 	if err != nil {
 		log.Errorf("Failed to extract yamls from gitee package, the error is: %+v", err)
@@ -666,7 +669,7 @@ func loadServiceFromGitee(tree []os.FileInfo, ch *systemconfig.CodeHost, usernam
 		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
 	}
 	yml := joinYamls(yamlList)
-	srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
+	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, path)
 	createSvcArgs := &models.Service{
 		CodehostID:  ch.ID,
 		BranchName:  branchName,
