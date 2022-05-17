@@ -457,6 +457,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 	} else if codeHostInfo.Type == systemconfig.OtherProvider {
 		build.SSHKey = codeHostInfo.SSHKey
 		build.PrivateAccessToken = codeHostInfo.PrivateAccessToken
+		build.RepoOwner, build.RepoName = util.ParseOwnerAndRepo(build.OtherAddress, build.AuthType)
 		return
 	}
 }

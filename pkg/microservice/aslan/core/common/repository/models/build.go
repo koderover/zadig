@@ -17,14 +17,11 @@ limitations under the License.
 package models
 
 import (
-	"net/url"
-	"strings"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type Build struct {
@@ -189,34 +186,6 @@ func (build *Build) SafeRepos() []*types.Repository {
 	return build.Repos
 }
 
-// ParseOwnerAndRepo extracts the owner and repo info from the given link,
-// the link must have to following format: http(s)://example.com/owner/repo
-func parseOwnerAndRepo(repoLink string, authType types.AuthType) (string, string) {
-	var ownerAndRepo []string
-	repoLink = strings.TrimSuffix(repoLink, ".git")
-	switch authType {
-	case types.SSHAuthType:
-		repoLinkArr := strings.Split(repoLink, ":")
-		currentRepoLink := repoLinkArr[len(repoLinkArr)-1]
-		uriPath := strings.Trim(currentRepoLink, "/")
-		ownerAndRepo = strings.Split(uriPath, "/")
-	case types.PrivateAccessTokenAuthType:
-		uri, err := url.Parse(repoLink)
-		if err != nil {
-			log.Errorf("failed to parse url, err:%s", err)
-			return "", ""
-		}
-
-		uriPath := strings.Trim(uri.Path, "/")
-		ownerAndRepo = strings.Split(uriPath, "/")
-	}
-	if len(ownerAndRepo) != 2 {
-		return "", ""
-	}
-
-	return ownerAndRepo[0], ownerAndRepo[1]
-}
-
 func (build *Build) SafeReposDeepCopy() []*types.Repository {
 	if len(build.Repos) == 0 {
 		return []*types.Repository{}
@@ -225,7 +194,7 @@ func (build *Build) SafeReposDeepCopy() []*types.Repository {
 	for _, repo := range build.Repos {
 		tmpRepo := *repo
 		if tmpRepo.Source == setting.SourceFromOther {
-			tmpRepo.RepoOwner, tmpRepo.RepoName = parseOwnerAndRepo(tmpRepo.OtherAddress, tmpRepo.AuthType)
+			tmpRepo.RepoOwner, tmpRepo.RepoName = util.ParseOwnerAndRepo(tmpRepo.OtherAddress, tmpRepo.AuthType)
 		}
 		resp = append(resp, &tmpRepo)
 	}
