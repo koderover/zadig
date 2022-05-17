@@ -39,6 +39,13 @@ type ChartVariable struct {
 	Description string `json:"description,omitempty"`
 }
 
+func (chart *Chart) GetNamespace() string {
+	if len(chart.Namespace) > 0 {
+		return chart.Namespace
+	}
+	return chart.Owner
+}
+
 func (chart *Chart) GetVariableMap() map[string]*ChartVariable {
 	if len(chart.ChartVariables) == 0 {
 		return nil
