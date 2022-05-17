@@ -52,7 +52,6 @@ const (
 	ENVGithubKnownHost = "GITHUB_KNOWN_HOST"
 
 	ENVReaperImage      = "REAPER_IMAGE"
-	EnvUbuntuBaseImage  = "UBUNTU_BASE_IMAGE"
 	ENVReaperBinaryFile = "REAPER_BINARY_FILE"
 	ENVPredatorImage    = "PREDATOR_IMAGE"
 	EnvPackagerImage    = "PACKAGER_IMAGE"

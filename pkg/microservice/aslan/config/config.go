@@ -183,7 +183,7 @@ func GithubKnownHost() string {
 }
 
 func ReaperImage() string {
-	return viper.GetString(setting.EnvUbuntuBaseImage)
+	return viper.GetString(setting.ENVReaperImage)
 }
 
 func ReaperBinaryFile() string {
