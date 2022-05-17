@@ -124,7 +124,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 		if err = saveFile(buf, tempFileName); err == nil {
 			var store *s3.S3
 			if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
-				log.Errorf("failed to NewS3StorageFromEncryptedURI ")
+				log.Errorf("failed to Create S3 endpoint from Encrypted URI: %s, the error is: %s ", pipelineTask.StorageURI, err)
 				return err
 			}
 			if store.Subfolder != "" {
@@ -373,6 +373,10 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	}
 	if b.JobCtx.ArtifactPath != "" {
 		ctx.ArtifactPath = b.JobCtx.ArtifactPath
+	}
+
+	if pipelineTask.Type == config.ScanningType {
+		ctx.ScannerFlag = true
 	}
 
 	return ctx

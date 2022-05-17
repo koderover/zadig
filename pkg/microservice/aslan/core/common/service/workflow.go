@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) error {
@@ -331,6 +332,17 @@ func toHookSet(hooks interface{}) HookSet {
 					repo:      h.MainRepo.RepoName,
 				},
 				codeHostID: h.MainRepo.CodehostID,
+			})
+		}
+	case []*types.ScanningHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:  h.RepoName,
+					owner: h.RepoOwner,
+					repo:  h.RepoName,
+				},
+				codeHostID: h.CodehostID,
 			})
 		}
 	}

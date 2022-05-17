@@ -70,9 +70,7 @@ func (c *SonarIntegrationColl) List(ctx context.Context, pageNum, pageSize int64
 	opt := options.Find()
 
 	if pageNum != 0 && pageSize != 0 {
-		opt = opt.
-			SetSkip((pageNum - 1) * pageSize).
-			SetLimit(pageSize)
+		opt = opt.SetSkip((pageNum - 1) * pageSize).SetLimit(pageSize)
 	}
 
 	cursor, err := c.Collection.Find(ctx, query, opt)

@@ -964,8 +964,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				log.Errorf("yaml unmarshal err: %s", err)
-				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
+				errorDetails = append(errorDetails, fmt.Sprintf("Invalid yaml format. The content must be a series of valid Kubernetes resources. err: %s", err))
 			}
 		}
 	}
@@ -995,15 +994,14 @@ func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
 			return "", err
 		}
 
+		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
 		cerSvc := prod.GetServiceMap()
 		svcInfo, found := cerSvc[args.ServiceName]
-		if !found {
-			return "", fmt.Errorf("services %s is not exist in env %s", args.ServiceName, prod.Namespace)
-		}
-		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
-		parsedYaml, err = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
-		if err != nil {
-			return "", err
+		if found {
+			parsedYaml, err = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
@@ -1095,7 +1093,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		}
 	}()
 
-	return service.AutoDeployHelmServiceToEnvs(userName, requestID, serviceTemplate.ProductName, []*commonmodels.Service{serviceTemplate}, log)
+	return nil
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {

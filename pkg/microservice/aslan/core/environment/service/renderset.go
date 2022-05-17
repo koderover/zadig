@@ -99,7 +99,7 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 	if err != nil {
 		return false, "", err
 	}
-	equal, err := yamlutil.CheckEqual(valuesYAML, []byte(curValue))
+	equal, err := yamlutil.Equal(string(valuesYAML), curValue)
 	if err != nil || equal {
 		return false, "", err
 	}

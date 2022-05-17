@@ -465,6 +465,10 @@ var (
 	ErrDeleteTestModule = NewHTTPError(6533, "删除测试模块失败")
 	// ErrGetTestReport ...
 	ErrGetTestReport = NewHTTPError(6534, "获取html测试报告失败")
+	// ErrCreateScanningModule ...
+	ErrCreateScanningModule = NewHTTPError(6535, "新建扫描模块失败")
+	// ErrCreateScanningModule ...
+	ErrUpdateScanningModule = NewHTTPError(6536, "更新扫描模块失败")
 
 	// Workflow APIs Range: 6540 - 6550
 	//-----------------------------------------------------------------------------------------------

@@ -234,9 +234,10 @@ type BuildStage struct {
 
 // BuildModule ...
 type BuildModule struct {
-	Target            *ServiceModuleTarget `bson:"target"                 json:"target"`
-	HideServiceModule bool                 `bson:"hide_service_module"    json:"hide_service_module"`
-	BuildModuleVer    string               `bson:"build_module_ver"       json:"build_module_ver"`
+	Target            *ServiceModuleTarget      `bson:"target"                 json:"target"`
+	HideServiceModule bool                      `bson:"hide_service_module"    json:"hide_service_module"`
+	BuildModuleVer    string                    `bson:"build_module_ver"       json:"build_module_ver"`
+	BranchFilter      []*types.BranchFilterInfo `bson:"branch_filter"          json:"branch_filter"`
 }
 
 type ArtifactStage struct {

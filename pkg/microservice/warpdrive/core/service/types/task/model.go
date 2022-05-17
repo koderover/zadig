@@ -49,26 +49,26 @@ type Task struct {
 	IsDeleted    bool                     `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived   bool                     `bson:"is_archived"               json:"is_archived"`
 	AgentID      string                   `bson:"agent_id"        json:"agent_id"`
-	// 是否允许同时运行多次
+	// is allowed to run multiple times
 	MultiRun bool `bson:"multi_run"                 json:"multi_run"`
-	// target 服务名称, k8s为容器名称, 物理机为服务名
+	// target is container name when k8s, service name when pm
 	Target string `bson:"target,omitempty"                    json:"target"`
-	// 使用预定义编译管理模块中的内容生成SubTasks,
-	// 查询条件为 服务模板名称: ServiceTmpl, 版本: BuildModuleVer
-	// 如果为空，则使用pipeline自定义SubTasks
+	// generate SubTasks with predefine build module,
+	// query filter param:  ServiceTmpl,  BuildModuleVer
+	// if nil，use pipeline self define SubTasks
 	BuildModuleVer string `bson:"build_module_ver,omitempty"                 json:"build_module_ver"`
 	ServiceName    string `bson:"service_name,omitempty"              json:"service_name,omitempty"`
-	// TaskArgs 单服务工作流任务参数
+	// TaskArgs single workflow args
 	TaskArgs *TaskArgs `bson:"task_args,omitempty"         json:"task_args,omitempty"`
-	// WorkflowArgs 多服务工作流任务参数
+	// WorkflowArgs multi workflow args
 	WorkflowArgs *WorkflowTaskArgs `bson:"workflow_args"         json:"workflow_args,omitempty"`
-	// TestArgs 测试任务参数
+	// TestArgs test workflow args
 	TestArgs *TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
-	// ServiceTaskArgs 脚本部署工作流任务参数
+	// ServiceTaskArgs sh deploy args
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
 	ArtifactPackageTaskArgs *ArtifactPackageTaskArgs `bson:"artifact_package_args,omitempty"         json:"artifact_package_args,omitempty"`
-	// ConfigPayload 系统配置信息
+	// ConfigPayload system config info
 	ConfigPayload *ConfigPayload      `json:"config_payload,omitempty"`
 	Error         string              `bson:"error,omitempty"                json:"error,omitempty"`
 	Services      [][]*ProductService `bson:"services"                  json:"services"`

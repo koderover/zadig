@@ -185,6 +185,18 @@ func (build *Build) SafeRepos() []*types.Repository {
 	return build.Repos
 }
 
+func (build *Build) SafeReposDeepCopy() []*types.Repository {
+	if len(build.Repos) == 0 {
+		return []*types.Repository{}
+	}
+	resp := make([]*types.Repository, 0)
+	for _, repo := range build.Repos {
+		tmpRepo := *repo
+		resp = append(resp, &tmpRepo)
+	}
+	return resp
+}
+
 func (Build) TableName() string {
 	return "module_build"
 }

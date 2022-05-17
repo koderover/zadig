@@ -133,15 +133,15 @@ func buildVariable(key string) string {
 }
 
 // SyncServiceFromTemplate syncs services from (yaml|chart)template
-func SyncServiceFromTemplate(source, templateId, templateName string, logger *zap.SugaredLogger) error {
+func SyncServiceFromTemplate(userName, source, templateId, templateName string, logger *zap.SugaredLogger) error {
 	if source == setting.ServiceSourceTemplate {
-		return syncServicesFromYamlTemplate(templateId, logger)
+		return syncServicesFromYamlTemplate(userName, templateId, logger)
 	} else {
-		return syncServicesFromChartTemplate(templateName, logger)
+		return syncServicesFromChartTemplate(userName, templateName, logger)
 	}
 }
 
-func syncServicesFromYamlTemplate(templateId string, logger *zap.SugaredLogger) error {
+func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.SugaredLogger) error {
 	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionServicesByYamlTemplate(templateId)
 	if err != nil {
 		return err
@@ -160,11 +160,11 @@ func syncServicesFromYamlTemplate(templateId string, logger *zap.SugaredLogger) 
 	for _, services := range servicesByProject {
 		go func(pServices []*commonmodels.Service) {
 			for _, service := range pServices {
-				err := reloadServiceFromYamlTemplate(service.ProductName, yamlTemplate, service)
+				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service)
 				if err != nil {
-					logger.Errorf("failed to reload service: %s from template: %s, err: %s", service.ServiceName, yamlTemplate.Name, err)
+					logger.Error(err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
-					commonservice.SendErrorMessage("system", title, "", err, logger)
+					commonservice.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
 		}(services)
@@ -172,7 +172,7 @@ func syncServicesFromYamlTemplate(templateId string, logger *zap.SugaredLogger) 
 	return nil
 }
 
-func syncServicesFromChartTemplate(templateName string, logger *zap.SugaredLogger) error {
+func syncServicesFromChartTemplate(userName, templateName string, logger *zap.SugaredLogger) error {
 	chartTemplate, err := prepareChartTemplateData(templateName, log.SugaredLogger())
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func syncServicesFromChartTemplate(templateName string, logger *zap.SugaredLogge
 				if err != nil {
 					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
-					commonservice.SendErrorMessage("system", title, "", err, logger)
+					commonservice.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
 		}(services)
@@ -328,7 +328,7 @@ func buildChartTemplateVariables(service *commonmodels.Service, template *common
 	return variables, customYaml, nil
 }
 
-func reloadServiceFromYamlTemplate(projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
+func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
 	//extract variables from current service
 	variables, err := buildYamlTemplateVariables(service, template)
 	if err != nil {
@@ -347,7 +347,7 @@ func reloadServiceFromYamlTemplate(projectName string, template *commonmodels.Ya
 		CreateFrom:  service.CreateFrom,
 		AutoSync:    service.AutoSync,
 	}
-	_, err = CreateServiceTemplate("system", svc, log.SugaredLogger())
+	_, err = CreateServiceTemplate(userName, svc, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("failed to reload service template from template ID: %s, error : %s", service.TemplateID, err)
 	}

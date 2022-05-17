@@ -305,6 +305,16 @@ func (c *ProductColl) ListProjectsInNames(names []string) ([]*projectEnvs, error
 	return res, nil
 }
 
+func (c *ProductColl) UpdateStatusAndError(envName, projectName, status, errorMsg string) error {
+	query := bson.M{"env_name": envName, "product_name": projectName}
+	change := bson.M{"$set": bson.M{
+		"status": status,
+		"error":  errorMsg,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *ProductColl) UpdateStatus(owner, productName, status string) error {
 	query := bson.M{"env_name": owner, "product_name": productName}
 	change := bson.M{"$set": bson.M{

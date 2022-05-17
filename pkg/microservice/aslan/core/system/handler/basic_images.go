@@ -43,7 +43,7 @@ func ListBasicImages(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListBasicImages(c.Query("image_from"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListBasicImages(c.Query("image_from"), c.Query("image_type"), ctx.Logger)
 }
 
 func CreateBasicImage(c *gin.Context) {
