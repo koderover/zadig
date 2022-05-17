@@ -89,7 +89,7 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 	case setting.SourceFromCodeHub:
 		return loadCodehubService(username, ch, repoOwner, repoName, repoUUID, branchName, args, log)
 	case setting.SourceFromGitee:
-		return loadGiteeService(username, ch, repoOwner, repoName, repoUUID, branchName, args, log)
+		return loadGiteeService(username, ch, repoOwner, repoName, branchName, remoteName, args, log)
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
 	}
