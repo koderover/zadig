@@ -17,6 +17,10 @@ var PolicyMetas []byte
 var defaultMetaConfig *MetaConfig
 
 func init() {
+	log.Init(&log.Config{
+		Level:    "debug",
+		NoCaller: true,
+	})
 	defaultMetaConfig = newMetaConfigFromEmbed()
 }
 
