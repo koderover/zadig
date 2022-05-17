@@ -63,6 +63,7 @@ type ActionRule struct {
 	ResourceType    string       `json:"resourceType,omitempty"`
 	IDRegex         string       `json:"idRegex,omitempty"`
 	MatchAttributes []*Attribute `json:"matchAttributes,omitempty"`
+	Filter          bool         `json:"filter,omitempty"`
 }
 
 type Attribute struct {

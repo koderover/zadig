@@ -128,8 +128,8 @@ func migratePolicyMeta() error {
 	}
 
 	namespace := commonconfig.Namespace()
-	policyMetas := meta.DefaultPolicyMetas()
-	metasBytes, err := yaml.Marshal(policyMetas)
+	policyMetasConfig := meta.DefaultPolicyMetasConfig()
+	policyMetaConfigBytes, err := yaml.Marshal(policyMetasConfig)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func migratePolicyMeta() error {
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			"meta.yaml": string(metasBytes),
+			"meta.yaml": string(policyMetaConfigBytes),
 		},
 	}
 

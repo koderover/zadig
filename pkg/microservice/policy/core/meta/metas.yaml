@@ -393,14 +393,7 @@ metas:
         rules:
           - method: GET
             endpoint: api/aslan/workflow/workflow
-            matchAttributes:
-              - key: placeholder
-                value: placeholder
-          - method: GET
-            endpoint: /api/aslan/environment/environments
-            matchAttributes:
-              - key: placeholder
-                value: placeholder
+            filter: true
           - method: GET
             endpoint: api/aslan/workflow/workflow
           - method: GET
@@ -558,9 +551,7 @@ metas:
           - method: POST
             endpoint: /api/aslan/environment/environments
             resourceType: Cluster
-            matchAttributes:
-              - key: production
-                value: 'false'
+            filter: true
           - method: POST
             endpoint: /api/aslan/service/workloads
           - method: GET

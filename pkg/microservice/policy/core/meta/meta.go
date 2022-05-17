@@ -28,6 +28,10 @@ func DefaultPolicyMetas() []*types.PolicyMeta {
 	return defaultMetaConfig.Policies()
 }
 
+func DefaultPolicyMetasConfig() *MetaConfig {
+	return defaultMetaConfig
+}
+
 func PolicyMetasFromBytes(bs []byte) []*types.PolicyMeta {
 	return newMetaConfigFromBytes(bs).Policies()
 }
@@ -42,15 +46,6 @@ type MetaConfig struct {
 }
 
 func (m *MetaConfig) Policies() []*types.PolicyMeta {
-	m.Metas = processMetas(m.Metas)
-	return m.Metas
-}
-
-type MetaConfigMap struct {
-	Metas []*types.PolicyMeta
-}
-
-func (m *MetaConfigMap) Policies() []*types.PolicyMeta {
 	m.Metas = processMetas(m.Metas)
 	return m.Metas
 }
@@ -90,6 +85,14 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 						rule.Endpoint = endpoint
 						rule.IDRegex = idRegex
 					}
+					if rule.Filter {
+						rule.MatchAttributes = []*types.Attribute{
+							{
+								Key:   "placeholder",
+								Value: "placeholder",
+							},
+						}
+					}
 					tmpRules = append(tmpRules, rule)
 				}
 				ruleMeta.Rules = tmpRules
@@ -101,6 +104,14 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 				for _, rule := range ruleMeta.Rules {
 					if rule.ResourceType == "" {
 						rule.ResourceType = "Environment"
+					}
+					if rule.Filter {
+						rule.MatchAttributes = []*types.Attribute{
+							{
+								Key:   "production",
+								Value: "false",
+							},
+						}
 					}
 					if strings.Contains(rule.Endpoint, ":name") {
 						idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
