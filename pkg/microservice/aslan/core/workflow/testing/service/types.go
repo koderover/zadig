@@ -54,6 +54,7 @@ type ScanningRepoInfo struct {
 	RepoName   string `json:"repo_name"`
 	PR         int    `json:"pr"`
 	Branch     string `json:"branch"`
+	Tag        string `json:"tag"`
 }
 
 type ScanningStatistic struct {

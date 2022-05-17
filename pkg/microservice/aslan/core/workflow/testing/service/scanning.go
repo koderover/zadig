@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"sort"
 	"time"
 
@@ -206,6 +207,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 			RepoName:    arg.RepoName,
 			Branch:      arg.Branch,
 			PR:          arg.PR,
+			Tag:         arg.Tag,
 			CodehostID:  arg.CodehostID,
 			OauthToken:  rep.AccessToken,
 			Address:     rep.Address,
@@ -298,6 +300,8 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		log.Error(err)
 		return 0, e.ErrCreateTask
 	}
+
+	_ = scmnotify.NewService().UpdateWebhookComment(finalTask, log)
 
 	return nextTaskID, nil
 }

@@ -18,14 +18,13 @@ package webhook
 
 import (
 	"github.com/hashicorp/go-multierror"
-	"github.com/xanzy/go-gitlab"
-	"go.uber.org/zap"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	scanningservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/xanzy/go-gitlab"
+	"go.uber.org/zap"
 )
 
 func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
@@ -195,5 +194,16 @@ type gitlabTagEventMatcherForScanning struct {
 }
 
 func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+		hookInfo := ConvertScanningHookToMainHookRepo(hookRepo)
+		if !EventConfigured(hookInfo, config.HookEventTag) {
+			return false, nil
+		}
+
+		hookRepo.Branch = ev.Project.DefaultBranch
+		return true, nil
+	}
+
 	return false, nil
 }
