@@ -633,7 +633,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 	if isValidServiceDir(fileInfos) {
-		return loadServiceFromGitee(fileInfos, ch.ID, username, branchName, args.LoadPath, filePath, repoOwner, remoteName, repoName, args, commitInfo, log)
+		return loadServiceFromGitee(fileInfos, ch, username, branchName, args.LoadPath, filePath, repoOwner, remoteName, repoName, args, commitInfo, log)
 	}
 	for _, entry := range fileInfos {
 		subtreeLoadPath := fmt.Sprintf("%s/%s", args.LoadPath, entry.Name())
@@ -644,7 +644,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
 		if isValidServiceDir(subtreeInfo) {
-			if err := loadServiceFromGitee(subtreeInfo, ch.ID, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, log); err != nil {
+			if err := loadServiceFromGitee(subtreeInfo, ch, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, log); err != nil {
 				return err
 			}
 		}
@@ -652,7 +652,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 	return nil
 }
 
-func loadServiceFromGitee(tree []os.FileInfo, id int, username, branchName, loadPath, path, repoOwner, remoteName, repoName string, args *LoadServiceReq, commit *models.Commit, log *zap.SugaredLogger) error {
+func loadServiceFromGitee(tree []os.FileInfo, ch *systemconfig.CodeHost, username, branchName, loadPath, path, repoOwner, remoteName, repoName string, args *LoadServiceReq, commit *models.Commit, log *zap.SugaredLogger) error {
 	pathList := strings.Split(path, "/")
 	var splittedYaml []string
 	fileName := pathList[len(pathList)-1]
@@ -666,12 +666,14 @@ func loadServiceFromGitee(tree []os.FileInfo, id int, username, branchName, load
 		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
 	}
 	yml := joinYamls(yamlList)
+	srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
 	createSvcArgs := &models.Service{
-		CodehostID:  id,
+		CodehostID:  ch.ID,
 		BranchName:  branchName,
 		RepoName:    repoName,
 		RepoOwner:   repoOwner,
 		LoadPath:    loadPath,
+		SrcPath:     srcPath,
 		LoadFromDir: args.LoadFromDir,
 		KubeYamls:   splittedYaml,
 		CreateBy:    username,
