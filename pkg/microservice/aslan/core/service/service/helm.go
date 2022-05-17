@@ -742,6 +742,16 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				return
 			}
 
+			var repoLink string
+			if string(args.Source) == setting.SourceFromGitee {
+				codehostInfo, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
+				if err != nil {
+					finalErr = errors.Wrapf(err, "failed to get code host, id %d", createFromRepo.CodehostID)
+					return
+				}
+				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, createFromRepo.Owner, createFromRepo.Repo, "tree", createFromRepo.Branch, filePath)
+			}
+
 			helmServiceCreationArgs := &helmServiceCreationArgs{
 				ChartName:       serviceName,
 				ChartVersion:    chartVersion,
@@ -757,6 +767,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				Repo:            createFromRepo.Repo,
 				Branch:          createFromRepo.Branch,
 				Source:          string(args.Source),
+				RepoLink:        repoLink,
 			}
 
 			if string(args.Source) == setting.SourceFromGerrit {
@@ -1182,6 +1193,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 	case setting.SourceFromGitlab,
 		setting.SourceFromGithub,
 		setting.SourceFromGerrit,
+		setting.SourceFromGitee,
 		setting.SourceFromCodeHub:
 		return &models.CreateFromRepo{
 			GitRepoConfig: &templatemodels.GitRepoConfig{
