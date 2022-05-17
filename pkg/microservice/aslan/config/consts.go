@@ -148,6 +148,28 @@ const (
 	TaskArtifactPackage TaskType = "artifact_package"
 )
 
+type StepType string
+
+const (
+	StepTools             StepType = "tools"
+	StepShell             StepType = "shell"
+	StepDockerBuild       StepType = "docker_build"
+	StepDeploy            StepType = "deploy"
+	StepHelmDeploy        StepType = "helm_deploy"
+	StepImageDistribute   StepType = "image_distribute"
+	StepArchive           StepType = "archive"
+	StepArchiveDistribute StepType = "archive_distribute"
+	StepJunitReport       StepType = "junit_report"
+	StepHtmlReport        StepType = "html_report"
+)
+
+type StageType string
+
+const (
+	StageCustom  StageType = "custom"
+	StepApproval StageType = "approval"
+)
+
 type DistributeType string
 
 const (
