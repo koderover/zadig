@@ -34,7 +34,7 @@ exemption_urls:
         - api/v1/signup
         - api/v1/retrieve
         - api/v1/login-enabled
-        - login/pure
+        - login/password
       methods:
         - GET
         - POST
