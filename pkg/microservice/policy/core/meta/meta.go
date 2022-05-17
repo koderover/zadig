@@ -14,59 +14,60 @@ import (
 //go:embed metas.yaml
 var PolicyMetas []byte
 
-var defaultMetaGetter MetaGetter
+var defaultMetaConfig *MetaConfig
 
 func init() {
-	defaultMetaGetter = newDefaultMetaGetter()
+	defaultMetaConfig = newMetaConfigFromEmbed()
 }
 
 func DefaultPolicyMetas() []*types.PolicyMeta {
-	return defaultMetaGetter.Policies()
+	return defaultMetaConfig.Policies()
 }
 
 func PolicyMetasFromBytes(bs []byte) []*types.PolicyMeta {
-	return newMetaGetter(bs).Policies()
+	return newMetaConfigFromBytes(bs).Policies()
 }
 
 type MetaGetter interface {
 	Policies() []*types.PolicyMeta
 }
 
-type MetaFromEmbedData struct {
-	Metas []*types.PolicyMeta
+type MetaConfig struct {
+	Description string              `json:"description"`
+	Metas       []*types.PolicyMeta `json:"metas"`
 }
 
-func (m *MetaFromEmbedData) Policies() []*types.PolicyMeta {
+func (m *MetaConfig) Policies() []*types.PolicyMeta {
 	m.Metas = processMetas(m.Metas)
 	return m.Metas
 }
 
-type MetaAllConfig struct {
+type MetaConfigMap struct {
 	Metas []*types.PolicyMeta
-	Bytes []byte
 }
 
-func (m *MetaAllConfig) Policies() []*types.PolicyMeta {
+func (m *MetaConfigMap) Policies() []*types.PolicyMeta {
 	m.Metas = processMetas(m.Metas)
 	return m.Metas
 }
 
-func newMetaGetter(b []byte) MetaGetter {
-	m := &MetaAllConfig{Bytes: b}
-	if err := yaml.Unmarshal(m.Bytes, &m.Metas); err != nil {
+func newMetaConfigFromBytes(b []byte) MetaGetter {
+	m := &MetaConfig{}
+	if err := yaml.Unmarshal(b, &m); err != nil {
 		log.Warnf("fail to new meta getter err:%s, use the default meta getter", err)
-		return defaultMetaGetter
+		return defaultMetaConfig
 	}
 	return m
 }
 
-func newDefaultMetaGetter() MetaGetter {
-	m := &MetaFromEmbedData{}
-	if err := yaml.Unmarshal(PolicyMetas, &m.Metas); err != nil {
+func newMetaConfigFromEmbed() *MetaConfig {
+	config := &MetaConfig{}
+	if err := yaml.Unmarshal(PolicyMetas, &config); err != nil {
 		log.DPanic(err)
 	}
-	return m
+	return config
 }
+
 func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 	proEnvMeta := &types.PolicyMeta{}
 

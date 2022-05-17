@@ -92,16 +92,21 @@ func Serve(ctx context.Context) error {
 	return nil
 }
 
+type PresetRoleConfigYaml struct {
+	PresetRoles []*service.Role `json:"preset_roles"`
+	Description string          `json:"description"`
+}
+
 func migrateRole() error {
 
 	bs := meta.PresetRolesBytes()
-	roles := []*service.Role{}
+	config := PresetRoleConfigYaml{}
 
-	if err := yaml.Unmarshal(bs, &roles); err != nil {
+	if err := yaml.Unmarshal(bs, &config); err != nil {
 		log.Errorf("yaml unmarshl err:%s", err)
 		return err
 	}
-	for _, role := range roles {
+	for _, role := range config.PresetRoles {
 		if err := service.UpdateOrCreateRole(role.Namespace, role, nil); err != nil {
 			log.Errorf("UpdateOrCreateRole err:%s", err)
 			return err
