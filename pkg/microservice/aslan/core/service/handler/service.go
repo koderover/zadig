@@ -49,6 +49,12 @@ func ListWorkloadTemplate(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(c.Query("projectName"), c.Query("env"), ctx.Logger)
 }
 
+func ListWorkloadByType(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(c.Query("projectName"), c.Query("env"), ctx.Logger)
+}
+
 func GetServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

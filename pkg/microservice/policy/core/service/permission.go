@@ -62,7 +62,15 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 			return nil, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
 		}
 		for _, rule := range role.Rules {
-			projectVerbSet.Insert(rule.Verbs...)
+			var ruleVerbs []string
+			if rule.Resources[0] == "ProductionEnvironment" {
+				for _, verb := range rule.Verbs {
+					ruleVerbs = append(ruleVerbs, "production:"+verb)
+				}
+			} else {
+				ruleVerbs = rule.Verbs
+			}
+			projectVerbSet.Insert(ruleVerbs...)
 		}
 	}
 
@@ -213,14 +221,30 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
 				verbSet := sets.NewString(verbs...)
 				for _, rule := range role.Rules {
-					verbSet.Insert(rule.Verbs...)
+					var ruleVerbs []string
+					if rule.Resources[0] == "ProductionEnvironment" {
+						for _, verb := range rule.Verbs {
+							ruleVerbs = append(ruleVerbs, "production:"+verb)
+						}
+					} else {
+						ruleVerbs = rule.Verbs
+					}
+					verbSet.Insert(ruleVerbs...)
 				}
 				projectVerbMap[rolebinding.Namespace] = verbSet.List()
 
 			} else {
 				verbSet := sets.NewString()
 				for _, rule := range role.Rules {
-					verbSet.Insert(rule.Verbs...)
+					var ruleVerbs []string
+					if rule.Resources[0] == "ProductionEnvironment" {
+						for _, verb := range rule.Verbs {
+							ruleVerbs = append(ruleVerbs, "production:"+verb)
+						}
+					} else {
+						ruleVerbs = rule.Verbs
+					}
+					verbSet.Insert(ruleVerbs...)
 				}
 				projectVerbMap[rolebinding.Namespace] = verbSet.List()
 			}
