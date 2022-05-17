@@ -129,7 +129,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/cleanCache/cron"},
 	},
 	{
-		Methods:   []string{"GET", "POST", "PUT", "DELETE"},
+		Methods:   []string{"POST", "PUT", "DELETE"},
 		Endpoints: []string{"api/aslan/system/sonar/?*"},
 	},
 	{
