@@ -15,8 +15,6 @@ spec:
     project: piggymetrics
     tier: infrastructure
     app: registry
-status:
-  loadBalancer: {}
 ---
 apiVersion: apps/v1
 kind: Deployment

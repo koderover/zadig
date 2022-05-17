@@ -18,8 +18,6 @@ spec:
     project: piggymetrics
     trier: infrastructure
     app: turbine-stream-service
-status:
-  loadBalancer: {}
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -17,8 +17,6 @@ spec:
     project: piggymetrics
     tier: infrastructure
     app: monitoring
-status:
-  loadBalancer: {}
 ---
 apiVersion: apps/v1
 kind: Deployment

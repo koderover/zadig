@@ -15,8 +15,6 @@ spec:
     project: piggymetrics
     tier: backend
     app: statistics-service
-status:
-  loadBalancer: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
