@@ -392,6 +392,10 @@ metas:
         description: ''
         rules:
           - method: GET
+            endpoint: /api/aslan/environment/environments
+            resourceType: Environment
+            filter: true
+          - method: GET
             endpoint: api/aslan/workflow/workflow
             filter: true
           - method: GET

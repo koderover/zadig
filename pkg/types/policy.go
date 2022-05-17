@@ -72,6 +72,6 @@ type Attribute struct {
 }
 
 type PolicyRule struct {
-	Methods   []string `json:"methods"`
-	Endpoints []string `json:"endpoints"`
+	Methods  []string `json:"methods"`
+	Endpoint string   `json:"endpoint"`
 }

@@ -434,9 +434,8 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 			r.Methods = AllMethods
 		}
 		for _, method := range r.Methods {
-			for _, endpoint := range r.Endpoints {
-				data.Public = append(data.Public, &Rule{Method: method, Endpoint: endpoint})
-			}
+			data.Public = append(data.Public, &Rule{Method: method, Endpoint: r.Endpoint})
+
 		}
 	}
 	sort.Sort(data.Public)
@@ -446,9 +445,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 			r.Methods = AllMethods
 		}
 		for _, method := range r.Methods {
-			for _, endpoint := range r.Endpoints {
-				data.Privileged = append(data.Privileged, &Rule{Method: method, Endpoint: endpoint})
-			}
+			data.Privileged = append(data.Privileged, &Rule{Method: method, Endpoint: r.Endpoint})
 		}
 	}
 	sort.Sort(data.Privileged)
@@ -469,9 +466,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 			r.Methods = AllMethods
 		}
 		for _, method := range r.Methods {
-			for _, endpoint := range r.Endpoints {
-				data.Registered = append(data.Registered, &Rule{Method: method, Endpoint: endpoint})
-			}
+			data.Registered = append(data.Registered, &Rule{Method: method, Endpoint: r.Endpoint})
 		}
 	}
 
