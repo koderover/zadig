@@ -114,6 +114,7 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 					GitRepoConfig: &templatemodels.GitRepoConfig{
 						CodehostID: args.ValuesData.GitRepoConfig.CodehostID,
 						Owner:      args.ValuesData.GitRepoConfig.Owner,
+						Namespace:  args.ValuesData.GitRepoConfig.Namespace,
 						Repo:       args.ValuesData.GitRepoConfig.Repo,
 						Branch:     args.ValuesData.GitRepoConfig.Branch,
 					},

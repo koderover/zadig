@@ -91,6 +91,7 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
+		Namespace:  repoConfig.Namespace,
 		Owner:      repoConfig.Owner,
 		Repo:       repoConfig.Repo,
 		Path:       sourceDetail.LoadPath,

@@ -119,15 +119,15 @@ func parseOwnerRepoBranchPath(URL string) (string, string, string, string, strin
 
 // fillServiceRepoInfo ensures the value of repo is set
 func fillServiceRepoInfo(svc *models.Service) error {
-	svc.RepoNamespace = svc.GetRepoNamespace()
 	if svc.RepoOwner != "" && svc.RepoName != "" && svc.BranchName != "" && svc.LoadPath != "" {
+		svc.RepoNamespace = svc.GetRepoNamespace()
 		return nil
 	}
 	var err error
 	pathType := ""
 	_, svc.RepoOwner, svc.RepoNamespace, svc.BranchName, svc.LoadPath, pathType, err = parseOwnerRepoBranchPath(svc.SrcPath)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if svc.Source == setting.SourceFromGitlab {

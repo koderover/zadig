@@ -41,16 +41,20 @@ type DownloadFromSourceArgs struct {
 	RepoLink   string `json:"repoLink"`
 }
 
+func (args *DownloadFromSourceArgs) GetNamespace() string {
+	if len(args.Namespace) > 0 {
+		return args.Namespace
+	}
+	return args.Owner
+}
+
 func DownloadFileFromSource(args *DownloadFromSourceArgs) ([]byte, error) {
 	getter, err := treeGetter(args.RepoLink, args.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, err
 	}
-	owner := args.Namespace
-	if owner == "" {
-		owner = args.Owner
-	}
+	owner := args.GetNamespace()
 	return getter.GetFileContent(owner, args.Repo, args.Path, args.Branch)
 }
 

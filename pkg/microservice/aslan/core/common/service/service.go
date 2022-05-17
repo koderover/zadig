@@ -407,7 +407,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 			}
 		}
 	}
-
+	resp.RepoNamespace = resp.RepoOwner
 	return resp, nil
 }
 

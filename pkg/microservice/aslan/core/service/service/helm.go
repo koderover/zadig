@@ -213,6 +213,37 @@ func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
 	return nil
 }
 
+func fillServiceCreationInfo(serviceTemplate *models.Service) error {
+	if serviceTemplate.Source != setting.SourceFromChartTemplate {
+		return nil
+	}
+	creation, err := getCreateFromChartTemplate(serviceTemplate.CreateFrom)
+	if err != nil {
+		return fmt.Errorf("failed to get creation detail: %s", err)
+	}
+
+	if creation.YamlData == nil || creation.YamlData.Source != setting.SourceFromGitRepo {
+		return nil
+	}
+
+	bs, err := json.Marshal(creation.YamlData.SourceDetail)
+	if err != nil {
+		return err
+	}
+	cfr := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, cfr)
+	if err != nil {
+		return err
+	}
+	if cfr.GitRepoConfig == nil {
+		return nil
+	}
+	cfr.GitRepoConfig.Namespace = cfr.GitRepoConfig.GetNamespace()
+	creation.YamlData.SourceDetail = cfr
+	serviceTemplate.CreateFrom = creation
+	return nil
+}
+
 func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
@@ -240,6 +271,12 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 		// NOTE source template may be deleted, error should not block the following logic
 		log.Warnf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
 	}
+	err = fillServiceCreationInfo(serviceTemplate)
+	if err != nil {
+		// NOTE since the source of yaml can always be edited when reloading, error should not block the following logic
+		log.Warnf("failed to fill namespace for yaml source : %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
 	helmServiceModule.Service = serviceTemplate
 	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
 	helmServiceModule.ServiceModules = serviceModules
@@ -1216,6 +1253,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 					Owner:      args.ValuesSource.GitRepoConfig.Owner,
 					Repo:       args.ValuesSource.GitRepoConfig.Repo,
 					Branch:     args.ValuesSource.GitRepoConfig.Branch,
+					Namespace:  args.ValuesSource.GitRepoConfig.Namespace,
 				},
 			}
 			if len(args.ValuesSource.GitRepoConfig.ValuesPaths) > 0 {

@@ -1621,6 +1621,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 			GitRepoConfig: &templatemodels.GitRepoConfig{
 				CodehostID: args.GitRepoConfig.CodehostID,
 				Owner:      args.GitRepoConfig.Owner,
+				Namespace:  args.GitRepoConfig.Namespace,
 				Repo:       args.GitRepoConfig.Repo,
 				Branch:     args.GitRepoConfig.Branch,
 			},

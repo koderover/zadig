@@ -302,6 +302,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 	err = mongodb.NewChartColl().Update(&models.Chart{
 		Name:           name,
 		Owner:          args.Owner,
+		Namespace:      args.Namespace,
 		Repo:           args.Repo,
 		Path:           args.Path,
 		Branch:         args.Branch,
