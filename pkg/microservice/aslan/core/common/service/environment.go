@@ -98,6 +98,32 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
+func UnMarshalJson(source interface{}) (*models.CreateFromRepo, error) {
+	bs, err := json.Marshal(source)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
+
+func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
+	if yamlData == nil || yamlData.Source != setting.SourceFromGitRepo {
+		return nil
+	}
+	sourceDetail, err := UnMarshalJson(yamlData.SourceDetail)
+	if err != nil {
+		return err
+	}
+	if sourceDetail.GitRepoConfig == nil {
+		return nil
+	}
+	sourceDetail.GitRepoConfig.Namespace = sourceDetail.GitRepoConfig.GetNamespace()
+	yamlData.SourceDetail = sourceDetail
+	return nil
+}
+
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, error) {
 
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
@@ -134,6 +160,11 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		rcaObj := new(RenderChartArg)
 		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
+		err = FillGitNamespace(rendersetObj.YamlData)
+		if err != nil {
+			// Note, since user can always reselect the git info, error should not block normal logic
+			log.Warnf("failed to fill git namespace data, err: %s", err)
+		}
 		rcaObj.YamlData = singleChart.OverrideYaml
 		ret = append(ret, rcaObj)
 	}

@@ -17,15 +17,15 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
@@ -59,16 +59,6 @@ func fromGitRepo(source string) bool {
 	return false
 }
 
-func unMarshalJson(source interface{}) (*models.CreateFromRepo, error) {
-	bs, err := json.Marshal(source)
-	if err != nil {
-		return nil, err
-	}
-	ret := &models.CreateFromRepo{}
-	err = json.Unmarshal(bs, ret)
-	return ret, err
-}
-
 // SyncYamlFromSource sync values.yaml from source
 // NOTE currently only support gitHub and gitlab
 func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
@@ -79,7 +69,7 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 		return false, "", nil
 	}
 
-	sourceDetail, err := unMarshalJson(yamlData.SourceDetail)
+	sourceDetail, err := service.UnMarshalJson(yamlData.SourceDetail)
 	if err != nil {
 		return false, "", err
 	}
@@ -139,6 +129,11 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	ret.DefaultValues = rendersetObj.DefaultValues
+	err = service.FillGitNamespace(rendersetObj.YamlData)
+	if err != nil {
+		// Note, since user can always reselect the git info, error should not block normal logic
+		log.Warnf("failed to fill git namespace data, err: %s", err)
+	}
 	ret.YamlData = rendersetObj.YamlData
 	return ret, nil
 }

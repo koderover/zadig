@@ -240,6 +240,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 	return mongodb.NewChartColl().Create(&models.Chart{
 		Name:           name,
 		Owner:          args.Owner,
+		Namespace:      args.Namespace,
 		Repo:           args.Repo,
 		Path:           args.Path,
 		Branch:         args.Branch,
@@ -350,6 +351,7 @@ func UpdateChartTemplateVariables(name string, args []*commonmodels.Variable, lo
 	err = mongodb.NewChartColl().Update(&models.Chart{
 		Name:           name,
 		Owner:          chart.Owner,
+		Namespace:      chart.Namespace,
 		Repo:           chart.Repo,
 		Path:           chart.Path,
 		Branch:         chart.Branch,

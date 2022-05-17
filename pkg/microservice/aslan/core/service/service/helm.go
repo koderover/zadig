@@ -273,8 +273,8 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 	}
 	err = fillServiceCreationInfo(serviceTemplate)
 	if err != nil {
-		// NOTE since the source of yaml can always be edited when reloading, error should not block the following logic
-		log.Warnf("failed to fill namespace for yaml source : %s, err: %s", serviceTemplate.ServiceName, err)
+		// NOTE since the source of yaml can always be selected when reloading, error should not block the following logic
+		log.Warnf("failed to fill git namespace for yaml source : %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 
 	helmServiceModule.Service = serviceTemplate
