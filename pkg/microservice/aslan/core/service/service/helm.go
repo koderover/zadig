@@ -108,6 +108,7 @@ type helmServiceCreationArgs struct {
 	ValuePaths       []string
 	ValuesYaml       string
 	Variables        []*Variable
+	GiteePath        string
 	GerritRepoName   string
 	GerritBranchName string
 	GerritRemoteName string
@@ -758,7 +759,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				ServiceRevision: rev,
 				MergedValues:    string(valuesYAML),
 				ServiceName:     serviceName,
-				FilePath:        currentFilePath,
+				FilePath:        filePath,
 				ProductName:     projectName,
 				CreateBy:        args.CreatedBy,
 				RequestID:       args.RequestID,
@@ -768,6 +769,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				Branch:          createFromRepo.Branch,
 				Source:          string(args.Source),
 				RepoLink:        repoLink,
+				GiteePath:       currentFilePath,
 			}
 
 			if string(args.Source) == setting.SourceFromGerrit {
@@ -1348,6 +1350,8 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		serviceObj.GerritRepoName = args.GerritRepoName
 		serviceObj.GerritBranchName = args.GerritBranchName
 		serviceObj.GerritRemoteName = args.GerritRemoteName
+	case setting.SourceFromGitee:
+		serviceObj.GiteePath = args.GiteePath
 	}
 
 	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)

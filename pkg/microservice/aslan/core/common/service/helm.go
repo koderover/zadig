@@ -187,7 +187,7 @@ func preLoadServiceManifestsFromGitee(svc *commonmodels.Service) error {
 		return err
 	}
 	// save files to disk and upload them to s3
-	if err := CopyAndUploadService(svc.ProductName, svc.ServiceName, svc.LoadPath, nil); err != nil {
+	if err := CopyAndUploadService(svc.ProductName, svc.ServiceName, svc.GiteePath, nil); err != nil {
 		log.Errorf("Failed to copy or upload files for service %s in project %s, error: %s", svc.ServiceName, svc.ProductName, err)
 		return err
 	}
