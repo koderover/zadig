@@ -106,6 +106,13 @@ func migrateRole() error {
 		log.Errorf("yaml unmarshl err:%s", err)
 		return err
 	}
+
+	for _, role := range config.PresetRoles {
+		for _, rule := range role.Rules {
+			rule.Kind = "resource"
+		}
+	}
+
 	for _, role := range config.PresetRoles {
 		if err := service.UpdateOrCreateRole(role.Namespace, role, nil); err != nil {
 			log.Errorf("UpdateOrCreateRole err:%s", err)
@@ -138,6 +145,7 @@ func migratePolicyMeta() error {
 	if err != nil {
 		return err
 	}
+
 	metaConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -165,12 +173,29 @@ func migratePolicyMeta() error {
 			"urls.yaml": string(urlsBytes),
 		},
 	}
+	roleConfigMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      setting.PolicyRoleConfigMapName,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"roles.yaml": string(meta.PresetRolesBytes()),
+		},
+	}
 
 	if err := initConfigMap(metaConfigMap, client, clientset); err != nil {
-		log.Errorf("init config map err:%s", err)
+		log.Errorf("init config map meta err:%s", err)
 	}
 	if err := initConfigMap(urlConfigMap, client, clientset); err != nil {
-		log.Errorf("init config map err:%s", err)
+		log.Errorf("init config map url err:%s", err)
+	}
+
+	if err := initConfigMap(roleConfigMap, client, clientset); err != nil {
+		log.Errorf("init config map roles err:%s", err)
 	}
 
 	for _, v := range meta.DefaultPolicyMetas() {
@@ -233,6 +258,13 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 					}
 				}
 			}
+			if configMap.Name == setting.PolicyRoleConfigMapName {
+				if b, ok := configMap.Data["roles.yaml"]; ok {
+					log.Infof("start to refresh role configmap data")
+					meta.RefreshRoles([]byte(b))
+				}
+			}
+
 		},
 	})
 	stop := make(chan struct{})

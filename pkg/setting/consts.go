@@ -208,6 +208,7 @@ const (
 
 	PolicyMetaConfigMapName = "zadig-policy-meta"
 	PolicyURLConfigMapName  = "zadig-policy-url"
+	PolicyRoleConfigMapName = "zadig-policy-role"
 )
 
 const (
