@@ -103,7 +103,7 @@ func migrateRole() error {
 	config := PresetRoleConfigYaml{}
 
 	if err := yaml.Unmarshal(bs, &config); err != nil {
-		log.Errorf("yaml unmarshl err:%s", err)
+		log.Errorf("yaml Unmarshal err:%s", err)
 		return err
 	}
 
@@ -111,6 +111,7 @@ func migrateRole() error {
 		for _, rule := range role.Rules {
 			rule.Kind = "resource"
 		}
+		role.Type = "system"
 	}
 
 	for _, role := range config.PresetRoles {

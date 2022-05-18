@@ -1,7 +1,6 @@
 description: "we have 5 preset roles: you can change the role rules to update permission"
 preset_roles:
   - name: admin
-    type: system
     desc: 拥有系统中任何操作的权限
     rules:
       - verbs:
@@ -9,7 +8,6 @@ preset_roles:
         resources:
           - '*'
   - name: contributor
-    type: system
     rules:
       - verbs:
           - get_workflow
@@ -36,14 +34,12 @@ preset_roles:
         resources:
           - Test
   - name: project-admin
-    type: system
     rules:
       - verbs:
           - '*'
         resources:
           - '*'
   - name: read-only
-    type: system
     rules:
       - verbs:
           - get_workflow
@@ -74,8 +70,6 @@ preset_roles:
         resources:
           - Delivery
   - name: read-project-only
-    type: system
-    namespace: ''
     rules:
       - verbs:
           - get_workflow
