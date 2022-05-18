@@ -42,6 +42,7 @@ type JobProperties struct {
 
 type Step struct {
 	Name     string          `bson:"name"           json:"name"`
+	Timeout  int64           `bson:"timeout"        json:"timeout"`
 	StepType config.StepType `bson:"step_type"      json:"step_type"`
 	Spec     interface{}     `bson:"Spec"           json:"Spec"`
 	Outputs  []*StepOutput   `bson:"outputs"        json:"outputs"`
@@ -49,7 +50,7 @@ type Step struct {
 
 type StepOutput struct {
 	Name        string `bson:"name"           json:"name"`
-	Description string `bson:"description"           json:"description"`
+	Description string `bson:"description"    json:"description"`
 }
 
 func (WorkflowV4) TableName() string {
