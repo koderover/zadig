@@ -36,6 +36,7 @@ import (
 
 	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
@@ -153,6 +154,9 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.clientset = clientset
 		p.restConfig = restConfig
 	}
+
+	dockerhosts := common.NewDockerHosts(pipelineTask.ConfigPayload.HubServerAddr, p.Log)
+	pipelineTask.DockerHost = dockerhosts.GetBestHost(common.ClusterID(p.Task.ClusterID), serviceName)
 
 	// not local cluster
 	var (
