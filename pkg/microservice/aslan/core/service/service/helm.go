@@ -758,7 +758,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				ServiceRevision: rev,
 				MergedValues:    string(valuesYAML),
 				ServiceName:     serviceName,
-				FilePath:        filePath,
+				FilePath:        currentFilePath,
 				ProductName:     projectName,
 				CreateBy:        args.CreatedBy,
 				RequestID:       args.RequestID,
