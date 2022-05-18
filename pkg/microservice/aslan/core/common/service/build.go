@@ -147,7 +147,7 @@ func EnsureResp(build *commonmodels.Build) {
 		build.TargetRepos = make([]*commonmodels.TargetRepo, 0, len(build.Targets))
 		for _, target := range build.Targets {
 			for _, repo := range target.Repos {
-				repo.RepoName = repo.GetRepoNamespace()
+				repo.RepoNamespace = repo.GetRepoNamespace()
 			}
 			targetRepo := &commonmodels.TargetRepo{
 				Service: &commonmodels.ServiceModuleTargetBase{

@@ -98,7 +98,7 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
-func UnMarshalJson(source interface{}) (*models.CreateFromRepo, error) {
+func UnMarshalSourceDetail(source interface{}) (*models.CreateFromRepo, error) {
 	bs, err := json.Marshal(source)
 	if err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	if yamlData == nil || yamlData.Source != setting.SourceFromGitRepo {
 		return nil
 	}
-	sourceDetail, err := UnMarshalJson(yamlData.SourceDetail)
+	sourceDetail, err := UnMarshalSourceDetail(yamlData.SourceDetail)
 	if err != nil {
 		return err
 	}

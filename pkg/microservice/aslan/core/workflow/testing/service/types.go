@@ -107,6 +107,9 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 }
 
 func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
+	for _, repo := range scanning.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
 	return &Scanning{
 		ID:              scanning.ID.Hex(),
 		Name:            scanning.Name,

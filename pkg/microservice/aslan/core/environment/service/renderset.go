@@ -20,14 +20,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -69,7 +68,7 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 		return false, "", nil
 	}
 
-	sourceDetail, err := service.UnMarshalJson(yamlData.SourceDetail)
+	sourceDetail, err := service.UnMarshalSourceDetail(yamlData.SourceDetail)
 	if err != nil {
 		return false, "", err
 	}

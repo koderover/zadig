@@ -286,7 +286,7 @@ func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) e
 		}
 		renderName := product.Namespace
 		var revision int64
-		// if the environment is backtracking, render.name will be different with product.RepoNamespace
+		// if the environment is backtracking, render.name will be different with product.Namespace
 		if product.Render != nil && product.Render.Name != renderName {
 			renderName = product.Render.Name
 			revision = product.Render.Revision
@@ -570,7 +570,6 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 	updateProd.Services = updatedServices
 	updateProd.ShareEnv = existedProd.ShareEnv
 
-	log.Infof("[RepoNamespace:%s][Product:%s]: update service orchestration in product. Status: %s", envName, productName, updateProd.Status)
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
@@ -603,7 +602,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 			// 服务需要更新，需要upsert
 			// 所有服务全部upsert一遍，确保所有服务起来
 			if svcRev.Updatable {
-				log.Infof("[RepoNamespace:%s][Product:%s][Service:%s][IsNew:%v] upsert service",
+				log.Infof("[Namespace:%s][Product:%s][Service:%s][IsNew:%v] upsert service",
 					envName, productName, svcRev.ServiceName, svcRev.New)
 
 				service := &commonmodels.ProductService{
