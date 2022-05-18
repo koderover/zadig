@@ -176,7 +176,7 @@ func preLoadServiceManifestsFromGitee(svc *commonmodels.Service) error {
 	if err := os.RemoveAll(base); err != nil {
 		log.Errorf("Failed to remove dir, err:%s", err)
 	}
-	detail, err := systemconfig.New().GetCodeHost(svc.GerritCodeHostID)
+	detail, err := systemconfig.New().GetCodeHost(svc.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
