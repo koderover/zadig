@@ -254,7 +254,7 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 				if b, ok := configMap.Data["urls.yaml"]; ok {
 					log.Infof("start to refresh url configMap data")
 					if err := meta.RefreshConfigMapByte([]byte(b)); err != nil {
-						log.Errorf("refresh err:%s", err)
+						log.Errorf("refresh urls err:%s", err)
 					}
 				}
 			}
@@ -262,6 +262,9 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 				if b, ok := configMap.Data["roles.yaml"]; ok {
 					log.Infof("start to refresh role configmap data")
 					meta.RefreshRoles([]byte(b))
+					if err := migrateRole(); err != nil {
+						log.Errorf("refresh role err:%s", err)
+					}
 				}
 			}
 
