@@ -48,12 +48,13 @@ type ListScanningRespItem struct {
 }
 
 type ScanningRepoInfo struct {
-	CodehostID int    `json:"codehost_id"`
-	Source     string `json:"source"`
-	RepoOwner  string `json:"repo_owner"`
-	RepoName   string `json:"repo_name"`
-	PR         int    `json:"pr"`
-	Branch     string `json:"branch"`
+	CodehostID    int    `json:"codehost_id"`
+	Source        string `json:"source"`
+	RepoOwner     string `json:"repo_owner"`
+	RepoNamespace string `json:"repo_namespace"`
+	RepoName      string `json:"repo_name"`
+	PR            int    `json:"pr"`
+	Branch        string `json:"branch"`
 }
 
 type ScanningStatistic struct {

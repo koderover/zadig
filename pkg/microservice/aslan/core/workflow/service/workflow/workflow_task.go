@@ -1672,6 +1672,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 				return nil, err
 			}
 			repo.EnableProxy = repoInfo.EnableProxy
+			repo.RepoNamespace = repo.GetRepoNamespace()
 		}
 
 		testTask := &taskmodels.Testing{
@@ -2231,13 +2232,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				return nil, err
 			}
 			repo.EnableProxy = repoInfo.EnableProxy
+			repo.RepoNamespace = repo.GetRepoNamespace()
 		}
 		if len(build.JobCtx.Builds) == 0 {
 			build.JobCtx.Builds = make([]*types.Repository, 0)
-		}
-		// compatible with old logic, make sure value of namespace is set
-		for _, build := range build.JobCtx.Builds {
-			build.RepoNamespace = build.GetRepoNamespace()
 		}
 
 		build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}
