@@ -1,4 +1,4 @@
-package meta
+package yamlconfig
 
 import (
 	_ "embed"

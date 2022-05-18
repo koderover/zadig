@@ -23,9 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/meta"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/yamlconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/opa"
 )
@@ -429,7 +429,7 @@ type ExemptionURLs struct {
 func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 	data := &ExemptionURLs{}
 
-	for _, r := range meta.GetExemptionsUrls().Public {
+	for _, r := range yamlconfig.GetExemptionsUrls().Public {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
 		}
@@ -440,7 +440,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 	}
 	sort.Sort(data.Public)
 
-	for _, r := range meta.GetExemptionsUrls().SystemAdmin {
+	for _, r := range yamlconfig.GetExemptionsUrls().SystemAdmin {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
 		}
@@ -459,7 +459,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
 		}
 	}
 
-	adminURLs := append(meta.GetExemptionsUrls().SystemAdmin, meta.GetExemptionsUrls().ProjectAdmin...)
+	adminURLs := append(yamlconfig.GetExemptionsUrls().SystemAdmin, yamlconfig.GetExemptionsUrls().ProjectAdmin...)
 
 	for _, r := range adminURLs {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {

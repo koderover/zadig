@@ -31,10 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/meta"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/yamlconfig"
 	"github.com/koderover/zadig/pkg/microservice/policy/server/rest"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -99,7 +98,7 @@ type PresetRoleConfigYaml struct {
 
 func migrateRole() error {
 
-	bs := meta.PresetRolesBytes()
+	bs := yamlconfig.PresetRolesBytes()
 	config := PresetRoleConfigYaml{}
 
 	if err := yaml.Unmarshal(bs, &config); err != nil {
@@ -130,18 +129,18 @@ func migratePolicyMeta() error {
 	if err != nil {
 		log.DPanic(err)
 	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), setting.LocalClusterID)
+	clientset, err := kubeclient.GetKubeClientSet(commonconfig.HubServerServiceAddress(), setting.LocalClusterID)
 	if err != nil {
 		log.DPanic(err)
 	}
 
 	namespace := commonconfig.Namespace()
-	policyMetasConfig := meta.DefaultPolicyMetasConfig()
+	policyMetasConfig := yamlconfig.DefaultPolicyMetasConfig()
 	policyMetaConfigBytes, err := yaml.Marshal(policyMetasConfig)
 	if err != nil {
 		return err
 	}
-	urls := meta.GetDefaultEmbedUrlConfig()
+	urls := yamlconfig.GetDefaultEmbedUrlConfig()
 	urlsBytes, err := yaml.Marshal(urls)
 	if err != nil {
 		return err
@@ -184,7 +183,7 @@ func migratePolicyMeta() error {
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			"roles.yaml": string(meta.PresetRolesBytes()),
+			"roles.yaml": string(yamlconfig.PresetRolesBytes()),
 		},
 	}
 
@@ -199,7 +198,7 @@ func migratePolicyMeta() error {
 		log.Errorf("init config map roles err:%s", err)
 	}
 
-	for _, v := range meta.DefaultPolicyMetas() {
+	for _, v := range yamlconfig.DefaultPolicyMetas() {
 		if err := service.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
 			log.DPanic(err)
 		}
@@ -243,7 +242,7 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 			if configMap.Name == setting.PolicyMetaConfigMapName {
 				if b, ok := configMap.Data["meta.yaml"]; ok {
 					log.Infof("start to update the meta configMap")
-					for _, v := range meta.PolicyMetasFromBytes([]byte(b)) {
+					for _, v := range yamlconfig.PolicyMetasFromBytes([]byte(b)) {
 						if err := service.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
 							log.Errorf("fail to CreateOrUpdatePolicyRegistration,err:%s", err)
 							continue
@@ -254,7 +253,7 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 			if configMap.Name == setting.PolicyURLConfigMapName {
 				if b, ok := configMap.Data["urls.yaml"]; ok {
 					log.Infof("start to refresh url configMap data")
-					if err := meta.RefreshConfigMapByte([]byte(b)); err != nil {
+					if err := yamlconfig.RefreshConfigMapByte([]byte(b)); err != nil {
 						log.Errorf("refresh urls err:%s", err)
 					}
 				}
@@ -262,7 +261,7 @@ func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (inf
 			if configMap.Name == setting.PolicyRoleConfigMapName {
 				if b, ok := configMap.Data["roles.yaml"]; ok {
 					log.Infof("start to refresh role configmap data")
-					meta.RefreshRoles([]byte(b))
+					yamlconfig.RefreshRoles([]byte(b))
 					if err := migrateRole(); err != nil {
 						log.Errorf("refresh role err:%s", err)
 					}
