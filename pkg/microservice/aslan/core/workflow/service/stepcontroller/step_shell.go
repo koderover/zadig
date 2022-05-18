@@ -3,6 +3,8 @@ package stepcontroller
 import (
 	"context"
 	"encoding/json"
+	"math/rand"
+	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
@@ -62,4 +64,8 @@ func (s *shellStep) outputVariables() map[string]string {
 
 }
 
-func (s *shellStep) run(ctx context.Context) {}
+func (s *shellStep) run(ctx context.Context) {
+	r := rand.Intn(10)
+	time.Sleep(time.Duration(r) * time.Second)
+	s.stepTask.Status = config.StatusPassed
+}

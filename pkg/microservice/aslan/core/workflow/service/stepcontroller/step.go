@@ -3,6 +3,7 @@ package stepcontroller
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -35,6 +36,14 @@ func (s *StepTask) writeOutputToContext(globalContext, jobContext *sync.Map, out
 }
 
 func (s *StepTask) Run(ctx context.Context, globalContext, jobContext *sync.Map, ack func() error, logger *zap.SugaredLogger) {
+	s.Status = config.StatusRunning
+	s.StartTime = time.Now().Unix()
+	ack()
+	logger.Infof("start step: %s,status: %s", s.Name, s.Status)
+	defer func() {
+		s.EndTime = time.Now().Unix()
+		logger.Infof("finish step: %s,status: %s", s.Name, s.Status)
+	}()
 	done := make(chan struct{}, 1)
 	go func() {
 		s.run(ctx, globalContext, jobContext, ack, logger)
@@ -50,8 +59,6 @@ func (s *StepTask) Run(ctx context.Context, globalContext, jobContext *sync.Map,
 }
 
 func (s *StepTask) run(ctx context.Context, globalContext, jobContext *sync.Map, ack func() error, logger *zap.SugaredLogger) {
-	s.Status = config.StatusRunning
-	ack()
 	s.renderSpec(globalContext, jobContext)
 	var stepController Step
 	switch s.StepType {
@@ -60,6 +67,7 @@ func (s *StepTask) run(ctx context.Context, globalContext, jobContext *sync.Map,
 	default:
 		log.Errorf("no matched step type found: %s", s.StepType)
 	}
+
 	stepController.run(ctx)
 	output := stepController.outputVariables()
 	s.writeOutputToContext(globalContext, jobContext, output)
