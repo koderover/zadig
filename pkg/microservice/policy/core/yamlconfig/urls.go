@@ -38,10 +38,9 @@ func init() {
 
 func GetExemptionsUrls() *ExemptionURLs {
 	if !useConfigMapUrls || configMapUrlConfig == nil {
-		log.Infof("DefaultExemptionsUrls data use configMap")
 		return defaultEmbedUrlConfig.ExemptionUrls
 	}
-	return defaultEmbedUrlConfig.ExemptionUrls
+	return configMapUrlConfig.ExemptionUrls
 }
 
 func GetDefaultEmbedUrlConfig() *ConfigYaml {
@@ -54,6 +53,7 @@ func RefreshConfigMapByte(b []byte) error {
 		useConfigMapUrls = false
 		return err
 	}
+	log.Infof("start to use configMap url")
 	useConfigMapUrls = true
 	return nil
 }
