@@ -295,14 +295,14 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 		go func(build *types.Repository) {
 			defer wg.Done()
 
-			setBuildInfo(build, log)
+			setBuildInfo(build, buildArgs, log)
 		}(build)
 	}
 	wg.Wait()
 	return nil
 }
 
-func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
+func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *zap.SugaredLogger) {
 	codeHostInfo, err := systemconfig.New().GetCodeHost(build.CodehostID)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
@@ -458,6 +458,12 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 		build.SSHKey = codeHostInfo.SSHKey
 		build.PrivateAccessToken = codeHostInfo.PrivateAccessToken
 		build.RepoOwner, build.RepoName = util.ParseOwnerAndRepo(build.OtherAddress, build.AuthType)
+		for _, buildArg := range buildArgs {
+			if buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName && buildArg.CheckoutPath == build.CheckoutPath {
+				setBuildFromArg(build, buildArg)
+				break
+			}
+		}
 		return
 	}
 }
@@ -513,7 +519,7 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 					break
 				}
 			}
-			setBuildInfo(build, log)
+			setBuildInfo(build, buildArgs, log)
 		}(build)
 	}
 	wg.Wait()
