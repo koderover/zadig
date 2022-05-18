@@ -76,6 +76,8 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 	switch svc.Source {
 	case setting.SourceFromGerrit:
 		return preLoadServiceManifestsFromGerrit(svc)
+	case setting.SourceFromGitee:
+		return preLoadServiceManifestsFromGitee(svc)
 	default:
 		return preLoadServiceManifestsFromSource(svc)
 	}
@@ -167,4 +169,27 @@ func GeneHelmRepo(chartRepo *commonmodels.HelmRepo) *repo.Entry {
 		Username: chartRepo.Username,
 		Password: chartRepo.Password,
 	}
+}
+
+func preLoadServiceManifestsFromGitee(svc *commonmodels.Service) error {
+	base := path.Join(config.S3StoragePath(), svc.RepoName)
+	if err := os.RemoveAll(base); err != nil {
+		log.Errorf("Failed to remove dir, err:%s", err)
+	}
+	detail, err := systemconfig.New().GetCodeHost(svc.GerritCodeHostID)
+	if err != nil {
+		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
+		return err
+	}
+	err = command.RunGitCmds(detail, svc.RepoOwner, svc.RepoName, svc.BranchName, "origin")
+	if err != nil {
+		log.Errorf("Failed to runGitCmds, err:%s", err)
+		return err
+	}
+	// save files to disk and upload them to s3
+	if err := CopyAndUploadService(svc.ProductName, svc.ServiceName, svc.LoadPath, nil); err != nil {
+		log.Errorf("Failed to copy or upload files for service %s in project %s, error: %s", svc.ServiceName, svc.ProductName, err)
+		return err
+	}
+	return nil
 }

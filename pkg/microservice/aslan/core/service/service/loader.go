@@ -642,7 +642,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 		subtreePath := fmt.Sprintf("%s/%s", filePath, entry.Name())
 		subtreeInfo, err := ioutil.ReadDir(subtreePath)
 		if err != nil {
-			log.Errorf("Failed to read subdir info from gitee package of path: %s, the error is: %+v", subtreePath, err)
+			log.Errorf("Failed to read subdir info from gitee package of path: %s, the error is: %s", subtreePath, err)
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
 		if isValidServiceDir(subtreeInfo) {
