@@ -27,17 +27,19 @@ exemption_urls:
         - GET
         - POST
     - endpoint: api/v1/signup
-      method:
+      methods:
         - GET
         - POST
     - endpoint: api/v1/retrieve
-      method:
+      methods:
         - GET
         - POST
     - endpoint: api/v1/login-enabled
+      methods:
         - GET
         - POST
     - endpoint: login/password
+      methods:
         - GET
         - POST
     - endpoint: api/v1/codehosts/?*/auth
