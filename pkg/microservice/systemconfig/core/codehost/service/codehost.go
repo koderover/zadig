@@ -41,13 +41,14 @@ import (
 const callback = "/api/directory/codehosts/callback"
 
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	if codehost.Type == "codehub" {
+	if codehost.Type == setting.SourceFromCodeHub || codehost.Type == setting.SourceFromOther {
 		codehost.IsReady = "2"
 	}
-	if codehost.Type == "gerrit" {
+	if codehost.Type == setting.SourceFromGerrit {
 		codehost.IsReady = "2"
 		codehost.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", codehost.Username, codehost.Password)))
 	}
+
 	codehost.CreatedAt = time.Now().Unix()
 	codehost.UpdatedAt = time.Now().Unix()
 
@@ -81,6 +82,22 @@ func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap
 				return nil, err
 			}
 		}
+		if len(codeHost.SSHKey) > 0 {
+			codeHost.SSHKey, err = crypto.AesEncryptByKey(codeHost.SSHKey, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+
+		if len(codeHost.PrivateAccessToken) > 0 {
+			codeHost.PrivateAccessToken, err = crypto.AesEncryptByKey(codeHost.PrivateAccessToken, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+
 		result = append(result, codeHost)
 	}
 	return result, nil
