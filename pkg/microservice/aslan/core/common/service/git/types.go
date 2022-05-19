@@ -17,9 +17,6 @@ limitations under the License.
 package git
 
 import (
-	"strings"
-
-	"gitee.com/openeuler/go-gitee/gitee"
 	"github.com/google/go-github/v35/github"
 	"github.com/xanzy/go-gitlab"
 )
@@ -61,18 +58,6 @@ func ToTreeNode(obj interface{}) *TreeNode {
 			Name:     o.Name,
 			Size:     0,
 			IsDir:    o.Type == "tree",
-			FullPath: o.Path,
-		}
-	case *gitee.TreeBasic:
-		name := o.Path
-		if strings.Contains(name, "/") {
-			nameStr := strings.Split(name, "/")
-			name = nameStr[len(nameStr)-1]
-		}
-		return &TreeNode{
-			Name:     name,
-			Size:     int(o.Size),
-			IsDir:    o.Type_ == "tree",
 			FullPath: o.Path,
 		}
 	default:
