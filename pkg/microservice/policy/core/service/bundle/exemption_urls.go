@@ -110,6 +110,10 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/permission/project/?*"},
+	},
+	{
+		Methods:   []string{"GET"},
 		Endpoints: []string{"api/aslan/service/services/?*/environments/deployable"},
 	},
 }
