@@ -57,6 +57,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.DELETE("/:name/:type", gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
 		k8s.GET("/:name/environments/deployable", GetDeployableEnvs)
+		k8s.GET("/kube/workloads", GetKubeWorkloads)
 	}
 
 	workload := router.Group("workloads")

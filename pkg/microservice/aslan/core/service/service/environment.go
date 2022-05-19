@@ -17,8 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -44,6 +49,93 @@ func GetDeployableEnvs(svcName, projectName string) ([]string, error) {
 	envs0 = append(envs0, envs1...)
 
 	return envs0, nil
+}
+
+type GetKubeWorkloadsResp struct {
+	WorkloadsMap map[string][]string `json:"workloads_map"`
+}
+
+func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*GetKubeWorkloadsResp, error) {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("cluster is not connected [%s]", clusterID)
+		return nil, err
+	}
+
+	deployments, err := getter.ListDeployments(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListDeployments error, error msg:%s", err)
+		return nil, err
+	}
+	workloadsMap := make(map[string][]string)
+	var deployNames []string
+	for _, deployment := range deployments {
+		deployNames = append(deployNames, deployment.Name)
+	}
+	workloadsMap["deployment"] = deployNames
+	configMaps, err := getter.ListConfigMaps(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListConfigMaps error, error msg:%s", err)
+		return nil, err
+	}
+	var configMapNames []string
+	for _, configmap := range configMaps {
+		configMapNames = append(configMapNames, configmap.Name)
+	}
+	workloadsMap["configmap"] = configMapNames
+	services, err := getter.ListServices(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListServices error, error msg:%s", err)
+		return nil, err
+	}
+	var serviceNames []string
+	for _, service := range services {
+		serviceNames = append(serviceNames, service.Name)
+	}
+	workloadsMap["service"] = serviceNames
+	ingresses, err := getter.ListIngressesFormat(namespace, kubeClient, false)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListIngresses error, error msg:%s", err)
+		return nil, err
+	}
+	var ingressNames []string
+	for _, ingress := range ingresses {
+		ingressNames = append(ingressNames, ingress.Name)
+	}
+	workloadsMap["ingress"] = ingressNames
+	secrets, err := getter.ListSecrets(namespace, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListSecrets error, error msg:%s", err)
+		return nil, err
+	}
+	var secretNames []string
+	for _, secret := range secrets {
+		secretNames = append(secretNames, secret.Name)
+	}
+	workloadsMap["secret"] = secretNames
+	statefulsets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListStatefulSets error, error msg:%s", err)
+		return nil, err
+	}
+	var statefulsetNames []string
+	for _, statefulset := range statefulsets {
+		statefulsetNames = append(statefulsetNames, statefulset.Name)
+	}
+	workloadsMap["statefulset"] = statefulsetNames
+	pvcs, err := getter.ListPvcs(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListPvcs error, error msg:%s", err)
+		return nil, err
+	}
+	var pvcNames []string
+	for _, pvc := range pvcs {
+		pvcNames = append(pvcNames, pvc.Name)
+	}
+	workloadsMap["pvc"] = pvcNames
+	return &GetKubeWorkloadsResp{
+		WorkloadsMap: workloadsMap,
+	}, nil
 }
 
 func getAllGeneralEnvs(projectName string) ([]string, error) {
