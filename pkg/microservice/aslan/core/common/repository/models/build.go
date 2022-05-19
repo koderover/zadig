@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type Build struct {
@@ -192,6 +193,9 @@ func (build *Build) SafeReposDeepCopy() []*types.Repository {
 	resp := make([]*types.Repository, 0)
 	for _, repo := range build.Repos {
 		tmpRepo := *repo
+		if tmpRepo.Source == setting.SourceFromOther {
+			tmpRepo.RepoOwner, tmpRepo.RepoName = util.ParseOwnerAndRepo(tmpRepo.OtherAddress, tmpRepo.AuthType)
+		}
 		resp = append(resp, &tmpRepo)
 	}
 	return resp

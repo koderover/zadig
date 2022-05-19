@@ -26,6 +26,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
 type RepoInfoList struct {
@@ -64,7 +66,15 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 	var errList *multierror.Error
 
 	for _, info := range infos {
-		codehostClient, err := open.OpenClient(info.CodehostID, log)
+		ch, err := systemconfig.New().GetCodeHost(info.CodehostID)
+		if err != nil {
+			log.Errorf("get code host info err:%s", err)
+			return nil, err
+		}
+		if ch.Type == setting.SourceFromOther {
+			return []*GitRepoInfo{}, nil
+		}
+		codehostClient, err := open.OpenClient(ch, log)
 		if err != nil {
 			return nil, err
 		}

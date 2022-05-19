@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func TrimURLScheme(urlAddr string) string {
@@ -74,4 +77,32 @@ func GetAddress(uri string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s://%s", u.Scheme, u.Host), nil
+}
+
+// ParseOwnerAndRepo extracts the owner and repo info from the given link,
+// the link must have to following format: http(s)://example.com/owner/repo
+func ParseOwnerAndRepo(repoLink string, authType types.AuthType) (string, string) {
+	var ownerAndRepo []string
+	repoLink = strings.TrimSuffix(repoLink, ".git")
+	switch authType {
+	case types.SSHAuthType:
+		repoLinkArr := strings.Split(repoLink, ":")
+		currentRepoLink := repoLinkArr[len(repoLinkArr)-1]
+		uriPath := strings.Trim(currentRepoLink, "/")
+		ownerAndRepo = strings.Split(uriPath, "/")
+	case types.PrivateAccessTokenAuthType:
+		uri, err := url.Parse(repoLink)
+		if err != nil {
+			log.Errorf("failed to parse url, err:%s", err)
+			return "", ""
+		}
+
+		uriPath := strings.Trim(uri.Path, "/")
+		ownerAndRepo = strings.Split(uriPath, "/")
+	}
+	if len(ownerAndRepo) != 2 {
+		return "", ""
+	}
+
+	return ownerAndRepo[0], ownerAndRepo[1]
 }

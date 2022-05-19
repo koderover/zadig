@@ -44,13 +44,7 @@ var ClientsConfig = map[string]func() ClientConfig{
 	setting.SourceFromGitee:   func() ClientConfig { return new(gitee.Config) },
 }
 
-func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, error) {
-	ch, err := systemconfig.New().GetCodeHost(codehostID)
-	if err != nil {
-		log.Errorf("get code host info err:%s", err)
-		return nil, err
-	}
-
+func OpenClient(ch *systemconfig.CodeHost, log *zap.SugaredLogger) (client.CodeHostClient, error) {
 	var c client.CodeHostClient
 	f, ok := ClientsConfig[ch.Type]
 	if !ok {
@@ -66,5 +60,5 @@ func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, 
 		log.Errorf("marsh err:%s", err)
 		return nil, err
 	}
-	return clientConfig.Open(codehostID, log)
+	return clientConfig.Open(ch.ID, log)
 }

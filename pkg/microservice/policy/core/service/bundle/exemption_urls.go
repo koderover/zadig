@@ -62,7 +62,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET", "POST"},
-		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve", "api/v1/login-enabled", "login/pure"},
+		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve", "api/v1/login-enabled", "login/password"},
 	},
 	{
 		Methods:   []string{"GET"},
@@ -110,6 +110,10 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/permission/project/?*"},
+	},
+	{
+		Methods:   []string{"GET"},
 		Endpoints: []string{"api/aslan/service/services/?*/environments/deployable"},
 	},
 }
@@ -129,7 +133,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/cleanCache/cron"},
 	},
 	{
-		Methods:   []string{"GET", "POST", "PUT", "DELETE"},
+		Methods:   []string{"POST", "PUT", "DELETE"},
 		Endpoints: []string{"api/aslan/system/sonar/?*"},
 	},
 	{

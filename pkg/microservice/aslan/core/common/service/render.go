@@ -124,6 +124,7 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 			ret.SourceDetail = repoData
 		}
 	}
+	return ret
 }
 
 func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
