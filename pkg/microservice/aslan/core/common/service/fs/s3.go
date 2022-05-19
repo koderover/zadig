@@ -175,7 +175,7 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 	chartTemplate, err := mongodb.NewChartColl().Get(name)
 	base := path.Join(config.S3StoragePath(), chartTemplate.Repo)
 	if err := os.RemoveAll(base); err != nil {
-		logger.Errorf("Failed to remove dir, err:%s", err)
+		logger.Warnf("Failed to remove dir, err:%s", err)
 	}
 	detail, err := systemconfig.New().GetCodeHost(chartTemplate.CodeHostID)
 	if err != nil {
@@ -197,13 +197,17 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 
 func DownloadAndCopyFilesFromGitee(name, localBase string, logger *zap.SugaredLogger) error {
 	chartTemplate, err := mongodb.NewChartColl().Get(name)
+	if err != nil {
+		log.Errorf("Failed to get chart template, err:%s", err)
+		return err
+	}
 	base := path.Join(config.S3StoragePath(), chartTemplate.Repo)
 	if err := os.RemoveAll(base); err != nil {
-		logger.Errorf("Failed to remove dir, err:%s", err)
+		logger.Warnf("Failed to remove dir, err:%s", err)
 	}
 	detail, err := systemconfig.New().GetCodeHost(chartTemplate.CodeHostID)
 	if err != nil {
-		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
+		log.Errorf("Failed to get codehost detail, err:%s", err)
 		return err
 	}
 	err = command.RunGitCmds(detail, chartTemplate.Owner, chartTemplate.Repo, chartTemplate.Branch, "origin")

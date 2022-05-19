@@ -150,7 +150,6 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 
 func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error {
 	serviceTmpls, err := GetGiteeServiceTemplates()
-	log.Infof("failed to get gitee service templates, err: %s", serviceTmpls)
 	if err != nil {
 		log.Errorf("failed to get gitee service templates, err: %s", err)
 		return err
@@ -207,7 +206,6 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 			} else {
 				errs = multierror.Append(errs, err)
 			}
-
 		} else {
 			if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.LoadPath)); err == nil {
 				newYamlContent = string(contentBytes)
@@ -260,11 +258,11 @@ func GetWorkspaceBasePath(repoName string) (string, error) {
 
 func SyncServiceTemplateFromGitee(service *commonmodels.Service, log *zap.SugaredLogger) error {
 	if service.Source != setting.SourceFromGitee {
-		return fmt.Errorf("SyncServiceTemplateFromGitee Service template is not from gitee")
+		return fmt.Errorf("SyncServiceTemplateFromGitee service template is not from gitee,source:%s", service.Source)
 	}
 
 	if _, err := syncGiteeLatestCommit(service); err != nil {
-		log.Errorf("SyncServiceTemplateFromGitee Sync change log from gitee failed service %s, error: %s", service.ServiceName, err)
+		log.Errorf("SyncServiceTemplateFromGitee sync change log from gitee failed service %s, error: %s", service.ServiceName, err)
 		return err
 	}
 

@@ -134,7 +134,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 
 	if !isDir {
 		if !isYaml(loadPath) {
-			log.Errorf("trying to preload a non-yaml file")
+			log.Error("trying to preload a non-yaml file")
 			return nil, e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
 		}
 		pathSegment := strings.Split(loadPath, "/")
@@ -143,7 +143,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 	} else {
 		fileInfos, err := ioutil.ReadDir(filePath)
 		if err != nil {
-			log.Errorf("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
+			log.Error("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
 		if isValidServiceDir(fileInfos) {
@@ -241,8 +241,8 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 	ret := make([]string, 0)
 
 	base := path.Join(config.S3StoragePath(), repoName)
-	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+	if exist, _ := util.PathExists(base); !exist {
+		err := command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
@@ -252,7 +252,7 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 
 	if !isDir {
 		if !isYaml(loadPath) {
-			log.Errorf("trying to preload a non-yaml file")
+			log.Error("trying to preload a non-yaml file")
 			return nil, e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
 		}
 		pathSegment := strings.Split(loadPath, "/")
@@ -813,7 +813,7 @@ func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, rep
 	filePath := path.Join(base, loadPath)
 	if !isDir {
 		if !isYaml(loadPath) {
-			log.Errorf("trying to preload a non-yaml file")
+			log.Error("trying to preload a non-yaml file")
 			return e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
 		}
 		pathSegment := strings.Split(loadPath, "/")
@@ -898,7 +898,7 @@ func validateServiceUpdateGitee(detail *systemconfig.CodeHost, serviceName, repo
 	filePath := path.Join(base, loadPath)
 	if !isDir {
 		if !isYaml(loadPath) {
-			log.Errorf("trying to preload a non-yaml file")
+			log.Error("trying to preload a non-yaml file")
 			return e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
 		}
 		pathSegment := strings.Split(loadPath, "/")
