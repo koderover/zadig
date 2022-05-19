@@ -157,6 +157,7 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 		"username":       host.Username,
 		"password":       host.Password,
 		"enable_proxy":   host.EnableProxy,
+		"alias":          host.Alias,
 		"updated_at":     time.Now().Unix(),
 	}
 	if host.Type == setting.SourceFromGerrit {
@@ -165,6 +166,10 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 		modifyValue["access_token"] = host.AccessToken
 		modifyValue["refresh_token"] = host.RefreshToken
 		modifyValue["updated_at"] = host.UpdatedAt
+	} else if host.Type == setting.SourceFromOther {
+		modifyValue["auth_type"] = host.AuthType
+		modifyValue["ssh_key"] = host.SSHKey
+		modifyValue["private_access_token"] = host.PrivateAccessToken
 	}
 
 	change := bson.M{"$set": modifyValue}

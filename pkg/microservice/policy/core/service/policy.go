@@ -241,3 +241,15 @@ func DeletePolicies(names []string, projectName string, logger *zap.SugaredLogge
 
 	return mongodb.NewPolicyBindingColl().DeleteByPolicies(names, projectName)
 }
+
+func ListUserAllPoliciesByPolicyBindings(policyBindings []*models.PolicyBinding) ([]*models.Policy, error) {
+	var policies []*models.Policy
+	for _, v := range policyBindings {
+		tmpRoles, err := mongodb.NewPolicyColl().ListBySpaceAndName(v.PolicyRef.Namespace, v.PolicyRef.Name)
+		if err != nil {
+			continue
+		}
+		policies = append(policies, tmpRoles...)
+	}
+	return policies, nil
+}

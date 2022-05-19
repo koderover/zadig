@@ -411,7 +411,7 @@ allowed_system_role_rules[rule] {
 
     some i
     data.roles.roles[i].name == role_ref.name
-    role_ref.namespace == "*"
+    data.roles.roles[i].namespace == "*"
     rule := data.roles.roles[i].rules[_]
 }
 
