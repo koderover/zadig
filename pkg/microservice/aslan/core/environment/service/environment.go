@@ -1523,6 +1523,8 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 	}
 
 	productRenderset.DefaultValues = args.DefaultValues
+	productRenderset.YamlData = geneYamlData(args.ValuesData)
+
 	updatedRcList := make([]*templatemodels.RenderChart, 0)
 	if !equal {
 		for _, curRenderChart := range productRenderset.ChartInfos {

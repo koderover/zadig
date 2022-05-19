@@ -182,6 +182,9 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 
 	// namespace represents the real owner
 	owner := repo.Namespace
+	if len(owner) == 0 {
+		owner = repo.Owner
+	}
 	if repo.Source == meta.ProviderGitlab {
 		u, _ := url.Parse(repo.Address)
 		cmds = append(cmds, &c.Command{

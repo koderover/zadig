@@ -102,32 +102,28 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 }
 
 func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
-	if len(args.OverrideYaml) > 0 {
-		ret := &templatemodels.CustomYaml{
-			YamlContent: args.OverrideYaml,
-		}
-		if args.ValuesData != nil {
-			ret.Source = args.ValuesData.YamlSource
-			ret.AutoSync = args.ValuesData.AutoSync
-			if args.ValuesData.GitRepoConfig != nil {
-				repoData := &models.CreateFromRepo{
-					GitRepoConfig: &templatemodels.GitRepoConfig{
-						CodehostID: args.ValuesData.GitRepoConfig.CodehostID,
-						Owner:      args.ValuesData.GitRepoConfig.Owner,
-						Namespace:  args.ValuesData.GitRepoConfig.Namespace,
-						Repo:       args.ValuesData.GitRepoConfig.Repo,
-						Branch:     args.ValuesData.GitRepoConfig.Branch,
-					},
-				}
-				if len(args.ValuesData.GitRepoConfig.ValuesPaths) > 0 {
-					repoData.LoadPath = args.ValuesData.GitRepoConfig.ValuesPaths[0]
-				}
-				ret.SourceDetail = repoData
-			}
-		}
-		return ret
+	ret := &templatemodels.CustomYaml{
+		YamlContent: args.OverrideYaml,
 	}
-	return nil
+	if args.ValuesData != nil {
+		ret.Source = args.ValuesData.YamlSource
+		ret.AutoSync = args.ValuesData.AutoSync
+		if args.ValuesData.GitRepoConfig != nil {
+			repoData := &models.CreateFromRepo{
+				GitRepoConfig: &templatemodels.GitRepoConfig{
+					CodehostID: args.ValuesData.GitRepoConfig.CodehostID,
+					Owner:      args.ValuesData.GitRepoConfig.Owner,
+					Namespace:  args.ValuesData.GitRepoConfig.Namespace,
+					Repo:       args.ValuesData.GitRepoConfig.Repo,
+					Branch:     args.ValuesData.GitRepoConfig.Branch,
+				},
+			}
+			if len(args.ValuesData.GitRepoConfig.ValuesPaths) > 0 {
+				repoData.LoadPath = args.ValuesData.GitRepoConfig.ValuesPaths[0]
+			}
+			ret.SourceDetail = repoData
+		}
+	}
 }
 
 func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
@@ -142,11 +138,7 @@ func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderCha
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
 	chart.OverrideValues = args.ToOverrideValueString()
-	if len(args.OverrideYaml) > 0 {
-		chart.OverrideYaml = args.toCustomValuesYaml()
-	} else {
-		chart.OverrideYaml = nil
-	}
+	chart.OverrideYaml = args.toCustomValuesYaml()
 }
 
 // LoadFromRenderChartModel load from render chart model
