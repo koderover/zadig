@@ -120,7 +120,27 @@ type PrivateKeyHosts struct {
 	IP           string               `json:"ip"`
 	Port         int64                `json:"port"`
 	Status       setting.PMHostStatus `json:"status"`
+	Probe        *Probe               `json:"probe"`
 	UpdateStatus bool                 `json:"update_status"`
+}
+
+type Probe struct {
+	ProbeScheme string         `json:"probe_type"`
+	HttpProbe   *HTTPGetAction `json:"http_probe"`
+}
+
+type HTTPHeader struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type HTTPGetAction struct {
+	Path                string       `json:"path"`
+	Port                int          `json:"port"`
+	Host                string       `json:"host,omitempty"`
+	HTTPHeaders         []HTTPHeader `json:"httpHeaders"`
+	TimeOutSecond       int          `json:"timeout_second"`
+	ResponseSuccessFlag string       `json:"response_success_flag"`
 }
 
 type EnvStatus struct {

@@ -205,7 +205,7 @@ func runProbe(healthCheck *service.PmHealthCheck, address string, log *zap.Sugar
 	timeout := time.Duration(healthCheck.TimeOut) * time.Second
 	switch healthCheck.Protocol {
 	case setting.ProtocolHTTP, setting.ProtocolHTTPS:
-		if message, err = doHTTPProbe(healthCheck.Protocol, address, healthCheck.Path, healthCheck.Port, timeout, log); err != nil {
+		if message, err = doHTTPProbe(healthCheck.Protocol, address, healthCheck.Path, healthCheck.Port, []service.HTTPHeader{}, timeout, "", log); err != nil {
 			log.Errorf("doHttpProbe err:%v", err)
 			return Failure, err
 		}
@@ -240,7 +240,7 @@ func doTCPProbe(addr string, port int, timeout time.Duration, log *zap.SugaredLo
 	return Success, nil
 }
 
-func doHTTPProbe(protocol, address, path string, port int, timeout time.Duration, log *zap.SugaredLogger) (string, error) {
+func doHTTPProbe(protocol, address, path string, port int, headerList []service.HTTPHeader, timeout time.Duration, responseSuccessFlag string, log *zap.SugaredLogger) (string, error) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 	transport := &http.Transport{
 		TLSClientConfig:   tlsConfig,
@@ -256,10 +256,14 @@ func doHTTPProbe(protocol, address, path string, port int, timeout time.Duration
 	if err != nil {
 		return Failure, err
 	}
+	headers := buildHeader(headerList)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return Failure, err
 	}
+	req.Header = headers
+	req.Host = headers.Get("Host")
+
 	res, err := client.Do(req)
 	if err != nil {
 		return Failure, err
@@ -271,6 +275,9 @@ func doHTTPProbe(protocol, address, path string, port int, timeout time.Duration
 	}
 
 	if res.StatusCode >= http.StatusOK && res.StatusCode < http.StatusBadRequest {
+		if responseSuccessFlag != "" && !strings.Contains(string(body), responseSuccessFlag) {
+			return Failure, fmt.Errorf("HTTP probe failed with response success flag: %s", responseSuccessFlag)
+		}
 		log.Infof("Probe succeeded for %s, Response: %v", url, *res)
 		return Success, nil
 	}
@@ -309,6 +316,14 @@ func formatURL(protocol, address, path string, port int) (string, error) {
 		return fmt.Sprintf("%s://%s/%s", protocol, address, path), nil
 	}
 	return fmt.Sprintf("%s://%s:%d/%s", protocol, address, port, path), nil
+}
+
+func buildHeader(headerList []service.HTTPHeader) http.Header {
+	headers := make(http.Header)
+	for _, header := range headerList {
+		headers[header.Name] = append(headers[header.Name], header.Value)
+	}
+	return headers
 }
 
 func buildEnvNameKey(productRevision *service.ProductRevision) string {

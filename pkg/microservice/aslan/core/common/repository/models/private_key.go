@@ -35,9 +35,29 @@ type PrivateKey struct {
 	UpdateTime   int64                `bson:"update_time"            json:"update_time"`
 	UpdateBy     string               `bson:"update_by"              json:"update_by"`
 	Provider     int8                 `bson:"provider"               json:"provider"`
+	Probe        *Probe               `bson:"probe"                  json:"probe"`
 	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
 }
 
 func (PrivateKey) TableName() string {
 	return "private_key"
+}
+
+type Probe struct {
+	ProbeScheme string         `bson:"probe_type"                 json:"probe_type"`
+	HttpProbe   *HTTPGetAction `bson:"http_probe"                 json:"http_probe"`
+}
+
+type HTTPHeader struct {
+	Name  string `bson:"name"                 json:"name"`
+	Value string `bson:"value"                json:"value"`
+}
+
+type HTTPGetAction struct {
+	Path                string       `bson:"path"                        json:"path,omitempty"`
+	Port                int          `bson:"port"                        json:"port"`
+	Host                string       `bson:"-"                           json:"host,omitempty"`
+	HTTPHeaders         []HTTPHeader `bson:"http_headers"                json:"httpHeaders,omitempty"`
+	TimeOutSecond       int          `bson:"timeout_second"              json:"timeout_second"`
+	ResponseSuccessFlag string       `bson:"response_success_flag"       json:"response_success_flag"`
 }
