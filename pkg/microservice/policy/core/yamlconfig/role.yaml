@@ -75,10 +75,16 @@ preset_roles:
           - get_workflow
         resources:
           - Workflow
+        match_attributes:
+          - key: placeholder
+            value: placeholder
       - verbs:
           - get_environment
         resources:
           - Environment
+        match_attributes:
+          - key: placeholder
+            value: placeholder
       - verbs:
           - get_service
         resources:
