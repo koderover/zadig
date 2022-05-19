@@ -669,7 +669,7 @@ func loadServiceFromGitee(tree []os.FileInfo, ch *systemconfig.CodeHost, usernam
 		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
 	}
 	yml := joinYamls(yamlList)
-	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, path)
+	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, loadPath)
 	createSvcArgs := &models.Service{
 		CodehostID:  ch.ID,
 		BranchName:  branchName,
