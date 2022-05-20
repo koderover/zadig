@@ -241,8 +241,9 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 	ret := make([]string, 0)
 
 	base := path.Join(config.S3StoragePath(), repoName)
-	if exist, _ := util.PathExists(base); !exist {
-		err := command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+	if exist, err := util.PathExists(base); !exist {
+		log.Warnf("path does not exist,err:%s", err)
+		err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
@@ -888,8 +889,9 @@ func validateServiceUpdateCodehub(detail *systemconfig.CodeHost, serviceName, re
 // Determine whether the service can update the repo address according to the gitee repo
 func validateServiceUpdateGitee(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, remoteName, loadPath string, isDir bool) error {
 	base := path.Join(config.S3StoragePath(), repoName)
-	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+	if exist, err := util.PathExists(base); !exist {
+		log.Warnf("path does not exist,err:%s", err)
+		err := command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 		}
