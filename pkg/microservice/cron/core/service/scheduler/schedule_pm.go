@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +40,7 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 			}
 			newStatus := setting.PMHostStatusAbnormal
 			if hostPm.Probe == nil {
-				hostPm.Probe = &service.Probe{ProbeScheme: setting.ProtocolTCP}
+				hostPm.Probe = &types.Probe{ProbeScheme: setting.ProtocolTCP}
 			}
 			var err error
 			msg := ""
@@ -51,12 +52,12 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 				}
 				msg, err = doHTTPProbe(string(hostPm.Probe.ProbeScheme), hostPm.IP, hostPm.Probe.HttpProbe.Path, hostPm.Probe.HttpProbe.Port, hostPm.Probe.HttpProbe.HTTPHeaders, time.Duration(hostPm.Probe.HttpProbe.TimeOutSecond)*time.Second, hostPm.Probe.HttpProbe.ResponseSuccessFlag, log)
 				if err != nil {
-					log.Errorf("doHttpProbe err:%s", err)
+					log.Warnf("doHttpProbe err:%s", err)
 				}
 			case setting.ProtocolTCP:
 				msg, err = doTCPProbe(hostPm.IP, int(hostPm.Port), 3*time.Second, log)
 				if err != nil {
-					log.Errorf("doTCPProbe TCP %s:%d err: %s)", hostPm.IP, hostPm.Port, err)
+					log.Warnf("doTCPProbe TCP %s:%d err: %s)", hostPm.IP, hostPm.Port, err)
 				}
 			}
 
