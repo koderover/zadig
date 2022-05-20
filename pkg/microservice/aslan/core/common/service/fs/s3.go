@@ -31,7 +31,6 @@ import (
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
@@ -179,17 +178,17 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 	}
 	detail, err := systemconfig.New().GetCodeHost(chartTemplate.CodeHostID)
 	if err != nil {
-		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
+		logger.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
 	}
 	err = command.RunGitCmds(detail, "default", chartTemplate.Repo, chartTemplate.Branch, "origin")
 	if err != nil {
-		log.Errorf("Failed to runGitCmds, err:%s", err)
+		logger.Errorf("Failed to runGitCmds, err:%s", err)
 		return err
 	}
 
 	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
-		log.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
+		logger.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}
 	return nil
@@ -198,7 +197,7 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 func DownloadAndCopyFilesFromGitee(name, localBase string, logger *zap.SugaredLogger) error {
 	chartTemplate, err := mongodb.NewChartColl().Get(name)
 	if err != nil {
-		log.Errorf("Failed to get chart template, err:%s", err)
+		logger.Errorf("Failed to get chart template, err:%s", err)
 		return err
 	}
 	base := path.Join(config.S3StoragePath(), chartTemplate.Repo)
@@ -207,17 +206,17 @@ func DownloadAndCopyFilesFromGitee(name, localBase string, logger *zap.SugaredLo
 	}
 	detail, err := systemconfig.New().GetCodeHost(chartTemplate.CodeHostID)
 	if err != nil {
-		log.Errorf("Failed to get codehost detail, err:%s", err)
+		logger.Errorf("Failed to get codehost detail, err:%s", err)
 		return err
 	}
 	err = command.RunGitCmds(detail, chartTemplate.Owner, chartTemplate.Repo, chartTemplate.Branch, "origin")
 	if err != nil {
-		log.Errorf("Failed to runGitCmds, err:%s", err)
+		logger.Errorf("Failed to runGitCmds, err:%s", err)
 		return err
 	}
 
 	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
-		log.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
+		logger.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}
 	return nil
