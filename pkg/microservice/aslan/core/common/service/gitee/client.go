@@ -16,7 +16,9 @@ limitations under the License.
 
 package gitee
 
-import "github.com/koderover/zadig/pkg/tool/gitee"
+import (
+	"github.com/koderover/zadig/pkg/tool/gitee"
+)
 
 type Client struct {
 	*gitee.Client
