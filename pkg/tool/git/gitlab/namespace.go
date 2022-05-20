@@ -21,34 +21,34 @@ import (
 )
 
 func (c *Client) ListNamespaces(keyword string, opts *ListOptions) ([]*gitlab.Namespace, error) {
-	namespaces, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
-		mopts := &gitlab.ListNamespacesOptions{
-			ListOptions: *o,
-		}
-		// gitlab search works only when character length > 2
-		if keyword != "" && len(keyword) > 2 {
-			mopts.Search = &keyword
-		}
-		ns, r, err := c.Namespaces.ListNamespaces(mopts)
-		var res []interface{}
-		for _, n := range ns {
-			res = append(res, n)
-		}
-		return res, r, err
-	}, opts))
-
+	//namespaces, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
+	//	mopts := &gitlab.ListNamespacesOptions{
+	//		ListOptions: *o,
+	//	}
+	//	// gitlab search works only when character length > 2
+	//	if keyword != "" && len(keyword) > 2 {
+	//		mopts.Search = &keyword
+	//	}
+	//	ns, r, err := c.Namespaces.ListNamespaces(mopts)
+	//	var res []interface{}
+	//	for _, n := range ns {
+	//		res = append(res, n)
+	//	}
+	//	return res, r, err
+	//}, opts))
+	mopts := &gitlab.ListNamespacesOptions{
+		ListOptions: gitlab.ListOptions{
+			PerPage: 100,
+			Page:    1,
+		},
+	}
+	// gitlab search works only when character length > 2
+	if keyword != "" && len(keyword) > 2 {
+		mopts.Search = &keyword
+	}
+	res, _, err := c.Namespaces.ListNamespaces(mopts)
 	if err != nil {
 		return nil, err
 	}
-
-	var res []*gitlab.Namespace
-	ns, ok := namespaces.([]interface{})
-	if !ok {
-		return nil, nil
-	}
-	for _, n := range ns {
-		res = append(res, n.(*gitlab.Namespace))
-	}
-
 	return res, err
 }

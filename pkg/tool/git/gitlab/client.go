@@ -78,7 +78,7 @@ func paginated(f listFunc, opts *ListOptions) ([]interface{}, *gitlab.Response, 
 		opts.Page = 1
 	}
 	if opts.PerPage == 0 {
-		opts.PerPage = 30
+		opts.PerPage = 100
 	}
 	ghOpts := &gitlab.ListOptions{Page: opts.Page, PerPage: opts.PerPage}
 
@@ -98,7 +98,7 @@ func paginated(f listFunc, opts *ListOptions) ([]interface{}, *gitlab.Response, 
 		}
 
 		all = append(all, result...)
-		//ghOpts.Page = response.NextPage
+		ghOpts.Page = response.NextPage
 	}
 
 	return all, response, err
