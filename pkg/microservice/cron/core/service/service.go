@@ -135,12 +135,12 @@ type HTTPHeader struct {
 }
 
 type HTTPGetAction struct {
-	Path                string       `json:"path"`
-	Port                int          `json:"port"`
-	Host                string       `json:"host,omitempty"`
-	HTTPHeaders         []HTTPHeader `json:"httpHeaders"`
-	TimeOutSecond       int          `json:"timeout_second"`
-	ResponseSuccessFlag string       `json:"response_success_flag"`
+	Path                string        `json:"path"`
+	Port                int           `json:"port"`
+	Host                string        `json:"host,omitempty"`
+	HTTPHeaders         []*HTTPHeader `json:"http_headers"`
+	TimeOutSecond       int           `json:"timeout_second"`
+	ResponseSuccessFlag string        `json:"response_success_flag"`
 }
 
 type EnvStatus struct {

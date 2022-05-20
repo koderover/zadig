@@ -54,10 +54,10 @@ type HTTPHeader struct {
 }
 
 type HTTPGetAction struct {
-	Path                string       `bson:"path"                        json:"path,omitempty"`
-	Port                int          `bson:"port"                        json:"port"`
-	Host                string       `bson:"-"                           json:"host,omitempty"`
-	HTTPHeaders         []HTTPHeader `bson:"http_headers"                json:"httpHeaders,omitempty"`
-	TimeOutSecond       int          `bson:"timeout_second"              json:"timeout_second"`
-	ResponseSuccessFlag string       `bson:"response_success_flag"       json:"response_success_flag"`
+	Path                string        `bson:"path"                        json:"path"`
+	Port                int           `bson:"port"                        json:"port"`
+	Host                string        `bson:"-"                           json:"host,omitempty"`
+	HTTPHeaders         []*HTTPHeader `bson:"http_headers"                json:"http_headers"`
+	TimeOutSecond       int           `bson:"timeout_second"              json:"timeout_second"`
+	ResponseSuccessFlag string        `bson:"response_success_flag"       json:"response_success_flag"`
 }
