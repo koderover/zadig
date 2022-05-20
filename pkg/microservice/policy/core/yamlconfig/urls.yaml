@@ -65,6 +65,7 @@ exemption_urls:
         - PUT
         - PATCH
         - DELETE
+# endpoint = '' is p0 level
     - endpoint: ''
       methods:
         - GET
