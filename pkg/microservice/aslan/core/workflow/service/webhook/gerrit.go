@@ -32,6 +32,7 @@ import (
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
+	systemConfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -58,12 +59,7 @@ type gerritTypeEvent struct {
 }
 
 func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
-	baseURI := fmt.Sprintf(
-		"%s://%s",
-		req.Header.Get("X-Forwarded-Proto"),
-		req.Header.Get("X-Forwarded-Host"),
-	)
-
+	baseURI := systemConfig.SystemAddress()
 	gerritTypeEventObj := new(gerritTypeEvent)
 	if err := json.Unmarshal(payload, gerritTypeEventObj); err != nil {
 		log.Errorf("processGerritHook json.Unmarshal err : %v", err)
