@@ -182,16 +182,16 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	roleBindings, err := mongodb.NewRoleBindingColl().ListRoleBindingsByUIDs([]string{uid})
 	if err != nil {
 		log.Errorf("ListRoleBindingsByUIDs err:%s")
-		return nil, err
+		return &GetUserRulesResp{}, err
 	}
 	if len(roleBindings) == 0 {
 		log.Info("rolebindings == 0")
-		return nil, nil
+		return &GetUserRulesResp{}, nil
 	}
 	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
 	if err != nil {
 		log.Errorf("ListUserAllRolesByRoleBindings err:%s", err)
-		return nil, err
+		return &GetUserRulesResp{}, err
 	}
 	roleMap := make(map[string]*models.Role)
 	for _, role := range roles {
