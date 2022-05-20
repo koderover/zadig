@@ -392,10 +392,6 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: /api/aslan/environment/environments
-            resourceType: Environment
-            filter: true
-          - method: GET
             endpoint: api/aslan/workflow/workflow
             filter: true
           - method: GET
@@ -412,6 +408,8 @@ metas:
             endpoint: /api/aslan/logs/sse/workflow/build/?*/?*/?*/?*
           - method: GET
             endpoint: /api/aslan/logs/log/workflow/?*/tasks/?*/service/?*
+          - method: GET
+            endpoint: /api/aslan/logs/sse/workflow/test/?*/?*/?*/?*/?*
           - method: GET
             endpoint: /api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*
           - method: GET
@@ -435,6 +433,10 @@ metas:
           - method: PUT
             endpoint: 'api/aslan/workflow/workflow/:name'
           - method: GET
+            endpoint: /api/aslan/environment/environments
+            resourceType: Environment
+            filter: true
+          - method: GET
             endpoint: /api/aslan/workflow/workflow/preset/?*
           - method: GET
             endpoint: /api/aslan/testing/testdetail
@@ -454,6 +456,10 @@ metas:
             endpoint: /api/aslan/workflow/workflow/old/?*/new/?*
           - method: POST
             endpoint: /api/directory/workflowTask/create
+          - method: GET
+            endpoint: /api/aslan/environment/environments
+            resourceType: Environment
+            filter: true
           - method: GET
             endpoint: /api/aslan/testing/testdetail
           - method: POST
@@ -482,6 +488,10 @@ metas:
             endpoint: /api/directory/workflowTask/id/?*/pipelines/?*/restart
           - method: POST
             endpoint: /api/directory/workflowTask/id/?*/pipelines/?*/cancel
+          - method: GET
+            endpoint: /api/aslan/environment/environments
+            resourceType: Environment
+            filter: true
           - method: GET
             endpoint: /api/aslan/project/products/?*/services
           - method: GET
