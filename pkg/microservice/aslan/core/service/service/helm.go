@@ -1246,7 +1246,8 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			})
 		}
 		if args.ValuesSource != nil && args.ValuesSource.GitRepoConfig != nil {
-			yamlData.Source = args.ValuesSource.YamlSource
+			//yamlData.Source = args.ValuesSource.YamlSource
+			yamlData.Source = setting.SourceFromGitRepo
 			repoData := &models.CreateFromRepo{
 				GitRepoConfig: &templatemodels.GitRepoConfig{
 					CodehostID: args.ValuesSource.GitRepoConfig.CodehostID,

@@ -122,6 +122,7 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 				repoData.LoadPath = args.ValuesData.GitRepoConfig.ValuesPaths[0]
 			}
 			ret.SourceDetail = repoData
+			ret.Source = setting.SourceFromGitRepo
 		}
 	}
 	return ret

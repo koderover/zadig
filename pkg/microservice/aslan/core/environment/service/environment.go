@@ -1630,6 +1630,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 		if len(args.GitRepoConfig.ValuesPaths) > 0 {
 			repoData.LoadPath = args.GitRepoConfig.ValuesPaths[0]
 		}
+		args.YamlSource = setting.SourceFromGitRepo
 	}
 	ret := &templatemodels.CustomYaml{
 		Source:       args.YamlSource,
