@@ -65,6 +65,9 @@ exemption_urls:
         - PUT
         - PATCH
         - DELETE
+    - endpoint: ''
+      methods:
+        - GET
     - endpoint: signin
       methods:
         - GET
