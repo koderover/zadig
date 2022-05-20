@@ -142,7 +142,7 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service) error {
 	base := path.Join(config.S3StoragePath(), svc.GerritRepoName)
 	if err := os.RemoveAll(base); err != nil {
-		log.Errorf("Failed to remove dir, err:%s", err)
+		log.Warnf("Failed to remove dir, err:%s", err)
 	}
 	detail, err := systemconfig.New().GetCodeHost(svc.GerritCodeHostID)
 	if err != nil {
@@ -174,7 +174,7 @@ func GeneHelmRepo(chartRepo *commonmodels.HelmRepo) *repo.Entry {
 func preLoadServiceManifestsFromGitee(svc *commonmodels.Service) error {
 	base := path.Join(config.S3StoragePath(), svc.RepoName)
 	if err := os.RemoveAll(base); err != nil {
-		log.Errorf("Failed to remove dir, err:%s", err)
+		log.Warnf("Failed to remove dir, err:%s", err)
 	}
 	detail, err := systemconfig.New().GetCodeHost(svc.CodehostID)
 	if err != nil {
