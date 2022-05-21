@@ -175,7 +175,7 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 					}
 				}
 			}
-		} else {
+		} else if build.Source == setting.SourceFromGithub {
 			httpsAddr := ""
 			if pipelineTask.ConfigPayload.Proxy.EnableRepoProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
 				httpsAddr = pipelineTask.ConfigPayload.Proxy.GetProxyURL()
