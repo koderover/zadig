@@ -15,9 +15,9 @@ require (
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bugsnag/bugsnag-go v2.1.0+incompatible // indirect
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
-	github.com/buraksezer/consistent v0.9.0 // indirect
+	github.com/buraksezer/consistent v0.9.0
 	github.com/cenkalti/backoff/v4 v4.1.1
-	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cespare/xxhash v1.1.0
 	github.com/chartmuseum/helm-push v0.10.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coocood/freecache v1.1.0
@@ -59,7 +59,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/otiai10/copy v1.6.0
 	github.com/pkg/errors v0.9.1
-	github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494 // indirect
 	github.com/rfyiamcool/cronlib v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.8.1

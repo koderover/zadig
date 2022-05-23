@@ -20,11 +20,11 @@ import (
 	_ "embed"
 	"strings"
 
-	"github.com/qdm12/reprint"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util/deepcopy"
 )
 
 //go:embed metas.yaml
@@ -148,7 +148,7 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 				ruleMeta.Rules = tmpRules
 			}
 
-			if err := reprint.FromTo(meta, proEnvMeta); err != nil {
+			if err := deepcopy.FromTo(meta, proEnvMeta); err != nil {
 				log.DPanic(err)
 			}
 			proEnvMeta.Resource = "ProductionEnvironment"
