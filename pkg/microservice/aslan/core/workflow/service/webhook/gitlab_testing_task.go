@@ -205,7 +205,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					args.Source = setting.SourceFromGitlab
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
-					args.RepoNamespace = item.MainRepo.GetRepoNamespace().
+					args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 					args.RepoName = item.MainRepo.RepoName
 
 					// 3. create task with args
