@@ -80,8 +80,16 @@ func (c *CodehostColl) DeleteCodeHost() error {
 	return nil
 }
 
-func (c *CodehostColl) GetCodeHostByID(ID int, ignoreDelete bool) (*models.CodeHost, error) {
+func (c *CodehostColl) GetCodeHostByAlias(alias string) (*models.CodeHost, error) {
+	codehost := new(models.CodeHost)
+	query := bson.M{"alias": alias, "deleted_at": 0}
+	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
+		return nil, err
+	}
+	return codehost, nil
+}
 
+func (c *CodehostColl) GetCodeHostByID(ID int, ignoreDelete bool) (*models.CodeHost, error) {
 	codehost := new(models.CodeHost)
 	query := bson.M{"id": ID}
 	if !ignoreDelete {
@@ -123,7 +131,6 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 
 func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
 	codeHosts := make([]*models.CodeHost, 0)
-
 	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		return nil, err
