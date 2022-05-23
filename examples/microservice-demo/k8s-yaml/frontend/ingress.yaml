@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/name: demo
 spec:
   rules:
-  - host: {{.demo_domain}}
+  - host: {{.demotest_domain}}
     http:
       paths:
       - path: /
