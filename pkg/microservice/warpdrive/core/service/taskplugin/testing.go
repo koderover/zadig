@@ -248,10 +248,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		return
 	}
 
-	jobImage := fmt.Sprintf("%s-%s", pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS)
-	if p.Task.ImageFrom == config.ImageFromCustom {
-		jobImage = p.Task.BuildOS
-	}
+	jobImage := getReaperImage(pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS, p.Task.ImageFrom)
 
 	// search namespace should also include desired namespace
 	job, err := buildJobWithLinkedNs(
