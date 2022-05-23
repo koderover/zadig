@@ -97,6 +97,9 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 			if envType == setting.PMDeployType && (meta.Resource == "ProductionEnvironment" || meta.Resource == "Delivery") {
 				continue
 			}
+			if envType == setting.TrusteeshipDeployType && meta.Resource == "Delivery" {
+				continue
+			}
 			tmp = append(tmp, meta)
 		}
 		projectPolicyMetas = tmp
