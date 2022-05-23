@@ -198,7 +198,7 @@ func (gruem *gerritChangeMergedEventMatcher) UpdateTaskArgs(
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 	})
 
@@ -241,7 +241,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) UpdateTaskArgs(product *commonmo
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		PR:            gpcem.Event.Change.Number,
 	})
@@ -383,7 +383,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 						workflowArgs.Source = setting.SourceFromGerrit
 						workflowArgs.CodehostID = item.MainRepo.CodehostID
 						workflowArgs.RepoOwner = item.MainRepo.RepoOwner
-						workflowArgs.RepoNamespace = item.MainRepo.RepoNamespace
+						workflowArgs.RepoNamespace = item.MainRepo.GetRepoNamespace()
 						workflowArgs.RepoName = item.MainRepo.RepoName
 						workflowArgs.Committer = item.MainRepo.Committer
 						if resp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log); err != nil {

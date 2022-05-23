@@ -65,7 +65,7 @@ func (pgpem *pipelineGitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHo
 
 		eventRepo := &types.Repository{
 			RepoOwner:     hookRepo.RepoOwner,
-			RepoNamespace: hookRepo.RepoNamespace,
+			RepoNamespace: hookRepo.GetRepoNamespace(),
 			RepoName:      hookRepo.RepoName,
 			Branch:        branch,
 			CommitID:      commitID,
@@ -129,7 +129,7 @@ func (pgmem *pipelineGitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainH
 
 		eventRepo := &types.Repository{
 			RepoOwner:     hookRepo.RepoOwner,
-			RepoNamespace: hookRepo.RepoNamespace,
+			RepoNamespace: hookRepo.GetRepoNamespace(),
 			RepoName:      hookRepo.RepoName,
 			PR:            ev.ObjectAttributes.IID,
 			Branch:        branch,

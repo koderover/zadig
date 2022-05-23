@@ -113,7 +113,7 @@ func (gpem *githubPushEventMatcher) UpdateTaskArgs(
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 	})
 
@@ -176,7 +176,7 @@ func (gmem *githubMergeEventMatcher) UpdateTaskArgs(
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		PR:            *gmem.event.PullRequest.Number,
 	})
@@ -283,7 +283,7 @@ func (gtem githubTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		Tag:           hookRepo.Tag,
 	})
@@ -394,7 +394,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					args.Source = setting.SourceFromGithub
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
-					args.RepoNamespace = item.MainRepo.RepoNamespace
+					args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 					args.RepoName = item.MainRepo.RepoName
 					args.Committer = item.MainRepo.Committer
 					args.HookPayload = hookPayload

@@ -149,7 +149,7 @@ func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service) error {
 		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
 	}
-	err = command.RunGitCmds(detail, "default", "", svc.GerritRepoName, svc.GerritBranchName, svc.GerritRemoteName)
+	err = command.RunGitCmds(detail, "default", "default", svc.GerritRepoName, svc.GerritBranchName, svc.GerritRemoteName)
 	if err != nil {
 		log.Errorf("Failed to runGitCmds, err:%s", err)
 		return err

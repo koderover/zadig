@@ -134,7 +134,7 @@ func (gmem *gitlabMergeEventMatcher) UpdateTaskArgs(
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		PR:            gmem.event.ObjectAttributes.IID,
 	})
@@ -274,7 +274,7 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 	})
 
@@ -347,7 +347,7 @@ func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
-		RepoNamespace: hookRepo.RepoNamespace,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		Tag:           hookRepo.Tag,
 	})
@@ -645,7 +645,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			args.Source = setting.SourceFromGitlab
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
-			args.RepoNamespace = item.MainRepo.RepoNamespace
+			args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 			args.RepoName = item.MainRepo.RepoName
 			args.Committer = item.MainRepo.Committer
 			// 3. create task with args
