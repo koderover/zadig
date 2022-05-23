@@ -826,9 +826,13 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 		default:
 			time.Sleep(time.Second)
 
-			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
+			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
 			if err != nil {
 				xl.Errorf("Failed to get job `%s` in namespace `%s`: %s", jobName, namespace, err)
+				continue
+			}
+			if !found {
+				xl.Errorf("Job `%s` not found in namespace `%s`, retry in a second", jobName, namespace)
 				continue
 			}
 

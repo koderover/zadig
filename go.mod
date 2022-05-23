@@ -15,9 +15,9 @@ require (
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bugsnag/bugsnag-go v2.1.0+incompatible // indirect
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
-	github.com/buraksezer/consistent v0.9.0 // indirect
+	github.com/buraksezer/consistent v0.9.0
 	github.com/cenkalti/backoff/v4 v4.1.1
-	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cespare/xxhash v1.1.0
 	github.com/chartmuseum/helm-push v0.10.1
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coocood/freecache v1.1.0
@@ -38,6 +38,7 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
@@ -49,6 +50,7 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mittwald/go-helm-client v0.8.4
 	github.com/moby/buildkit v0.9.1
 	github.com/nsqio/go-nsq v1.0.7

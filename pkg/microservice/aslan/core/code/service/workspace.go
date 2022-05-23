@@ -96,10 +96,9 @@ func getWorkspaceBasePath(pipelineName string) (string, error) {
 		return "", err
 	}
 
-	//base := path.Join(s.Config.NFS.Path, pipe.Name)
 	base := path.Join(config.S3StoragePath(), pipe.Name)
 
-	if _, err := os.Stat(base); os.IsNotExist(err) {
+	if exsit, err := util.PathExists(base); !exsit {
 		return "", err
 	}
 
@@ -144,16 +143,16 @@ func GetGitRepoInfo(codehostID int, repoOwner, repoNamespace, repoName, branchNa
 
 	base := path.Join(config.S3StoragePath(), repoName)
 	if err := os.RemoveAll(base); err != nil {
-		log.Errorf("dir remove err:%v", err)
+		log.Warnf("dir remove err:%s", err)
 	}
 	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
-		log.Errorf("GetGitRepoInfo GetCodehostDetail err:%v", err)
+		log.Errorf("GetGitRepoInfo GetCodehostDetail err:%s", err)
 		return fis, e.ErrListRepoDir.AddDesc(err.Error())
 	}
 	err = command.RunGitCmds(detail, repoOwner, repoNamespace, repoName, branchName, remoteName)
 	if err != nil {
-		log.Errorf("GetGitRepoInfo runGitCmds err:%v", err)
+		log.Errorf("GetGitRepoInfo runGitCmds err:%s", err)
 		return fis, e.ErrListRepoDir.AddDesc(err.Error())
 	}
 	files, err := ioutil.ReadDir(path.Join(base, dir))

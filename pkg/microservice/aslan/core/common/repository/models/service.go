@@ -52,6 +52,7 @@ type Service struct {
 	GerritRemoteName string           `bson:"gerrit_remote_name,omitempty"   json:"gerrit_remote_name,omitempty"`
 	GerritPath       string           `bson:"gerrit_path,omitempty"          json:"gerrit_path,omitempty"`
 	GerritCodeHostID int              `bson:"gerrit_codeHost_id,omitempty"   json:"gerrit_codeHost_id,omitempty"`
+	GiteePath        string           `bson:"gitee_path,omitempty"           json:"gitee_path,omitempty"`
 	BuildName        string           `bson:"build_name,omitempty"           json:"build_name,omitempty"`
 	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`

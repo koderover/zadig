@@ -34,6 +34,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kodo"
 )
@@ -282,4 +283,18 @@ func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 		}
 	}
 	return ret
+}
+
+// getReaperImage generates the image used to run reaper
+// depends on the setting on page 'Build'
+func getReaperImage(reaperImage, buildOS, imageFrom string) string {
+	// for built-in image, reaperImage and buildOs can generate a complete image
+	// reaperImage: ccr.ccs.tencentyun.com/koderover-public/build-base:${BuildOS}-amd64
+	// buildOS: focal xenial bionic
+	jobImage := strings.ReplaceAll(reaperImage, "${BuildOS}", buildOS)
+	// for custom image, buildOS represents the exact custom image
+	if imageFrom == setting.ImageFromCustom {
+		jobImage = buildOS
+	}
+	return jobImage
 }

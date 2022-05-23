@@ -37,7 +37,8 @@ type ResourceBundleService struct {
 }
 
 type Config struct {
-	Bundles []*ResourceBundleService `json:"bundles"`
+	Bundles   []*ResourceBundleService `json:"bundles"`
+	Namespace string                   `json:"namespace"`
 }
 
 type ResourceSpec struct {
