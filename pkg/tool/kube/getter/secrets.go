@@ -54,9 +54,18 @@ func ListSecrets(ns string, cl client.Client) ([]*corev1.Secret, error) {
 
 func GetSecretYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
 	gvk := schema.GroupVersionKind{
-		Group:   "core",
+		Group:   "",
 		Kind:    "Secret",
 		Version: "v1",
 	}
 	return GetResourceYamlInCache(ns, name, gvk, cl)
+}
+
+func GetSecretYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Secret",
+		Version: "v1",
+	}
+	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
 }

@@ -122,3 +122,12 @@ func GetIngressYaml(ns string, name string, cl client.Client) ([]byte, bool, err
 	}
 	return GetResourceYamlInCache(ns, name, gvk, cl)
 }
+
+func GetIngressYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "extensions",
+		Kind:    "Ingress",
+		Version: "v1beta1",
+	}
+	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+}

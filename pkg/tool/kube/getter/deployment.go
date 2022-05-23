@@ -72,3 +72,12 @@ func GetDeploymentYaml(ns string, name string, cl client.Client) ([]byte, bool, 
 	}
 	return GetResourceYamlInCache(ns, name, gvk, cl)
 }
+
+func GetDeploymentYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Kind:    "Deployment",
+		Version: "v1",
+	}
+	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+}

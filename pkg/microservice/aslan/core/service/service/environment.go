@@ -175,7 +175,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 			switch workloadType {
 			case "configmap":
 				for _, workload := range workloads {
-					bs, _, err := getter.GetConfigMapYaml(params.Namespace, workload, kubeClient)
+					bs, _, err := getter.GetConfigMapYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
 						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/configmap failed err:%s", err))
@@ -185,7 +185,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 				}
 			case "deployment":
 				for _, workload := range workloads {
-					bs, _, err := getter.GetDeploymentYaml(params.Namespace, workload, kubeClient)
+					bs, _, err := getter.GetDeploymentYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
 						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/deployment failed err:%s", err))
@@ -195,7 +195,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 				}
 			case "service":
 				for _, workload := range workloads {
-					bs, _, err := getter.GetServiceYaml(params.Namespace, workload, kubeClient)
+					bs, _, err := getter.GetServiceYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
 						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/service failed err:%s", err))
@@ -205,7 +205,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 				}
 			case "secret":
 				for _, workload := range workloads {
-					bs, _, err := getter.GetSecretYaml(params.Namespace, workload, kubeClient)
+					bs, _, err := getter.GetSecretYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
 						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/secret failed err:%s", err))
@@ -215,7 +215,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 				}
 			case "ingress":
 				for _, workload := range workloads {
-					bs, _, err := getter.GetIngressYaml(params.Namespace, workload, kubeClient)
+					bs, _, err := getter.GetIngressYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
 						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/ingress failed err:%s", err))
@@ -225,10 +225,19 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 				}
 			case "statefulset":
 				for _, workload := range workloads {
-					bs, _, err := getter.GetStatefulSetYaml(params.Namespace, workload, kubeClient)
+					bs, _, err := getter.GetStatefulSetYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
 						return nil, fmt.Errorf("get deploy/statefulset failed err:%s", err)
+					}
+					yamls = append(yamls, string(bs))
+				}
+			case "pvc":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetPVCYamlFormat(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return nil, fmt.Errorf("get deploy/pvc failed err:%s", err)
 					}
 					yamls = append(yamls, string(bs))
 				}
