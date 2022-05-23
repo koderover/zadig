@@ -184,7 +184,8 @@ func DeleteProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("name"), "删除", "项目管理-项目", c.Param("name"), "", ctx.Logger)
-	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, c.Param("name"), ctx.RequestID, ctx.Logger)
+	isDelete := c.Query("is_delete")
+	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, c.Param("name"), ctx.RequestID, isDelete, ctx.Logger)
 }
 
 func ListTemplatesHierachy(c *gin.Context) {
