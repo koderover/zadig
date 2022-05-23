@@ -78,7 +78,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		return nil, err
 	}
 	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
-	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service")
+	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
 		if systemScopeSet.Has(v.Resource) {
@@ -92,6 +92,14 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	case string(types.SystemScope):
 		filteredPolicyMetas = systemPolicyMetas
 	case string(types.ProjectScope):
+		tmp := []*models.PolicyMeta{}
+		for _, meta := range projectPolicyMetas {
+			if envType == setting.PMDeployType && (meta.Resource == "ProductionEnvironment" || meta.Resource == "Delivery") {
+				continue
+			}
+			tmp = append(tmp, meta)
+		}
+		projectPolicyMetas = tmp
 		for i, meta := range projectPolicyMetas {
 			if meta.Resource == "Environment" || meta.Resource == "ProductionEnvironment" {
 				tmpRules := []*models.PolicyMetaRule{}
