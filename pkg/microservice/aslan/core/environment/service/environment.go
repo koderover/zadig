@@ -3145,7 +3145,6 @@ func applyUpdatedAnnotations(annotations map[string]string) map[string]string {
 		annotations = make(map[string]string)
 	}
 
-	annotations[setting.UpdatedByLabel] = fmt.Sprintf("%d", time.Now().Unix())
 	return annotations
 }
 
