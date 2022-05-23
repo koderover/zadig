@@ -40,11 +40,11 @@ func GetKubeWorkloads(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetKubeWorkloads(c.Query("namespace"), c.Query("cluster_id"), ctx.Logger)
 }
 
-func GetKubeWorkloadsYaml(c *gin.Context) {
+func LoadKubeWorkloadsYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(service.GetKubeWorkloadsYamlReq)
+	args := new(service.LoadKubeWorkloadsYamlReq)
 	data, err := c.GetRawData()
 	if err != nil {
 		ctx.Logger.Errorf("copyHelmProduct c.GetRawData() err : %s", err)
@@ -55,5 +55,5 @@ func GetKubeWorkloadsYaml(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetKubeWorkloadsYaml(args, ctx.Logger)
+	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, ctx.Logger)
 }

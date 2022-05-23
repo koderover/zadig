@@ -147,10 +147,13 @@ type ServiceWorkloads struct {
 	WorkloadsMap map[string][]string `json:"workloads_map"`
 }
 
-type GetKubeWorkloadsYamlReq struct {
-	Namespace string             `json:"namespace"`
-	ClusterID string             `json:"cluster_id"`
-	Services  []ServiceWorkloads `json:"services"`
+type LoadKubeWorkloadsYamlReq struct {
+	ProductName string             `json:"product_name"`
+	Visibility  string             `json:"visibility"`
+	Type        string             `json:"type"`
+	Namespace   string             `json:"namespace"`
+	ClusterID   string             `json:"cluster_id"`
+	Services    []ServiceWorkloads `json:"services"`
 }
 
 type ServiceYaml struct {
@@ -162,13 +165,12 @@ type GetKubeWorkloadsYamlResp struct {
 	Services []ServiceYaml `json:"services"`
 }
 
-func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogger) (*GetKubeWorkloadsYamlResp, error) {
+func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), params.ClusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s]", params.ClusterID)
-		return nil, err
+		return err
 	}
-	var services []ServiceYaml
 	for _, service := range params.Services {
 		var yamls []string
 		for workloadType, workloads := range service.WorkloadsMap {
@@ -178,7 +180,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 					bs, _, err := getter.GetConfigMapYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
-						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/configmap failed err:%s", err))
+						return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/configmap failed err:%s", err))
 					}
 
 					yamls = append(yamls, string(bs))
@@ -188,7 +190,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 					bs, _, err := getter.GetDeploymentYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
-						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/deployment failed err:%s", err))
+						return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/deployment failed err:%s", err))
 					}
 
 					yamls = append(yamls, string(bs))
@@ -198,7 +200,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 					bs, _, err := getter.GetServiceYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
-						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/service failed err:%s", err))
+						return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/service failed err:%s", err))
 					}
 
 					yamls = append(yamls, string(bs))
@@ -208,7 +210,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 					bs, _, err := getter.GetSecretYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
-						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/secret failed err:%s", err))
+						return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/secret failed err:%s", err))
 					}
 
 					yamls = append(yamls, string(bs))
@@ -218,7 +220,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 					bs, _, err := getter.GetIngressYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
-						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/ingress failed err:%s", err))
+						return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/ingress failed err:%s", err))
 					}
 
 					yamls = append(yamls, string(bs))
@@ -228,7 +230,7 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 					bs, _, err := getter.GetStatefulSetYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
-						return nil, fmt.Errorf("get deploy/statefulset failed err:%s", err)
+						return fmt.Errorf("get deploy/statefulset failed err:%s", err)
 					}
 					yamls = append(yamls, string(bs))
 				}
@@ -237,24 +239,29 @@ func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogge
 					bs, _, err := getter.GetPVCYamlFormat(params.Namespace, workload, kubeClient)
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
-						return nil, fmt.Errorf("get deploy/pvc failed err:%s", err)
+						return fmt.Errorf("get deploy/pvc failed err:%s", err)
 					}
 					yamls = append(yamls, string(bs))
 				}
 			default:
-				return nil, fmt.Errorf("do not support workload kind:%s", workloadType)
+				return fmt.Errorf("do not support workload kind:%s", workloadType)
 			}
 		}
 		yaml := strings.Join(yamls, "\n------\n")
-		services = append(services, ServiceYaml{
-			Name: service.Name,
-			Yaml: yaml,
-		})
+		serviceParam := &commonmodels.Service{
+			ProductName: params.ProductName,
+			ServiceName: service.Name,
+			Visibility:  params.Visibility,
+			Type:        params.Type,
+			Yaml:        yaml,
+		}
+		_, err := CreateServiceTemplate(username, serviceParam, log)
+		if err != nil {
+			log.Errorf("CreateServiceTemplate error, msg:%s", err)
+		}
 	}
 
-	return &GetKubeWorkloadsYamlResp{
-		Services: services,
-	}, nil
+	return nil
 }
 
 func getAllGeneralEnvs(projectName string) ([]string, error) {
