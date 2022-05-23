@@ -7,85 +7,102 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/stepcontroller"
 	"go.uber.org/zap"
 )
 
-type JobCtl struct {
-	job           *commonmodels.JobTask
-	jobContext    *sync.Map
-	globalContext *sync.Map
-	logger        *zap.SugaredLogger
-	Ctx           context.Context
-	ack           func() error
+type JobCtl interface {
+	Run(ctx context.Context)
 }
 
-func NewJobCtl(ctx context.Context, job *commonmodels.JobTask, globalContext *sync.Map, ack func() error, logger *zap.SugaredLogger) *JobCtl {
-	return &JobCtl{
-		job:           job,
-		globalContext: globalContext,
-		logger:        logger,
-		ack:           ack,
-		Ctx:           ctx,
-	}
-}
-
-func (c *JobCtl) Run(ctx context.Context) {
+func runJob(ctx context.Context, job *commonmodels.JobTask, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
 	ctx, cancel := context.WithCancel(ctx)
-	c.job.Status = config.StatusRunning
-	c.job.StartTime = time.Now().Unix()
-	c.logger.Infof("start job: %s,status: %s", c.job.Name, c.job.Status)
+	job.Status = config.StatusRunning
+	job.StartTime = time.Now().Unix()
+	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
-		c.job.EndTime = time.Now().Unix()
-		c.logger.Infof("finish job: %s,status: %s", c.job.Name, c.job.Status)
-		c.stop(ctx)
-		c.ack()
+		job.EndTime = time.Now().Unix()
+		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
+		ack()
 		cancel()
 	}()
+	var jobCtl JobCtl
+	switch job.JobType {
+	case "deploy":
+		// TODO
+	default:
+		jobCtl = NewFreestyleJobCtl(job, globalContext, ack, logger)
+	}
 	done := make(chan struct{}, 1)
 	go func() {
-		c.run(ctx)
+		jobCtl.Run(ctx)
 		done <- struct{}{}
 	}()
 	select {
 	case <-done:
 		return
 	case <-ctx.Done():
-		c.job.Status = config.StatusCancelled
+		job.Status = config.StatusCancelled
 		return
-	case <-time.After(time.Minute * time.Duration(c.job.Properties.Timeout)):
-		c.job.Status = config.StatusTimeout
+	case <-time.After(time.Second * time.Duration(job.Properties.Timeout)):
+		job.Status = config.StatusTimeout
 		return
 	}
 }
 
-func (c *JobCtl) run(ctx context.Context) {
-	c.job.Status = config.StatusRunning
-	c.ack()
-	// TODO create pods
-	for _, step := range c.job.Steps {
-		(*stepcontroller.StepTask)(step).Run(ctx, c.globalContext, c.jobContext, c.ack, c.logger)
-		if step.Status != config.StatusPassed {
-			c.job.Status = step.Status
-			return
-		}
-
-		// done := make(chan struct{}, 1)
-		// go func(stepTask *stepcontroller.StepTask) {
-		// 	stepTask.Run(ctx, c.globalContext, c.jobContext, c.ack, c.logger)
-		// 	done <- struct{}{}
-		// }((*stepcontroller.StepTask)(step))
-		// select {
-		// case <-done:
-		// 	return
-		// case <-ctx.Done():
-		// 	step.Status = config.StatusCancelled
-		// 	return
-		// }
-	}
-	c.job.Status = config.StatusPassed
+func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
+	jobPool := NewPool(ctx, jobs, concurrency, globalContext, logger, ack)
+	jobPool.Run()
 }
 
-func (c *JobCtl) stop(ctx context.Context) {
-	// TODO delete pods
+// Pool is a worker group that runs a number of tasks at a
+// configured concurrency.
+type Pool struct {
+	Jobs          []*commonmodels.JobTask
+	concurrency   int
+	jobsChan      chan *commonmodels.JobTask
+	globalContext *sync.Map
+	logger        *zap.SugaredLogger
+	ack           func()
+	ctx           context.Context
+	wg            sync.WaitGroup
+}
+
+// NewPool initializes a new pool with the given tasks and
+// at the given concurrency.
+func NewPool(ctx context.Context, jobs []*commonmodels.JobTask, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) *Pool {
+	return &Pool{
+		Jobs:          jobs,
+		concurrency:   concurrency,
+		jobsChan:      make(chan *commonmodels.JobTask),
+		globalContext: globalContext,
+		logger:        logger,
+		ack:           ack,
+		ctx:           ctx,
+	}
+}
+
+// Run runs all job within the pool and blocks until it's
+// finished.
+func (p *Pool) Run() {
+	for i := 0; i < p.concurrency; i++ {
+		go p.work()
+	}
+
+	p.wg.Add(len(p.Jobs))
+	for _, task := range p.Jobs {
+		p.jobsChan <- task
+	}
+
+	// all workers return
+	close(p.jobsChan)
+
+	p.wg.Wait()
+}
+
+// The work loop for any single goroutine.
+func (p *Pool) work() {
+	for job := range p.jobsChan {
+		runJob(p.ctx, job, p.globalContext, p.logger, p.ack)
+		p.wg.Done()
+	}
 }
