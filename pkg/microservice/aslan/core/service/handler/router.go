@@ -58,6 +58,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.GET("/:name/:type/ports", ListServicePort)
 		k8s.GET("/:name/environments/deployable", GetDeployableEnvs)
 		k8s.GET("/kube/workloads", GetKubeWorkloads)
+		k8s.POST("/yaml", GetKubeWorkloadsYaml)
 	}
 
 	workload := router.Group("workloads")

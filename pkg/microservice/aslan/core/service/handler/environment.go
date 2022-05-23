@@ -17,10 +17,13 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func GetDeployableEnvs(c *gin.Context) {
@@ -35,4 +38,22 @@ func GetKubeWorkloads(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.GetKubeWorkloads(c.Query("namespace"), c.Query("cluster_id"), ctx.Logger)
+}
+
+func GetKubeWorkloadsYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.GetKubeWorkloadsYamlReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("copyHelmProduct c.GetRawData() err : %s", err)
+	} else if err = json.Unmarshal(data, &args); err != nil {
+		ctx.Logger.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+	}
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetKubeWorkloadsYaml(args, ctx.Logger)
 }

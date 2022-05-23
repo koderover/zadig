@@ -17,12 +17,16 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+	"strings"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -93,14 +97,14 @@ func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*Get
 		serviceNames = append(serviceNames, service.Name)
 	}
 	workloadsMap["service"] = serviceNames
-	ingresses, err := getter.ListIngressesFormat(namespace, kubeClient, false)
+	ingresses, err := getter.ListIngresses(namespace, kubeClient, true)
 	if err != nil {
 		log.Errorf("GetKubeWorkloads ListIngresses error, error msg:%s", err)
 		return nil, err
 	}
 	var ingressNames []string
-	for _, ingress := range ingresses {
-		ingressNames = append(ingressNames, ingress.Name)
+	for _, ingress := range ingresses.Items {
+		ingressNames = append(ingressNames, ingress.GetName())
 	}
 	workloadsMap["ingress"] = ingressNames
 	secrets, err := getter.ListSecrets(namespace, kubeClient)
@@ -135,6 +139,112 @@ func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*Get
 	workloadsMap["pvc"] = pvcNames
 	return &GetKubeWorkloadsResp{
 		WorkloadsMap: workloadsMap,
+	}, nil
+}
+
+type ServiceWorkloads struct {
+	Name         string              `json:"name"`
+	WorkloadsMap map[string][]string `json:"workloads_map"`
+}
+
+type GetKubeWorkloadsYamlReq struct {
+	Namespace string             `json:"namespace"`
+	ClusterID string             `json:"cluster_id"`
+	Services  []ServiceWorkloads `json:"services"`
+}
+
+type ServiceYaml struct {
+	Name string `json:"name"`
+	Yaml string `json:"yaml"`
+}
+
+type GetKubeWorkloadsYamlResp struct {
+	Services []ServiceYaml `json:"services"`
+}
+
+func GetKubeWorkloadsYaml(params *GetKubeWorkloadsYamlReq, log *zap.SugaredLogger) (*GetKubeWorkloadsYamlResp, error) {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), params.ClusterID)
+	if err != nil {
+		log.Errorf("cluster is not connected [%s]", params.ClusterID)
+		return nil, err
+	}
+	var services []ServiceYaml
+	for _, service := range params.Services {
+		var yamls []string
+		for workloadType, workloads := range service.WorkloadsMap {
+			switch workloadType {
+			case "configmap":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetConfigMapYaml(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/configmap failed err:%s", err))
+					}
+
+					yamls = append(yamls, string(bs))
+				}
+			case "deployment":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetDeploymentYaml(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/deployment failed err:%s", err))
+					}
+
+					yamls = append(yamls, string(bs))
+				}
+			case "service":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetServiceYaml(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/service failed err:%s", err))
+					}
+
+					yamls = append(yamls, string(bs))
+				}
+			case "secret":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetSecretYaml(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/secret failed err:%s", err))
+					}
+
+					yamls = append(yamls, string(bs))
+				}
+			case "ingress":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetIngressYaml(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return nil, e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/ingress failed err:%s", err))
+					}
+
+					yamls = append(yamls, string(bs))
+				}
+			case "statefulset":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetStatefulSetYaml(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return nil, fmt.Errorf("get deploy/statefulset failed err:%s", err)
+					}
+					yamls = append(yamls, string(bs))
+				}
+			default:
+				return nil, fmt.Errorf("do not support workload kind:%s", workloadType)
+			}
+		}
+		yaml := strings.Join(yamls, "\n------\n")
+		services = append(services, ServiceYaml{
+			Name: service.Name,
+			Yaml: yaml,
+		})
+	}
+
+	return &GetKubeWorkloadsYamlResp{
+		Services: services,
 	}, nil
 }
 

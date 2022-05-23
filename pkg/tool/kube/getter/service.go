@@ -63,3 +63,12 @@ func ListServicesYaml(ns string, selector labels.Selector, cl client.Client) ([]
 	}
 	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
 }
+
+func GetServiceYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Service",
+		Version: "v1",
+	}
+	return GetResourceYamlInCache(ns, name, gvk, cl)
+}

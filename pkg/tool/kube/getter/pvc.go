@@ -42,3 +42,12 @@ func ListPvcs(ns string, selector fields.Selector, cl client.Reader) ([]*corev1.
 	}
 	return res, err
 }
+
+func GetPVCYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "core",
+		Kind:    "PersistentVolumeClaim",
+		Version: "v1",
+	}
+	return GetResourceYamlInCache(ns, name, gvk, cl)
+}
