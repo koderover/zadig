@@ -77,7 +77,7 @@ func GetCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetCodeHost(id, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetCodeHost(id, c.Query("ignoreDelete") == "true", ctx.Logger)
 }
 
 func AuthCodeHost(c *gin.Context) {
