@@ -84,8 +84,8 @@ func GetCodeHost(c *gin.Context) {
 		ignoreDelete, err = strconv.ParseBool(c.Query("ignoreDelete"))
 		if err != nil {
 			ctx.Err = fmt.Errorf("failed to parse param ignoreDelete, err: %s", err)
+			return
 		}
-		return
 	}
 
 	ctx.Resp, ctx.Err = service.GetCodeHost(id, ignoreDelete, ctx.Logger)
