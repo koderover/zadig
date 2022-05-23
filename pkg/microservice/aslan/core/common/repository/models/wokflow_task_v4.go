@@ -23,27 +23,25 @@ import (
 )
 
 type WorkflowTask struct {
-	ID              primitive.ObjectID  `bson:"_id,omitempty"             json:"id,omitempty"`
-	TaskID          int64               `bson:"task_id"                   json:"task_id"`
-	WorkflowName    string              `bson:"workflow_name"             json:"workflow_name"`
-	Type            config.PipelineType `bson:"type"                      json:"type"`
-	Status          config.Status       `bson:"status"                    json:"status,omitempty"`
-	Description     string              `bson:"description,omitempty"     json:"description,omitempty"`
-	TaskCreator     string              `bson:"task_creator"              json:"task_creator,omitempty"`
-	TaskRevoker     string              `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
-	CreateTime      int64               `bson:"create_time"               json:"create_time,omitempty"`
-	StartTime       int64               `bson:"start_time"                json:"start_time,omitempty"`
-	EndTime         int64               `bson:"end_time"                  json:"end_time,omitempty"`
-	Stages          []*StageTask        `bson:"stages"                    json:"stages"`
-	ReqID           string              `bson:"req_id,omitempty"          json:"req_id,omitempty"`
-	DockerHost      string              `bson:"-"                         json:"docker_host,omitempty"`
-	TeamName        string              `bson:"team,omitempty"            json:"team,omitempty"`
-	IsDeleted       bool                `bson:"is_deleted"                json:"is_deleted"`
-	IsArchived      bool                `bson:"is_archived"               json:"is_archived"`
-	Error           string              `bson:"error,omitempty"           json:"error,omitempty"`
-	StorageURI      string              `bson:"storage_uri,omitempty"     json:"storage_uri,omitempty"`
-	IsRestart       bool                `bson:"is_restart"                json:"is_restart"`
-	StorageEndpoint string              `bson:"storage_endpoint"          json:"storage_endpoint"`
+	ID           primitive.ObjectID  `bson:"_id,omitempty"             json:"id,omitempty"`
+	TaskID       int64               `bson:"task_id"                   json:"task_id"`
+	WorkflowName string              `bson:"workflow_name"             json:"workflow_name"`
+	Type         config.PipelineType `bson:"type"                      json:"type"`
+	Status       config.Status       `bson:"status"                    json:"status,omitempty"`
+	Description  string              `bson:"description,omitempty"     json:"description,omitempty"`
+	TaskCreator  string              `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskRevoker  string              `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
+	CreateTime   int64               `bson:"create_time"               json:"create_time,omitempty"`
+	StartTime    int64               `bson:"start_time"                json:"start_time,omitempty"`
+	EndTime      int64               `bson:"end_time"                  json:"end_time,omitempty"`
+	Stages       []*StageTask        `bson:"stages"                    json:"stages"`
+	ReqID        string              `bson:"req_id,omitempty"          json:"req_id,omitempty"`
+	DockerHost   string              `bson:"-"                         json:"docker_host,omitempty"`
+	TeamName     string              `bson:"team,omitempty"            json:"team,omitempty"`
+	IsDeleted    bool                `bson:"is_deleted"                json:"is_deleted"`
+	IsArchived   bool                `bson:"is_archived"               json:"is_archived"`
+	Error        string              `bson:"error,omitempty"           json:"error,omitempty"`
+	IsRestart    bool                `bson:"is_restart"                json:"is_restart"`
 }
 
 func (WorkflowTask) TableName() string {
@@ -56,7 +54,7 @@ type StageTask struct {
 	StartTime int64         `bson:"start_time"    json:"start_time,omitempty"`
 	EndTime   int64         `bson:"end_time"      json:"end_time,omitempty"`
 	// default is custom defined by user.
-	StageType string      `bson:"stage_type"     json:"stage_type"`
+	StageType string      `bson:"type"           json:"type"`
 	Parallel  bool        `bson:"parallel"       json:"parallel"`
 	Spec      interface{} `bson:"spec"           json:"spec"`
 	Jobs      []*JobTask  `bson:"jobs"           json:"jobs"`
@@ -64,9 +62,11 @@ type StageTask struct {
 
 type JobTask struct {
 	Name       string         `bson:"name"           json:"name"`
+	JobType    string         `bson:"type"           json:"type"`
 	Status     config.Status  `bson:"status"         json:"status"`
 	StartTime  int64          `bson:"start_time"     json:"start_time,omitempty"`
 	EndTime    int64          `bson:"end_time"       json:"end_time,omitempty"`
+	Error      string         `bson:"error"          json:"error"`
 	Namepace   string         `bson:"namespace"      json:"namespace"`
 	PodName    string         `bson:"pod_name"       json:"pod_name"`
 	Properties *JobProperties `bson:"properties"     json:"properties"`
@@ -74,13 +74,12 @@ type JobTask struct {
 }
 
 type StepTask struct {
-	Name      string          `bson:"name"           json:"name"`
-	JobName   string          `bson:"job_name"       json:"job_name"`
-	Timeout   int64           `bson:"timeout"        json:"timeout"`
-	StartTime int64           `bson:"start_time"     json:"start_time,omitempty"`
-	EndTime   int64           `bson:"end_time"       json:"end_time,omitempty"`
-	Status    config.Status   `bson:"status"         json:"status"`
-	StepType  config.StepType `bson:"step_type"      json:"step_type"`
-	Spec      interface{}     `bson:"Spec"           json:"Spec"`
-	Outputs   []*StepOutput   `bson:"outputs"        json:"outputs"`
+	Name     string          `bson:"name"           json:"name"`
+	JobName  string          `bson:"job_name"       json:"job_name"`
+	Error    string          `bson:"error"          json:"error"`
+	StepType config.StepType `bson:"step_type"      json:"step_type"`
+	// step input params,differ form steps
+	Spec interface{} `bson:"Spec"           json:"Spec"`
+	// step output results,like testing results,differ form steps
+	Result interface{} `bson:"result"         json:"result"`
 }

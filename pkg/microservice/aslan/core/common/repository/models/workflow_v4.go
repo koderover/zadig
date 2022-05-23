@@ -21,7 +21,7 @@ type WorkflowV4 struct {
 type WorkflowStage struct {
 	Name string `bson:"name"          json:"name"`
 	// default is custom defined by user.
-	StageType string      `bson:"stage_type"     json:"stage_type"`
+	StageType string      `bson:"type"           json:"type"`
 	Spec      interface{} `bson:"spec"           json:"spec"`
 	Jobs      []*Job      `bson:"jobs"           json:"jobs"`
 }
@@ -29,7 +29,10 @@ type WorkflowStage struct {
 type Job struct {
 	Name       string         `bson:"name"           json:"name"`
 	Properties *JobProperties `bson:"properties"     json:"properties"`
+	JobType    string         `bson:"type"           json:"type"`
+	Spec       interface{}    `bson:"spec"           json:"spec"`
 	Steps      []*Step        `bson:"steps"          json:"steps"`
+	Outputs    []*Output      `bson:"outputs"        son:"outputs"`
 }
 
 type JobProperties struct {
@@ -45,10 +48,9 @@ type Step struct {
 	Timeout  int64           `bson:"timeout"        json:"timeout"`
 	StepType config.StepType `bson:"step_type"      json:"step_type"`
 	Spec     interface{}     `bson:"Spec"           json:"Spec"`
-	Outputs  []*StepOutput   `bson:"outputs"        json:"outputs"`
 }
 
-type StepOutput struct {
+type Output struct {
 	Name        string `bson:"name"           json:"name"`
 	Description string `bson:"description"    json:"description"`
 }

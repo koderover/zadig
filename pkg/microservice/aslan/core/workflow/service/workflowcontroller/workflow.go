@@ -8,7 +8,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/jobcontroller"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +18,7 @@ type workflowCtl struct {
 	workflowTask  *commonmodels.WorkflowTask
 	globalContext *sync.Map
 	logger        *zap.SugaredLogger
-	ack           func() error
+	ack           func()
 }
 
 func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) *workflowCtl {
@@ -56,51 +55,11 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cancelChannelMap.Store(fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID), cancel)
-	for _, stage := range c.workflowTask.Stages {
-		c.runStage(ctx, stage, concurrency)
-		if stage.Status != config.StatusPassed {
-			c.workflowTask.Status = stage.Status
-			return
-		}
-	}
-	c.workflowTask.Status = config.StatusPassed
+	RunStages(ctx, c.workflowTask.Stages, concurrency, c.globalContext, c.logger, c.ack)
+	updateworkflowStatus(c.workflowTask)
 }
 
-func (c *workflowCtl) runStage(ctx context.Context, stage *commonmodels.StageTask, concurrency int) {
-	stage.Status = config.StatusRunning
-	stage.StartTime = time.Now().Unix()
-	c.ack()
-	c.logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
-	defer func() {
-		updateStageStatus(stage)
-		stage.EndTime = time.Now().Unix()
-		c.logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
-		c.ack()
-	}()
-	switch stage.StageType {
-	case "approve":
-		//TODO wait for approve
-	default:
-		// TODO run job in parallel
-		var workerConcurrency = 1
-		if stage.Parallel {
-			if len(stage.Jobs) > int(concurrency) {
-				workerConcurrency = int(concurrency)
-			} else {
-				workerConcurrency = len(stage.Jobs)
-			}
-
-		}
-		jobCtls := []*jobcontroller.JobCtl{}
-		for _, job := range stage.Jobs {
-			jobCtl := jobcontroller.NewJobCtl(ctx, job, c.globalContext, c.ack, c.logger)
-			jobCtls = append(jobCtls, jobCtl)
-		}
-		NewPool(jobCtls, workerConcurrency).Run()
-	}
-}
-
-func updateStageStatus(stage *commonmodels.StageTask) {
+func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 	statusMap := map[config.Status]int{
 		config.StatusCancelled: 4,
 		config.StatusTimeout:   3,
@@ -109,83 +68,34 @@ func updateStageStatus(stage *commonmodels.StageTask) {
 		config.StatusSkipped:   0,
 	}
 
-	// 初始化stageStatus为创建状态
-	stageStatus := config.StatusRunning
+	// 初始化workflowStatus为创建状态
+	workflowStatus := config.StatusRunning
 
-	jobStatus := make([]int, len(stage.Jobs))
+	stageStatus := make([]int, len(workflow.Stages))
 
-	for i, j := range stage.Jobs {
+	for i, j := range workflow.Stages {
 		statusCode, ok := statusMap[j.Status]
 		if !ok {
 			statusCode = -1
 		}
-		jobStatus[i] = statusCode
+		stageStatus[i] = statusCode
 	}
-	var stageStatusCode int
-	for i, code := range jobStatus {
-		if i == 0 || code > stageStatusCode {
-			stageStatusCode = code
+	var workflowStatusCode int
+	for i, code := range stageStatus {
+		if i == 0 || code > workflowStatusCode {
+			workflowStatusCode = code
 		}
 	}
 
 	for taskstatus, code := range statusMap {
-		if stageStatusCode == code {
-			stageStatus = taskstatus
+		if workflowStatusCode == code {
+			workflowStatus = taskstatus
 			break
 		}
 	}
-	stage.Status = stageStatus
+	workflow.Status = workflowStatus
 }
 
-func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
-}
-
-func (c *workflowCtl) updateWorkflowTask() error {
+func (c *workflowCtl) updateWorkflowTask() {
 	// TODO update workflow task
-	return nil
-}
-
-// Pool is a worker group that runs a number of tasks at a
-// configured concurrency.
-type Pool struct {
-	Jobs        []*jobcontroller.JobCtl
-	concurrency int
-	jobsChan    chan *jobcontroller.JobCtl
-	wg          sync.WaitGroup
-}
-
-// NewPool initializes a new pool with the given tasks and
-// at the given concurrency.
-func NewPool(jobs []*jobcontroller.JobCtl, concurrency int) *Pool {
-	return &Pool{
-		Jobs:        jobs,
-		concurrency: concurrency,
-		jobsChan:    make(chan *jobcontroller.JobCtl),
-	}
-}
-
-// Run runs all job within the pool and blocks until it's
-// finished.
-func (p *Pool) Run() {
-	for i := 0; i < p.concurrency; i++ {
-		go p.work()
-	}
-
-	p.wg.Add(len(p.Jobs))
-	for _, task := range p.Jobs {
-		p.jobsChan <- task
-	}
-
-	// all workers return
-	close(p.jobsChan)
-
-	p.wg.Wait()
-}
-
-// The work loop for any single goroutine.
-func (p *Pool) work() {
-	for job := range p.jobsChan {
-		job.Run(job.Ctx)
-		p.wg.Done()
-	}
 }
