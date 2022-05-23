@@ -181,7 +181,7 @@ func preLoadServiceManifestsFromGitee(svc *commonmodels.Service) error {
 		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
 	}
-	err = command.RunGitCmds(detail, svc.RepoOwner, svc.RepoName, svc.BranchName, "origin")
+	err = command.RunGitCmds(detail, svc.RepoOwner, svc.GetRepoNamespace(), svc.RepoName, svc.BranchName, "origin")
 	if err != nil {
 		log.Errorf("Failed to runGitCmds, err:%s", err)
 		return err
