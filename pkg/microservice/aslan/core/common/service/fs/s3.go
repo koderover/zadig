@@ -209,7 +209,7 @@ func DownloadAndCopyFilesFromGitee(name, localBase string, logger *zap.SugaredLo
 		logger.Errorf("Failed to get codehost detail, err:%s", err)
 		return err
 	}
-	err = command.RunGitCmds(detail, chartTemplate.Owner, chartTemplate.Repo, chartTemplate.Branch, "origin")
+	err = command.RunGitCmds(detail, chartTemplate.Owner, chartTemplate.GetNamespace(), chartTemplate.Repo, chartTemplate.Branch, "origin")
 	if err != nil {
 		logger.Errorf("Failed to runGitCmds, err:%s", err)
 		return err
