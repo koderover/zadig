@@ -138,7 +138,9 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 		return
 	}
 
-	// 选取当前最空闲的dockerhost
+	// Deprecated.
+	// Note: This logic is reserved for compatibility with plugins other than build. This logic can be removed if we have understood all of the plugins.
+	//       For attached clusters, this logic is wrong because it still deals with dind in the local cluster.
 	dockerHost, err := plugins.GetBestDockerHost(pipelineTask.ConfigPayload.Docker.HostList, string(pipelineTask.Type), pipelineTask.ConfigPayload.Build.KubeNamespace, xl)
 	if err != nil {
 		errMsg := fmt.Sprintf("[%s]Cannot find docker host: %v", pipelineTask.PipelineName, err)

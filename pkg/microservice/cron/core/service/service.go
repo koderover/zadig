@@ -21,6 +21,7 @@ import (
 
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type SvcRevision struct {
@@ -120,6 +121,7 @@ type PrivateKeyHosts struct {
 	IP           string               `json:"ip"`
 	Port         int64                `json:"port"`
 	Status       setting.PMHostStatus `json:"status"`
+	Probe        *types.Probe         `json:"probe"`
 	UpdateStatus bool                 `json:"update_status"`
 }
 

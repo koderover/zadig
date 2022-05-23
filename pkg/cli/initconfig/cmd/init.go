@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
-	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
@@ -94,10 +92,6 @@ func initSystemConfig() error {
 	uid, err := presetSystemAdmin(email, password, domain)
 	if err != nil {
 		log.Errorf("presetSystemAdmin err:%s", err)
-		return err
-	}
-	if err := presetRole(); err != nil {
-		log.Errorf("presetRole err:%s", err)
 		return err
 	}
 
@@ -198,33 +192,6 @@ func presetRoleBinding(uid string) error {
 		Type: setting.ResourceTypeSystem,
 	})
 
-}
-
-func presetRole() error {
-	g := new(errgroup.Group)
-	g.Go(func() error {
-		systemAdminRole := &policy.Role{}
-		if err := yaml.Unmarshal(admin, systemAdminRole); err != nil {
-			log.DPanic(err)
-		}
-		return policy.NewDefault().CreateSystemRole(systemAdminRole.Name, systemAdminRole)
-	})
-
-	rolesArray := [][]byte{readOnly, readProjectOnly, contributor, projectAdmin}
-
-	for _, v := range rolesArray {
-		role := &policy.Role{}
-		if err := yaml.Unmarshal(v, role); err != nil {
-			log.DPanic(err)
-		}
-		g.Go(func() error {
-			return policy.NewDefault().CreatePresetRole(role.Name, role)
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return err
-	}
-	return nil
 }
 
 func createLocalCluster() error {

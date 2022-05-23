@@ -76,7 +76,7 @@ func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *z
 				logger.Errorf("there're resources not exist")
 				return e.ErrForbidden.AddDesc("there're resources not exist")
 			}
-		case string(config.ResourceTypeProduct):
+		case string(config.ResourceTypeEnvironment):
 			products := []commondb.Product{}
 			resourceSet := sets.NewString()
 			for _, vv := range v {

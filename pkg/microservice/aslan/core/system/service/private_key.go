@@ -25,8 +25,10 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func ListPrivateKeys(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
@@ -40,6 +42,9 @@ func ListPrivateKeys(encryptedKey string, log *zap.SugaredLogger) ([]*commonmode
 		return nil, err
 	}
 	for _, key := range resp {
+		if key.Probe == nil {
+			key.Probe = &types.Probe{ProbeScheme: setting.ProtocolTCP}
+		}
 		key.PrivateKey, err = crypto.AesEncryptByKey(key.PrivateKey, aesKey.PlainText)
 		if err != nil {
 			return nil, err

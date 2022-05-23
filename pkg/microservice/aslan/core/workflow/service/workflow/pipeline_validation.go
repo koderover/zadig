@@ -295,14 +295,14 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 		go func(build *types.Repository) {
 			defer wg.Done()
 
-			setBuildInfo(build, log)
+			setBuildInfo(build, buildArgs, log)
 		}(build)
 	}
 	wg.Wait()
 	return nil
 }
 
-func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
+func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *zap.SugaredLogger) {
 	codeHostInfo, err := systemconfig.New().GetCodeHost(build.CodehostID)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
@@ -403,9 +403,8 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				}
 			}
 		}
-	} else {
+	} else if codeHostInfo.Type == systemconfig.GitHubProvider {
 		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
-		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
 			if build.Tag != "" && build.PR == 0 {
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
@@ -454,28 +453,19 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				log.Warnf("github setBuildInfo failed, use build %+v", build)
 				return
 			}
-			//if build.Branch != "" && build.PR > 0 {
-			//	prCommits := make([]*github.RepositoryCommit, 0)
-			//	opt := &github.ListOptions{Page: 1, PerPage: 100}
-			//	for opt.Page > 0 {
-			//		list, resp, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
-			//		if err != nil {
-			//			fmt.Printf("ListCommits error: %v\n", err)
-			//			return
-			//		}
-			//		prCommits = append(prCommits, list...)
-			//		opt.Page = resp.NextPage
-			//	}
-			//
-			//	if len(prCommits) > 0 {
-			//		commit := prCommits[len(prCommits)-1]
-			//		build.CommitID = *commit.SHA
-			//	}
-			//}
 		}
-
+	} else if codeHostInfo.Type == systemconfig.OtherProvider {
+		build.SSHKey = codeHostInfo.SSHKey
+		build.PrivateAccessToken = codeHostInfo.PrivateAccessToken
+		build.RepoOwner, build.RepoName = util.ParseOwnerAndRepo(build.OtherAddress, build.AuthType)
+		for _, buildArg := range buildArgs {
+			if buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName && buildArg.CheckoutPath == build.CheckoutPath {
+				setBuildFromArg(build, buildArg)
+				break
+			}
+		}
+		return
 	}
-
 }
 
 // 根据传入的build arg设置build参数
@@ -529,7 +519,7 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 					break
 				}
 			}
-			setBuildInfo(build, log)
+			setBuildInfo(build, buildArgs, log)
 		}(build)
 	}
 	wg.Wait()
