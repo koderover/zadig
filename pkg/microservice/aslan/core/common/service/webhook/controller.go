@@ -138,7 +138,7 @@ func ensureSafeDelete(ref, repoName, repoOwner, repoAddress string) (bool, error
 		if service.RepoName != repoName || service.RepoOwner != repoOwner {
 			continue
 		}
-		codeHostInfo, err := codehostdb.NewCodehostColl().GetCodeHostByID(service.CodehostID)
+		codeHostInfo, err := codehostdb.NewCodehostColl().GetCodeHostByID(service.CodehostID, false)
 		if err == nil {
 			if codeHostInfo.Address != repoAddress {
 				continue

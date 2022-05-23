@@ -76,6 +76,18 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 	return res, nil
 }
 
+func (c *Client) GetRawCodeHost(id int) (*CodeHost, error) {
+	url := fmt.Sprintf("/codehosts/%d?ignoreDelete=true", id)
+
+	res := &CodeHost{}
+	_, err := c.Get(url, httpclient.SetResult(res))
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (c *Client) ListCodeHostsInternal() ([]*CodeHost, error) {
 	url := "/codehosts/internal"
 
