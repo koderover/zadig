@@ -22,29 +22,11 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
-type Policy struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	UpdateTime  int64   `json:"update_time"`
-	Rules       []*Rule `json:"rules"`
-}
-
-type Rule struct {
-	Verbs           []string         `json:"verbs"`
-	Resources       []string         `json:"resources"`
-	Kind            string           `json:"kind"`
-	MatchAttributes []MatchAttribute `json:"match_attributes"`
-}
-
-type MatchAttribute struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
 type CreatePoliciesArgs struct {
-	Policies []*Policy `json:"policies"`
+	Policies []*types.Policy `json:"policies"`
 }
 
 type DeletePoliciesArgs struct {
@@ -99,7 +81,7 @@ func (c *Client) DeletePolicyBindings(names []string, projectName string) error 
 	return err
 }
 
-func (c *Client) UpdatePolicy(ns string, policy *Policy) error {
+func (c *Client) UpdatePolicy(ns string, policy *types.Policy) error {
 	url := fmt.Sprintf("/policies/%s?projectName=%s", policy.Name, ns)
 	_, err := c.Put(url, httpclient.SetBody(policy))
 	return err
@@ -123,9 +105,9 @@ func (c *Client) GetResourcePermission(req *ResourcePermissionReq) (map[string][
 	return result, nil
 }
 
-func (c *Client) GetPolicies(names string) ([]*Policy, error) {
+func (c *Client) GetPolicies(names string) ([]*types.Policy, error) {
 	url := fmt.Sprintf("/policies/bulk")
-	res := make([]*Policy, 0)
+	res := make([]*types.Policy, 0)
 	_, err := c.Get(url, httpclient.SetQueryParam("names", names), httpclient.SetResult(&res))
 	if err != nil {
 		log.Errorf("Failed to getPolicies,err: %s", err)

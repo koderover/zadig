@@ -462,26 +462,17 @@ func (r *Reaper) AfterExec() error {
 			}
 			// if the given path is a directory
 			if info.IsDir() {
-				// we get ALL files in this directory and upload it to the object storage
-				files, err := ioutil.ReadDir(upload.FilePath)
+				err := client.UploadDir(r.Ctx.UploadStorageInfo.Bucket, upload.FilePath, upload.DestinationPath)
 				if err != nil {
-					return fmt.Errorf("failed to read file information in directory: [%s], the error is: %s", upload.FilePath, err)
-				}
-				for _, file := range files {
-					if !file.IsDir() {
-						key := filepath.Join(upload.DestinationPath, file.Name())
-						originalFilePath := filepath.Join(upload.FilePath, file.Name())
-						err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, originalFilePath, key)
-						if err != nil {
-							fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", originalFilePath, key, err)
-						}
-					}
+					log.Errorf("Failed to upload dir [%s] to path [%s] on s3, the error is: %s", upload.FilePath, upload.DestinationPath, err)
+					return err
 				}
 			} else {
 				key := filepath.Join(upload.DestinationPath, info.Name())
 				err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, upload.FilePath, key)
 				if err != nil {
-					fmt.Printf("Failed to upload [%s] to key [%s] on s3, the error is: %s", upload.FilePath, key, err)
+					log.Errorf("Failed to upload [%s] to key [%s] on s3, the error is: %s", upload.FilePath, key, err)
+					return err
 				}
 			}
 		}

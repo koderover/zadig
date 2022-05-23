@@ -24,9 +24,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 )
 
-type resourceActionMappings map[string]map[string][]*rule
+type resourceActionMappings map[string]map[string][]*Rule
 
-func (m resourceActionMappings) GetRules(resource string, actions []string) []*rule {
+func (m resourceActionMappings) GetRules(resource string, actions []string) []*Rule {
 	mappings, ok := m[resource]
 	if !ok {
 		return nil
@@ -37,11 +37,11 @@ func (m resourceActionMappings) GetRules(resource string, actions []string) []*r
 		all = true
 	}
 	actionSet := sets.NewString(actions...)
-	var res []*rule
+	var res []*Rule
 	for action, r := range mappings {
 		if all || actionSet.Has(action) {
 			for _, rr := range r {
-				rrr := &rule{
+				rrr := &Rule{
 					Method:           rr.Method,
 					Endpoint:         rr.Endpoint,
 					ResourceType:     rr.ResourceType,
@@ -57,7 +57,7 @@ func (m resourceActionMappings) GetRules(resource string, actions []string) []*r
 	return res
 }
 
-func (m resourceActionMappings) GetPolicyRules(resource string, actions []string, verbAttrMap map[string]sets.String) []*rule {
+func (m resourceActionMappings) GetPolicyRules(resource string, actions []string, verbAttrMap map[string]sets.String) []*Rule {
 	mappings, ok := m[resource]
 	if !ok {
 		return nil
@@ -68,7 +68,7 @@ func (m resourceActionMappings) GetPolicyRules(resource string, actions []string
 		all = true
 	}
 	actionSet := sets.NewString(actions...)
-	var res []*rule
+	var res []*Rule
 	for action, r := range mappings {
 		var attr Attributes
 		if attrs, ok := verbAttrMap[action]; ok {
@@ -93,7 +93,7 @@ func (m resourceActionMappings) GetPolicyRules(resource string, actions []string
 						attrSets.Insert(attribute.Key + "&&" + attribute.Value)
 					}
 				}
-				rrr := &rule{
+				rrr := &Rule{
 					Method:           rr.Method,
 					Endpoint:         rr.Endpoint,
 					ResourceType:     rr.ResourceType,
@@ -113,7 +113,7 @@ func getResourceActionMappings(isPolicy bool, policies []*models.PolicyMeta) res
 	data := make(resourceActionMappings)
 	for _, p := range policies {
 		if _, ok := data[p.Resource]; !ok {
-			data[p.Resource] = make(map[string][]*rule)
+			data[p.Resource] = make(map[string][]*Rule)
 		}
 
 		for _, r := range p.Rules {
@@ -126,7 +126,7 @@ func getResourceActionMappings(isPolicy bool, policies []*models.PolicyMeta) res
 					as = append(as, &Attribute{Key: a.Key, Value: a.Value})
 				}
 
-				data[p.Resource][r.Action] = append(data[p.Resource][r.Action], &rule{
+				data[p.Resource][r.Action] = append(data[p.Resource][r.Action], &Rule{
 					Method:          ar.Method,
 					Endpoint:        ar.Endpoint,
 					ResourceType:    ar.ResourceType,

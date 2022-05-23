@@ -18,6 +18,7 @@ package s3
 
 import (
 	"fmt"
+	"io/fs"
 	"mime"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util/fs"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
 const (
@@ -110,7 +111,7 @@ func (c *Client) download(bucketName, objectKey, dest string, option *DownloadOp
 			retry++
 			continue
 		}
-		err = fs.SaveFile(obj.Body, dest)
+		err = fsutil.SaveFile(obj.Body, dest)
 		if err != nil {
 			log.Errorf("Failed to save file to %s, err: %s", dest, err)
 		}
@@ -218,6 +219,22 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 		input.ContentType = &mimetype
 	}
 	_, err = c.PutObject(input)
+	return err
+}
+
+// Upload upload all files in a directory to a S3 path recursively
+func (c *Client) UploadDir(bucketName, srcdir string, s3dir string) error {
+	err := fs.WalkDir(os.DirFS(srcdir), ".", func(p string, d fs.DirEntry, e error) error {
+		if e != nil {
+			return e
+		}
+		if d.IsDir() {
+			return nil
+		}
+		key := filepath.Join(s3dir, p)
+		originalFilePath := filepath.Join(srcdir, p)
+		return c.Upload(bucketName, originalFilePath, key)
+	})
 	return err
 }
 

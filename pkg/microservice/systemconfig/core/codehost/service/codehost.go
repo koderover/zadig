@@ -140,7 +140,7 @@ func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHo
 	}
 
 	var oldAlias string
-	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID)
+	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID, false)
 	if err == nil {
 		oldAlias = oldCodeHost.Alias
 	}
@@ -157,8 +157,8 @@ func UpdateCodeHostByToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models
 	return mongodb.NewCodehostColl().UpdateCodeHostByToken(host)
 }
 
-func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	return mongodb.NewCodehostColl().GetCodeHostByID(id)
+func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete)
 }
 
 type state struct {
@@ -167,7 +167,7 @@ type state struct {
 }
 
 func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger) (string, error) {
-	codeHost, err := GetCodeHost(codeHostID, logger)
+	codeHost, err := GetCodeHost(codeHostID, false, logger)
 	if err != nil {
 		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
 		return "", err
@@ -213,7 +213,7 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		logger.Errorf("ParseURL:%s err:%s", sta.RedirectURL, err)
 		return "", err
 	}
-	codehost, err := GetCodeHost(sta.CodeHostID, logger)
+	codehost, err := GetCodeHost(sta.CodeHostID, false, logger)
 	if err != nil {
 		return handle(redirectParsedURL, err)
 	}

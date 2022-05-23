@@ -21,34 +21,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/types"
 )
-
-type PolicyMeta struct {
-	Resource    string      `json:"resource"`
-	Alias       string      `json:"alias"`
-	Description string      `json:"description"`
-	Rules       []*RuleMeta `json:"rules"`
-}
-
-type RuleMeta struct {
-	Action      string        `json:"action"`
-	Alias       string        `json:"alias"`
-	Description string        `json:"description"`
-	Rules       []*ActionRule `json:"rules"`
-}
-
-type ActionRule struct {
-	Method          string       `json:"method"`
-	Endpoint        string       `json:"endpoint"`
-	ResourceType    string       `json:"resourceType,omitempty"`
-	IDRegex         string       `json:"idRegex,omitempty"`
-	MatchAttributes []*Attribute `json:"matchAttributes,omitempty"`
-}
-
-type Attribute struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
 
 type RoleBinding struct {
 	Name   string               `json:"name"`
@@ -58,7 +32,7 @@ type RoleBinding struct {
 	Type   setting.ResourceType `json:"type"`
 }
 
-func (c *Client) CreateOrUpdatePolicyRegistration(p *PolicyMeta) error {
+func (c *Client) CreateOrUpdatePolicyRegistration(p *types.PolicyMeta) error {
 	url := fmt.Sprintf("/policymetas/%s", p.Resource)
 
 	_, err := c.Put(url, httpclient.SetBody(p))
@@ -134,10 +108,10 @@ type Role struct {
 	Type  setting.ResourceType `json:"type"`
 	Desc  string               `json:"desc"`
 	Rules []*struct {
-		Verbs           []string         `json:"verbs"`
-		Resources       []string         `json:"resources"`
-		Kind            string           `json:"kind"`
-		MatchAttributes []MatchAttribute `json:"match_attributes,omitempty"`
+		Verbs           []string               `json:"verbs"`
+		Resources       []string               `json:"resources"`
+		Kind            string                 `json:"kind"`
+		MatchAttributes []types.MatchAttribute `json:"match_attributes,omitempty"`
 	} `json:"rules"`
 }
 
