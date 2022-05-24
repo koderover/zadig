@@ -307,9 +307,10 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, e.ErrCreateTask
 	}
 
+	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
 	err = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
 	if err != nil {
-		log.Errorf("Failed to update comment for scanning: %s, the error is: %s", scanningInfo.ID.Hex(), err)
+		log.Warnf("Failed to update comment for scanning: %s, the error is: %s", scanningInfo.ID.Hex(), err)
 	}
 
 	return nextTaskID, nil

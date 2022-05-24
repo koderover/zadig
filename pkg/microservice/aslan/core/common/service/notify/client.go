@@ -237,6 +237,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			logger.Infof("scanning get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			err = c.scmNotifyService.UpdateWebhookCommentForScanning(task, logger)
 			if err != nil {
+				// FIXME: This error will not be returned since the logic above didn't return. It is expected to return if we know what we are doing.
 				log.Errorf("Failed to update webhook comment for scanning: %s, err: %s", task.ScanningArgs.ScanningID, err)
 			}
 			if ctx.TaskID > 1 {

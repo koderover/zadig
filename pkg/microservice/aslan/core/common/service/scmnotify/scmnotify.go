@@ -459,11 +459,12 @@ func (s *Service) UpdateWebhookCommentForScanning(task *task.Task, logger *zap.S
 	if shouldComment {
 		notification.Tasks = tasks
 		if err = s.Client.Comment(notification); err != nil {
-			logger.Errorf("failed to comment %s, %v", notification.ToString(), err)
+			// cannot return error here since the upsert operation is required for further use.
+			logger.Warnf("failed to comment %s, %v", notification.ToString(), err)
 		}
 
 		if err = s.Coll.Upsert(notification); err != nil {
-			logger.Errorf("can't upsert notification by id %s", notification.ID)
+			logger.Warnf("can't upsert notification by id %s", notification.ID)
 			return
 		}
 	} else {
