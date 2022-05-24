@@ -64,6 +64,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						mergeRequestID = ev.ObjectAttributes.IID
 
 						if notification == nil {
+							log.Infof(">>>>>>>> sending notification for gitlab <<<<<<<<<<<<<<<<")
 							mainRepo := ConvertScanningHookToMainHookRepo(item)
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
 								mainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
