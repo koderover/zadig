@@ -64,7 +64,6 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						mergeRequestID = ev.ObjectAttributes.IID
 
 						if notification == nil {
-							log.Infof(">>>>>>>> sending notification for gitlab <<<<<<<<<<<<<<<<")
 							mainRepo := ConvertScanningHookToMainHookRepo(item)
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
 								mainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
@@ -85,7 +84,12 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 					repoInfo.PR = mergeRequestID
 
-					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, notification.ID.Hex(), "webhook", log); err != nil {
+					notificationID := ""
+					if notification != nil {
+						notificationID = notification.ID.Hex()
+					}
+
+					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, notificationID, "webhook", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {
