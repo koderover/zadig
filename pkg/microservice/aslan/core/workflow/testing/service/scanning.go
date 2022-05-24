@@ -305,7 +305,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 	}
 
 	if notificationID != "" {
-		_ = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
+		_ = scmnotify.NewService().UpdateWebhookCommentForScanning(notificationID, finalTask, log)
 	}
 
 	return nextTaskID, nil

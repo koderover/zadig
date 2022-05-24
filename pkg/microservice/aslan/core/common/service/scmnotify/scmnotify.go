@@ -409,9 +409,9 @@ func (s *Service) UpdateWebhookCommentForTest(task *task.Task, logger *zap.Sugar
 	return nil
 }
 
-func (s *Service) UpdateWebhookCommentForScanning(task *task.Task, logger *zap.SugaredLogger) (err error) {
+func (s *Service) UpdateWebhookCommentForScanning(notificationID string, task *task.Task, logger *zap.SugaredLogger) (err error) {
 	var notification *models.Notification
-	if notification, err = s.Coll.Find(task.TestArgs.NotificationID); err != nil {
+	if notification, err = s.Coll.Find(notificationID); err != nil {
 		logger.Errorf("can't find notification by id %s %s", task.TestArgs.NotificationID, err)
 		return err
 	}
