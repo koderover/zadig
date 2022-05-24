@@ -48,6 +48,12 @@ metas:
         description: ''
         rules:
           - method: GET
+            endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/workflowtask/id/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/workflowtask/max/?*/start/?*/pipelines/?*
+          - method: GET
             endpoint: /api/aslan/testing/test
           - method: GET
             endpoint: /api/aslan/testing/test/?*
@@ -83,8 +89,12 @@ metas:
         alias: 执行
         description: ''
         rules:
+          - method: DELETE
+            endpoint: api/aslan/testing/testtask/productName/?*/id/?*/pipelines/?*
           - method: POST
             endpoint: /api/aslan/testing/testtask
+          - method: POST
+            endpoint: /api/aslan/testing/testtask/productName/?*/id/?*/pipelines/?*/restart
   - resource: Service
     alias: 服务
     description: ''
@@ -179,6 +189,10 @@ metas:
         alias: 新建
         description: ''
         rules:
+          - method: GET
+            endpoint: api/aslan/template/build
+          - method: GET
+            endpoint: api/aslan/template/dockerfile
           - method: POST
             endpoint: /api/aslan/build/build
       - action: edit_build
@@ -205,6 +219,8 @@ metas:
         alias: 查看
         description: ''
         rules:
+          - method: GET
+            endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
           - method: GET
             endpoint: /api/aslan/testing/test
           - method: GET
@@ -245,8 +261,6 @@ metas:
         rules:
           - method: POST
             endpoint: /api/aslan/testing/testtask
-          - method: GET
-            endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
   - resource: DataCenter
     alias: 数据视图
     description: ''
@@ -562,6 +576,8 @@ metas:
         alias: 创建
         description: ''
         rules:
+          - method: GET
+            endpoint: api/aslan/delivery/releases
           - method: POST
             endpoint: /api/aslan/environment/environments
             resourceType: Cluster
@@ -660,3 +676,39 @@ metas:
         rules:
           - method: GET
             endpoint: '/api/aslan/environment/environments/:name/services/?*/pmexec'
+  - resource: Scan
+    alias: "代码扫描"
+    description: ""
+    rules:
+      - action: get_sacn
+        alias: 查看
+        description: ""
+        rules:
+          - method: GET
+            endpoint: "api/aslan/testing/scanning"
+      - action: create_scan
+        alias: 新建
+        description: ""
+        rules:
+          - method: POST
+            endpoint: "/api/aslan/testing/scanning"
+          - method: GET
+            endpoint: "/api/aslan/cluster/clusters"
+      - action: edit_scan
+        alias: 编辑
+        description: ""
+        rules:
+          - method: PUT
+            endpoint: "/api/aslan/testing/scanning/?*"
+      - action: delete_scan
+        alias: "删除"
+        description: ""
+        rules:
+          - method: DELETE
+            endpoint: "/api/aslan/testing/scanning/?*"
+      - action: run_scan
+        alias: "执行"
+        description: ''
+        rules:
+          - method: POST
+            endpoint: "/api/aslan/testing/scanning/?*/task"
