@@ -38,7 +38,17 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, concurrency in
 func RunStages(ctx context.Context, stages []*commonmodels.StageTask, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
 	for _, stage := range stages {
 		runStage(ctx, stage, concurrency, globalContext, logger, ack)
+		if statusFailed(stage.Status) {
+			return
+		}
 	}
+}
+
+func statusFailed(status config.Status) bool {
+	if status == config.StatusCancelled || status == config.StatusFailed || status == config.StatusTimeout {
+		return true
+	}
+	return false
 }
 
 func updateStageStatus(stage *commonmodels.StageTask) {
