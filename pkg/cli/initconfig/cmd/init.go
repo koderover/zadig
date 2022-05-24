@@ -42,21 +42,6 @@ func init() {
 	})
 }
 
-//go:embed contributor.yaml
-var contributor []byte
-
-//go:embed read-only.yaml
-var readOnly []byte
-
-//go:embed read-project-only.yaml
-var readProjectOnly []byte
-
-//go:embed admin.yaml
-var admin []byte
-
-//go:embed project-admin.yaml
-var projectAdmin []byte
-
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "init system config",
