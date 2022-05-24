@@ -409,9 +409,13 @@ func (s *Service) UpdateWebhookCommentForTest(task *task.Task, logger *zap.Sugar
 	return nil
 }
 
-func (s *Service) UpdateWebhookCommentForScanning(notificationID string, task *task.Task, logger *zap.SugaredLogger) (err error) {
+func (s *Service) UpdateWebhookCommentForScanning(task *task.Task, logger *zap.SugaredLogger) (err error) {
+	if task.ScanningArgs.NotificationID == "" {
+		return
+	}
+
 	var notification *models.Notification
-	if notification, err = s.Coll.Find(notificationID); err != nil {
+	if notification, err = s.Coll.Find(task.ScanningArgs.NotificationID); err != nil {
 		logger.Errorf("can't find notification by id %s %s", task.TestArgs.NotificationID, err)
 		return err
 	}
@@ -428,8 +432,8 @@ func (s *Service) UpdateWebhookCommentForScanning(notificationID string, task *t
 				ProductName:  task.ProductName,
 				TestName:     task.PipelineName,
 				ID:           task.TaskID,
-				ScanningName: task.ScanningName,
-				ScanningID:   task.ScanningID,
+				ScanningName: task.ScanningArgs.ScanningName,
+				ScanningID:   task.ScanningArgs.ScanningID,
 				Status:       status,
 			}
 
@@ -445,8 +449,8 @@ func (s *Service) UpdateWebhookCommentForScanning(notificationID string, task *t
 			ProductName:  task.ProductName,
 			TestName:     task.PipelineName,
 			ID:           task.TaskID,
-			ScanningName: task.ScanningName,
-			ScanningID:   task.ScanningID,
+			ScanningName: task.ScanningArgs.ScanningName,
+			ScanningID:   task.ScanningArgs.ScanningID,
 			Status:       status,
 		})
 		shouldComment = true

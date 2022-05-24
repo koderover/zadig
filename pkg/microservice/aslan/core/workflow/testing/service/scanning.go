@@ -291,8 +291,11 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		Stages:        stages,
 		ConfigPayload: configPayload,
 		StorageURI:    defaultURL,
-		ScanningName:  scanningInfo.Name,
-		ScanningID:    scanningInfo.ID.Hex(),
+		ScanningArgs: &commonmodels.ScanningArgs{
+			ScanningName:   scanningInfo.Name,
+			ScanningID:     scanningInfo.ID.Hex(),
+			NotificationID: notificationID,
+		},
 	}
 
 	if len(finalTask.Stages) <= 0 {
@@ -304,9 +307,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, e.ErrCreateTask
 	}
 
-	if notificationID != "" {
-		_ = scmnotify.NewService().UpdateWebhookCommentForScanning(notificationID, finalTask, log)
-	}
+	_ = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
 
 	return nextTaskID, nil
 }

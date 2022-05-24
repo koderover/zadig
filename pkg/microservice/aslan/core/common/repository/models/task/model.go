@@ -65,6 +65,8 @@ type Task struct {
 	WorkflowArgs *models.WorkflowTaskArgs `bson:"workflow_args"         json:"workflow_args,omitempty"`
 	// TestArgs 测试任务参数
 	TestArgs *models.TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
+	// ScanningArgs argument for scanning tasks
+	ScanningArgs *models.ScanningArgs `bson:"scanning_args,omitempty" json:"scanning_args,omitempty"`
 	// ServiceTaskArgs 脚本部署工作流任务参数
 	ServiceTaskArgs *models.ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
@@ -84,9 +86,6 @@ type Task struct {
 	Features         []string                     `bson:"features"               json:"features"`
 	IsRestart        bool                         `bson:"is_restart"             json:"is_restart"`
 	StorageEndpoint  string                       `bson:"storage_endpoint"       json:"storage_endpoint"`
-	// ScanningID is used to identify the scanning information for notification use
-	ScanningID   string `bson:"scanning_id"               json:"scanning_id"`
-	ScanningName string `bson:"scanning_name"             json:"scanning_name"`
 }
 
 func (Task) TableName() string {

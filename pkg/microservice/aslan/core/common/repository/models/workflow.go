@@ -189,6 +189,14 @@ type WorkflowTaskArgs struct {
 	ReleaseImages []*ReleaseImage `bson:"release_images,omitempty"    json:"release_images,omitempty"`
 }
 
+type ScanningArgs struct {
+	ScanningName string `json:"scanning_name" bson:"scanning_name"`
+	ScanningID   string `json:"scanning_id"   bson:"scanning_id"`
+
+	// NotificationID is the id of scmnotify.Notification
+	NotificationID string `bson:"notification_id" json:"notification_id"`
+}
+
 type ReleaseImage struct {
 	Image         string `bson:"image"                    json:"image"`
 	ServiceName   string `bson:"service_name"             json:"service_name"`
