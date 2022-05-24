@@ -333,7 +333,7 @@ func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) e
 	if rs != nil && err == nil {
 		// 已经存在渲染配置集
 		// 判断是否有修改
-		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) {
+		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) {
 			args.IsDefault = rs.IsDefault
 		} else {
 			return nil

@@ -285,8 +285,7 @@ func updateServiceTemplateByPushEvent(diffs []string, pathWithNamespace string, 
 	errs := &multierror.Error{}
 
 	for _, service := range serviceTmpls {
-		// TODO need optimize, use repo namespace
-		if service.RepoOwner+"/"+service.RepoName != pathWithNamespace {
+		if service.GetRepoNamespace()+"/"+service.RepoName != pathWithNamespace {
 			continue
 		}
 

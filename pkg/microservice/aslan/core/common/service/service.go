@@ -557,7 +557,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		}
 		updatedHooks = append(updatedHooks, &webhook.WebHook{
 			Owner:      updated.RepoOwner,
-			Namespace:  updated.RepoNamespace,
+			Namespace:  updated.GetRepoNamespace(),
 			Repo:       updated.RepoName,
 			Address:    address,
 			Name:       "trigger",
@@ -580,7 +580,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		}
 		currentHooks = append(currentHooks, &webhook.WebHook{
 			Owner:      current.RepoOwner,
-			Namespace:  current.RepoNamespace,
+			Namespace:  current.GetRepoNamespace(),
 			Repo:       current.RepoName,
 			Address:    address,
 			Name:       "trigger",

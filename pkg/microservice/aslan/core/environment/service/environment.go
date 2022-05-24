@@ -1513,10 +1513,6 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
 	}
 
-	if productRenderset.DefaultValues == args.DefaultValues {
-		return nil
-	}
-
 	equal, err := yamlutil.Equal(productRenderset.DefaultValues, args.DefaultValues)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err))

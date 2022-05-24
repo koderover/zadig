@@ -310,6 +310,7 @@ func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogg
 		CreateFrom: &service.CreateFromRepo{
 			CodehostID: svc.CodehostID,
 			Owner:      svc.RepoOwner,
+			Namespace:  svc.GetRepoNamespace(),
 			Repo:       svc.RepoName,
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
