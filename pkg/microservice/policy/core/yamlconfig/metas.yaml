@@ -680,7 +680,7 @@ metas:
     alias: "代码扫描"
     description: ""
     rules:
-      - action: get_sacn
+      - action: get_scan
         alias: 查看
         description: ""
         rules:
