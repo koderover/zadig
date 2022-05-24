@@ -167,7 +167,8 @@ func DeleteScanningModuleByID(id string, log *zap.SugaredLogger) error {
 	return err
 }
 
-func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log *zap.SugaredLogger) (int64, error) {
+// CreateScanningTask uses notificationID if the task is triggered by webhook, otherwise it should be empty
+func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, username string, log *zap.SugaredLogger) (int64, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
@@ -290,6 +291,8 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		Stages:        stages,
 		ConfigPayload: configPayload,
 		StorageURI:    defaultURL,
+		ScanningName:  scanningInfo.Name,
+		ScanningID:    scanningInfo.ID.Hex(),
 	}
 
 	if len(finalTask.Stages) <= 0 {
@@ -301,7 +304,9 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		return 0, e.ErrCreateTask
 	}
 
-	_ = scmnotify.NewService().UpdateWebhookComment(finalTask, log)
+	if notificationID != "" {
+		_ = scmnotify.NewService().UpdateWebhookComment(finalTask, log)
+	}
 
 	return nextTaskID, nil
 }

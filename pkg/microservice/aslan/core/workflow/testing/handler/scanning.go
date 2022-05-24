@@ -167,7 +167,7 @@ func CreateScanningTask(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代码扫描任务", id, string(data), ctx.Logger)
 
-	resp, err := service.CreateScanningTask(id, req, ctx.UserName, ctx.Logger)
+	resp, err := service.CreateScanningTask(id, req, "", ctx.UserName, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
