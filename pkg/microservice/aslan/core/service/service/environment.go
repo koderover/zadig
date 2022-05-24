@@ -258,6 +258,7 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, lo
 		_, err := CreateServiceTemplate(username, serviceParam, log)
 		if err != nil {
 			log.Errorf("CreateServiceTemplate error, msg:%s", err)
+			return err
 		}
 	}
 
