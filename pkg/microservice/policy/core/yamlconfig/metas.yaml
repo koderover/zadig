@@ -338,6 +338,8 @@ metas:
         description: 查看
         rules:
           - method: GET
+            endpoint: /api/aslan/cluster/clusters
+          - method: GET
             endpoint: /api/aslan/template/yaml
           - method: GET
             endpoint: /api/aslan/template/charts
