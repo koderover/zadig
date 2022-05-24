@@ -291,7 +291,7 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 
 							if notification == nil {
 								notification, err = scmnotify.NewService().SendInitWebhookComment(
-									item.MainRepo, ev.PullRequest.Number, baseURI, false, false, log,
+									item.MainRepo, ev.PullRequest.Number, baseURI, false, false, false, log,
 								)
 								if err != nil {
 									log.Errorf("failed to init webhook comment due to %s", err)
