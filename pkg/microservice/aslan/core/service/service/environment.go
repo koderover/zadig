@@ -254,6 +254,7 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, lo
 			Visibility:  params.Visibility,
 			Type:        params.Type,
 			Yaml:        yaml,
+			Source:      "spock",
 		}
 		_, err := CreateServiceTemplate(username, serviceParam, log)
 		if err != nil {
