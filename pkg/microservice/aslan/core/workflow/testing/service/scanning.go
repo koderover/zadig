@@ -31,6 +31,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -166,7 +167,8 @@ func DeleteScanningModuleByID(id string, log *zap.SugaredLogger) error {
 	return err
 }
 
-func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log *zap.SugaredLogger) (int64, error) {
+// CreateScanningTask uses notificationID if the task is triggered by webhook, otherwise it should be empty
+func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, username string, log *zap.SugaredLogger) (int64, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
@@ -206,6 +208,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 			RepoName:    arg.RepoName,
 			Branch:      arg.Branch,
 			PR:          arg.PR,
+			Tag:         arg.Tag,
 			CodehostID:  arg.CodehostID,
 			OauthToken:  rep.AccessToken,
 			Address:     rep.Address,
@@ -288,6 +291,11 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		Stages:        stages,
 		ConfigPayload: configPayload,
 		StorageURI:    defaultURL,
+		ScanningArgs: &commonmodels.ScanningArgs{
+			ScanningName:   scanningInfo.Name,
+			ScanningID:     scanningInfo.ID.Hex(),
+			NotificationID: notificationID,
+		},
 	}
 
 	if len(finalTask.Stages) <= 0 {
@@ -297,6 +305,12 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	if err := workflowservice.CreateTask(finalTask); err != nil {
 		log.Error(err)
 		return 0, e.ErrCreateTask
+	}
+
+	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
+	err = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
+	if err != nil {
+		log.Warnf("Failed to update comment for scanning: %s, the error is: %s", scanningInfo.ID.Hex(), err)
 	}
 
 	return nextTaskID, nil

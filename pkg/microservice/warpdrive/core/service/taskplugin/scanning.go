@@ -120,6 +120,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		RepoName:    p.Task.Repos[0].RepoName,
 		Branch:      p.Task.Repos[0].Branch,
 		PR:          p.Task.Repos[0].PR,
+		Tag:         p.Task.Repos[0].Tag,
 		OauthToken:  p.Task.Repos[0].OauthToken,
 		Address:     p.Task.Repos[0].Address,
 		Username:    p.Task.Repos[0].Username,

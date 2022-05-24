@@ -233,6 +233,23 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 				}
 			}
 			task.Stages = ctx.Stages
+		} else if ctx.Type == config.ScanningType {
+			logger.Infof("scanning get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
+			err = c.scmNotifyService.UpdateWebhookCommentForScanning(task, logger)
+			if err != nil {
+				// FIXME: This error will not be returned since the logic above didn't return. It is expected to return if we know what we are doing.
+				log.Errorf("Failed to update webhook comment for scanning: %s, err: %s", task.ScanningArgs.ScanningID, err)
+			}
+			if ctx.TaskID > 1 {
+				scanningPreTask, err := c.taskColl.Find(ctx.TaskID-1, ctx.PipelineName, ctx.Type)
+				if err != nil {
+					return fmt.Errorf("get test previous task #%d notify, status: %s,err:%s", ctx.TaskID-1, ctx.Status, err)
+				}
+				if scanningPreTask.Status != task.Status && task.Status != config.StatusRunning {
+					testTaskStatusChanged = true
+				}
+			}
+			task.Stages = ctx.Stages
 		}
 
 		err = c.InstantmessageService.SendInstantMessage(task, testTaskStatusChanged)
