@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"sort"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -307,7 +307,10 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, e.ErrCreateTask
 	}
 
-	_ = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
+	err = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
+	if err != nil {
+		log.Errorf("Failed to update comment for scanning: %s, the error is: %s", scanningInfo.ID.Hex(), err)
+	}
 
 	return nextTaskID, nil
 }

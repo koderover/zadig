@@ -17,6 +17,9 @@ limitations under the License.
 package webhook
 
 import (
+	"github.com/xanzy/go-gitlab"
+	"go.uber.org/zap"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -24,8 +27,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	scanningservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/xanzy/go-gitlab"
-	"go.uber.org/zap"
 )
 
 func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {

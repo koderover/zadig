@@ -235,7 +235,10 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			task.Stages = ctx.Stages
 		} else if ctx.Type == config.ScanningType {
 			logger.Infof("scanning get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
-			_ = c.scmNotifyService.UpdateWebhookCommentForScanning(task, logger)
+			err = c.scmNotifyService.UpdateWebhookCommentForScanning(task, logger)
+			if err != nil {
+				log.Errorf("Failed to update webhook comment for scanning: %s, err: %s", task.ScanningArgs.ScanningID, err)
+			}
 			if ctx.TaskID > 1 {
 				scanningPreTask, err := c.taskColl.Find(ctx.TaskID-1, ctx.PipelineName, ctx.Type)
 				if err != nil {
