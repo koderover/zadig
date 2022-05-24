@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: frontend
     app.kubernetes.io/name: demo
-    hello: world
+    hello: world1
 spec:
   replicas: 1
   selector:
