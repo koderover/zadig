@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -110,63 +111,79 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		}
 	}
 
-	var (
-		namespace = config.Namespace()
-		status    = CleanStatusSuccess
-	)
-
+	namespace := config.Namespace()
 	selector := labels.Set{setting.ComponentLabel: "dind"}.AsSelector()
 	pods, err := getter.ListPods(namespace, selector, kubetool.Client())
-
 	if err != nil {
 		logger.Errorf("[%s]list dind pods error: %v", namespace, err)
+		return commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+			Status:         CleanStatusFailed,
+			DindCleanInfos: []*commonmodels.DindCleanInfo{},
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
+		})
+	}
+
+	timeout, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	res := make(chan *commonmodels.DindClean)
+	go func(ch chan *commonmodels.DindClean) {
+		var (
+			status = CleanStatusSuccess
+		)
+
+		dindInfos := make([]*commonmodels.DindCleanInfo, 0, len(pods))
+		var wg sync.WaitGroup
+		for _, pod := range pods {
+			if wrapper.Pod(pod).Ready() {
+				logger.Infof("[%s] pod [%s] dind cache cleaning", namespace, pod.Name)
+				wg.Add(1)
+				go func(podName string) {
+					defer wg.Done()
+					dindInfo := &commonmodels.DindCleanInfo{
+						PodName:   podName,
+						StartTime: time.Now().Unix(),
+					}
+					output, err := dockerPrune(namespace, podName, logger)
+					if err != nil {
+						logger.Errorf("[%s] pod [%s] dind cache clean error: %v", namespace, podName, err)
+						dindInfo.ErrorMessage = err.Error()
+					}
+					logger.Infof("[%s] pod [%s] dind cache finish", namespace, podName)
+					dindInfo.EndTime = time.Now().Unix()
+					dindInfo.CleanInfo = output
+					dindInfos = append(dindInfos, dindInfo)
+				}(pod.Name)
+			}
+		}
+		wg.Wait()
+
+		for _, dindInfo := range dindInfos {
+			if dindInfo.ErrorMessage != "" {
+				status = CleanStatusFailed
+				break
+			}
+		}
+		res <- &commonmodels.DindClean{
+			Status:         status,
+			DindCleanInfos: dindInfos,
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
+		}
+
+	}(res)
+
+	select {
+	case <-timeout.Done():
 		commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
 			Status:         CleanStatusFailed,
 			DindCleanInfos: []*commonmodels.DindCleanInfo{},
 			Cron:           dindCleans[0].Cron,
 			CronEnabled:    dindCleans[0].CronEnabled,
 		})
-		return e.ErrUpdateDindClean.AddErr(err)
+	case info := <-res:
+		commonrepo.NewDindCleanColl().Upsert(info)
 	}
-
-	dindInfos := make([]*commonmodels.DindCleanInfo, 0, len(pods))
-	var wg sync.WaitGroup
-	for _, pod := range pods {
-		if wrapper.Pod(pod).Ready() {
-			logger.Infof("[%s] pod [%s] dind cache cleaning", namespace, pod.Name)
-			wg.Add(1)
-			go func(podName string) {
-				defer wg.Done()
-				dindInfo := &commonmodels.DindCleanInfo{
-					PodName:   podName,
-					StartTime: time.Now().Unix(),
-				}
-				output, err := dockerPrune(namespace, podName, logger)
-				if err != nil {
-					logger.Errorf("[%s] pod [%s] dind cache clean error: %v", namespace, podName, err)
-					dindInfo.ErrorMessage = err.Error()
-				}
-				logger.Infof("[%s] pod [%s] dind cache finish", namespace, podName)
-				dindInfo.EndTime = time.Now().Unix()
-				dindInfo.CleanInfo = output
-				dindInfos = append(dindInfos, dindInfo)
-			}(pod.Name)
-		}
-	}
-	wg.Wait()
-
-	for _, dindInfo := range dindInfos {
-		if dindInfo.ErrorMessage != "" {
-			status = CleanStatusFailed
-			break
-		}
-	}
-	commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
-		Status:         status,
-		DindCleanInfos: dindInfos,
-		Cron:           dindCleans[0].Cron,
-		CronEnabled:    dindCleans[0].CronEnabled,
-	})
 
 	return nil
 }
