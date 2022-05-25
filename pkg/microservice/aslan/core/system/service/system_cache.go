@@ -124,7 +124,7 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		})
 	}
 
-	timeout, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	timeout, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	res := make(chan *commonmodels.DindClean)
 	go func(ch chan *commonmodels.DindClean) {
