@@ -220,7 +220,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
-			host := getHost(repo.OtherAddress)
+			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
@@ -229,11 +229,11 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 			}
 
 			cmds = append(cmds, &c.Command{
-				Cmd:          c.RemoteAdd(repo.RemoteName, repo.OtherAddress),
+				Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)),
 				DisableTrace: true,
 			})
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
-			u, err := url.Parse(repo.OtherAddress)
+			u, err := url.Parse(repo.Address)
 			if err != nil {
 				log.Errorf("failed to parse url,err:%s", err)
 			} else {
@@ -305,14 +305,9 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 	return ioutil.WriteFile(file, []byte(out), 0600)
 }
 
-// git@github.com:koderover/zadig.git
+// git@github.com or git@github.com:2000
 // return github.com
 func getHost(address string) string {
-	hostArr := strings.Split(address, ":")
-	host := hostArr[0]
-	host = strings.TrimPrefix(host, "git@")
-	if len(hostArr) > 2 {
-		return fmt.Sprintf("%s:%s", host, hostArr[1])
-	}
-	return host
+	address = strings.TrimPrefix(address, "git@")
+	return address
 }
