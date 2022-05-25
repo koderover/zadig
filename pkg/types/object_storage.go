@@ -27,5 +27,6 @@ type ObjectStorageInfo struct {
 
 type ObjectStoragePathDetail struct {
 	FilePath        string `bson:"file_path" json:"file_path" yaml:"file_path"`
+	AbsFilePath     string `bson:"abs_file_path" json:"abs_file_path" yaml:"abs_file_path"`
 	DestinationPath string `bson:"dest_path" json:"dest_path" yaml:"dest_path"`
 }
