@@ -64,7 +64,7 @@ func SetCron(cron string, cronEnabled bool, logger *zap.SugaredLogger) error {
 		}
 	case 1:
 		dindClean := dindCleans[0]
-		dindClean.Status = dindCleans[0].Status
+		dindClean.Status = CleanStatusSuccess
 		dindClean.DindCleanInfos = dindCleans[0].DindCleanInfos
 		dindClean.Cron = cron
 		dindClean.CronEnabled = cronEnabled
