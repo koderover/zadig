@@ -84,7 +84,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
-					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, "webhook", log); err != nil {
+					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, "", "webhook", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {
@@ -175,6 +175,18 @@ type githubTagEventMatcherForScanning struct {
 }
 
 func (gtem githubTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
+		hookInfo := ConvertScanningHookToMainHookRepo(hookRepo)
+		if !EventConfigured(hookInfo, config.HookEventTag) {
+			return false, nil
+		}
+
+		hookRepo.Branch = *ev.Repo.DefaultBranch
+
+		return true, nil
+	}
+
 	return false, nil
 }
 

@@ -150,7 +150,7 @@ func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, h
 func (c *Client) GetContents(ctx context.Context, owner, repo, sha string) (gitee.Blob, error) {
 	fileContent, _, err := c.GitDataApi.GetV5ReposOwnerRepoGitBlobsSha(ctx, owner, repo, sha, &gitee.GetV5ReposOwnerRepoGitBlobsShaOpts{})
 	if err != nil {
-		return gitee.Blob{}, err
+		return fileContent, err
 	}
 	return fileContent, nil
 }

@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -43,21 +44,6 @@ func init() {
 		Level: config.LogLevel(),
 	})
 }
-
-//go:embed contributor.yaml
-var contributor []byte
-
-//go:embed read-only.yaml
-var readOnly []byte
-
-//go:embed read-project-only.yaml
-var readProjectOnly []byte
-
-//go:embed admin.yaml
-var admin []byte
-
-//go:embed project-admin.yaml
-var projectAdmin []byte
 
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -86,6 +72,48 @@ func run() error {
 	return err
 }
 
+//go:embed contributor.yaml
+var contributor []byte
+
+//go:embed read-only.yaml
+var readOnly []byte
+
+//go:embed read-project-only.yaml
+var readProjectOnly []byte
+
+//go:embed admin.yaml
+var admin []byte
+
+//go:embed project-admin.yaml
+var projectAdmin []byte
+
+func presetRole() error {
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		systemAdminRole := &policy.Role{}
+		if err := yaml.Unmarshal(admin, systemAdminRole); err != nil {
+			log.DPanic(err)
+		}
+		return policy.NewDefault().CreateSystemRole(systemAdminRole.Name, systemAdminRole)
+	})
+
+	rolesArray := [][]byte{readOnly, readProjectOnly, contributor, projectAdmin}
+
+	for _, v := range rolesArray {
+		role := &policy.Role{}
+		if err := yaml.Unmarshal(v, role); err != nil {
+			log.DPanic(err)
+		}
+		g.Go(func() error {
+			return policy.NewDefault().CreatePresetRole(role.Name, role)
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func initSystemConfig() error {
 	email := config.AdminEmail()
 	password := config.AdminPassword()
@@ -96,6 +124,7 @@ func initSystemConfig() error {
 		log.Errorf("presetSystemAdmin err:%s", err)
 		return err
 	}
+
 	if err := presetRole(); err != nil {
 		log.Errorf("presetRole err:%s", err)
 		return err
@@ -198,33 +227,6 @@ func presetRoleBinding(uid string) error {
 		Type: setting.ResourceTypeSystem,
 	})
 
-}
-
-func presetRole() error {
-	g := new(errgroup.Group)
-	g.Go(func() error {
-		systemAdminRole := &policy.Role{}
-		if err := yaml.Unmarshal(admin, systemAdminRole); err != nil {
-			log.DPanic(err)
-		}
-		return policy.NewDefault().CreateSystemRole(systemAdminRole.Name, systemAdminRole)
-	})
-
-	rolesArray := [][]byte{readOnly, readProjectOnly, contributor, projectAdmin}
-
-	for _, v := range rolesArray {
-		role := &policy.Role{}
-		if err := yaml.Unmarshal(v, role); err != nil {
-			log.DPanic(err)
-		}
-		g.Go(func() error {
-			return policy.NewDefault().CreatePresetRole(role.Name, role)
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return err
-	}
-	return nil
 }
 
 func createLocalCluster() error {

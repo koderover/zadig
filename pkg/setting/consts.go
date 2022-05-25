@@ -205,6 +205,10 @@ const (
 	RSASecretName = "zadig-rsa-key"
 
 	DefaultImagePullSecret = "default-registry-secret"
+
+	PolicyMetaConfigMapName = "zadig-policy-meta"
+	PolicyURLConfigMapName  = "zadig-policy-url"
+	PolicyRoleConfigMapName = "zadig-policy-role"
 )
 
 const (
@@ -222,7 +226,8 @@ const (
 	// helm deployment
 	HelmDeployType = "helm"
 	// PMDeployType physical machine deploy method
-	PMDeployType = "pm"
+	PMDeployType          = "pm"
+	TrusteeshipDeployType = "trusteeship"
 
 	// Infrastructure k8s type
 	BasicFacilityK8S = "kubernetes"
@@ -241,6 +246,8 @@ const (
 	SourceFromCodeHub = "codehub"
 	// SourceFromGitee Configure the source as gitee
 	SourceFromGitee = "gitee"
+	// SourceFromGitee Configure the source as other
+	SourceFromOther = "other"
 	// SourceFromChartTemplate The configuration source is helmTemplate
 	SourceFromChartTemplate = "chartTemplate"
 	// SourceFromPublicRepo The configuration source is publicRepo

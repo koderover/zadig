@@ -36,6 +36,7 @@ import (
 
 	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
@@ -153,6 +154,9 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.clientset = clientset
 		p.restConfig = restConfig
 	}
+
+	dockerhosts := common.NewDockerHosts(pipelineTask.ConfigPayload.HubServerAddr, p.Log)
+	pipelineTask.DockerHost = dockerhosts.GetBestHost(common.ClusterID(p.Task.ClusterID), serviceName)
 
 	// not local cluster
 	var (
@@ -344,10 +348,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	if !jobExist {
 		p.Log.Infof("Job %s:%d does not exist. Create.", pipelineTask.PipelineName, pipelineTask.TaskID)
 
-		jobImage := fmt.Sprintf("%s-%s", pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS)
-		if p.Task.ImageFrom == setting.ImageFromCustom {
-			jobImage = p.Task.BuildOS
-		}
+		jobImage := getReaperImage(pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS, p.Task.ImageFrom)
 
 		//Resource request default value is LOW
 		job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)

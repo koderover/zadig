@@ -101,7 +101,7 @@ type ListResourcesByLabelsResp struct {
 }
 
 func BuildLabelString(key string, value string) string {
-	return fmt.Sprintf("%s-%s", key, value)
+	return fmt.Sprintf("%s:%s", key, value)
 }
 
 func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (*ListResourcesByLabelsResp, error) {

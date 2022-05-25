@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,27 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handler
+package yamlconfig
 
-import (
-	_ "embed"
+import _ "embed"
 
-	"sigs.k8s.io/yaml"
+//go:embed role.yaml
+var roles []byte
+var useConfigMapRoles bool
 
-	"github.com/koderover/zadig/pkg/shared/client/policy"
-	"github.com/koderover/zadig/pkg/tool/log"
-)
+var configMapRoles []byte
 
-//go:embed policy.yaml
-var policyMeta []byte
-
-func (*Router) Policies() []*policy.PolicyMeta {
-	res := &policy.PolicyMeta{}
-	err := yaml.Unmarshal(policyMeta, res)
-	if err != nil {
-		// should not have happened here
-		log.DPanic(err)
+func PresetRolesBytes() []byte {
+	if useConfigMapRoles {
+		return configMapRoles
 	}
+	return roles
+}
 
-	return []*policy.PolicyMeta{res}
+func RefreshRoles(b []byte) {
+	useConfigMapRoles = true
+	configMapRoles = b
 }

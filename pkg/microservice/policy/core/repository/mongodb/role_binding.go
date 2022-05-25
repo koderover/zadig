@@ -115,6 +115,28 @@ func (c *RoleBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding
 	return res, nil
 }
 
+func (c *RoleBindingColl) ListRoleBindingsByUIDs(uids []string) ([]*models.RoleBinding, error) {
+	var res []*models.RoleBinding
+
+	ctx := context.Background()
+	query := bson.M{}
+	if len(uids) > 0 {
+		query["subjects.uid"] = bson.M{"$in": uids}
+	}
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (c *RoleBindingColl) ListSystemRoleBindingsByUIDs(uids []string) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
