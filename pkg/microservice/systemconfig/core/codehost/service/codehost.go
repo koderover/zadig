@@ -151,7 +151,7 @@ type state struct {
 func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger) (string, error) {
 	codeHost, err := GetCodeHost(codeHostID, false, logger)
 	if err != nil {
-		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
+		logger.Errorf("GetCodeHost:%d err:%s", codeHostID, err)
 		return "", err
 	}
 	redirectParsedURL, err := url.Parse(redirectURI)
@@ -206,10 +206,12 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 	}
 	o, err := newOAuth(codehost.Type, callbackURL.String(), codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
+		logger.Errorf("newOAuth err:%s", err)
 		return handle(redirectParsedURL, err)
 	}
-	token, err := o.HandleCallback(r)
+	token, err := o.HandleCallback(r, codehost)
 	if err != nil {
+		logger.Errorf("HandleCallback err:%s", err)
 		return handle(redirectParsedURL, err)
 	}
 	codehost.AccessToken = token.AccessToken
@@ -218,6 +220,7 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
 		return handle(redirectParsedURL, err)
 	}
+	logger.Infof("success update codehost ready status")
 	return handle(redirectParsedURL, nil)
 }
 
