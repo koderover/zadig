@@ -32,6 +32,8 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type BuildResp struct {
@@ -177,7 +179,7 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	}
 
 	build.UpdateBy = username
-	correctFields(build, log)
+	correctFields(build)
 
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
 		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
@@ -200,7 +202,7 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		commonservice.EnsureSecretEnvs(existed.PreBuild.Envs, build.PreBuild.Envs)
 	}
 
-	correctFields(build, log)
+	correctFields(build)
 	build.UpdateBy = username
 	build.UpdateTime = time.Now().Unix()
 
@@ -378,7 +380,7 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 	return nil
 }
 
-func correctFields(build *commonmodels.Build, log *zap.SugaredLogger) {
+func correctFields(build *commonmodels.Build) {
 	fillBuildRepoData(build)
 	// make sure cache has no empty field
 	caches := make([]string, 0)
@@ -395,25 +397,39 @@ func correctFields(build *commonmodels.Build, log *zap.SugaredLogger) {
 		build.PostBuild.DockerBuild.DockerFile = strings.Trim(build.PostBuild.DockerBuild.DockerFile, " ")
 		build.PostBuild.DockerBuild.WorkDir = strings.Trim(build.PostBuild.DockerBuild.WorkDir, " ")
 	}
-
-	// modify authType
-	for _, repo := range build.Repos {
-		if repo.Source != setting.SourceFromOther {
-			continue
-		}
-		repo.RepoOwner = strings.TrimPrefix(repo.RepoOwner, "/")
-		repo.RepoOwner = strings.TrimSuffix(repo.RepoOwner, "/")
-		repo.RepoName = strings.TrimPrefix(repo.RepoName, "/")
-		repo.RepoName = strings.TrimSuffix(repo.RepoName, "/")
-		codehosts, err := systemconfig.New().ListCodeHostsInternal()
-		if err != nil {
-			log.Errorf("failed to list codehost,err:%s", err)
-		}
-		for _, codehost := range codehosts {
-			if repo.CodehostID == codehost.ID {
-				repo.AuthType = codehost.AuthType
-				break
+	if build.TemplateID == "" {
+		for _, repo := range build.Repos {
+			if repo.Source != setting.SourceFromOther {
+				continue
 			}
+			modifyAuthType(repo)
+		}
+		return
+	}
+
+	for _, target := range build.Targets {
+		for _, repo := range target.Repos {
+			if repo.Source != setting.SourceFromOther {
+				continue
+			}
+			modifyAuthType(repo)
+		}
+	}
+}
+
+func modifyAuthType(repo *types.Repository) {
+	repo.RepoOwner = strings.TrimPrefix(repo.RepoOwner, "/")
+	repo.RepoOwner = strings.TrimSuffix(repo.RepoOwner, "/")
+	repo.RepoName = strings.TrimPrefix(repo.RepoName, "/")
+	repo.RepoName = strings.TrimSuffix(repo.RepoName, "/")
+	codehosts, err := systemconfig.New().ListCodeHostsInternal()
+	if err != nil {
+		log.Errorf("failed to list codehost,err:%s", err)
+	}
+	for _, codehost := range codehosts {
+		if repo.CodehostID == codehost.ID {
+			repo.AuthType = codehost.AuthType
+			break
 		}
 	}
 }
