@@ -221,7 +221,6 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
-			log.Infof("host:%s", host)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
@@ -229,7 +228,6 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 				hostNames.Insert(host)
 			}
 			remoteName := fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)
-			log.Infof("remoteName:%s", remoteName)
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
 				DisableTrace: true,
@@ -290,8 +288,9 @@ func writeSSHFile(sshKey, hostName string) error {
 		return fmt.Errorf("hostName cannot be empty")
 	}
 
-	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", strings.Replace(hostName, ".", "", -1))
-	log.Infof("pathName:%s", pathName)
+	hostName = strings.Replace(hostName, ".", "", -1)
+	hostName = strings.Replace(hostName, ":", "", -1)
+	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
 	file := path.Join(config.Home(), pathName)
 	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
@@ -299,7 +298,9 @@ func writeSSHFile(sshKey, hostName string) error {
 func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 	out := "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
 	for _, hostName := range hostNames.List() {
-		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, strings.Replace(hostName, ".", "", -1))
+		name := strings.Replace(hostName, ".", "", -1)
+		name = strings.Replace(name, ":", "", -1)
+		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, name)
 		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
 			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
 		}

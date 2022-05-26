@@ -30,6 +30,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -176,7 +177,7 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	}
 
 	build.UpdateBy = username
-	correctFields(build)
+	correctFields(build, log)
 
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
 		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
@@ -199,7 +200,7 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		commonservice.EnsureSecretEnvs(existed.PreBuild.Envs, build.PreBuild.Envs)
 	}
 
-	correctFields(build)
+	correctFields(build, log)
 	build.UpdateBy = username
 	build.UpdateTime = time.Now().Unix()
 
@@ -377,7 +378,7 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 	return nil
 }
 
-func correctFields(build *commonmodels.Build) {
+func correctFields(build *commonmodels.Build, log *zap.SugaredLogger) {
 	fillBuildRepoData(build)
 	// make sure cache has no empty field
 	caches := make([]string, 0)
@@ -393,6 +394,23 @@ func correctFields(build *commonmodels.Build) {
 	if build.PostBuild != nil && build.PostBuild.DockerBuild != nil {
 		build.PostBuild.DockerBuild.DockerFile = strings.Trim(build.PostBuild.DockerBuild.DockerFile, " ")
 		build.PostBuild.DockerBuild.WorkDir = strings.Trim(build.PostBuild.DockerBuild.WorkDir, " ")
+	}
+
+	// modify authType
+	for _, repo := range build.Repos {
+		if repo.Source != setting.SourceFromOther {
+			continue
+		}
+		codehosts, err := systemconfig.New().ListCodeHostsInternal()
+		if err != nil {
+			log.Errorf("failed to list codehost,err:%s", err)
+		}
+		for _, codehost := range codehosts {
+			if repo.CodehostID == codehost.ID {
+				repo.AuthType = codehost.AuthType
+				break
+			}
+		}
 	}
 }
 
