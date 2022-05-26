@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -64,7 +65,7 @@ func SetCron(cron string, cronEnabled bool, logger *zap.SugaredLogger) error {
 		}
 	case 1:
 		dindClean := dindCleans[0]
-		dindClean.Status = dindCleans[0].Status
+		dindClean.Status = CleanStatusSuccess
 		dindClean.DindCleanInfos = dindCleans[0].DindCleanInfos
 		dindClean.Cron = cron
 		dindClean.CronEnabled = cronEnabled
@@ -110,25 +111,26 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		}
 	}
 
-	go func() {
+	namespace := config.Namespace()
+	selector := labels.Set{setting.ComponentLabel: "dind"}.AsSelector()
+	pods, err := getter.ListPods(namespace, selector, kubetool.Client())
+	if err != nil {
+		logger.Errorf("[%s]list dind pods error: %v", namespace, err)
+		return commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+			Status:         CleanStatusFailed,
+			DindCleanInfos: []*commonmodels.DindCleanInfo{},
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
+		})
+	}
+
+	timeout, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+	res := make(chan *commonmodels.DindClean)
+	go func(ch chan *commonmodels.DindClean) {
 		var (
-			namespace = config.Namespace()
-			status    = CleanStatusSuccess
+			status = CleanStatusSuccess
 		)
-
-		selector := labels.Set{setting.ComponentLabel: "dind"}.AsSelector()
-		pods, err := getter.ListPods(namespace, selector, kubetool.Client())
-
-		if err != nil {
-			logger.Errorf("[%s]list dind pods error: %v", namespace, err)
-			commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
-				Status:         CleanStatusFailed,
-				DindCleanInfos: []*commonmodels.DindCleanInfo{},
-				Cron:           dindCleans[0].Cron,
-				CronEnabled:    dindCleans[0].CronEnabled,
-			})
-			return
-		}
 
 		dindInfos := make([]*commonmodels.DindCleanInfo, 0, len(pods))
 		var wg sync.WaitGroup
@@ -162,13 +164,26 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 				break
 			}
 		}
-		commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+		res <- &commonmodels.DindClean{
 			Status:         status,
 			DindCleanInfos: dindInfos,
 			Cron:           dindCleans[0].Cron,
 			CronEnabled:    dindCleans[0].CronEnabled,
+		}
+
+	}(res)
+
+	select {
+	case <-timeout.Done():
+		commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+			Status:         CleanStatusFailed,
+			DindCleanInfos: []*commonmodels.DindCleanInfo{},
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
 		})
-	}()
+	case info := <-res:
+		commonrepo.NewDindCleanColl().Upsert(info)
+	}
 
 	return nil
 }

@@ -206,6 +206,14 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerScanningByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	}
 
 	wg.Wait()
