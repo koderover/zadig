@@ -104,7 +104,13 @@ metas:
         description: ''
         rules:
           - method: GET
+            endpoint: api/aslan/build/targets
+          - method: GET
+            endpoint: api/aslan/cluster/clusters
+          - method: GET
             endpoint: api/aslan/build/build/?*
+          - method: GET
+            endpoint: api/aslan/build/build
           - method: GET
             endpoint: /api/aslan/template/build
           - method: GET
