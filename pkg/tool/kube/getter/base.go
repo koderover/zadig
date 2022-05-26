@@ -126,6 +126,7 @@ func GetResourceJSONInCacheFormat(ns, name string, gvk schema.GroupVersionKind, 
 	u.SetResourceVersion("")
 	u.SetCreationTimestamp(metav1.Time{})
 	u.SetNamespace("")
+	u.SetGeneration(0)
 	content := u.UnstructuredContent()
 	delete(content, "status")
 	u.SetUnstructuredContent(content)
