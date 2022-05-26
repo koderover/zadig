@@ -747,7 +747,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	}
 	//按照用户设置的环境回收策略进行环境回收
 	if workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyAlways || (workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyTaskStatus && taskStatus == string(config.StatusPassed)) {
-		err = environmentservice.DeleteProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, requestID, log)
+		err = environmentservice.DeleteProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, requestID, true, log)
 		if err != nil {
 			log.Errorf("CreateEnvAndTaskByPR DeleteProduct err:%v ", err)
 			return err

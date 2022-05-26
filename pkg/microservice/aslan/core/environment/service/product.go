@@ -72,11 +72,11 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 			//title := "系统清理产品信息"
 			//content := fmt.Sprintf("环境 [%s] 已经连续%d天没有使用, 系统已自动删除该环境, 如有需要请重新创建。", product.EnvName, product.RecycleDay)
 
-			if err := DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
+			if err := DeleteProduct("robot", product.EnvName, product.ProductName, requestID, true, log); err != nil {
 				log.Errorf("[%s][P:%s] delete product error: %v", product.EnvName, product.ProductName, err)
 
 				// 如果有错误，重试删除
-				if err := DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
+				if err := DeleteProduct("robot", product.EnvName, product.ProductName, requestID, true, log); err != nil {
 					//content = fmt.Sprintf("系统自动清理环境 [%s] 失败，请手动删除环境。", product.ProductName)
 					log.Errorf("[%s][P:%s] retry delete product error: %v", product.EnvName, product.ProductName, err)
 				}
@@ -343,7 +343,7 @@ func CleanProducts() {
 		_, err := templaterepo.NewProductColl().Find(prod.ProductName)
 		if err != nil && err.Error() == "not found" {
 			logger.Errorf("环境所属的项目不存在，准备删除此环境, namespace:%s, 项目:%s\n", prod.Namespace, prod.ProductName)
-			err = DeleteProduct("CleanProducts", prod.EnvName, prod.ProductName, "", logger)
+			err = DeleteProduct("CleanProducts", prod.EnvName, prod.ProductName, "", true, logger)
 			if err != nil {
 				logger.Errorf("delete product failed, namespace:%s, err:%v\n", prod.Namespace, err)
 				continue

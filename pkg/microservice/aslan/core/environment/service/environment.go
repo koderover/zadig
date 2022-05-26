@@ -2049,7 +2049,7 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	return helmVersions, nil
 }
 
-func DeleteProduct(username, envName, productName, requestID string, log *zap.SugaredLogger) (err error) {
+func DeleteProduct(username, envName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
@@ -2210,28 +2210,28 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 					commonservice.SendMessage(username, title, content, requestID, log)
 				}
 			}()
+			if isDelete {
+				// Delete Cluster level resources
+				err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
+				if err != nil {
+					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
+					return
+				}
 
-			// Delete Cluster level resources
-			err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
-			if err != nil {
-				err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-				return
+				// Handles environment sharing related operations.
+				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
+				if err != nil {
+					log.Errorf("Failed to delete share env config: %s", err)
+					err = e.ErrDeleteProduct.AddDesc(e.DeleteVirtualServiceErrMsg + ": " + err.Error())
+					return
+				}
+
+				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+				if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
+					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
+					return
+				}
 			}
-
-			// Handles environment sharing related operations.
-			err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
-			if err != nil {
-				log.Errorf("Failed to delete share env config: %s", err)
-				err = e.ErrDeleteProduct.AddDesc(e.DeleteVirtualServiceErrMsg + ": " + err.Error())
-				return
-			}
-
-			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-			if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
-				err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
-				return
-			}
-
 			err = commonrepo.NewProductColl().Delete(envName, productName)
 			if err != nil {
 				log.Errorf("Product.Delete error: %v", err)
@@ -3145,7 +3145,6 @@ func applyUpdatedAnnotations(annotations map[string]string) map[string]string {
 		annotations = make(map[string]string)
 	}
 
-	annotations[setting.UpdatedByLabel] = fmt.Sprintf("%d", time.Now().Unix())
 	return annotations
 }
 

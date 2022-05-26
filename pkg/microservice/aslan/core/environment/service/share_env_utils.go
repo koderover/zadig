@@ -79,7 +79,7 @@ func ensureDeleteAssociatedEnvs(ctx context.Context, baseEnvName string) error {
 	}
 
 	for _, env := range envs {
-		err := DeleteProduct("system", env.EnvName, env.ProductName, "", logger.Sugar())
+		err := DeleteProduct("system", env.EnvName, env.ProductName, "", true, logger.Sugar())
 		if err != nil {
 			return err
 		}
