@@ -401,6 +401,10 @@ func correctFields(build *commonmodels.Build, log *zap.SugaredLogger) {
 		if repo.Source != setting.SourceFromOther {
 			continue
 		}
+		repo.RepoOwner = strings.TrimPrefix(repo.RepoOwner, "/")
+		repo.RepoOwner = strings.TrimSuffix(repo.RepoOwner, "/")
+		repo.RepoName = strings.TrimPrefix(repo.RepoName, "/")
+		repo.RepoName = strings.TrimSuffix(repo.RepoName, "/")
 		codehosts, err := systemconfig.New().ListCodeHostsInternal()
 		if err != nil {
 			log.Errorf("failed to list codehost,err:%s", err)
