@@ -5,7 +5,7 @@ metadata:
     app: result
   name: result-rc-origin
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: result
