@@ -75,7 +75,7 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 }
 
 // LoadServiceFromCodeHost 根据提供的codehost信息加载服务
-func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, namespace, repoName, repoUUID, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for preload service list, the error is: %+v", err)
@@ -83,7 +83,7 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 	}
 	switch ch.Type {
 	case setting.SourceFromGithub, setting.SourceFromGitlab:
-		return loadService(username, ch, repoOwner, repoName, branchName, args, log)
+		return loadService(username, ch, repoOwner, namespace, repoName, branchName, args, log)
 	case setting.SourceFromGerrit:
 		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, log)
 	case setting.SourceFromCodeHub:
@@ -124,7 +124,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
@@ -243,7 +243,7 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 	base := path.Join(config.S3StoragePath(), repoName)
 	if exist, err := util.PathExists(base); !exist {
 		log.Warnf("path does not exist,err:%s", err)
-		err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(detail, repoOwner, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
@@ -305,7 +305,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 	}
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(ch, repoOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
@@ -338,6 +338,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 			CodehostID:       ch.ID,
 			RepoName:         repoName,
 			RepoOwner:        repoOwner,
+			RepoNamespace:    repoOwner, // TODO gerrit need set namespace?
 			BranchName:       branchName,
 			LoadPath:         args.LoadPath,
 			LoadFromDir:      args.LoadFromDir,
@@ -459,23 +460,24 @@ func loadCodehubService(username string, ch *systemconfig.CodeHost, repoOwner, r
 
 		srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
 		createSvcArgs := &models.Service{
-			CodehostID:  ch.ID,
-			RepoOwner:   repoOwner,
-			RepoName:    repoName,
-			RepoUUID:    repoUUID,
-			BranchName:  branchName,
-			SrcPath:     srcPath,
-			LoadPath:    args.LoadPath,
-			LoadFromDir: args.LoadFromDir,
-			KubeYamls:   yamls,
-			CreateBy:    username,
-			ServiceName: getFileName(args.LoadPath),
-			Type:        args.Type,
-			ProductName: args.ProductName,
-			Source:      ch.Type,
-			Yaml:        util.CombineManifests(yamls),
-			Commit:      &models.Commit{SHA: commit.ID, Message: commit.Message},
-			Visibility:  args.Visibility,
+			CodehostID:    ch.ID,
+			RepoOwner:     repoOwner,
+			RepoNamespace: repoOwner, // TODO codehub need fill namespace?
+			RepoName:      repoName,
+			RepoUUID:      repoUUID,
+			BranchName:    branchName,
+			SrcPath:       srcPath,
+			LoadPath:      args.LoadPath,
+			LoadFromDir:   args.LoadFromDir,
+			KubeYamls:     yamls,
+			CreateBy:      username,
+			ServiceName:   getFileName(args.LoadPath),
+			Type:          args.Type,
+			ProductName:   args.ProductName,
+			Source:        ch.Type,
+			Yaml:          util.CombineManifests(yamls),
+			Commit:        &models.Commit{SHA: commit.ID, Message: commit.Message},
+			Visibility:    args.Visibility,
 		}
 		if _, err = CreateServiceTemplate(username, createSvcArgs, log); err != nil {
 			log.Errorf("Failed to create service template, serviceName:%s error: %s", createSvcArgs.ServiceName, err)
@@ -573,7 +575,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 	}
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(ch, repoOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(ch, repoOwner, repoName, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
@@ -805,7 +807,7 @@ func validateServiceUpdateGitlab(detail *systemconfig.CodeHost, serviceName, rep
 func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, repoName, branchName, remoteName, loadPath string, isDir bool) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 		}
@@ -891,7 +893,7 @@ func validateServiceUpdateGitee(detail *systemconfig.CodeHost, serviceName, repo
 	base := path.Join(config.S3StoragePath(), repoName)
 	if exist, err := util.PathExists(base); !exist {
 		log.Warnf("path does not exist,err:%s", err)
-		err := command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+		err := command.RunGitCmds(detail, repoOwner, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 		}

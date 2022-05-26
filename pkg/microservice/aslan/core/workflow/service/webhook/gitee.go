@@ -167,7 +167,7 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 			errs = multierror.Append(errs, err)
 		}
 		newRepoName := fmt.Sprintf("%s-new", service.RepoName)
-		err = command.RunGitCmds(detail, service.RepoOwner, newRepoName, service.BranchName, "origin")
+		err = command.RunGitCmds(detail, service.RepoOwner, service.GetRepoNamespace(), newRepoName, service.BranchName, "origin")
 		if err != nil {
 			log.Errorf("failed to run git cmds err:%s", err)
 			errs = multierror.Append(errs, err)
@@ -181,7 +181,7 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 		oldBase, err := GetWorkspaceBasePath(service.RepoName)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-			err = command.RunGitCmds(detail, service.RepoOwner, service.RepoName, service.BranchName, "origin")
+			err = command.RunGitCmds(detail, service.RepoOwner, service.GetRepoNamespace(), service.RepoName, service.BranchName, "origin")
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}

@@ -101,7 +101,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			errs = multierror.Append(errs, err)
 		}
 		newRepoName := fmt.Sprintf("%s-new", service.GerritRepoName)
-		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, newRepoName, service.GerritBranchName, service.GerritRemoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, newRepoName, service.GerritBranchName, service.GerritRemoteName)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent runGitCmds err:%v", err)
 			errs = multierror.Append(errs, err)
@@ -115,7 +115,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		oldBase, err := GetGerritWorkspaceBasePath(service.GerritRepoName)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-			err = command.RunGitCmds(detail, setting.GerritDefaultOwner, service.GerritRepoName, service.GerritBranchName, service.GerritRemoteName)
+			err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, service.GerritRepoName, service.GerritBranchName, service.GerritRemoteName)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}
@@ -310,6 +310,7 @@ func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogg
 		CreateFrom: &service.CreateFromRepo{
 			CodehostID: svc.CodehostID,
 			Owner:      svc.RepoOwner,
+			Namespace:  svc.GetRepoNamespace(),
 			Repo:       svc.RepoName,
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},

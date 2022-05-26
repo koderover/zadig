@@ -94,6 +94,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*template.Chart, 
 		Repo:       chart.Repo,
 		Path:       chart.Path,
 		Branch:     chart.Branch,
+		Namespace:  chart.GetNamespace(),
 		Files:      fis,
 		Variables:  variables,
 	}, nil
@@ -140,6 +141,7 @@ func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, erro
 			Name:       c.Name,
 			CodehostID: c.CodeHostID,
 			Owner:      c.Owner,
+			Namespace:  c.GetNamespace(),
 			Repo:       c.Repo,
 			Path:       c.Path,
 			Branch:     c.Branch,
@@ -238,6 +240,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 	return mongodb.NewChartColl().Create(&models.Chart{
 		Name:           name,
 		Owner:          args.Owner,
+		Namespace:      args.Namespace,
 		Repo:           args.Repo,
 		Path:           args.Path,
 		Branch:         args.Branch,
@@ -302,6 +305,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 	err = mongodb.NewChartColl().Update(&models.Chart{
 		Name:           name,
 		Owner:          args.Owner,
+		Namespace:      args.Namespace,
 		Repo:           args.Repo,
 		Path:           args.Path,
 		Branch:         args.Branch,
@@ -347,6 +351,7 @@ func UpdateChartTemplateVariables(name string, args []*commonmodels.Variable, lo
 	err = mongodb.NewChartColl().Update(&models.Chart{
 		Name:           name,
 		Owner:          chart.Owner,
+		Namespace:      chart.Namespace,
 		Repo:           chart.Repo,
 		Path:           chart.Path,
 		Branch:         chart.Branch,

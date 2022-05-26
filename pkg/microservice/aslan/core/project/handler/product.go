@@ -184,7 +184,14 @@ func DeleteProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("name"), "删除", "项目管理-项目", c.Param("name"), "", ctx.Logger)
-	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, c.Param("name"), ctx.RequestID, ctx.Logger)
+	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
+	if err != nil {
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
+			return
+		}
+	}
+	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, c.Param("name"), ctx.RequestID, isDelete, ctx.Logger)
 }
 
 func ListTemplatesHierachy(c *gin.Context) {

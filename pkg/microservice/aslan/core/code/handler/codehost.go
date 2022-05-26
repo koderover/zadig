@@ -100,7 +100,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListProjects(
+	projects, err := service.CodeHostListProjects(
 		chID,
 		strings.Replace(repoOwner, "%2F", "/", -1),
 		namespaceType,
@@ -108,6 +108,17 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		args.PerPage,
 		args.Key,
 		ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	for _, project := range projects {
+		if project.Namespace == "" {
+			project.Namespace = repoOwner
+		}
+	}
+	ctx.Resp = projects
 }
 
 type CodeHostGetPageNateListArgs struct {

@@ -61,3 +61,21 @@ func ListConfigMapsYaml(ns string, selector labels.Selector, cl client.Client) (
 	}
 	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
 }
+
+func GetConfigMapYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "ConfigMap",
+		Version: "v1",
+	}
+	return GetResourceYamlInCache(ns, name, gvk, cl)
+}
+
+func GetConfigMapYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "ConfigMap",
+		Version: "v1",
+	}
+	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+}

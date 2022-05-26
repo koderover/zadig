@@ -20,6 +20,7 @@ import (
 	"context"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -108,6 +109,45 @@ func GetResourceYamlInCache(ns, name string, gvk schema.GroupVersionKind, cl cli
 		return nil, false, err
 	}
 
+	return data, true, nil
+}
+
+func GetResourceJSONInCacheFormat(ns, name string, gvk schema.GroupVersionKind, cl client.Reader) ([]byte, bool, error) {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(gvk)
+
+	found, err := GetResourceInCache(ns, name, u, cl)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	u.SetManagedFields(nil)
+	u.SetUID("")
+	u.SetSelfLink("")
+	u.SetResourceVersion("")
+	u.SetCreationTimestamp(metav1.Time{})
+	u.SetNamespace("")
+	u.SetGeneration(0)
+	content := u.UnstructuredContent()
+	delete(content, "status")
+	u.SetUnstructuredContent(content)
+	data, err := u.MarshalJSON()
+	if err != nil {
+		return nil, false, err
+	}
+
+	return data, true, nil
+}
+
+func GetResourceYamlInCacheFormat(ns, name string, gvk schema.GroupVersionKind, cl client.Reader) ([]byte, bool, error) {
+	d, found, err := GetResourceJSONInCacheFormat(ns, name, gvk, cl)
+	if err != nil || !found || len(d) == 0 {
+		return nil, false, err
+	}
+
+	data, err := yaml.JSONToYAML(d)
+	if err != nil {
+		return nil, false, err
+	}
 	return data, true, nil
 }
 

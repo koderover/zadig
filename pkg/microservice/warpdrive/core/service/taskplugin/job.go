@@ -271,6 +271,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			Source:             build.Source,
 			Owner:              build.RepoOwner,
 			Name:               build.RepoName,
+			Namespace:          build.RepoNamespace,
 			RemoteName:         build.RemoteName,
 			Branch:             build.Branch,
 			PR:                 build.PR,

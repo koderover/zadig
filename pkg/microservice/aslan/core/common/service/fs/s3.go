@@ -181,7 +181,7 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 		logger.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
 	}
-	err = command.RunGitCmds(detail, "default", chartTemplate.Repo, chartTemplate.Branch, "origin")
+	err = command.RunGitCmds(detail, "default", "default", chartTemplate.Repo, chartTemplate.Branch, "origin")
 	if err != nil {
 		logger.Errorf("Failed to runGitCmds, err:%s", err)
 		return err
@@ -209,7 +209,7 @@ func DownloadAndCopyFilesFromGitee(name, localBase string, logger *zap.SugaredLo
 		logger.Errorf("Failed to get codehost detail, err:%s", err)
 		return err
 	}
-	err = command.RunGitCmds(detail, chartTemplate.Owner, chartTemplate.Repo, chartTemplate.Branch, "origin")
+	err = command.RunGitCmds(detail, chartTemplate.Owner, chartTemplate.GetNamespace(), chartTemplate.Repo, chartTemplate.Branch, "origin")
 	if err != nil {
 		logger.Errorf("Failed to runGitCmds, err:%s", err)
 		return err
