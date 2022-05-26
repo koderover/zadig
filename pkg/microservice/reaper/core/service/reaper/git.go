@@ -221,15 +221,17 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
+			log.Infof("host:%s", host)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
 				}
 				hostNames.Insert(host)
 			}
-
+			remoteName := fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)
+			log.Infof("remoteName:%s", remoteName)
 			cmds = append(cmds, &c.Command{
-				Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)),
+				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
 				DisableTrace: true,
 			})
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
@@ -289,6 +291,7 @@ func writeSSHFile(sshKey, hostName string) error {
 	}
 
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", strings.Replace(hostName, ".", "", -1))
+	log.Infof("pathName:%s", pathName)
 	file := path.Join(config.Home(), pathName)
 	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
