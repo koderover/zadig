@@ -122,7 +122,7 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 	tree, err := fsservice.DownloadFilesFromSource(
-		&fsservice.DownloadFromSourceArgs{CodehostID: svc.CodehostID, Owner: svc.RepoOwner, Repo: svc.RepoName, Path: svc.LoadPath, Branch: svc.BranchName, RepoLink: svc.SrcPath},
+		&fsservice.DownloadFromSourceArgs{CodehostID: svc.CodehostID, Owner: svc.RepoOwner, Namespace: svc.RepoNamespace, Repo: svc.RepoName, Path: svc.LoadPath, Branch: svc.BranchName, RepoLink: svc.SrcPath},
 		func(afero.Fs) (string, error) {
 			return svc.ServiceName, nil
 		})
@@ -149,7 +149,7 @@ func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service) error {
 		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
 	}
-	err = command.RunGitCmds(detail, "default", svc.GerritRepoName, svc.GerritBranchName, svc.GerritRemoteName)
+	err = command.RunGitCmds(detail, "default", "default", svc.GerritRepoName, svc.GerritBranchName, svc.GerritRemoteName)
 	if err != nil {
 		log.Errorf("Failed to runGitCmds, err:%s", err)
 		return err
@@ -181,7 +181,7 @@ func preLoadServiceManifestsFromGitee(svc *commonmodels.Service) error {
 		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
 	}
-	err = command.RunGitCmds(detail, svc.RepoOwner, svc.RepoName, svc.BranchName, "origin")
+	err = command.RunGitCmds(detail, svc.RepoOwner, svc.GetRepoNamespace(), svc.RepoName, svc.BranchName, "origin")
 	if err != nil {
 		log.Errorf("Failed to runGitCmds, err:%s", err)
 		return err

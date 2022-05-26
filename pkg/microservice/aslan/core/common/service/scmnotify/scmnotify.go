@@ -56,7 +56,7 @@ func (s *Service) SendInitWebhookComment(
 	notification := &models.Notification{
 		CodehostID: mainRepo.CodehostID,
 		PrID:       prID,
-		ProjectID:  strings.TrimLeft(mainRepo.RepoOwner+"/"+mainRepo.RepoName, "/"),
+		ProjectID:  strings.TrimLeft(mainRepo.GetRepoNamespace()+"/"+mainRepo.RepoName, "/"),
 		BaseURI:    baseURI,
 		IsPipeline: isPipeline,
 		IsTest:     isTest,
@@ -97,7 +97,7 @@ func (s *Service) SendErrWebhookComment(
 	notification := &models.Notification{
 		CodehostID: mainRepo.CodehostID,
 		PrID:       prID,
-		ProjectID:  strings.TrimLeft(mainRepo.RepoOwner+"/"+mainRepo.RepoName, "/"),
+		ProjectID:  strings.TrimLeft(mainRepo.GetRepoNamespace()+"/"+mainRepo.RepoName, "/"),
 		BaseURI:    baseURI,
 		IsPipeline: isPipeline,
 		IsTest:     isTest,

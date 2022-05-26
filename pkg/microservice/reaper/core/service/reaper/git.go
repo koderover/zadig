@@ -194,10 +194,15 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
 	}
 
+	// namespace represents the real owner
+	owner := repo.Namespace
+	if len(owner) == 0 {
+		owner = repo.Owner
+	}
 	if repo.Source == meta.ProviderGitlab {
 		u, _ := url.Parse(repo.Address)
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, repo.Owner, repo.Name, u.Scheme)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, owner, repo.Name, u.Scheme)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == meta.ProviderGerrit {
@@ -213,7 +218,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		u, _ := url.Parse(repo.Address)
 		user := url.QueryEscape(repo.User)
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, repo.Owner, repo.Name)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, owner, repo.Name)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == meta.ProviderGitee {
@@ -245,7 +250,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		}
 	} else {
 		// github
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.Name)), DisableTrace: true})
 	}
 
 	ref := repo.Ref()

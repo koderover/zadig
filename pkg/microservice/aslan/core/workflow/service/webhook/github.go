@@ -199,6 +199,7 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 
 	eventRepo := &types.Repository{
 		RepoOwner:     owner,
+		RepoNamespace: owner,
 		RepoName:      repo,
 		Branch:        branch,
 		PR:            prNum,
@@ -331,6 +332,7 @@ func pushEventToPipelineTasks(event *github.PushEvent, requestID string, log *za
 
 	eventRepo := &types.Repository{
 		RepoOwner:     owner,
+		RepoNamespace: owner,
 		RepoName:      repo,
 		Branch:        branch,
 		CommitID:      commitID,
@@ -631,6 +633,8 @@ func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
 }
 
 // GetOwnerRepoBranchPath 获取gitlab路径中的owner、repo、branch和path
+// return address, owner, repo, branch, path, pathType
+// Note this function needs be optimized badly!
 func GetOwnerRepoBranchPath(URL string) (string, string, string, string, string, string, error) {
 	if !strings.Contains(URL, "https") && !strings.Contains(URL, "http") {
 		return "", "", "", "", "", "", fmt.Errorf("url is illegal")

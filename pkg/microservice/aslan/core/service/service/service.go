@@ -1323,7 +1323,7 @@ func GetGerritServiceYaml(args *commonmodels.Service, log *zap.SugaredLogger) er
 
 	base := path.Join(config.S3StoragePath(), args.GerritRepoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(codehostDetail, setting.GerritDefaultOwner, args.GerritRepoName, args.GerritBranchName, args.GerritRemoteName)
+		err = command.RunGitCmds(codehostDetail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, args.GerritRepoName, args.GerritBranchName, args.GerritRemoteName)
 		if err != nil {
 			return err
 		}

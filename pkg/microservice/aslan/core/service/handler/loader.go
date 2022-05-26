@@ -84,8 +84,11 @@ func LoadServiceTemplate(c *gin.Context) {
 
 	remoteName := c.Query("remoteName")
 	repoOwner := c.Query("repoOwner")
-
-	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, repoName, repoUUID, branchName, remoteName, args, ctx.Logger)
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		namespace = repoOwner
+	}
+	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, ctx.Logger)
 }
 
 // ValidateServiceUpdate ...

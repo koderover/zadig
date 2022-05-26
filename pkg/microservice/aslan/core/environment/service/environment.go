@@ -1513,16 +1513,14 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
 	}
 
-	if productRenderset.DefaultValues == args.DefaultValues {
-		return nil
-	}
-
 	equal, err := yamlutil.Equal(productRenderset.DefaultValues, args.DefaultValues)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err))
 	}
 
 	productRenderset.DefaultValues = args.DefaultValues
+	productRenderset.YamlData = geneYamlData(args.ValuesData)
+
 	updatedRcList := make([]*templatemodels.RenderChart, 0)
 	if !equal {
 		for _, curRenderChart := range productRenderset.ChartInfos {
@@ -1620,6 +1618,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 			GitRepoConfig: &templatemodels.GitRepoConfig{
 				CodehostID: args.GitRepoConfig.CodehostID,
 				Owner:      args.GitRepoConfig.Owner,
+				Namespace:  args.GitRepoConfig.Namespace,
 				Repo:       args.GitRepoConfig.Repo,
 				Branch:     args.GitRepoConfig.Branch,
 			},
@@ -1627,6 +1626,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 		if len(args.GitRepoConfig.ValuesPaths) > 0 {
 			repoData.LoadPath = args.GitRepoConfig.ValuesPaths[0]
 		}
+		args.YamlSource = setting.SourceFromGitRepo
 	}
 	ret := &templatemodels.CustomYaml{
 		Source:       args.YamlSource,

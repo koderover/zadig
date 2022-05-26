@@ -118,6 +118,10 @@ func EnsureResp(build *commonmodels.Build) {
 	}
 	build.Repos = build.SafeRepos()
 
+	for _, repo := range build.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
+
 	if build.PreBuild != nil {
 		if len(build.PreBuild.Installs) == 0 {
 			build.PreBuild.Installs = make([]*commonmodels.Item, 0)
@@ -142,6 +146,9 @@ func EnsureResp(build *commonmodels.Build) {
 	if build.TemplateID != "" {
 		build.TargetRepos = make([]*commonmodels.TargetRepo, 0, len(build.Targets))
 		for _, target := range build.Targets {
+			for _, repo := range target.Repos {
+				repo.RepoNamespace = repo.GetRepoNamespace()
+			}
 			targetRepo := &commonmodels.TargetRepo{
 				Service: &commonmodels.ServiceModuleTargetBase{
 					ProductName:   target.ProductName,

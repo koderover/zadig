@@ -25,6 +25,7 @@ type Chart struct {
 	Name       string                  `json:"name"`
 	CodehostID int                     `json:"codehostID"`
 	Owner      string                  `json:"owner"`
+	Namespace  string                  `json:"namespace"`
 	Repo       string                  `json:"repo"`
 	Branch     string                  `json:"branch"`
 	Path       string                  `json:"path"`

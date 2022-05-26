@@ -101,6 +101,14 @@ type GitRepoConfig struct {
 	Owner      string `bson:"owner,omitempty"       json:"owner"`
 	Repo       string `bson:"repo,omitempty"        json:"repo"`
 	Branch     string `bson:"branch,omitempty"      json:"branch"`
+	Namespace  string `bson:"namespace,omitempty"   json:"namespace"` // records the actual namespace of repo, used to generate correct project name
+}
+
+func (grc *GitRepoConfig) GetNamespace() string {
+	if len(grc.Namespace) > 0 {
+		return grc.Namespace
+	}
+	return grc.Owner
 }
 
 type CustomYaml struct {

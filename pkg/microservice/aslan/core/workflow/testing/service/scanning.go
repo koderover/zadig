@@ -203,18 +203,19 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 			return 0, err
 		}
 		repos = append(repos, &types.Repository{
-			Source:      rep.Type,
-			RepoOwner:   arg.RepoOwner,
-			RepoName:    arg.RepoName,
-			Branch:      arg.Branch,
-			PR:          arg.PR,
-			Tag:         arg.Tag,
-			CodehostID:  arg.CodehostID,
-			OauthToken:  rep.AccessToken,
-			Address:     rep.Address,
-			Username:    rep.Username,
-			Password:    rep.Password,
-			EnableProxy: rep.EnableProxy,
+			Source:        rep.Type,
+			RepoOwner:     arg.RepoOwner,
+			RepoName:      arg.RepoName,
+			Branch:        arg.Branch,
+			PR:            arg.PR,
+			CodehostID:    arg.CodehostID,
+			OauthToken:    rep.AccessToken,
+			Address:       rep.Address,
+			Username:      rep.Username,
+			Password:      rep.Password,
+			EnableProxy:   rep.EnableProxy,
+			RepoNamespace: arg.RepoNamespace,
+			Tag:           arg.Tag,
 		})
 	}
 

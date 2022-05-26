@@ -17,7 +17,7 @@ limitations under the License.
 package service
 
 type hookUniqueID struct {
-	owner, repo, source, name string
+	owner, namespace, repo, source, name string
 }
 
 type hookItem struct {

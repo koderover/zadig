@@ -38,6 +38,7 @@ type Repo struct {
 	Source       string `yaml:"source"`
 	Address      string `yaml:"address"`
 	Owner        string `yaml:"owner"`
+	Namespace    string `yaml:"namespace"`
 	Name         string `yaml:"name"`
 	RemoteName   string `yaml:"remote_name"`
 	Branch       string `yaml:"branch"`
@@ -65,7 +66,7 @@ type Command struct {
 	IgnoreError bool
 }
 
-func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string) error {
+func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace, repoName, branchName, remoteName string) error {
 	var (
 		tokens []string
 		repo   *Repo
@@ -76,6 +77,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, bran
 		Source:     codehostDetail.Type,
 		Address:    codehostDetail.Address,
 		Name:       repoName,
+		Namespace:  repoNamespace,
 		Branch:     branchName,
 		OauthToken: codehostDetail.AccessToken,
 		RemoteName: remoteName,

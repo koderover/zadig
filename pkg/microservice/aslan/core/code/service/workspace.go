@@ -135,7 +135,7 @@ type FileInfo struct {
 	IsDir bool `json:"is_dir"`
 }
 
-func GetGitRepoInfo(codehostID int, repoOwner, repoName, branchName, remoteName, dir string, log *zap.SugaredLogger) ([]*FileInfo, error) {
+func GetGitRepoInfo(codehostID int, repoOwner, repoNamespace, repoName, branchName, remoteName, dir string, log *zap.SugaredLogger) ([]*FileInfo, error) {
 	fis := make([]*FileInfo, 0)
 	if dir == "" {
 		dir = "/"
@@ -150,7 +150,7 @@ func GetGitRepoInfo(codehostID int, repoOwner, repoName, branchName, remoteName,
 		log.Errorf("GetGitRepoInfo GetCodehostDetail err:%s", err)
 		return fis, e.ErrListRepoDir.AddDesc(err.Error())
 	}
-	err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+	err = command.RunGitCmds(detail, repoOwner, repoNamespace, repoName, branchName, remoteName)
 	if err != nil {
 		log.Errorf("GetGitRepoInfo runGitCmds err:%s", err)
 		return fis, e.ErrListRepoDir.AddDesc(err.Error())

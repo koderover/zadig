@@ -60,11 +60,12 @@ func (cmem *codehubMergeEventMatcher) UpdateTaskArgs(
 	}
 
 	args = factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         cmem.event.ObjectAttributes.IID,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            cmem.event.ObjectAttributes.IID,
 	})
 
 	return args
@@ -97,10 +98,11 @@ func (cpem *codehubPushEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
 	})
 
 	return args
@@ -199,6 +201,7 @@ func TriggerWorkflowByCodehubEvent(event interface{}, baseURI, requestID string,
 			args.Source = setting.SourceFromCodeHub
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
+			args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 			args.RepoName = item.MainRepo.RepoName
 			args.Committer = item.MainRepo.Committer
 			// 3. create task with args

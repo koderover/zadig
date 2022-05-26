@@ -113,12 +113,17 @@ func GetGitRepoInfo(c *gin.Context) {
 
 	dir := c.Query("dir")
 
-	ctx.Resp, ctx.Err = service.GetGitRepoInfo(codehostID, c.Query("repoOwner"), repoName, branchName, remoteName, dir, ctx.Logger)
+	namespace := c.Query("repoNamespace")
+	if namespace == "" {
+		namespace = c.Query("repoOwner")
+	}
+	ctx.Resp, ctx.Err = service.GetGitRepoInfo(codehostID, c.Query("repoOwner"), namespace, repoName, branchName, remoteName, dir, ctx.Logger)
 }
 
 type repoInfo struct {
 	CodeHostID int    `json:"codehost_id" form:"codehost_id"`
 	Owner      string `json:"owner"       form:"owner"`
+	Namespace  string `json:"namespace"   form:"namespace"`
 	Repo       string `json:"repo"        form:"repo"`
 	Path       string `json:"path"        form:"path"`
 	Branch     string `json:"branch"      form:"branch"`
@@ -140,7 +145,12 @@ func GetRepoTree(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, ctx.Logger)
+	owner := info.Owner
+	if len(info.Namespace) > 0 {
+		owner = info.Namespace
+	}
+
+	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, owner, info.Repo, info.Path, info.Branch, ctx.Logger)
 }
 
 func GetCodehubRepoInfo(c *gin.Context) {

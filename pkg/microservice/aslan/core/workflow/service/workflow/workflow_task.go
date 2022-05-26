@@ -867,6 +867,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	triggerBy := &commonmodels.TriggerBy{
 		CodehostID:     args.CodehostID,
 		RepoOwner:      args.RepoOwner,
+		RepoNamespace:  args.RepoNamespace,
 		RepoName:       args.RepoName,
 		Source:         args.Source,
 		MergeRequestID: args.MergeRequestID,
@@ -1043,6 +1044,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 							// openAPI only pass repoName, branch, pr
 							targetRepo.Source = buildRepo.Source
 							targetRepo.RepoOwner = buildRepo.RepoOwner
+							targetRepo.RepoNamespace = buildRepo.RepoNamespace
 							targetRepo.RemoteName = buildRepo.RemoteName
 							targetRepo.CodehostID = buildRepo.CodehostID
 							targetRepo.CheckoutPath = buildRepo.CheckoutPath
@@ -1670,6 +1672,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 				return nil, err
 			}
 			repo.EnableProxy = repoInfo.EnableProxy
+			repo.RepoNamespace = repo.GetRepoNamespace()
 		}
 
 		testTask := &taskmodels.Testing{
@@ -2229,6 +2232,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				return nil, err
 			}
 			repo.EnableProxy = repoInfo.EnableProxy
+			repo.RepoNamespace = repo.GetRepoNamespace()
+		}
+		if len(build.JobCtx.Builds) == 0 {
+			build.JobCtx.Builds = make([]*types.Repository, 0)
 		}
 
 		build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}

@@ -36,6 +36,7 @@ type RepoInfoList struct {
 
 type GitRepoInfo struct {
 	Owner         string                `json:"repo_owner"`
+	Namespace     string                `json:"repo_namespace"`
 	Repo          string                `json:"repo"`
 	CodehostID    int                   `json:"codehost_id"`
 	Source        string                `json:"source"`
@@ -50,6 +51,13 @@ type GitRepoInfo struct {
 	Key           string                `json:"key"`
 	// FilterRegexp is the regular expression filter for the branches and tags
 	FilterRegexp string `json:"filter_regexp,omitempty"`
+}
+
+func (repo *GitRepoInfo) GetNamespace() string {
+	if repo.Namespace == "" {
+		return repo.Owner
+	}
+	return repo.Namespace
 }
 
 // ListRepoInfos ...
@@ -76,7 +84,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				wg.Done()
 			}()
 			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: info.Repo,
 			})
 			if err != nil {
@@ -96,9 +104,8 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			if info.Source == CodeHostCodeHub {
 				projectName = info.RepoUUID
 			}
-
 			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 				Key:         info.Key,
 			})
@@ -122,7 +129,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			}
 
 			info.Tags, err = codehostClient.ListTags(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 				Key:         info.Key,
 			})

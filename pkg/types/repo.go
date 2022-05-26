@@ -26,6 +26,7 @@ import (
 type Repository struct {
 	Source        string `bson:"source,omitempty"          json:"source,omitempty"`
 	RepoOwner     string `bson:"repo_owner"                json:"repo_owner"`
+	RepoNamespace string `bson:"repo_namespace"            json:"repo_namespace"`
 	RepoName      string `bson:"repo_name"                 json:"repo_name"`
 	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"`
 	Branch        string `bson:"branch"                    json:"branch"`
@@ -103,4 +104,11 @@ func (repo *Repository) GetReleaseCandidateTag(taskID int64) string {
 		return "invalid"
 	}
 	return tag
+}
+
+func (repo *Repository) GetRepoNamespace() string {
+	if repo.RepoNamespace != "" {
+		return repo.RepoNamespace
+	}
+	return repo.RepoOwner
 }
