@@ -284,7 +284,6 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			User:               build.Username,
 			Password:           build.Password,
 			EnableProxy:        build.EnableProxy,
-			OtherAddress:       build.OtherAddress,
 			AuthType:           build.AuthType,
 			SSHKey:             build.SSHKey,
 			PrivateAccessToken: build.PrivateAccessToken,

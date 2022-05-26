@@ -57,7 +57,6 @@ type Repository struct {
 	// FilterRegexp is the regular expression filter for the branches and tags
 	FilterRegexp string `bson:"-"    json:"filter_regexp,omitempty"`
 	// The address of the code base input of the other type
-	OtherAddress       string   `bson:"other_address,omitempty"         json:"other_address,omitempty"`
 	AuthType           AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"`
 	SSHKey             string   `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"`
 	PrivateAccessToken string   `bson:"private_access_token,omitempty"  json:"private_access_token,omitempty"`

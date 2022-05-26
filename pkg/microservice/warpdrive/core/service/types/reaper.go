@@ -233,7 +233,6 @@ type Repo struct {
 	Password           string         `yaml:"password"`
 	CheckoutRef        string         `yaml:"checkout_ref"`
 	EnableProxy        bool           `yaml:"enable_proxy"`
-	OtherAddress       string         `yaml:"other_address,omitempty"`
 	AuthType           types.AuthType `yaml:"auth_type,omitempty"`
 	SSHKey             string         `yaml:"ssh_key,omitempty"`
 	PrivateAccessToken string         `yaml:"private_access_token,omitempty"`
