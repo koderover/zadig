@@ -51,15 +51,16 @@ func NewService() *Service {
 }
 
 func (s *Service) SendInitWebhookComment(
-	mainRepo *models.MainHookRepo, prID int, baseURI string, isPipeline, isTest bool, logger *zap.SugaredLogger,
+	mainRepo *models.MainHookRepo, prID int, baseURI string, isPipeline, isTest, isScanning bool, logger *zap.SugaredLogger,
 ) (*models.Notification, error) {
 	notification := &models.Notification{
 		CodehostID: mainRepo.CodehostID,
 		PrID:       prID,
-		ProjectID:  strings.TrimLeft(mainRepo.RepoOwner+"/"+mainRepo.RepoName, "/"),
+		ProjectID:  strings.TrimLeft(mainRepo.GetRepoNamespace()+"/"+mainRepo.RepoName, "/"),
 		BaseURI:    baseURI,
 		IsPipeline: isPipeline,
 		IsTest:     isTest,
+		IsScanning: isScanning,
 		Label:      mainRepo.GetLabelValue(),
 		Revision:   mainRepo.Revision,
 		RepoOwner:  mainRepo.RepoOwner,
@@ -96,7 +97,7 @@ func (s *Service) SendErrWebhookComment(
 	notification := &models.Notification{
 		CodehostID: mainRepo.CodehostID,
 		PrID:       prID,
-		ProjectID:  strings.TrimLeft(mainRepo.RepoOwner+"/"+mainRepo.RepoName, "/"),
+		ProjectID:  strings.TrimLeft(mainRepo.GetRepoNamespace()+"/"+mainRepo.RepoName, "/"),
 		BaseURI:    baseURI,
 		IsPipeline: isPipeline,
 		IsTest:     isTest,
@@ -399,6 +400,71 @@ func (s *Service) UpdateWebhookCommentForTest(task *task.Task, logger *zap.Sugar
 
 		if err = s.Coll.Upsert(notification); err != nil {
 			logger.Errorf("can't upsert notification by id %s", notification.ID)
+			return
+		}
+	} else {
+		logger.Infof("status not changed of task %s %d, skip to update comment", task.PipelineName, task.TaskID)
+	}
+
+	return nil
+}
+
+func (s *Service) UpdateWebhookCommentForScanning(task *task.Task, logger *zap.SugaredLogger) (err error) {
+	if task.ScanningArgs.NotificationID == "" {
+		return
+	}
+
+	var notification *models.Notification
+	if notification, err = s.Coll.Find(task.ScanningArgs.NotificationID); err != nil {
+		logger.Errorf("can't find notification by id %s %s", task.TestArgs.NotificationID, err)
+		return err
+	}
+
+	var tasks []*models.NotificationTask
+	var taskExist bool
+	var shouldComment bool
+
+	status := convertTaskStatusToNotificationTaskStatus(task.Status)
+	for _, nTask := range notification.Tasks {
+		if nTask.ID == task.TaskID {
+			shouldComment = nTask.Status != status
+			scmTask := &models.NotificationTask{
+				ProductName:  task.ProductName,
+				TestName:     task.PipelineName,
+				ID:           task.TaskID,
+				ScanningName: task.ScanningArgs.ScanningName,
+				ScanningID:   task.ScanningArgs.ScanningID,
+				Status:       status,
+			}
+
+			tasks = append(tasks, scmTask)
+			taskExist = true
+		} else {
+			tasks = append(tasks, nTask)
+		}
+	}
+
+	if !taskExist {
+		tasks = append(tasks, &models.NotificationTask{
+			ProductName:  task.ProductName,
+			TestName:     task.PipelineName,
+			ID:           task.TaskID,
+			ScanningName: task.ScanningArgs.ScanningName,
+			ScanningID:   task.ScanningArgs.ScanningID,
+			Status:       status,
+		})
+		shouldComment = true
+	}
+
+	if shouldComment {
+		notification.Tasks = tasks
+		if err = s.Client.Comment(notification); err != nil {
+			// cannot return error here since the upsert operation is required for further use.
+			logger.Warnf("failed to comment %s, %v", notification.ToString(), err)
+		}
+
+		if err = s.Coll.Upsert(notification); err != nil {
+			logger.Warnf("can't upsert notification by id %s", notification.ID)
 			return
 		}
 	} else {

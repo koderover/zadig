@@ -49,6 +49,12 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 		codehost.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", codehost.Username, codehost.Password)))
 	}
 
+	if codehost.Alias != "" {
+		if _, err := mongodb.NewCodehostColl().GetCodeHostByAlias(codehost.Alias); err == nil {
+			return nil, fmt.Errorf("alias cannot have the same name")
+		}
+	}
+
 	codehost.CreatedAt = time.Now().Unix()
 	codehost.UpdatedAt = time.Now().Unix()
 
@@ -132,6 +138,18 @@ func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHo
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
+
+	var oldAlias string
+	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID, false)
+	if err == nil {
+		oldAlias = oldCodeHost.Alias
+	}
+	if host.Alias != "" && host.Alias != oldAlias {
+		if _, err := mongodb.NewCodehostColl().GetCodeHostByAlias(host.Alias); err == nil {
+			return nil, fmt.Errorf("alias cannot have the same name")
+		}
+	}
+
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }
 
@@ -151,7 +169,7 @@ type state struct {
 func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger) (string, error) {
 	codeHost, err := GetCodeHost(codeHostID, false, logger)
 	if err != nil {
-		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
+		logger.Errorf("GetCodeHost:%d err:%s", codeHostID, err)
 		return "", err
 	}
 	redirectParsedURL, err := url.Parse(redirectURI)
@@ -206,10 +224,12 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 	}
 	o, err := newOAuth(codehost.Type, callbackURL.String(), codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
+		logger.Errorf("newOAuth err:%s", err)
 		return handle(redirectParsedURL, err)
 	}
-	token, err := o.HandleCallback(r)
+	token, err := o.HandleCallback(r, codehost)
 	if err != nil {
+		logger.Errorf("HandleCallback err:%s", err)
 		return handle(redirectParsedURL, err)
 	}
 	codehost.AccessToken = token.AccessToken
@@ -218,6 +238,7 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
 		return handle(redirectParsedURL, err)
 	}
+	logger.Infof("success update codehost ready status")
 	return handle(redirectParsedURL, nil)
 }
 

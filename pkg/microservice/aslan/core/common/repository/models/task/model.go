@@ -65,6 +65,8 @@ type Task struct {
 	WorkflowArgs *models.WorkflowTaskArgs `bson:"workflow_args"         json:"workflow_args,omitempty"`
 	// TestArgs 测试任务参数
 	TestArgs *models.TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
+	// ScanningArgs argument for scanning tasks
+	ScanningArgs *models.ScanningArgs `bson:"scanning_args,omitempty" json:"scanning_args,omitempty"`
 	// ServiceTaskArgs 脚本部署工作流任务参数
 	ServiceTaskArgs *models.ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	// ArtifactPackageTaskArgs arguments for artifact-package type tasks

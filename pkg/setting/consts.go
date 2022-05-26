@@ -226,7 +226,8 @@ const (
 	// helm deployment
 	HelmDeployType = "helm"
 	// PMDeployType physical machine deploy method
-	PMDeployType = "pm"
+	PMDeployType          = "pm"
+	TrusteeshipDeployType = "trusteeship"
 
 	// Infrastructure k8s type
 	BasicFacilityK8S = "kubernetes"
