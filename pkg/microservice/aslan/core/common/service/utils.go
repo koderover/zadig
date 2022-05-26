@@ -85,7 +85,7 @@ func GetGitlabAddress(URL string) (string, error) {
 	return fmt.Sprintf("%s://%s", uri.Scheme, uri.Host), nil
 }
 
-// parseOwnerRepoBranchPath 获取gitlab路径中的owner、repo、branch和path
+// parseOwnerRepoBranchPath parse owner、repo、branch and path from gitlab repo path
 func parseOwnerRepoBranchPath(URL string) (string, string, string, string, string, string, error) {
 	if !strings.Contains(URL, "https") && !strings.Contains(URL, "http") {
 		return "", "", "", "", "", "", fmt.Errorf("url is illegal:%s", URL)

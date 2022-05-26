@@ -26,8 +26,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/types"
-
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
@@ -49,6 +47,7 @@ import (
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 

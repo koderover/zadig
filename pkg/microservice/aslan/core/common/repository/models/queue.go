@@ -83,7 +83,7 @@ type TriggerBy struct {
 	// 触发此次任务的merge request id，用于判断多个任务对应的commit是否属于同一个merge request
 	MergeRequestID string `json:"merge_request_id,omitempty" bson:"merge_request_id,omitempty"`
 	// 触发此次任务的commit id
-	CommitID string `json:"commit_id,omitempty" bson:"commit_id,omitempty"`
+	CommitID string `bson:"commit_id,omitempty" json:"commit_id,omitempty"`
 }
 
 type ServiceTaskArgs struct {

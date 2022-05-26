@@ -148,7 +148,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 
 			err = fillServiceRepoInfo(serviceObject)
 			if err != nil {
-				log.Errorf("Failed to load info from url: %s, the error is: %+v", serviceObject.SrcPath, err)
+				log.Errorf("Failed to load info from url: %s, the error is: %s", serviceObject.SrcPath, err)
 				return nil, e.ErrListTemplate.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", serviceObject.SrcPath, err))
 			}
 			serviceObject.LoadFromDir = true
@@ -324,15 +324,15 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
 		gitlabAddress, err := GetGitlabAddress(resp.SrcPath)
 		if err != nil {
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  GetGitlabAddress %s error: %v", serviceName, err)
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  GetGitlabAddress %s error: %s", serviceName, err)
 			log.Error(errMsg)
-			return resp, nil
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
 		}
 		details, err := systemconfig.New().ListCodeHostsInternal()
 		if err != nil {
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  ListCodehostDetail %s error: %v", serviceName, err)
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  ListCodehostDetail %s error: %s", serviceName, err)
 			log.Error(errMsg)
-			return resp, nil
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
 		}
 		for _, detail := range details {
 			if strings.Contains(detail.Address, gitlabAddress) {
@@ -342,16 +342,15 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		}
 		if resp.CodehostID == 0 {
 			log.Errorf("Failed to find the old code host info")
-			return nil, e.ErrListTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
+			return nil, e.ErrGetTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
 		}
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
-			log.Errorf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err)
+			log.Errorf("Failed to load info from url: %s, the error is: %s", resp.SrcPath, err)
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err))
 		}
 		return resp, nil
 	} else if resp.Source == setting.SourceFromGithub && resp.GerritCodeHostID == 0 {
-		//address, owner, r, branch, loadPath, _, err := parseOwnerRepoBranchPath(resp.SrcPath)
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			return nil, err
@@ -551,7 +550,6 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 			log.Errorf("failed to parse codehost address, err: %s", err)
 			return
 		}
-		//address := getAddressFromPath(updated.SrcPath, updated.GetRepoNamespace(), updated.RepoName, logger.Desugar())
 		if address == "" {
 			return
 		}
