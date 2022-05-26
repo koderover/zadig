@@ -107,6 +107,9 @@ func migrateRole() error {
 	}
 
 	for _, role := range config.PresetRoles {
+		if role.Name == "admin" {
+			role.Namespace = "*"
+		}
 		for _, rule := range role.Rules {
 			rule.Kind = "resource"
 		}
