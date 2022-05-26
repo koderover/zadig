@@ -151,6 +151,10 @@ metas:
             endpoint: /api/aslan/service/helm/services
           - method: POST
             endpoint: /api/aslan/service/helm/services/bulk
+          - method: GET
+            endpoint: /api/aslan/service/services/kube/workloads
+          - method: POST
+            endpoint: /api/aslan/service/services/yaml
       - action: delete_service
         alias: 删除
         description: ''
