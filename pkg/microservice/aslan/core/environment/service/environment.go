@@ -2049,7 +2049,7 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	return helmVersions, nil
 }
 
-func DeleteProduct(username, envName, productName, requestID, isDelete string, log *zap.SugaredLogger) (err error) {
+func DeleteProduct(username, envName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
@@ -2210,7 +2210,7 @@ func DeleteProduct(username, envName, productName, requestID, isDelete string, l
 					commonservice.SendMessage(username, title, content, requestID, log)
 				}
 			}()
-			if isDelete == "true" {
+			if isDelete {
 				// Delete Cluster level resources
 				err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
 				if err != nil {

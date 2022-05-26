@@ -355,7 +355,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 }
 
 // DeleteProductTemplate 删除产品模板
-func DeleteProductTemplate(userName, productName, requestID, isDelete string, log *zap.SugaredLogger) (err error) {
+func DeleteProductTemplate(userName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
 	publicServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName, Visibility: setting.PublicService})
 	if err != nil {
 		log.Errorf("pre delete check failed, err: %s", err)
@@ -468,7 +468,7 @@ func DeleteProductTemplate(userName, productName, requestID, isDelete string, lo
 	}()
 
 	// 删除workload
-	if isDelete == "true" {
+	if isDelete {
 		go func() {
 			workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
 			for _, v := range workloads {
@@ -635,7 +635,7 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 		log.Errorf("Failed to delete roleBinding, err: %s", err)
 		return e.ErrForkProduct
 	}
-	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, "true", log); err != nil {
+	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, true, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			if description != "not found" {
@@ -721,7 +721,7 @@ func ensureProductTmpl(args *template.Product) error {
 	return nil
 }
 
-func DeleteProductsAsync(userName, productName, requestID, isDelete string, log *zap.SugaredLogger) error {
+func DeleteProductsAsync(userName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) error {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
 		return e.ErrListProducts.AddDesc(err.Error())

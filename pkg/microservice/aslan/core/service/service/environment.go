@@ -63,7 +63,7 @@ type GetKubeWorkloadsResp struct {
 func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*GetKubeWorkloadsResp, error) {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		log.Errorf("cluster is not connected [%s]", clusterID)
+		log.Errorf("cluster is not connected [%s] err:%s", clusterID, err)
 		return nil, err
 	}
 
