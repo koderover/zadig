@@ -68,10 +68,10 @@ type GitRepoConfig struct {
 }
 
 type CustomYaml struct {
-	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
-	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
-	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"git_repo_config,omitempty"`
-	ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
+	YamlContent  string      `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+	Source       string      `bson:"source" json:"source"`
+	AutoSync     bool        `bson:"auto_sync" json:"auto_sync"`
+	SourceDetail interface{} `bson:"source_detail" json:"source_detail"`
 }
 
 type RenderChart struct {
