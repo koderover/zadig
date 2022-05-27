@@ -124,8 +124,8 @@ func (r *Reaper) runGitCmds() error {
 	}
 
 	cmds = append(cmds, &c.Command{Cmd: exec.Command(
-		"sleep",
-		"10000",
+		"sh",
+		"-c", "sleep 10000",
 	)})
 
 	for _, c := range cmds {
