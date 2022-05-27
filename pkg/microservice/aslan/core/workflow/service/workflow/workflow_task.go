@@ -741,7 +741,8 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if distribute.Target != nil {
 					serviceModule.ProductName = distribute.Target.ProductName
 				}
-				if reflect.DeepEqual(distribute.Target, serviceModule) {
+				// since more field is introduced into the serviceModuleTarget structure, we only use the field we need to determine if the target match
+				if serviceModule.ProductName == distribute.Target.ProductName && serviceModule.ServiceName == distribute.Target.ServiceName && serviceModule.ServiceModule == distribute.Target.ServiceModule {
 					distributeTasks, err = formatDistributeSubtasks(
 						serviceModule,
 						workflow.DistributeStage.Releases,
