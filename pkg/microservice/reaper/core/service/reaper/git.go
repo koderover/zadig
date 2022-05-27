@@ -301,7 +301,6 @@ func writeSSHFile(sshKey, hostName string) error {
 	hostName = strings.Replace(hostName, ":", "", -1)
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
 	file := path.Join(config.Home(), pathName)
-	log.Infof("pathName: %s", pathName)
 	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
 
