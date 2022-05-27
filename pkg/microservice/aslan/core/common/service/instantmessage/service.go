@@ -124,6 +124,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 			return err
 		}
 		notifyCtls = resp.NotifyCtls
+		desc = resp.Desc
 
 	default:
 		log.Errorf("task type is not supported!")
