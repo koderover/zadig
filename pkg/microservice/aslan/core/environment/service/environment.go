@@ -576,8 +576,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 	}
 
 	existedServices := existedProd.GetServiceMap()
-	ups, _ := json.Marshal(updateProd.Services)
-	log.Infof("updateProd services:%s", ups)
+
 	// 按照产品模板的顺序来创建或者更新服务
 	for groupIndex, prodServiceGroup := range updateProd.Services {
 		//Mark if there is k8s type service in this group
@@ -680,8 +679,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 				updateGroup = append(updateGroup, newService)
 			}
 		}
-		ugs, _ := json.Marshal(updateGroup)
-		log.Infof("UpdateGroup services:%s envName:%s productName:%s groupIndex:%d updateGroup:%s", serviceNames, envName, productName, groupIndex, ugs)
+
 		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, updateGroup)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
