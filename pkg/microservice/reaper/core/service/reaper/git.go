@@ -235,11 +235,11 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 			remoteName := fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)
 			// Including the case of the port
 			if strings.Contains(repo.Address, ":") {
-				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.Owner, repo.Name)
+				remoteName = fmt.Sprintf("ssh://%s/%s/%s.git", repo.Address, repo.Owner, repo.Name)
 			}
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
-				DisableTrace: false,
+				DisableTrace: true,
 			})
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
 			u, err := url.Parse(repo.Address)
@@ -301,8 +301,6 @@ func writeSSHFile(sshKey, hostName string) error {
 	hostName = strings.Replace(hostName, ":", "", -1)
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
 	file := path.Join(config.Home(), pathName)
-	log.Infof("pathName: %s", pathName)
-	log.Infof("sshkey: %s", sshKey)
 	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
 
@@ -317,7 +315,6 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 		}
 	}
 	file := path.Join(config.Home(), "/.ssh/config")
-	log.Infof("out: %s", out)
 	return ioutil.WriteFile(file, []byte(out), 0600)
 }
 
