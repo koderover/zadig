@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -122,11 +121,6 @@ func (r *Reaper) runGitCmds() error {
 			return err
 		}
 	}
-
-	cmds = append(cmds, &c.Command{Cmd: exec.Command(
-		"sh",
-		"-c", "sleep 10000",
-	)})
 
 	for _, c := range cmds {
 		cmdOutReader, err := c.Cmd.StdoutPipe()
