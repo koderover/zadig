@@ -30,7 +30,10 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type BuildResp struct {
@@ -393,6 +396,41 @@ func correctFields(build *commonmodels.Build) {
 	if build.PostBuild != nil && build.PostBuild.DockerBuild != nil {
 		build.PostBuild.DockerBuild.DockerFile = strings.Trim(build.PostBuild.DockerBuild.DockerFile, " ")
 		build.PostBuild.DockerBuild.WorkDir = strings.Trim(build.PostBuild.DockerBuild.WorkDir, " ")
+	}
+	if build.TemplateID == "" {
+		for _, repo := range build.Repos {
+			if repo.Source != setting.SourceFromOther {
+				continue
+			}
+			modifyAuthType(repo)
+		}
+		return
+	}
+
+	for _, target := range build.Targets {
+		for _, repo := range target.Repos {
+			if repo.Source != setting.SourceFromOther {
+				continue
+			}
+			modifyAuthType(repo)
+		}
+	}
+}
+
+func modifyAuthType(repo *types.Repository) {
+	repo.RepoOwner = strings.TrimPrefix(repo.RepoOwner, "/")
+	repo.RepoOwner = strings.TrimSuffix(repo.RepoOwner, "/")
+	repo.RepoName = strings.TrimPrefix(repo.RepoName, "/")
+	repo.RepoName = strings.TrimSuffix(repo.RepoName, "/")
+	codehosts, err := systemconfig.New().ListCodeHostsInternal()
+	if err != nil {
+		log.Errorf("failed to list codehost,err:%s", err)
+	}
+	for _, codehost := range codehosts {
+		if repo.CodehostID == codehost.ID {
+			repo.AuthType = codehost.AuthType
+			break
+		}
 	}
 }
 

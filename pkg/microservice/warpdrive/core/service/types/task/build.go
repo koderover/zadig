@@ -291,7 +291,6 @@ type Repository struct {
 	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
 	EnableProxy bool   `bson:"enable_proxy,omitempty"       json:"enable_proxy,omitempty"`
 	// The address of the code base input of the other type
-	OtherAddress       string         `bson:"other_address,omitempty"         json:"other_address,omitempty"`
 	AuthType           types.AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"`
 	SSHKey             string         `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"`
 	PrivateAccessToken string         `bson:"private_access_token,omitempty"  json:"private_access_token,omitempty"`

@@ -457,9 +457,8 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 	} else if codeHostInfo.Type == systemconfig.OtherProvider {
 		build.SSHKey = codeHostInfo.SSHKey
 		build.PrivateAccessToken = codeHostInfo.PrivateAccessToken
-		build.RepoOwner, build.RepoName = util.ParseOwnerAndRepo(build.OtherAddress, build.AuthType)
 		for _, buildArg := range buildArgs {
-			if buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName && buildArg.CheckoutPath == build.CheckoutPath {
+			if buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName {
 				setBuildFromArg(build, buildArg)
 				break
 			}
