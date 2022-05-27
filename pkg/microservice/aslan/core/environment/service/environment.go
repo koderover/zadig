@@ -564,7 +564,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 
 	// 首先更新一次数据库，将产品模板的最新编排更新到数据库
 	// 只更新编排，不更新服务revision等信息
-	updatedServices := getUpdatedProductServices(serviceNames, updateProd, serviceRevisionMap, existedProd)
+	updatedServices := getUpdatedProductServices(updateProd, serviceRevisionMap, existedProd)
 
 	updateProd.Status = setting.ProductStatusUpdating
 	updateProd.Services = updatedServices
@@ -576,7 +576,8 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 	}
 
 	existedServices := existedProd.GetServiceMap()
-
+	ups, _ := json.Marshal(updateProd.Services)
+	log.Infof("updateProd services:%s", ups)
 	// 按照产品模板的顺序来创建或者更新服务
 	for groupIndex, prodServiceGroup := range updateProd.Services {
 		//Mark if there is k8s type service in this group
@@ -675,10 +676,12 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 			}
 		}
 		for _, newService := range groupServices {
-			if _, ok := oldServiceMap[newService.ServiceName]; !ok && !util.InStringArray(newService.ServiceName, deletedServices) {
+			if _, ok := oldServiceMap[newService.ServiceName]; !ok && !util.InStringArray(newService.ServiceName, deletedServices) && util.InStringArray(newService.ServiceName, serviceNames) {
 				updateGroup = append(updateGroup, newService)
 			}
 		}
+		ugs, _ := json.Marshal(updateGroup)
+		log.Infof("UpdateGroup services:%s envName:%s productName:%s groupIndex:%d updateGroup:%s", serviceNames, envName, productName, groupIndex, ugs)
 		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, updateGroup)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
@@ -3336,7 +3339,7 @@ func getServiceRevisionMap(serviceRevisionList []*SvcRevision) map[string]*SvcRe
 	return serviceRevisionMap
 }
 
-func getUpdatedProductServices(serviceNames []string, updateProduct *commonmodels.Product, serviceRevisionMap map[string]*SvcRevision, currentProduct *commonmodels.Product) [][]*commonmodels.ProductService {
+func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevisionMap map[string]*SvcRevision, currentProduct *commonmodels.Product) [][]*commonmodels.ProductService {
 	currentServices := make(map[string]*commonmodels.ProductService)
 	for _, group := range currentProduct.Services {
 		for _, service := range group {
@@ -3349,7 +3352,7 @@ func getUpdatedProductServices(serviceNames []string, updateProduct *commonmodel
 		updatedGroups := make([]*commonmodels.ProductService, 0)
 		for _, service := range group {
 			serviceRevision, ok := serviceRevisionMap[service.ServiceName+service.Type]
-			if !ok || (len(serviceNames) > 0 && !util.InStringArray(service.ServiceName, serviceNames)) {
+			if !ok {
 				//找不到 service revision
 				continue
 			}
