@@ -239,7 +239,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 			}
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
-				DisableTrace: false,
+				DisableTrace: true,
 			})
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
 			u, err := url.Parse(repo.Address)
