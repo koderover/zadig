@@ -55,6 +55,10 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 		}
 	}
 
+	if codehost.Namespace == "" {
+		codehost.Namespace = codehost.Alias
+	}
+
 	codehost.CreatedAt = time.Now().Unix()
 	codehost.UpdatedAt = time.Now().Unix()
 
@@ -148,6 +152,10 @@ func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHo
 		if _, err := mongodb.NewCodehostColl().GetCodeHostByAlias(host.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
+	}
+
+	if host.Namespace == "" {
+		host.Namespace = host.Alias
 	}
 
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)
