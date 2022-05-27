@@ -364,7 +364,7 @@ func (r *Reaper) Exec() error {
 	log.Info("Cloning Repository.")
 	startTimeCloneRepo := time.Now()
 	if err := r.runGitCmds(); err != nil {
-		//return fmt.Errorf("failed to clone repository: %s", err)
+		return fmt.Errorf("failed to clone repository: %s", err)
 	}
 	log.Infof("Clone ended. Duration: %.2f seconds.", time.Since(startTimeCloneRepo).Seconds())
 
