@@ -155,7 +155,7 @@ func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger)
 	return serviceModuleAndBuildResp, nil
 }
 
-func fillBuildRepoData(build *commonmodels.Build) {
+func fillBuildTargetData(build *commonmodels.Build) {
 	if build.TemplateID == "" {
 		return
 	}
@@ -166,6 +166,7 @@ func fillBuildRepoData(build *commonmodels.Build) {
 			ServiceName:   target.Service.ServiceName,
 			ServiceModule: target.Service.ServiceModule,
 			Repos:         target.Repos,
+			Envs:          target.Envs,
 		})
 	}
 }
@@ -381,7 +382,7 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 }
 
 func correctFields(build *commonmodels.Build) {
-	fillBuildRepoData(build)
+	fillBuildTargetData(build)
 	// make sure cache has no empty field
 	caches := make([]string, 0)
 	for _, cache := range build.Caches {

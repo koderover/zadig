@@ -156,6 +156,12 @@ func EnsureResp(build *commonmodels.Build) {
 					ServiceModule: target.ServiceModule,
 				},
 				Repos: target.Repos,
+				Envs:  target.Envs,
+			}
+			for _, v := range targetRepo.Envs {
+				if v.IsCredential {
+					v.Value = setting.MaskValue
+				}
 			}
 			build.TargetRepos = append(build.TargetRepos, targetRepo)
 		}
