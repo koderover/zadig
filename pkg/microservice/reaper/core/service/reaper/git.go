@@ -235,7 +235,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 			remoteName := fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)
 			// Including the case of the port
 			if strings.Contains(repo.Address, ":") {
-				remoteName = fmt.Sprintf("ssh://%s/%s/%s.git", repo.Address, repo.Owner, repo.Name)
+				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.Owner, repo.Name)
 			}
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
@@ -321,6 +321,7 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 // git@github.com or git@github.com:2000
 // return github.com
 func getHost(address string) string {
+	address = strings.TrimPrefix(address, "ssh://")
 	address = strings.TrimPrefix(address, "git@")
 	return address
 }
