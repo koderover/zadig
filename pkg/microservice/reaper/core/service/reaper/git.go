@@ -323,5 +323,6 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 func getHost(address string) string {
 	address = strings.TrimPrefix(address, "ssh://")
 	address = strings.TrimPrefix(address, "git@")
-	return address
+	hostArr := strings.Split(address, ":")
+	return hostArr[0]
 }
