@@ -659,16 +659,20 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 			newServiceMap[service.ServiceName] = service
 		}
 		oldServiceMap := make(map[string]*commonmodels.ProductService)
-		for _, service := range existedProd.Services[groupIndex] {
-			if util.InStringArray(service.ServiceName, deletedServices) {
-				continue
+		for _, existedGroupServices := range existedProd.Services {
+			for _, service := range existedGroupServices {
+				if util.InStringArray(service.ServiceName, deletedServices) {
+					continue
+				}
+				oldServiceMap[service.ServiceName] = service
+				if newService, ok := newServiceMap[service.ServiceName]; ok {
+					if util.InStringArray(service.ServiceName, serviceNames) {
+						updateGroup = append(updateGroup, newService)
+					} else {
+						updateGroup = append(updateGroup, service)
+					}
+				}
 			}
-			oldServiceMap[service.ServiceName] = service
-			if newService, ok := newServiceMap[service.ServiceName]; ok {
-				updateGroup = append(updateGroup, newService)
-				continue
-			}
-			updateGroup = append(updateGroup, service)
 		}
 		for _, newService := range groupServices {
 			if _, ok := oldServiceMap[newService.ServiceName]; !ok && !util.InStringArray(newService.ServiceName, deletedServices) {
