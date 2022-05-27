@@ -2080,6 +2080,10 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	for _, serviceConfig := range moduleBuild.Targets {
 		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
 			moduleBuild.Repos = serviceConfig.Repos
+			if moduleBuild.PreBuild == nil {
+				moduleBuild.PreBuild = &commonmodels.PreBuild{}
+			}
+			moduleBuild.PreBuild.Envs = serviceConfig.Envs
 			break
 		}
 	}
@@ -2285,7 +2289,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 
 		build.JobCtx.EnvVars = module.PreBuild.Envs
 
-		if len(module.PreBuild.Envs) == 0 {
+		if len(build.JobCtx.EnvVars) == 0 {
 			build.JobCtx.EnvVars = make([]*commonmodels.KeyVal, 0)
 		}
 
