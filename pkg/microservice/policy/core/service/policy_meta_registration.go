@@ -90,6 +90,19 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 
 	switch scope {
 	case string(types.SystemScope):
+		for _, meta := range systemPolicyMetas {
+			if meta.Resource == "TestCenter" {
+				tmpRules := []*models.PolicyMetaRule{}
+				for _, rule := range meta.Rules {
+					if rule.Action == "create_test" {
+						continue
+					}
+					tmpRules = append(tmpRules, rule)
+				}
+
+				meta.Rules = tmpRules
+			}
+		}
 		filteredPolicyMetas = systemPolicyMetas
 	case string(types.ProjectScope):
 		tmp := []*models.PolicyMeta{}
