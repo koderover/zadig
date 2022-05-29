@@ -155,9 +155,15 @@ func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger)
 	return serviceModuleAndBuildResp, nil
 }
 
-func fillBuildTargetData(build *commonmodels.Build) {
+func fillBuildTargetData(build *commonmodels.Build) error {
 	if build.TemplateID == "" {
-		return
+		return nil
+	}
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		ID: build.TemplateID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find build template with id: %s, err: %s", build.TemplateID, err)
 	}
 	build.Targets = make([]*commonmodels.ServiceModuleTarget, 0, len(build.TargetRepos))
 	for _, target := range build.TargetRepos {
@@ -166,9 +172,10 @@ func fillBuildTargetData(build *commonmodels.Build) {
 			ServiceName:   target.Service.ServiceName,
 			ServiceModule: target.Service.ServiceModule,
 			Repos:         target.Repos,
-			Envs:          target.Envs,
+			Envs:          commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs, target.Envs),
 		})
 	}
+	return nil
 }
 
 func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
@@ -180,7 +187,10 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	}
 
 	build.UpdateBy = username
-	correctFields(build)
+	err := correctFields(build)
+	if err != nil {
+		return err
+	}
 
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
 		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
@@ -203,7 +213,11 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		commonservice.EnsureSecretEnvs(existed.PreBuild.Envs, build.PreBuild.Envs)
 	}
 
-	correctFields(build)
+	err = correctFields(build)
+	if err != nil {
+		return err
+	}
+
 	build.UpdateBy = username
 	build.UpdateTime = time.Now().Unix()
 
@@ -381,8 +395,11 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 	return nil
 }
 
-func correctFields(build *commonmodels.Build) {
-	fillBuildTargetData(build)
+func correctFields(build *commonmodels.Build) error {
+	err := fillBuildTargetData(build)
+	if err != nil {
+		return err
+	}
 	// make sure cache has no empty field
 	caches := make([]string, 0)
 	for _, cache := range build.Caches {
@@ -405,7 +422,7 @@ func correctFields(build *commonmodels.Build) {
 			}
 			modifyAuthType(repo)
 		}
-		return
+		return nil
 	}
 
 	for _, target := range build.Targets {
@@ -416,6 +433,7 @@ func correctFields(build *commonmodels.Build) {
 			modifyAuthType(repo)
 		}
 	}
+	return nil
 }
 
 func modifyAuthType(repo *types.Repository) {
