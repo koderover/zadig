@@ -2083,7 +2083,7 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 			if moduleBuild.PreBuild == nil {
 				moduleBuild.PreBuild = &commonmodels.PreBuild{}
 			}
-			moduleBuild.PreBuild.Envs = serviceConfig.Envs
+			moduleBuild.PreBuild.Envs = commonservice.MergeBuildEnvs(moduleBuild.PreBuild.Envs, serviceConfig.Envs)
 			break
 		}
 	}

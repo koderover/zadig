@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -144,10 +146,21 @@ func EnsureResp(build *commonmodels.Build) {
 	}
 
 	if build.TemplateID != "" {
+		buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+			ID: build.TemplateID,
+		})
+		//NOTE deleted template should not block the normal logic of build modules
+		if err != nil {
+			log.Warnf("failed to find build template with id: %s, err: %s", build.TemplateID, err)
+		}
 		build.TargetRepos = make([]*commonmodels.TargetRepo, 0, len(build.Targets))
 		for _, target := range build.Targets {
 			for _, repo := range target.Repos {
 				repo.RepoNamespace = repo.GetRepoNamespace()
+			}
+			envs := target.Envs
+			if buildTemplate != nil {
+				envs = MergeBuildEnvs(buildTemplate.PreBuild.Envs, envs)
 			}
 			targetRepo := &commonmodels.TargetRepo{
 				Service: &commonmodels.ServiceModuleTargetBase{
@@ -156,7 +169,7 @@ func EnsureResp(build *commonmodels.Build) {
 					ServiceModule: target.ServiceModule,
 				},
 				Repos: target.Repos,
-				Envs:  target.Envs,
+				Envs:  envs,
 			}
 			for _, v := range targetRepo.Envs {
 				if v.IsCredential {
@@ -178,4 +191,20 @@ func FindReposByTarget(projectName, serviceName, serviceModule string, build *co
 		}
 	}
 	return build.SafeRepos()
+}
+
+func MergeBuildEnvs(templateEnvs []*commonmodels.KeyVal, customEnvs []*commonmodels.KeyVal) []*commonmodels.KeyVal {
+	customEnvMap := make(map[string]*commonmodels.KeyVal)
+	for _, v := range customEnvs {
+		customEnvMap[v.Key] = v
+	}
+	retEnvs := make([]*commonmodels.KeyVal, 0)
+	for _, v := range templateEnvs {
+		if cv, ok := customEnvMap[v.Key]; ok {
+			retEnvs = append(retEnvs, cv)
+		} else {
+			retEnvs = append(retEnvs, v)
+		}
+	}
+	return retEnvs
 }
