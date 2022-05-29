@@ -157,17 +157,17 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			if err != nil {
 				return nil, err
 			}
-			address, err := GetGitlabAddress(serviceObject.SrcPath)
-			if err != nil {
-				return nil, err
-			}
-			detail, err := systemconfig.GetCodeHostInfo(
-				&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: serviceObject.RepoOwner})
-			if err != nil {
-				log.Errorf("get github codeHostInfo failed, err:%v", err)
-				return nil, err
-			}
-			serviceObject.CodehostID = detail.ID
+			//address, err := GetGitlabAddress(serviceObject.SrcPath)
+			//if err != nil {
+			//	return nil, err
+			//}
+			//detail, err := systemconfig.GetCodeHostInfo(
+			//	&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: serviceObject.RepoOwner})
+			//if err != nil {
+			//	log.Errorf("get github codeHostInfo failed, err:%v", err)
+			//	return nil, err
+			//}
+			//serviceObject.CodehostID = detail.ID
 			serviceObject.LoadFromDir = true
 		}
 
@@ -322,51 +322,51 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	}
 
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
-		gitlabAddress, err := GetGitlabAddress(resp.SrcPath)
-		if err != nil {
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  GetGitlabAddress %s error: %s", serviceName, err)
-			log.Error(errMsg)
-			return resp, e.ErrGetTemplate.AddDesc(errMsg)
-		}
-		details, err := systemconfig.New().ListCodeHostsInternal()
-		if err != nil {
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  ListCodehostDetail %s error: %s", serviceName, err)
-			log.Error(errMsg)
-			return resp, e.ErrGetTemplate.AddDesc(errMsg)
-		}
-		for _, detail := range details {
-			if strings.Contains(detail.Address, gitlabAddress) {
-				resp.GerritCodeHostID = detail.ID
-				resp.CodehostID = detail.ID
-			}
-		}
-		if resp.CodehostID == 0 {
-			log.Errorf("Failed to find the old code host info")
-			return nil, e.ErrGetTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
-		}
+		//gitlabAddress, err := GetGitlabAddress(resp.SrcPath)
+		//if err != nil {
+		//	errMsg := fmt.Sprintf("[ServiceTmpl.Find]  GetGitlabAddress %s error: %s", serviceName, err)
+		//	log.Error(errMsg)
+		//	return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		//}
+		//details, err := systemconfig.New().ListCodeHostsInternal()
+		//if err != nil {
+		//	errMsg := fmt.Sprintf("[ServiceTmpl.Find]  ListCodehostDetail %s error: %s", serviceName, err)
+		//	log.Error(errMsg)
+		//	return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		//}
+		//for _, detail := range details {
+		//	if strings.Contains(detail.Address, gitlabAddress) {
+		//		resp.GerritCodeHostID = detail.ID
+		//		resp.CodehostID = detail.ID
+		//	}
+		//}
+		//if resp.CodehostID == 0 {
+		//	log.Errorf("Failed to find the old code host info")
+		//	return nil, e.ErrGetTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
+		//}
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			log.Errorf("Failed to load info from url: %s, the error is: %s", resp.SrcPath, err)
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err))
 		}
 		return resp, nil
-	} else if resp.Source == setting.SourceFromGithub && resp.GerritCodeHostID == 0 {
+	} else if resp.Source == setting.SourceFromGithub {
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			return nil, err
 		}
-		address, err := GetGitlabAddress(resp.SrcPath)
-		if err != nil {
-			return nil, err
-		}
+		//address, err := GetGitlabAddress(resp.SrcPath)
+		//if err != nil {
+		//	return nil, err
+		//}
 
-		detail, err := systemconfig.GetCodeHostInfo(
-			&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: resp.RepoOwner})
-		if err != nil {
-			log.Errorf("get github codeHostInfo failed, err:%v", err)
-			return nil, err
-		}
-		resp.CodehostID = detail.ID
+		//detail, err := systemconfig.GetCodeHostInfo(
+		//	&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: resp.RepoOwner})
+		//if err != nil {
+		//	log.Errorf("get github codeHostInfo failed, err:%v", err)
+		//	return nil, err
+		//}
+		//resp.CodehostID = detail.ID
 		return resp, nil
 
 	} else if resp.Source == setting.SourceFromGUI {

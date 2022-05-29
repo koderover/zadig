@@ -429,35 +429,36 @@ func joinYamls(files []string) string {
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {
 	// 根据pipeline中的filepath获取文件内容
-	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(args.SrcPath)
+	//address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(args.SrcPath)
+	//
+	//if err != nil {
+	//	log.Errorf("parseOwnerRepoBranchPath failed, srcPath:%s, err:%v", args.SrcPath, err)
+	//	return errors.New("invalid url " + args.SrcPath)
+	//}
+	//
+	//if len(args.LoadPath) > 0 {
+	//	path = args.LoadPath
+	//}
+	//if len(args.BranchName) > 0 {
+	//	branch = args.BranchName
+	//}
+	//if len(args.RepoName) > 0 {
+	//	repo = args.RepoName
+	//}
+	//if len(args.GetRepoNamespace()) > 0 {
+	//	owner = args.GetRepoNamespace()
+	//}
 
-	if err != nil {
-		log.Errorf("parseOwnerRepoBranchPath failed, srcPath:%s, err:%v", args.SrcPath, err)
-		return errors.New("invalid url " + args.SrcPath)
-	}
-
-	if len(args.LoadPath) > 0 {
-		path = args.LoadPath
-	}
-	if len(args.BranchName) > 0 {
-		branch = args.BranchName
-	}
-	if len(args.RepoName) > 0 {
-		repo = args.RepoName
-	}
-	if len(args.GetRepoNamespace()) > 0 {
-		owner = args.GetRepoNamespace()
-	}
-
-	ch, err := systemconfig.GetCodeHostInfo(
-		&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	//ch, err := systemconfig.GetCodeHostInfo(
+	//	&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, srcPath:%s, err:%v", args.SrcPath, err)
 		return err
 	}
 
 	gc := githubtool.NewClient(&githubtool.Config{AccessToken: ch.AccessToken, Proxy: config.ProxyHTTPSAddr()})
-	fileContent, directoryContent, err := gc.GetContents(context.TODO(), owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	fileContent, directoryContent, err := gc.GetContents(context.TODO(), args.RepoOwner, args.RepoName, args.LoadPath, &github.RepositoryContentGetOptions{Ref: args.BranchName})
 	if err != nil {
 		return err
 	}
@@ -478,7 +479,7 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 				continue
 			}
 
-			file, err := syncSingleFileFromGithub(owner, repo, branch, *f.Path, ch.AccessToken)
+			file, err := syncSingleFileFromGithub(args.RepoOwner, args.RepoName, args.BranchName, *f.Path, ch.AccessToken)
 			if err != nil {
 				log.Errorf("syncSingleFileFromGithub failed, path: %s, err: %v", *f.Path, err)
 				continue
