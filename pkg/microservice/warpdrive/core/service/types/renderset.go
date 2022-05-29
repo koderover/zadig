@@ -33,10 +33,3 @@ type RenderSet struct {
 	ChartInfos    []*RenderChart `bson:"chart_infos,omitempty"    json:"chart_infos,omitempty"`
 	Description   string         `bson:"description,omitempty"    json:"description,omitempty"`
 }
-
-//// RenderChart ...
-//type RenderChart struct {
-//	ServiceName  string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-//	ChartVersion string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-//	ValuesYaml   string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-//}
