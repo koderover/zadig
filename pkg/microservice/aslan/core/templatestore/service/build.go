@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -77,10 +79,26 @@ func ListBuildTemplates(pageNum, pageSize int) (*BuildTemplateListResp, error) {
 	return ret, nil
 }
 
-func RemoveBuildTemplate(name string, logger *zap.SugaredLogger) error {
-	err := mongodb.NewBuildTemplateColl().DeleteByID(name)
+func RemoveBuildTemplate(id string, logger *zap.SugaredLogger) error {
+	_, err := GetBuildTemplateByID(id)
 	if err != nil {
-		logger.Errorf("Failed to delete build template %s, err: %s", name, err)
+		return fmt.Errorf("failed to find build template with id: %s, err: %s", id, err)
+	}
+
+	// when template build is used by particular builds, this template can't be deleted
+	usedModules, err := mongodb.NewBuildColl().List(&commonrepo.BuildListOption{
+		TemplateID: id,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find builds with template id: %s, err: %s", id, err)
+	}
+	if len(usedModules) > 0 {
+		return fmt.Errorf("template build has beed used, can't be deleted")
+	}
+
+	err = mongodb.NewBuildTemplateColl().DeleteByID(id)
+	if err != nil {
+		logger.Errorf("Failed to delete build template %s, err: %s", id, err)
 		return err
 	}
 	return nil
