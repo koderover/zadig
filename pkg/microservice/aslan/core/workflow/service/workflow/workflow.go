@@ -744,13 +744,12 @@ type BulkCopyWorkflowArgs struct {
 
 func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.SugaredLogger) error {
 	var workflows []commonrepo.Workflow
-	workflowMap := make(map[string]WorkflowCopyItem)
+
 	for _, item := range args.Items {
 		workflows = append(workflows, commonrepo.Workflow{
 			ProjectName: item.ProjectName,
 			Name:        item.Old,
 		})
-		workflowMap[item.ProjectName+"-"+item.Old] = item
 	}
 	oldWorkflows, err := commonrepo.NewWorkflowColl().ListByWorkflows(commonrepo.ListWorkflowOpt{
 		Workflows: workflows,
@@ -759,16 +758,22 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 		log.Error(err)
 		return e.ErrGetPipeline.AddErr(err)
 	}
-	var newWorkflows []*commonmodels.Workflow
+	workflowMap := make(map[string]*commonmodels.Workflow)
 	for _, workflow := range oldWorkflows {
-		if item, ok := workflowMap[workflow.ProductTmplName+"-"+workflow.Name]; ok {
-			workflow.UpdateBy = username
-			workflow.Name = item.New
-			workflow.BaseName = item.BaseName
-			workflow.ID = primitive.NewObjectID()
-			newWorkflows = append(newWorkflows, workflow)
+		workflowMap[workflow.ProductTmplName+"-"+workflow.Name] = workflow
+	}
+	var newWorkflows []*commonmodels.Workflow
+	for _, workflow := range args.Items {
+		if item, ok := workflowMap[workflow.ProjectName+"-"+workflow.Old]; ok {
+			newItem := *item
+			newItem.UpdateBy = username
+			newItem.Name = workflow.New
+			newItem.BaseName = workflow.BaseName
+			newItem.ID = primitive.NewObjectID()
+
+			newWorkflows = append(newWorkflows, &newItem)
 		} else {
-			return fmt.Errorf("workflow:%s not exist", workflow.ProductTmplName+"-"+workflow.Name)
+			return fmt.Errorf("workflow:%s not exist", item.ProductTmplName+"-"+item.Name)
 		}
 	}
 	return commonrepo.NewWorkflowColl().BulkCreate(newWorkflows)
