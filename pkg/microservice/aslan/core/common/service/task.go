@@ -87,6 +87,12 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 				_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 			} else if typeString == config.SingleType {
 				_ = scmNotifyService.UpdatePipelineWebhookComment(t, log)
+			} else if typeString == config.ScanningType {
+				err = scmNotifyService.UpdateWebhookCommentForScanning(t, log)
+				// this logic will not affect the result of cancellation, so we only print the error in logs.
+				if err != nil {
+					log.Errorf("Failed to update webhook comment for scanning in upon cancel, the error is: %s", err)
+				}
 			}
 
 			return nil
@@ -134,6 +140,12 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 		_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 	} else if typeString == config.SingleType {
 		_ = scmNotifyService.UpdatePipelineWebhookComment(t, log)
+	} else if typeString == config.ScanningType {
+		err = scmNotifyService.UpdateWebhookCommentForScanning(t, log)
+		// this logic will not affect the result of cancellation, so we only print the error in logs.
+		if err != nil {
+			log.Errorf("Failed to update webhook comment for scanning in upon cancel, the error is: %s", err)
+		}
 	}
 
 	return nil
