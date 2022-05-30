@@ -36,7 +36,6 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/converter"
@@ -123,29 +122,10 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	}
 
 	for _, serviceObject := range services {
-		// FIXME: 兼容老数据，想办法干掉这个
-		if serviceObject.Source == setting.SourceFromGitlab && serviceObject.CodehostID == 0 {
-			gitlabAddress, err := GetGitlabAddress(serviceObject.SrcPath)
-			if err != nil {
-				log.Errorf("无法从原有数据中恢复加载信息, GetGitlabAddr failed err: %+v", err)
-				return nil, e.ErrListTemplate.AddDesc(err.Error())
-			}
-
-			details, err := systemconfig.New().ListCodeHostsInternal()
-			if err != nil {
-				log.Errorf("无法从原有数据中恢复加载信息, listCodehostDetail failed err: %+v", err)
-				return nil, e.ErrListTemplate.AddDesc(err.Error())
-			}
-			for _, detail := range details {
-				if strings.Contains(detail.Address, gitlabAddress) {
-					serviceObject.CodehostID = detail.ID
-				}
-			}
-			if serviceObject.CodehostID == 0 {
-				log.Errorf("Failed to find the old code host info")
-				return nil, e.ErrListTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
-			}
-
+		if serviceObject.CodehostID == 0 {
+			return nil, e.ErrListTemplate.AddDesc("codehost id is empty")
+		}
+		if serviceObject.Source == setting.SourceFromGitlab {
 			err = fillServiceRepoInfo(serviceObject)
 			if err != nil {
 				log.Errorf("Failed to load info from url: %s, the error is: %s", serviceObject.SrcPath, err)
@@ -157,17 +137,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			if err != nil {
 				return nil, err
 			}
-			address, err := GetGitlabAddress(serviceObject.SrcPath)
-			if err != nil {
-				return nil, err
-			}
-			detail, err := systemconfig.GetCodeHostInfo(
-				&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: serviceObject.RepoOwner})
-			if err != nil {
-				log.Errorf("get github codeHostInfo failed, err:%v", err)
-				return nil, err
-			}
-			serviceObject.CodehostID = detail.ID
+
 			serviceObject.LoadFromDir = true
 		}
 
@@ -321,52 +291,23 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		}
 	}
 
+	if resp.CodehostID == 0 {
+		return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
+	}
+
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
-		gitlabAddress, err := GetGitlabAddress(resp.SrcPath)
-		if err != nil {
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  GetGitlabAddress %s error: %s", serviceName, err)
-			log.Error(errMsg)
-			return resp, e.ErrGetTemplate.AddDesc(errMsg)
-		}
-		details, err := systemconfig.New().ListCodeHostsInternal()
-		if err != nil {
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  ListCodehostDetail %s error: %s", serviceName, err)
-			log.Error(errMsg)
-			return resp, e.ErrGetTemplate.AddDesc(errMsg)
-		}
-		for _, detail := range details {
-			if strings.Contains(detail.Address, gitlabAddress) {
-				resp.GerritCodeHostID = detail.ID
-				resp.CodehostID = detail.ID
-			}
-		}
-		if resp.CodehostID == 0 {
-			log.Errorf("Failed to find the old code host info")
-			return nil, e.ErrGetTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
-		}
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			log.Errorf("Failed to load info from url: %s, the error is: %s", resp.SrcPath, err)
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err))
 		}
 		return resp, nil
-	} else if resp.Source == setting.SourceFromGithub && resp.GerritCodeHostID == 0 {
+	} else if resp.Source == setting.SourceFromGithub {
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			return nil, err
 		}
-		address, err := GetGitlabAddress(resp.SrcPath)
-		if err != nil {
-			return nil, err
-		}
 
-		detail, err := systemconfig.GetCodeHostInfo(
-			&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: resp.RepoOwner})
-		if err != nil {
-			log.Errorf("get github codeHostInfo failed, err:%v", err)
-			return nil, err
-		}
-		resp.CodehostID = detail.ID
 		return resp, nil
 
 	} else if resp.Source == setting.SourceFromGUI {
