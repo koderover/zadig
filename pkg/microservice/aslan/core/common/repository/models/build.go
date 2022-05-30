@@ -151,7 +151,8 @@ type ServiceModuleTarget struct {
 	ServiceName   string              `bson:"service_name"                  json:"service_name"`
 	ServiceModule string              `bson:"service_module"                json:"service_module"`
 	BuildName     string              `bson:"build_name"                    json:"build_name"`
-	Repos         []*types.Repository `bson:"repos,omitempty"  json:"repos,omitempty"`
+	Repos         []*types.Repository `bson:"repos,omitempty"               json:"repos,omitempty"`
+	Envs          []*KeyVal           `bson:"envs,omitempty"                json:"envs"`
 }
 
 type ServiceModuleTargetBase struct {
@@ -163,6 +164,7 @@ type ServiceModuleTargetBase struct {
 type TargetRepo struct {
 	Service *ServiceModuleTargetBase `json:"service"`
 	Repos   []*types.Repository      `json:"repos"`
+	Envs    []*KeyVal                `json:"envs"`
 }
 
 type KeyVal struct {
