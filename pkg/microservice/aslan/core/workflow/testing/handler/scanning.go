@@ -248,16 +248,7 @@ func CancelScanningTask(c *gin.Context) {
 		return
 	}
 
-	req := make([]*service.ScanningRepoInfo, 0)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("Create scanning task c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, &req); err != nil {
-		log.Errorf("Create scanning task json.Unmarshal err : %v", err)
-	}
-
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "取消", "代码扫描任务", id, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "取消", "代码扫描任务", id, taskIDStr, ctx.Logger)
 
 	ctx.Err = service.CancelScanningTask(ctx.UserName, id, taskID, config.ScanningType, ctx.RequestID, ctx.Logger)
 }
