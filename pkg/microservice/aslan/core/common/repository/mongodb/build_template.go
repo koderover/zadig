@@ -65,6 +65,7 @@ func (c *BuildTemplateColl) Create(obj *models.BuildTemplate) error {
 	if obj == nil {
 		return fmt.Errorf("nil object")
 	}
+	obj.ID = primitive.NilObjectID
 	_, err := c.InsertOne(context.TODO(), obj)
 	return err
 }
