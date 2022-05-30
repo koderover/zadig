@@ -62,6 +62,5 @@ func (c *Client) GetFileContent(owner, repo, path, branch string) ([]byte, error
 	}
 
 	res, err := fileContent.GetContent()
-
 	return []byte(res), err
 }
