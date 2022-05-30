@@ -415,3 +415,15 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		ResultLink: sonarInfo.ServerAddress,
 	}, nil
 }
+
+func CancelScanningTask(userName, scanningID string, taskID int64, typeString config.PipelineType, requestID string, log *zap.SugaredLogger) error {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return err
+	}
+
+	scanningTaskName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
+
+	return commonservice.CancelTaskV2(userName, scanningTaskName, taskID, typeString, requestID, log)
+}
