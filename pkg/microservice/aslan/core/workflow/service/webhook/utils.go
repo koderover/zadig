@@ -383,22 +383,10 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 		return nil
 	}
 
-	_, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
-	if err != nil {
-		return fmt.Errorf("url format failed")
-	}
-
-	if len(args.LoadPath) > 0 {
-		path = args.LoadPath
-	}
-	if len(args.BranchName) > 0 {
-		branch = args.BranchName
-	}
-	if len(args.RepoName) > 0 {
-		repo = args.RepoName
-	}
-	if len(args.GetRepoNamespace()) > 0 {
-		owner = args.GetRepoNamespace()
+	var owner, repo, branch, path string = args.GetRepoNamespace(), args.RepoName, args.BranchName, args.LoadPath
+	var pathType = "tree"
+	if strings.Contains(args.SrcPath, "blob") {
+		pathType = "blob"
 	}
 
 	client, err := getGitlabClientByCodehostId(args.CodehostID)
@@ -429,30 +417,11 @@ func joinYamls(files []string) string {
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {
 	// 根据pipeline中的filepath获取文件内容
-	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(args.SrcPath)
+	var owner, repo, branch, path = args.GetRepoNamespace(), args.RepoName, args.BranchName, args.LoadPath
 
+	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
 	if err != nil {
-		log.Errorf("parseOwnerRepoBranchPath failed, srcPath:%s, err:%v", args.SrcPath, err)
-		return errors.New("invalid url " + args.SrcPath)
-	}
-
-	if len(args.LoadPath) > 0 {
-		path = args.LoadPath
-	}
-	if len(args.BranchName) > 0 {
-		branch = args.BranchName
-	}
-	if len(args.RepoName) > 0 {
-		repo = args.RepoName
-	}
-	if len(args.GetRepoNamespace()) > 0 {
-		owner = args.GetRepoNamespace()
-	}
-
-	ch, err := systemconfig.GetCodeHostInfo(
-		&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
-	if err != nil {
-		log.Errorf("GetCodeHostInfo failed, srcPath:%s, err:%v", args.SrcPath, err)
+		log.Errorf("failed to getCodeHostInfo, srcPath:%s, err:%s", args.SrcPath, err)
 		return err
 	}
 
