@@ -383,24 +383,10 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 		return nil
 	}
 
-	var owner, repo, branch, path, pathType string
-
-	pathType = "tree"
+	var owner, repo, branch, path string = args.GetRepoNamespace(), args.RepoName, args.BranchName, args.LoadPath
+	var pathType = "tree"
 	if strings.Contains(args.SrcPath, "blob") {
 		pathType = "blob"
-	}
-
-	if len(args.LoadPath) > 0 {
-		path = args.LoadPath
-	}
-	if len(args.BranchName) > 0 {
-		branch = args.BranchName
-	}
-	if len(args.RepoName) > 0 {
-		repo = args.RepoName
-	}
-	if len(args.GetRepoNamespace()) > 0 {
-		owner = args.GetRepoNamespace()
 	}
 
 	client, err := getGitlabClientByCodehostId(args.CodehostID)
@@ -431,19 +417,7 @@ func joinYamls(files []string) string {
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {
 	// 根据pipeline中的filepath获取文件内容
-	var owner, repo, branch, path string
-	if len(args.LoadPath) > 0 {
-		path = args.LoadPath
-	}
-	if len(args.BranchName) > 0 {
-		branch = args.BranchName
-	}
-	if len(args.RepoName) > 0 {
-		repo = args.RepoName
-	}
-	if len(args.GetRepoNamespace()) > 0 {
-		owner = args.GetRepoNamespace()
-	}
+	var owner, repo, branch, path = args.GetRepoNamespace(), args.RepoName, args.BranchName, args.LoadPath
 
 	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
 	if err != nil {
