@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -29,6 +27,7 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
