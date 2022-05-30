@@ -85,22 +85,27 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 	}
 	errs := &multierror.Error{}
 	for _, serviceTmpl := range serviceTmpls {
+		log.Infof("updateServiceTemplateByGerritEvent url :%s", uri)
+		log.Infof("updateServiceTemplateByGerritEvent serviceTmpl.ServiceName :%s", serviceTmpl.ServiceName)
 		if strings.Contains(uri, "?") {
 			if !strings.Contains(uri, serviceTmpl.ServiceName) {
 				continue
 			}
 		}
+		log.Infof("ready to get service....")
 		service, err := commonservice.GetServiceTemplate(serviceTmpl.ServiceName, serviceTmpl.Type, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision, log)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent GetServiceTemplate err:%v", err)
 			errs = multierror.Append(errs, err)
 		}
+		log.Infof("ready to get service,codehostId:%d", service.GerritCodeHostID)
 		detail, err := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent GetCodehostDetail err:%v", err)
 			errs = multierror.Append(errs, err)
 		}
 		newRepoName := fmt.Sprintf("%s-new", service.GerritRepoName)
+		log.Infof("ready to clone repo,newRepoName:%s", newRepoName)
 		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, newRepoName, service.GerritBranchName, service.GerritRemoteName)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent runGitCmds err:%v", err)
@@ -113,6 +118,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		}
 
 		oldBase, err := GetGerritWorkspaceBasePath(service.GerritRepoName)
+		log.Infof("ready to clone repo,oldBase:%s", oldBase)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, service.GerritRepoName, service.GerritBranchName, service.GerritRemoteName)
@@ -154,7 +160,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 				errs = multierror.Append(errs, err)
 			}
 		}
-
+		log.Info("ready to Compare service...")
 		if strings.Compare(newYamlContent, oldYamlContent) != 0 {
 			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.LoadPath)
 			service.CreateBy = "system"
