@@ -122,10 +122,10 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	}
 
 	for _, serviceObject := range services {
-		if serviceObject.CodehostID == 0 {
-			return nil, e.ErrListTemplate.AddDesc("codehost id is empty")
-		}
 		if serviceObject.Source == setting.SourceFromGitlab {
+			if serviceObject.CodehostID == 0 {
+				return nil, e.ErrListTemplate.AddDesc("codehost id is empty")
+			}
 			err = fillServiceRepoInfo(serviceObject)
 			if err != nil {
 				log.Errorf("Failed to load info from url: %s, the error is: %s", serviceObject.SrcPath, err)
@@ -133,6 +133,9 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			}
 			serviceObject.LoadFromDir = true
 		} else if serviceObject.Source == setting.SourceFromGithub && serviceObject.RepoName == "" {
+			if serviceObject.CodehostID == 0 {
+				return nil, e.ErrListTemplate.AddDesc("codehost id is empty")
+			}
 			err = fillServiceRepoInfo(serviceObject)
 			if err != nil {
 				return nil, err
@@ -291,18 +294,20 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		}
 	}
 
-	if resp.CodehostID == 0 {
-		return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
-	}
-
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
+		if resp.CodehostID == 0 {
+			return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
+		}
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			log.Errorf("Failed to load info from url: %s, the error is: %s", resp.SrcPath, err)
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err))
 		}
 		return resp, nil
-	} else if resp.Source == setting.SourceFromGithub && resp.GerritCodeHostID == 0 {
+	} else if resp.Source == setting.SourceFromGithub {
+		if resp.CodehostID == 0 {
+			return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
+		}
 		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			return nil, err
