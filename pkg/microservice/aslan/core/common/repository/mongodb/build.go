@@ -41,6 +41,7 @@ type BuildListOption struct {
 	BuildOS      string
 	BasicImageID string
 	PrivateKeyID string
+	TemplateID   string
 }
 
 // FindOption ...
@@ -141,6 +142,9 @@ func (c *BuildColl) List(opt *BuildListOption) ([]*models.Build, error) {
 	}
 	if len(opt.PrivateKeyID) != 0 {
 		query["ssh.id"] = opt.PrivateKeyID
+	}
+	if len(opt.TemplateID) != 0 {
+		query["template_id"] = opt.TemplateID
 	}
 
 	var resp []*models.Build
