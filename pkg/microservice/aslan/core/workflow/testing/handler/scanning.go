@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
