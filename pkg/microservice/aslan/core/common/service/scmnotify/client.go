@@ -99,7 +99,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 			// create task created comment
 			if !task.FirstCommented && task.Status == config.TaskStatusReady {
 				if e := cli.SetReview(
-					notify.ProjectID,
+					notify.RepoName,
 					notify.PrID,
 					fmt.Sprintf(""+
 						"%s ⏱️ %s/v1/projects/detail/%s/pipelines/multi/%s/%d",
