@@ -1136,16 +1136,18 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	}
 	renderSets, err := getRenderSet(projectName, newProductName.List())
 	if err != nil {
+		logger.Errorf("getRenderSet error:%s", err)
 		return nil, err
 	}
 	if renderSets != nil {
 		productRenderSetMap := make(map[string]models2.RenderSet)
 		for _, set := range renderSets {
-			productRenderSetMap[set.EnvName] = *set
+			productRenderSetMap[set.EnvName] = set
 		}
 		for _, product := range newProduct {
 			set, ok := productRenderSetMap[product.BaseName]
 			if !ok {
+				logger.Errorf("product:%s not exist", product.BaseName)
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
 
@@ -1158,6 +1160,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			chart, ok := envChartsMap[product.BaseName]
 			if !ok {
+				logger.Errorf("product:%s not exist", product.BaseName)
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
 
@@ -1317,10 +1320,11 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return nil, err
 	}
+	logger.Infof("updateresp:%v", updateResp)
 	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
 }
 
-func getRenderSet(projectName string, envs []string) ([]*models2.RenderSet, error) {
+func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		InProjects: []string{projectName},
 		InEnvs:     envs,
@@ -1335,8 +1339,9 @@ func getRenderSet(projectName string, envs []string) ([]*models2.RenderSet, erro
 			Name:     product.Namespace,
 		})
 	}
-	renderSets, err := commonrepo.NewRenderSetColl().List(&commonrepo.RenderSetListOption{
+	renderSets, err := commonrepo.NewRenderSetColl().ListByFindOpts(&commonrepo.RenderSetListOption{
 		ProductTmpl: projectName,
+		FindOpts:    findOpts,
 	})
 	if err != nil {
 		return nil, err
