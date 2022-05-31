@@ -29,6 +29,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -223,6 +224,33 @@ func GetScanningTask(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetScanningTaskInfo(id, taskID, ctx.Logger)
+}
+
+func CancelScanningTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	if id == "" {
+		ctx.Err = MissingIDError
+		return
+	}
+
+	taskIDStr := c.Param("scan_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("scan_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "取消", "代码扫描任务", id, taskIDStr, ctx.Logger)
+
+	ctx.Err = service.CancelScanningTask(ctx.UserName, id, taskID, config.ScanningType, ctx.RequestID, ctx.Logger)
 }
 
 func GetScanningTaskSSE(c *gin.Context) {

@@ -202,7 +202,8 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
 			return 0, err
 		}
-		repos = append(repos, &types.Repository{
+
+		repoInfo := &types.Repository{
 			Source:        rep.Type,
 			RepoOwner:     arg.RepoOwner,
 			RepoName:      arg.RepoName,
@@ -216,7 +217,19 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 			EnableProxy:   rep.EnableProxy,
 			RepoNamespace: arg.RepoNamespace,
 			Tag:           arg.Tag,
-		})
+		}
+
+		for _, repo := range scanningInfo.Repos {
+			// make sure we are using the same repo's configuration
+			if repo.CodehostID == arg.CodehostID && repo.RepoName == arg.RepoName {
+				repoInfo.SubModules = repo.SubModules
+				repoInfo.RemoteName = repo.RemoteName
+				repoInfo.CheckoutPath = repo.CheckoutPath
+				break
+			}
+		}
+
+		repos = append(repos, repoInfo)
 	}
 
 	scanningTask := &task.Scanning{
@@ -414,4 +427,16 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		RepoInfo:   scanningTaskInfo.Repos,
 		ResultLink: sonarInfo.ServerAddress,
 	}, nil
+}
+
+func CancelScanningTask(userName, scanningID string, taskID int64, typeString config.PipelineType, requestID string, log *zap.SugaredLogger) error {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return err
+	}
+
+	scanningTaskName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
+
+	return commonservice.CancelTaskV2(userName, scanningTaskName, taskID, typeString, requestID, log)
 }

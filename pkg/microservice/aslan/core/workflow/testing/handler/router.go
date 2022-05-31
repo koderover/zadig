@@ -69,6 +69,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		scanner.POST("/:id/task", gin2.UpdateOperationLogStatus, CreateScanningTask)
 		scanner.GET("/:id/task", ListScanningTask)
 		scanner.GET("/:id/task/:scan_id", GetScanningTask)
+		scanner.DELETE("/:id/task/:scan_id", gin2.UpdateOperationLogStatus, CancelScanningTask)
 		scanner.GET("/:id/task/:scan_id/sse", GetScanningTaskSSE)
 	}
 

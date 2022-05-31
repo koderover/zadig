@@ -663,7 +663,13 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			} else {
 				testArg.Builds = testing.Repos
 				pr, _ := strconv.Atoi(args.MergeRequestID)
-				testArg.Builds[0].PR = pr
+
+				for i, build := range testArg.Builds {
+					if build.Source == args.Source {
+						testArg.Builds[i].PR = pr
+					}
+				}
+
 			}
 
 			if testing.PreTest != nil {
