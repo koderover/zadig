@@ -98,6 +98,10 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			gmem.log.Warnf("failed to get changes of event %v, err:%s", ev, err)
 			return false, err
 		}
+		log.Infof("len(changedFiles):%s", len(changedFiles))
+		for _, changefile := range changedFiles {
+			log.Infof("changefile:%s", changefile)
+		}
 		gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
 		if gmem.isYaml {
 			serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, changedFiles)
