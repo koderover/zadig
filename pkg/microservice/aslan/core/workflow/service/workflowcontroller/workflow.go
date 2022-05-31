@@ -8,6 +8,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
 )
 
@@ -55,7 +56,16 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cancelChannelMap.Store(fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID), cancel)
-	RunStages(ctx, c.workflowTask.Stages, concurrency, c.globalContext, c.logger, c.ack)
+
+	workflowCtx := &commonmodels.WorkflowTaskCtx{
+		WorkflowName:      c.workflowTask.WorkflowName,
+		TaskID:            c.workflowTask.TaskID,
+		DistDir:           fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
+		DockerMountDir:    fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewV4(), time.Now().Unix()),
+		ConfigMapMountDir: fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewV4(), time.Now().Unix()),
+	}
+
+	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.globalContext, c.logger, c.ack)
 	updateworkflowStatus(c.workflowTask)
 }
 

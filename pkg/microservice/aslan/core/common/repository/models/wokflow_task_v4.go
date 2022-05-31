@@ -83,3 +83,13 @@ type StepTask struct {
 	// step output results,like testing results,differ form steps
 	Result interface{} `bson:"result"         json:"result"`
 }
+
+type WorkflowTaskCtx struct {
+	WorkflowName      string
+	TaskID            int64
+	DockerHost        string
+	Workspace         string
+	DistDir           string
+	DockerMountDir    string
+	ConfigMapMountDir string
+}

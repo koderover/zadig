@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -36,11 +37,12 @@ type Job struct {
 }
 
 type JobProperties struct {
-	Timeout         int64     `bson:"timeout"                json:"timeout"`
-	Retry           int64     `bson:"retry"                  json:"retry"`
-	ResourceRequest string    `bson:"resource_request"       json:"resource_request"`
-	ClusterID       string    `bson:"cluster_id"             json:"cluster_id"`
-	Args            []*KeyVal `bson:"args"                   json:"args"`
+	Timeout         int64           `bson:"timeout"                json:"timeout"`
+	Retry           int64           `bson:"retry"                  json:"retry"`
+	ResourceRequest setting.Request `bson:"resource_request"       json:"resource_request"`
+	ClusterID       string          `bson:"cluster_id"             json:"cluster_id"`
+	BuildOS         string          `bson:"build_os"               json:"build_os"`
+	Args            []*KeyVal       `bson:"args"                   json:"args"`
 }
 
 type Step struct {

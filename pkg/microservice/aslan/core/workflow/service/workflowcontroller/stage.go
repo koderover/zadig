@@ -14,7 +14,7 @@ type StageCtl interface {
 	Run(ctx context.Context, concurrency int)
 }
 
-func runStage(ctx context.Context, stage *commonmodels.StageTask, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
+func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
 	stage.Status = config.StatusRunning
 	stage.StartTime = time.Now().Unix()
 	ack()
@@ -30,14 +30,14 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, concurrency in
 	case "approve":
 		// TODO approval stage
 	default:
-		stageCtl = NewCustomStageCtl(stage, globalContext, logger, ack)
+		stageCtl = NewCustomStageCtl(stage, workflowCtx, globalContext, logger, ack)
 	}
 	stageCtl.Run(ctx, concurrency)
 }
 
-func RunStages(ctx context.Context, stages []*commonmodels.StageTask, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
+func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
 	for _, stage := range stages {
-		runStage(ctx, stage, concurrency, globalContext, logger, ack)
+		runStage(ctx, stage, workflowCtx, concurrency, globalContext, logger, ack)
 		if statusFailed(stage.Status) {
 			return
 		}

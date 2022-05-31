@@ -11,16 +11,18 @@ import (
 
 type CustomStageCtl struct {
 	stage         *commonmodels.StageTask
+	workflowCtx   *commonmodels.WorkflowTaskCtx
 	globalContext *sync.Map
 	logger        *zap.SugaredLogger
 	ack           func()
 }
 
-func NewCustomStageCtl(stage *commonmodels.StageTask, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) *CustomStageCtl {
+func NewCustomStageCtl(stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) *CustomStageCtl {
 	return &CustomStageCtl{
 		stage:         stage,
 		globalContext: globalContext,
 		logger:        logger,
+		workflowCtx:   workflowCtx,
 		ack:           ack,
 	}
 }
@@ -35,5 +37,5 @@ func (c *CustomStageCtl) Run(ctx context.Context, concurrency int) {
 		}
 
 	}
-	jobcontroller.RunJobs(ctx, c.stage.Jobs, workerConcurrency, c.globalContext, c.logger, c.ack)
+	jobcontroller.RunJobs(ctx, c.stage.Jobs, c.workflowCtx, workerConcurrency, c.globalContext, c.logger, c.ack)
 }
