@@ -85,6 +85,7 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 
 	if cluster.Status != "normal" {
 		cluster.Status = "normal"
+		cluster.LastConnectionTime = time.Now().Unix()
 		err = mongodb.NewK8sClusterColl().UpdateStatus(cluster)
 		if err != nil {
 			log.Errorf("failed to update clusters status %s %v", cluster.Name, err)
@@ -267,6 +268,7 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 								"cluster %s connected changed %s => %s",
 								cluster.Name, cluster.Status, config.Normal,
 							)
+							cluster.LastConnectionTime = time.Now().Unix()
 							cluster.Status = config.Normal
 							statusChanged = true
 						}
