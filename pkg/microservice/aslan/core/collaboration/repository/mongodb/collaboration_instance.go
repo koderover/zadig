@@ -101,7 +101,7 @@ func (c *CollaborationInstanceColl) Create(args *models.CollaborationInstance) e
 
 func (c *CollaborationInstanceColl) Update(uid string, args *models.CollaborationInstance) error {
 	if args == nil {
-		return errors.New("nil CollaborationMode")
+		return errors.New("nil CollaborationInstance")
 	}
 
 	query := bson.M{"collaboration_name": args.CollaborationName, "project_name": args.ProjectName, "user_uid": uid}
@@ -111,6 +111,22 @@ func (c *CollaborationInstanceColl) Update(uid string, args *models.Collaboratio
 		"workflows":       args.Workflows,
 		"revision":        args.Revision,
 		"products":        args.Products,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
+func (c *CollaborationInstanceColl) ResetRevision(modeName, projectName string) error {
+	if len(modeName) == 0 || len(projectName) == 0 {
+		return errors.New("nil modeName or projectName")
+	}
+
+	query := bson.M{"collaboration_name": modeName, "project_name": projectName}
+	change := bson.M{"$set": bson.M{
+		"update_time": time.Now().Unix(),
+		"revision":    0,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

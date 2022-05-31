@@ -22,13 +22,17 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -40,23 +44,30 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
 var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,32}$`)
 
 type K8SCluster struct {
-	ID             string                   `json:"id,omitempty"`
-	Name           string                   `json:"name"`
-	Description    string                   `json:"description"`
-	AdvancedConfig *AdvancedConfig          `json:"advanced_config,omitempty"`
-	Status         setting.K8SClusterStatus `json:"status"`
-	Production     bool                     `json:"production"`
-	CreatedAt      int64                    `json:"createdAt"`
-	CreatedBy      string                   `json:"createdBy"`
-	Provider       int8                     `json:"provider"`
-	Local          bool                     `json:"local"`
-	Cache          types.Cache              `json:"cache"`
+	ID                     string                   `json:"id,omitempty"`
+	Name                   string                   `json:"name"`
+	Description            string                   `json:"description"`
+	AdvancedConfig         *AdvancedConfig          `json:"advanced_config,omitempty"`
+	Status                 setting.K8SClusterStatus `json:"status"`
+	Production             bool                     `json:"production"`
+	CreatedAt              int64                    `json:"createdAt"`
+	CreatedBy              string                   `json:"createdBy"`
+	Provider               int8                     `json:"provider"`
+	Local                  bool                     `json:"local"`
+	Cache                  types.Cache              `json:"cache"`
+	LastConnectionTime     int64                    `json:"last_connection_time"`
+	UpdateHubagentErrorMsg string                   `json:"update_hubagent_error_msg"`
+	DindCfg                *commonmodels.DindCfg    `json:"dind_cfg"`
 }
 
 type AdvancedConfig struct {
@@ -114,18 +125,34 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 				ProjectNames: getProjectNames(c.ID.Hex(), logger),
 			}
 		}
+
+		if c.DindCfg == nil {
+			c.DindCfg = &commonmodels.DindCfg{
+				Replicas: kube.DefaultDindReplicas,
+				Resources: &commonmodels.Resources{
+					Limits: &commonmodels.Limits{
+						CPU:    kube.DefaultDindLimitsCPU,
+						Memory: kube.DefaultDindLimitsMemory,
+					},
+				},
+			}
+		}
+
 		res = append(res, &K8SCluster{
-			ID:             c.ID.Hex(),
-			Name:           c.Name,
-			Description:    c.Description,
-			Status:         c.Status,
-			Production:     c.Production,
-			CreatedBy:      c.CreatedBy,
-			CreatedAt:      c.CreatedAt,
-			Provider:       c.Provider,
-			Local:          c.Local,
-			AdvancedConfig: advancedConfig,
-			Cache:          c.Cache,
+			ID:                     c.ID.Hex(),
+			Name:                   c.Name,
+			Description:            c.Description,
+			Status:                 c.Status,
+			Production:             c.Production,
+			CreatedBy:              c.CreatedBy,
+			CreatedAt:              c.CreatedAt,
+			Provider:               c.Provider,
+			Local:                  c.Local,
+			AdvancedConfig:         advancedConfig,
+			Cache:                  c.Cache,
+			LastConnectionTime:     c.LastConnectionTime,
+			UpdateHubagentErrorMsg: c.UpdateHubagentErrorMsg,
+			DindCfg:                c.DindCfg,
 		})
 	}
 
@@ -209,6 +236,7 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		CreatedAt:      args.CreatedAt,
 		CreatedBy:      args.CreatedBy,
 		Cache:          args.Cache,
+		DindCfg:        args.DindCfg,
 	}
 
 	return s.CreateCluster(cluster, args.ID, logger)
@@ -256,6 +284,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		switch id {
 		case setting.LocalClusterID:
 			namespace = config.Namespace()
+			args.DindCfg = nil
 		default:
 			namespace = setting.AttachedClusterNamespace
 		}
@@ -313,6 +342,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		AdvancedConfig: advancedConfig,
 		Production:     args.Production,
 		Cache:          args.Cache,
+		DindCfg:        args.DindCfg,
 	}
 	return s.UpdateCluster(id, cluster, logger)
 }
@@ -360,7 +390,59 @@ func ProxyAgent(writer gin.ResponseWriter, request *http.Request) {
 func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
 	s, _ := kube.NewService("")
 
-	return s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
+	return s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), hubURI, useDeployment, false, logger)
+}
+
+func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
+	if id == setting.LocalClusterID {
+		return fmt.Errorf("local cluster %s not support Upgrade Agent", id)
+	}
+	s, _ := kube.NewService("")
+	clusterInfo, err := s.GetCluster(id, logger)
+	if err != nil {
+		return err
+	}
+	if clusterInfo.Status != setting.Normal {
+		return fmt.Errorf("cluster %s status %s not support Upgrade Agent", clusterInfo.Name, clusterInfo.Status)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), id)
+	if err != nil {
+		return fmt.Errorf(" failed to get kube client: %s cluster: %s", err, clusterInfo.Name)
+	}
+
+	yamls, err := s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), "/api/hub", true, true, logger)
+	if err != nil {
+		return err
+	}
+
+	errList := new(multierror.Error)
+	manifests := releaseutil.SplitManifests(string(yamls))
+	resources := make([]*unstructured.Unstructured, 0, len(manifests))
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			log.Errorf("[UpgradeAgent] Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
+			errList = multierror.Append(errList, err)
+			continue
+		}
+		resources = append(resources, u)
+	}
+
+	for _, u := range resources {
+		err = updater.CreateOrPatchUnstructured(u, kubeClient)
+		if err != nil {
+			log.Errorf("[UpgradeAgent] Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+			errList = multierror.Append(errList, err)
+			continue
+		}
+	}
+	updateHubagentErrorMsg := ""
+	if len(errList.Errors) > 0 {
+		updateHubagentErrorMsg = errList.Error()
+	}
+
+	return s.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
 }
 
 func setClusterCache(args *K8SCluster) error {
@@ -390,4 +472,31 @@ func setClusterCache(args *K8SCluster) error {
 	}
 
 	return nil
+}
+
+func ClusterApplyUpgradeAgent() {
+	for i := 0; i < 3; i++ {
+		time.Sleep(10 * time.Second)
+		k8sClusters, err := commonrepo.NewK8SClusterColl().List(nil)
+		if err != nil && !commonrepo.IsErrNoDocuments(err) {
+			log.Errorf("[ClusterApplyUpgradeAgent] list cluster error:%s", err)
+			return
+		}
+
+		for _, cluster := range k8sClusters {
+			if cluster.ID.Hex() == setting.LocalClusterID {
+				continue
+			}
+			if cluster.Status != setting.Normal {
+				log.Warnf("[ClusterApplyUpgradeAgent] not support apply. cluster %s status %s ", cluster.Name, cluster.Status)
+				continue
+			}
+			if err := UpgradeAgent(cluster.ID.Hex(), ginzap.WithContext(&gin.Context{}).Sugar()); err != nil {
+				log.Errorf("[ClusterApplyUpgradeAgent] UpgradeAgent cluster %s error:%s", cluster.Name, err)
+			} else {
+				log.Infof("[ClusterApplyUpgradeAgent] UpgradeAgent cluster %s successed", cluster.Name)
+			}
+		}
+		time.Sleep(20 * time.Second)
+	}
 }

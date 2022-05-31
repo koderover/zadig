@@ -47,5 +47,5 @@ func DeleteCollaborationMode(username, projectName, name string, logger *zap.Sug
 		logger.Errorf("UpdateCollaborationMode error, err msg:%s", err)
 		return err
 	}
-	return nil
+	return mongodb.NewCollaborationInstanceColl().ResetRevision(name, projectName)
 }

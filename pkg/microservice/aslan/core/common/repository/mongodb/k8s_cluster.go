@@ -211,6 +211,7 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id stri
 			"production":      cluster.Production,
 			"advanced_config": cluster.AdvancedConfig,
 			"cache":           cluster.Cache,
+			"dind_cfg":        cluster.DindCfg,
 		}},
 	)
 
@@ -224,6 +225,19 @@ func (c *K8SClusterColl) UpdateStatus(cluster *models.K8SCluster) error {
 		}},
 	)
 
+	return err
+}
+
+func (c *K8SClusterColl) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) error {
+	clusterID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(context.TODO(),
+		bson.M{"_id": clusterID}, bson.M{"$set": bson.M{
+			"update_hubagent_error_msg": updateHubagentErrorMsg,
+		}},
+	)
 	return err
 }
 
