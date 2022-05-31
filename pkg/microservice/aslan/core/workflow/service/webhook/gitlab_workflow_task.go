@@ -473,9 +473,12 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			}
 			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
 		}
-
+		log.Infof("build.name : %s", resp.Name)
 		repos := commonservice.FindReposByTarget(targetElem.ProductName, targetElem.ServiceName, targetElem.Name, resp)
+		log.Infof("len(repos) : %d", len(repos))
 		for _, repo := range repos {
+			log.Infof("item.MainRepo.RepoName : %s", item.MainRepo.RepoName)
+			log.Infof("item.MainRepo.RepoOwner : %s", item.MainRepo.RepoOwner)
 			if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
 				repo.Branch = branref
 				repo.PR = prId
