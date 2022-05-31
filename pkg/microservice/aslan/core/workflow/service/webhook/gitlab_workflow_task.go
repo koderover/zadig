@@ -67,10 +67,13 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 	if !EventConfigured(hookRepo, config.HookEventPr) {
 		return false, nil
 	}
+	log.Infof("hookRepo: %+v", hookRepo)
 	log.Infof("gmem.isYaml:%v", gmem.isYaml)
 	if gmem.isYaml {
 		refFlag := false
 		for _, ref := range gmem.trigger.Rules.Branchs {
+			log.Infof("ref branch:%s", ref)
+			log.Infof("getBranchFromRef(hookRepo.Branch):%s", getBranchFromRef(hookRepo.Branch))
 			if matched, _ := regexp.MatchString(ref, getBranchFromRef(hookRepo.Branch)); matched {
 				refFlag = true
 				break
