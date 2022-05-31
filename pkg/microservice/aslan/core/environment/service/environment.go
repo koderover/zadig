@@ -1067,6 +1067,9 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 	}
 	var args []*CreateHelmProductArg
 	for _, item := range arg.Items {
+		if item.OldName == item.NewName {
+			continue
+		}
 		if product, ok := productMap[item.OldName]; ok {
 			args = append(args, &CreateHelmProductArg{
 				ProductName:   projectName,
@@ -1108,15 +1111,19 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 	}
 
 	for _, item := range arg.Items {
+		if item.OldName == item.NewName {
+			continue
+		}
 		if product, ok := productMap[item.OldName]; ok {
-			product.EnvName = item.NewName
-			product.Vars = item.Vars
-			product.Namespace = projectName + "-env-" + product.EnvName
-			product.Render.Name = product.Namespace
-			util.Clear(&product.ID)
-			product.Render.Revision = 0
-			product.BaseName = item.BaseName
-			err = CreateProduct(user, requestID, product, log)
+			newProduct := *product
+			newProduct.EnvName = item.NewName
+			newProduct.Vars = item.Vars
+			newProduct.Namespace = projectName + "-env-" + product.EnvName
+			newProduct.Render.Name = product.Namespace
+			util.Clear(&newProduct.ID)
+			newProduct.Render.Revision = 0
+			newProduct.BaseName = item.BaseName
+			err = CreateProduct(user, requestID, &newProduct, log)
 			if err != nil {
 				return err
 			}
