@@ -240,7 +240,7 @@ func (s *Service) ListConnectedClusters(logger *zap.SugaredLogger) ([]*models.K8
 	return clusters, nil
 }
 
-func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useDeployment, upgradeAgent bool, logger *zap.SugaredLogger) ([]byte, error) {
+func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
 	var (
 		cluster *models.K8SCluster
 		err     error
@@ -267,7 +267,7 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 		return nil, err
 	}
 
-	dindReplicas, dindLimitsCPU, dindLimitsMemory := setDindCfg(upgradeAgent, cluster)
+	dindReplicas, dindLimitsCPU, dindLimitsMemory := setDindCfg(cluster)
 
 	if cluster.Namespace == "" {
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
@@ -312,12 +312,12 @@ func (s *Service) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) erro
 	return err
 }
 
-func setDindCfg(upgradeAgent bool, cluster *models.K8SCluster) (int, string, string) {
+func setDindCfg(cluster *models.K8SCluster) (int, string, string) {
 	var dindReplicas int = DefaultDindReplicas
 	var dindLimitsCPU string = strconv.Itoa(DefaultDindLimitsCPU) + setting.CpuUintM
 	var dindLimitsMemory string = strconv.Itoa(DefaultDindLimitsMemory) + setting.MemoryUintMi
 
-	if upgradeAgent && cluster.DindCfg != nil {
+	if cluster.DindCfg != nil {
 		if cluster.DindCfg.Replicas > 0 {
 			dindReplicas = cluster.DindCfg.Replicas
 		}
