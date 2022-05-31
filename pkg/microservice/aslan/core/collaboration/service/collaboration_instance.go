@@ -1147,6 +1147,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			set, ok := productRenderSetMap[product.BaseName]
 			if !ok {
+				logger.Errorf("product:%s not exist", product.BaseName)
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
 
@@ -1159,6 +1160,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			chart, ok := envChartsMap[product.BaseName]
 			if !ok {
+				logger.Errorf("product:%s not exist", product.BaseName)
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
 
