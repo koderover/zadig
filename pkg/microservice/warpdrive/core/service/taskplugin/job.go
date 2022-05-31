@@ -305,9 +305,10 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	if b.JobCtx.UploadEnabled {
 		for _, upload := range b.JobCtx.UploadInfo {
 			// since the frontend won't change the file path, the backend will have to add it
-			upload.FilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
+			// use AbsFilePath to avoid change the original user input since a job may be retried
+			upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 			// then we replace it with our env variables
-			upload.FilePath = replaceEnvWithValue(upload.FilePath, envmaps)
+			upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 			upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		}
 	}
