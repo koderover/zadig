@@ -67,10 +67,9 @@ type JobTask struct {
 	StartTime  int64          `bson:"start_time"     json:"start_time,omitempty"`
 	EndTime    int64          `bson:"end_time"       json:"end_time,omitempty"`
 	Error      string         `bson:"error"          json:"error"`
-	Namepace   string         `bson:"namespace"      json:"namespace"`
-	PodName    string         `bson:"pod_name"       json:"pod_name"`
 	Properties *JobProperties `bson:"properties"     json:"properties"`
 	Steps      []*StepTask    `bson:"steps"          json:"steps"`
+	Outputs    []*Output      `bson:"outputs"        son:"outputs"`
 }
 
 type StepTask struct {

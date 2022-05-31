@@ -44,16 +44,15 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 }
 
 func (c *FreestyleJobCtl) run(ctx context.Context) {
-
 	// get kube client
 	var crClient crClient.Client
 	var err error
 	hubServerAddr := config.HubServerAddress()
 	switch c.job.Properties.ClusterID {
 	case setting.LocalClusterID:
-		c.job.Namepace = zadigconfig.Namespace()
+		c.job.Properties.Namepace = zadigconfig.Namespace()
 	default:
-		c.job.Namepace = setting.AttachedClusterNamespace
+		c.job.Properties.Namepace = setting.AttachedClusterNamespace
 
 		crClient, _, _, err = GetK8sClients(hubServerAddr, c.job.Properties.ClusterID)
 		if err != nil {
@@ -70,7 +69,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	// dockerHost := dockerhosts.GetBestHost(common.ClusterID(c.job.Properties.ClusterID), "")
 
 	// TODO: inject vars like task_id and etc, passing them into c.job.Properties.Args
-	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Namepace, IsCredential: false}
+	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Properties.Namepace, IsCredential: false}
 	c.job.Properties.Args = append(c.job.Properties.Args, envNameVar)
 
 	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.job, c.workflowCtx, c.globalContext))
@@ -87,7 +86,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		TaskID:       c.workflowCtx.TaskID,
 		JobType:      string(c.job.JobType),
 	}
-	if err := ensureDeleteConfigMap(c.job.Namepace, jobLabel, crClient); err != nil {
+	if err := ensureDeleteConfigMap(c.job.Properties.Namepace, jobLabel, crClient); err != nil {
 		c.logger.Error(err)
 		c.job.Status = config.StatusFailed
 		c.job.Error = err.Error()
@@ -95,7 +94,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	}
 
 	if err := createJobConfigMap(
-		c.job.Namepace, c.job.Name, jobLabel, string(jobCtxBytes), crClient); err != nil {
+		c.job.Properties.Namepace, c.job.Name, jobLabel, string(jobCtxBytes), crClient); err != nil {
 		msg := fmt.Sprintf("createJobConfigMap error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
@@ -103,24 +102,24 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		return
 	}
 
-	c.logger.Infof("succeed to create cm for build job %s", c.job.Name)
+	c.logger.Infof("succeed to create cm for job %s", c.job.Name)
 
 	jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
 	//Resource request default value is LOW
-	job, err := buildJob(c.job.JobType, jobImage, c.job.Name, c.job.Properties.ClusterID, c.job.Namepace, c.job.Properties.ResourceRequest, setting.DefaultRequestSpec, c.job, c.workflowCtx, nil)
+	job, err := buildJob(c.job.JobType, jobImage, c.job.Name, c.job.Properties.ClusterID, c.job.Properties.Namepace, c.job.Properties.ResourceRequest, setting.DefaultRequestSpec, c.job, c.workflowCtx, nil)
 	if err != nil {
-		msg := fmt.Sprintf("create build job context error: %v", err)
+		msg := fmt.Sprintf("create job context error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		return
 	}
 
-	job.Namespace = c.job.Namepace
+	job.Namespace = c.job.Properties.Namepace
 
-	if err := ensureDeleteJob(c.job.Namepace, jobLabel, crClient); err != nil {
-		msg := fmt.Sprintf("delete build job error: %v", err)
+	if err := ensureDeleteJob(c.job.Properties.Namepace, jobLabel, crClient); err != nil {
+		msg := fmt.Sprintf("delete job error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
@@ -137,11 +136,11 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	// 	return
 	// }
 	if err := updater.CreateJob(job, crClient); err != nil {
-		msg := fmt.Sprintf("create build job error: %v", err)
+		msg := fmt.Sprintf("create job error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		return
 	}
-	c.logger.Infof("succeed to create build job %s", c.job.Name)
+	c.logger.Infof("succeed to create job %s", c.job.Name)
 }

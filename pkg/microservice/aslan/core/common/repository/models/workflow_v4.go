@@ -42,6 +42,7 @@ type JobProperties struct {
 	ResourceRequest setting.Request `bson:"resource_request"       json:"resource_request"`
 	ClusterID       string          `bson:"cluster_id"             json:"cluster_id"`
 	BuildOS         string          `bson:"build_os"               json:"build_os"`
+	Namepace        string          `bson:"namespace"              json:"namespace"`
 	Args            []*KeyVal       `bson:"args"                   json:"args"`
 }
 
