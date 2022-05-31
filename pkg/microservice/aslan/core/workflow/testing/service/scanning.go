@@ -406,10 +406,15 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
-	if err != nil {
-		log.Errorf("failed to get sonar integration info, error: %s", err)
-		return nil, err
+	resultAddr := ""
+
+	if scanningInfo.ScannerType == "sonarQube" {
+		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+		if err != nil {
+			log.Errorf("failed to get sonar integration info, error: %s", err)
+			return nil, err
+		}
+		resultAddr = sonarInfo.ServerAddress
 	}
 
 	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]
@@ -432,7 +437,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		CreateTime: resp.CreateTime,
 		EndTime:    resp.EndTime,
 		RepoInfo:   scanningTaskInfo.Repos,
-		ResultLink: sonarInfo.ServerAddress,
+		ResultLink: resultAddr,
 	}, nil
 }
 
