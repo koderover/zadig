@@ -505,6 +505,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		targetElem.Envs = envs
 		targets = append(targets, targetElem)
 	}
+	log.Infof("len(targets):%d", len(targets))
 	workFlowArgs.Target = targets
 	return nil
 }
