@@ -390,7 +390,7 @@ func ProxyAgent(writer gin.ResponseWriter, request *http.Request) {
 func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
 	s, _ := kube.NewService("")
 
-	return s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), hubURI, useDeployment, false, logger)
+	return s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
 }
 
 func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
@@ -411,7 +411,7 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 		return fmt.Errorf(" failed to get kube client: %s cluster: %s", err, clusterInfo.Name)
 	}
 
-	yamls, err := s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), "/api/hub", true, true, logger)
+	yamls, err := s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), "/api/hub", true, logger)
 	if err != nil {
 		return err
 	}
