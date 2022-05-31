@@ -356,6 +356,7 @@ func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 }
 
 func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Workflow, workFlowArgs *commonmodels.WorkflowTaskArgs, item *commonmodels.WorkflowHook, branref string, prId int) error {
+	item.MainRepo.Branch = branref
 	svcType, err := getServiceTypeByProject(workflow.ProductTmplName)
 	if err != nil {
 		return fmt.Errorf("getServiceTypeByProduct ProductTmplName:%s err:%s", workflow.ProductTmplName, err)
