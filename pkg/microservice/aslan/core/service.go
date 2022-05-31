@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	multiclusterservice "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -131,6 +132,8 @@ func Start(ctx context.Context) {
 	go environmentservice.StartClusterInformer()
 
 	go StartControllers(ctx.Done())
+
+	go multiclusterservice.ClusterApplyUpgradeAgent()
 
 	initRsaKey()
 }
