@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -110,6 +111,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		cluster.AdvancedConfig = &commonmodels.AdvancedConfig{
 			Strategy: "normal",
 		}
+		cluster.DindCfg = nil
 	}
 	err = s.coll.Create(cluster, id)
 	if err != nil {
@@ -191,6 +193,19 @@ func (s *Service) GetCluster(id string, logger *zap.SugaredLogger) (*models.K8SC
 	if err != nil {
 		return nil, err
 	}
+
+	if cluster.DindCfg == nil {
+		cluster.DindCfg = &commonmodels.DindCfg{
+			Replicas: DefaultDindReplicas,
+			Resources: &commonmodels.Resources{
+				Limits: &commonmodels.Limits{
+					CPU:    DefaultDindLimitsCPU,
+					Memory: DefaultDindLimitsMemory,
+				},
+			},
+		}
+	}
+
 	cluster.Token = token
 	return cluster, nil
 }
@@ -225,7 +240,7 @@ func (s *Service) ListConnectedClusters(logger *zap.SugaredLogger) ([]*models.K8
 	return clusters, nil
 }
 
-func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
+func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useDeployment, upgradeAgent bool, logger *zap.SugaredLogger) ([]byte, error) {
 	var (
 		cluster *models.K8SCluster
 		err     error
@@ -252,6 +267,8 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 		return nil, err
 	}
 
+	dindReplicas, dindLimitsCPU, dindLimitsMemory := setDindCfg(upgradeAgent, cluster)
+
 	if cluster.Namespace == "" {
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
 			HubAgentImage:       agentImage,
@@ -260,6 +277,9 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			HubServerBaseAddr:   hubBase.String(),
 			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
+			DindReplicas:        dindReplicas,
+			DindLimitsCPU:       dindLimitsCPU,
+			DindLimitsMemory:    dindLimitsMemory,
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -270,6 +290,9 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
 			Namespace:           cluster.Namespace,
+			DindReplicas:        dindReplicas,
+			DindLimitsCPU:       dindLimitsCPU,
+			DindLimitsMemory:    dindLimitsMemory,
 		})
 	}
 
@@ -280,6 +303,37 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 	return buffer.Bytes(), nil
 }
 
+func (s *Service) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) error {
+	_, err := s.coll.Get(id)
+	if err != nil {
+		return err
+	}
+	err = s.coll.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
+	return err
+}
+
+func setDindCfg(upgradeAgent bool, cluster *models.K8SCluster) (int, string, string) {
+	var dindReplicas int = DefaultDindReplicas
+	var dindLimitsCPU string = strconv.Itoa(DefaultDindLimitsCPU) + setting.CpuUintM
+	var dindLimitsMemory string = strconv.Itoa(DefaultDindLimitsMemory) + setting.MemoryUintMi
+
+	if upgradeAgent && cluster.DindCfg != nil {
+		if cluster.DindCfg.Replicas > 0 {
+			dindReplicas = cluster.DindCfg.Replicas
+		}
+
+		if cluster.DindCfg.Resources != nil && cluster.DindCfg.Resources.Limits != nil {
+			if cluster.DindCfg.Resources.Limits.CPU > 0 {
+				dindLimitsCPU = strconv.Itoa(cluster.DindCfg.Resources.Limits.CPU) + setting.CpuUintM
+			}
+			if cluster.DindCfg.Resources.Limits.Memory > 0 {
+				dindLimitsMemory = strconv.Itoa(cluster.DindCfg.Resources.Limits.Memory) + setting.MemoryUintMi
+			}
+		}
+	}
+	return dindReplicas, dindLimitsCPU, dindLimitsMemory
+}
+
 type TemplateSchema struct {
 	HubAgentImage       string
 	ResourceServerImage string
@@ -288,7 +342,16 @@ type TemplateSchema struct {
 	Namespace           string
 	UseDeployment       bool
 	AslanBaseAddr       string
+	DindReplicas        int
+	DindLimitsCPU       string
+	DindLimitsMemory    string
 }
+
+const (
+	DefaultDindReplicas     int = 1
+	DefaultDindLimitsCPU    int = 4000
+	DefaultDindLimitsMemory int = 8192
+)
 
 var YamlTemplate = template.Must(template.New("agentYaml").Parse(`
 ---
@@ -491,7 +554,7 @@ metadata:
     app.kubernetes.io/name: zadig
 spec:
   serviceName: dind
-  replicas: 1
+  replicas: {{.DindReplicas}}
   selector:
     matchLabels:
       app.kubernetes.io/component: dind
@@ -523,8 +586,8 @@ spec:
               containerPort: 2375
           resources:
             limits:
-              cpu: "4"
-              memory: 8Gi
+              cpu: {{.DindLimitsCPU}}
+              memory: {{.DindLimitsMemory}}
             requests:
               cpu: 100m
               memory: 128Mi

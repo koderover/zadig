@@ -143,3 +143,10 @@ func GetClusterYaml(hubURI string) func(*gin.Context) {
 		c.Abort()
 	}
 }
+
+func UpgradeAgent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = service.UpgradeAgent(c.Param("id"), ctx.Logger)
+}
