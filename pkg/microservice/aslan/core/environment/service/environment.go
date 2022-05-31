@@ -1118,8 +1118,8 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			newProduct := *product
 			newProduct.EnvName = item.NewName
 			newProduct.Vars = item.Vars
-			newProduct.Namespace = projectName + "-env-" + product.EnvName
-			newProduct.Render.Name = product.Namespace
+			newProduct.Namespace = projectName + "-env-" + newProduct.EnvName
+			newProduct.Render.Name = newProduct.Namespace
 			util.Clear(&newProduct.ID)
 			newProduct.Render.Revision = 0
 			newProduct.BaseName = item.BaseName

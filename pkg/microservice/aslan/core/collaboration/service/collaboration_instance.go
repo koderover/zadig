@@ -1320,7 +1320,6 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return nil, err
 	}
-	logger.Infof("updateresp:%v", updateResp)
 	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
 }
 
