@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -189,6 +190,12 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, err
 	}
 
+	scanningImage := imageInfo.Value
+
+	if imageInfo.ImageFrom == commonmodels.ImageFromKoderover {
+		scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", imageInfo.Value)
+	}
+
 	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
@@ -237,7 +244,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		Status:     config.StatusCreated,
 		ScanningID: scanningInfo.ID.Hex(),
 		Name:       scanningInfo.Name,
-		ImageInfo:  imageInfo.Value,
+		ImageInfo:  scanningImage,
 		ResReq:     scanningInfo.AdvancedSetting.ResReq,
 		ResReqSpec: scanningInfo.AdvancedSetting.ResReqSpec,
 		Registries: registries,
