@@ -67,6 +67,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 	if !EventConfigured(hookRepo, config.HookEventPr) {
 		return false, nil
 	}
+	log.Infof("gmem.isYaml:%v", gmem.isYaml)
 	if gmem.isYaml {
 		refFlag := false
 		for _, ref := range gmem.trigger.Rules.Branchs {
@@ -75,6 +76,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 				break
 			}
 		}
+		log.Infof("refFlag:%v", refFlag)
 		if !refFlag {
 			return false, nil
 		}
@@ -98,7 +100,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			gmem.log.Warnf("failed to get changes of event %v, err:%s", ev, err)
 			return false, err
 		}
-		log.Infof("len(changedFiles):%s", len(changedFiles))
+		log.Infof("len(changedFiles):%d", len(changedFiles))
 		for _, changefile := range changedFiles {
 			log.Infof("changefile:%s", changefile)
 		}
