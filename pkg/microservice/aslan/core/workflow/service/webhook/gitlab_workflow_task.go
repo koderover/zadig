@@ -70,7 +70,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 	if gmem.isYaml {
 		refFlag := false
 		for _, ref := range gmem.trigger.Rules.Branchs {
-			if matched, _ := regexp.MatchString(ref, getBranchFromRef(hookRepo.Branch)); matched {
+			if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.ObjectAttributes.TargetBranch)); matched {
 				refFlag = true
 				break
 			}
@@ -356,7 +356,6 @@ func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 }
 
 func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Workflow, workFlowArgs *commonmodels.WorkflowTaskArgs, item *commonmodels.WorkflowHook, branref string, prId int) error {
-	item.MainRepo.Branch = branref
 	svcType, err := getServiceTypeByProject(workflow.ProductTmplName)
 	if err != nil {
 		return fmt.Errorf("getServiceTypeByProduct ProductTmplName:%s err:%s", workflow.ProductTmplName, err)
