@@ -45,6 +45,9 @@ func GetCollaborationNew() gin.HandlerFunc {
 			ctx.Err = err
 			c.Abort()
 		}
+		if newResp == nil {
+			c.Next()
+		}
 		if newResp.IfSync {
 			err := service.SyncCollaborationInstance(nil, projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.RequestID, ctx.Logger)
 			if err != nil {
