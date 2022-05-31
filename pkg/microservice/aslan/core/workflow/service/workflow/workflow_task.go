@@ -360,6 +360,9 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 	}
 
 	mb.Repos = mb.SafeRepos()
+	for _, repo := range mb.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
 
 	if mb.PreBuild != nil {
 		if len(mb.PreBuild.Installs) == 0 {

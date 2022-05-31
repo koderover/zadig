@@ -434,6 +434,9 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 				}
 			}
 		}
+		for _, repo := range preSet.Repos {
+			repo.RepoNamespace = repo.GetRepoNamespace()
+		}
 		resp = append(resp, preSet)
 	}
 	return resp, nil
