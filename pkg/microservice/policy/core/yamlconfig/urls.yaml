@@ -1,6 +1,12 @@
 description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
 exemption_urls:
   public:
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/patch
+      methods:
+        - POST
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/recover
+      methods:
+        - POST
     - endpoint: api/v1/permission/project/?*
       methods:
         - GET
