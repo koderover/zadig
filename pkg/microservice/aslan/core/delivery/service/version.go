@@ -599,9 +599,11 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		return nil, nil, err
 	}
 
+	containerNameSet := sets.NewString()
 	imageTagMap := make(map[string]string)
 	for _, it := range imageData {
 		imageTagMap[it.ImageName] = it.ImageTag
+		containerNameSet.Insert(it.ImageName)
 	}
 
 	retValuesYaml := string(valuesYaml)
@@ -630,13 +632,19 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			return nil, nil, err
 		}
 
+		imageName := commonservice.ExtractImageName(imageUrl)
+
+		// only replace the images with build config
+		if !containerNameSet.Has(imageName) {
+			continue
+		}
+
 		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
 		}
 		registryUrl = strings.TrimSuffix(registryUrl, "/")
 
-		imageName := commonservice.ExtractImageName(imageUrl)
 		imageTag := commonservice.ExtractImageTag(imageUrl)
 		customTag := imageTag
 		if ct, ok := imageTagMap[imageName]; ok {
@@ -852,6 +860,7 @@ func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) *co
 			ServiceName: imageDetail.ServiceName,
 			Images:      make([]*commonmodels.ImageData, 0),
 		}
+		log.Infof("####### the service is %v, the length of images is %d ", imageDetail.ServiceName, len(imageDetail.Images))
 		for _, image := range imageDetail.Images {
 			imagesByService.Images = append(imagesByService.Images, &commonmodels.ImageData{
 				ImageUrl:   image.ImageUrl,
