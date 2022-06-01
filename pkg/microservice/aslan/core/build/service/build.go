@@ -233,7 +233,8 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 }
 
 func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
-	var deleteServices, currentServiceModuleKey sets.String
+	deleteServices := sets.NewString()
+	currentServiceModuleKey := sets.NewString()
 	for _, currentServiceModule := range currentBuild.Targets {
 		currentServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", currentServiceModule.ProductName, currentServiceModule.ServiceName, currentServiceModule.ServiceModule))
 	}
