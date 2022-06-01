@@ -572,9 +572,7 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		if opt.ServiceName != "" {
 			preMatch["service_name"] = opt.ServiceName
 		}
-		if opt.BuildName != "" {
-			preMatch["build_name"] = opt.BuildName
-		}
+
 		if opt.Source != "" {
 			preMatch["source"] = opt.Source
 		}
@@ -610,6 +608,9 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 				})
 			}
 			postMatch["_id"] = bson.M{"$in": srs}
+		}
+		if opt.BuildName != "" {
+			postMatch["build_name"] = opt.BuildName
 		}
 	}
 
