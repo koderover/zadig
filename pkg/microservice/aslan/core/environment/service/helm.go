@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -138,6 +140,7 @@ func getReleaseStatus(re *release.Release) ReleaseStatus {
 type ImageData struct {
 	ImageName string `json:"imageName"`
 	ImageTag  string `json:"imageTag"`
+	HasBuild  bool   `json:"hasBuild"`
 }
 
 type ServiceImages struct {
@@ -574,10 +577,25 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			Images:      nil,
 		}
 
+		allModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list builds for project: %s, err: %s", productName, err)
+		}
+
+		containerNameSet := sets.NewString()
+		for _, build := range allModules {
+			for _, target := range build.Targets {
+				if target.ServiceName == svcName {
+					containerNameSet.Insert(target.ServiceModule)
+				}
+			}
+		}
+
 		for _, container := range prodSvc.Containers {
 			if container.ImagePath == nil {
 				return nil, fmt.Errorf("failed to parse image for container:%s", container.Image)
 			}
+
 			imageSearchRule := &template.ImageSearchingRule{
 				Repo:  container.ImagePath.Repo,
 				Image: container.ImagePath.Image,
@@ -592,6 +610,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			svcImage.Images = append(svcImage.Images, &ImageData{
 				util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 				commonservice.ExtractImageTag(imageUrl),
+				containerNameSet.Has(container.ImageName),
 			})
 		}
 		ret.ServiceImages = append(ret.ServiceImages, svcImage)
