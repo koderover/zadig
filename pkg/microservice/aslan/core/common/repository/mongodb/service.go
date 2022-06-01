@@ -572,6 +572,7 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		if opt.ServiceName != "" {
 			preMatch["service_name"] = opt.ServiceName
 		}
+
 		if opt.Source != "" {
 			preMatch["source"] = opt.Source
 		}
