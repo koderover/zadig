@@ -10,7 +10,10 @@ REAPER_OS= focal xenial bionic
 ALL_IMAGES=$(TARGETS:=.image)
 ALL_PUSH=$(TARGETS:=.push)
 
-all: $(ALL_IMAGES:=.amd64) $(ALL_IMAGES:=.arm64) resource-server.build.amd64 resource-server.build.arm64
+PLATFORMS=darwin linux windows
+ARCHITECTURES=amd64 arm64
+
+all: $(ALL_IMAGES:=.amd64) $(ALL_IMAGES:=.arm64) resource-server.build.amd64 resource-server.build.arm64 build-zgctl-all-platforms zgctl-sidecar.amd64
 all.push: $(ALL_PUSH:=.amd64) $(ALL_PUSH:=.arm64) resource-server.upload.amd64 resource-server.upload.arm64
 
 all.amd64: $(ALL_IMAGES:=.amd64) resource-server.build.amd64
@@ -73,6 +76,18 @@ resource-server.upload.arm64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/resource-server:
 resource-server.upload.arm64: resource-server.build.arm64
 	@docker push ${MAKE_IMAGE}
 
+pre-build:
+	@mkdir -p bin/
+
+build-zgctl-all-platforms: pre-build
+	$(foreach GOOS, $(PLATFORMS),\
+	$(foreach GOARCH, $(ARCHITECTURES), $(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); CGO_ENABLED=0 go build -v -o bin/zgctl-$(GOOS)-$(GOARCH) cmd/zgctl/main.go)))
+
+zgctl-sidecar.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/zgctl-sidecar:${VERSION}-amd64
+zgctl-sidecar.amd64: zgctl-sidecar.amd64
+	@docker build -f docker/service/syncthing.Dockerfile --tag ${MAKE_IMAGE} .
+
 .PHONY: clean
 clean:
 	@rm -rf docker/dist
+	@rm -rf bin/
