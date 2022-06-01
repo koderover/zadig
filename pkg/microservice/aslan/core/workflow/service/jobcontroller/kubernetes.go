@@ -1,11 +1,14 @@
 package jobcontroller
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
+	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -15,10 +18,13 @@ import (
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -294,3 +300,83 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+
+func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) (status config.Status) {
+	xl.Infof("wait job to start: %s/%s", namespace, jobName)
+	timeout := time.After(time.Duration(taskTimeout) * time.Second)
+	podTimeout := time.After(120 * time.Second)
+
+	xl.Infof("Timeout of preparing Pod: %s. Timeout of running task: %s.", 120*time.Second, time.Duration(taskTimeout)*time.Second)
+
+	var started bool
+	for {
+		select {
+		case <-ctx.Done():
+			return config.StatusCancelled
+
+		case <-podTimeout:
+			return config.StatusTimeout
+		default:
+			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
+			if err != nil {
+				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
+			}
+			if job != nil {
+				started = job.Status.Active > 0
+			}
+		}
+		if started {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	// 等待job 运行结束
+	xl.Infof("wait job to end: %s %s", namespace, jobName)
+	for {
+		select {
+		case <-ctx.Done():
+			return config.StatusCancelled
+
+		case <-timeout:
+			return config.StatusTimeout
+
+		default:
+			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
+			if err != nil || !found {
+				xl.Errorf("failed to get pod with label job-name=%s %v", jobName, err)
+				return config.StatusFailed
+			}
+			// pod is still running
+			if job.Status.Active != 0 {
+
+				pods, err := getter.ListPods(namespace, labels.Set{"job-name": jobName}.AsSelector(), kubeClient)
+				if err != nil {
+					xl.Errorf("failed to find pod with label job-name=%s %v", jobName, err)
+					return config.StatusFailed
+				}
+
+				for _, pod := range pods {
+					ipod := wrapper.Pod(pod)
+					if ipod.Pending() {
+						continue
+					}
+					if ipod.Failed() {
+						return config.StatusFailed
+					}
+					if ipod.Succeeded() {
+						return config.StatusPassed
+					}
+				}
+
+			} else if job.Status.Succeeded != 0 {
+				return config.StatusPassed
+			} else {
+				return config.StatusFailed
+			}
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+}

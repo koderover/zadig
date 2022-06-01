@@ -7,6 +7,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 )
 
@@ -15,15 +16,25 @@ type JobCtl interface {
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
-	ctx, cancel := context.WithCancel(ctx)
 	job.Status = config.StatusRunning
 	job.StartTime = time.Now().Unix()
+	// set default timeout
+	if job.Properties.Timeout <= 0 {
+		job.Properties.Timeout = 600
+	}
+	// set default resource
+	if job.Properties.ResourceRequest == setting.Request("") {
+		job.Properties.ResourceRequest = setting.MinRequest
+	}
+	// set default resource
+	if job.Properties.ClusterID == "" {
+		job.Properties.ClusterID = setting.LocalClusterID
+	}
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
-		cancel()
 	}()
 	var jobCtl JobCtl
 	switch job.JobType {
@@ -32,21 +43,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, globalContext, ack, logger)
 	}
-	done := make(chan struct{}, 1)
-	go func() {
-		jobCtl.Run(ctx)
-		done <- struct{}{}
-	}()
-	select {
-	case <-done:
-		return
-	case <-ctx.Done():
-		job.Status = config.StatusCancelled
-		return
-	case <-time.After(time.Second * time.Duration(job.Properties.Timeout)):
-		job.Status = config.StatusTimeout
-		return
-	}
+	jobCtl.Run(ctx)
 }
 
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {

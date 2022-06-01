@@ -28,12 +28,12 @@ type WorkflowStage struct {
 }
 
 type Job struct {
-	Name       string         `bson:"name"           json:"name"`
-	Properties *JobProperties `bson:"properties"     json:"properties"`
-	JobType    string         `bson:"type"           json:"type"`
-	Spec       interface{}    `bson:"spec"           json:"spec"`
-	Steps      []*Step        `bson:"steps"          json:"steps"`
-	Outputs    []*Output      `bson:"outputs"        son:"outputs"`
+	Name       string        `bson:"name"           json:"name"`
+	Properties JobProperties `bson:"properties"     json:"properties"`
+	JobType    string        `bson:"type"           json:"type"`
+	Spec       interface{}   `bson:"spec"           json:"spec"`
+	Steps      []*Step       `bson:"steps"          json:"steps"`
+	Outputs    []*Output     `bson:"outputs"        son:"outputs"`
 }
 
 type JobProperties struct {
@@ -42,7 +42,7 @@ type JobProperties struct {
 	ResourceRequest setting.Request `bson:"resource_request"       json:"resource_request"`
 	ClusterID       string          `bson:"cluster_id"             json:"cluster_id"`
 	BuildOS         string          `bson:"build_os"               json:"build_os"`
-	Namepace        string          `bson:"namespace"              json:"namespace"`
+	Namespace       string          `bson:"namespace"              json:"namespace"`
 	Args            []*KeyVal       `bson:"args"                   json:"args"`
 }
 

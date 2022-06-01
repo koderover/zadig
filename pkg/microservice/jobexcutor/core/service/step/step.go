@@ -6,14 +6,49 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexcutor/config"
+	"github.com/koderover/zadig/pkg/microservice/jobexcutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
 
 type Step interface {
 	Run(ctx context.Context) error
+}
+
+func RunSteps(ctx context.Context, steps []*meta.Step, workspace string, envs, secretEnvs []string) error {
+	for _, stepInfo := range steps {
+		if err := runStep(ctx, stepInfo, workspace, envs, secretEnvs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func runStep(ctx context.Context, step *meta.Step, workspace string, envs, secretEnvs []string) error {
+	start := time.Now()
+	var stepInstance Step
+	var err error
+	log.Infof("====================== %s Start ======================", step.Name)
+	defer func() {
+		log.Infof("====================== %s End. Duration: %.2f seconds ======================", step.Name, time.Since(start).Seconds())
+	}()
+	switch step.StepType {
+	case "shell":
+		stepInstance, err = NewShellStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
+	default:
+		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
+		log.Error(err)
+		return err
+	}
+	if err := stepInstance.Run(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func prepareScriptsEnv() []string {

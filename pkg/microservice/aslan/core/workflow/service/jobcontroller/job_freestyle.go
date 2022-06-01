@@ -3,7 +3,6 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
+	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -23,6 +23,7 @@ type FreestyleJobCtl struct {
 	jobContext    *sync.Map
 	globalContext *sync.Map
 	logger        *zap.SugaredLogger
+	kubeclient    crClient.Client
 	ack           func()
 }
 
@@ -37,30 +38,29 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 }
 
 func (c *FreestyleJobCtl) Run(ctx context.Context) {
-	r := rand.Intn(10)
-	time.Sleep(time.Duration(r) * time.Second)
-	c.logger.Infof("job: %s sleep %d seccod", c.job.Name, r)
-	c.job.Status = config.StatusPassed
+	c.run(ctx)
+	c.wait(ctx)
+	c.complete(ctx)
 }
 
 func (c *FreestyleJobCtl) run(ctx context.Context) {
 	// get kube client
-	var crClient crClient.Client
-	var err error
 	hubServerAddr := config.HubServerAddress()
 	switch c.job.Properties.ClusterID {
 	case setting.LocalClusterID:
-		c.job.Properties.Namepace = zadigconfig.Namespace()
+		c.job.Properties.Namespace = zadigconfig.Namespace()
+		c.kubeclient = krkubeclient.Client()
 	default:
-		c.job.Properties.Namepace = setting.AttachedClusterNamespace
+		c.job.Properties.Namespace = setting.AttachedClusterNamespace
 
-		crClient, _, _, err = GetK8sClients(hubServerAddr, c.job.Properties.ClusterID)
+		crClient, _, _, err := GetK8sClients(hubServerAddr, c.job.Properties.ClusterID)
 		if err != nil {
 			c.job.Status = config.StatusFailed
 			c.job.Error = err.Error()
 			c.job.EndTime = time.Now().Unix()
 			return
 		}
+		c.kubeclient = crClient
 	}
 
 	// decide which docker host to use.
@@ -69,7 +69,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	// dockerHost := dockerhosts.GetBestHost(common.ClusterID(c.job.Properties.ClusterID), "")
 
 	// TODO: inject vars like task_id and etc, passing them into c.job.Properties.Args
-	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Properties.Namepace, IsCredential: false}
+	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Properties.Namespace, IsCredential: false}
 	c.job.Properties.Args = append(c.job.Properties.Args, envNameVar)
 
 	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.job, c.workflowCtx, c.globalContext))
@@ -86,7 +86,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		TaskID:       c.workflowCtx.TaskID,
 		JobType:      string(c.job.JobType),
 	}
-	if err := ensureDeleteConfigMap(c.job.Properties.Namepace, jobLabel, crClient); err != nil {
+	if err := ensureDeleteConfigMap(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
 		c.logger.Error(err)
 		c.job.Status = config.StatusFailed
 		c.job.Error = err.Error()
@@ -94,7 +94,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	}
 
 	if err := createJobConfigMap(
-		c.job.Properties.Namepace, c.job.Name, jobLabel, string(jobCtxBytes), crClient); err != nil {
+		c.job.Properties.Namespace, c.job.Name, jobLabel, string(jobCtxBytes), c.kubeclient); err != nil {
 		msg := fmt.Sprintf("createJobConfigMap error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
@@ -104,10 +104,12 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 
 	c.logger.Infof("succeed to create cm for job %s", c.job.Name)
 
-	jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
+	// TODO: do not use default image
+	jobImage := "ccr.ccs.tencentyun.com/koderover-rc/job-excutor:guoyu-test1"
+	// jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
 	//Resource request default value is LOW
-	job, err := buildJob(c.job.JobType, jobImage, c.job.Name, c.job.Properties.ClusterID, c.job.Properties.Namepace, c.job.Properties.ResourceRequest, setting.DefaultRequestSpec, c.job, c.workflowCtx, nil)
+	job, err := buildJob(c.job.JobType, jobImage, c.job.Name, c.job.Properties.ClusterID, c.job.Properties.Namespace, c.job.Properties.ResourceRequest, setting.DefaultRequestSpec, c.job, c.workflowCtx, nil)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
 		c.logger.Error(msg)
@@ -116,9 +118,9 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		return
 	}
 
-	job.Namespace = c.job.Properties.Namepace
+	job.Namespace = c.job.Properties.Namespace
 
-	if err := ensureDeleteJob(c.job.Properties.Namepace, jobLabel, crClient); err != nil {
+	if err := ensureDeleteJob(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("delete job error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
@@ -135,7 +137,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	// 	p.SetBuildStatusCompleted(config.StatusFailed)
 	// 	return
 	// }
-	if err := updater.CreateJob(job, crClient); err != nil {
+	if err := updater.CreateJob(job, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
@@ -143,4 +145,38 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		return
 	}
 	c.logger.Infof("succeed to create job %s", c.job.Name)
+}
+
+func (c *FreestyleJobCtl) wait(ctx context.Context) {
+	status := waitJobEndWithFile(ctx, int(c.job.Properties.Timeout), c.job.Properties.Namespace, c.job.Name, c.kubeclient, c.logger)
+	c.job.Status = status
+}
+
+func (c *FreestyleJobCtl) complete(ctx context.Context) {
+	jobLabel := &JobLabel{
+		WorkflowName: c.workflowCtx.WorkflowName,
+		TaskID:       c.workflowCtx.TaskID,
+		JobType:      string(c.job.JobType),
+	}
+
+	// 清理用户取消和超时的任务
+	defer func() {
+		if err := ensureDeleteJob(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+			c.logger.Error(err)
+			c.job.Error = err.Error()
+		}
+		if err := ensureDeleteConfigMap(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+			c.logger.Error(err)
+			c.job.Error = err.Error()
+		}
+	}()
+
+	// err := saveContainerLog(pipelineTask, p.KubeNamespace, "", c.FileName, jobLabel, c.kubeclient)
+	// if err != nil {
+	// 	p.Log.Error(err)
+	// 	p.Task.Error = err.Error()
+	// 	return
+	// }
+
+	// p.Task.LogFile = p.FileName
 }

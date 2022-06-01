@@ -94,19 +94,6 @@ func (j *Job) getUserEnvs() []string {
 }
 
 func (j *Job) Run(ctx context.Context) error {
-	for _, stepInfo := range j.Ctx.Steps {
-		var stepInstance step.Step
-		var err error
-		switch stepInfo.StepType {
-		case "shell":
-			stepInstance, err = step.NewShellStep(ctx, j.ActiveWorkspace, j.getUserEnvs(), j.Ctx.SecretEnvs)
-			if err != nil {
-				return err
-			}
-		}
-		if err := stepInstance.Run(ctx); err != nil {
-			return err
-		}
-	}
+	step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.Ctx.Envs, j.Ctx.SecretEnvs)
 	return nil
 }

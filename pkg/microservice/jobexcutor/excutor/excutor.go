@@ -37,8 +37,8 @@ func Execute(ctx context.Context) error {
 
 	start := time.Now()
 
+	excutor := "job-excutor"
 	var err error
-	var reaperType types.ReaperType
 	defer func() {
 		resultMsg := types.JobSuccess
 		if err != nil {
@@ -47,7 +47,7 @@ func Execute(ctx context.Context) error {
 		}
 		log.Infof("Job Status: %s", resultMsg)
 
-		log.Infof("====================== %s End. Duration: %.2f seconds ======================", reaperType, time.Since(start).Seconds())
+		log.Infof("====================== %s End. Duration: %.2f seconds ======================", excutor, time.Since(start).Seconds())
 	}()
 
 	var j *job.Job
@@ -56,8 +56,8 @@ func Execute(ctx context.Context) error {
 		return err
 	}
 
-	log.Infof("====================== %s Start ======================", reaperType)
-	if err := j.Run(ctx); err != nil {
+	log.Infof("====================== %s Start ======================", excutor)
+	if err = j.Run(ctx); err != nil {
 		return err
 	}
 	return nil

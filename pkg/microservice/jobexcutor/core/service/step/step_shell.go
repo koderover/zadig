@@ -12,6 +12,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util"
+	"gopkg.in/yaml.v3"
 )
 
 type ShellStep struct {
@@ -22,11 +23,15 @@ type ShellStep struct {
 }
 
 func NewShellStep(spec interface{}, workspace string, envs, secretEnvs []string) (*ShellStep, error) {
-	specImpl, ok := (spec).(*step.StepShellSpec)
-	if !ok {
-		return nil, fmt.Errorf("convert %+v to shell spec failed", spec)
+	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+	yamlBytes, err := yaml.Marshal(spec)
+	if err != nil {
+		return shellStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
-	return &ShellStep{spec: specImpl, workspace: workspace, envs: envs, secretEnvs: secretEnvs}, nil
+	if err := yaml.Unmarshal(yamlBytes, &shellStep.spec); err != nil {
+		return shellStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
+	}
+	return shellStep, nil
 }
 
 func (s *ShellStep) Run(ctx context.Context) error {
