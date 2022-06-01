@@ -154,6 +154,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/check/sharenv/:op/ready", CheckShareEnvReady)
 
 		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
+
+		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
+		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
 	}
 
 	// ---------------------------------------------------------------------------------------
