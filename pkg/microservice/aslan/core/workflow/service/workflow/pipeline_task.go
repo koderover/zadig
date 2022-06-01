@@ -846,6 +846,9 @@ func EnsureTestingResp(mt *commonmodels.Testing) {
 	if len(mt.Repos) == 0 {
 		mt.Repos = make([]*types.Repository, 0)
 	}
+	for _, repo := range mt.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
 
 	if mt.PreTest != nil {
 		if len(mt.PreTest.Installs) == 0 {
