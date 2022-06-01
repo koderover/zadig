@@ -383,6 +383,7 @@ func (r *Reaper) Exec() error {
 	} else {
 		// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
 		log.Info("Executing SonarQube Scanning process.")
+		time.Sleep(61 * time.Minute)
 		startTimeRunSonar := time.Now()
 		if err := r.runSonarScanner(); err != nil {
 			return fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
