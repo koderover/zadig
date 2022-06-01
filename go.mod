@@ -23,7 +23,7 @@ require (
 	github.com/coocood/freecache v1.1.0
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/dexidp/dex v0.0.0-20210802203454-3fac2ab6bc3b
-	github.com/dgraph-io/badger/v3 v3.2103.2 // indirect
+	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v20.10.11+incompatible
 	github.com/docker/go-connections v0.4.0

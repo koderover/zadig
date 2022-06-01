@@ -218,12 +218,62 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		return err
 	}
 
+	if err = updateCvmService(build, existed); err != nil {
+		log.Warnf("failed to update cvm service,err:%s", err)
+	}
+
 	build.UpdateBy = username
 	build.UpdateTime = time.Now().Unix()
-
 	if err := commonrepo.NewBuildColl().Update(build); err != nil {
 		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
 		return e.ErrUpdateBuildModule.AddErr(err)
+	}
+
+	return nil
+}
+
+func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
+	deleteServices := sets.NewString()
+	currentServiceModuleKey := sets.NewString()
+	for _, currentServiceModule := range currentBuild.Targets {
+		currentServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", currentServiceModule.ProductName, currentServiceModule.ServiceName, currentServiceModule.ServiceModule))
+	}
+
+	for _, oldServiceModule := range oldBuild.Targets {
+		if !currentServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule)) {
+			deleteServices.Insert(oldServiceModule.ServiceName)
+		}
+	}
+
+	for _, serviceName := range deleteServices.List() {
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName:   serviceName,
+			Type:          setting.PMDeployType,
+			ProductName:   currentBuild.ProductName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		}
+
+		resp, err := commonrepo.NewServiceColl().Find(opt)
+		if err != nil {
+			continue
+		}
+
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, resp.ServiceName, resp.ProductName)
+		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		if err != nil {
+			return err
+		}
+		resp.Revision = rev
+
+		if err := commonrepo.NewServiceColl().Delete(resp.ServiceName, resp.Type, resp.ProductName, setting.ProductStatusDeleting, resp.Revision); err != nil {
+			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
+			return err
+		}
+		resp.BuildName = ""
+		if err := commonrepo.NewServiceColl().Create(resp); err != nil {
+			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
+			return err
+		}
 	}
 
 	return nil

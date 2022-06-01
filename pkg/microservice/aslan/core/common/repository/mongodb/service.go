@@ -572,9 +572,7 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		if opt.ServiceName != "" {
 			preMatch["service_name"] = opt.ServiceName
 		}
-		if opt.BuildName != "" {
-			preMatch["build_name"] = opt.BuildName
-		}
+
 		if opt.Source != "" {
 			preMatch["source"] = opt.Source
 		}
@@ -586,6 +584,9 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		}
 
 		// post options (anything that changes over revision should be added in post options)
+		if opt.BuildName != "" {
+			postMatch["build_name"] = opt.BuildName
+		}
 		if opt.Visibility != "" {
 			postMatch["visibility"] = opt.Visibility
 		}
@@ -611,6 +612,7 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 			}
 			postMatch["_id"] = bson.M{"$in": srs}
 		}
+
 	}
 
 	return c.listMaxRevisions(preMatch, postMatch)
@@ -681,6 +683,7 @@ func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Se
 				},
 				"service_id": bson.M{"$last": "$_id"},
 				"visibility": bson.M{"$last": "$visibility"},
+				"build_name": bson.M{"$last": "$build_name"},
 			},
 		},
 	}
