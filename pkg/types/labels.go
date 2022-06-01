@@ -25,3 +25,5 @@ var ZadigLabelKeyGlobalOwner = fmt.Sprintf("%s/owner", ZadigDomain)
 
 const IstioLabelKeyInjection = "istio-injection"
 const IstioLabelValueInjection = "enabled"
+
+var OriginSpec = fmt.Sprintf("%s/origin", ZadigDomain)
