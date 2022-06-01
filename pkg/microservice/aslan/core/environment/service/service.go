@@ -283,7 +283,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			)
 		}
 
-		renderSetFindOpt := &commonrepo.RenderSetFindOption{Name: env.Render.Name, Revision: env.Render.Revision}
+		renderSetFindOpt := &commonrepo.RenderSetFindOption{Name: env.Render.Name, Revision: service.Render.Revision}
 		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
 		if err != nil {
 			log.Errorf("find renderset[%s] error: %v", service.Render.Name, err)
