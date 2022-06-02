@@ -65,7 +65,7 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 		ch, err := systemconfig.New().GetCodeHost(id)
 		// The normal expiration time is 7200
 		if err == nil && (time.Now().Unix()-ch.UpdatedAt) >= 7000 {
-			token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.RefreshToken)
+			token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
 			if err == nil {
 				accessToken = token.AccessToken
 				ch.AccessToken = token.AccessToken
@@ -154,16 +154,16 @@ type AccessToken struct {
 	CreatedAt    int    `json:"created_at"`
 }
 
-func refreshAccessToken(address, clientID, refreshToken string) (*AccessToken, error) {
+func refreshAccessToken(address, clientID, clientSecret, refreshToken string) (*AccessToken, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(address),
 	)
 	url := "/oauth/token"
 	queryParams := make(map[string]string)
 	queryParams["grant_type"] = "refresh_token"
-	queryParams["code_verifier"] = "CODE_VERIFIER"
 	queryParams["refresh_token"] = refreshToken
 	queryParams["client_id"] = clientID
+	queryParams["client_secret"] = clientSecret
 
 	var accessToken *AccessToken
 	_, err := httpClient.Post(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&accessToken))
