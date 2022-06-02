@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexcutor/config"
-	"github.com/koderover/zadig/pkg/microservice/jobexcutor/core/service/meta"
-	"github.com/koderover/zadig/pkg/microservice/jobexcutor/core/service/step"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
 	"gopkg.in/yaml.v3"
 )
 

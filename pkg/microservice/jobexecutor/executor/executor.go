@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package excutor
+package executor
 
 import (
 	"context"
 	"time"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
-	job "github.com/koderover/zadig/pkg/microservice/jobexcutor/core/service"
+	job "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"

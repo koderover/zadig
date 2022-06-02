@@ -22,7 +22,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexcutor/excutor"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/executor"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 		stop()
 	}()
 
-	if err := excutor.Execute(ctx); err != nil {
+	if err := executor.Execute(ctx); err != nil {
 		log.Fatal(err)
 	}
 }

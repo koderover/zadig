@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexcutor/config"
-	"github.com/koderover/zadig/pkg/microservice/jobexcutor/core/service/meta"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
