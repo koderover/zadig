@@ -48,6 +48,7 @@ type CodeHost struct {
 	// the field determine whether the proxy is enabled
 	EnableProxy        bool           `json:"enable_proxy"`
 	UpdatedAt          int64          `json:"updated_at"`
+	Alias              string         `json:"alias,omitempty"`
 	AuthType           types.AuthType `json:"auth_type,omitempty"`
 	SSHKey             string         `json:"ssh_key,omitempty"`
 	PrivateAccessToken string         `json:"private_access_token,omitempty"`
