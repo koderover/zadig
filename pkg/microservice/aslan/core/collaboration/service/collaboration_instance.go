@@ -1334,7 +1334,7 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 	var findOpts []commonrepo.RenderSetFindOption
 	for _, product := range products {
 		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
-			Revision: product.Revision,
+			Revision: product.Render.Revision,
 			Name:     product.Namespace,
 		})
 	}
