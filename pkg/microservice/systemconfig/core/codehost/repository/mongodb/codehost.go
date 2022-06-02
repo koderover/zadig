@@ -172,7 +172,7 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 	}
 	if host.Type == setting.SourceFromGerrit {
 		modifyValue["access_token"] = host.AccessToken
-	} else if host.Type == setting.SourceFromGitee {
+	} else if host.Type == setting.SourceFromGitee || host.Type == setting.SourceFromGitlab {
 		modifyValue["access_token"] = host.AccessToken
 		modifyValue["refresh_token"] = host.RefreshToken
 		modifyValue["updated_at"] = host.UpdatedAt
