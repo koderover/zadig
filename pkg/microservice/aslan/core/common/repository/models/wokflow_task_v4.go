@@ -27,16 +27,13 @@ type WorkflowTask struct {
 	TaskID       int64              `bson:"task_id"                   json:"task_id"`
 	WorkflowName string             `bson:"workflow_name"             json:"workflow_name"`
 	Status       config.Status      `bson:"status"                    json:"status,omitempty"`
-	Description  string             `bson:"description,omitempty"     json:"description,omitempty"`
 	TaskCreator  string             `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskRevoker  string             `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
 	CreateTime   int64              `bson:"create_time"               json:"create_time,omitempty"`
 	StartTime    int64              `bson:"start_time"                json:"start_time,omitempty"`
 	EndTime      int64              `bson:"end_time"                  json:"end_time,omitempty"`
 	Stages       []*StageTask       `bson:"stages"                    json:"stages"`
-	ReqID        string             `bson:"req_id,omitempty"          json:"req_id,omitempty"`
-	DockerHost   string             `bson:"-"                         json:"docker_host,omitempty"`
-	TeamName     string             `bson:"team,omitempty"            json:"team,omitempty"`
+	ProjectName  string             `bson:"project_name,omitempty"    json:"project_name,omitempty"`
 	IsDeleted    bool               `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived   bool               `bson:"is_archived"               json:"is_archived"`
 	Error        string             `bson:"error,omitempty"           json:"error,omitempty"`
@@ -53,10 +50,9 @@ type StageTask struct {
 	StartTime int64         `bson:"start_time"    json:"start_time,omitempty"`
 	EndTime   int64         `bson:"end_time"      json:"end_time,omitempty"`
 	// default is custom defined by user.
-	StageType string      `bson:"type"           json:"type"`
-	Parallel  bool        `bson:"parallel"       json:"parallel"`
-	Spec      interface{} `bson:"spec"           json:"spec"`
-	Jobs      []*JobTask  `bson:"jobs"           json:"jobs"`
+	StageType string     `bson:"type"           json:"type"`
+	Parallel  bool       `bson:"parallel"       json:"parallel"`
+	Jobs      []*JobTask `bson:"jobs"           json:"jobs"`
 }
 
 type JobTask struct {
