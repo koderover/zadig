@@ -615,7 +615,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 				service.Containers = svcRev.Containers
 				service.Render = updateProd.Render
 
-				if svcRev.Type == setting.K8SDeployType {
+				if svcRev.Type == setting.K8SDeployType && util.InStringArray(service.ServiceName, serviceNames) {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
