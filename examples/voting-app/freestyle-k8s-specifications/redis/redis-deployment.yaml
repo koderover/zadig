@@ -23,6 +23,11 @@ spec:
         volumeMounts:
         - mountPath: /data
           name: redis-data
+        resources:
+        limits:
+          memory: 50Mi
+          cpu: 50m
       volumes:
       - name: redis-data
         emptyDir: {} 
+      

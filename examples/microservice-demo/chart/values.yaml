@@ -18,4 +18,9 @@ Frontend:
 domain: demo.domain.com
 port: 20219
 
+resources:
+  limits:
+    cpu: 50m
+    memory: 50Mi
+
 registrySecret: ""
