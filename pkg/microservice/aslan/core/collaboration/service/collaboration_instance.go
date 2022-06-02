@@ -1147,8 +1147,8 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			set, ok := productRenderSetMap[product.BaseName]
 			if !ok {
-				logger.Errorf("product:%s not exist", product.BaseName)
-				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
+				logger.Warnf("product:%s renderSet not exist", product.BaseName)
+				continue
 			}
 
 			product.Vars = set.KVs
@@ -1333,8 +1333,12 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 	}
 	var findOpts []commonrepo.RenderSetFindOption
 	for _, product := range products {
+		var revision int64
+		for _, productService := range product.GetServiceMap() {
+			revision = productService.Render.Revision
+		}
 		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
-			Revision: product.Render.Revision,
+			Revision: revision,
 			Name:     product.Namespace,
 		})
 	}
