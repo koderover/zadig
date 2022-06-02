@@ -63,11 +63,12 @@ func ensureDisableBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Produ
 	return commonrepo.NewProductColl().Update(baseEnv)
 }
 
-func ensureDeleteAssociatedEnvs(ctx context.Context, baseEnvName string) error {
+func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.Product) error {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:            baseProduct.ProductName,
 		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
 		ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
-		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseEnvName),
+		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseProduct.EnvName),
 	})
 	if err != nil {
 		return err
