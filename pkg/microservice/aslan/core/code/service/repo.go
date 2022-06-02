@@ -17,9 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -60,6 +62,13 @@ func (repo *GitRepoInfo) GetNamespace() string {
 	return repo.Namespace
 }
 
+func elapsed(what string) func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("%s took %v\n", what, time.Since(start))
+	}
+}
+
 // ListRepoInfos ...
 func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
 	var wg sync.WaitGroup
@@ -81,6 +90,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 		wg.Add(1)
 		go func(info *GitRepoInfo) {
 			defer func() {
+				elapsed("list pr time")
 				wg.Done()
 			}()
 			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
@@ -98,6 +108,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 		wg.Add(1)
 		go func(info *GitRepoInfo) {
 			defer func() {
+				elapsed("list branch time")
 				wg.Done()
 			}()
 			projectName := info.Repo
@@ -121,6 +132,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 		wg.Add(1)
 		go func(info *GitRepoInfo) {
 			defer func() {
+				elapsed("list tags time")
 				wg.Done()
 			}()
 			projectName := info.Repo
