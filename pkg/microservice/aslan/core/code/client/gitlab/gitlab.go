@@ -40,7 +40,7 @@ type Client struct {
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
 
-	client, err := gitlab.NewClient(c.Address, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
+	client, err := gitlab.NewClient(id, c.Address, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
 	if err != nil {
 		return nil, err
 	}
