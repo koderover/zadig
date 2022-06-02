@@ -1301,6 +1301,13 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 			if !ok && !serviceNeedUpdateOrCreate.Has(svr.ServiceName) {
 				continue
 			}
+
+			// existed service has nothing to update
+			if ok && !serviceNeedUpdateOrCreate.Has(svr.ServiceName) {
+				svcGroup = append(svcGroup, ps)
+				continue
+			}
+
 			svcGroup = append(svcGroup, svr)
 			if ps == nil {
 				continue
@@ -3538,6 +3545,12 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		currentChartInfo, okC := currentChartInfoMap[serviceName]
 		renderArg, okR := renderChartArgMap[serviceName]
 		if !okR && !okC {
+			continue
+		}
+
+		// no need to update service revision in renderset.services
+		if !okR {
+			newChartInfos = append(newChartInfos, currentChartInfo)
 			continue
 		}
 
