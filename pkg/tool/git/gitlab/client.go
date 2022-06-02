@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/xanzy/go-gitlab"
 
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -72,9 +73,13 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 				ch.UpdatedAt = int64(token.CreatedAt)
 
 				if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
-					fmt.Println(fmt.Sprintf("failed to updateCodeHost err:%s", err))
+					log.Errorf("failed to update codeHost err:%s", err)
 				}
+			} else {
+				log.Errorf("failed to refresh accessToken, err:%s", err)
 			}
+		} else if err != nil {
+			log.Errorf("failed to get codeHost id: %d, err:%s", id, err)
 		}
 	}
 
