@@ -1320,6 +1320,9 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return nil, err
 	}
+	if updateResp == nil || (updateResp.Update == nil && updateResp.New == nil && updateResp.UpdateInstance == nil && updateResp.Delete == nil) {
+		return nil, nil
+	}
 	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
 }
 
