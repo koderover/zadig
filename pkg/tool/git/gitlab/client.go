@@ -21,9 +21,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/xanzy/go-gitlab"
 
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -45,7 +48,7 @@ type Client struct {
 	*gitlab.Client
 }
 
-func NewClient(address, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
+func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
 	var client *http.Client
 	if enableProxy {
 		proxyURL, err := url.Parse(proxyAddr)
@@ -56,6 +59,28 @@ func NewClient(address, accessToken, proxyAddr string, enableProxy bool) (*Clien
 		client = &http.Client{Transport: transport}
 	} else {
 		client = http.DefaultClient
+	}
+
+	if accessToken != "" {
+		ch, err := systemconfig.New().GetCodeHost(id)
+		// The normal expiration time is 7200
+		if err == nil && (time.Now().Unix()-ch.UpdatedAt) >= 7000 {
+			token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
+			if err == nil {
+				accessToken = token.AccessToken
+				ch.AccessToken = token.AccessToken
+				ch.RefreshToken = token.RefreshToken
+				ch.UpdatedAt = int64(token.CreatedAt)
+
+				if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
+					log.Errorf("failed to update codeHost err:%s", err)
+				}
+			} else {
+				log.Errorf("failed to refresh accessToken, err:%s", err)
+			}
+		} else if err != nil {
+			log.Errorf("failed to get codeHost id: %d, err:%s", id, err)
+		}
 	}
 
 	cli, err := gitlab.NewOAuthClient(accessToken, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
@@ -118,4 +143,33 @@ func wrapError(res *gitlab.Response, err error) error {
 		return httpclient.NewGenericServerResponse(res.StatusCode, res.Request.Method, string(body))
 	}
 	return nil
+}
+
+type AccessToken struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	Scope        string `json:"scope"`
+	CreatedAt    int    `json:"created_at"`
+}
+
+func refreshAccessToken(address, clientID, clientSecret, refreshToken string) (*AccessToken, error) {
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(address),
+	)
+	url := "/oauth/token"
+	queryParams := make(map[string]string)
+	queryParams["grant_type"] = "refresh_token"
+	queryParams["refresh_token"] = refreshToken
+	queryParams["client_id"] = clientID
+	queryParams["client_secret"] = clientSecret
+
+	var accessToken *AccessToken
+	_, err := httpClient.Post(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&accessToken))
+	if err != nil {
+		return nil, err
+	}
+
+	return accessToken, nil
 }
