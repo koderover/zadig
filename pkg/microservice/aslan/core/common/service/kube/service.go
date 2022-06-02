@@ -825,7 +825,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
+          image: ekb-repo.tencentcloudcr.com/library/library-docker:stable-dind
           args:
             - --mtu=1376
           env:
