@@ -25,6 +25,8 @@ type Pod struct {
 	IP                string            `json:"ip"`
 	Labels            map[string]string `json:"labels"`
 	ContainerStatuses []Container       `json:"containers"`
+	NodeName          string            `json:"node_name"`
+	HostIP            string            `json:"host_ip"`
 }
 
 type Container struct {

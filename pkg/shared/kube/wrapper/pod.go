@@ -126,6 +126,8 @@ func (w *pod) Resource() *resource.Pod {
 		IP:                w.Status.PodIP,
 		Labels:            w.Labels,
 		ContainerStatuses: []resource.Container{},
+		NodeName:          w.Spec.NodeName,
+		HostIP:            w.Status.HostIP,
 	}
 	if len(w.OwnerReferences) > 0 {
 		p.Kind = w.OwnerReferences[0].Kind

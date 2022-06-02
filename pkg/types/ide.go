@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,16 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package types
 
-func GetBoolPointer(data bool) *bool {
-	return &data
+type WorkloadInfo struct {
+	PodName      string `json:"pod_name"`
+	PodNamespace string `json:"pod_namespace"`
 }
 
-func GetStrPointer(data string) *string {
-	return &data
+const IDEContainerNameDev = "dev"
+const IDEContainerNameSidecar = "sidecar"
+
+type StartDevmodeInfo struct {
+	DevImage string `json:"dev_image"`
 }
 
-func GetInt32Pointer(data int32) *int32 {
-	return &data
-}
+const IDESidecarImage = "ccr.ccs.tencentyun.com/koderover-rc/zgctl-sidecar:20220526172433-amd64"
+
+const DevmodeWorkDir = "/home/zadig/"

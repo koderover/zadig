@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func (c *Client) ListEnvironments(projectName string) ([]*Environment, error) {
@@ -119,4 +120,23 @@ func (c *Client) ListServicesStatusByEnvironment(envName, projectName string) ([
 	}
 
 	return res, nil
+}
+
+func (c *Client) PatchWorkload(projectName, envName, serviceName, devImage string) (*types.WorkloadInfo, error) {
+	res := &types.WorkloadInfo{}
+
+	body := types.StartDevmodeInfo{
+		DevImage: devImage,
+	}
+	url := fmt.Sprintf("/environment/environments/%s/services/%s/devmode/patch?projectName=%s", envName, serviceName, projectName)
+	_, err := c.Post(url, httpclient.SetBody(body), httpclient.SetResult(res))
+
+	return res, err
+}
+
+func (c *Client) RecoverWorkload(projectName, envName, serviceName string) error {
+	url := fmt.Sprintf("/environment/environments/%s/services/%s/devmode/recover?projectName=%s", envName, serviceName, projectName)
+	_, err := c.Post(url)
+
+	return err
 }
