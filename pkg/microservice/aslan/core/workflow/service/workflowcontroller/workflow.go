@@ -32,10 +32,10 @@ var approveChannelMap sync.Map
 var cancelChannelMap sync.Map
 
 type workflowCtl struct {
-	workflowTask  *commonmodels.WorkflowTask
-	globalContext *sync.Map
-	logger        *zap.SugaredLogger
-	ack           func()
+	workflowTask       *commonmodels.WorkflowTask
+	globalContextMutex sync.RWMutex
+	logger             *zap.SugaredLogger
+	ack                func()
 }
 
 func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) *workflowCtl {
@@ -60,6 +60,9 @@ func CancelWorkflowTask(workflowName string, id int64) error {
 }
 
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
+	if c.workflowTask.GlobalContext == nil {
+		c.workflowTask.GlobalContext = make(map[string]string)
+	}
 	c.workflowTask.Status = config.StatusRunning
 	c.workflowTask.StartTime = time.Now().Unix()
 	c.ack()
@@ -79,9 +82,13 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		DistDir:           fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
 		DockerMountDir:    fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewV4(), time.Now().Unix()),
 		ConfigMapMountDir: fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewV4(), time.Now().Unix()),
+		WorkflowArgs:      c.workflowTask.Args,
+		GlobalContextGet:  c.getGlobalContext,
+		GlobalContextSet:  c.setGlobalContext,
+		GlobalContextEach: c.globalContextEach,
 	}
 
-	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.globalContext, c.logger, c.ack)
+	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.logger, c.ack)
 	updateworkflowStatus(c.workflowTask)
 }
 
@@ -124,4 +131,27 @@ func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 
 func (c *workflowCtl) updateWorkflowTask() {
 	// TODO update workflow task
+}
+
+func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
+	c.globalContextMutex.RLock()
+	defer c.globalContextMutex.RUnlock()
+	v, existed := c.workflowTask.GlobalContext[key]
+	return v, existed
+}
+
+func (c *workflowCtl) setGlobalContext(key, value string) {
+	c.globalContextMutex.Lock()
+	defer c.globalContextMutex.Unlock()
+	c.workflowTask.GlobalContext[key] = value
+}
+
+func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
+	c.globalContextMutex.RLock()
+	defer c.globalContextMutex.RUnlock()
+	for k, v := range c.workflowTask.GlobalContext {
+		if !f(k, v) {
+			return
+		}
+	}
 }

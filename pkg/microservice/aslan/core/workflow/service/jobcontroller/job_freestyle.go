@@ -19,7 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"sync"
+	"strings"
 	"time"
 
 	zadigconfig "github.com/koderover/zadig/pkg/config"
@@ -34,22 +34,19 @@ import (
 )
 
 type FreestyleJobCtl struct {
-	job           *commonmodels.JobTask
-	workflowCtx   *commonmodels.WorkflowTaskCtx
-	jobContext    *sync.Map
-	globalContext *sync.Map
-	logger        *zap.SugaredLogger
-	kubeclient    crClient.Client
-	ack           func()
+	job         *commonmodels.JobTask
+	workflowCtx *commonmodels.WorkflowTaskCtx
+	logger      *zap.SugaredLogger
+	kubeclient  crClient.Client
+	ack         func()
 }
 
-func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, globalContext *sync.Map, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
+func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
 	return &FreestyleJobCtl{
-		job:           job,
-		workflowCtx:   workflowCtx,
-		globalContext: globalContext,
-		logger:        logger,
-		ack:           ack,
+		job:         job,
+		workflowCtx: workflowCtx,
+		logger:      logger,
+		ack:         ack,
 	}
 }
 
@@ -88,7 +85,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Properties.Namespace, IsCredential: false}
 	c.job.Properties.Args = append(c.job.Properties.Args, envNameVar)
 
-	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.job, c.workflowCtx, c.globalContext))
+	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.job, c.workflowCtx))
 	if err != nil {
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
 		c.logger.Error(msg)
@@ -195,4 +192,29 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	// }
 
 	// p.Task.LogFile = p.FileName
+}
+
+func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) *JobContext {
+	var envVars, secretEnvVars []string
+	for _, env := range job.Properties.Args {
+		if env.IsCredential {
+			secretEnvVars = append(secretEnvVars, strings.Join([]string{env.Key, env.Value}, "="))
+			continue
+		}
+		envVars = append(envVars, strings.Join([]string{env.Key, env.Value}, "="))
+	}
+
+	workflowCtx.GlobalContextEach(func(k, v string) bool {
+		envVars = append(envVars, strings.Join([]string{k, v}, "="))
+		return true
+	})
+
+	return &JobContext{
+		Name:         job.Name,
+		Envs:         envVars,
+		SecretEnvs:   secretEnvVars,
+		WorkflowName: workflowCtx.WorkflowName,
+		TaskID:       workflowCtx.TaskID,
+		Steps:        job.Steps,
+	}
 }

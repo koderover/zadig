@@ -31,7 +31,7 @@ type JobCtl interface {
 	Run(ctx context.Context)
 }
 
-func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
+func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
 	job.Status = config.StatusRunning
 	job.StartTime = time.Now().Unix()
 	// set default timeout
@@ -57,42 +57,40 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	case "deploy":
 		// TODO
 	default:
-		jobCtl = NewFreestyleJobCtl(job, workflowCtx, globalContext, ack, logger)
+		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
 	jobCtl.Run(ctx)
 }
 
-func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) {
-	jobPool := NewPool(ctx, jobs, workflowCtx, concurrency, globalContext, logger, ack)
+func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
+	jobPool := NewPool(ctx, jobs, workflowCtx, concurrency, logger, ack)
 	jobPool.Run()
 }
 
 // Pool is a worker group that runs a number of tasks at a
 // configured concurrency.
 type Pool struct {
-	Jobs          []*commonmodels.JobTask
-	workflowCtx   *commonmodels.WorkflowTaskCtx
-	concurrency   int
-	jobsChan      chan *commonmodels.JobTask
-	globalContext *sync.Map
-	logger        *zap.SugaredLogger
-	ack           func()
-	ctx           context.Context
-	wg            sync.WaitGroup
+	Jobs        []*commonmodels.JobTask
+	workflowCtx *commonmodels.WorkflowTaskCtx
+	concurrency int
+	jobsChan    chan *commonmodels.JobTask
+	logger      *zap.SugaredLogger
+	ack         func()
+	ctx         context.Context
+	wg          sync.WaitGroup
 }
 
 // NewPool initializes a new pool with the given tasks and
 // at the given concurrency.
-func NewPool(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, globalContext *sync.Map, logger *zap.SugaredLogger, ack func()) *Pool {
+func NewPool(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) *Pool {
 	return &Pool{
-		Jobs:          jobs,
-		concurrency:   concurrency,
-		workflowCtx:   workflowCtx,
-		jobsChan:      make(chan *commonmodels.JobTask),
-		globalContext: globalContext,
-		logger:        logger,
-		ack:           ack,
-		ctx:           ctx,
+		Jobs:        jobs,
+		concurrency: concurrency,
+		workflowCtx: workflowCtx,
+		jobsChan:    make(chan *commonmodels.JobTask),
+		logger:      logger,
+		ack:         ack,
+		ctx:         ctx,
 	}
 }
 
@@ -117,7 +115,7 @@ func (p *Pool) Run() {
 // The work loop for any single goroutine.
 func (p *Pool) work() {
 	for job := range p.jobsChan {
-		runJob(p.ctx, job, p.workflowCtx, p.globalContext, p.logger, p.ack)
+		runJob(p.ctx, job, p.workflowCtx, p.logger, p.ack)
 		p.wg.Done()
 	}
 }
