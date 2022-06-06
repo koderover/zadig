@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -41,4 +42,9 @@ func Age(unixTime int64) string {
 		return fmt.Sprintf("%dd", duration/(60*60*24))
 	}
 	return "0s"
+}
+
+func TimeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s took %s", name, elapsed)
 }

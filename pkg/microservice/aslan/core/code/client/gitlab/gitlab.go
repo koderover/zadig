@@ -17,6 +17,8 @@ limitations under the License.
 package gitlab
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	gogitlab "github.com/xanzy/go-gitlab"
@@ -25,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type Config struct {
@@ -87,6 +90,7 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 }
 
 func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
+	util.TimeTrack(time.Now(), "gitlab list prs")
 	prs, err := c.Client.ListOpenedProjectMergeRequests(opt.Namespace, opt.ProjectName, opt.TargeBr, opt.Key, &gitlab.ListOptions{
 		Page:        opt.Page,
 		PerPage:     opt.PerPage,

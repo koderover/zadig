@@ -18,9 +18,11 @@ package systemconfig
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 const (
@@ -65,6 +67,7 @@ func GetCodeHostInfo(opt *Option) (*CodeHost, error) {
 }
 
 func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
+	defer util.TimeTrack(time.Now(), "get codehost")
 	url := fmt.Sprintf("/codehosts/%d", id)
 
 	res := &CodeHost{}
