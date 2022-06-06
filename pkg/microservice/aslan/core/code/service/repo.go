@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -28,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type RepoInfoList struct {
@@ -62,9 +64,9 @@ func (repo *GitRepoInfo) GetNamespace() string {
 
 // ListRepoInfos ...
 func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
+	defer util.TimeTrack(time.Now(), "list rego infos")
 	var wg sync.WaitGroup
 	var errList *multierror.Error
-
 	for _, info := range infos {
 		ch, err := systemconfig.New().GetCodeHost(info.CodehostID)
 		if err != nil {

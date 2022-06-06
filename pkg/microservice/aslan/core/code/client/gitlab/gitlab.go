@@ -51,6 +51,7 @@ func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient,
 }
 
 func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
+	util.TimeTrack(time.Now(), "gitlab list branches")
 	bList, err := c.Client.ListBranches(opt.Namespace, opt.ProjectName, opt.Key, &gitlab.ListOptions{
 		Page:        opt.Page,
 		PerPage:     opt.PerPage,
@@ -71,6 +72,7 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 }
 
 func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
+	util.TimeTrack(time.Now(), "gitlab list tags")
 	tags, err := c.Client.ListTags(opt.Namespace, opt.ProjectName, &gitlab.ListOptions{
 		Page:        opt.Page,
 		PerPage:     opt.PerPage,

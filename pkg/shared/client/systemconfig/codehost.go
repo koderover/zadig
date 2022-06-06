@@ -67,7 +67,7 @@ func GetCodeHostInfo(opt *Option) (*CodeHost, error) {
 }
 
 func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
-	defer util.TimeTrack(time.Now(), "get codehost")
+	defer util.TimeTrack(time.Now(), "get codehost config")
 	url := fmt.Sprintf("/codehosts/%d", id)
 
 	res := &CodeHost{}

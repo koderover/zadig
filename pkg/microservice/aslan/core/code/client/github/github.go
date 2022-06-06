@@ -18,6 +18,7 @@ package github
 
 import (
 	"context"
+	"time"
 
 	github2 "github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/pkg/tool/git/github"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type Config struct {
@@ -50,6 +52,7 @@ func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient,
 }
 
 func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
+	defer util.TimeTrack(time.Now(), "github list branchs")
 	bList, err := c.Client.ListBranches(context.TODO(), opt.Namespace, opt.ProjectName, nil)
 	if err != nil {
 		return nil, err
@@ -65,6 +68,7 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 }
 
 func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
+	defer util.TimeTrack(time.Now(), "github list tags")
 	tags, err := c.Client.ListTags(context.TODO(), opt.Namespace, opt.ProjectName, nil)
 	if err != nil {
 		return nil, err
@@ -81,6 +85,7 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 }
 
 func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
+	defer util.TimeTrack(time.Now(), "github list prs")
 	prs, err := c.Client.ListPullRequests(context.TODO(), opt.Namespace, opt.ProjectName, &github2.PullRequestListOptions{
 		ListOptions: github2.ListOptions{PerPage: 100},
 	})
