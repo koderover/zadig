@@ -62,8 +62,9 @@ type SyncthingConfig struct {
 }
 
 type SyncthingScript struct {
-	ConfigDir string
-	DataDir   string
+	SyncthingBin string
+	ConfigDir    string
+	DataDir      string
 }
 
 func init() {
@@ -74,12 +75,13 @@ func NewZgCtl(cfg *ZgCtlConfig) ZgCtler {
 	aslanClient := aslan.NewExternal(cfg.ZadigHost, cfg.ZadigToken)
 	aslanClient.SetTimeout(3 * time.Minute)
 
-	log.Infof("home dir: %s", cfg.HomeDir)
+	syncthingBin := filepath.Join(cfg.HomeDir, "bin", "syncthing")
+	log.Infof("home dir: %s, syncthing bin: %s", cfg.HomeDir, syncthingBin)
 
 	return &zgctl{
 		aslanClient:  aslanClient,
 		homeDir:      cfg.HomeDir,
-		syncthingBin: filepath.Join(cfg.HomeDir, "bin", "syncthing"),
+		syncthingBin: syncthingBin,
 		db:           cfg.DB,
 	}
 }
@@ -89,13 +91,17 @@ func (z *zgctl) StartDevMode(ctx context.Context, projectName, envName, serviceN
 	log.Info("Begin to patch worload.")
 	workloadInfo, err := z.aslanClient.PatchWorkload(projectName, envName, serviceName, devImage)
 	if err != nil {
-		return fmt.Errorf("failed to patch service %q in env %q of project %q: %s", envName, serviceName, projectName, err)
+		errRet := fmt.Errorf("failed to patch service %q in env %q of project %q: %s", envName, serviceName, projectName, err)
+		log.Error(errRet)
+		return errRet
 	}
 
 	log.Infof("workload info: %#v", workloadInfo)
 	err = z.setZadig2K8sData(projectName, envName, serviceName, workloadInfo)
 	if err != nil {
-		return fmt.Errorf("failed to set workload info: %s", err)
+		errRet := fmt.Errorf("failed to set workload info: %s", err)
+		log.Error(errRet)
+		return errRet
 	}
 
 	// 2. Configure `Syncthing`.
@@ -105,7 +111,9 @@ func (z *zgctl) StartDevMode(ctx context.Context, projectName, envName, serviceN
 	configDir := z.generateServiceConfigDir(projectName, envName, serviceName)
 	err = z.configSyncthing(ctx, configDir, dataDir, localPort, remotePort)
 	if err != nil {
-		return fmt.Errorf("failed to config syncthing for service %q in env %q: %s", envName, serviceName, err)
+		errRet := fmt.Errorf("failed to config syncthing for service %q in env %q: %s", envName, serviceName, err)
+		log.Error(errRet)
+		return errRet
 	}
 
 	// 3. Execute port-forward to implement one-way network communication.
@@ -113,18 +121,29 @@ func (z *zgctl) StartDevMode(ctx context.Context, projectName, envName, serviceN
 
 	kubeconfigPath, err := z.getEnvKubeconfigData(projectName, envName)
 	if err != nil {
-		return fmt.Errorf("failed to find kubeconfig path of env %q in project %q: %s", envName, projectName, err)
+		errRet := fmt.Errorf("failed to find kubeconfig path of env %q in project %q: %s", envName, projectName, err)
+		log.Error(errRet)
+		return errRet
 	}
 	log.Infof("kubeconfig path for env %q in project %q: %s", envName, projectName, kubeconfigPath)
 
 	err = z.podPortForward(ctx, workloadInfo.PodNamespace, workloadInfo.PodName, kubeconfigPath, remotePort)
 	if err != nil {
-		return fmt.Errorf("failed to port-forward service %q in env %q: %s", envName, serviceName, err)
+		errRet := fmt.Errorf("failed to port-forward service %q in env %q: %s", envName, serviceName, err)
+		log.Error(errRet)
+		return errRet
 	}
 
 	// 4. Start `Syncthing`.
 	log.Info("Begin to start Syncthing.")
-	return z.startSyncthing(ctx, workloadInfo.PodNamespace, workloadInfo.PodName, configDir, dataDir, kubeconfigPath)
+	err = z.startSyncthing(ctx, workloadInfo.PodNamespace, workloadInfo.PodName, configDir, dataDir, kubeconfigPath)
+	if err != nil {
+		errRet := fmt.Errorf("failed to start syncthing: %s", err)
+		log.Error(errRet)
+		return errRet
+	}
+
+	return nil
 }
 
 func (z *zgctl) StopDevMode(ctx context.Context, projectName, envName, serviceName string) error {
@@ -135,7 +154,9 @@ func (z *zgctl) StopDevMode(ctx context.Context, projectName, envName, serviceNa
 
 	workloadInfo, err := z.getZadig2K8sData(projectName, envName, serviceName)
 	if err != nil {
-		return fmt.Errorf("failed to get find workload info for project %q, envName %q, serviceName %q: %s", projectName, envName, serviceName, err)
+		errRet := fmt.Errorf("failed to get find workload info for project %q, envName %q, serviceName %q: %s", projectName, envName, serviceName, err)
+		log.Error(errRet)
+		return errRet
 	}
 
 	err = z.stopSyncthing(ctx, configDir, workloadInfo)
@@ -145,7 +166,14 @@ func (z *zgctl) StopDevMode(ctx context.Context, projectName, envName, serviceNa
 
 	// 2. Recover workload.
 	log.Info("Begin to recover workload.")
-	return z.aslanClient.RecoverWorkload(projectName, envName, serviceName)
+	err = z.aslanClient.RecoverWorkload(projectName, envName, serviceName)
+	if err != nil {
+		errRet := fmt.Errorf("failed to recover workload: %s", err)
+		log.Error(errRet)
+		return errRet
+	}
+
+	return nil
 }
 
 func (z *zgctl) DevImages() []string {
@@ -286,8 +314,9 @@ func (z *zgctl) adjustSyncthingConfig(localDeviceID, remoteDeviceID, configDir, 
 	}
 
 	localScriptData := SyncthingScript{
-		ConfigDir: configDir,
-		DataDir:   dataDir,
+		SyncthingBin: filepath.Join(z.homeDir, "bin", "syncthing"),
+		ConfigDir:    configDir,
+		DataDir:      dataDir,
 	}
 
 	var localScriptBuffer bytes.Buffer
@@ -322,8 +351,9 @@ func (z *zgctl) adjustSyncthingConfig(localDeviceID, remoteDeviceID, configDir, 
 	}
 
 	remoteScriptData := SyncthingScript{
-		ConfigDir: filepath.Join(types.DevmodeWorkDir, "config"),
-		DataDir:   types.DevmodeWorkDir,
+		SyncthingBin: "syncthing",
+		ConfigDir:    filepath.Join(types.DevmodeWorkDir, "config"),
+		DataDir:      types.DevmodeWorkDir,
 	}
 
 	var remoteScriptBuffer bytes.Buffer
