@@ -85,7 +85,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Properties.Namespace, IsCredential: false}
 	c.job.Properties.Args = append(c.job.Properties.Args, envNameVar)
 
-	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.job, c.workflowCtx))
+	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.job, c.workflowCtx, c.logger))
 	if err != nil {
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
 		c.logger.Error(msg)
@@ -194,7 +194,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	// p.Task.LogFile = p.FileName
 }
 
-func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) *JobContext {
+func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
 	var envVars, secretEnvVars []string
 	for _, env := range job.Properties.Args {
 		if env.IsCredential {
@@ -204,8 +204,20 @@ func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 		envVars = append(envVars, strings.Join([]string{env.Key, env.Value}, "="))
 	}
 
+	// inject global context into step spec.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
-		envVars = append(envVars, strings.Join([]string{k, v}, "="))
+		for _, step := range job.Steps {
+			yamlString, err := yaml.Marshal(step.Spec)
+			if err != nil {
+				logger.Errorf("marshal step spec error: %v", err)
+				return false
+			}
+			replacedString := strings.ReplaceAll(string(yamlString), fmt.Sprintf("$(%s)", k), v)
+			if err := yaml.Unmarshal([]byte(replacedString), &step.Spec); err != nil {
+				logger.Errorf("unmarshal step spec error: %v", err)
+				return false
+			}
+		}
 		return true
 	})
 
