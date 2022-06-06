@@ -17,7 +17,6 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -37,19 +36,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&zadigToken, "zadig-token", "", "token to access zadig system")
 	rootCmd.PersistentFlags().StringVar(&homeDir, "home-dir", "$HOME/.zadig", "home dir of plugin")
 
-	logPath := filepath.Join(os.ExpandEnv(homeDir), "log")
-	if _, err := os.Stat(logPath); err == nil {
-		err := os.Remove(logPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to remove log %s: %s", logPath, err)
-			os.Exit(1)
-		}
-	}
-
 	log.Init(&log.Config{
 		Level:       config.LogLevel(),
 		SendToFile:  config.SendLogToFile(),
-		Filename:    logPath,
+		Filename:    filepath.Join(os.ExpandEnv(homeDir), "log"),
 		Development: config.Mode() != setting.ReleaseMode,
 		MaxSize:     5,
 	})
