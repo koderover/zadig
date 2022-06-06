@@ -68,11 +68,13 @@ func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes
 type JobLabel struct {
 	WorkflowName string
 	TaskID       int64
+	JobName      string
 	JobType      string
 }
 
 const (
 	jobLabelTaskKey  = "s-task"
+	jobLabelNameKey  = "s-name"
 	jobLabelSTypeKey = "s-type"
 )
 
@@ -90,6 +92,7 @@ func ensureDeleteJob(namespace string, jobLabel *JobLabel, kubeClient crClient.C
 func getJobLabels(jobLabel *JobLabel) map[string]string {
 	retMap := map[string]string{
 		jobLabelTaskKey:  fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.WorkflowName), jobLabel.TaskID),
+		jobLabelNameKey:  strings.Replace(jobLabel.JobName, "_", "-", -1),
 		jobLabelSTypeKey: strings.Replace(jobLabel.JobType, "_", "-", -1),
 	}
 	// no need to add labels with empty value to a job
@@ -132,6 +135,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		WorkflowName: workflowCtx.WorkflowName,
 		TaskID:       workflowCtx.TaskID,
 		JobType:      string(jobType),
+		JobName:      jobTask.Name,
 	})
 
 	// 引用集成到系统中的私有镜像仓库的访问权限
@@ -171,7 +175,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            labels["s-type"],
+							Name:            labels[jobLabelNameKey],
 							Image:           jobImage,
 							Env: []corev1.EnvVar{
 								{
@@ -424,7 +428,7 @@ func getJobOutput(namespace string, jobLabel *JobLabel, kubeClient crClient.Clie
 			return resp, nil
 		}
 		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.Name != ls["s-type"] {
+			if containerStatus.Name != ls[jobLabelNameKey] {
 				continue
 			}
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) != 0 {

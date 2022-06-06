@@ -35,6 +35,7 @@ import (
 
 type FreestyleJobCtl struct {
 	job         *commonmodels.JobTask
+	jobName     string
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
 	kubeclient  crClient.Client
@@ -47,6 +48,7 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 		workflowCtx: workflowCtx,
 		logger:      logger,
 		ack:         ack,
+		jobName:     fmt.Sprintf("%s-%s-%d", job.Name, job.JobType, workflowCtx.TaskID),
 	}
 }
 
@@ -98,6 +100,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		WorkflowName: c.workflowCtx.WorkflowName,
 		TaskID:       c.workflowCtx.TaskID,
 		JobType:      string(c.job.JobType),
+		JobName:      c.job.Name,
 	}
 	if err := ensureDeleteConfigMap(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
 		c.logger.Error(err)
@@ -107,7 +110,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	}
 
 	if err := createJobConfigMap(
-		c.job.Properties.Namespace, c.job.Name, jobLabel, string(jobCtxBytes), c.kubeclient); err != nil {
+		c.job.Properties.Namespace, c.jobName, jobLabel, string(jobCtxBytes), c.kubeclient); err != nil {
 		msg := fmt.Sprintf("createJobConfigMap error: %v", err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
@@ -115,14 +118,14 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		return
 	}
 
-	c.logger.Infof("succeed to create cm for job %s", c.job.Name)
+	c.logger.Infof("succeed to create cm for job %s", c.jobName)
 
 	// TODO: do not use default image
 	jobImage := "ccr.ccs.tencentyun.com/koderover-rc/job-excutor:guoyu-test2"
 	// jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
 	//Resource request default value is LOW
-	job, err := buildJob(c.job.JobType, jobImage, c.job.Name, c.job.Properties.ClusterID, c.job.Properties.Namespace, c.job.Properties.ResourceRequest, setting.DefaultRequestSpec, c.job, c.workflowCtx, nil)
+	job, err := buildJob(c.job.JobType, jobImage, c.jobName, c.job.Properties.ClusterID, c.job.Properties.Namespace, c.job.Properties.ResourceRequest, setting.DefaultRequestSpec, c.job, c.workflowCtx, nil)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
 		c.logger.Error(msg)
@@ -157,11 +160,11 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 		c.job.Error = msg
 		return
 	}
-	c.logger.Infof("succeed to create job %s", c.job.Name)
+	c.logger.Infof("succeed to create job %s", c.jobName)
 }
 
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, int(c.job.Properties.Timeout), c.job.Properties.Namespace, c.job.Name, c.kubeclient, c.logger)
+	status := waitJobEndWithFile(ctx, int(c.job.Properties.Timeout), c.job.Properties.Namespace, c.jobName, c.kubeclient, c.logger)
 	c.job.Status = status
 }
 
@@ -170,6 +173,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		WorkflowName: c.workflowCtx.WorkflowName,
 		TaskID:       c.workflowCtx.TaskID,
 		JobType:      string(c.job.JobType),
+		JobName:      c.job.Name,
 	}
 
 	// 清理用户取消和超时的任务
