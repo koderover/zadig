@@ -68,6 +68,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 	var wg sync.WaitGroup
 	var errList *multierror.Error
 	for _, info := range infos {
+		wg.Add(3)
 		ch, err := systemconfig.New().GetCodeHost(info.CodehostID)
 		if err != nil {
 			log.Errorf("get code host info err:%s", err)
@@ -80,11 +81,8 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 		if err != nil {
 			return nil, err
 		}
-		wg.Add(1)
 		go func(info *GitRepoInfo) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: info.Repo,
@@ -97,11 +95,8 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			}
 		}(info)
 
-		wg.Add(1)
 		go func(info *GitRepoInfo) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 			projectName := info.Repo
 			if info.Source == CodeHostCodeHub {
 				projectName = info.RepoUUID
@@ -120,11 +115,8 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 
 		}(info)
 
-		wg.Add(1)
 		go func(info *GitRepoInfo) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 			projectName := info.Repo
 			if info.Source == CodeHostCodeHub {
 				projectName = info.RepoID
