@@ -35,6 +35,11 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 	if err != nil {
 		return nil, err
 	}
+	allUserRoleBingdins, err := mongodb.NewRoleBindingColl().ListBy(projectName, "*")
+	if err != nil {
+		return nil, err
+	}
+	roleBindings = append(roleBindings, allUserRoleBingdins...)
 	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
 	if err != nil {
 		return nil, err
@@ -179,7 +184,7 @@ type GetUserRulesResp struct {
 }
 
 func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error) {
-	roleBindings, err := mongodb.NewRoleBindingColl().ListRoleBindingsByUIDs([]string{uid})
+	roleBindings, err := mongodb.NewRoleBindingColl().ListRoleBindingsByUIDs([]string{uid, "*"})
 	if err != nil {
 		log.Errorf("ListRoleBindingsByUIDs err:%s")
 		return &GetUserRulesResp{}, err
