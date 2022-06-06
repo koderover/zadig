@@ -18,6 +18,7 @@ package executor
 
 import (
 	"context"
+	"os"
 	"time"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
@@ -44,6 +45,8 @@ func Execute(ctx context.Context) error {
 		if err != nil {
 			resultMsg = types.JobFail
 			log.Errorf("Failed to run: %s.", err)
+			log.Infof("====================== %s End. Duration: %.2f seconds ======================", excutor, time.Since(start).Seconds())
+			os.Exit(1)
 		}
 		log.Infof("Job Status: %s", resultMsg)
 
@@ -55,9 +58,11 @@ func Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	log.Infof("====================== %s Start ======================", excutor)
 	if err = j.Run(ctx); err != nil {
+		return err
+	}
+	if err = j.AfterRun(ctx); err != nil {
 		return err
 	}
 	return nil

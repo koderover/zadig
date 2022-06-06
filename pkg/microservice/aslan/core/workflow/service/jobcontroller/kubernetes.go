@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"strconv"
@@ -42,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/types/job"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
@@ -185,7 +187,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 							VolumeMounts: getVolumeMounts(workflowCtx.ConfigMapMountDir),
 							Resources:    getResourceRequirements(resReq, resReqSpec),
 
-							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePath:   job.JobTerminationFile,
 						},
 					},
 					Volumes: getVolumes(jobName),
@@ -231,6 +234,10 @@ func getVolumeMounts(configMapMountDir string) []corev1.VolumeMount {
 		Name:      "job-config",
 		MountPath: configMapMountDir,
 	})
+	resp = append(resp, corev1.VolumeMount{
+		Name:      "zadig-context",
+		MountPath: "/zadig/",
+	})
 
 	return resp
 }
@@ -245,6 +252,12 @@ func getVolumes(jobName string) []corev1.Volume {
 					Name: jobName,
 				},
 			},
+		},
+	})
+	resp = append(resp, corev1.Volume{
+		Name: "zadig-context",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	})
 	return resp
@@ -395,4 +408,32 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 		time.Sleep(time.Second * 1)
 	}
+}
+
+func getJobOutput(namespace string, jobLabel *JobLabel, kubeClient crClient.Client) ([]*job.JobOutput, error) {
+	resp := []*job.JobOutput{}
+	ls := getJobLabels(jobLabel)
+	pods, err := getter.ListPods(namespace, labels.Set(ls).AsSelector(), kubeClient)
+	if err != nil {
+		return resp, err
+	}
+	for _, pod := range pods {
+		ipod := wrapper.Pod(pod)
+		// only collect succeeed job outputs.
+		if !ipod.Succeeded() {
+			return resp, nil
+		}
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.Name != ls["s-type"] {
+				continue
+			}
+			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) != 0 {
+				if err := json.Unmarshal([]byte(containerStatus.State.Terminated.Message), &resp); err != nil {
+					return resp, err
+				}
+				return resp, nil
+			}
+		}
+	}
+	return resp, nil
 }

@@ -18,15 +18,18 @@ package job
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
+	"github.com/koderover/zadig/pkg/types/job"
 	"gopkg.in/yaml.v3"
 )
 
@@ -36,6 +39,12 @@ type Job struct {
 	ActiveWorkspace string
 	UserEnvs        map[string]string
 }
+
+const (
+	// MaxContainerTerminationMessageLength is the upper bound any one container may write to
+	// its termination message path. Contents above this length will cause a failure.
+	MaxContainerTerminationMessageLength = 1024 * 4
+)
 
 func NewJob() (*Job, error) {
 	context, err := ioutil.ReadFile(config.JobConfigFile())
@@ -110,6 +119,46 @@ func (j *Job) getUserEnvs() []string {
 }
 
 func (j *Job) Run(ctx context.Context) error {
-	step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.Ctx.Envs, j.Ctx.SecretEnvs)
+	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
+		return err
+	}
+	if err := step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.Ctx.Envs, j.Ctx.SecretEnvs); err != nil {
+		return err
+	}
 	return nil
+}
+func (j *Job) AfterRun(ctx context.Context) error {
+	return j.collectJobResult(ctx)
+}
+
+func (j *Job) collectJobResult(ctx context.Context) error {
+	outputs := []*job.JobOutput{}
+	for _, outputName := range j.Ctx.Outputs {
+		fileContents, err := ioutil.ReadFile(filepath.Join(job.JobOutputDir, outputName))
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		outputs = append(outputs, &job.JobOutput{Name: outputName, Value: string(fileContents)})
+	}
+	jsonOutput, err := json.Marshal(outputs)
+	if err != nil {
+		return err
+	}
+
+	if len(jsonOutput) > MaxContainerTerminationMessageLength {
+		return fmt.Errorf("termination message is above max allowed size 4096, caused by large task result")
+	}
+
+	f, err := os.OpenFile(job.JobTerminationFile, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err = f.Write(jsonOutput); err != nil {
+		return err
+	}
+	return f.Sync()
 }

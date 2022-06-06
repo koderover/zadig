@@ -118,7 +118,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	c.logger.Infof("succeed to create cm for job %s", c.job.Name)
 
 	// TODO: do not use default image
-	jobImage := "ccr.ccs.tencentyun.com/koderover-rc/job-excutor:guoyu-test1"
+	jobImage := "ccr.ccs.tencentyun.com/koderover-rc/job-excutor:guoyu-test2"
 	// jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
 	//Resource request default value is LOW
@@ -184,6 +184,18 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		}
 	}()
 
+	// get job outputs info from pod terminate message.
+	outputs, err := getJobOutput(c.job.Properties.Namespace, jobLabel, c.kubeclient)
+	if err != nil {
+		c.logger.Error(err)
+		c.job.Error = err.Error()
+	}
+
+	// write jobs output info to globalcontext so other job can use like this $(jobName.outputName)
+	for _, output := range outputs {
+		c.workflowCtx.GlobalContextSet(strings.Join([]string{c.job.Name, output.Name}, "."), output.Value)
+	}
+
 	// err := saveContainerLog(pipelineTask, p.KubeNamespace, "", c.FileName, jobLabel, c.kubeclient)
 	// if err != nil {
 	// 	p.Log.Error(err)
@@ -220,6 +232,10 @@ func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 		}
 		return true
 	})
+	outputs := []string{}
+	for _, output := range job.Outputs {
+		outputs = append(outputs, output.Name)
+	}
 
 	return &JobContext{
 		Name:         job.Name,
@@ -227,6 +243,7 @@ func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 		SecretEnvs:   secretEnvVars,
 		WorkflowName: workflowCtx.WorkflowName,
 		TaskID:       workflowCtx.TaskID,
+		Outputs:      outputs,
 		Steps:        job.Steps,
 	}
 }
