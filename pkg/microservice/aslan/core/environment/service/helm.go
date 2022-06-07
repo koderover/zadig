@@ -24,8 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -34,6 +32,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -140,7 +139,7 @@ func getReleaseStatus(re *release.Release) ReleaseStatus {
 type ImageData struct {
 	ImageName string `json:"imageName"`
 	ImageTag  string `json:"imageTag"`
-	HasBuild  bool   `json:"hasBuild"`
+	Selected  bool   `json:"selected"`
 }
 
 type ServiceImages struct {
