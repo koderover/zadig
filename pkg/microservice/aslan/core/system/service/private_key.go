@@ -71,6 +71,10 @@ func ListPrivateKeys(encryptedKey, projectName, keyword string, log *zap.Sugared
 			}
 		}
 
+		if len(names.List()) == 0 {
+			return resp, nil
+		}
+
 		resp, err = commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Names: names.List()})
 		if err != nil {
 			log.Errorf("failed to list privateKey, error: %s", err)
