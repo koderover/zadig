@@ -149,18 +149,17 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 		}}
 	} else {
 		change = bson.M{"$set": bson.M{
-			"name":         args.Name,
-			"user_name":    args.UserName,
-			"ip":           args.IP,
-			"port":         args.Port,
-			"label":        args.Label,
-			"is_prod":      args.IsProd,
-			"private_key":  args.PrivateKey,
-			"provider":     args.Provider,
-			"probe":        args.Probe,
-			"project_name": args.ProjectName,
-			"update_by":    args.UpdateBy,
-			"update_time":  time.Now().Unix(),
+			"name":        args.Name,
+			"user_name":   args.UserName,
+			"ip":          args.IP,
+			"port":        args.Port,
+			"label":       args.Label,
+			"is_prod":     args.IsProd,
+			"private_key": args.PrivateKey,
+			"provider":    args.Provider,
+			"probe":       args.Probe,
+			"update_by":   args.UpdateBy,
+			"update_time": time.Now().Unix(),
 		}}
 	}
 
