@@ -145,28 +145,28 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) err
 	return nil
 }
 
-func UpdatePrivateKey(id, projectName string, args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
-	err := commonrepo.NewPrivateKeyColl().Update(id, args)
-	if err != nil {
-		log.Errorf("PrivateKey.Update %s error: %v", id, err)
-		return e.ErrUpdatePrivateKey
-	}
-
-	if projectName != "" {
+func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
+	if args.ProjectName != "" {
 		privateKey, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: id})
 		if err != nil {
 			return e.ErrDeletePrivateKey.AddDesc("privateKey does not exist")
 		}
 		if err = commonrepo.NewPrivateKeyProjectRelationColl().Delete(&commonrepo.PrivateKeyProjectRelationOption{
 			Name:        privateKey.Name,
-			ProjectName: projectName,
+			ProjectName: args.ProjectName,
 		}); err != nil {
 			log.Errorf("failed to delete privateKeyProjectRelation, error: %s", err)
 		}
 
-		if err := commonrepo.NewPrivateKeyProjectRelationColl().Create(&commonmodels.PrivateKeyProjectRelation{Name: args.Name, ProjectName: projectName, IP: args.IP}); err != nil {
+		if err := commonrepo.NewPrivateKeyProjectRelationColl().Create(&commonmodels.PrivateKeyProjectRelation{Name: args.Name, ProjectName: args.ProjectName, IP: args.IP}); err != nil {
 			log.Errorf("failed to create privateKeyProjectRelation, error: %s", err)
 		}
+	}
+
+	err := commonrepo.NewPrivateKeyColl().Update(id, args)
+	if err != nil {
+		log.Errorf("failed to update privateKey, error: %s", err)
+		return e.ErrUpdatePrivateKey
 	}
 
 	return nil

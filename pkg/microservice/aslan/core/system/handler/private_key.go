@@ -105,7 +105,7 @@ func UpdatePrivateKey(c *gin.Context) {
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.UpdatePrivateKey(c.Param("id"), c.Query("projectName"), args, ctx.Logger)
+	ctx.Err = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
 }
 
 func DeletePrivateKey(c *gin.Context) {
