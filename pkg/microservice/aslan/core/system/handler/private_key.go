@@ -48,7 +48,7 @@ func ListPrivateKeys(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {
@@ -105,7 +105,7 @@ func UpdatePrivateKey(c *gin.Context) {
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
+	ctx.Err = service.UpdatePrivateKey(c.Param("id"), c.Query("projectName"), args, ctx.Logger)
 }
 
 func DeletePrivateKey(c *gin.Context) {
@@ -113,7 +113,7 @@ func DeletePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
-	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
+	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, c.Query("projectName"), ctx.Logger)
 }
 
 func ListLabels(c *gin.Context) {

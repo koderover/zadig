@@ -38,6 +38,7 @@ type PrivateKey struct {
 	Provider     int8                 `bson:"provider"               json:"provider"`
 	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
 	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
+	ProjectName  string               `bson:"-"                      json:"project_name"`
 }
 
 func (PrivateKey) TableName() string {

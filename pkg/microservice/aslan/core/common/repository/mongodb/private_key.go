@@ -32,7 +32,8 @@ import (
 )
 
 type PrivateKeyArgs struct {
-	Name string
+	Name  string
+	Names []string
 }
 
 type PrivateKeyColl struct {
@@ -91,6 +92,11 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 	if args.Name != "" {
 		query["name"] = args.Name
 	}
+
+	if len(args.Names) > 0 {
+		query["name"] = bson.M{"$in": args.Names}
+	}
+
 	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
 
