@@ -96,7 +96,12 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) err
 		return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 	}
 
-	if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: args.Name}); len(privateKeys) > 0 {
+	privateKeyArgs := &commonrepo.PrivateKeyArgs{
+		Name:      args.Name,
+		IsOverall: true,
+	}
+
+	if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(privateKeyArgs); len(privateKeys) > 0 {
 		return e.ErrCreatePrivateKey.AddDesc("Name already exists")
 	}
 

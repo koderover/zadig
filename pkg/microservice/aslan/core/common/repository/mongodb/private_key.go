@@ -34,6 +34,7 @@ import (
 type PrivateKeyArgs struct {
 	Name        string
 	ProjectName string
+	IsOverall   bool
 }
 
 type PrivateKeyColl struct {
@@ -93,10 +94,12 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 		query["name"] = args.Name
 	}
 
-	if args.ProjectName == "" {
-		query["project_name"] = bson.M{"$exists": false}
-	} else {
-		query["project_name"] = args.ProjectName
+	if !args.IsOverall {
+		if args.ProjectName == "" {
+			query["project_name"] = bson.M{"$exists": false}
+		} else {
+			query["project_name"] = args.ProjectName
+		}
 	}
 
 	resp := make([]*models.PrivateKey, 0)
