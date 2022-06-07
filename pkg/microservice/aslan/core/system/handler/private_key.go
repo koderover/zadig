@@ -113,7 +113,7 @@ func DeletePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
-	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, c.Query("projectName"), ctx.Logger)
+	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
 }
 
 func ListLabels(c *gin.Context) {
@@ -150,5 +150,5 @@ func BatchCreatePrivateKey(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.BatchCreatePrivateKey(args.Data, args.Option, ctx.UserName, ctx.Logger)
+	ctx.Err = service.BatchCreatePrivateKey(args.Data, c.Query("projectName"), args.Option, ctx.UserName, ctx.Logger)
 }

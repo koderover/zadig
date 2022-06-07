@@ -32,8 +32,8 @@ import (
 )
 
 type PrivateKeyArgs struct {
-	Name  string
-	Names []string
+	Name        string
+	ProjectName string
 }
 
 type PrivateKeyColl struct {
@@ -88,13 +88,9 @@ func (c *PrivateKeyColl) Find(option FindPrivateKeyOption) (*models.PrivateKey, 
 }
 
 func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error) {
-	query := bson.M{}
+	query := bson.M{"project_name": args.ProjectName}
 	if args.Name != "" {
 		query["name"] = args.Name
-	}
-
-	if len(args.Names) > 0 {
-		query["name"] = bson.M{"$in": args.Names}
 	}
 
 	resp := make([]*models.PrivateKey, 0)
@@ -144,17 +140,18 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 		}}
 	} else {
 		change = bson.M{"$set": bson.M{
-			"name":        args.Name,
-			"user_name":   args.UserName,
-			"ip":          args.IP,
-			"port":        args.Port,
-			"label":       args.Label,
-			"is_prod":     args.IsProd,
-			"private_key": args.PrivateKey,
-			"provider":    args.Provider,
-			"probe":       args.Probe,
-			"update_by":   args.UpdateBy,
-			"update_time": time.Now().Unix(),
+			"name":         args.Name,
+			"user_name":    args.UserName,
+			"ip":           args.IP,
+			"port":         args.Port,
+			"label":        args.Label,
+			"is_prod":      args.IsProd,
+			"private_key":  args.PrivateKey,
+			"provider":     args.Provider,
+			"probe":        args.Probe,
+			"project_name": args.ProjectName,
+			"update_by":    args.UpdateBy,
+			"update_time":  time.Now().Unix(),
 		}}
 	}
 
@@ -171,6 +168,14 @@ func (c *PrivateKeyColl) Delete(id string) error {
 	query := bson.M{"_id": oid}
 
 	_, err = c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *PrivateKeyColl) BulkDelete(projectName string) error {
+	query := bson.M{}
+	query["project_name"] = projectName
+
+	_, err := c.DeleteMany(context.TODO(), query)
 	return err
 }
 
