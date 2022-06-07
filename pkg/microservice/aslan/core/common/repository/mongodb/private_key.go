@@ -88,9 +88,15 @@ func (c *PrivateKeyColl) Find(option FindPrivateKeyOption) (*models.PrivateKey, 
 }
 
 func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error) {
-	query := bson.M{"project_name": args.ProjectName}
+	query := bson.M{}
 	if args.Name != "" {
 		query["name"] = args.Name
+	}
+
+	if args.ProjectName == "" {
+		query["project_name"] = bson.M{"$exists": false}
+	} else {
+		query["project_name"] = args.ProjectName
 	}
 
 	resp := make([]*models.PrivateKey, 0)
