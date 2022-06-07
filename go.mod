@@ -104,13 +104,5 @@ replace (
 	github.com/docker/docker => github.com/docker/docker v0.0.0-20180502112750-51a9119f6b81
 	github.com/docker/go-connections => github.com/docker/go-connections v0.3.1-0.20180212134524-7beb39f0b969
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
-
-	//k8s.io/api => k8s.io/api v0.21.0
-	//k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.21.0
-	//k8s.io/apimachinery => k8s.io/apimachinery v0.21.0
-	//k8s.io/cli-runtime => k8s.io/cli-runtime v0.21.0
-	//k8s.io/client-go => k8s.io/client-go v0.21.0
 	k8s.io/klog/v2 => k8s.io/klog/v2 v2.9.0
-	//k8s.io/kubectl => k8s.io/kubectl v0.21.0
-	//oras.land/oras-go => oras.land/oras-go v0.4.0
 )
