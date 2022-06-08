@@ -569,7 +569,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	}
 	templateServices, err := commonrepo.NewServiceColl().ListServicesWithSRevision(listOpt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, er: %s", productName, envName, err)
+		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
 	}
 	return templateServices, err
 }
