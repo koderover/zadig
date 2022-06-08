@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,18 +21,22 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/jinzhu/copier"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/dto"
 )
 
 // GetWorkflowArgs find workflow args
@@ -132,7 +136,19 @@ func ListWorkflowTasksResult(c *gin.Context) {
 	if workflowType == string(config.TestType) {
 		workflowTypeString = config.TestType
 	}
-	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), workflowTypeString, maxResult, startAt, ctx.Logger)
+	filters := c.Query("filters")
+	filtersList := strings.Split(filters, ",")
+	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), workflowTypeString, c.Query("queryType"), filtersList, maxResult, startAt, ctx.Logger)
+}
+
+func GetFiltersPipeline(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if c.Query("workflowType") != string(config.WorkflowType) {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid workflowType")
+		return
+	}
+	ctx.Resp, ctx.Err = workflow.GetFiltersPipelineTaskV2(c.Query("projectName"), c.Param("name"), c.Query("queryType"), config.WorkflowType, ctx.Logger)
 }
 
 func GetWorkflowTask(c *gin.Context) {
@@ -149,13 +165,44 @@ func GetWorkflowTask(c *gin.Context) {
 	if workflowType == string(config.TestType) {
 		workflowTypeString = config.TestType
 	}
-	ctx.Resp, ctx.Err = workflow.GetPipelineTaskV2(taskID, c.Param("name"), workflowTypeString, ctx.Logger)
+	task, err := workflow.GetPipelineTaskV2(taskID, c.Param("name"), workflowTypeString, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	releases, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
+		TaskId:       int(task.TaskID),
+		ServiceName:  task.ServiceName,
+		ProjectName:  task.ProductName,
+		WorkflowName: task.PipelineName,
+	}, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	var toReleases []dto.Release
+	for _, v := range releases {
+		toReleases = append(toReleases, dto.Release{
+			ID:      v.VersionInfo.ID,
+			Version: v.VersionInfo.Version,
+		})
+	}
+	var toTask dto.Task
+	if err := copier.Copy(&toTask, task); err != nil {
+		ctx.Err = err
+		return
+	}
+	toTask.Releases = toReleases
+	ctx.Resp = toTask
+	ctx.Err = err
+	return
 }
 
 func RestartWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "重启", "工作流-task", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "工作流-task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -169,7 +216,7 @@ func RestartWorkflowTask(c *gin.Context) {
 func CancelWorkflowTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "取消", "工作流-task", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "取消", "工作流-task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -177,4 +224,17 @@ func CancelWorkflowTaskV2(c *gin.Context) {
 		return
 	}
 	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.WorkflowType, ctx.RequestID, ctx.Logger)
+}
+
+func GetWorkflowTaskCallback(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = commonservice.GetWorkflowTaskCallback(taskID, c.Param("name"))
 }

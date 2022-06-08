@@ -22,31 +22,45 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/config"
+	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
+	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
 // Context struct
 type Context struct {
-	Logger    *zap.SugaredLogger
-	Err       error
-	Resp      interface{}
-	UserName  string
-	UserID    string
-	RequestID string
+	Logger       *zap.SugaredLogger
+	Err          error
+	Resp         interface{}
+	Account      string
+	UserName     string
+	UserID       string
+	IdentityType string
+	RequestID    string
 }
 
 type jwtClaims struct {
-	Name string `json:"name"`
-	UID  string `json:"uid"`
+	Name            string          `json:"name"`
+	Email           string          `json:"email"`
+	UID             string          `json:"uid"`
+	Account         string          `json:"preferred_username"`
+	FederatedClaims FederatedClaims `json:"federated_claims"`
+	jwt.StandardClaims
 }
 
+type FederatedClaims struct {
+	ConnectorId string `json:"connector_id"`
+	UserId      string `json:"user_id"`
+}
+
+// TODO: We need to implement a `context.Context` that conforms to the golang standard library.
 func NewContext(c *gin.Context) *Context {
 	logger := ginzap.WithContext(c).Sugar()
 	var claims jwtClaims
@@ -58,13 +72,17 @@ func NewContext(c *gin.Context) *Context {
 		if err != nil {
 			logger.Warnf("Failed to get user from token, err: %s", err)
 		}
+	} else {
+		claims.Name = "system"
 	}
 
 	return &Context{
-		UserName:  claims.Name,
-		UserID:    claims.UID,
-		Logger:    ginzap.WithContext(c).Sugar(),
-		RequestID: c.GetString(setting.RequestID),
+		UserName:     claims.Name,
+		UserID:       claims.UID,
+		Account:      claims.Account,
+		IdentityType: claims.FederatedClaims.ConnectorId,
+		Logger:       ginzap.WithContext(c).Sugar(),
+		RequestID:    c.GetString(setting.RequestID),
 	}
 }
 
@@ -78,8 +96,12 @@ func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	if res == "" {
 		return nil, true
 	}
+	var resources []string
+	if err := json.Unmarshal([]byte(res), &resources); err != nil {
+		return nil, false
+	}
 
-	return strings.Split(res, ","), true
+	return resources, true
 }
 
 func getUserFromJWT(token string) (jwtClaims, error) {
@@ -118,11 +140,21 @@ func JSONResponse(c *gin.Context, ctx *Context) {
 
 // InsertOperationLog 插入操作日志
 func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, requestBody string, logger *zap.SugaredLogger) {
-	operationLogID, err := aslan.New(config.AslanServiceAddress()).AddAuditLog(username, productName, method, function, detail, requestBody, logger)
+	req := &systemmodels.OperationLog{
+		Username:    username,
+		ProductName: productName,
+		Method:      method,
+		Function:    function,
+		Name:        detail,
+		RequestBody: requestBody,
+		Status:      0,
+		CreatedAt:   time.Now().Unix(),
+	}
+	operationLogID, err := systemservice.InsertOperation(req, logger)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
-	c.Set("operationLogID", operationLogID)
+	c.Set("operationLogID", operationLogID.OperationLogID)
 }
 
 // responseHelper recursively finds all nil slice in the given interface,

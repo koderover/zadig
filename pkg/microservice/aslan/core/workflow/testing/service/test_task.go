@@ -57,7 +57,6 @@ func CreateTestTask(args *commonmodels.TestTaskArgs, log *zap.SugaredLogger) (*C
 		return nil, e.ErrGetCounter.AddDesc(err.Error())
 	}
 
-	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(0)
 
 	defaultS3Store, err := s3.FindDefaultS3()

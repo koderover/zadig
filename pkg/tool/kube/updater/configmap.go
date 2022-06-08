@@ -17,19 +17,40 @@ limitations under the License.
 package updater
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
-func DeleteConfigMaps(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &corev1.ConfigMap{}, cl)
+func DeleteConfigMaps(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	err := clientset.CoreV1().ConfigMaps(namespace).DeleteCollection(
+		context.TODO(),
+		metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		},
+		metav1.ListOptions{
+			LabelSelector: selector.String(),
+		},
+	)
+
+	return util.IgnoreNotFoundError(err)
 }
 
-func UpdateConfigMap(cm *corev1.ConfigMap, cl client.Client) error {
-	return updateObject(cm, cl)
+func UpdateConfigMap(namespace string, cm *corev1.ConfigMap, clientset *kubernetes.Clientset) error {
+	_, err := clientset.CoreV1().ConfigMaps(namespace).Update(
+		context.TODO(),
+		cm,
+		metav1.UpdateOptions{},
+	)
+	return err
 }
 
 func DeleteConfigMap(ns, name string, cl client.Client) error {
@@ -42,7 +63,7 @@ func DeleteConfigMap(ns, name string, cl client.Client) error {
 }
 
 func CreateConfigMap(cm *corev1.ConfigMap, cl client.Client) error {
-	return createObject(cm, cl)
+	return createObjectNeverAnnotation(cm, cl)
 }
 
 func DeleteConfigMapsAndWait(ns string, selector labels.Selector, cl client.Client) error {

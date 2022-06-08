@@ -42,3 +42,14 @@ func SplitManifests(content string) []string {
 
 	return res
 }
+
+// value may only contain underscores or underscores
+func ReturnValidLabelValue(value string) string {
+	value = strings.Replace(value, "-", "", -1)
+	value = strings.Replace(value, "_", "", -1)
+	if len(value) > 63 {
+		value = value[:63]
+	}
+
+	return value
+}

@@ -20,8 +20,39 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
 
+type Stage string
+
+const (
+	StageBuild  Stage = "build"
+	StageDeploy Stage = "deploy"
+	StageTest   Stage = "test"
+)
+
+type DeployStrategy string
+
+const (
+	DeployStrategySingle  DeployStrategy = "single"
+	DeployStrategyDynamic DeployStrategy = "dynamic"
+	DeployStrategyBase    DeployStrategy = "base"
+)
+
+type EnvRecyclePolicy string
+
+const (
+	EnvRecyclePolicySuccess EnvRecyclePolicy = "success"
+	EnvRecyclePolicyAlways  EnvRecyclePolicy = "always"
+	EnvRecyclePolicyNever   EnvRecyclePolicy = "never"
+)
+
+type TestRepoStrategy string
+
+const (
+	TestRepoStrategyDefault     TestRepoStrategy = "default"
+	TestRepoStrategyCurrentRepo TestRepoStrategy = "currentRepo"
+)
+
 type TriggerYaml struct {
-	Stages   []string         `yaml:"stages"`
+	Stages   []Stage          `yaml:"stages"`
 	Build    []*BuildServices `yaml:"build"`
 	Deploy   *Deploy          `yaml:"deploy"`
 	Test     []*Test          `yaml:"test"`
@@ -55,10 +86,10 @@ Strategy
 	And Need to set EnvRecyclePolicy：success/always/never
 */
 type Deploy struct {
-	Strategy         string   `yaml:"strategy"`
-	Envsname         []string `yaml:"envs_name"`
-	EnvRecyclePolicy string   `yaml:"env_recycle_policy"`
-	BaseNamespace    string   `yaml:"base_env"`
+	Strategy         DeployStrategy   `yaml:"strategy"`
+	Envsname         []string         `yaml:"envs_name"`
+	EnvRecyclePolicy EnvRecyclePolicy `yaml:"env_recycle_policy"`
+	BaseNamespace    string           `yaml:"base_env"`
 }
 
 type Test struct {
@@ -75,7 +106,7 @@ Strategy
 	Use current changed code information
 */
 type Repo struct {
-	Strategy string `yaml:"strategy"`
+	Strategy TestRepoStrategy `yaml:"strategy"`
 }
 
 type Rules struct {

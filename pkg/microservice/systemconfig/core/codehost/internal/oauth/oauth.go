@@ -17,10 +17,16 @@ limitations under the License.
 package oauth
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"golang.org/x/oauth2"
+
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type OAuth struct {
@@ -55,10 +61,30 @@ func (o *OAuth) LoginURL(state string) string {
 	return o.oauth2Config.AuthCodeURL(state)
 }
 
-func (o *OAuth) HandleCallback(r *http.Request) (*oauth2.Token, error) {
+func (o *OAuth) HandleCallback(r *http.Request, c *models.CodeHost) (*oauth2.Token, error) {
 	q := r.URL.Query()
 	if errType := q.Get("error"); errType != "" {
 		return nil, &OAuth2Error{errType, q.Get("error_description")}
 	}
-	return o.oauth2Config.Exchange(r.Context(), q.Get("code"))
+
+	httpClient := http.DefaultClient
+	// if set http proxy
+	proxies, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+	if err == nil && len(proxies) != 0 && proxies[0].EnableRepoProxy && c.EnableProxy {
+		log.Info("use proxy")
+		port := proxies[0].Port
+		ip := proxies[0].Address
+		proxyRawUrl := fmt.Sprintf("http://%s:%d", ip, port)
+		proxyUrl, err2 := url.Parse(proxyRawUrl)
+		if err2 == nil {
+			httpClient.Transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyUrl),
+			}
+		}
+
+	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
+	return o.oauth2Config.Exchange(ctx, q.Get("code"))
 }

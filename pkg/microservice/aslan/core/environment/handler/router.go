@@ -30,9 +30,29 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	configmaps := router.Group("configmaps")
 	{
-		configmaps.GET("", ListConfigMaps)
-		configmaps.PUT("", gin2.UpdateOperationLogStatus, UpdateConfigMap)
+		configmaps.GET("/:envName", ListConfigMaps)
 		configmaps.POST("", gin2.UpdateOperationLogStatus, RollBackConfigMap)
+		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
+	}
+
+	secrets := router.Group("secrets")
+	{
+		secrets.GET("/:envName", ListSecrets)
+	}
+	ingresses := router.Group("ingresses")
+	{
+		ingresses.GET("/:envName", ListIngresses)
+	}
+	pvcs := router.Group("pvcs")
+	{
+		pvcs.GET("/:envName", ListPvcs)
+	}
+	commonEnvCfgs := router.Group("envcfgs")
+	{
+		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.PUT("/:envName", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("/:envName", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -66,8 +86,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	image := router.Group("image")
 	{
-		image.POST("/deployment", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
-		image.POST("/statefulset", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
+		image.POST("/deployment/:envName", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
+		image.POST("/statefulset/:envName", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
 	}
 
 	// 查询环境创建时的服务和变量信息
@@ -83,14 +103,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/events", ListKubeEvents)
 
 		kube.POST("/pods", ListServicePods)
-		kube.DELETE("/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
+		kube.DELETE("/:env/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
 	}
 
 	// ---------------------------------------------------------------------------------------
-	// 产品管理接口(集成环境)
+	// 产品管理接口(环境)
 	// ---------------------------------------------------------------------------------------
 	environments := router.Group("environments")
 	{
@@ -103,14 +123,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/envRecycle", gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
+		environments.PUT("/:name/helm/default-values", gin2.UpdateOperationLogStatus, UpdateHelmProductDefaultValues)
+		environments.PUT("/:name/helm/charts", gin2.UpdateOperationLogStatus, UpdateHelmProductCharts)
+		environments.PUT("/:name/syncVariables", gin2.UpdateOperationLogStatus, SyncHelmProductRenderset)
 		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
 		environments.GET("/:name/productInfo", GetProductInfo)
 		environments.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteProduct)
+		environments.PUT("/:name/services", gin2.UpdateOperationLogStatus, DeleteProductServices)
 		environments.GET("/:name/groups", ListGroups)
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:name/helm/releases", ListReleases)
+		environments.GET("/:name/helm/values", GetChartValues)
 		environments.GET("/:name/helm/charts", GetChartInfos)
+		environments.GET("/:name/helm/images", GetImageInfos)
 
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", gin2.UpdateOperationLogStatus, UpdateService)
@@ -121,6 +147,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
 		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
+
+		environments.GET("/:name/check/workloads/k8services", CheckWorkloadsK8sServices)
+		environments.POST("/:name/share/enable", EnableBaseEnv)
+		environments.DELETE("/:name/share/enable", DisableBaseEnv)
+		environments.GET("/:name/check/sharenv/:op/ready", CheckShareEnvReady)
+
+		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
+
+		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
+		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
 	}
 
 	// ---------------------------------------------------------------------------------------

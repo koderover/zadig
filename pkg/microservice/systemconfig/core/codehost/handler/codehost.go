@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CreateCodeHost(c *gin.Context) {
@@ -41,7 +43,18 @@ func CreateCodeHost(c *gin.Context) {
 func ListCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.List(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Resp, ctx.Err = service.List(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+}
+
+func ListCodeHostInternal(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func DeleteCodeHost(c *gin.Context) {
@@ -65,7 +78,17 @@ func GetCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetCodeHost(id, ctx.Logger)
+
+	ignoreDelete := false
+	if len(c.Query("ignoreDelete")) > 0 {
+		ignoreDelete, err = strconv.ParseBool(c.Query("ignoreDelete"))
+		if err != nil {
+			ctx.Err = fmt.Errorf("failed to parse param ignoreDelete, err: %s", err)
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetCodeHost(id, ignoreDelete, ctx.Logger)
 }
 
 func AuthCodeHost(c *gin.Context) {

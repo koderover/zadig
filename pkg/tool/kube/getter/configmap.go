@@ -25,6 +25,12 @@ import (
 
 func ListConfigMaps(ns string, selector labels.Selector, cl client.Client) ([]*corev1.ConfigMap, error) {
 	l := &corev1.ConfigMapList{}
+	gvk := schema.GroupVersionKind{
+		Group:   "core",
+		Kind:    "ConfigMap",
+		Version: "v1",
+	}
+	l.SetGroupVersionKind(gvk)
 	err := ListResourceInCache(ns, selector, nil, l, cl)
 	if err != nil {
 		return nil, err
@@ -54,4 +60,22 @@ func ListConfigMapsYaml(ns string, selector labels.Selector, cl client.Client) (
 		Version: "v1",
 	}
 	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
+}
+
+func GetConfigMapYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "ConfigMap",
+		Version: "v1",
+	}
+	return GetResourceYamlInCache(ns, name, gvk, cl)
+}
+
+func GetConfigMapYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "ConfigMap",
+		Version: "v1",
+	}
+	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
 }

@@ -34,6 +34,9 @@ type BasicImage struct {
 	CreateTime int64              `bson:"create_time"            json:"create_time"`
 	UpdateTime int64              `bson:"update_time"            json:"update_time"`
 	UpdateBy   string             `bson:"update_by"              json:"update_by"`
+	// New field since 1.12
+	// ImageType is the type of the image, currently only one type is supported called sonar
+	ImageType string `bson:"image_type" json:"image_type"`
 }
 
 func (BasicImage) TableName() string {

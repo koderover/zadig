@@ -42,6 +42,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.POST("/services", CreateOrUpdateHelmService)
 		helm.POST("/services/bulk", CreateOrUpdateBulkHelmServices)
 		helm.PUT("/:productName", UpdateHelmService)
+		helm.PUT("/services/releaseNaming", HelmReleaseNaming)
 	}
 
 	k8s := router.Group("services")
@@ -52,8 +53,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.POST("", GetServiceTemplateProductName, gin2.UpdateOperationLogStatus, CreateServiceTemplate)
 		k8s.PUT("", gin2.UpdateOperationLogStatus, UpdateServiceTemplate)
 		k8s.PUT("/yaml/validator", YamlValidator)
+		k8s.PUT("/:name/yaml/view", YamlViewServiceTemplate)
 		k8s.DELETE("/:name/:type", gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
+		k8s.GET("/:name/environments/deployable", GetDeployableEnvs)
+		k8s.GET("/kube/workloads", GetKubeWorkloads)
+		k8s.POST("/yaml", LoadKubeWorkloadsYaml)
 	}
 
 	workload := router.Group("workloads")
@@ -70,9 +75,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	loader := router.Group("loader")
 	{
-		loader.GET("/preload/:codehostId/:branchName", PreloadServiceTemplate)
-		loader.POST("/load/:codehostId/:branchName", LoadServiceTemplate)
-		loader.GET("/validateUpdate/:codehostId/:branchName", ValidateServiceUpdate)
+		loader.GET("/preload/:codehostId", PreloadServiceTemplate)
+		loader.POST("/load/:codehostId", LoadServiceTemplate)
+		loader.GET("/validateUpdate/:codehostId", ValidateServiceUpdate)
 	}
 
 	pm := router.Group("pm")

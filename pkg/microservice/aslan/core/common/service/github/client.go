@@ -27,9 +27,15 @@ type Client struct {
 	// InstallationToken string
 }
 
-func NewClient(accessToken, proxyAddress string) *Client {
+func NewClient(accessToken, proxyAddress string, enableProxy bool) *Client {
+	cfg := &github.Config{
+		AccessToken: accessToken,
+	}
+	if enableProxy {
+		cfg.Proxy = proxyAddress
+	}
 	return &Client{
-		Client: github.NewClient(&github.Config{AccessToken: accessToken, Proxy: proxyAddress}),
+		Client: github.NewClient(cfg),
 	}
 }
 

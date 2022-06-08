@@ -119,6 +119,18 @@ func (c *K8SClusterColl) HasDuplicateName(id, name string) (bool, error) {
 	return count > 0, nil
 }
 
+func (c *K8SClusterColl) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *K8SClusterColl) List(opts *ClusterListOpts) ([]*models.K8SCluster, error) {
 	var clusters []*models.K8SCluster
 
@@ -198,6 +210,8 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id stri
 			"namespace":       cluster.Namespace,
 			"production":      cluster.Production,
 			"advanced_config": cluster.AdvancedConfig,
+			"cache":           cluster.Cache,
+			"dind_cfg":        cluster.DindCfg,
 		}},
 	)
 
@@ -211,6 +225,19 @@ func (c *K8SClusterColl) UpdateStatus(cluster *models.K8SCluster) error {
 		}},
 	)
 
+	return err
+}
+
+func (c *K8SClusterColl) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) error {
+	clusterID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(context.TODO(),
+		bson.M{"_id": clusterID}, bson.M{"$set": bson.M{
+			"update_hubagent_error_msg": updateHubagentErrorMsg,
+		}},
+	)
 	return err
 }
 

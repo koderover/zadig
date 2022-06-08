@@ -22,6 +22,8 @@ import (
 	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Task struct {
@@ -38,7 +40,7 @@ type Task struct {
 	StartTime    int64                    `bson:"start_time"                json:"start_time,omitempty"`
 	EndTime      int64                    `bson:"end_time"                  json:"end_time,omitempty"`
 	SubTasks     []map[string]interface{} `bson:"sub_tasks"                 json:"sub_tasks"`
-	Stages       []*Stage                 `bson:"stages"                    json:"stages"`
+	Stages       []*common.Stage          `bson:"stages"                    json:"stages"`
 	ReqID        string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
 	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
 	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`
@@ -47,40 +49,41 @@ type Task struct {
 	IsDeleted    bool                     `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived   bool                     `bson:"is_archived"               json:"is_archived"`
 	AgentID      string                   `bson:"agent_id"        json:"agent_id"`
-	// 是否允许同时运行多次
+	// is allowed to run multiple times
 	MultiRun bool `bson:"multi_run"                 json:"multi_run"`
-	// target 服务名称, k8s为容器名称, 物理机为服务名
+	// target is container name when k8s, service name when pm
 	Target string `bson:"target,omitempty"                    json:"target"`
-	// 使用预定义编译管理模块中的内容生成SubTasks,
-	// 查询条件为 服务模板名称: ServiceTmpl, 版本: BuildModuleVer
-	// 如果为空，则使用pipeline自定义SubTasks
+	// generate SubTasks with predefine build module,
+	// query filter param:  ServiceTmpl,  BuildModuleVer
+	// if nil，use pipeline self define SubTasks
 	BuildModuleVer string `bson:"build_module_ver,omitempty"                 json:"build_module_ver"`
 	ServiceName    string `bson:"service_name,omitempty"              json:"service_name,omitempty"`
-	// TaskArgs 单服务工作流任务参数
+	// TaskArgs single workflow args
 	TaskArgs *TaskArgs `bson:"task_args,omitempty"         json:"task_args,omitempty"`
-	// WorkflowArgs 多服务工作流任务参数
+	// WorkflowArgs multi workflow args
 	WorkflowArgs *WorkflowTaskArgs `bson:"workflow_args"         json:"workflow_args,omitempty"`
-	// TestArgs 测试任务参数
+	// TestArgs test workflow args
 	TestArgs *TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
-	// ServiceTaskArgs 脚本部署工作流任务参数
+	// ServiceTaskArgs sh deploy args
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
 	ArtifactPackageTaskArgs *ArtifactPackageTaskArgs `bson:"artifact_package_args,omitempty"         json:"artifact_package_args,omitempty"`
-	// ConfigPayload 系统配置信息
+	// ConfigPayload system config info
 	ConfigPayload *ConfigPayload      `json:"config_payload,omitempty"`
 	Error         string              `bson:"error,omitempty"                json:"error,omitempty"`
 	Services      [][]*ProductService `bson:"services"                  json:"services"`
 	Render        *RenderInfo         `bson:"render"                    json:"render"`
 	StorageURI    string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
-	TestReports     map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-	RwLock          sync.Mutex             `bson:"-" json:"-"`
-	ResetImage      bool                   `json:"resetImage" bson:"resetImage"`
-	TriggerBy       *TriggerBy             `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
-	Features        []string               `bson:"features" json:"features"`
-	IsRestart       bool                   `bson:"is_restart"                  json:"is_restart"`
-	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
-	ArtifactInfo    *ArtifactInfo          `bson:"artifact_info"               json:"artifact_info"`
+	TestReports      map[string]interface{}       `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
+	RwLock           sync.Mutex                   `bson:"-" json:"-"`
+	ResetImage       bool                         `bson:"resetImage"             json:"resetImage"`
+	ResetImagePolicy setting.ResetImagePolicyType `bson:"reset_image_policy"     json:"reset_image_policy"`
+	TriggerBy        *TriggerBy                   `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
+	Features         []string                     `bson:"features" json:"features"`
+	IsRestart        bool                         `bson:"is_restart"                  json:"is_restart"`
+	StorageEndpoint  string                       `bson:"storage_endpoint"            json:"storage_endpoint"`
+	ArtifactInfo     *ArtifactInfo                `bson:"artifact_info"               json:"artifact_info"`
 }
 
 type RenderInfo struct {
@@ -156,8 +159,9 @@ type WorkflowTaskArgs struct {
 	Source         string `bson:"source"           json:"source"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
+	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
-
+	Committer      string `bson:"committer,omitempty"        json:"committer,omitempty"`
 	//github check run
 	HookPayload *HookPayload `bson:"hook_payload"            json:"hook_payload,omitempty"`
 	// 请求模式，openAPI表示外部客户调用
@@ -176,6 +180,7 @@ type TestArgs struct {
 
 type ArtifactArgs struct {
 	Name         string      `bson:"name"                      json:"name"`
+	ImageName    string      `bson:"image_name,omitempty"      json:"image_name,omitempty"`
 	ServiceName  string      `bson:"service_name"              json:"service_name"`
 	Image        string      `bson:"image"                     json:"image"`
 	Deploy       []DeployEnv `bson:"deploy"                    json:"deploy"`
@@ -209,17 +214,18 @@ type HookPayload struct {
 }
 
 type TargetArgs struct {
-	Name             string            `bson:"name"                      json:"name"`
-	ServiceName      string            `bson:"service_name"              json:"service_name"`
-	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
-	Build            *BuildArgs        `bson:"build"                     json:"build"`
-	Version          string            `bson:"version"                   json:"version"`
-	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`
-	Image            string            `bson:"image"                     json:"image"`
-	BinFile          string            `bson:"bin_file"                  json:"bin_file"`
-	Envs             []*KeyVal         `bson:"envs"                      json:"envs"`
-	HasBuild         bool              `bson:"has_build"                 json:"has_build"`
-	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args"        json:"jenkins_build_args"`
+	Name             string            `bson:"name"                          json:"name"`
+	ImageName        string            `bson:"image_name"                    json:"image_name"`
+	ServiceName      string            `bson:"service_name"                  json:"service_name"`
+	ServiceType      string            `bson:"service_type,omitempty"        json:"service_type,omitempty"`
+	ProductName      string            `bson:"product_name"                  json:"product_name"`
+	Build            *BuildArgs        `bson:"build"                         json:"build"`
+	Deploy           []DeployEnv       `bson:"deploy"                        json:"deploy"`
+	Image            string            `bson:"image,omitempty"               json:"image,omitempty"`
+	BinFile          string            `bson:"bin_file"                      json:"bin_file"`
+	Envs             []*KeyVal         `bson:"envs"                          json:"envs"`
+	HasBuild         bool              `bson:"has_build"                     json:"has_build"`
+	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args,omitempty"  json:"jenkins_build_args,omitempty"`
 }
 
 type TestTaskArgs struct {
@@ -257,6 +263,7 @@ type ImageData struct {
 	ImageUrl   string `bson:"image_url"   json:"image_url"      yaml:"image_url"`
 	ImageName  string `bson:"image_name"  json:"image_name"     yaml:"image_name"`
 	ImageTag   string `bson:"image_tag"   json:"image_tag"      yaml:"image_tag"`
+	CustomTag  string `bson:"custom_tag"  json:"custom_tag"     yaml:"custom_tag"`
 	RegistryID string `bson:"registry_id" json:"registry_id"    yaml:"registry_id"`
 }
 
@@ -308,16 +315,6 @@ type TriggerBy struct {
 	MergeRequestID string `json:"merge_request_id,omitempty" bson:"merge_request_id,omitempty"`
 	// 触发此次任务的commit id
 	CommitID string `json:"commit_id,omitempty" bson:"commit_id,omitempty"`
-}
-
-type Stage struct {
-	// 注意: 同一个stage暂时不能运行不同类型的Task
-	TaskType    config.TaskType                   `bson:"type"               json:"type"`
-	Status      config.Status                     `bson:"status"             json:"status"`
-	RunParallel bool                              `bson:"run_parallel"       json:"run_parallel"`
-	Desc        string                            `bson:"desc,omitempty"     json:"desc,omitempty"`
-	SubTasks    map[string]map[string]interface{} `bson:"sub_tasks"          json:"sub_tasks"`
-	AfterAll    bool                              `json:"after_all" bson:"after_all"`
 }
 
 func (Task) TableName() string {

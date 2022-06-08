@@ -61,48 +61,50 @@ type gitlabMergeEventMatcher struct {
 func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gmem.event
 	// TODO: match codehost
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventPr) {
+	if !checkRepoNamespaceMatch(hookRepo, ev.ObjectAttributes.Target.PathWithNamespace) {
+		return false, nil
+	}
+	if !EventConfigured(hookRepo, config.HookEventPr) {
+		return false, nil
+	}
+	if gmem.isYaml {
+		refFlag := false
+		for _, ref := range gmem.trigger.Rules.Branchs {
+			if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.ObjectAttributes.TargetBranch)); matched {
+				refFlag = true
+				break
+			}
+		}
+		if !refFlag {
 			return false, nil
 		}
+	} else {
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
+			return false, nil
+		}
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
+				return false, nil
+			}
+		}
+	}
+	hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+	hookRepo.Committer = ev.User.Username
+	if ev.ObjectAttributes.State == "opened" {
+		var changedFiles []string
+		changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+		if err != nil {
+			gmem.log.Warnf("failed to get changes of event %v, err:%s", ev, err)
+			return false, err
+		}
+		gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
 		if gmem.isYaml {
-			refFlag := false
-			for _, ref := range gmem.trigger.Rules.Branchs {
-				if matched, _ := regexp.MatchString(ref, getBranchFromRef(hookRepo.Branch)); matched {
-					refFlag = true
-					break
-				}
-			}
-			if !refFlag {
-				return false, nil
-			}
-		} else {
-			isRegular := hookRepo.IsRegular
-			if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
-				return false, nil
-			}
-			if isRegular {
-				if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
-					return false, nil
-				}
-			}
+			serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, changedFiles)
+			gmem.yamlServiceChanged = serviceChangeds
+			return len(serviceChangeds) != 0, nil
 		}
-		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
-		if ev.ObjectAttributes.State == "opened" {
-			var changedFiles []string
-			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
-			if err != nil {
-				gmem.log.Warnf("failed to get changes of event %v, err:%s", ev, err)
-				return false, err
-			}
-			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
-			if gmem.isYaml {
-				serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
-				gmem.yamlServiceChanged = serviceChangeds
-				return len(serviceChangeds) != 0, nil
-			}
-			return MatchChanges(hookRepo, changedFiles), nil
-		}
+		return MatchChanges(hookRepo, changedFiles), nil
 	}
 	return false, nil
 }
@@ -129,11 +131,12 @@ func (gmem *gitlabMergeEventMatcher) UpdateTaskArgs(
 	}
 
 	args = factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         gmem.event.ObjectAttributes.IID,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            gmem.event.ObjectAttributes.IID,
 	})
 
 	return args
@@ -160,6 +163,14 @@ func createGitlabEventMatcher(
 			trigger:  trigger,
 			isYaml:   isyaml,
 		}
+	case *gitlab.TagEvent:
+		return &gitlabTagEventMatcher{
+			workflow: workflow,
+			log:      log,
+			event:    evt,
+			trigger:  trigger,
+			isYaml:   isyaml,
+		}
 	}
 
 	return nil
@@ -176,67 +187,66 @@ type gitlabPushEventMatcher struct {
 
 func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventPush) {
+	if !checkRepoNamespaceMatch(hookRepo, ev.Project.PathWithNamespace) {
+		return false, nil
+	}
+	if !EventConfigured(hookRepo, config.HookEventPush) {
+		return false, nil
+	}
+	if gpem.isYaml {
+		refFlag := false
+		for _, ref := range gpem.trigger.Rules.Branchs {
+			if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.Ref)); matched {
+				refFlag = true
+				break
+			}
+		}
+		if !refFlag {
 			return false, nil
 		}
-		if gpem.isYaml {
-			refFlag := false
-			for _, ref := range gpem.trigger.Rules.Branchs {
-				if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.Ref)); matched {
-					refFlag = true
-					break
-				}
-			}
-			if !refFlag {
+	} else {
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
 				return false, nil
 			}
-		} else {
-			isRegular := hookRepo.IsRegular
-			if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
-				return false, nil
-			}
-			if isRegular {
-				if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
-					return false, nil
-				}
-			}
 		}
-
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
-
-		var changedFiles []string
-		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
-		if err != nil {
-			gpem.log.Errorf("GetCodehostDetail error: %s", err)
-			return false, err
-		}
-
-		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
-		if err != nil {
-			gpem.log.Errorf("NewClient error: %s", err)
-			return false, err
-		}
-
-		// compare接口获取两个commit之间的最终的改动
-		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
-		if err != nil {
-			gpem.log.Errorf("Failed to get push event diffs, error: %s", err)
-			return false, err
-		}
-		for _, diff := range diffs {
-			changedFiles = append(changedFiles, diff.NewPath)
-			changedFiles = append(changedFiles, diff.OldPath)
-		}
-		if gpem.isYaml {
-			serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
-			gpem.yamlServiceChanged = serviceChangeds
-			return len(serviceChangeds) != 0, nil
-		}
-		return MatchChanges(hookRepo, changedFiles), nil
 	}
 
-	return false, nil
+	hookRepo.Branch = getBranchFromRef(ev.Ref)
+	hookRepo.Committer = ev.UserUsername
+	var changedFiles []string
+	detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
+	if err != nil {
+		gpem.log.Errorf("GetCodehostDetail error: %s", err)
+		return false, err
+	}
+
+	client, err := gitlabtool.NewClient(detail.ID, detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
+	if err != nil {
+		gpem.log.Errorf("NewClient error: %s", err)
+		return false, err
+	}
+
+	// compare接口获取两个commit之间的最终的改动
+	diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
+	if err != nil {
+		gpem.log.Errorf("Failed to get push event diffs, error: %s", err)
+		return false, err
+	}
+	for _, diff := range diffs {
+		changedFiles = append(changedFiles, diff.NewPath)
+		changedFiles = append(changedFiles, diff.OldPath)
+	}
+	if gpem.isYaml {
+		serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, changedFiles)
+		gpem.yamlServiceChanged = serviceChangeds
+		return len(serviceChangeds) != 0, nil
+	}
+	return MatchChanges(hookRepo, changedFiles), nil
 }
 
 func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
@@ -261,10 +271,85 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+	})
+
+	return args
+}
+
+type gitlabTagEventMatcher struct {
+	log                *zap.SugaredLogger
+	workflow           *commonmodels.Workflow
+	event              *gitlab.TagEvent
+	trigger            *TriggerYaml
+	isYaml             bool
+	yamlServiceChanged []BuildServices
+}
+
+func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
+	ev := gtem.event
+
+	if !checkRepoNamespaceMatch(hookRepo, ev.Project.PathWithNamespace) {
+		return false, nil
+	}
+
+	if !EventConfigured(hookRepo, config.HookEventTag) {
+		return false, nil
+	}
+	if gtem.isYaml {
+		refFlag := false
+		for _, ref := range gtem.trigger.Rules.Branchs {
+			if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
+				refFlag = true
+				break
+			}
+		}
+		if !refFlag {
+			return false, nil
+		}
+	} else {
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
+			return false, nil
+		}
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
+				return false, nil
+			}
+		}
+	}
+
+	hookRepo.Committer = ev.UserName
+	hookRepo.Tag = getTagFromRef(ev.Ref)
+
+	return true, nil
+}
+
+func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
+	if gtem.isYaml {
+		var targets []*commonmodels.TargetArgs
+		for _, target := range args.Target {
+			targets = append(targets, target)
+		}
+		args.Target = targets
+	}
+	factory := &workflowArgsFactory{
+		workflow: gtem.workflow,
+		reqID:    requestID,
+		IsYaml:   gtem.isYaml,
+	}
+
+	factory.Update(product, args, &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
 	})
 
 	return args
@@ -280,7 +365,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("GetCodeHost codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
-	cli, err := gitlabtool.NewClient(ch.Address, ch.AccessToken)
+	cli, err := gitlabtool.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	if err != nil {
 		return fmt.Errorf("gitlabtool.NewClient codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
@@ -305,26 +390,22 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("checkTriggerYamlParams yamlPath:%s err:%s", item.YamlPath, err)
 	}
-	deployed := false
-	for _, stage := range triggerYaml.Stages {
-		if stage == "deploy" {
-			deployed = true
-			break
-		}
-	}
+	deployed := existStage(StageDeploy, triggerYaml)
 	if svcType == setting.BasicFacilityCVM {
 		deployed = true
 	}
-	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
-	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
 	workFlowArgs.ProductTmplName = workflow.ProductTmplName
 	if triggerYaml.CacheSet != nil {
 		workFlowArgs.IgnoreCache = triggerYaml.CacheSet.IgnoreCache
 		workFlowArgs.ResetCache = triggerYaml.CacheSet.ResetCache
 	}
-	workFlowArgs.EnvRecyclePolicy = triggerYaml.Deploy.EnvRecyclePolicy
-	workFlowArgs.EnvUpdatePolicy = triggerYaml.Deploy.Strategy
+	if triggerYaml.Deploy != nil {
+		workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
+		workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
+		workFlowArgs.EnvRecyclePolicy = string(triggerYaml.Deploy.EnvRecyclePolicy)
+		workFlowArgs.EnvUpdatePolicy = string(triggerYaml.Deploy.Strategy)
+	}
 	item.MainRepo.Events = triggerYaml.Rules.Events
 	if triggerYaml.Rules.Strategy != nil {
 		item.AutoCancel = triggerYaml.Rules.Strategy.AutoCancel
@@ -352,10 +433,10 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			TestModuleName: test.Name,
 			Envs:           envs,
 		}
-		if test.Repo.Strategy == "currentRepo" {
+		if test.Repo.Strategy == TestRepoStrategyCurrentRepo {
 			for _, repo := range moduleTest.Repos {
 				if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
-					repo.Branch = item.MainRepo.Branch
+					repo.Branch = branref
 					repo.PR = prId
 				}
 			}
@@ -392,13 +473,15 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			}
 			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
 		}
-		for _, repo := range resp.Repos {
+
+		repos := commonservice.FindReposByTarget(targetElem.ProductName, targetElem.ServiceName, targetElem.Name, resp)
+		for _, repo := range repos {
 			if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
 				repo.Branch = branref
 				repo.PR = prId
 			}
 		}
-		targetElem.Build = &commonmodels.BuildArgs{Repos: resp.Repos}
+		targetElem.Build = &commonmodels.BuildArgs{Repos: repos}
 
 		targetElem.Deploy = make([]commonmodels.DeployEnv, 0)
 		if deployed {
@@ -453,21 +536,36 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			workFlowArgs := &commonmodels.WorkflowTaskArgs{}
 			var pushEvent *gitlab.PushEvent
 			var mergeEvent *gitlab.MergeEvent
+			var tagEvent *gitlab.TagEvent
 			prID := 0
 			branref := ""
 			switch evt := event.(type) {
 			case *gitlab.PushEvent:
 				pushEvent = evt
+				if !checkRepoNamespaceMatch(item.MainRepo, pushEvent.Project.PathWithNamespace) {
+					log.Debugf("event not matches repo: %v", item.MainRepo)
+					continue
+				}
 				branref = pushEvent.Ref
 			case *gitlab.MergeEvent:
 				mergeEvent = evt
+				if !checkRepoNamespaceMatch(item.MainRepo, mergeEvent.ObjectAttributes.Target.PathWithNamespace) {
+					log.Debugf("event not matches repo: %v", item.MainRepo)
+					continue
+				}
 				if mergeEvent.ObjectAttributes.Source.PathWithNamespace != mergeEvent.ObjectAttributes.Target.PathWithNamespace {
 					branref = mergeEvent.ObjectAttributes.TargetBranch
 				} else {
 					branref = mergeEvent.ObjectAttributes.SourceBranch
 				}
 				prID = evt.ObjectAttributes.IID
-				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
+			case *gitlab.TagEvent:
+				tagEvent = evt
+				if !checkRepoNamespaceMatch(item.MainRepo, tagEvent.Project.PathWithNamespace) {
+					log.Debugf("event not matches repo: %v", item.MainRepo)
+					continue
+				}
+				branref = tagEvent.Ref
 			}
 
 			if item.IsYaml {
@@ -532,11 +630,8 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				}
 				if notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
+						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, false, log,
 					)
-
-					// 初始化 gitlab diff_note
-					InitDiffNote(ev, item.MainRepo, log)
 				}
 			}
 
@@ -550,7 +645,9 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			args.Source = setting.SourceFromGitlab
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
+			args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 			args.RepoName = item.MainRepo.RepoName
+			args.Committer = item.MainRepo.Committer
 			// 3. create task with args
 			if item.WorkflowArgs.BaseNamespace == "" {
 				if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
@@ -570,6 +667,8 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				if err = CreateEnvAndTaskByPR(args, prID, requestID, log); err != nil {
 					log.Infof("CreateRandomEnv err:%v", err)
 				}
+			} else {
+				log.Warnf("It's not a PR event,BaseNamespace:%s", item.WorkflowArgs.BaseNamespace)
 			}
 		}
 	}
@@ -583,108 +682,13 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 
-	client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
+	client, err := gitlabtool.NewClient(detail.ID, detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
 	}
 
 	return client.ListChangedFiles(event)
-}
-
-// InitDiffNote 调用gitlab接口初始化DiffNote，并保存到数据库
-func InitDiffNote(ev *gitlab.MergeEvent, mainRepo *commonmodels.MainHookRepo, log *zap.SugaredLogger) error {
-	commitID := ev.ObjectAttributes.LastCommit.ID
-	body := "KodeRover CI 检查中..."
-
-	// 调用gitlab api获取相关数据
-	detail, err := systemconfig.New().GetCodeHost(mainRepo.CodehostID)
-	if err != nil {
-		log.Errorf("GetCodehostDetail failed, codehost:%d, err:%v", mainRepo.CodehostID, err)
-		return fmt.Errorf("failed to find codehost %d: %v", mainRepo.CodehostID, err)
-	}
-	cli, _ := gitlab.NewOAuthClient(detail.AccessToken, gitlab.WithBaseURL(detail.Address))
-
-	opt := &commonrepo.DiffNoteFindOpt{
-		CodehostID:     mainRepo.CodehostID,
-		ProjectID:      mainRepo.RepoOwner + "/" + mainRepo.RepoName,
-		MergeRequestID: ev.ObjectAttributes.IID,
-	}
-	dn, err := commonrepo.NewDiffNoteColl().Find(opt)
-	if err == nil {
-		// 该pr的DiffNote已经创建过，且是同一个commit，则不处理
-		if dn.CommitID == commitID {
-			return nil
-		}
-		// 不是同一个commit，则重置body和resolved
-		// 更新note body
-		noteBodyOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-			Body: &body,
-		}
-		_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(dn.Repo.ProjectID, dn.MergeRequestID, dn.DiscussionID, dn.NoteID, noteBodyOpt)
-		if err != nil {
-			log.Errorf("UpdateMergeRequestDiscussionNote failed, err:%v", err)
-			return err
-		}
-
-		// 更新resolved状态
-		resolved := false
-		resolveOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-			Resolved: &resolved,
-		}
-		_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(dn.Repo.ProjectID, dn.MergeRequestID, dn.DiscussionID, dn.NoteID, resolveOpt)
-		if err != nil {
-			log.Errorf("UpdateMergeRequestDiscussionNote failed, err:%v", err)
-			return err
-		}
-
-		// 更新到数据库
-		dn.Resolved = resolved
-		dn.Body = body
-		err = commonrepo.NewDiffNoteColl().Update(dn.ObjectID.Hex(), commitID, dn.Body, dn.Resolved)
-		if err != nil {
-			log.Errorf("UpdateDiscussionInfo failed, err:%v", err)
-			return err
-		}
-
-		return nil
-	}
-
-	// 不存在则创建
-	diffNote := &commonmodels.DiffNote{
-		Repo: &commonmodels.RepoInfo{
-			CodehostID: mainRepo.CodehostID,
-			Source:     "gitlab",
-			ProjectID:  mainRepo.RepoOwner + "/" + mainRepo.RepoName,
-			Address:    detail.Address,
-			OauthToken: detail.AccessToken,
-		},
-		MergeRequestID: ev.ObjectAttributes.IID,
-		CommitID:       commitID,
-		Body:           body,
-	}
-
-	createOpt := &gitlab.CreateMergeRequestDiscussionOptions{
-		Body: &diffNote.Body,
-	}
-
-	discussion, _, err := cli.Discussions.CreateMergeRequestDiscussion(diffNote.Repo.ProjectID, diffNote.MergeRequestID, createOpt)
-	if err != nil {
-		log.Errorf("CreateMergeRequestDiscussion failed, err:%v", err)
-		return err
-	}
-
-	diffNote.DiscussionID = discussion.ID
-	if len(discussion.Notes) > 0 {
-		diffNote.NoteID = discussion.Notes[0].ID
-	}
-	err = commonrepo.NewDiffNoteColl().Create(diffNote)
-	if err != nil {
-		log.Errorf("DiffNote.Create failed, err:%v", err)
-		return err
-	}
-
-	return nil
 }
 
 var mutex sync.Mutex
@@ -748,7 +752,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	}
 	//按照用户设置的环境回收策略进行环境回收
 	if workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyAlways || (workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyTaskStatus && taskStatus == string(config.StatusPassed)) {
-		err = commonservice.DeleteProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, requestID, log)
+		err = environmentservice.DeleteProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, requestID, true, log)
 		if err != nil {
 			log.Errorf("CreateEnvAndTaskByPR DeleteProduct err:%v ", err)
 			return err

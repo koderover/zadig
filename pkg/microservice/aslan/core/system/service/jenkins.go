@@ -25,7 +25,10 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type JenkinsArgs struct {
@@ -37,6 +40,7 @@ type JenkinsArgs struct {
 type JenkinsBuildArgs struct {
 	Name  string      `json:"name"`
 	Value interface{} `json:"value"`
+	Type  string      `json:"type"`
 }
 
 func CreateJenkinsIntegration(args *commonmodels.JenkinsIntegration, log *zap.SugaredLogger) error {
@@ -47,13 +51,29 @@ func CreateJenkinsIntegration(args *commonmodels.JenkinsIntegration, log *zap.Su
 	return nil
 }
 
-func ListJenkinsIntegration(log *zap.SugaredLogger) ([]*commonmodels.JenkinsIntegration, error) {
+func ListJenkinsIntegration(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.JenkinsIntegration, error) {
 	jenkinsIntegrations, err := commonrepo.NewJenkinsIntegrationColl().List()
 	if err != nil {
 		log.Errorf("ListJenkinsIntegration err:%v", err)
 		return []*commonmodels.JenkinsIntegration{}, e.ErrListJenkinsIntegration.AddErr(err)
 	}
 
+	if len(encryptedKey) == 0 {
+		return jenkinsIntegrations, nil
+	}
+
+	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("ListJenkinsIntegration GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
+	for _, integration := range jenkinsIntegrations {
+		integration.Password, err = crypto.AesEncryptByKey(integration.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("ListJenkinsIntegration AesEncryptByKey err:%v", err)
+			return nil, err
+		}
+	}
 	return jenkinsIntegrations, nil
 }
 
@@ -83,24 +103,22 @@ func TestJenkinsConnection(args *JenkinsArgs, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func getJenkinsClient(log *zap.SugaredLogger) (*gojenkins.Jenkins, context.Context, error) {
+func getJenkinsClient(id string, log *zap.SugaredLogger) (*gojenkins.Jenkins, context.Context, error) {
 	ctx := context.Background()
-	jenkinsIntegrations, err := ListJenkinsIntegration(log)
+	jenkinsIntegration, err := commonrepo.NewJenkinsIntegrationColl().Get(id)
 	if err != nil {
-		return nil, ctx, err
-	}
-	if len(jenkinsIntegrations) == 0 {
 		return nil, ctx, fmt.Errorf("未找到jenkins集成数据")
 	}
-	jenkinsClient, err := gojenkins.CreateJenkins(nil, jenkinsIntegrations[0].URL, jenkinsIntegrations[0].Username, jenkinsIntegrations[0].Password).Init(ctx)
+
+	jenkinsClient, err := gojenkins.CreateJenkins(nil, jenkinsIntegration.URL, jenkinsIntegration.Username, jenkinsIntegration.Password).Init(ctx)
 	if err != nil {
 		return nil, ctx, err
 	}
 	return jenkinsClient, ctx, nil
 }
 
-func ListJobNames(log *zap.SugaredLogger) ([]string, error) {
-	jenkinsClient, ctx, err := getJenkinsClient(log)
+func ListJobNames(id string, log *zap.SugaredLogger) ([]string, error) {
+	jenkinsClient, ctx, err := getJenkinsClient(id, log)
 	if err != nil {
 		return []string{}, e.ErrListJobNames.AddErr(err)
 	}
@@ -115,8 +133,8 @@ func ListJobNames(log *zap.SugaredLogger) ([]string, error) {
 	return jobNames, nil
 }
 
-func ListJobBuildArgs(jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildArgs, error) {
-	jenkinsClient, ctx, err := getJenkinsClient(log)
+func ListJobBuildArgs(id, jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildArgs, error) {
+	jenkinsClient, ctx, err := getJenkinsClient(id, log)
 	if err != nil {
 		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(err)
 	}
@@ -130,10 +148,17 @@ func ListJobBuildArgs(jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildAr
 	}
 	jenkinsBuildArgsResp := make([]*JenkinsBuildArgs, 0)
 	for _, paramDefinition := range paramDefinitions {
-		jenkinsBuildArgsResp = append(jenkinsBuildArgsResp, &JenkinsBuildArgs{
+		arg := &JenkinsBuildArgs{
 			Name:  paramDefinition.DefaultParameterValue.Name,
 			Value: paramDefinition.DefaultParameterValue.Value,
-		})
+			Type:  paramDefinition.Type,
+		}
+		if paramDefinition.Type == "ChoiceParameterDefinition" {
+			arg.Type = string(types.Choice)
+		} else {
+			arg.Type = string(types.Str)
+		}
+		jenkinsBuildArgsResp = append(jenkinsBuildArgsResp, arg)
 	}
 	return jenkinsBuildArgsResp, nil
 }

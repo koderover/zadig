@@ -45,7 +45,7 @@ func PreloadServiceTemplate(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 
 	path := c.Query("path")
 	isDir := c.Query("isDir") == "true"
@@ -74,7 +74,7 @@ func LoadServiceTemplate(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 
 	args := new(svcservice.LoadServiceReq)
 	if err := c.BindJSON(args); err != nil {
@@ -84,8 +84,11 @@ func LoadServiceTemplate(c *gin.Context) {
 
 	remoteName := c.Query("remoteName")
 	repoOwner := c.Query("repoOwner")
-
-	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, repoName, repoUUID, branchName, remoteName, args, ctx.Logger)
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		namespace = repoOwner
+	}
+	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, ctx.Logger)
 }
 
 // ValidateServiceUpdate ...
@@ -108,7 +111,7 @@ func ValidateServiceUpdate(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 
 	path := c.Query("path")
 	isDir := c.Query("isDir") == "true"

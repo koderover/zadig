@@ -244,7 +244,6 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 	}
 
 	return c.paths, nil
-
 }
 
 // The path contains shell variables, use linux's own ability to render

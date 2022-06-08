@@ -30,7 +30,10 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type BuildResp struct {
@@ -41,6 +44,12 @@ type BuildResp struct {
 	UpdateBy    string                              `json:"update_by"`
 	Pipelines   []string                            `json:"pipelines"`
 	ProductName string                              `json:"productName"`
+}
+
+type ServiceModuleAndBuildResp struct {
+	ServiceName   string       `json:"service_name"`
+	ServiceModule string       `json:"service_module"`
+	ModuleBuilds  []*BuildResp `json:"module_builds"`
 }
 
 func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.Build, error) {
@@ -108,8 +117,68 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	return resp, nil
 }
 
-func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
+func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, e.ErrListBuildModule.AddErr(err)
+	}
 
+	serviceModuleAndBuildResp := make([]*ServiceModuleAndBuildResp, 0)
+	for _, serviceTmpl := range services {
+		for _, container := range serviceTmpl.Containers {
+			opt := &commonrepo.BuildListOption{
+				ServiceName: serviceTmpl.ServiceName,
+				Targets:     []string{container.Name},
+			}
+			if serviceTmpl.Visibility != setting.PublicService {
+				opt.ProductName = productName
+			}
+
+			buildModules, err := commonrepo.NewBuildColl().List(opt)
+			if err != nil {
+				return nil, e.ErrListBuildModule.AddErr(err)
+			}
+			var resp []*BuildResp
+			for _, build := range buildModules {
+				resp = append(resp, &BuildResp{
+					ID:   build.ID.Hex(),
+					Name: build.Name,
+				})
+			}
+			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
+				ServiceName:   serviceTmpl.ServiceName,
+				ServiceModule: container.Name,
+				ModuleBuilds:  resp,
+			})
+		}
+	}
+	return serviceModuleAndBuildResp, nil
+}
+
+func fillBuildTargetData(build *commonmodels.Build) error {
+	if build.TemplateID == "" {
+		return nil
+	}
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		ID: build.TemplateID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find build template with id: %s, err: %s", build.TemplateID, err)
+	}
+	build.Targets = make([]*commonmodels.ServiceModuleTarget, 0, len(build.TargetRepos))
+	for _, target := range build.TargetRepos {
+		build.Targets = append(build.Targets, &commonmodels.ServiceModuleTarget{
+			ProductName:   target.Service.ProductName,
+			ServiceName:   target.Service.ServiceName,
+			ServiceModule: target.Service.ServiceModule,
+			Repos:         target.Repos,
+			Envs:          commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs, target.Envs),
+		})
+	}
+	return nil
+}
+
+func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
 	if len(build.Name) == 0 {
 		return e.ErrCreateBuildModule.AddDesc("empty name")
 	}
@@ -118,7 +187,10 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	}
 
 	build.UpdateBy = username
-	correctFields(build)
+	err := correctFields(build)
+	if err != nil {
+		return err
+	}
 
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
 		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
@@ -141,10 +213,17 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		commonservice.EnsureSecretEnvs(existed.PreBuild.Envs, build.PreBuild.Envs)
 	}
 
-	correctFields(build)
+	err = correctFields(build)
+	if err != nil {
+		return err
+	}
+
+	if err = updateCvmService(build, existed); err != nil {
+		log.Warnf("failed to update cvm service,err:%s", err)
+	}
+
 	build.UpdateBy = username
 	build.UpdateTime = time.Now().Unix()
-
 	if err := commonrepo.NewBuildColl().Update(build); err != nil {
 		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
 		return e.ErrUpdateBuildModule.AddErr(err)
@@ -153,8 +232,54 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	return nil
 }
 
-func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
+func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
+	deleteServices := sets.NewString()
+	currentServiceModuleKey := sets.NewString()
+	for _, currentServiceModule := range currentBuild.Targets {
+		currentServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", currentServiceModule.ProductName, currentServiceModule.ServiceName, currentServiceModule.ServiceModule))
+	}
 
+	for _, oldServiceModule := range oldBuild.Targets {
+		if !currentServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule)) {
+			deleteServices.Insert(oldServiceModule.ServiceName)
+		}
+	}
+
+	for _, serviceName := range deleteServices.List() {
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName:   serviceName,
+			Type:          setting.PMDeployType,
+			ProductName:   currentBuild.ProductName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		}
+
+		resp, err := commonrepo.NewServiceColl().Find(opt)
+		if err != nil {
+			continue
+		}
+
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, resp.ServiceName, resp.ProductName)
+		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		if err != nil {
+			return err
+		}
+		resp.Revision = rev
+
+		if err := commonrepo.NewServiceColl().Delete(resp.ServiceName, resp.Type, resp.ProductName, setting.ProductStatusDeleting, resp.Revision); err != nil {
+			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
+			return err
+		}
+		resp.BuildName = ""
+		if err := commonrepo.NewServiceColl().Create(resp); err != nil {
+			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
 	if len(name) == 0 {
 		return e.ErrDeleteBuildModule.AddDesc("empty name")
 	}
@@ -320,7 +445,11 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 	return nil
 }
 
-func correctFields(build *commonmodels.Build) {
+func correctFields(build *commonmodels.Build) error {
+	err := fillBuildTargetData(build)
+	if err != nil {
+		return err
+	}
 	// make sure cache has no empty field
 	caches := make([]string, 0)
 	for _, cache := range build.Caches {
@@ -335,6 +464,42 @@ func correctFields(build *commonmodels.Build) {
 	if build.PostBuild != nil && build.PostBuild.DockerBuild != nil {
 		build.PostBuild.DockerBuild.DockerFile = strings.Trim(build.PostBuild.DockerBuild.DockerFile, " ")
 		build.PostBuild.DockerBuild.WorkDir = strings.Trim(build.PostBuild.DockerBuild.WorkDir, " ")
+	}
+	if build.TemplateID == "" {
+		for _, repo := range build.Repos {
+			if repo.Source != setting.SourceFromOther {
+				continue
+			}
+			modifyAuthType(repo)
+		}
+		return nil
+	}
+
+	for _, target := range build.Targets {
+		for _, repo := range target.Repos {
+			if repo.Source != setting.SourceFromOther {
+				continue
+			}
+			modifyAuthType(repo)
+		}
+	}
+	return nil
+}
+
+func modifyAuthType(repo *types.Repository) {
+	repo.RepoOwner = strings.TrimPrefix(repo.RepoOwner, "/")
+	repo.RepoOwner = strings.TrimSuffix(repo.RepoOwner, "/")
+	repo.RepoName = strings.TrimPrefix(repo.RepoName, "/")
+	repo.RepoName = strings.TrimSuffix(repo.RepoName, "/")
+	codehosts, err := systemconfig.New().ListCodeHostsInternal()
+	if err != nil {
+		log.Errorf("failed to list codehost,err:%s", err)
+	}
+	for _, codehost := range codehosts {
+		if repo.CodehostID == codehost.ID {
+			repo.AuthType = codehost.AuthType
+			break
+		}
 	}
 }
 

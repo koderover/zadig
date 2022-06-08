@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/bndr/gojenkins"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/jenkinsplugin/config"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -194,5 +194,5 @@ func getBuild(ctx context.Context, buildID int64, jenkins *gojenkins.Jenkins, jo
 	if status == 200 {
 		return &build, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("fail to get build")
 }

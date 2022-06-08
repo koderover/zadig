@@ -58,7 +58,7 @@ func V130ToV131() error {
 		log.Errorf("Failed to get projects, err: %s", err)
 		return err
 	}
-	allEnvs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting})
+	allEnvs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}})
 	if err != nil {
 		log.Errorf("Failed to get envs, err: %s", err)
 		return err
@@ -157,7 +157,7 @@ func V131ToV130() error {
 		log.Errorf("Failed to get projects, err: %s", err)
 		return err
 	}
-	allEnvs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting})
+	allEnvs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}})
 	if err != nil {
 		log.Errorf("Failed to get envs, err: %s", err)
 		return err

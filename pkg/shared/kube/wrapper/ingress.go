@@ -18,6 +18,7 @@ package wrapper
 
 import (
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	v1 "k8s.io/api/networking/v1"
 
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/util"
@@ -41,6 +42,32 @@ func Ingress(ing *extensionsv1beta1.Ingress) *ingress {
 // Unwrap returns the extensionsv1beta1.Ingress object.
 func (ing *ingress) Unwrap() *extensionsv1beta1.Ingress {
 	return ing.Ingress
+}
+
+func GetIngressHostInfo(ing *v1.Ingress) []resource.HostInfo {
+	var res []resource.HostInfo
+	for _, rule := range ing.Spec.Rules {
+		info := resource.HostInfo{
+			Host:     rule.Host,
+			Backends: []resource.Backend{},
+		}
+
+		if rule.HTTP == nil {
+			continue
+		}
+
+		for _, path := range rule.HTTP.Paths {
+			backend := resource.Backend{
+				ServiceName: path.Backend.Service.Name,
+				ServicePort: string(path.Backend.Service.Port.Number),
+			}
+			info.Backends = append(info.Backends, backend)
+		}
+
+		res = append(res, info)
+	}
+
+	return res
 }
 
 func (ing *ingress) HostInfo() []resource.HostInfo {

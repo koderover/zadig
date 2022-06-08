@@ -17,11 +17,26 @@ limitations under the License.
 package updater
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	"context"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
-func DeletePersistentVolumes(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &corev1.PersistentVolume{}, cl)
+func DeletePersistentVolumes(selector labels.Selector, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	err := clientset.CoreV1().PersistentVolumes().DeleteCollection(
+		context.TODO(),
+		metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		},
+		metav1.ListOptions{
+			LabelSelector: selector.String(),
+		},
+	)
+
+	return util.IgnoreNotFoundError(err)
 }

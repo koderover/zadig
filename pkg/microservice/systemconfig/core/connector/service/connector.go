@@ -21,11 +21,14 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/orm"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
-func ListConnectors(logger *zap.SugaredLogger) ([]*Connector, error) {
+func ListConnectorsInternal(logger *zap.SugaredLogger) ([]*Connector, error) {
 	cs, err := orm.NewConnectorColl().List()
 	if err != nil {
 		logger.Errorf("Failed to list connectors, err: %s", err)
@@ -37,7 +40,7 @@ func ListConnectors(logger *zap.SugaredLogger) ([]*Connector, error) {
 		cf := make(map[string]interface{})
 		err = json.Unmarshal([]byte(c.Config), &cf)
 		if err != nil {
-			logger.Warnf("Failed to unmarshal config, err: %s", err)
+			logger.Errorf("Failed to unmarshal config, err: %s", err)
 			continue
 		}
 		res = append(res, &Connector{
@@ -47,6 +50,62 @@ func ListConnectors(logger *zap.SugaredLogger) ([]*Connector, error) {
 			ID:     c.ID,
 			Name:   c.Name,
 			Config: cf,
+		})
+	}
+
+	return res, nil
+}
+
+func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connector, error) {
+	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
+	if err != nil {
+		logger.Errorf("ListConnectors GetTextFromEncryptedKey, err: %s", err)
+		return nil, err
+	}
+	cs, err := orm.NewConnectorColl().List()
+	if err != nil {
+		logger.Errorf("Failed to list connectors, err: %s", err)
+		return nil, err
+	}
+	config, err := aslan.New(config.AslanServiceAddress()).GetDefaultLogin()
+	if err != nil {
+		logger.Errorf("Failed to list connectors, err: %s", err)
+		return nil, err
+	}
+	var res []*Connector
+	for _, c := range cs {
+		cf := make(map[string]interface{})
+		err = json.Unmarshal([]byte(c.Config), &cf)
+		if err != nil {
+			logger.Errorf("Failed to unmarshal config, err: %s", err)
+			continue
+		}
+		if pw, ok := cf["bindPW"]; ok {
+			cf["bindPW"], err = crypto.AesEncryptByKey(pw.(string), aesKey.PlainText)
+			if err != nil {
+				logger.Errorf("ListConnectors AesEncryptByKey, err: %s", err)
+				return nil, err
+			}
+		}
+		if clientSecret, ok := cf["clientSecret"]; ok {
+			cf["clientSecret"], err = crypto.AesEncryptByKey(clientSecret.(string), aesKey.PlainText)
+			if err != nil {
+				logger.Errorf("ListConnectors AesEncryptByKey, err: %s", err)
+				return nil, err
+			}
+		}
+		isDefault := false
+		if config.DefaultLogin == c.ID {
+			isDefault = true
+		}
+		res = append(res, &Connector{
+			ConnectorBase: ConnectorBase{
+				Type: ConnectorType(c.Type),
+			},
+			ID:        c.ID,
+			Name:      c.Name,
+			Config:    cf,
+			IsDefault: isDefault,
 		})
 	}
 

@@ -17,21 +17,27 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PrivateKey struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty"          json:"id,omitempty"`
-	Name       string             `bson:"name"                   json:"name"`
-	UserName   string             `bson:"user_name"              json:"user_name"`
-	IP         string             `bson:"ip"                     json:"ip"`
-	Label      string             `bson:"label"                  json:"label"`
-	IsProd     bool               `bson:"is_prod"                json:"is_prod"`
-	PrivateKey string             `bson:"private_key"            json:"private_key"`
-	CreateTime int64              `bson:"create_time"            json:"create_time"`
-	UpdateTime int64              `bson:"update_time"            json:"update_time"`
-	UpdateBy   string             `bson:"update_by"              json:"update_by"`
-	Provider   int8               `bson:"provider"               json:"provider"`
+	ID           primitive.ObjectID   `bson:"_id,omitempty"          json:"id,omitempty"`
+	Name         string               `bson:"name"                   json:"name"`
+	UserName     string               `bson:"user_name"              json:"user_name"`
+	IP           string               `bson:"ip"                     json:"ip"`
+	Port         int64                `bson:"port"                   json:"port"`
+	Status       setting.PMHostStatus `bson:"status"                 json:"status"`
+	Label        string               `bson:"label"                  json:"label"`
+	IsProd       bool                 `bson:"is_prod"                json:"is_prod"`
+	PrivateKey   string               `bson:"private_key"            json:"private_key"`
+	CreateTime   int64                `bson:"create_time"            json:"create_time"`
+	UpdateTime   int64                `bson:"update_time"            json:"update_time"`
+	UpdateBy     string               `bson:"update_by"              json:"update_by"`
+	Provider     int8                 `bson:"provider"               json:"provider"`
+	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
+	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
 }
 
 func (PrivateKey) TableName() string {

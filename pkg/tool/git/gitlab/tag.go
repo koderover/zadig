@@ -19,15 +19,19 @@ package gitlab
 import "github.com/xanzy/go-gitlab"
 
 // ListTags lists branches by projectID <- urlEncode(namespace/projectName)
-func (c *Client) ListTags(owner, repo string, opts *ListOptions) ([]*gitlab.Tag, error) {
+func (c *Client) ListTags(owner, repo string, opts *ListOptions, key string) ([]*gitlab.Tag, error) {
 	tags, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
-		ts, r, err := c.Tags.ListTags(generateProjectName(owner, repo), &gitlab.ListTagsOptions{ListOptions: *o})
+		ts, r, err := c.Tags.ListTags(generateProjectName(owner, repo), &gitlab.ListTagsOptions{ListOptions: *o, Search: &key})
 		var res []interface{}
 		for _, t := range ts {
 			res = append(res, t)
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		return nil, err
+	}
 
 	var res []*gitlab.Tag
 	ts, ok := tags.([]interface{})

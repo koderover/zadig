@@ -1,11 +1,7 @@
-#golang.Dockerfile
-
-RUN go build -v -o /policy ./cmd/policy/main.go
-
 #alpine.Dockerfile
 
 WORKDIR /app
 
-COPY --from=build /policy .
+ADD docker/dist/policy .
 
 ENTRYPOINT ["/app/policy"]

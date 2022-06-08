@@ -17,14 +17,13 @@ limitations under the License.
 package util
 
 import (
-	"fmt"
 	"strings"
 )
 
-func GeneHelmReleaseName(namespace, serviceName string) string {
-	return fmt.Sprintf("%s-%s", namespace, serviceName)
-}
-
-func ExtraServiceName(releaseName, namespace string) string {
-	return strings.TrimPrefix(releaseName, fmt.Sprintf("%s-", namespace))
+func GeneReleaseName(namingRule, projectName, namespace, envName, service string) string {
+	ret := strings.ReplaceAll(namingRule, "$Product$", projectName)
+	ret = strings.ReplaceAll(ret, "$Namespace$", namespace)
+	ret = strings.ReplaceAll(ret, "$EnvName$", envName)
+	ret = strings.ReplaceAll(ret, "$Service$", service)
+	return ret
 }

@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // ScheduleType 触发模式
@@ -277,6 +278,7 @@ type WorkflowTaskArgs struct {
 	Source         string `bson:"source"           json:"source"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
+	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
 
 	//github check run
@@ -286,31 +288,24 @@ type WorkflowTaskArgs struct {
 	IsParallel  bool   `json:"is_parallel" bson:"is_parallel"`
 }
 
-// TargetArgs ...
 type TargetArgs struct {
-	// 服务组件名称
-	Name string `bson:"name"                      json:"name"`
-	// 服务名称
-	ServiceName      string            `bson:"service_name"              json:"service_name"`
-	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
-	Build            *BuildArgs        `bson:"build"                     json:"build"`
-	Version          string            `bson:"version"                   json:"version"`
-	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`
-	Image            string            `bson:"image"                     json:"image"`
-	BinFile          string            `bson:"bin_file"                  json:"bin_file"`
-	Envs             []*KeyVal         `bson:"envs"                      json:"envs"`
-	HasBuild         bool              `bson:"has_build"                 json:"has_build"`
-	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args"        json:"jenkins_build_args"`
+	Name             string            `bson:"name"                          json:"name"`
+	ImageName        string            `bson:"image_name"                    json:"image_name"`
+	ServiceName      string            `bson:"service_name"                  json:"service_name"`
+	ServiceType      string            `bson:"service_type,omitempty"        json:"service_type,omitempty"`
+	ProductName      string            `bson:"product_name"                  json:"product_name"`
+	Build            *BuildArgs        `bson:"build"                         json:"build"`
+	Deploy           []DeployEnv       `bson:"deploy"                        json:"deploy"`
+	Image            string            `bson:"image,omitempty"               json:"image,omitempty"`
+	BinFile          string            `bson:"bin_file"                      json:"bin_file"`
+	Envs             []*KeyVal         `bson:"envs"                          json:"envs"`
+	HasBuild         bool              `bson:"has_build"                     json:"has_build"`
+	JenkinsBuildArgs *JenkinsBuildArgs `bson:"jenkins_build_args,omitempty"  json:"jenkins_build_args,omitempty"`
 }
 
 type JenkinsBuildArgs struct {
-	JobName            string               `bson:"job_name"            json:"job_name"`
-	JenkinsBuildParams []*JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
-}
-
-type JenkinsBuildParam struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
+	JobName            string                     `bson:"job_name"            json:"job_name"`
+	JenkinsBuildParams []*types.JenkinsBuildParam `bson:"jenkins_build_param" json:"jenkins_build_params"`
 }
 
 type BuildArgs struct {
@@ -319,6 +314,7 @@ type BuildArgs struct {
 
 type ArtifactArgs struct {
 	Name        string      `bson:"name"                      json:"name"`
+	ImageName   string      `bson:"image_name,omitempty"      json:"image_name,omitempty"`
 	ServiceName string      `bson:"service_name"              json:"service_name"`
 	Image       string      `bson:"image"                     json:"image"`
 	Deploy      []DeployEnv `bson:"deloy"                     json:"deploy"`

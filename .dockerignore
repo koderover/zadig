@@ -5,3 +5,4 @@
 !/go.sum
 !/resource-server-nginx.conf
 !/version
+!/docker

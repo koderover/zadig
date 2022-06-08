@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
@@ -82,11 +83,16 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 
 			if typeString == config.WorkflowType {
 				_ = scmNotifyService.UpdateWebhookComment(t, log)
-				_ = scmNotifyService.UpdateDiffNote(t, log)
 			} else if typeString == config.TestType {
 				_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 			} else if typeString == config.SingleType {
 				_ = scmNotifyService.UpdatePipelineWebhookComment(t, log)
+			} else if typeString == config.ScanningType {
+				err = scmNotifyService.UpdateWebhookCommentForScanning(t, log)
+				// this logic will not affect the result of cancellation, so we only print the error in logs.
+				if err != nil {
+					log.Errorf("Failed to update webhook comment for scanning in upon cancel, the error is: %s", err)
+				}
 			}
 
 			return nil
@@ -130,11 +136,16 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 
 	if typeString == config.WorkflowType {
 		_ = scmNotifyService.UpdateWebhookComment(t, log)
-		_ = scmNotifyService.UpdateDiffNote(t, log)
 	} else if typeString == config.TestType {
 		_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 	} else if typeString == config.SingleType {
 		_ = scmNotifyService.UpdatePipelineWebhookComment(t, log)
+	} else if typeString == config.ScanningType {
+		err = scmNotifyService.UpdateWebhookCommentForScanning(t, log)
+		// this logic will not affect the result of cancellation, so we only print the error in logs.
+		if err != nil {
+			log.Errorf("Failed to update webhook comment for scanning in upon cancel, the error is: %s", err)
+		}
 	}
 
 	return nil
@@ -170,4 +181,11 @@ func covertTaskToQueue(t *task.Task) *models.Queue {
 		Type:         t.Type,
 		CreateTime:   t.CreateTime,
 	}
+}
+
+func GetWorkflowTaskCallback(taskID int64, pipelineName string) (*commonmodels.CallbackRequest, error) {
+	return mongodb.NewCallbackRequestColl().Find(&mongodb.CallbackFindOption{
+		TaskID:       taskID,
+		PipelineName: pipelineName,
+	})
 }

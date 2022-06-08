@@ -17,14 +17,15 @@ limitations under the License.
 package executor
 
 import (
+	"fmt"
+	"io/ioutil"
 	"time"
-
-	"github.com/hashicorp/go-multierror"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/reaper"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func Execute() error {
@@ -36,34 +37,54 @@ func Execute() error {
 	})
 
 	start := time.Now()
-	log.Info("build start")
 
-	r, err := reaper.NewReaper()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	var err error
+	var reaperType types.ReaperType
 	defer func() {
-		// when dog is feed, the following log has been printed
-		if !r.DogFeed() {
-			log.Infof("build end. duration: %.2f seconds", time.Since(start).Seconds())
+		// Create dog food file to tell wd that task has finished.
+		resultMsg := types.JobSuccess
+		if err != nil {
+			resultMsg = types.JobFail
+			log.Errorf("Failed to run: %s.", err)
 		}
+		log.Infof("Job Status: %s", resultMsg)
+
+		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
+		if dogFoodErr != nil {
+			log.Errorf("Failed to create dog food: %s.", dogFoodErr)
+		}
+
+		log.Infof("====================== %s End. Duration: %.2f seconds ======================", reaperType, time.Since(start).Seconds())
+
+		// Note: Mark the task has been completed through the dogfood file, indirectly notify wd to do follow-up
+		//       operations, and wait for a fixed time.
+		//       Since `wd` will automatically delete the job after detecting the dogfile, this time has little
+		//       effect on the overall construction time.
+		time.Sleep(30 * time.Second)
 	}()
 
-	var errs *multierror.Error
+	var r *reaper.Reaper
+	r, err = reaper.NewReaper()
+	if err != nil {
+		return fmt.Errorf("failed to new reaper: %s", err)
+	}
+
+	reaperType = r.Type
+	log.Infof("====================== %s Start ======================", reaperType)
+
 	if err = r.BeforeExec(); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to prepare before building: %s", err)
 	}
 
 	if r.Ctx.ArtifactInfo == nil {
 		if err = r.Exec(); err != nil {
-			errs = multierror.Append(errs, err)
+			return fmt.Errorf("failed to build: %s", err)
 		}
 	}
 
-	if err = r.AfterExec(err); err != nil {
-		errs = multierror.Append(errs, err)
+	if err = r.AfterExec(); err != nil {
+		return fmt.Errorf("failed to work after building: %s", err)
 	}
 
-	return errs.ErrorOrNil()
+	return nil
 }

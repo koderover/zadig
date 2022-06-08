@@ -21,6 +21,8 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -37,18 +39,27 @@ func CreateExternalSystem(args *ExternalSystemDetail, log *zap.SugaredLogger) er
 	return nil
 }
 
-func ListExternalSystem(pageNum, pageSize int64, log *zap.SugaredLogger) ([]*ExternalSystemDetail, int64, error) {
+func ListExternalSystem(encryptedKey string, pageNum, pageSize int64, log *zap.SugaredLogger) ([]*ExternalSystemDetail, int64, error) {
 	resp, length, err := commonrepo.NewExternalSystemColl().List(pageNum, pageSize)
 	if err != nil {
 		log.Errorf("Failed to list external system from db, the error is: %s", err)
 		return nil, 0, err
 	}
+	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		return nil, 0, err
+	}
 	systemList := make([]*ExternalSystemDetail, 0)
 	for _, item := range resp {
+		apiToken, err := crypto.AesEncryptByKey(item.APIToken, aesKey.PlainText)
+		if err != nil {
+			return nil, 0, err
+		}
 		systemList = append(systemList, &ExternalSystemDetail{
-			ID:     item.ID.Hex(),
-			Name:   item.Name,
-			Server: item.Server,
+			ID:       item.ID.Hex(),
+			Name:     item.Name,
+			Server:   item.Server,
+			APIToken: apiToken,
 		})
 	}
 	return systemList, length, nil

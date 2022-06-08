@@ -36,7 +36,6 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/converter"
@@ -81,6 +80,7 @@ type ServiceProductMap struct {
 	Visibility       string                    `json:"visibility,omitempty"`
 	CodehostID       int                       `json:"codehost_id"`
 	RepoOwner        string                    `json:"repo_owner"`
+	RepoNamespace    string                    `json:"repo_namespace"`
 	RepoName         string                    `json:"repo_name"`
 	RepoUUID         string                    `json:"repo_uuid"`
 	BranchName       string                    `json:"branch_name"`
@@ -122,56 +122,25 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	}
 
 	for _, serviceObject := range services {
-		// FIXME: 兼容老数据，想办法干掉这个
-		if serviceObject.Source == setting.SourceFromGitlab && serviceObject.CodehostID == 0 {
-			gitlabAddress, err := GetGitlabAddress(serviceObject.SrcPath)
-			if err != nil {
-				log.Errorf("无法从原有数据中恢复加载信息, GetGitlabAddr failed err: %+v", err)
-				return nil, e.ErrListTemplate.AddDesc(err.Error())
+		if serviceObject.Source == setting.SourceFromGitlab {
+			if serviceObject.CodehostID == 0 {
+				return nil, e.ErrListTemplate.AddDesc("codehost id is empty")
 			}
-
-			details, err := systemconfig.New().ListCodeHosts()
+			err = fillServiceRepoInfo(serviceObject)
 			if err != nil {
-				log.Errorf("无法从原有数据中恢复加载信息, listCodehostDetail failed err: %+v", err)
-				return nil, e.ErrListTemplate.AddDesc(err.Error())
-			}
-			for _, detail := range details {
-				if strings.Contains(detail.Address, gitlabAddress) {
-					serviceObject.CodehostID = detail.ID
-				}
-			}
-			_, owner, r, branch, loadPath, _, err := GetOwnerRepoBranchPath(serviceObject.SrcPath)
-			if err != nil {
-				log.Errorf("Failed to load info from url: %s, the error is: %+v", serviceObject.SrcPath, err)
+				log.Errorf("Failed to load info from url: %s, the error is: %s", serviceObject.SrcPath, err)
 				return nil, e.ErrListTemplate.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", serviceObject.SrcPath, err))
 			}
-			// 万一codehost被删了，找不到
-			if serviceObject.CodehostID == 0 {
-				log.Errorf("Failed to find the old code host info")
-				return nil, e.ErrListTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
-			}
-			serviceObject.RepoOwner = owner
-			serviceObject.RepoName = r
-			serviceObject.BranchName = branch
-			serviceObject.LoadPath = loadPath
 			serviceObject.LoadFromDir = true
 		} else if serviceObject.Source == setting.SourceFromGithub && serviceObject.RepoName == "" {
-			address, owner, r, branch, loadPath, _, err := GetOwnerRepoBranchPath(serviceObject.SrcPath)
+			if serviceObject.CodehostID == 0 {
+				return nil, e.ErrListTemplate.AddDesc("codehost id is empty")
+			}
+			err = fillServiceRepoInfo(serviceObject)
 			if err != nil {
 				return nil, err
 			}
 
-			detail, err := systemconfig.GetCodeHostInfo(
-				&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
-			if err != nil {
-				log.Errorf("get github codeHostInfo failed, err:%v", err)
-				return nil, err
-			}
-			serviceObject.CodehostID = detail.ID
-			serviceObject.RepoOwner = owner
-			serviceObject.RepoName = r
-			serviceObject.BranchName = branch
-			serviceObject.LoadPath = loadPath
 			serviceObject.LoadFromDir = true
 		}
 
@@ -185,6 +154,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			Visibility:       serviceObject.Visibility,
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
+			RepoNamespace:    serviceObject.GetRepoNamespace(),
 			RepoName:         serviceObject.RepoName,
 			RepoUUID:         serviceObject.RepoUUID,
 			BranchName:       serviceObject.BranchName,
@@ -315,57 +285,34 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		return resp, e.ErrGetTemplate.AddDesc(errMsg)
 	}
 
+	if resp.Type == setting.PMDeployType {
+		err = fillPmInfo(resp)
+		if err != nil {
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s fillPmInfo error: %v", serviceName, err)
+			log.Error(errMsg)
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		}
+	}
+
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
-		if gitlabAddress, err := GetGitlabAddress(resp.SrcPath); err == nil {
-			if details, err := systemconfig.New().ListCodeHosts(); err == nil {
-				for _, detail := range details {
-					if strings.Contains(detail.Address, gitlabAddress) {
-						resp.GerritCodeHostID = detail.ID
-						resp.CodehostID = detail.ID
-					}
-				}
-				_, owner, r, branch, loadPath, pathType, err := GetOwnerRepoBranchPath(resp.SrcPath)
-				if err != nil {
-					log.Errorf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err)
-					return nil, e.ErrGetService.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err))
-				}
-				// 万一codehost被删了，找不到
-				if resp.CodehostID == 0 {
-					log.Errorf("Failed to find the old code host info")
-					return nil, e.ErrListTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
-				}
-				resp.RepoOwner = owner
-				resp.RepoName = r
-				resp.BranchName = branch
-				resp.LoadPath = loadPath
-				resp.LoadFromDir = pathType == "tree"
-				return resp, nil
-			}
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  ListCodehostDetail %s error: %v", serviceName, err)
-			log.Error(errMsg)
-		} else {
-			errMsg := fmt.Sprintf("[ServiceTmpl.Find]  GetGitlabAddress %s error: %v", serviceName, err)
-			log.Error(errMsg)
+		if resp.CodehostID == 0 {
+			return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
 		}
-
-	} else if resp.Source == setting.SourceFromGithub && resp.GerritCodeHostID == 0 {
-		address, owner, r, branch, loadPath, _, err := GetOwnerRepoBranchPath(resp.SrcPath)
+		err = fillServiceRepoInfo(resp)
+		if err != nil {
+			log.Errorf("Failed to load info from url: %s, the error is: %s", resp.SrcPath, err)
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err))
+		}
+		return resp, nil
+	} else if resp.Source == setting.SourceFromGithub {
+		if resp.CodehostID == 0 {
+			return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
+		}
+		err = fillServiceRepoInfo(resp)
 		if err != nil {
 			return nil, err
 		}
 
-		detail, err := systemconfig.GetCodeHostInfo(
-			&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
-		if err != nil {
-			log.Errorf("get github codeHostInfo failed, err:%v", err)
-			return nil, err
-		}
-		resp.CodehostID = detail.ID
-		resp.RepoOwner = owner
-		resp.RepoName = r
-		resp.BranchName = branch
-		resp.LoadPath = loadPath
-		resp.LoadFromDir = true
 		return resp, nil
 
 	} else if resp.Source == setting.SourceFromGUI {
@@ -405,8 +352,37 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 			}
 		}
 	}
-
+	resp.RepoNamespace = resp.GetRepoNamespace()
 	return resp, nil
+}
+
+func fillPmInfo(svc *commonmodels.Service) error {
+	pms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
+	if err != nil {
+		if commonrepo.IsErrNoDocuments(err) {
+			return nil
+		}
+		return err
+	}
+	pmMaps := make(map[string]*commonmodels.PrivateKey, len(pms))
+	for _, pm := range pms {
+		pmMaps[pm.ID.Hex()] = pm
+	}
+	for _, envStatus := range svc.EnvStatuses {
+		if pm, ok := pmMaps[envStatus.HostID]; ok {
+			envStatus.PmInfo = &commonmodels.PmInfo{
+				ID:       pm.ID,
+				Name:     pm.Name,
+				IP:       pm.IP,
+				Port:     pm.Port,
+				Status:   pm.Status,
+				Label:    pm.Label,
+				IsProd:   pm.IsProd,
+				Provider: pm.Provider,
+			}
+		}
+	}
+	return nil
 }
 
 func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
@@ -482,7 +458,6 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 				return e.ErrUpdateService.AddDesc("update current build failed")
 			}
 		}
-
 	}
 
 	if err := commonrepo.NewServiceColl().Create(preService); err != nil {
@@ -500,34 +475,61 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 	ProcessServiceWebhook(nil, svc, serviceName, logger)
 }
 
-func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
-	// helm service doesn't support webhook
-	if current != nil && current.Type == setting.HelmDeployType {
-		return
+func needProcessWebhook(source string) bool {
+	if source == setting.ServiceSourceTemplate || source == setting.SourceFromZadig || source == setting.SourceFromGerrit ||
+		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate || source == setting.SourceFromChartRepo {
+		return false
 	}
+	return true
+}
+
+func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
-		if updated.Source == setting.ServiceSourceTemplate || updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
+		if !needProcessWebhook(updated.Source) {
 			return
 		}
 		action = "add"
-		address := getAddressFromPath(updated.SrcPath, updated.RepoOwner, updated.RepoName, logger.Desugar())
+		address, err := GetGitlabAddress(updated.SrcPath)
+		if err != nil {
+			log.Errorf("failed to parse codehost address, err: %s", err)
+			return
+		}
 		if address == "" {
 			return
 		}
-		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
+		updatedHooks = append(updatedHooks, &webhook.WebHook{
+			Owner:      updated.RepoOwner,
+			Namespace:  updated.GetRepoNamespace(),
+			Repo:       updated.RepoName,
+			Address:    address,
+			Name:       "trigger",
+			CodeHostID: updated.CodehostID,
+		})
 	}
 	if current != nil {
-		if current.Source == setting.ServiceSourceTemplate || current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
+		if !needProcessWebhook(current.Source) {
 			return
 		}
 		action = "remove"
-		address := getAddressFromPath(current.SrcPath, current.RepoOwner, current.RepoName, logger.Desugar())
+		address, err := GetGitlabAddress(current.SrcPath)
+		if err != nil {
+			log.Errorf("failed to parse codehost address, err: %s", err)
+			return
+		}
+		//address := getAddressFromPath(current.SrcPath, current.GetRepoNamespace(), current.RepoName, logger.Desugar())
 		if address == "" {
 			return
 		}
-		currentHooks = append(currentHooks, &webhook.WebHook{Owner: current.RepoOwner, Repo: current.RepoName, Address: address, Name: "trigger", CodeHostID: current.CodehostID})
+		currentHooks = append(currentHooks, &webhook.WebHook{
+			Owner:      current.RepoOwner,
+			Namespace:  current.GetRepoNamespace(),
+			Repo:       current.RepoName,
+			Address:    address,
+			Name:       "trigger",
+			CodeHostID: current.CodehostID,
+		})
 	}
 	if updated != nil && current != nil {
 		action = "update"
@@ -664,6 +666,17 @@ func ExtractRegistryNamespace(imageURI string) string {
 	return strings.Join(nsComponent, "/")
 }
 
+func generateUniquePath(pathData map[string]string) string {
+	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
+	values := make([]string, 0)
+	for _, key := range keys {
+		if value := pathData[key]; value != "" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, "-")
+}
+
 func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*commonmodels.Container, error) {
 	flatMap, err := converter.Flatten(nested)
 	if err != nil {
@@ -674,14 +687,22 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 		return nil, err
 	}
 	ret := make([]*commonmodels.Container, 0)
+	usedImagePath := sets.NewString()
 	for _, searchResult := range matchedPath {
+		uniquePath := generateUniquePath(searchResult)
+		if usedImagePath.Has(uniquePath) {
+			continue
+		}
+		usedImagePath.Insert(uniquePath)
 		imageUrl, err := GeneImageURI(searchResult, flatMap)
 		if err != nil {
 			return nil, err
 		}
+		name := ExtractImageName(imageUrl)
 		ret = append(ret, &commonmodels.Container{
-			Name:  ExtractImageName(imageUrl),
-			Image: imageUrl,
+			Name:      name,
+			ImageName: name,
+			Image:     imageUrl,
 			ImagePath: &commonmodels.ImagePathSpec{
 				Repo:  searchResult[setting.PathSearchComponentRepo],
 				Image: searchResult[setting.PathSearchComponentImage],
@@ -755,6 +776,7 @@ func GetPresetRules() []*templatemodels.ImageSearchingRule {
 
 type Variable struct {
 	SERVICE        string
+	IMAGE_NAME     string
 	TIMESTAMP      string
 	TASK_ID        string
 	REPO_COMMIT_ID string

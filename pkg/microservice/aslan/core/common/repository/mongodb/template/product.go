@@ -40,6 +40,8 @@ type ProjectInfo struct {
 	OnboardStatus int    `bson:"onboarding_status"`
 	Public        bool   `bson:"public"`
 	DeployType    string `bson:"deploy_type"`
+	CreateEnvType string `bson:"create_env_type"`
+	BasicFacility string `bson:"basic_facility"`
 }
 
 type ProductColl struct {
@@ -108,6 +110,8 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		"onboarding_status": "$onboarding_status",
 		"public":            "$public",
 		"deploy_type":       "$product_feature.deploy_type",
+		"create_env_type":   "$product_feature.create_env_type",
+		"basic_facility":    "$product_feature.basic_facility",
 	})
 }
 
@@ -139,6 +143,18 @@ func (c *ProductColl) listProjects(inNames []string, projection bson.M) ([]*Proj
 	return res, nil
 }
 
+func (c *ProductColl) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *ProductColl) List() ([]*template.Product, error) {
 	var resp []*template.Product
 
@@ -158,6 +174,7 @@ type ProductListOpt struct {
 	IsOpensource          string
 	ContainSharedServices []*template.ServiceInfo
 	BasicFacility         string
+	DeployType            string
 }
 
 // ListWithOption ...
@@ -173,6 +190,9 @@ func (c *ProductColl) ListWithOption(opt *ProductListOpt) ([]*template.Product, 
 	}
 	if opt.BasicFacility != "" {
 		query["product_feature.basic_facility"] = opt.BasicFacility
+	}
+	if opt.DeployType != "" {
+		query["product_feature.deploy_type"] = opt.DeployType
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
@@ -254,6 +274,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"enabled":               args.Enabled,
 		"description":           args.Description,
 		"timeout":               args.Timeout,
+		"auto_deploy":           args.AutoDeploy,
 		"shared_services":       args.SharedServices,
 		"image_searching_rules": args.ImageSearchingRules,
 		"custom_tar_rule":       args.CustomTarRule,

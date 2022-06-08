@@ -19,7 +19,9 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,6 +31,7 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func GetProductTemplate(c *gin.Context) {
@@ -44,7 +47,26 @@ func GetProductTemplateServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productTemplatName := c.Param("name")
-	ctx.Resp, ctx.Err = projectservice.GetProductTemplateServices(productTemplatName, ctx.Logger)
+
+	envType := types.EnvType(c.Query("envType"))
+	isBaseEnvStr := c.Query("isBaseEnv")
+	baseEnvName := c.Query("baseEnv")
+
+	if envType == "" {
+		envType = types.GeneralEnv
+	}
+
+	var isBaseEnv bool
+	var err error
+	if envType == types.ShareEnv {
+		isBaseEnv, err = strconv.ParseBool(isBaseEnvStr)
+		if err != nil {
+			ctx.Err = fmt.Errorf("failed to parse %s to bool: %s", isBaseEnvStr, err)
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetProductTemplateServices(productTemplatName, envType, isBaseEnv, baseEnvName, ctx.Logger)
 }
 
 func CreateProductTemplate(c *gin.Context) {
@@ -162,7 +184,14 @@ func DeleteProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("name"), "删除", "项目管理-项目", c.Param("name"), "", ctx.Logger)
-	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, c.Param("name"), ctx.RequestID, ctx.Logger)
+	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
+	if err != nil {
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
+			return
+		}
+	}
+	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, c.Param("name"), ctx.RequestID, isDelete, ctx.Logger)
 }
 
 func ClearProject(c *gin.Context) {
@@ -236,7 +265,7 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.UserName, args.Rules)
+	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.UserName, ctx.RequestID, args.Rules)
 }
 
 func ClearProducts(c *gin.Context) {

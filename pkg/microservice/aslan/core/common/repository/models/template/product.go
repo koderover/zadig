@@ -33,6 +33,7 @@ type Product struct {
 	UpdateBy            string                `bson:"update_by"                 json:"update_by"`
 	Enabled             bool                  `bson:"enabled"                   json:"enabled"`
 	Visibility          string                `bson:"visibility"                json:"visibility"`
+	AutoDeploy          *AutoDeployPolicy     `bson:"auto_deploy"               json:"auto_deploy"`
 	Timeout             int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services            [][]string            `bson:"services"                  json:"services"`
 	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
@@ -96,14 +97,25 @@ type EnvRenderKV struct {
 }
 
 type GitRepoConfig struct {
-	CodehostID int    `bson:"codehost_id,omitempty"`
-	Owner      string `bson:"owner,omitempty"`
-	Repo       string `bson:"repo,omitempty"`
-	Branch     string `bson:"branch,omitempty"`
+	CodehostID int    `bson:"codehost_id,omitempty" json:"codehost_id"`
+	Owner      string `bson:"owner,omitempty"       json:"owner"`
+	Repo       string `bson:"repo,omitempty"        json:"repo"`
+	Branch     string `bson:"branch,omitempty"      json:"branch"`
+	Namespace  string `bson:"namespace,omitempty"   json:"namespace"` // records the actual namespace of repo, used to generate correct project name
+}
+
+func (grc *GitRepoConfig) GetNamespace() string {
+	if len(grc.Namespace) > 0 {
+		return grc.Namespace
+	}
+	return grc.Owner
 }
 
 type CustomYaml struct {
-	YamlContent string `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+	YamlContent  string      `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+	Source       string      `bson:"source" json:"source"`
+	AutoSync     bool        `bson:"auto_sync" json:"auto_sync"`
+	SourceDetail interface{} `bson:"source_detail" json:"source_detail"`
 }
 
 // RenderChart ...
@@ -150,12 +162,17 @@ type CustomRule struct {
 	BranchRule      string `bson:"branch_rule,omitempty"         json:"branch_rule,omitempty"`
 	PRAndBranchRule string `bson:"pr_and_branch_rule,omitempty"  json:"pr_and_branch_rule,omitempty"`
 	TagRule         string `bson:"tag_rule,omitempty"            json:"tag_rule,omitempty"`
+	JenkinsRule     string `bson:"jenkins_rule,omitempty"        json:"jenkins_rule,omitempty"`
 }
 
 type DeliveryVersionHook struct {
 	Enable   bool   `bson:"enable"     json:"enable"`
 	HookHost string `bson:"hook_host"  json:"hook_host"`
 	Path     string `bson:"path"       json:"path"`
+}
+
+type AutoDeployPolicy struct {
+	Enable bool `bson:"enable" json:"enable"`
 }
 
 func (Product) TableName() string {

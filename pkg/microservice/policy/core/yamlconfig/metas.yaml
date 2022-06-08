@@ -1,0 +1,732 @@
+description: "
+  public urls: url not need to authentication ; system_admin urls: urls that
+  only system admin has permission ; project_admin: urls that project admin has
+  permission"
+metas:
+  - resource: Delivery
+    alias: 版本管理
+    description: ''
+    rules:
+      - action: get_delivery
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/delivery/releases/helm/charts
+          - method: GET
+            endpoint: /api/aslan/delivery/releases
+      - action: delete_delivery
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: /api/aslan/delivery/releases/?*
+      - action: create_delivery
+        alias: 创建
+        description: ''
+        rules:
+          - method: POST
+            endpoint: /api/aslan/delivery/releases/helm
+          - method: GET
+            endpoint: /api/aslan/environment/environments
+          - method: GET
+            endpoint: /api/aslan/environment/environments/?*/helm/releases
+          - method: GET
+            endpoint: /api/aslan/environment/environments/?*/helm/charts
+          - method: GET
+            endpoint: /api/aslan/service/helm/?*/?*/fileContent
+          - method: POST
+            endpoint: /api/aslan/delivery/releases/helm/global-variables
+          - method: GET
+            endpoint: /api/aslan/delivery/releases/helm/charts/version
+  - resource: Test
+    alias: 测试
+    description: ''
+    rules:
+      - action: get_test
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/workflowtask/id/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/workflowtask/max/?*/start/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/testing/test
+          - method: GET
+            endpoint: /api/aslan/testing/test/?*
+          - method: GET
+            endpoint: /api/aslan/testing/testdetail
+          - method: GET
+            endpoint: /api/aslan/workflow/workflow/testName/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*
+          - method: GET
+            endpoint: /api/aslan/testing/workspace/workflow/?*/taskId/?*
+          - method: GET
+            endpoint: /api/aslan/cluster/clusters
+      - action: edit_test
+        alias: 编辑
+        description: ''
+        rules:
+          - method: PUT
+            endpoint: /api/aslan/testing/test
+      - action: delete_test
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: /api/aslan/testing/test/?*
+      - action: create_test
+        alias: 新建
+        description: ''
+        rules:
+          - method: POST
+            endpoint: /api/aslan/testing/test
+      - action: run_test
+        alias: 执行
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: api/aslan/testing/testtask/productName/?*/id/?*/pipelines/?*
+          - method: POST
+            endpoint: /api/aslan/testing/testtask
+          - method: POST
+            endpoint: /api/aslan/testing/testtask/productName/?*/id/?*/pipelines/?*/restart
+  - resource: Service
+    alias: 服务
+    description: ''
+    rules:
+      - action: get_service
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: api/aslan/build/targets
+          - method: GET
+            endpoint: api/aslan/cluster/clusters
+          - method: GET
+            endpoint: api/aslan/build/build/?*
+          - method: GET
+            endpoint: api/aslan/build/build
+          - method: GET
+            endpoint: /api/aslan/template/build
+          - method: GET
+            endpoint: api/aslan/template/dockerfile
+          - method: GET
+            endpoint: /api/aslan/service/services
+          - method: GET
+            endpoint: /api/aslan/service/services/?*/k8s
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
+          - method: GET
+            endpoint: /api/aslan/service/services/?*
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/searching-rules
+          - method: GET
+            endpoint: /api/aslan/service/helm/?*/?*/filePath
+          - method: GET
+            endpoint: /api/aslan/service/helm/?*/?*/fileContent
+          - method: GET
+            endpoint: /api/aslan/service/helm/?*/?*/serviceModule
+          - method: GET
+            endpoint: /api/aslan/service/services/?*/pm
+          - method: GET
+            endpoint: /api/aslan/template/yaml
+          - method: GET
+            endpoint: /api/aslan/service/helm/?*/?*/fileContent
+      - action: edit_service
+        alias: 编辑
+        description: ''
+        rules:
+          - method: POST
+            endpoint: /api/aslan/service/helm/?*
+          - method: PUT
+            endpoint: /api/aslan/service/services
+          - method: POST
+            endpoint: /api/aslan/service/services
+          - method: PUT
+            endpoint: /api/aslan/service/pm/?*
+          - method: PUT
+            endpoint: /api/aslan/project/products/?*
+          - method: PATCH
+            endpoint: /api/aslan/project/products/?*
+          - method: PUT
+            endpoint: /api/aslan/project/products/?*/searching-rules
+          - method: PUT
+            endpoint: /api/aslan/service/helm/services/releaseNaming
+      - action: create_service
+        alias: 新建
+        description: ''
+        rules:
+          - method: POST
+            endpoint: /api/aslan/service/pm/?*
+          - method: POST
+            endpoint: /api/aslan/service/services
+          - method: POST
+            endpoint: /api/aslan/service/loader/load/?*/?*
+          - method: POST
+            endpoint: /api/aslan/service/template/load
+          - method: POST
+            endpoint: /api/aslan/service/helm/services
+          - method: POST
+            endpoint: /api/aslan/service/helm/services/bulk
+          - method: GET
+            endpoint: /api/aslan/service/services/kube/workloads
+          - method: POST
+            endpoint: /api/aslan/service/services/yaml
+      - action: delete_service
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: /api/aslan/service/services/?*/?*
+          - method: DELETE
+            endpoint: /api/aslan/service/services/?*/pm
+  - resource: Build
+    alias: 构建
+    description: ''
+    rules:
+      - action: get_build
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/build/build
+          - method: GET
+            endpoint: /api/aslan/build/build/?*
+          - method: GET
+            endpoint: /api/aslan/build/targets
+          - method: GET
+            endpoint: /api/aslan/cluster/clusters
+      - action: create_build
+        alias: 新建
+        description: ''
+        rules:
+          - method: GET
+            endpoint: api/aslan/template/build
+          - method: GET
+            endpoint: api/aslan/template/dockerfile
+          - method: POST
+            endpoint: /api/aslan/build/build
+      - action: edit_build
+        alias: 编辑
+        description: ''
+        rules:
+          - method: PUT
+            endpoint: /api/aslan/build/build
+          - method: POST
+            endpoint: /api/aslan/build/targets
+          - method: POST
+            endpoint: /api/aslan/build/build/targets
+      - action: delete_build
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: /api/aslan/build/build
+  - resource: TestCenter
+    alias: 测试中心
+    description: ''
+    rules:
+      - action: get_test
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/testing/test
+          - method: GET
+            endpoint: /api/aslan/testing/test/?*
+          - method: GET
+            endpoint: /api/aslan/testing/testdetail
+          - method: GET
+            endpoint: /api/aslan/workflow/workflow/testName/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*
+          - method: GET
+            endpoint: /api/aslan/testing/workspace/workflow/?*/taskId/?*
+      - action: edit_test
+        alias: 编辑
+        description: ''
+        rules:
+          - method: PUT
+            endpoint: /api/aslan/testing/test
+          - method: GET
+            endpoint: /api/aslan/cluster/clusters
+      - action: delete_test
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: /api/aslan/testing/test/?*
+      - action: create_test
+        alias: 新建
+        description: ''
+        rules:
+          - method: POST
+            endpoint: /api/aslan/testing/test
+          - method: GET
+            endpoint: /api/aslan/cluster/clusters
+      - action: run_test
+        alias: 执行
+        description: ''
+        rules:
+          - method: POST
+            endpoint: /api/aslan/testing/testtask
+  - resource: DataCenter
+    alias: 数据视图
+    description: ''
+    rules:
+      - action: data_over
+        alias: 数据概览|查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/v1/picket/stat/dashboard/overview
+          - method: GET
+            endpoint: /api/v1/picket/stat/dashboard/test
+          - method: GET
+            endpoint: api/v1/picket/stat/dashboard/deploy
+          - method: GET
+            endpoint: /api/v1/picket/stat/dashboard/build
+      - action: efficiency_over
+        alias: 数据洞察|查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/stat/dashboard/build
+          - method: GET
+            endpoint: /api/aslan/stat/dashboard/deploy
+          - method: GET
+            endpoint: /api/aslan/stat/dashboard/test
+          - method: POST
+            endpoint: /api/aslan/stat/quality/buildHealthMeasure
+          - method: POST
+            endpoint: /api/aslan/stat/quality/buildLatestTenMeasure
+          - method: POST
+            endpoint: /api/aslan/stat/quality/buildDailyMeasure
+          - method: POST
+            endpoint: /api/aslan/stat/quality/buildTenDurationMeasure
+          - method: POST
+            endpoint: /api/aslan/stat/quality/buildAverageMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/buildTrend
+          - method: POST
+            endpoint: api/aslan/stat/quality/deployTopFiveFailureMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/deployTopFiveHigherMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/deployWeeklyMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/deployHealthMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/testDeliveryDeploy
+          - method: POST
+            endpoint: api/aslan/stat/quality/testAverageMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/testCaseMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/testHealthMeasure
+          - method: POST
+            endpoint: api/aslan/stat/quality/testTrend
+  - resource: Template
+    alias: 模版库
+    description: ''
+    rules:
+      - action: create_template
+        alias: 新建
+        description: 新建
+        rules:
+          - method: POST
+            endpoint: /api/aslan/template/dockerfile
+          - method: POST
+            endpoint: /api/aslan/template/charts
+          - method: POST
+            endpoint: /api/aslan/template/yaml
+          - method: POST
+            endpoint: /api/aslan/template/build
+      - action: get_template
+        alias: 查看
+        description: 查看
+        rules:
+          - method: GET
+            endpoint: /api/aslan/cluster/clusters
+          - method: GET
+            endpoint: /api/aslan/template/yaml
+          - method: GET
+            endpoint: /api/aslan/template/charts
+          - method: GET
+            endpoint: /api/aslan/template/charts/?*
+          - method: GET
+            endpoint: /api/aslan/template/dockerfile
+          - method: GET
+            endpoint: /api/aslan/template/build
+          - method: GET
+            endpoint: /api/aslan/template/build/?*
+      - action: edit_template
+        alias: 编辑
+        description: 编辑
+        rules:
+          - method: PUT
+            endpoint: /api/aslan/template/yaml/?*
+          - method: PUT
+            endpoint: /api/aslan/template/charts/?*
+          - method: POST
+            endpoint: api/aslan/template/charts/?*/reference
+          - method: POST
+            endpoint: api/aslan/template/yaml/?*/reference
+          - method: PUT
+            endpoint: api/aslan/template/charts/?*/variables
+          - method: PUT
+            endpoint: /api/aslan/template/dockerfile/?*
+          - method: PUT
+            endpoint: /api/aslan/template/build/?*
+      - action: delete_template
+        alias: 删除
+        description: 删除
+        rules:
+          - method: DELETE
+            endpoint: /api/aslan/template/yaml/?*
+          - method: DELETE
+            endpoint: /api/aslan/template/charts/?*
+          - method: DELETE
+            endpoint: /api/aslan/template/dockerfile/?*
+          - method: DELETE
+            endpoint: /api/aslan/template/build/?*
+  - resource: DeliveryCenter
+    alias: 交付中心
+    description: ''
+    rules:
+      - action: release_get
+        alias: 版本管理|查看
+        description: 查看
+        rules:
+          - method: GET
+            endpoint: /api/aslan/delivery/releases
+          - method: GET
+            endpoint: /api/aslan/delivery/releases/?*
+      - action: delivery_get
+        alias: 交付物追踪|查看
+        description: 查看
+        rules:
+          - method: GET
+            endpoint: /api/aslan/delivery/artifacts
+  - resource: Workflow
+    alias: 工作流
+    description: ''
+    rules:
+      - action: get_workflow
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/workflow/workflow/preset/?*
+          - method: GET
+            endpoint: api/aslan/workflow/workflow
+            filter: true
+          - method: GET
+            endpoint: api/aslan/workflow/workflow
+          - method: GET
+            endpoint: /api/aslan/workflow/workflow/find/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/workflowtask/max/?*/start/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/workflowtask/id/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
+          - method: GET
+            endpoint: /api/aslan/logs/sse/workflow/build/?*/?*/?*/?*
+          - method: GET
+            endpoint: /api/aslan/logs/log/workflow/?*/tasks/?*/service/?*
+          - method: GET
+            endpoint: /api/aslan/logs/sse/workflow/test/?*/?*/?*/?*/?*
+          - method: GET
+            endpoint: /api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*
+          - method: GET
+            endpoint: /api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*
+          - method: GET
+            endpoint: /api/aslan/testing/itreport/workflow/?*/id/?*/names/?*/service/?*
+          - method: GET
+            endpoint: /api/directory/workflowTask
+          - method: GET
+            endpoint: /api/aslan/workflow/v3
+          - method: GET
+            endpoint: /api/aslan/workflow/v3/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/v3/?*/args
+          - method: GET
+            endpoint: /api/aslan/workflow/servicetask/workflows/?*/?*/?*/?*
+      - action: edit_workflow
+        alias: 编辑
+        description: ''
+        rules:
+          - method: PUT
+            endpoint: 'api/aslan/workflow/workflow/:name'
+          - method: GET
+            endpoint: /api/aslan/environment/environments
+            resourceType: Environment
+            filter: true
+          - method: GET
+            endpoint: /api/aslan/testing/testdetail
+          - method: PUT
+            endpoint: /api/aslan/workflow/v3/?*
+          - method: GET
+            endpoint: /api/aslan/build/build/serviceModule
+      - action: create_workflow
+        alias: 新建
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/build/build/serviceModule
+          - method: POST
+            endpoint: api/aslan/workflow/workflow
+          - method: PUT
+            endpoint: /api/aslan/workflow/workflow/old/?*/new/?*
+          - method: POST
+            endpoint: /api/directory/workflowTask/create
+          - method: GET
+            endpoint: /api/aslan/environment/environments
+            resourceType: Environment
+            filter: true
+          - method: GET
+            endpoint: /api/aslan/testing/testdetail
+          - method: POST
+            endpoint: /api/aslan/workflow/v3
+      - action: delete_workflow
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: /api/aslan/workflow/workflow/?*
+          - method: DELETE
+            endpoint: /api/aslan/workflow/v3/?*
+      - action: run_workflow
+        alias: 执行
+        description: ''
+        rules:
+          - method: POST
+            endpoint: '/api/aslan/workflow/workflowtask/:name'
+          - method: PUT
+            endpoint: '/api/aslan/workflow/workflowtask/:name'
+          - method: POST
+            endpoint: '/api/aslan/workflow/workflowtask/id/?*/pipelines/:name/restart'
+          - method: DELETE
+            endpoint: '/api/aslan/workflow/workflowtask/id/?*/pipelines/:name'
+          - method: POST
+            endpoint: /api/directory/workflowTask/id/?*/pipelines/?*/restart
+          - method: POST
+            endpoint: /api/directory/workflowTask/id/?*/pipelines/?*/cancel
+          - method: GET
+            endpoint: /api/aslan/environment/environments
+            resourceType: Environment
+            filter: true
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
+          - method: GET
+            endpoint: /api/aslan/workflow/v3/?*/args
+          - method: POST
+            endpoint: /api/aslan/workflow/v3/workflowtask
+          - method: POST
+            endpoint: /api/aslan/workflow/v3/workflowtask/id/?*/name/?*/restart
+          - method: DELETE
+            endpoint: /api/aslan/workflow/v3/workflowtask/id/?*/name/?*
+  - resource: Environment
+    alias: 环境
+    description: ''
+    rules:
+      - action: get_environment
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/helm/values'
+          - method: GET
+            endpoint: /api/aslan/environment/environments
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/groups'
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/services/?*'
+          - method: GET
+            endpoint: /api/aslan/environment/kube/workloads
+          - method: GET
+            endpoint: /api/aslan/service/workloads
+          - method: GET
+            endpoint: /api/aslan/environment/export/service
+          - method: GET
+            endpoint: /api/aslan/environment/configmaps
+          - method: GET
+            endpoint: /api/aslan/environment/kube/pods/?*/events
+          - method: GET
+            endpoint: /api/aslan/environment/kube/events
+          - method: GET
+            endpoint: /api/aslan/logs/sse/pods/?*/containers/?*
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
+          - method: GET
+            endpoint: /api/aslan/environment/revision/products
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/workloads'
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/helm/releases'
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/helm/charts'
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/helm/images'
+          - method: GET
+            endpoint: /api/aslan/environment/diff/products/?*/service/?*
+          - method: GET
+            endpoint: '/api/aslan/environment/configmaps/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
+          - method: GET
+            endpoint: '/api/aslan/environment/secrets/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/ingresses/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/pvcs/:name'
+      - action: create_environment
+        alias: 创建
+        description: ''
+        rules:
+          - method: GET
+            endpoint: api/aslan/delivery/releases
+          - method: POST
+            endpoint: /api/aslan/environment/environments
+            resourceType: Cluster
+            filter: true
+          - method: POST
+            endpoint: /api/aslan/service/workloads
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
+          - method: GET
+            endpoint: api/aslan/cluster/clusters
+      - action: config_environment
+        alias: 配置
+        description: ''
+        rules:
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/helm/default-values'
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/helm/charts'
+          - method: GET
+            endpoint: /api/aslan/build/targets
+          - method: GET
+            endpoint: /api/aslan/build/build
+          - method: GET
+            endpoint: /api/aslan/service/services/?*
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/services'
+          - method: POST
+            endpoint: '/api/aslan/environment/environments/:name/share/enable'
+          - method: DELETE
+            endpoint: '/api/aslan/environment/environments/:name/share/enable'
+          - method: PUT
+            endpoint: /api/aslan/environment/environments
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name'
+          - method: PUT
+            endpoint: /api/aslan/service/pm/healthCheckUpdate
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/envRecycle'
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/renderset'
+          - method: PUT
+            endpoint: /api/aslan/service/workloads
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/registry'
+          - method: PUT
+            endpoint: '/api/aslan/environment/envcfgs/:name'
+          - method: POST
+            endpoint: '/api/aslan/environment/envcfgs/:name'
+          - method: DELETE
+            endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
+      - action: manage_environment
+        alias: 管理服务实例
+        description: ''
+        rules:
+          - method: PUT
+            endpoint: /api/aslan/environment/environments
+          - method: POST
+            endpoint: '/api/aslan/environment/environments/:name/services/?*/restart'
+          - method: POST
+            endpoint: '/api/aslan/environment/environments/:name/services/?*/restartNew'
+          - method: POST
+            endpoint: '/api/aslan/environment/environments/:name/services/?*/scale'
+          - method: POST
+            endpoint: '/api/aslan/environment/environments/:name/services/?*/scaleNew'
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/services/?*'
+          - method: POST
+            endpoint: '/api/aslan/environment/image/deployment/:name'
+          - method: POST
+            endpoint: '/api/aslan/environment/image/statefulset/:name'
+          - method: DELETE
+            endpoint: '/api/aslan/environment/kube/:name/pods/?*'
+          - method: PUT
+            endpoint: /api/aslan/environment/configmaps
+          - method: POST
+            endpoint: /api/aslan/environment/configmaps
+          - method: POST
+            endpoint: /api/aslan/workflow/servicetask
+      - action: delete_environment
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: '/api/aslan/environment/environments/:name'
+      - action: debug_pod
+        alias: 服务调试
+        description: ''
+        rules:
+          - method: GET
+            endpoint: '/api/podexec/?*/?*/?*/?*/podExec/:name'
+      - action: ssh_pm
+        alias: 主机登录
+        description: ''
+        rules:
+          - method: GET
+            endpoint: '/api/aslan/environment/environments/:name/services/?*/pmexec'
+  - resource: Scan
+    alias: "代码扫描"
+    description: ""
+    rules:
+      - action: get_scan
+        alias: 查看
+        description: ""
+        rules:
+          - method: GET
+            endpoint: "api/aslan/testing/scanning"
+      - action: create_scan
+        alias: 新建
+        description: ""
+        rules:
+          - method: POST
+            endpoint: "/api/aslan/testing/scanning"
+          - method: GET
+            endpoint: "/api/aslan/cluster/clusters"
+      - action: edit_scan
+        alias: 编辑
+        description: ""
+        rules:
+          - method: PUT
+            endpoint: "/api/aslan/testing/scanning/?*"
+      - action: delete_scan
+        alias: "删除"
+        description: ""
+        rules:
+          - method: DELETE
+            endpoint: "/api/aslan/testing/scanning/?*"
+      - action: run_scan
+        alias: "执行"
+        description: ''
+        rules:
+          - method: POST
+            endpoint: "/api/aslan/testing/scanning/?*/task"

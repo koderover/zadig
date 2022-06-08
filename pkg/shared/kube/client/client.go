@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +32,22 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 	}
 
 	return multicluster.GetKubeClient(hubServerAddr, clusterID)
+}
+
+func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
+	if clusterID == setting.LocalClusterID {
+		clusterID = ""
+	}
+
+	return multicluster.GetKubeClientSet(hubServerAddr, clusterID)
+}
+
+func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, error) {
+	if clusterID == setting.LocalClusterID {
+		clusterID = ""
+	}
+
+	return multicluster.GetDynamicKubeclient(hubserverAddr, clusterID)
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {

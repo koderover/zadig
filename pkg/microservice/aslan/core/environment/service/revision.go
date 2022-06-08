@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -28,14 +29,17 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (prodRevs []*ProductRevision, err error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName})
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName, ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}})
+	if err != nil {
+		return nil, e.ErrListProducts.AddDesc(err.Error())
+	}
 
 	// list services with max revision of project
-	// TODO  refactor code
-	allServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{})
+	allServiceTmpls, err := getServicesWithMaxRevision(productName)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %v", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
@@ -52,8 +56,8 @@ func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (
 	return prodRevs, nil
 }
 
-// ListProductsRevisionByFacility called by service cron
-func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+// ListProductsRevisionByOption called by service cron
+func ListProductsRevisionByOption(basicFacility string, deployType string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
 		err          error
 		prodRevs     = make([]*ProductRevision, 0)
@@ -61,7 +65,10 @@ func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger
 		projectNames = make([]string, 0)
 	)
 
-	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{BasicFacility: basicFacility})
+	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
+		BasicFacility: basicFacility,
+		DeployType:    deployType,
+	})
 	if err != nil {
 		log.Errorf("Collection.TemplateProduct.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
@@ -71,7 +78,7 @@ func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger
 		projectNames = append(projectNames, v.ProductName)
 	}
 
-	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InProjects: projectNames})
+	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}, InProjects: projectNames})
 	if err != nil {
 		log.Errorf("Collection.Product.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
@@ -97,12 +104,10 @@ func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger
 }
 
 func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*commonmodels.Service, log *zap.SugaredLogger) (*ProductRevision, error) {
-
 	prodRev := new(ProductRevision)
 
-	// 查询当前产品的最新模板信息
-	productTemplatName := product.ProductName
-	prodTmpl, err := templaterepo.NewProductColl().Find(productTemplatName)
+	productTemplateName := product.ProductName
+	prodTmpl, err := templaterepo.NewProductColl().Find(productTemplateName)
 	if err != nil {
 		log.Errorf("[ProductTmpl.Find] %s error: %v", product.ProductName, err)
 		return prodRev, e.ErrFindProductTmpl
@@ -120,14 +125,13 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		return prodRev, nil
 	}
 
-	// 如果当前产品版本比产品模板小, 则需要更新
 	if prodRev.NextRevision > prodRev.CurrentRevision {
 		prodRev.Updatable = true
 	}
 
 	var allRenders []*commonmodels.RenderSet
 	var newRender *commonmodels.RenderSet
-	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
+	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		rendersetName := ""
 		if product.Render != nil {
 			rendersetName = product.Render.Name
@@ -146,7 +150,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		}
 		allRenders, err = commonrepo.NewRenderSetColl().ListRendersets(&commonrepo.RenderSetListOption{
 			Revisions:     renderRevision.List(),
-			ProductTmpl:   productTemplatName,
+			ProductTmpl:   productTemplateName,
 			RendersetName: rendersetName,
 		})
 		if err != nil {
@@ -162,7 +166,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
 	}
 
-	// 如果任一服务组有更新, 则认为产品需要更新
 	if !prodRev.Updatable {
 		prodRev.Updatable = prodRev.GroupsUpdated()
 	}
@@ -181,18 +184,43 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	var serviceRev []*SvcRevision
 	svcList := make([]*commonmodels.ProductService, 0)
 	svcTmplNameList := make([]string, 0)
-	// 拍平服务组
+
 	for _, services := range productInfo.Services {
 		svcList = append(svcList, services...)
 	}
+
 	for _, svcsTmpl := range servicesTmpl {
 		svcTmplNameList = append(svcTmplNameList, svcsTmpl...)
 	}
-	var err error
 
+	// Note: For sub env, only the services in the base env are displayed.
+	if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
+		svcGroupsInBase, err := GetEnvServiceList(context.TODO(), productInfo.ProductName, productInfo.ShareEnv.BaseEnv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service list in base env %q of product %q: %s", productInfo.EnvName, productInfo.ProductName, err)
+		}
+
+		svcMap := map[string]struct{}{}
+		for _, svcGroup := range svcGroupsInBase {
+			for _, svcName := range svcGroup {
+				svcMap[svcName] = struct{}{}
+			}
+		}
+
+		tmplNameList := []string{}
+		for _, svcTmplName := range svcTmplNameList {
+			if _, found := svcMap[svcTmplName]; found {
+				tmplNameList = append(tmplNameList, svcTmplName)
+			}
+		}
+
+		svcTmplNameList = tmplNameList
+	}
+
+	var err error
 	serviceRev, err = compareServicesRev(svcTmplNameList, svcList, allServiceTmpls, allRender, newRender, log)
 	if err != nil {
-		log.Errorf("Failed to compare service revision. Error: %v", err)
+		log.Errorf("Failed to compare service revision, %s:%s, Error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return serviceRev, e.ErrListProductsRevision.AddDesc(err.Error())
 	}
 
@@ -240,8 +268,9 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 					serviceRev.Containers = make([]*commonmodels.Container, 0)
 					for _, container := range serviceTmpl.Containers {
 						serviceRev.Containers = append(serviceRev.Containers, &commonmodels.Container{
-							Image: container.Image,
-							Name:  container.Name,
+							Image:     container.Image,
+							Name:      container.Name,
+							ImageName: util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 						})
 					}
 				}
@@ -298,8 +327,9 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 
 				for _, container := range maxServiceTmpl.Containers {
 					c := &commonmodels.Container{
-						Image: container.Image,
-						Name:  container.Name,
+						Image:     container.Image,
+						Name:      container.Name,
+						ImageName: util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 					}
 
 					// reuse existed container image

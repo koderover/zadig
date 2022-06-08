@@ -29,25 +29,29 @@ import (
 type Role struct {
 	Name  string  `json:"name"`
 	Rules []*Rule `json:"rules,omitempty"`
-}
-
-type Rule struct {
-	Verbs     []string `json:"verbs"`
-	Resources []string `json:"resources"`
-	Kind      string   `json:"kind"`
+	// if the role is created by user , set the type to "custom"
+	// if the role is created by system , set the type  to "system"
+	Type setting.ResourceType `json:"type,omitempty"`
+	// frontend default select flag
+	Select    bool   `json:"select,omitempty"`
+	Namespace string `json:"namespace"`
+	Desc      string `json:"desc,omitempty"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,
 		Namespace: ns,
+		Type:      role.Type,
+		Desc:      role.Desc,
 	}
 
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 
@@ -73,14 +77,17 @@ func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 func UpdateOrCreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,
+		Desc:      role.Desc,
 		Namespace: ns,
+		Type:      role.Type,
 	}
 
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 	return mongodb.NewRoleColl().UpdateOrCreate(obj)
@@ -97,9 +104,11 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
 		if v.Name == string(setting.Contributor) {
 			continue
 		}
-		roles = append(roles, &Role{
-			Name: v.Name,
-		})
+		tmpRole := Role{Select: false, Name: v.Name, Type: v.Type, Desc: v.Desc, Namespace: v.Namespace}
+		if v.Name == string(setting.ReadProjectOnly) {
+			tmpRole.Select = true
+		}
+		roles = append(roles, &tmpRole)
 	}
 	return roles, nil
 }
@@ -155,4 +164,16 @@ func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) 
 	}
 
 	return mongodb.NewRoleBindingColl().DeleteByRoles(names, projectName)
+}
+
+func ListUserAllRolesByRoleBindings(roleBindings []*models.RoleBinding) ([]*models.Role, error) {
+	var roles []*models.Role
+	for _, v := range roleBindings {
+		tmpRoles, err := mongodb.NewRoleColl().ListBySpaceAndName(v.RoleRef.Namespace, v.RoleRef.Name)
+		if err != nil {
+			continue
+		}
+		roles = append(roles, tmpRoles...)
+	}
+	return roles, nil
 }

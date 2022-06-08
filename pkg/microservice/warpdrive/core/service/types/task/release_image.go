@@ -43,6 +43,35 @@ type ReleaseImage struct {
 
 	// destinations to distribute images
 	Releases []RepoImage `bson:"releases"                 json:"releases"`
+
+	// New Version field
+	ProductName    string            `bson:"product_name"    json:"product_name"`
+	SourceImage    string            `bson:"source_image"    json:"source_image"`
+	DistributeInfo []*DistributeInfo `bson:"distribute_info" json:"distribute_info"`
+}
+
+// DistributeInfo will be convert into yaml, adding yaml
+type DistributeInfo struct {
+	Image               string `json:"image"                 yaml:"image"`
+	ReleaseName         string `json:"release_name"          yaml:"release_name"`
+	DistributeStartTime int64  `json:"distribute_start_time" yaml:"distribute_start_time"`
+	DistributeEndTime   int64  `json:"distribute_end_time"   yaml:"distribute_end_time"`
+	DistributeStatus    string `json:"distribute_status"     yaml:"distribute_status"`
+	DeployEnabled       bool   `json:"deploy_enabled"        yaml:"deploy_enabled"`
+	DeployEnv           string `json:"deploy_env"            yaml:"deploy_env"`
+	DeployServiceType   string `json:"deploy_service_type"   yaml:"deploy_service_type"`
+	DeployContainerName string `json:"deploy_container_name" yaml:"deploy_container_name"`
+	DeployServiceName   string `json:"deploy_service_name"   yaml:"deploy_service_name"`
+	DeployClusterID     string `json:"deploy_cluster_id"     yaml:"deploy_cluster_id"`
+	DeployNamespace     string `json:"deploy_namespace"      yaml:"deploy_namespace"`
+	DeployStartTime     int64  `json:"deploy_start_time"     yaml:"deploy_start_time"`
+	DeployEndTime       int64  `json:"deploy_end_time"       yaml:"deploy_end_time"`
+	DeployStatus        string `json:"deploy_status"         yaml:"deploy_status"`
+	RepoID              string `json:"repo_id"               yaml:"repo_id"`
+
+	//RepoAK and RepoSK is used for docker login, it is determined runtime, not passed by message so no json is required
+	RepoAK string `json:"-"  yaml:"repo_ak"`
+	RepoSK string `json:"-"  yaml:"repo_sk"`
 }
 
 type RepoImage struct {

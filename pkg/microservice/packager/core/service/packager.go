@@ -20,6 +20,7 @@ type ImageData struct {
 	ImageUrl   string `yaml:"image_url"   json:"image_url"`
 	ImageName  string `yaml:"image_name"  json:"image_name"`
 	ImageTag   string `yaml:"image_tag"   json:"image_tag"`
+	CustomTag  string `yaml:"custom_tag"  json:"custom_tag"`
 	RegistryID string `yaml:"registry_id" json:"registry_id"`
 }
 

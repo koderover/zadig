@@ -27,6 +27,22 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+type CheckJenkinsIntegrationResp struct {
+	Exists bool `json:"exists"`
+}
+
+func CheckJenkinsIntegration(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	resp, err := service.ListJenkinsIntegration("", ctx.Logger)
+	if err != nil || len(resp) == 0 {
+		ctx.Resp = &CheckJenkinsIntegrationResp{Exists: false}
+		return
+	}
+	ctx.Resp = &CheckJenkinsIntegrationResp{Exists: true}
+}
+
 func CreateJenkinsIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -48,7 +64,12 @@ func ListJenkinsIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJenkinsIntegration(ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Resp, ctx.Err = service.ListJenkinsIntegration(encryptedKey, ctx.Logger)
 }
 
 func UpdateJenkinsIntegration(c *gin.Context) {
@@ -88,12 +109,12 @@ func ListJobNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJobNames(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListJobNames(c.Param("id"), ctx.Logger)
 }
 
 func ListJobBuildArgs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJobBuildArgs(c.Param("jobName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListJobBuildArgs(c.Param("id"), c.Param("jobName"), ctx.Logger)
 }

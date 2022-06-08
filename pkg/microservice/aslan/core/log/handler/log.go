@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -70,7 +71,7 @@ func GetTestJobContainerLogs(c *gin.Context) {
 	}
 
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetTestJobContainerLogs(c.Param("pipelineName"), c.Param("testName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = logservice.GetTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("testName"), taskID, ctx.Logger)
 }
 
 func GetWorkflowTestJobContainerLogs(c *gin.Context) {
@@ -84,7 +85,7 @@ func GetWorkflowTestJobContainerLogs(c *gin.Context) {
 	}
 
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetWorkflowTestJobContainerLogs(c.Param("pipelineName"), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = logservice.GetWorkflowTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
 }
 
 func GetContainerLogs(c *gin.Context) {
@@ -127,4 +128,29 @@ func GetWorkflowBuildV3JobContainerLogs(c *gin.Context) {
 	}
 	// Use all lowercase job names to avoid subdomain errors
 	ctx.Resp, ctx.Err = logservice.GetWorkflowBuildV3JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Query("type"), taskID, ctx.Logger)
+}
+
+func GetScanningContainerLogs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	if id == "" {
+		ctx.Err = fmt.Errorf("id must be provided")
+		return
+	}
+
+	taskIDStr := c.Param("scan_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("scan_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = logservice.GetScanningContainerLogs(id, taskID, ctx.Logger)
 }

@@ -87,6 +87,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		cleanCache.POST("/oneClick", CleanImageCache)
 		cleanCache.GET("/state", CleanCacheState)
+		cleanCache.POST("/cron", SetCron)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -104,13 +105,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	jenkins := router.Group("jenkins")
 	{
+		jenkins.GET("/exist", CheckJenkinsIntegration)
 		jenkins.POST("/integration", CreateJenkinsIntegration)
 		jenkins.GET("/integration", ListJenkinsIntegration)
 		jenkins.PUT("/integration/:id", UpdateJenkinsIntegration)
 		jenkins.DELETE("/integration/:id", DeleteJenkinsIntegration)
 		jenkins.POST("/user/connection", TestJenkinsConnection)
-		jenkins.GET("/jobNames", ListJobNames)
-		jenkins.GET("/buildArgs/:jobName", ListJobBuildArgs)
+		jenkins.GET("/jobNames/:id", ListJobNames)
+		jenkins.GET("/buildArgs/:id/:jobName", ListJobBuildArgs)
 	}
 
 	//系统配额
@@ -121,6 +123,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		capacity.POST("/gc", GarbageCollection)
 		// 清理已被删除的工作流的所有缓存，暂时用于手动调用
 		capacity.POST("/clean", CleanCache)
+	}
+
+	// workflow concurrency settings
+	concurrency := router.Group("concurrency")
+	{
+		concurrency.GET("/workflow", GetWorkflowConcurrency)
+		concurrency.POST("/workflow", UpdateWorkflowConcurrency)
+	}
+
+	// default login default login home page settings
+	login := router.Group("login")
+	{
+		login.GET("/default", GetDefaultLogin)
+		login.POST("/default", UpdateDefaultLogin)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -144,6 +160,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		integration.POST("", CreateHelmRepo)
 		integration.PUT("/:id", UpdateHelmRepo)
 		integration.DELETE("/:id", DeleteHelmRepo)
+		integration.GET("/:name/index", ListCharts)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -152,12 +169,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	privateKey := router.Group("privateKey")
 	{
 		privateKey.GET("", ListPrivateKeys)
+		privateKey.GET("/internal", ListPrivateKeysInternal)
 		privateKey.GET("/:id", GetPrivateKey)
 		privateKey.GET("/labels", ListLabels)
 		privateKey.POST("", gin2.UpdateOperationLogStatus, CreatePrivateKey)
 		privateKey.POST("/batch", gin2.UpdateOperationLogStatus, BatchCreatePrivateKey)
 		privateKey.PUT("/:id", gin2.UpdateOperationLogStatus, UpdatePrivateKey)
 		privateKey.DELETE("/:id", gin2.UpdateOperationLogStatus, DeletePrivateKey)
+	}
+
+	rsaKey := router.Group("rsaKey")
+	{
+		rsaKey.GET("publicKey", GetRSAPublicKey)
+		rsaKey.GET("decryptedText", GetTextFromEncryptedKey)
 	}
 
 	notification := router.Group("notification")
@@ -208,5 +232,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		externalSystem.GET("/:id", GetExternalSystemDetail)
 		externalSystem.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateExternalSystem)
 		externalSystem.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteExternalSystem)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// sonar integration API
+	// ---------------------------------------------------------------------------------------
+	sonar := router.Group("sonar")
+	{
+		sonar.POST("/integration", gin2.UpdateOperationLogStatus, CreateSonarIntegration)
+		sonar.PUT("/integration/:id", gin2.UpdateOperationLogStatus, UpdateSonarIntegration)
+		sonar.GET("/integration", ListSonarIntegration)
+		sonar.GET("/integration/:id", GetSonarIntegration)
+		sonar.DELETE("/integration/:id", gin2.UpdateOperationLogStatus, DeleteSonarIntegration)
+		sonar.POST("/validate", ValidateSonarInformation)
 	}
 }

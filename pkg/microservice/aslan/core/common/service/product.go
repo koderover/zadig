@@ -17,27 +17,27 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	helmclient "github.com/mittwald/go-helm-client"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -51,11 +51,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return e.ErrDeleteEnv.AddDesc("not found")
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return e.ErrDeleteEnv.AddErr(err)
 	}
 
 	restConfig, err := kube.GetRESTConfig(productInfo.ClusterID)
@@ -117,7 +112,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 
 			//删除namespace
 			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-			if err1 := updater.DeleteMatchingNamespace(productInfo.Namespace, s, kubeClient); err1 != nil {
+			if err1 := DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
 				err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
 				return
 			}
@@ -139,7 +134,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				log.Errorf("workflowStat not found error:%s", err)
 			}
 			if workloadStat != nil {
-				workloadStat.Workloads = filterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				workloadStat.Workloads = FilterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
 				if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
 					log.Errorf("update workloads fail error:%s", err)
 				}
@@ -202,13 +197,13 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				}
 			}()
 
-			err = DeleteResourcesAsync(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), kubeClient, log)
+			err = DeleteNamespacedResource(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), productInfo.ClusterID, log)
 			if err != nil {
 				err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
 				return
 			}
 
-			err = DeleteClusterResourceAsync(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), kubeClient, log)
+			err = DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
 
 			if err != nil {
 				err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
@@ -216,7 +211,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}
 
 			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-			if err1 := updater.DeleteMatchingNamespace(productInfo.Namespace, s, kubeClient); err1 != nil {
+			if err1 := DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
 				err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
 				return
 			}
@@ -238,7 +233,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	return nil
 }
 
-func filterWorkloadsByEnv(exist []commonmodels.Workload, env string) []commonmodels.Workload {
+func FilterWorkloadsByEnv(exist []commonmodels.Workload, env string) []commonmodels.Workload {
 	result := make([]commonmodels.Workload, 0)
 	for _, v := range exist {
 		if v.EnvName != env {
@@ -248,101 +243,131 @@ func filterWorkloadsByEnv(exist []commonmodels.Workload, env string) []commonmod
 	return result
 }
 
-func DeleteClusterResourceAsync(selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) error {
-	log.Infof("[%s] delete cluster kube resources", selector)
+func DeleteClusterResource(selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
+	log.Infof("Deleting cluster resources with selector: [%s]", selector)
 
-	errors := new(multierror.Error)
-	if err := updater.DeleteClusterRoles(selector, kubeClient); err != nil {
-		log.Error(err)
-		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteClusterRole error: %v", err))
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
+		return err
 	}
 
-	if err := updater.DeleteClusterRoleBindings(selector, kubeClient); err != nil {
-		log.Error(err)
-		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteClusterRoleBinding error: %v", err))
+	errors := new(multierror.Error)
+	if err := updater.DeleteClusterRoles(selector, clientset); err != nil {
+		log.Errorf("failed to delete clusterRoles for clusterID: %s, the error is: %s", clusterID, err)
+		errors = multierror.Append(errors, err)
+	}
+
+	if err := updater.DeletePersistentVolumes(selector, clientset); err != nil {
+		log.Errorf("failed to delete PV for clusterID: %s, the error is: %s", clusterID, err)
+		errors = multierror.Append(errors, err)
 	}
 
 	return errors.ErrorOrNil()
 }
 
-// 根据namespace和selector删除所有资源
-func DeleteResourcesAsync(namespace string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) error {
-	log.Infof("[%s][%s] delete kube resources", namespace, selector)
+// DeleteNamespacedResource deletes the namespaced resources by labels.
+func DeleteNamespacedResource(namespace string, selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
+	log.Infof("Deleting namespaced resources with selector: [%s] in namespace [%s]", selector, namespace)
+
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
+		return err
+	}
 
 	errors := new(multierror.Error)
 
-	if err := updater.DeleteDeployments(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteDeployments(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteDeployments error: %v", err))
 	}
 
 	// could have replicas created by deployment
-	if err := updater.DeleteReplicaSets(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteReplicaSets(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteReplicaSets error: %v", err))
 	}
 
-	if err := updater.DeleteStatefulSets(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteStatefulSets(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteStatefulSets error: %v", err))
 	}
 
-	if err := updater.DeleteJobs(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteJobs(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteJobs error: %v", err))
 	}
 
-	if err := updater.DeleteServices(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteServices(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteServices error: %v", err))
 	}
 
-	if err := updater.DeleteIngresses(namespace, selector, kubeClient); err != nil {
+	// TODO: Questionable delete logic, needs further attention
+	if err := updater.DeleteIngresses(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteIngresses error: %v", err))
 	}
 
-	if err := updater.DeleteSecrets(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteSecrets(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteSecrets error: %v", err))
 	}
 
-	if err := updater.DeleteConfigMaps(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteConfigMaps(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteConfigMaps error: %v", err))
 	}
 
-	if err := updater.DeletePersistentVolumeClaims(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeletePersistentVolumeClaims(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeletePersistentVolumeClaim error: %v", err))
 	}
 
-	if err := updater.DeletePersistentVolumes(namespace, selector, kubeClient); err != nil {
-		log.Error(err)
-		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeletePersistentVolume error: %v", err))
-	}
-
-	if err := updater.DeleteServiceAccounts(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteServiceAccounts(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteServiceAccounts error: %v", err))
 	}
 
-	if err := updater.DeleteCronJobs(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteCronJobs(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteCronJobs error: %v", err))
 	}
 
-	if err := updater.DeleteRoleBindings(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteRoleBindings(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteRoleBinding error: %v", err))
 	}
 
-	if err := updater.DeleteRoles(namespace, selector, kubeClient); err != nil {
+	if err := updater.DeleteRoles(namespace, selector, clientset); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteRole error: %v", err))
 	}
 
 	return errors.ErrorOrNil()
+}
+
+func DeleteNamespaceIfMatch(namespace string, selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
+	log.Infof("Checking if namespace [%s] has matching labels: [%s]", namespace, selector.String())
+
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
+		return err
+	}
+
+	ns, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to list namespace to delete matching namespace in cluster ID: %s, the error is: %s", clusterID, err)
+		return err
+	}
+
+	if selector.Matches(labels.Set(ns.Labels)) {
+		return updater.DeleteNamespace(namespace, clientset)
+	}
+
+	return nil
 }
 
 func GetProductEnvNamespace(envName, productName, namespace string) string {

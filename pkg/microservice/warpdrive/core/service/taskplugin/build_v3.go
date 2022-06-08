@@ -21,16 +21,16 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
-	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -45,9 +45,12 @@ func InitializeBuildTaskV3Plugin(taskType config.TaskType) TaskPlugin {
 	return &BuildTaskV3Plugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
+// Note: Deprecated.
 // BuildTaskV3Plugin is Plugin, name should be compatible with task type
 type BuildTaskV3Plugin struct {
 	Name          config.TaskType
@@ -55,6 +58,8 @@ type BuildTaskV3Plugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.Build
 	Log           *zap.SugaredLogger
 
@@ -108,32 +113,9 @@ func (p *BuildTaskV3Plugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, taskIDVar)
 
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
-	for _, repo := range p.Task.JobCtx.Builds {
-		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
-		if len(repo.Branch) > 0 {
-			branchVar := &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, branchVar)
-		}
 
-		if len(repo.Tag) > 0 {
-			tagVar := &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, tagVar)
-		}
-
-		if repo.PR > 0 {
-			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
-		}
-
-		if len(repo.CommitID) > 0 {
-			commitVar := &task.KeyVal{
-				Key:          fmt.Sprintf("%s_COMMIT_ID", repoName),
-				Value:        repo.CommitID,
-				IsCredential: false,
-			}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, commitVar)
-		}
-	}
+	//instantiates variables like ${<REPO>_BRANCH} ${${REPO_index}_BRANCH} ...
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, InstantiateBuildSysVariables(&p.Task.JobCtx)...)
 
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
@@ -188,10 +170,7 @@ func (p *BuildTaskV3Plugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	}
 	p.Log.Infof("succeed to create cm for build job %s", p.JobName)
 
-	jobImage := fmt.Sprintf("%s-%s", pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS)
-	if p.Task.ImageFrom == setting.ImageFromCustom {
-		jobImage = p.Task.BuildOS
-	}
+	jobImage := getReaperImage(pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS, p.Task.ImageFrom)
 
 	//Resource request default value is LOW
 	job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, "", pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)
@@ -237,7 +216,7 @@ func (p *BuildTaskV3Plugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 
 // Wait ...
 func (p *BuildTaskV3Plugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetBuildStatusCompleted(status)
 
 	if status == config.StatusPassed {

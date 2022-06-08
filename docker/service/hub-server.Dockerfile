@@ -1,11 +1,7 @@
-#golang.Dockerfile
-
-RUN go build -v -o /hubserver ./cmd/hubserver/main.go
-
 #alpine.Dockerfile
 
 WORKDIR /app
 
-COPY --from=build /hubserver .
+ADD docker/dist/hub-server .
 
-ENTRYPOINT ["/app/hubserver"]
+ENTRYPOINT ["/app/hub-server"]

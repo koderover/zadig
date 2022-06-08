@@ -28,7 +28,7 @@ type Email struct {
 }
 
 func (c *Client) GetEmailHost() (*Email, error) {
-	url := "/emails/internal/host/"
+	url := "/emails/host/internal/"
 
 	res := &Email{}
 	_, err := c.Get(url, httpclient.SetResult(res))

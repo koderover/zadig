@@ -55,6 +55,9 @@ type ConfigPayload struct {
 	K8SClusters []*K8SCluster `json:"k8s_clusters"`
 
 	RegistryID string `json:"registry_id"`
+
+	// build concurrency settings
+	BuildConcurrency int64 `json:"build_concurrency"`
 }
 
 func (cp *ConfigPayload) GetGitKnownHost() string {
@@ -159,7 +162,7 @@ type PrivateKey struct {
 }
 
 type K8SCluster struct {
-	ID             string          `json:"id,omitempty"                bson:"_id,omitempty"`
+	ID             string          `json:"id,omitempty"                bson:"id,omitempty"`
 	Name           string          `json:"name"                        bson:"name"`
 	AdvancedConfig *AdvancedConfig `json:"advanced_config,omitempty"   bson:"advanced_config,omitempty"`
 }

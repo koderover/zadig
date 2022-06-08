@@ -37,6 +37,10 @@ func (c *Client) ListNamespaces(keyword string, opts *ListOptions) ([]*gitlab.Na
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*gitlab.Namespace
 	ns, ok := namespaces.([]interface{})
 	if !ok {

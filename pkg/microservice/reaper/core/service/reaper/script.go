@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -150,7 +151,6 @@ func (r *Reaper) runIntallationScripts() error {
 }
 
 func (r *Reaper) createReadme(file string) error {
-
 	if r.Ctx.Archive == nil || len(r.Ctx.Repos) == 0 {
 		return nil
 	}
@@ -166,7 +166,6 @@ func (r *Reaper) createReadme(file string) error {
 	scripts = append(scripts, fmt.Sprintf("echo GIT-COMMIT: >> %s", file))
 
 	for _, repo := range r.Ctx.Repos {
-
 		if repo == nil || len(repo.Name) == 0 {
 			continue
 		}
@@ -208,11 +207,6 @@ func (r *Reaper) runScripts() error {
 	// avoid non-blocking IO for stdout to workaround "stdout: write error"
 	for _, script := range r.Ctx.Scripts {
 		scripts = append(scripts, script)
-		// TODO: This may cause nodejs compilation problems, but it is not completely determined, so keep it for now.
-		if strings.Contains(script, "yarn ") || strings.Contains(script, "npm ") || strings.Contains(script, "bower ") {
-			scripts = append(scripts, "echo 'turn off O_NONBLOCK after using node'")
-			scripts = append(scripts, "python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'")
-		}
 	}
 
 	userScriptFile := "user_script.sh"
@@ -254,6 +248,47 @@ func (r *Reaper) runScripts() error {
 		defer wg.Done()
 
 		r.handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName)
+	}()
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	wg.Wait()
+
+	return cmd.Wait()
+}
+
+func (r *Reaper) runSonarScanner() error {
+	// first we write the sonar scanner config to the config file
+	for _, repo := range r.Ctx.Repos {
+		log.Infof("Writing sonar-project.properties for repo: %s", repo.Name)
+		repoConfigPath := filepath.Join("/workspace", repo.Name, "sonar-project.properties")
+		configContent := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", r.Ctx.SonarLogin, r.Ctx.SonarServer, r.Ctx.SonarParameter)
+		err := os.WriteFile(repoConfigPath, []byte(configContent), fs.ModeAppend)
+		if err != nil {
+			log.Errorf("failed to write sonar-project.properties for repo: %s, the error is: %s", repo.Name, err)
+			return err
+		}
+	}
+	// then we simply run the sonar-scanner command to commence the scan
+	cmd := exec.Command("sonar-scanner")
+	// since currently only one codehost is supported, we will just use the first repository
+	cmd.Dir = filepath.Join("/workspace", r.Ctx.Repos[0].Name)
+	fileName := filepath.Join(os.TempDir(), "sonar.log")
+	util.WriteFile(fileName, []byte{}, 0700)
+	var wg sync.WaitGroup
+
+	cmdStdoutReader, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdoutReader, false, fileName)
 	}()
 
 	if err := cmd.Start(); err != nil {
@@ -349,6 +384,7 @@ func (r *Reaper) RunPMDeployScripts() error {
 
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_IP=%s", ssh.Name, ssh.IP))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_PORT=%d", ssh.Name, ssh.Port))
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_USERNAME=%s", ssh.Name, ssh.UserName))
 
 		r.Ctx.SecretEnvs = append(r.Ctx.SecretEnvs, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))
@@ -431,7 +467,7 @@ func (r *Reaper) handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, log
 			break
 		}
 
-		fmt.Printf("%s", string(lineBytes))
+		fmt.Printf("%s", r.maskSecretEnvs(string(lineBytes)))
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)

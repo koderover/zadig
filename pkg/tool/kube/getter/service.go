@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,6 +48,13 @@ func ListServices(ns string, selector labels.Selector, cl client.Client) ([]*cor
 	return res, err
 }
 
+func ListServicesWithCache(selector labels.Selector, lister informers.SharedInformerFactory) ([]*corev1.Service, error) {
+	if selector == nil {
+		selector = labels.NewSelector()
+	}
+	return lister.Core().V1().Services().Lister().List(selector)
+}
+
 func ListServicesYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
 	gvk := schema.GroupVersionKind{
 		Group:   "",
@@ -54,4 +62,22 @@ func ListServicesYaml(ns string, selector labels.Selector, cl client.Client) ([]
 		Version: "v1",
 	}
 	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
+}
+
+func GetServiceYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Service",
+		Version: "v1",
+	}
+	return GetResourceYamlInCache(ns, name, gvk, cl)
+}
+
+func GetServiceYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Service",
+		Version: "v1",
+	}
+	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
 }

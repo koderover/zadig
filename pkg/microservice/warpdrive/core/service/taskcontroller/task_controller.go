@@ -31,47 +31,57 @@ import (
 	"github.com/koderover/zadig/pkg/tool/nsqcli"
 )
 
-func InitTaskController(ctx context.Context) error {
+type controller struct {
+	consumers []*nsq.Consumer
+	producers []*nsq.Producer
+}
+
+func NewController() ControllerI {
+	return &controller{
+		consumers: []*nsq.Consumer{},
+		producers: []*nsq.Producer{},
+	}
+}
+
+func (c *controller) Init(ctx context.Context) error {
 	go func() {
 		if err := client.Start(ctx); err != nil {
 			panic(err)
 		}
 	}()
 
-	//初始化nsq
 	cfg := nsq.NewConfig()
-	// 注意 WD_POD_NAME 必须使用 Downward API 配置环境变量
 	cfg.UserAgent = config.WarpDrivePodName()
-	// FIXME: Min: FIX MAGIC NUMBER
 	cfg.MaxAttempts = 50
 	cfg.LookupdPollInterval = 1 * time.Second
-	//nsqd 和服务起在一起 FIXME: Min: FIX MAGIC ADDR
+	cfg.MsgTimeout = 1 * time.Minute
 	nsqClient := nsqcli.NewNsqClient(config.NSQLookupAddrs(), "127.0.0.1:4151")
 
-	//Process topic
 	processor, err := nsq.NewConsumer(setting.TopicProcess, "process", cfg)
 	if err != nil {
 		return fmt.Errorf("init nsq processor error: %v", err)
 	}
-	processor.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
 
-	//Cancel topic
-	//监听不同的channel,确保取消消息到每一个wd
+	processor.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
+	c.consumers = append(c.consumers, processor)
+
 	canceller, err := nsq.NewConsumer(setting.TopicCancel, cfg.UserAgent, cfg)
 	if err != nil {
 		return fmt.Errorf("init nsq canceller error: %v", err)
 	}
-	canceller.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
 
-	//Sender
+	canceller.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
+	c.consumers = append(c.consumers, canceller)
+
 	nsqdAddr := "127.0.0.1:4150"
 	sender, err := nsq.NewProducer(nsqdAddr, cfg)
 	if err != nil {
 		return fmt.Errorf("init nsq sender error: %v", err)
 	}
-	sender.SetLogger(log.New(os.Stdout, "nsq producer:", 0), nsq.LogLevelError)
 
-	// 初始化nsq topic
+	sender.SetLogger(log.New(os.Stdout, "nsq producer:", 0), nsq.LogLevelError)
+	c.producers = append(c.producers, sender)
+
 	err = nsqClient.EnsureNsqdTopics([]string{setting.TopicAck, setting.TopicItReport, setting.TopicNotification})
 	if err != nil {
 		return fmt.Errorf("ensure nsq topic error: %v", err)
@@ -80,22 +90,31 @@ func InitTaskController(ctx context.Context) error {
 	execHandler := &ExecHandler{
 		Sender: sender,
 	}
-
 	processor.AddHandler(execHandler)
-
-	//Add task plugin initiators to exec Handler
+	// Add task plugin initiators to exec Handler.
 	initTaskPlugins(execHandler)
 
 	cancelHandler := &CancelHandler{}
-
 	canceller.AddHandler(cancelHandler)
 
 	if err := processor.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
 		return fmt.Errorf("processor could not connect to %v", config.NSQLookupAddrs())
 	}
-
 	if err := canceller.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
 		return fmt.Errorf("canceller could not connect to %v", config.NSQLookupAddrs())
 	}
+
+	return nil
+}
+
+func (c *controller) Stop(ctx context.Context) error {
+	for _, consumer := range c.consumers {
+		consumer.Stop()
+	}
+
+	for _, producer := range c.producers {
+		producer.Stop()
+	}
+
 	return nil
 }

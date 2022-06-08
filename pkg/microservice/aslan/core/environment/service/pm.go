@@ -24,6 +24,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -42,7 +44,7 @@ type PMService struct {
 	log *zap.SugaredLogger
 }
 
-func (p *PMService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClient client.Client) (string, string, []string) {
+func (p *PMService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
 	p.log.Infof("queryServiceStatus of service: %s of product: %s in namespace %s", serviceTmpl.ServiceName, productName, namespace)
 	pipelineName := fmt.Sprintf("%s-%s-%s", serviceTmpl.ServiceName, envName, "job")
 	taskObj, err := commonrepo.NewTaskColl().FindTask(pipelineName, config.ServiceType)
@@ -53,7 +55,7 @@ func (p *PMService) queryServiceStatus(namespace, envName, productName string, s
 		return setting.PodPending, setting.PodNotReady, []string{}
 	}
 
-	return queryPodsStatus(namespace, "", serviceTmpl.ServiceName, kubeClient, p.log)
+	return queryPodsStatus(namespace, "", serviceTmpl.ServiceName, informer, p.log)
 }
 
 func (p *PMService) updateService(args *SvcOptArgs) error {
@@ -87,7 +89,7 @@ func (p *PMService) updateService(args *SvcOptArgs) error {
 	return nil
 }
 
-func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, kubeClient client.Client, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
+func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
 	var wg sync.WaitGroup
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
@@ -106,13 +108,6 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
 			)
 
-			for _, envconfig := range serviceTmpl.EnvConfigs {
-				if envconfig.EnvName == envName {
-					gp.EnvConfigs = []*models.EnvConfig{envconfig}
-					break
-				}
-			}
-
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
@@ -121,14 +116,30 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				return
 			}
 
+			for _, envconfig := range serviceTmpl.EnvConfigs {
+				if envconfig.EnvName == envName {
+					gp.EnvConfigs = []*models.EnvConfig{envconfig}
+					break
+				}
+			}
+
 			gp.ProductName = serviceTmpl.ProductName
 			if len(serviceTmpl.EnvStatuses) > 0 {
 				envStatuses := make([]*commonmodels.EnvStatus, 0)
+				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+				if err != nil {
+					return
+				}
+				filterEnvStatusSet := sets.NewString()
+				for _, v := range filterEnvStatuses {
+					filterEnvStatusSet.Insert(v.Address)
+				}
 				for _, envStatus := range serviceTmpl.EnvStatuses {
-					if envStatus.EnvName == envName {
+					if envStatus.EnvName == envName && filterEnvStatusSet.Has(envStatus.Address) {
 						envStatuses = append(envStatuses, envStatus)
 					}
 				}
+
 				if len(envStatuses) > 0 {
 					gp.EnvStatuses = envStatuses
 					mutex.Lock()
@@ -152,7 +163,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 	return resp
 }
 
-func (p *PMService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client) error {
+func (p *PMService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, inf informers.SharedInformerFactory, kubeClient client.Client) error {
 	p.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 
 	// 异步创建无依赖的服务
@@ -258,5 +269,9 @@ func (p *PMService) createGroup(envName, productName, username string, group []*
 		return err
 	}
 
+	return nil
+}
+
+func (p *PMService) initEnvConfigSet(envName, productName, username string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error {
 	return nil
 }

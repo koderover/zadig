@@ -18,10 +18,12 @@ package updater
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,8 +55,17 @@ func RestartStatefulSet(ns, name string, cl client.Client) error {
 	return nil
 }
 
-func DeleteStatefulSets(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &appsv1.StatefulSet{}, cl)
+func DeleteStatefulSets(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	return clientset.AppsV1().StatefulSets(namespace).DeleteCollection(
+		context.TODO(),
+		metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		},
+		metav1.ListOptions{
+			LabelSelector: selector.String(),
+		},
+	)
 }
 
 func UpdateStatefulSetImage(ns, name, container, image string, cl client.Client) error {

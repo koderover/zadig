@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -106,6 +108,10 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	if id == setting.LocalClusterID {
 		cluster.Status = setting.Normal
 		cluster.Local = true
+		cluster.AdvancedConfig = &commonmodels.AdvancedConfig{
+			Strategy: "normal",
+		}
+		cluster.DindCfg = nil
 	}
 	err = s.coll.Create(cluster, id)
 	if err != nil {
@@ -187,6 +193,19 @@ func (s *Service) GetCluster(id string, logger *zap.SugaredLogger) (*models.K8SC
 	if err != nil {
 		return nil, err
 	}
+
+	if cluster.DindCfg == nil {
+		cluster.DindCfg = &commonmodels.DindCfg{
+			Replicas: DefaultDindReplicas,
+			Resources: &commonmodels.Resources{
+				Limits: &commonmodels.Limits{
+					CPU:    DefaultDindLimitsCPU,
+					Memory: DefaultDindLimitsMemory,
+				},
+			},
+		}
+	}
+
 	cluster.Token = token
 	return cluster, nil
 }
@@ -248,13 +267,19 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 		return nil, err
 	}
 
+	dindReplicas, dindLimitsCPU, dindLimitsMemory := setDindCfg(cluster)
+
 	if cluster.Namespace == "" {
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
 			HubAgentImage:       agentImage,
 			ResourceServerImage: rsImage,
 			ClientToken:         token,
 			HubServerBaseAddr:   hubBase.String(),
+			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
+			DindReplicas:        dindReplicas,
+			DindLimitsCPU:       dindLimitsCPU,
+			DindLimitsMemory:    dindLimitsMemory,
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -262,8 +287,12 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			ResourceServerImage: rsImage,
 			ClientToken:         token,
 			HubServerBaseAddr:   hubBase.String(),
+			AslanBaseAddr:       config2.SystemAddress(),
 			UseDeployment:       useDeployment,
 			Namespace:           cluster.Namespace,
+			DindReplicas:        dindReplicas,
+			DindLimitsCPU:       dindLimitsCPU,
+			DindLimitsMemory:    dindLimitsMemory,
 		})
 	}
 
@@ -274,6 +303,37 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 	return buffer.Bytes(), nil
 }
 
+func (s *Service) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) error {
+	_, err := s.coll.Get(id)
+	if err != nil {
+		return err
+	}
+	err = s.coll.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
+	return err
+}
+
+func setDindCfg(cluster *models.K8SCluster) (int, string, string) {
+	var dindReplicas int = DefaultDindReplicas
+	var dindLimitsCPU string = strconv.Itoa(DefaultDindLimitsCPU) + setting.CpuUintM
+	var dindLimitsMemory string = strconv.Itoa(DefaultDindLimitsMemory) + setting.MemoryUintMi
+
+	if cluster.DindCfg != nil {
+		if cluster.DindCfg.Replicas > 0 {
+			dindReplicas = cluster.DindCfg.Replicas
+		}
+
+		if cluster.DindCfg.Resources != nil && cluster.DindCfg.Resources.Limits != nil {
+			if cluster.DindCfg.Resources.Limits.CPU > 0 {
+				dindLimitsCPU = strconv.Itoa(cluster.DindCfg.Resources.Limits.CPU) + setting.CpuUintM
+			}
+			if cluster.DindCfg.Resources.Limits.Memory > 0 {
+				dindLimitsMemory = strconv.Itoa(cluster.DindCfg.Resources.Limits.Memory) + setting.MemoryUintMi
+			}
+		}
+	}
+	return dindReplicas, dindLimitsCPU, dindLimitsMemory
+}
+
 type TemplateSchema struct {
 	HubAgentImage       string
 	ResourceServerImage string
@@ -281,7 +341,17 @@ type TemplateSchema struct {
 	HubServerBaseAddr   string
 	Namespace           string
 	UseDeployment       bool
+	AslanBaseAddr       string
+	DindReplicas        int
+	DindLimitsCPU       string
+	DindLimitsMemory    string
 }
+
+const (
+	DefaultDindReplicas     int = 1
+	DefaultDindLimitsCPU    int = 4000
+	DefaultDindLimitsMemory int = 8192
+)
 
 var YamlTemplate = template.Must(template.New("agentYaml").Parse(`
 ---
@@ -301,7 +371,7 @@ metadata:
 
 ---
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: koderover-agent-admin-binding
@@ -334,6 +404,25 @@ rules:
   - '*'
 
 ---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-agent
+  namespace: koderover-agent
+  labels:
+    app: koderover-agent-agent
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: koderover-agent-agent
+
+---
+
 apiVersion: apps/v1
 {{- if .UseDeployment }}
 kind: Deployment
@@ -383,6 +472,8 @@ spec:
           value: "{{.ClientToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
+        - name: ASLAN_BASE_ADDR
+          value: "{{.AslanBaseAddr}}"
         resources:
           limits:
             cpu: 1000m
@@ -463,7 +554,7 @@ metadata:
     app.kubernetes.io/name: zadig
 spec:
   serviceName: dind
-  replicas: 1
+  replicas: {{.DindReplicas}}
   selector:
     matchLabels:
       app.kubernetes.io/component: dind
@@ -482,7 +573,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/library-docker:stable-dind
+          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
           args:
             - --mtu=1376
           env:
@@ -495,8 +586,8 @@ spec:
               containerPort: 2375
           resources:
             limits:
-              cpu: "4"
-              memory: 8Gi
+              cpu: {{.DindLimitsCPU}}
+              memory: {{.DindLimitsMemory}}
             requests:
               cpu: 100m
               memory: 128Mi
@@ -534,7 +625,7 @@ metadata:
 
 ---
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: koderover-agent-admin-binding
@@ -564,6 +655,25 @@ rules:
   - '*'
 
 ---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-agent
+  namespace: {{.Namespace}}
+  labels:
+    app: koderover-agent-agent
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: koderover-agent-agent
+
+---
+
 apiVersion: apps/v1
 {{- if .UseDeployment }}
 kind: Deployment
@@ -613,6 +723,8 @@ spec:
           value: "{{.ClientToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
+        - name: ASLAN_BASE_ADDR
+          value: "{{.AslanBaseAddr}}"
         resources:
           limits:
             cpu: 1000m
@@ -713,7 +825,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/library-docker:stable-dind
+          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
           args:
             - --mtu=1376
           env:

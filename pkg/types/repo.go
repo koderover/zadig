@@ -24,9 +24,9 @@ import (
 
 // Repository struct
 type Repository struct {
-	// Source is github, gitlab
 	Source        string `bson:"source,omitempty"          json:"source,omitempty"`
 	RepoOwner     string `bson:"repo_owner"                json:"repo_owner"`
+	RepoNamespace string `bson:"repo_namespace"            json:"repo_namespace"`
 	RepoName      string `bson:"repo_name"                 json:"repo_name"`
 	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"`
 	Branch        string `bson:"branch"                    json:"branch"`
@@ -52,6 +52,24 @@ type Repository struct {
 	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
 	Username    string `bson:"username,omitempty"           json:"username,omitempty"`
 	Password    string `bson:"password,omitempty"           json:"password,omitempty"`
+	// Now EnableProxy is not something we store. We decide this on runtime
+	EnableProxy bool `bson:"-"       json:"enable_proxy,omitempty"`
+	// FilterRegexp is the regular expression filter for the branches and tags
+	FilterRegexp string `bson:"-"    json:"filter_regexp,omitempty"`
+	// The address of the code base input of the other type
+	AuthType           AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"`
+	SSHKey             string   `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"`
+	PrivateAccessToken string   `bson:"private_access_token,omitempty"  json:"private_access_token,omitempty"`
+}
+
+type BranchFilterInfo struct {
+	// repository identifier
+	CodehostID int    `bson:"codehost_id"  json:"codehost_id"`
+	RepoOwner  string `bson:"repo_owner"   json:"repo_owner"`
+	RepoName   string `bson:"repo_name"    json:"repo_name"`
+
+	// actual regular expression filter
+	FilterRegExp string `bson:"filter_regexp" json:"filter_regexp"`
 }
 
 // GetReleaseCandidateTag 返回待发布对象Tag
@@ -85,4 +103,11 @@ func (repo *Repository) GetReleaseCandidateTag(taskID int64) string {
 		return "invalid"
 	}
 	return tag
+}
+
+func (repo *Repository) GetRepoNamespace() string {
+	if repo.RepoNamespace != "" {
+		return repo.RepoNamespace
+	}
+	return repo.RepoOwner
 }

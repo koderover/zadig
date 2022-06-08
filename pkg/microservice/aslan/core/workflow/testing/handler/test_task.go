@@ -62,7 +62,6 @@ func CreateTestTask(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.CreateTestTask(args, ctx.Logger)
-	// 发送通知
 	if ctx.Err != nil {
 		commonservice.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.Err, ctx.Logger)
 	}

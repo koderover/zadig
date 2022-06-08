@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -29,10 +30,13 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 var DefaultCleanWhiteList = []string{"spockadmin"}
@@ -47,7 +51,10 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		log.Errorf("[Product.List] error: %v", err)
 		return
 	}
-
+	envCMMap, err := collaboration.GetEnvCMMap([]string{}, log)
+	if err != nil {
+		return
+	}
 	wl := sets.NewString(DefaultCleanWhiteList...)
 	wl.Insert(config.CleanSkippedList()...)
 	for _, product := range products {
@@ -58,16 +65,18 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		if product.RecycleDay == 0 {
 			continue
 		}
-
+		if _, ok := envCMMap[collaboration.BuildEnvCMMapKey(product.ProductName, product.EnvName)]; ok {
+			continue
+		}
 		if time.Now().Unix()-product.UpdateTime > int64(60*60*24*product.RecycleDay) {
 			//title := "系统清理产品信息"
 			//content := fmt.Sprintf("环境 [%s] 已经连续%d天没有使用, 系统已自动删除该环境, 如有需要请重新创建。", product.EnvName, product.RecycleDay)
 
-			if err := commonservice.DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
+			if err := DeleteProduct("robot", product.EnvName, product.ProductName, requestID, true, log); err != nil {
 				log.Errorf("[%s][P:%s] delete product error: %v", product.EnvName, product.ProductName, err)
 
 				// 如果有错误，重试删除
-				if err := commonservice.DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
+				if err := DeleteProduct("robot", product.EnvName, product.ProductName, requestID, true, log); err != nil {
 					//content = fmt.Sprintf("系统自动清理环境 [%s] 失败，请手动删除环境。", product.ProductName)
 					log.Errorf("[%s][P:%s] retry delete product error: %v", product.EnvName, product.ProductName, err)
 				}
@@ -78,7 +87,7 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 	}
 }
 
-func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
+func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
 	ret := &commonmodels.Product{}
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(productTmplName)
@@ -111,8 +120,37 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 		ret.Source = setting.PMDeployType
 	}
 
+	svcGroupNames := prodTmpl.Services
+	if envType == types.ShareEnv && !isBaseEnv {
+		// At this point the request is from the environment share.
+		svcGroupNames, err = GetEnvServiceList(context.TODO(), productTmplName, baseEnvName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service list from env %s of product %s: %s", baseEnvName, productTmplName, err)
+		}
+
+		// Note: In the Helm scenario, filter `chart_infos` which is used by front-end.
+		if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {
+			chartInfos := []*templatemodels.RenderChart{}
+			for _, chartInfo := range ret.ChartInfos {
+				found := false
+				for _, svcGroupName := range svcGroupNames {
+					if util.InStringArray(chartInfo.ServiceName, svcGroupName) {
+						found = true
+						break
+					}
+				}
+
+				if found {
+					chartInfos = append(chartInfos, chartInfo)
+				}
+			}
+
+			ret.ChartInfos = chartInfos
+		}
+	}
+
 	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
-	for _, names := range prodTmpl.Services {
+	for _, names := range svcGroupNames {
 		servicesResp := make([]*commonmodels.ProductService, 0)
 
 		for _, serviceName := range names {
@@ -142,6 +180,7 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 						Name:      c.Name,
 						Image:     c.Image,
 						ImagePath: c.ImagePath,
+						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
@@ -183,22 +222,26 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 
 func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) *ProductResp {
 	prodResp := &ProductResp{
-		ID:          prod.ID.Hex(),
-		ProductName: prod.ProductName,
-		Namespace:   prod.Namespace,
-		Services:    [][]string{},
-		Status:      setting.PodUnstable,
-		EnvName:     prod.EnvName,
-		UpdateTime:  prod.UpdateTime,
-		UpdateBy:    prod.UpdateBy,
-		Render:      prod.Render,
-		Error:       prod.Error,
-		Vars:        prod.Vars[:],
-		IsPublic:    prod.IsPublic,
-		ClusterID:   prod.ClusterID,
-		RecycleDay:  prod.RecycleDay,
-		Source:      prod.Source,
-		RegisterID:  prod.RegistryID,
+		ID:              prod.ID.Hex(),
+		ProductName:     prod.ProductName,
+		Namespace:       prod.Namespace,
+		Services:        [][]string{},
+		Status:          setting.PodUnstable,
+		EnvName:         prod.EnvName,
+		UpdateTime:      prod.UpdateTime,
+		UpdateBy:        prod.UpdateBy,
+		Render:          prod.Render,
+		Error:           prod.Error,
+		Vars:            prod.Vars[:],
+		IsPublic:        prod.IsPublic,
+		IsExisted:       prod.IsExisted,
+		ClusterID:       prod.ClusterID,
+		RecycleDay:      prod.RecycleDay,
+		Source:          prod.Source,
+		RegisterID:      prod.RegistryID,
+		ShareEnvEnable:  prod.ShareEnv.Enable,
+		ShareEnvIsBase:  prod.ShareEnv.IsBase,
+		ShareEnvBaseEnv: prod.ShareEnv.BaseEnv,
 	}
 
 	if prod.ClusterID != "" {
@@ -225,6 +268,10 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		}
 	} else {
 		prodResp.IsLocal = true
+	}
+
+	if prod.Source != setting.SourceFromExternal {
+		prodResp.Services = prod.GetGroupServiceNames()
 	}
 
 	if prod.Status == setting.ProductStatusCreating {
@@ -258,7 +305,6 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 			return prodResp
 		}
 	default:
-		prodResp.Services = prod.GetGroupServiceNames()
 		servicesResp, _, errObj = ListGroups("", envName, prod.ProductName, -1, -1, log)
 	}
 
@@ -296,8 +342,8 @@ func CleanProducts() {
 	for _, prod := range products {
 		_, err := templaterepo.NewProductColl().Find(prod.ProductName)
 		if err != nil && err.Error() == "not found" {
-			logger.Errorf("集成环境所属的项目不存在，准备删除此集成环境, namespace:%s, 项目:%s\n", prod.Namespace, prod.ProductName)
-			err = commonservice.DeleteProduct("CleanProducts", prod.EnvName, prod.ProductName, "", logger)
+			logger.Errorf("环境所属的项目不存在，准备删除此环境, namespace:%s, 项目:%s\n", prod.Namespace, prod.ProductName)
+			err = DeleteProduct("CleanProducts", prod.EnvName, prod.ProductName, "", true, logger)
 			if err != nil {
 				logger.Errorf("delete product failed, namespace:%s, err:%v\n", prod.Namespace, err)
 				continue

@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +43,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -55,16 +57,17 @@ import (
 )
 
 type ServiceOption struct {
-	ServiceModules []*ServiceModule           `json:"service_module"`
-	SystemVariable []*Variable                `json:"system_variable"`
-	CustomVariable []*templatemodels.RenderKV `json:"custom_variable"`
-	Yaml           string                     `json:"yaml"`
-	Service        *commonmodels.Service      `json:"service,omitempty"`
+	ServiceModules   []*ServiceModule           `json:"service_module"`
+	SystemVariable   []*Variable                `json:"system_variable"`
+	CustomVariable   []*templatemodels.RenderKV `json:"custom_variable"`
+	TemplateVariable []*Variable                `json:"template_variable"`
+	Yaml             string                     `json:"yaml"`
+	Service          *commonmodels.Service      `json:"service,omitempty"`
 }
 
 type ServiceModule struct {
 	*commonmodels.Container
-	BuildName string `json:"build_name"`
+	BuildNames []string `json:"build_names"`
 }
 
 type Variable struct {
@@ -134,10 +137,22 @@ type YamlValidatorReq struct {
 	Yaml        string `json:"yaml,omitempty"`
 }
 
+type YamlViewServiceTemplateReq struct {
+	ServiceName string                     `json:"service_name"`
+	ProjectName string                     `json:"project_name"`
+	EnvName     string                     `json:"env_name"`
+	Variables   []*templatemodels.RenderKV `json:"variables"`
+}
+
+type ReleaseNamingRule struct {
+	NamingRule  string `json:"naming"`
+	ServiceName string `json:"service_name"`
+}
+
 func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.SugaredLogger) {
 	opt := &commonrepo.ProductListOptions{
 		Source:        setting.SourceFromExternal,
-		ExcludeStatus: setting.ProductStatusDeleting,
+		ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown},
 	}
 	products, err := commonrepo.NewProductColl().List(opt)
 	if err != nil {
@@ -176,6 +191,24 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, l
 	return serviceOption, err
 }
 
+func GetTemplateVariables(args *commonmodels.Service) []*Variable {
+	if args.TemplateID == "" {
+		return nil
+	}
+	templateInfo, err := commonrepo.NewYamlTemplateColl().GetById(args.TemplateID)
+	if err != nil {
+		log.Errorf("failed to find template with id: %s for service: %s, err: %s", args.TemplateID, args.ServiceName, err)
+		return nil
+	}
+
+	variables, err := buildYamlTemplateVariables(args, templateInfo)
+	if err != nil {
+		log.Errorf("failed to extract template variables for service: %s, err: %s", args.ServiceName, err)
+		return nil
+	}
+	return variables
+}
+
 func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
 	serviceOption := new(ServiceOption)
 
@@ -183,10 +216,17 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	for _, container := range args.Containers {
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
-		buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
-		if buildObj != nil {
-			serviceModule.BuildName = buildObj.Name
+		serviceModule.ImageName = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
+		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
+		if err != nil {
+			return nil, err
 		}
+
+		buildNames := sets.NewString()
+		for _, buildObj := range buildObjs {
+			buildNames.Insert(buildObj.Name)
+		}
+		serviceModule.BuildNames = buildNames.List()
 		serviceModules = append(serviceModules, serviceModule)
 	}
 	serviceOption.ServiceModules = serviceModules
@@ -204,6 +244,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Key:   "$EnvName$",
 			Value: ""},
 	}
+	serviceOption.TemplateVariable = GetTemplateVariables(args)
 	renderKVs, err := commonservice.ListServicesRenderKeys([]*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}, log)
 	if err != nil {
 		log.Errorf("ListServicesRenderKeys %s error: %v", args.ServiceName, err)
@@ -248,22 +289,31 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	}
 
 	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub ||
-		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromCodeHub {
+		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromGitee {
 		serviceOption.Yaml = args.Yaml
 	}
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []commonmodels.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+type K8sWorkloadsArgs struct {
+	WorkLoads   []commonmodels.Workload `json:"workLoads"`
+	EnvName     string                  `json:"env_name"`
+	ClusterID   string                  `json:"cluster_id"`
+	Namespace   string                  `json:"namespace"`
+	ProductName string                  `json:"product_name"`
+	RegistryID  string                  `json:"registry_id"`
+}
+
+func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K8sWorkloadsArgs, log *zap.SugaredLogger) error {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
 	if err != nil {
-		log.Errorf("[%s] error: %v", namespace, err)
+		log.Errorf("[%s] error: %v", args.Namespace, err)
 		return err
 	}
 	// 检查环境是否存在，envName和productName唯一
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
-		log.Errorf("[%s][P:%s] duplicate envName in the same project", envName, productName)
+		log.Errorf("[%s][P:%s] duplicate envName in the same project", args.EnvName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
 
@@ -274,7 +324,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	)
 
 	serviceString := sets.NewString()
-	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
@@ -285,26 +335,26 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	//}
 
 	g := new(errgroup.Group)
-	for _, workload := range workLoads {
+	for _, workload := range args.WorkLoads {
 		tempWorkload := workload
 		g.Go(func() error {
 			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
 				return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
-					ProductName: productName,
+					ProductName: args.ProductName,
 					ServiceName: tempWorkload.Name,
-					EnvName:     envName,
-					Namespace:   namespace,
-					ClusterID:   clusterID,
+					EnvName:     args.EnvName,
+					Namespace:   args.Namespace,
+					ClusterID:   args.ClusterID,
 				})
 			}
 
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
-				bs, _, err = getter.GetDeploymentYaml(namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetDeploymentYaml(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetStatefulSetYaml(namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, tempWorkload.Name, kubeClient)
 			}
 
 			if len(bs) == 0 || err != nil {
@@ -315,21 +365,21 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			mu.Lock()
 			defer mu.Unlock()
 			workloadsTmp = append(workloadsTmp, commonmodels.Workload{
-				EnvName:     envName,
+				EnvName:     args.EnvName,
 				Name:        tempWorkload.Name,
 				Type:        tempWorkload.Type,
-				ProductName: productName,
+				ProductName: args.ProductName,
 			})
 
-			return CreateWorkloadTemplate(username, &commonmodels.Service{
+			return CreateWorkloadTemplate(userName, &commonmodels.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
-				ProductName:  productName,
-				CreateBy:     username,
+				ProductName:  args.ProductName,
+				CreateBy:     userName,
 				Type:         setting.K8SDeployType,
 				WorkloadType: tempWorkload.Type,
 				Source:       setting.SourceFromExternal,
-				EnvName:      envName,
+				EnvName:      args.EnvName,
 				Revision:     1,
 			}, log)
 		})
@@ -340,32 +390,33 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 
 	// 没有环境，创建环境
 	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
 	}); err != nil {
-		if err := service.CreateProduct(username, requestID, &commonmodels.Product{
-			ProductName: productName,
+		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
+			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
-			ClusterID:   clusterID,
-			EnvName:     envName,
-			Namespace:   namespace,
-			UpdateBy:    username,
+			ClusterID:   args.ClusterID,
+			RegistryID:  args.RegistryID,
+			EnvName:     args.EnvName,
+			Namespace:   args.Namespace,
+			UpdateBy:    userName,
 		}, log); err != nil {
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
 	}
 
-	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		workLoadStat = &commonmodels.WorkloadStat{
-			ClusterID: clusterID,
-			Namespace: namespace,
+			ClusterID: args.ClusterID,
+			Namespace: args.Namespace,
 			Workloads: workloadsTmp,
 		}
 		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
 
-	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, envName)
+	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
@@ -662,7 +713,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				}
 			}
 			// 配置来源为Gitlab，对比配置的ChangeLog是否变化
-			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub {
+			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromGitee {
 				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
 					log.Infof("%s change log remains the same, quit creation", args.Source)
 					return GetServiceOption(serviceTmpl, log)
@@ -739,6 +790,11 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 		}
 	}
 	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+
+	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
 
 	return GetServiceOption(args, log)
 }
@@ -908,12 +964,136 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				log.Errorf("yaml unmarsh err: %s", err)
-				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
+				errorDetails = append(errorDetails, fmt.Sprintf("Invalid yaml format. The content must be a series of valid Kubernetes resources. err: %s", err))
 			}
 		}
 	}
 	return errorDetails
+}
+
+func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		ProductName:   args.ProjectName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	}
+	svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
+	if err != nil {
+		return "", err
+	}
+
+	renderSet := new(commonmodels.RenderSet)
+	renderSet.KVs = args.Variables
+	parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, renderSet)
+	if args.EnvName != "" {
+		prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProjectName,
+			EnvName: args.EnvName,
+		})
+		if err != nil {
+			return "", err
+		}
+
+		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
+		cerSvc := prod.GetServiceMap()
+		svcInfo, found := cerSvc[args.ServiceName]
+		if found {
+			parsedYaml, err = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	return parsedYaml, nil
+}
+
+func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) (string, error) {
+	replaceMap := make(map[string]string)
+	for _, container := range replace {
+		replaceMap[container.Name] = container.Image
+	}
+
+	for _, container := range ori {
+		imageRex, err := regexp.Compile("image:\\s*" + container.Image)
+		if err != nil {
+			return "", err
+		}
+		if _, ok := replaceMap[container.Name]; !ok {
+			continue
+		}
+		tmpl = imageRex.ReplaceAllLiteralString(tmpl, fmt.Sprintf("image: %s", replaceMap[container.Name]))
+	}
+
+	return tmpl, nil
+}
+
+func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
+	serviceTemplate, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		Revision:      0,
+		Type:          setting.HelmDeployType,
+		ProductName:   projectName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	if err != nil {
+		return err
+	}
+
+	// check if namings rule changes for services deployed in envs
+	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: projectName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
+		}
+		modified := false
+		for _, product := range products {
+			if pSvc, ok := product.GetServiceMap()[args.ServiceName]; ok && pSvc.Revision != serviceTemplate.Revision {
+				modified = true
+				break
+			}
+		}
+		if !modified {
+			return nil
+		}
+	}
+
+	serviceTemplate.ReleaseNaming = args.NamingRule
+	rev, err := getNextServiceRevision(projectName, args.ServiceName)
+	if err != nil {
+		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
+	}
+
+	basePath := config.LocalServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
+	if err = commonservice.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
+		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	fsTree := os.DirFS(config.LocalServicePath(projectName, serviceTemplate.ServiceName))
+	s3Base := config.ObjectStorageServicePath(projectName, serviceTemplate.ServiceName)
+	err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
+	if err != nil {
+		return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	serviceTemplate.Revision = rev
+	err = commonrepo.NewServiceColl().Create(serviceTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
+	}
+
+	go func() {
+		// reinstall services in envs
+		err = service.ReInstallHelmSvcInAllEnvs(projectName, serviceTemplate)
+		if err != nil {
+			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
+			commonservice.SendErrorMessage(userName, title, requestID, err, log)
+		}
+	}()
+
+	return nil
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
@@ -1035,7 +1215,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 
 // remove specific services from rendersets.chartinfos
 func removeServiceFromRenderset(productName, renderName, serviceName string) error {
-	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName}
+	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
 	if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
 		chartInfos := make([]*templatemodels.RenderChart, 0)
 		for _, chartInfo := range rs.ChartInfos {
@@ -1143,7 +1323,7 @@ func GetGerritServiceYaml(args *commonmodels.Service, log *zap.SugaredLogger) er
 
 	base := path.Join(config.S3StoragePath(), args.GerritRepoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(codehostDetail, setting.GerritDefaultOwner, args.GerritRepoName, args.GerritBranchName, args.GerritRemoteName)
+		err = command.RunGitCmds(codehostDetail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, args.GerritRepoName, args.GerritBranchName, args.GerritRemoteName)
 		if err != nil {
 			return err
 		}
@@ -1191,7 +1371,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
 		// Only the gerrit/spock/external type needs to be processed by yaml
-		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal || args.Source == setting.ServiceSourceTemplate {
+		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal || args.Source == setting.ServiceSourceTemplate || args.Source == setting.SourceFromGitee {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
@@ -1250,6 +1430,8 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
 			// replace $Service$ with service name
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
+			// replace $Product$ with product name
+			yamlData = config.ProductNameAlias.ReplaceAllLiteralString(yamlData, args.ProductName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
 				return fmt.Errorf("unmarshal ResourceKind error: %v", err)
@@ -1313,8 +1495,9 @@ func getContainers(data string) ([]*commonmodels.Container, error) {
 		}
 
 		container := &commonmodels.Container{
-			Name:  nameStr,
-			Image: imageStr,
+			Name:      nameStr,
+			Image:     imageStr,
+			ImageName: util.ExtractImageName(imageStr),
 		}
 
 		containers = append(containers, container)
@@ -1352,8 +1535,9 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 		}
 
 		container := &commonmodels.Container{
-			Name:  nameStr,
-			Image: imageStr,
+			Name:      nameStr,
+			Image:     imageStr,
+			ImageName: util.ExtractImageName(imageStr),
 		}
 
 		containers = append(containers, container)
@@ -1443,7 +1627,7 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHo
 	}
 	ch, _ := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 
-	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken)
+	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
 	if err != nil {
 		return nil, err

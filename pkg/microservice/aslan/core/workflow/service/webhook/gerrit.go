@@ -20,21 +20,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
+	systemConfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -53,12 +59,7 @@ type gerritTypeEvent struct {
 }
 
 func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
-	baseURI := fmt.Sprintf(
-		"%s://%s",
-		req.Header.Get("X-Forwarded-Proto"),
-		req.Header.Get("X-Forwarded-Host"),
-	)
-
+	baseURI := systemConfig.SystemAddress()
 	gerritTypeEventObj := new(gerritTypeEvent)
 	if err := json.Unmarshal(payload, gerritTypeEventObj); err != nil {
 		log.Errorf("processGerritHook json.Unmarshal err : %v", err)
@@ -100,7 +101,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			errs = multierror.Append(errs, err)
 		}
 		newRepoName := fmt.Sprintf("%s-new", service.GerritRepoName)
-		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, newRepoName, service.GerritBranchName, service.GerritRemoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, newRepoName, service.GerritBranchName, service.GerritRemoteName)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent runGitCmds err:%v", err)
 			errs = multierror.Append(errs, err)
@@ -114,13 +115,13 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		oldBase, err := GetGerritWorkspaceBasePath(service.GerritRepoName)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-			err = command.RunGitCmds(detail, setting.GerritDefaultOwner, service.GerritRepoName, service.GerritBranchName, service.GerritRemoteName)
+			err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, service.GerritRepoName, service.GerritBranchName, service.GerritRemoteName)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}
 		}
 
-		filePath, err := os.Stat(path.Join(newBase, service.GerritPath))
+		filePath, err := os.Stat(path.Join(newBase, service.LoadPath))
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -128,44 +129,26 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		var newYamlContent string
 		var oldYamlContent string
 		if filePath.IsDir() {
-			newFileInfos, err := ioutil.ReadDir(path.Join(newBase, service.GerritPath))
-			if err != nil {
+			if newFileContents, err := readAllFileContentUnderDir(path.Join(newBase, service.LoadPath)); err == nil {
+				newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
+			} else {
 				errs = multierror.Append(errs, err)
 			}
 
-			newFileContents := make([]string, 0)
-			for _, file := range newFileInfos {
-				if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.GerritPath, file.Name())); err == nil {
-					newFileContents = append(newFileContents, string(contentBytes))
-				} else {
-					errs = multierror.Append(errs, err)
-				}
-			}
-
-			newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
-
-			oldFileInfos, err := ioutil.ReadDir(path.Join(oldBase, service.GerritPath))
-			if err != nil {
+			if oldFileContents, err := readAllFileContentUnderDir(path.Join(oldBase, service.LoadPath)); err == nil {
+				oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
+			} else {
 				errs = multierror.Append(errs, err)
 			}
 
-			oldFileContents := make([]string, 0)
-			for _, file := range oldFileInfos {
-				if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.GerritPath, file.Name())); err == nil {
-					oldFileContents = append(oldFileContents, string(contentBytes))
-				} else {
-					errs = multierror.Append(errs, err)
-				}
-			}
-			oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
 		} else {
-			if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.GerritPath)); err == nil {
+			if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.LoadPath)); err == nil {
 				newYamlContent = string(contentBytes)
 			} else {
 				errs = multierror.Append(errs, err)
 			}
 
-			if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.GerritPath)); err == nil {
+			if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.LoadPath)); err == nil {
 				oldYamlContent = string(contentBytes)
 			} else {
 				errs = multierror.Append(errs, err)
@@ -173,15 +156,14 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		}
 
 		if strings.Compare(newYamlContent, oldYamlContent) != 0 {
-			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.GerritPath)
+			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.LoadPath)
 			service.CreateBy = "system"
 			service.Yaml = newYamlContent
-			err := SyncServiceTemplateFromGerrit(service, log)
-			if err != nil {
+			if err := SyncServiceTemplateFromGerrit(service, log); err != nil {
 				errs = multierror.Append(errs, err)
 			}
 		} else {
-			log.Infof("Service template %s from gerrit %s is not affected, no sync", service.ServiceName, service.GerritPath)
+			log.Infof("Service template %s from gerrit %s is not affected, no sync", service.ServiceName, service.LoadPath)
 		}
 	}
 
@@ -195,34 +177,53 @@ func GetGerritWorkspaceBasePath(repoName string) (string, error) {
 // GetGerritServiceTemplates Get all service templates maintained in gerrit
 func GetGerritServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:   setting.K8SDeployType,
 		Source: setting.SourceFromGerrit,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
-// SyncServiceTemplateFromGerrit Force to sync Service Template to latest commit and content,
+// SyncServiceTemplateFromGerrit Force to sync Service Template to the latest commit and content,
 // Notes: if remains the same, quit sync; if updates, revision +1
 func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.SugaredLogger) error {
 	if service.Source != setting.SourceFromGerrit {
 		return fmt.Errorf("SyncServiceTemplateFromGerrit Service template is not from gerrit")
 	}
 
-	//同步commit信息
+	// Sync commit information
 	if _, err := syncGerritLatestCommit(service); err != nil {
 		log.Errorf("SyncServiceTemplateFromGerrit Sync change log from gerrit failed service %s, error: %v", service.ServiceName, err)
 		return err
 	}
 
-	// 在Ensure过程中会检查source，如果source为gerrit，则同步gerrit内容到service中
-	if err := ensureServiceTmpl(setting.WebhookTaskCreator, service, log); err != nil {
-		log.Errorf("SyncServiceTemplateFromGerrit ensureServiceTmpl error: %+v", err)
-		return e.ErrValidateTemplate.AddDesc(err.Error())
+	if service.Type == setting.K8SDeployType {
+		// During the Ensure process, the source will be checked. If the source is gerrit, the gerrit content will be synchronized to the service.
+		if err := ensureServiceTmpl(setting.WebhookTaskCreator, service, log); err != nil {
+			log.Errorf("SyncServiceTemplateFromGerrit ensureServiceTmpl error: %+v", err)
+			return e.ErrValidateTemplate.AddDesc(err.Error())
+		}
+		// Update to database, revision+1
+		if err := commonrepo.NewServiceColl().Create(service); err != nil {
+			log.Errorf("SyncServiceTemplateFromGerrit Failed to sync service %s from gerrit path %s error: %v", service.ServiceName, service.SrcPath, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
+		}
+
+		return environmentservice.AutoDeployYamlServiceToEnvs(service.CreateBy, "", service, log)
 	}
-	// 更新到数据库，revision+1
-	if err := commonrepo.NewServiceColl().Create(service); err != nil {
-		log.Errorf("SyncServiceTemplateFromGerrit Failed to sync service %s from gerrit path %s error: %v", service.ServiceName, service.SrcPath, err)
-		return e.ErrCreateTemplate.AddDesc(err.Error())
+	// remove old repo dir
+	oldRepoDir := filepath.Join(config.S3StoragePath(), service.GerritRepoName)
+	os.RemoveAll(oldRepoDir)
+	// copy new repo data to old dir data
+	if err := os.MkdirAll(oldRepoDir, 0775); err != nil {
+		return err
+	}
+
+	newRepoDir := filepath.Join(config.S3StoragePath(), service.GerritRepoName+"-new")
+	if copyErr := copy.Copy(newRepoDir, oldRepoDir); copyErr != nil {
+		return copyErr
+	}
+
+	if err := reloadServiceTmplFromGerrit(service, log); err != nil {
+		return err
 	}
 	log.Infof("End of sync service template %s from gerrit path %s", service.ServiceName, service.SrcPath)
 	return nil
@@ -243,7 +244,7 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHo
 		return nil, err
 	}
 
-	gerritCli := gerrit.NewClient(detail.Address, detail.AccessToken)
+	gerritCli := gerrit.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
 	if err != nil {
 		return detail, err
@@ -284,26 +285,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		if err := setCurrentContainerImages(args); err != nil {
 			return err
 		}
-		//判断该服务组件是否存在，如果存在不让保存
-		//if args.Revision == 0 {
-		//	currentServiceContainerNames := make([]string, 0)
-		//	for _, container := range args.Containers {
-		//		currentServiceContainerNames = append(currentServiceContainerNames, container.Name)
-		//	}
-		//	if serviceTmpls, err := s.coll.ServiceTmpl.ListMaxRevisions(); err == nil {
-		//		for _, serviceTmpl := range serviceTmpls {
-		//			switch serviceTmpl.Type {
-		//			case template.K8SDeployType:
-		//				for _, container := range serviceTmpl.Containers {
-		//					target := container.Name
-		//					if utils.Contains(target, currentServiceContainerNames) {
-		//						return fmt.Errorf("服务组件不能重复,项目 [%s] 服务 [%s] 已存在同名的服务组件 [%s]", serviceTmpl.ProductName, serviceTmpl.ServiceName, target)
-		//					}
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
+
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 	}
 
@@ -317,4 +299,48 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	args.Revision = rev
 
 	return nil
+}
+
+func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogger) error {
+	_, err := service.CreateOrUpdateHelmServiceFromRepo(svc.ProductName, &service.HelmServiceCreationArgs{
+		HelmLoadSource: service.HelmLoadSource{
+			Source: service.LoadFromGerrit,
+		},
+		CreatedBy: svc.CreateBy,
+		CreateFrom: &service.CreateFromRepo{
+			CodehostID: svc.CodehostID,
+			Owner:      svc.RepoOwner,
+			Namespace:  svc.GetRepoNamespace(),
+			Repo:       svc.RepoName,
+			Branch:     svc.BranchName,
+			Paths:      []string{svc.LoadPath},
+		},
+	}, log)
+	return err
+}
+
+// Get the contents of all files in a directory
+func readAllFileContentUnderDir(localBase string) ([]string, error) {
+	fileTree := os.DirFS(localBase)
+	allFileContents := []string{}
+	err := fs.WalkDir(fileTree, ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		mode := entry.Type()
+		switch {
+		case mode.IsRegular():
+			fileContents, err := fs.ReadFile(fileTree, path)
+			if err != nil {
+				return err
+			}
+
+			allFileContents = append(allFileContents, string(fileContents))
+			return nil
+		default:
+			return nil
+		}
+	})
+	return allFileContents, err
 }

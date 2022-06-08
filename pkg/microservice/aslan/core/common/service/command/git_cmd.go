@@ -38,6 +38,7 @@ type Repo struct {
 	Source       string `yaml:"source"`
 	Address      string `yaml:"address"`
 	Owner        string `yaml:"owner"`
+	Namespace    string `yaml:"namespace"`
 	Name         string `yaml:"name"`
 	RemoteName   string `yaml:"remote_name"`
 	Branch       string `yaml:"branch"`
@@ -65,7 +66,7 @@ type Command struct {
 	IgnoreError bool
 }
 
-func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string) error {
+func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace, repoName, branchName, remoteName string) error {
 	var (
 		tokens []string
 		repo   *Repo
@@ -76,6 +77,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, bran
 		Source:     codehostDetail.Type,
 		Address:    codehostDetail.Address,
 		Name:       repoName,
+		Namespace:  repoNamespace,
 		Branch:     branchName,
 		OauthToken: codehostDetail.AccessToken,
 		RemoteName: remoteName,
@@ -97,7 +99,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, bran
 	tokens = append(tokens, repo.OauthToken)
 	cmds = append(cmds, buildGitCommands(repo)...)
 
-	if repo.Source == setting.SourceFromGithub {
+	if codehostDetail.EnableProxy {
 		httpsProxy := config.ProxyHTTPSAddr()
 		httpProxy := config.ProxyHTTPAddr()
 		if httpsProxy != "" {
@@ -163,6 +165,10 @@ func buildGitCommands(repo *Repo) []*Command {
 		os.MkdirAll(workDir, 0777)
 	}
 
+	if strings.Contains(repoName, "-new") {
+		repo.Name = strings.TrimSuffix(repo.Name, "-new")
+	}
+
 	// 预防非正常退出导致git被锁住
 	_ = os.Remove(path.Join(workDir, "/.git/index.lock"))
 
@@ -172,7 +178,7 @@ func buildGitCommands(repo *Repo) []*Command {
 		cmds = append(cmds, &Command{Cmd: RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
 	}
 
-	if repo.Source == setting.SourceFromGitlab {
+	if repo.Source == setting.SourceFromGitlab || repo.Source == setting.SourceFromGitee {
 		u, _ := url.Parse(repo.Address)
 		url := OAuthCloneURL(repo.OauthToken, u.Host, repo.Owner, repo.Name, u.Scheme)
 		cmds = append(cmds, &Command{

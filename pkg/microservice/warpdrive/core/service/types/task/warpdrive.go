@@ -16,6 +16,10 @@ limitations under the License.
 
 package task
 
+import (
+	"github.com/koderover/zadig/pkg/types"
+)
+
 type PipelineCtx struct {
 	DockerHost        string
 	Workspace         string
@@ -23,6 +27,12 @@ type PipelineCtx struct {
 	DockerMountDir    string
 	ConfigMapMountDir string
 	MultiRun          bool
+
+	// New since V1.10.0.
+	Cache        types.Cache
+	CacheEnable  bool
+	CacheDirType types.CacheDirType
+	CacheUserDir string
 }
 
 type JobCtxBuilder struct {

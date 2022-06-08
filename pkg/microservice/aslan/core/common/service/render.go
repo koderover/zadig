@@ -20,12 +20,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -33,28 +35,46 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type RepoConfig struct {
 	CodehostID  int      `json:"codehostID,omitempty"`
 	Owner       string   `json:"owner,omitempty"`
+	Namespace   string   `json:"namespace,omitempty"`
 	Repo        string   `json:"repo,omitempty"`
 	Branch      string   `json:"branch,omitempty"`
 	ValuesPaths []string `json:"valuesPaths,omitempty"`
 }
 
 type KVPair struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
+}
+
+type ValuesDataArgs struct {
+	YamlSource    string      `json:"yamlSource,omitempty"`
+	AutoSync      bool        `json:"autoSync,omitempty"`
+	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
 }
 
 type RenderChartArg struct {
-	EnvName        string    `json:"envName,omitempty"`
-	ServiceName    string    `json:"serviceName,omitempty"`
-	ChartVersion   string    `json:"chartVersion,omitempty"`
-	OverrideValues []*KVPair `json:"overrideValues,omitempty"`
-	OverrideYaml   string    `json:"overrideYaml,omitempty"`
+	EnvName        string                     `json:"envName,omitempty"`
+	ServiceName    string                     `json:"serviceName,omitempty"`
+	ChartVersion   string                     `json:"chartVersion,omitempty"`
+	OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
+	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
+	ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
+	YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
+
+type RenderChartDiffResult string
+
+const (
+	Different RenderChartDiffResult = "different"
+	Same      RenderChartDiffResult = "same"
+	LogicSame RenderChartDiffResult = "logicSame"
+)
 
 func (args *RenderChartArg) ToOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {
@@ -77,17 +97,35 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 	args.OverrideValues = make([]*KVPair, 0)
 	err := json.Unmarshal([]byte(valueStr), &args.OverrideValues)
 	if err != nil {
-		log.Errorf("decode override value fail, ")
+		log.Errorf("decode override value fail, err: %s", err)
 	}
 }
 
 func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
-	if len(args.OverrideYaml) > 0 {
-		return &templatemodels.CustomYaml{
-			YamlContent: args.OverrideYaml,
+	ret := &templatemodels.CustomYaml{
+		YamlContent: args.OverrideYaml,
+	}
+	if args.ValuesData != nil {
+		ret.Source = args.ValuesData.YamlSource
+		ret.AutoSync = args.ValuesData.AutoSync
+		if args.ValuesData.GitRepoConfig != nil {
+			repoData := &models.CreateFromRepo{
+				GitRepoConfig: &templatemodels.GitRepoConfig{
+					CodehostID: args.ValuesData.GitRepoConfig.CodehostID,
+					Owner:      args.ValuesData.GitRepoConfig.Owner,
+					Namespace:  args.ValuesData.GitRepoConfig.Namespace,
+					Repo:       args.ValuesData.GitRepoConfig.Repo,
+					Branch:     args.ValuesData.GitRepoConfig.Branch,
+				},
+			}
+			if len(args.ValuesData.GitRepoConfig.ValuesPaths) > 0 {
+				repoData.LoadPath = args.ValuesData.GitRepoConfig.ValuesPaths[0]
+			}
+			ret.SourceDetail = repoData
+			ret.Source = setting.SourceFromGitRepo
 		}
 	}
-	return nil
+	return ret
 }
 
 func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
@@ -102,11 +140,7 @@ func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderCha
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
 	chart.OverrideValues = args.ToOverrideValueString()
-	if len(args.OverrideYaml) > 0 {
-		chart.OverrideYaml = args.toCustomValuesYaml()
-	} else {
-		chart.OverrideYaml = nil
-	}
+	chart.OverrideYaml = args.toCustomValuesYaml()
 }
 
 // LoadFromRenderChartModel load from render chart model
@@ -115,6 +149,36 @@ func (args *RenderChartArg) LoadFromRenderChartModel(chart *templatemodels.Rende
 	args.ChartVersion = chart.ChartVersion
 	args.fromOverrideValueString(chart.OverrideValues)
 	args.fromCustomValueYaml(chart.OverrideYaml)
+}
+
+func (args *RenderChartArg) GetUniqueKvMap() map[string]interface{} {
+	uniqueKvs := make(map[string]interface{})
+	for index := range args.OverrideValues {
+		kv := args.OverrideValues[len(args.OverrideValues)-index-1]
+		if _, ok := uniqueKvs[kv.Key]; ok {
+			continue
+		}
+		uniqueKvs[kv.Key] = kv.Value
+	}
+	return uniqueKvs
+}
+
+// DiffValues generate diff values to override from two chart args
+func (args *RenderChartArg) DiffValues(target *RenderChartArg) RenderChartDiffResult {
+	argsUniqueKvs := args.GetUniqueKvMap()
+	targetUniqueKvs := target.GetUniqueKvMap()
+	if len(argsUniqueKvs) != len(targetUniqueKvs) || !reflect.DeepEqual(argsUniqueKvs, targetUniqueKvs) {
+		return Different
+	}
+	// override yamls have the same text content
+	if args.OverrideYaml == target.OverrideYaml {
+		return Same
+	}
+	equal, _ := yamlutil.Equal(args.OverrideYaml, target.OverrideYaml)
+	if equal {
+		return LogicSame
+	}
+	return Different
 }
 
 func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {
@@ -171,25 +235,21 @@ func ValidateRenderSet(productName, renderName string, serviceInfo *templatemode
 	resp := &commonmodels.RenderSet{ProductTmpl: productName}
 	var err error
 	if renderName != "" {
-		opt := &commonrepo.RenderSetFindOption{Name: renderName}
+		opt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
 		resp, err = commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("find renderset[%s] error: %v", renderName, err)
 			return resp, err
 		}
 	}
-	if renderName != "" && resp.ProductTmpl != productName {
-		log.Errorf("renderset[%s] not match product[%s]", renderName, productName)
-		return resp, fmt.Errorf("renderset[%s] not match product[%s]", renderName, productName)
-	}
 	if serviceInfo == nil {
-		if err := IsAllKeyCovered(resp, log); err != nil {
-			log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
-			return resp, err
-		}
+		//if err := IsAllKeyCovered(resp, log); err != nil {
+		//	log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
+		//	return resp, err
+		//}
 	} else {
 		//  单个服务是否全覆盖判断
-		if err := IsAllKeyCoveredService(serviceInfo.Owner, serviceInfo.Name, resp, log); err != nil {
+		if err := IsAllKeyCoveredService(serviceInfo.Owner, serviceInfo.Name, resp); err != nil {
 			log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
 			return resp, err
 		}
@@ -197,12 +257,57 @@ func ValidateRenderSet(productName, renderName string, serviceInfo *templatemode
 	return resp, nil
 }
 
-func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name}
+func mergeKVs(newKVs []*templatemodels.RenderKV, oldKVs []*templatemodels.RenderKV) []*templatemodels.RenderKV {
+	var result []*templatemodels.RenderKV
+	newKVsMap := make(map[string]*templatemodels.RenderKV)
+	for _, v := range newKVs {
+		newKVsMap[v.Key] = v
+	}
+	oldKVsMap := make(map[string]*templatemodels.RenderKV)
+	for _, v := range oldKVs {
+		oldKVsMap[v.Key] = v
+		if newKV, ok := newKVsMap[v.Key]; ok {
+			result = append(result, newKV)
+			continue
+		}
+		result = append(result, v)
+	}
+	for _, v := range newKVs {
+		if _, ok := oldKVsMap[v.Key]; !ok {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
-		// 已经存在渲染配置集
-		// 判断是否有修改
+		if rs.Diff(args) {
+			args.IsDefault = rs.IsDefault
+		} else {
+			return nil
+		}
+		mergedKVs := mergeKVs(args.KVs, rs.KVs)
+		args.KVs = mergedKVs
+	}
+	if err := ensureRenderSetArgs(args); err != nil {
+		log.Error(err)
+		return e.ErrCreateRenderSet.AddDesc(err.Error())
+	}
+	if err := commonrepo.NewRenderSetColl().Create(args); err != nil {
+		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", args.Name, err)
+		log.Error(errMsg)
+		return e.ErrCreateRenderSet.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
+	rs, err := commonrepo.NewRenderSetColl().Find(opt)
+	if rs != nil && err == nil {
 		if rs.Diff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
@@ -223,12 +328,12 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 
 // CreateHelmRenderSet 添加renderSet
 func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name}
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
 		// 已经存在渲染配置集
 		// 判断是否有修改
-		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) {
+		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) {
 			args.IsDefault = rs.IsDefault
 		} else {
 			return nil
@@ -419,7 +524,31 @@ func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
 	}
 	rs.SetKVAlias()
 	for _, v := range rs.KVs {
-		origin = strings.Replace(origin, v.Alias, v.Value, -1)
+		if v.State == "unused" {
+			continue
+		}
+		origin = replaceAliasValue(origin, v)
+	}
+	return origin
+}
+
+func replaceAliasValue(origin string, v *templatemodels.RenderKV) string {
+	for {
+		idx := strings.Index(origin, v.Alias)
+		if idx < 0 {
+			break
+		}
+		spaces := ""
+		start := 0
+		for i := idx - 1; i >= 0; i-- {
+			if string(origin[i]) != " " {
+				break
+			}
+			start++
+		}
+		spaces = origin[idx-start : idx]
+		valueStr := strings.Replace(v.Value, "\n", fmt.Sprintf("%s%s", "\n", spaces), -1)
+		origin = strings.Replace(origin, v.Alias, valueStr, 1)
 	}
 	return origin
 }
@@ -498,7 +627,7 @@ func IsAllKeyCovered(arg *commonmodels.RenderSet, log *zap.SugaredLogger) error 
 }
 
 // IsAllKeyCoveredService 检查是否覆盖所有服务key
-func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet) error {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   serviceName,
 		ProductName:   productName,
@@ -532,10 +661,11 @@ func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 	if len(args.Name) == 0 {
 		return errors.New("empty render set name")
 	}
-	log := log.SugaredLogger()
-	if err := IsAllKeyCovered(args, log); err != nil {
-		return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
-	}
+
+	//log := log.SugaredLogger()
+	//if err := IsAllKeyCovered(args, log); err != nil {
+	//	return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
+	//}
 
 	// 设置新的版本号
 	rev, err := commonrepo.NewCounterColl().GetNextSeq("renderset:" + args.Name)

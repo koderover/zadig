@@ -18,6 +18,7 @@ package updater
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"text/template"
 	"time"
@@ -25,7 +26,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
 var restartPatchTemplate = template.Must(template.New("restart-patch-template").Parse(`{
@@ -65,8 +69,19 @@ func RestartDeployment(ns, name string, cl client.Client) error {
 	return nil
 }
 
-func DeleteDeployments(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &appsv1.Deployment{}, cl)
+func DeleteDeployments(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	err := clientset.AppsV1().Deployments(namespace).DeleteCollection(
+		context.TODO(),
+		metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		},
+		metav1.ListOptions{
+			LabelSelector: selector.String(),
+		},
+	)
+
+	return util.IgnoreNotFoundError(err)
 }
 
 func UpdateDeploymentImage(ns, name, container, image string, cl client.Client) error {

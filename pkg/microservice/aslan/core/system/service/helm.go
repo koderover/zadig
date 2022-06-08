@@ -21,7 +21,18 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/helmclient"
 )
+
+type IndexFileResp struct {
+	Entries map[string][]*ChartVersion `json:"entries"`
+}
+
+type ChartVersion struct {
+	ChartName string `json:"chartName"`
+	Version   string `json:"version"`
+}
 
 func ListHelmRepos(log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
 	helmRepos, err := commonrepo.NewHelmRepoColl().List()
@@ -55,4 +66,35 @@ func DeleteHelmRepo(id string, log *zap.SugaredLogger) error {
 		return err
 	}
 	return nil
+}
+
+func ListCharts(name string, log *zap.SugaredLogger) (*IndexFileResp, error) {
+	chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: name})
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := helmclient.NewClient()
+	if err != nil {
+		return nil, err
+	}
+
+	indexInfo, err := client.FetchIndexYaml(service.GeneHelmRepo(chartRepo))
+	if err != nil {
+		return nil, err
+	}
+
+	indexResp := &IndexFileResp{
+		Entries: make(map[string][]*ChartVersion),
+	}
+
+	for name, entries := range indexInfo.Entries {
+		for _, chart := range entries {
+			indexResp.Entries[name] = append(indexResp.Entries[name], &ChartVersion{
+				ChartName: chart.Name,
+				Version:   chart.Version,
+			})
+		}
+	}
+	return indexResp, nil
 }

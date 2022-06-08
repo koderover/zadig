@@ -115,6 +115,65 @@ func DeleteRoleBindings(c *gin.Context) {
 	ctx.Err = service.DeleteRoleBindings(args.Names, projectName, userID, ctx.Logger)
 }
 
+func UpdateRoleBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+	userID := c.Query("userID")
+	if userID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("userID is empty")
+		return
+	}
+	args := make([]*service.RoleBinding, 0)
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Err = service.UpdateRoleBindings(projectName, args, c.Query("userID"), ctx.Logger)
+}
+
+func UpdateSystemRoleBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	userID := c.Query("userID")
+	if userID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("userID is empty")
+		return
+	}
+
+	args := make([]*service.RoleBinding, 0)
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = err
+		return
+	}
+	var userId string
+	for i, v := range args {
+		if i == 0 {
+			userId = v.UID
+		}
+		if v.UID == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("some roleBinding's uid is empty")
+			return
+		}
+
+		if v.UID != userId {
+			ctx.Err = e.ErrInvalidParam.AddDesc("roleBindings' uid is not consistent")
+			return
+		}
+	}
+	// TODO: mouuii args can be empty slice , this will delete admin binding , try to improve
+	if userId == "" {
+		userId = userID
+	}
+	ctx.Err = service.UpdateRoleBindings(service.SystemScope, args, userId, ctx.Logger)
+}
+
 func DeleteSystemRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -133,7 +192,7 @@ func CreateSystemRoleBinding(c *gin.Context) {
 		return
 	}
 
-	args.Public = false
+	args.Preset = false
 
 	ctx.Err = service.CreateRoleBindings(service.SystemScope, []*service.RoleBinding{args}, ctx.Logger)
 }
@@ -148,7 +207,7 @@ func CreateOrUpdateSystemRoleBinding(c *gin.Context) {
 		return
 	}
 
-	args.Public = false
+	args.Preset = false
 
 	ctx.Err = service.CreateOrUpdateSystemRoleBinding(service.SystemScope, args, ctx.Logger)
 }
@@ -158,6 +217,23 @@ func ListSystemRoleBindings(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.ListRoleBindings(service.SystemScope, "", ctx.Logger)
+}
+
+type SearchSystemRoleBindingArgs struct {
+	Uids []string `json:"uids"`
+}
+
+func SearchSystemRoleBinding(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(SearchSystemRoleBindingArgs)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.SearchSystemRoleBindings(args.Uids, ctx.Logger)
 }
 
 func ListUserBindings(c *gin.Context) {

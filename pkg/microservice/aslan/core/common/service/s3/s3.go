@@ -126,6 +126,14 @@ func (s *S3) Validate() error {
 		return errors.New("required field is missing")
 	}
 
+	defaultStorage, err := FindDefaultS3()
+	if err != nil {
+		return fmt.Errorf("failed to find default object storage: %s", err)
+	}
+	if s.ID == defaultStorage.ID && !s.IsDefault {
+		return errors.New("current storage is default and a default object storage must be set")
+	}
+
 	return nil
 }
 

@@ -18,6 +18,7 @@ package mongodb
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -68,7 +69,8 @@ func (c *K8sClusterColl) UpdateStatus(cluster *models.K8SCluster) error {
 	query := bson.M{"_id": cluster.ID}
 
 	update := bson.M{"$set": bson.M{
-		"status": cluster.Status,
+		"last_connection_time": cluster.LastConnectionTime,
+		"status":               cluster.Status,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, update)
@@ -88,6 +90,7 @@ func (c *K8sClusterColl) UpdateConnectState(id string, disconnected bool) error 
 	if disconnected {
 		change["status"] = config.Disconnected
 	} else {
+		change["last_connection_time"] = time.Now().Unix()
 		change["status"] = config.Pending
 	}
 	update := bson.M{"$set": change}

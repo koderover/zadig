@@ -28,6 +28,12 @@ const (
 	// ProviderCodehub
 	ProviderCodehub = "codehub"
 
+	// ProviderGitee
+	ProviderGitee = "gitee"
+
+	// ProviderOther
+	ProviderOther = "other"
+
 	//	Oauth prefix
 	OauthTokenPrefix = "oauth2"
 

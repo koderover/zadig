@@ -37,15 +37,16 @@ import (
 )
 
 type ServiceFindOption struct {
-	ServiceName   string
-	Revision      int64
-	Type          string
-	Source        string
-	ProductName   string
-	ExcludeStatus string
-	CodehostID    int
-	RepoName      string
-	BranchName    string
+	ServiceName         string
+	Revision            int64
+	Type                string
+	Source              string
+	ProductName         string
+	ExcludeStatus       string
+	CodehostID          int
+	RepoName            string
+	BranchName          string
+	IgnoreNoDocumentErr bool
 }
 
 type ServiceListOption struct {
@@ -58,6 +59,20 @@ type ServiceListOption struct {
 	ExcludeProject string
 	InServices     []*templatemodels.ServiceInfo
 	NotInServices  []*templatemodels.ServiceInfo
+}
+
+type ServiceRevision struct {
+	ServiceName string
+	Revision    int64
+}
+
+type SvcRevisionListOption struct {
+	ProductName      string
+	ServiceRevisions []*ServiceRevision
+}
+
+type ServiceAggregateResult struct {
+	ServiceID primitive.ObjectID `bson:"service_id"`
 }
 
 type ServiceColl struct {
@@ -169,6 +184,31 @@ func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.S
 	return c.listMaxRevisions(m, nil)
 }
 
+func (c *ServiceColl) ListMaxRevisionServicesByYamlTemplate(templateId string) ([]*models.Service, error) {
+	m := bson.M{
+		"template_id": templateId,
+		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
+		"source":      setting.ServiceSourceTemplate,
+	}
+	return c.listMaxRevisions(m, nil)
+}
+
+func (c *ServiceColl) ListMaxRevisionServicesByChartTemplate(templateName string) ([]*models.Service, error) {
+	m := bson.M{
+		"create_from.template_name": templateName,
+		"status":                    bson.M{"$ne": setting.ProductStatusDeleting},
+		"source":                    setting.SourceFromChartTemplate,
+	}
+	return c.listMaxRevisions(m, nil)
+}
+
+func (c *ServiceColl) ListMaxRevisionsAllSvcByProduct(productName string) ([]*models.Service, error) {
+	m := bson.M{
+		"product_name": productName,
+	}
+	return c.listMaxRevisions(m, nil)
+}
+
 // Find 根据service_name和type查询特定版本的配置模板
 // 如果 Revision == 0 查询最大版本的配置模板
 func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
@@ -202,6 +242,9 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 
 	err := c.FindOne(context.TODO(), query, opts).Decode(service)
 	if err != nil {
+		if err == mongo.ErrNoDocuments && opt.IgnoreNoDocumentErr {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -429,6 +472,95 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 	return resp, err
 }
 
+func (c *ServiceColl) ListServicesWithSRevision(opt *SvcRevisionListOption) ([]*models.Service, error) {
+	productMatch := bson.M{}
+	productMatch["product_name"] = opt.ProductName
+
+	var serviceMatch bson.A
+	for _, sr := range opt.ServiceRevisions {
+		serviceMatch = append(serviceMatch, bson.M{
+			"service_name": sr.ServiceName,
+			"revision":     sr.Revision,
+		})
+	}
+
+	pipeline := []bson.M{
+		{
+			"$match": productMatch,
+		},
+		{
+			"$match": bson.M{
+				"$or": serviceMatch,
+			},
+		},
+	}
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*models.Service, 0)
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, err
+}
+
+func (c *ServiceColl) ListMaxRevisionsByProject(serviceName, serviceType string) ([]*models.Service, error) {
+
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+				"service_name": serviceName,
+				"type":         serviceType,
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"product_name": "$product_name",
+					"service_name": "$service_name",
+				},
+				"revision":   bson.M{"$max": "$revision"},
+				"service_id": bson.M{"$last": "$_id"},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*ServiceAggregateResult, 0)
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+
+	var ids []primitive.ObjectID
+	for _, service := range res {
+		ids = append(ids, service.ServiceID)
+	}
+
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var resp []*models.Service
+	query := bson.M{"_id": bson.M{"$in": ids}}
+	cursor, err = c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
 	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
 	postMatch := bson.M{}
@@ -440,9 +572,7 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		if opt.ServiceName != "" {
 			preMatch["service_name"] = opt.ServiceName
 		}
-		if opt.BuildName != "" {
-			preMatch["build_name"] = opt.BuildName
-		}
+
 		if opt.Source != "" {
 			preMatch["source"] = opt.Source
 		}
@@ -454,6 +584,9 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		}
 
 		// post options (anything that changes over revision should be added in post options)
+		if opt.BuildName != "" {
+			postMatch["build_name"] = opt.BuildName
+		}
 		if opt.Visibility != "" {
 			postMatch["visibility"] = opt.Visibility
 		}
@@ -479,18 +612,22 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 			}
 			postMatch["_id"] = bson.M{"$in": srs}
 		}
+
 	}
 
 	return c.listMaxRevisions(preMatch, postMatch)
 }
 
 func (c *ServiceColl) Count(productName string) (int, error) {
+	match := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	if productName != "" {
+		match["product_name"] = productName
+	}
 	pipeline := []bson.M{
 		{
-			"$match": bson.M{
-				"product_name": productName,
-				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-			},
+			"$match": match,
 		},
 		{
 			"$group": bson.M{
@@ -546,6 +683,7 @@ func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Se
 				},
 				"service_id": bson.M{"$last": "$_id"},
 				"visibility": bson.M{"$last": "$visibility"},
+				"build_name": bson.M{"$last": "$build_name"},
 			},
 		},
 	}

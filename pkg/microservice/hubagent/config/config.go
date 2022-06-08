@@ -39,3 +39,7 @@ func KubernetesServiceHost() string {
 func KubernetesServicePort() string {
 	return viper.GetString(setting.KubernetesServicePort)
 }
+
+func AslanBaseAddr() string {
+	return viper.GetString(setting.AslanBaseAddr)
+}

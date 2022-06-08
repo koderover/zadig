@@ -26,8 +26,24 @@ func ListReleases(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	envName := c.Param("name")
+
+	args := &service.HelmReleaseQueryArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListReleases(args, envName, ctx.Logger)
+}
+
+func GetChartValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	envName := c.Param("name")
 	projectName := c.Query("projectName")
-	ctx.Resp, ctx.Err = service.ListReleases(projectName, envName, ctx.Logger)
+	serviceName := c.Query("serviceName")
+
+	ctx.Resp, ctx.Err = service.GetChartValues(projectName, envName, serviceName)
 }
 
 func GetChartInfos(c *gin.Context) {
@@ -37,4 +53,13 @@ func GetChartInfos(c *gin.Context) {
 	servicesName := c.Query("serviceName")
 	projectName := c.Query("projectName")
 	ctx.Resp, ctx.Err = service.GetChartInfos(projectName, envName, servicesName, ctx.Logger)
+}
+
+func GetImageInfos(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	servicesName := c.Query("serviceName")
+	ctx.Resp, ctx.Err = service.GetImageInfos(projectName, envName, servicesName, ctx.Logger)
 }

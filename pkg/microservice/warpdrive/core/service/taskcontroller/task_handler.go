@@ -26,8 +26,10 @@ import (
 	"github.com/nsqio/go-nsq"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	plugins "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
@@ -45,7 +47,12 @@ var (
 	xl           *zap.SugaredLogger
 )
 
-// ExecHandler ...
+// TODO: Leave the logic here until we know why it exists.
+var durationBeforeNextTask = 10 * time.Second
+
+// Note: `durationTouchMsg` is used to emit `TOUCH` cmd and it should smaller than `durationBeforeNextTask`.
+var durationTouchMsg = 5 * time.Second
+
 // Sender: sender to send ack/notification
 // TaskPlugins: registered task plugin initiators to initiate specific plugin to execute task
 type ExecHandler struct {
@@ -53,41 +60,44 @@ type ExecHandler struct {
 	TaskPlugins map[config.TaskType]plugins.Initiator
 }
 
-// CancelHandler ...
 type CancelHandler struct{}
 
-// HandleMessage ...
 // Message handler to handle task execution message
 func (h *ExecHandler) HandleMessage(message *nsq.Message) error {
 	defer func() {
 		// 每次处理完消息, 等待一段时间不处理新消息
-		time.Sleep(time.Second * 10)
+		time.Sleep(durationBeforeNextTask)
 	}()
 
 	xl = log.SugaredLogger()
-
-	// 如果存在运行中的 PipelineTask, 则重新requeue pipeline task
-	// task处理逻辑全部放在requeue之后，防止requeue影响正在运行的task
-	if pipelineTask != nil {
-		xl.Infof("warpdrive instance have one running pipeline task %s:%d", pipelineTask.PipelineName, pipelineTask.TaskID)
-		message.Requeue(time.Millisecond * 100)
-		return nil
-	}
 
 	// 获取 PipelineTask 内容
 	if err := json.Unmarshal(message.Body, &pipelineTask); err != nil {
 		xl.Errorf("unmarshal PipelineTask error: %v", err)
 		return nil
 	}
-	xl.Infof("receiving pipeline task %s:%d message", pipelineTask.PipelineName, pipelineTask.TaskID)
+	taskName := fmt.Sprintf("%s:%d", pipelineTask.PipelineName, pipelineTask.TaskID)
+	xl.Infof("Receiving pipeline task %s message", taskName)
 
-	// xl - global logger
 	xl = Logger(pipelineTask)
-
-	// 初始化 Context, CancelFunc, PipelineTask
 	ctx, cancel = context.WithCancel(context.Background())
 
-	go h.runPipelineTask(ctx, cancel, xl)
+	go func(taskName string) {
+		for {
+			if pipelineTask == nil {
+				xl.Infof("Pipeline task %q has completed. Exit.", taskName)
+				break
+			}
+
+			<-time.After(durationTouchMsg)
+			xl.Infof("After %s, touch message %q.", durationTouchMsg.String(), taskName)
+			message.Touch()
+		}
+	}(taskName)
+
+	h.runPipelineTask(ctx, cancel, xl)
+
+	// Note: If returning `nil`, we emit `FIN` cmd to nsq indicating that the messsage has been processed succefully.
 	return nil
 }
 
@@ -128,7 +138,9 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 		return
 	}
 
-	// 选取当前最空闲的dockerhost
+	// Deprecated.
+	// Note: This logic is reserved for compatibility with plugins other than build. This logic can be removed if we have understood all of the plugins.
+	//       For attached clusters, this logic is wrong because it still deals with dind in the local cluster.
 	dockerHost, err := plugins.GetBestDockerHost(pipelineTask.ConfigPayload.Docker.HostList, string(pipelineTask.Type), pipelineTask.ConfigPayload.Build.KubeNamespace, xl)
 	if err != nil {
 		errMsg := fmt.Sprintf("[%s]Cannot find docker host: %v", pipelineTask.PipelineName, err)
@@ -167,7 +179,6 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 	// Return 之前会执行defer内容，更新pipeline end time, 发送ACK，发送notification
 }
 
-// HandleMessage ...
 func (h *CancelHandler) HandleMessage(message *nsq.Message) error {
 	xl = Logger(pipelineTask)
 
@@ -251,6 +262,7 @@ func (h *ExecHandler) SendNotification() {
 			Status:       config.Status(pipelineTask.Status),
 			TeamName:     pipelineTask.TeamName,
 			Type:         pipelineTask.Type,
+			Stages:       pipelineTask.Stages,
 		},
 		CreateTime: time.Now().Unix(),
 		IsRead:     false,
@@ -268,7 +280,7 @@ func (h *ExecHandler) SendNotification() {
 	}
 }
 
-func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
+func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurrency int64) {
 	xl.Infof("start to execute pipeline stage: %s at position: %d", stage.TaskType, stagePosition)
 	pluginInitiator, ok := h.TaskPlugins[stage.TaskType]
 	if !ok {
@@ -285,9 +297,8 @@ func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
 	// Default worker concurrency is 1, run tasks sequentially
 	var workerConcurrency = 1
 	if runParallel {
-		// MaxWorkerInParallel is 5 for now
-		if len(stage.SubTasks) > maxWorkerInParallel {
-			workerConcurrency = maxWorkerInParallel
+		if len(stage.SubTasks) > int(concurrency) {
+			workerConcurrency = int(concurrency)
 		} else {
 			workerConcurrency = len(stage.SubTasks)
 		}
@@ -297,30 +308,68 @@ func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
 
 	// Task is struct for worker
 	var tasks []*Task
+	//tasks been preprocessed, map[serviceName]=[]Tasks
+	pluginsByService := make(map[string]*plugins.HelmDeployTaskPlugin)
+	// helm deploy plugins map[fullServiceName]=>HelmDeployPlugin
+	helmDeployPlugins := make(map[string]*plugins.HelmDeployTaskPlugin)
+
+	// preprocess subTasks, make batchTask with multiple subTasks
+	// eg: multiple deploys of same helm chart
+	if stage.TaskType == config.TaskDeploy || stage.TaskType == config.TaskResetImage {
+		for fullServiceName, subTask := range stage.SubTasks {
+			deployTask, err := plugins.ToDeployTask(subTask)
+			if err != nil {
+				xl.Errorf("failed to get deplot task, err: %s", err)
+				continue
+			}
+			if deployTask.ServiceType != setting.HelmDeployType {
+				continue
+			}
+			workerConcurrency = 1
+			pluginInstance := plugins.InitializeHelmDeployTaskPlugin(config.TaskDeploy)
+			pluginInstance.Task = deployTask
+			if _, ok := pluginsByService[deployTask.ServiceName]; !ok {
+				pluginsByService[deployTask.ServiceName] = pluginInstance
+			}
+			helmDeployPlugins[fullServiceName] = pluginInstance
+		}
+	}
 
 	// 每个SubTask会initiate一个plugin instance来执行
+	preProcessedServices := sets.NewString()
 	for serviceName, subTask := range stage.SubTasks {
+		if deployPlugin, ok := helmDeployPlugins[serviceName]; ok {
+			svcName := deployPlugin.Task.ServiceName
+			pluginsByService[svcName].ContentPlugins = append(pluginsByService[svcName].ContentPlugins, deployPlugin)
+			if !preProcessedServices.Has(svcName) {
+				xl.Infof("new batch sub task of service name: %s, type: %s", serviceName, stage.TaskType)
+				batchTask := NewTask(ctx, h.executeTask, pluginsByService[svcName], subTask, stagePosition, serviceName, xl)
+				tasks = append(tasks, batchTask)
+			}
+			preProcessedServices.Insert(svcName)
+			continue
+		}
+
 		var pluginInstance plugins.TaskPlugin
 		xl.Infof("new sub task of service name: %s, type: %s", serviceName, stage.TaskType)
 		pluginInstance = pluginInitiator(stage.TaskType)
-		//xl.Errorf("%v", ctx.Value(CtxKeyBuildInfos))
-		tasks = append(tasks, NewTask(ctx, h.executeTask, pluginInstance, subTask, stagePosition, serviceName, xl))
-	}
-	// 判断subTask是否是deploy，如果是的话判断是否是helm类型的服务，
-	//todo helm类型的服务的部署暂时只支持串行执行
-	for _, subTask := range stage.SubTasks {
-		if deploy, err := plugins.ToDeployTask(subTask); err == nil {
-			if deploy.ServiceType == "helm" {
-				workerConcurrency = 1
-				break
-			}
-		}
+		taskObj := NewTask(ctx, h.executeTask, pluginInstance, subTask, stagePosition, serviceName, xl)
+		tasks = append(tasks, taskObj)
 	}
 
 	// 设置WorkPool来控制最大并发数和并发执行
 	workerPool := NewPool(tasks, workerConcurrency)
 	// 发起workerConcurrency个并发执行，等待所有Task执行完成并返回
 	workerPool.Run()
+
+	// set related task status
+	for _, helmDeployPlugin := range helmDeployPlugins {
+		if len(helmDeployPlugin.ContentPlugins) == 0 {
+			continue
+		}
+		updatePluginSubTask(helmDeployPlugin, pipelineTask, stagePosition, helmDeployPlugin.Task.ContainerName, xl)
+	}
+
 	// Worker is completed
 	xl.Info("execution completed of subtasks in stage")
 	stageStatus := getStageStatus(workerPool.Tasks, xl)
@@ -347,20 +396,48 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 	}
 
-	// Stage之间仅支持串行
+	// Only serial is supported between stages
+	// If the stage status is StatusFailed/StatusCancelled/StatusTimeout, other than the extension stage will not be executed
+	isSkip := false
 	for stagePosition, stage := range pipelineTask.Stages {
-		if !stage.AfterAll {
-			h.runStage(stagePosition, stage)
-			// 如果一个Stage执行失败了，跳出执行循环，并且更新pipelinetask状态为失败，发送ACK，并返回
-			if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
-				break
-			}
+		if stage.AfterAll {
+			continue
+		}
+
+		if !isSkip || stage.TaskType == config.TaskExtension {
+			h.runStage(stagePosition, stage, pipelineTask.ConfigPayload.BuildConcurrency)
+		}
+
+		if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
+			isSkip = true
+			continue
 		}
 	}
 
+	updatePipelineStatus(pipelineTask, xl)
+	deployStageStatus := config.StatusInit
+	testStageStatus := config.StatusInit
 	for stagePosition, stage := range pipelineTask.Stages {
+		if stage.TaskType == config.TaskDeploy || stage.TaskType == config.TaskArtifact {
+			deployStageStatus = stage.Status
+		} else if stage.TaskType == config.TaskTestingV2 {
+			testStageStatus = stage.Status
+		}
 		if stage.AfterAll {
-			h.runStage(stagePosition, stage)
+			if stage.TaskType == config.TaskResetImage {
+				switch pipelineTask.ResetImagePolicy {
+				case setting.ResetImagePolicyTaskCompleted, setting.ResetImagePolicyTaskCompletedOrder:
+				case setting.ResetImagePolicyDeployFailed:
+					if deployStageStatus == config.StatusInit || (deployStageStatus != config.StatusFailed && deployStageStatus != config.StatusCancelled && deployStageStatus != config.StatusTimeout) {
+						continue
+					}
+				case setting.ResetImagePolicyTestFailed:
+					if testStageStatus == config.StatusInit || (testStageStatus != config.StatusFailed && testStageStatus != config.StatusCancelled && testStageStatus != config.StatusTimeout) {
+						continue
+					}
+				}
+			}
+			h.runStage(stagePosition, stage, pipelineTask.ConfigPayload.BuildConcurrency)
 		}
 	}
 
@@ -417,6 +494,9 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	} else if pipelineTask.Type == config.ArtifactType {
 		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s", config.ArtifactType, pipelineTask.PipelineName, pipelineTask.TaskID, plugin.Type())),
 			"_", "-", -1)
+	} else if pipelineTask.Type == config.ScanningType {
+		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s", config.ScanningType, pipelineTask.PipelineName, pipelineTask.TaskID, plugin.Type())),
+			"_", "-", -1)
 	}
 	plugin.Init(jobName, fileName, xl)
 
@@ -441,7 +521,12 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	}
 
 	// 设置 SubTask 初始状态
-	plugin.SetStatus(config.StatusRunning)
+	switch plugin.Type() {
+	case config.TaskBuild, config.TaskTestingV2:
+		plugin.SetStatus(config.StatusPrepare)
+	default:
+		plugin.SetStatus(config.StatusRunning)
+	}
 
 	// 设置 SubTask 开始时间
 	plugin.SetStartTime()
@@ -449,11 +534,11 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	// 清除上一次错误信息
 	plugin.ResetError()
 
-	updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+	updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 	h.SendAck()
 
 	plugin.SetAckFunc(func() {
-		updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+		updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 		h.SendAck()
 	})
 
@@ -469,15 +554,18 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	// 如果 SubTask 执行失败, 则不继续执行, 发送 Task 失败执行结果
 	// Failed, Timeout, Cancelled
 	if plugin.IsTaskFailed() {
+		plugin.Complete(ctx, pipelineTask, servicename)
+		xl.Infof("task status: %s", plugin.Status())
+
 		plugin.SetEndTime()
-		updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+		updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 		return plugin.Status(), fmt.Errorf("pipeline task failed: task_handler:308")
 	}
 
 	xl.Infof("task status: %s", plugin.Status())
 
 	// 等待完成前, 更新 SubTask 执行结果到 PipelineTask
-	updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+	updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 	h.SendAck()
 
 	// 等待 SubTask 结束
@@ -494,7 +582,7 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	}
 	// 更新 SubTask 执行结果到 PipelineTask
 	plugin.SetEndTime()
-	updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
+	updatePluginSubTask(plugin, pipelineTask, pos, servicename, xl)
 	h.SendAck()
 
 	xl.Infof("end sub task [%s:%s]", plugin.Type(), plugin.Status())
@@ -502,7 +590,6 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 }
 
 func Logger(pipelineTask *task.Task) *zap.SugaredLogger {
-	// 初始化Logger
 	l := log.Logger()
 	if pipelineTask != nil {
 		l.With(zap.String(setting.RequestID, pipelineTask.ReqID))

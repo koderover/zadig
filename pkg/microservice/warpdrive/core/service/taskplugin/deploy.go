@@ -19,41 +19,29 @@ package taskplugin
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
-	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	helmrelease "helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -139,52 +127,6 @@ type ResourceComponentSet interface {
 	GetKind() string
 }
 
-func RcsListFromDeployments(source []*appsv1.Deployment) []ResourceComponentSet {
-	rcsList := make([]ResourceComponentSet, 0, len(source))
-	for _, deploy := range source {
-		rcsList = append(rcsList, wrapper.Deployment(deploy))
-	}
-	return rcsList
-}
-
-func RcsListFromStatefulSets(source []*appsv1.StatefulSet) []ResourceComponentSet {
-	rcsList := make([]ResourceComponentSet, 0, len(source))
-	for _, sfs := range source {
-		rcsList = append(rcsList, wrapper.StatefulSet(sfs))
-	}
-	return rcsList
-}
-
-// find affected resources(deployment+statefulSet) for helm install or upgrade
-// resource type: deployment statefulSet
-func (p *DeployTaskPlugin) findHelmAffectedResources(namespace, serviceName string, resList []ResourceComponentSet) {
-	for _, res := range resList {
-		annotation := res.GetAnnotations()
-		if len(annotation) == 0 {
-			continue
-		}
-		// filter by services
-		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
-			extractedServiceName := util.ExtraServiceName(chartRelease, namespace)
-			if extractedServiceName != serviceName {
-				continue
-			}
-		}
-		for _, container := range res.GetContainers() {
-			resolvedImageUrl := resolveImageUrl(container.Image)
-			if resolvedImageUrl[setting.PathSearchComponentImage] == p.Task.ContainerName {
-				p.Log.Infof("%s find match container.name:%s container.image:%s", res.GetKind(), container.Name, container.Image)
-				p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-					Kind:      res.GetKind(),
-					Container: container.Name,
-					Origin:    container.Image,
-					Name:      res.GetName(),
-				})
-			}
-		}
-	}
-}
-
 func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *task.PipelineCtx, _ string) {
 	var (
 		err      error
@@ -213,421 +155,144 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 	}
+	containerName := p.Task.ContainerName
+	containerName = strings.TrimSuffix(containerName, "_"+p.Task.ServiceName)
 
-	if p.Task.ServiceType != setting.HelmDeployType {
-		// get servcie info
-		var (
-			serviceInfo *types.ServiceTmpl
-			selector    labels.Selector
-		)
-		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
-		if err != nil {
-			// Maybe it is a share service, the entity is not under the project
-			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
-			if err != nil {
-				return
-			}
-		}
-		if serviceInfo.WorkloadType == "" {
-			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
-
-			var deployments []*appsv1.Deployment
-			deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)
-			if err != nil {
-				return
-			}
-
-			var statefulSets []*appsv1.StatefulSet
-			statefulSets, err = getter.ListStatefulSets(p.Task.Namespace, selector, p.kubeClient)
-			if err != nil {
-				return
-			}
-
-		L:
-			for _, deploy := range deployments {
-				for _, container := range deploy.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-						if err != nil {
-							err = errors.WithMessagef(
-								err,
-								"failed to update container image in %s/deployments/%s/%s",
-								p.Task.Namespace, deploy.Name, container.Name)
-							return
-						}
-						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-							Kind:      setting.Deployment,
-							Container: container.Name,
-							Origin:    container.Image,
-							Name:      deploy.Name,
-						})
-						replaced = true
-						break L
-					}
-				}
-			}
-		Loop:
-			for _, sts := range statefulSets {
-				for _, container := range sts.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-						if err != nil {
-							err = errors.WithMessagef(
-								err,
-								"failed to update container image in %s/statefulsets/%s/%s",
-								p.Task.Namespace, sts.Name, container.Name)
-							return
-						}
-						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-							Kind:      setting.StatefulSet,
-							Container: container.Name,
-							Origin:    container.Image,
-							Name:      sts.Name,
-						})
-						replaced = true
-						break Loop
-					}
-				}
-			}
-		} else {
-			switch serviceInfo.WorkloadType {
-			case setting.StatefulSet:
-				var statefulSet *appsv1.StatefulSet
-				statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
-				if err != nil {
-					return
-				}
-				for _, container := range statefulSet.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-						if err != nil {
-							err = errors.WithMessagef(
-								err,
-								"failed to update container image in %s/statefulsets/%s/%s",
-								p.Task.Namespace, statefulSet.Name, container.Name)
-							return
-						}
-						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-							Kind:      setting.StatefulSet,
-							Container: container.Name,
-							Origin:    container.Image,
-							Name:      statefulSet.Name,
-						})
-						replaced = true
-						break
-					}
-				}
-			case setting.Deployment:
-				var deployment *appsv1.Deployment
-				deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
-				if err != nil {
-					return
-				}
-				for _, container := range deployment.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-						if err != nil {
-							err = errors.WithMessagef(
-								err,
-								"failed to update container image in %s/deployments/%s/%s",
-								p.Task.Namespace, deployment.Name, container.Name)
-							return
-						}
-						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-							Kind:      setting.Deployment,
-							Container: container.Name,
-							Origin:    container.Image,
-							Name:      deployment.Name,
-						})
-						replaced = true
-						break
-					}
-				}
-			}
-		}
-		if !replaced {
-			err = errors.Errorf(
-				"container %s is not found in resources with label %s", p.Task.ContainerName, selector)
-			return
-		}
-	} else if p.Task.ServiceType == setting.HelmDeployType {
-		var (
-			productInfo              *types.Product
-			renderChart              *types.RenderChart
-			replacedValuesYaml       string
-			mergedValuesYaml         string
-			replacedMergedValuesYaml string
-			servicePath              string
-			chartPath                string
-			replaceValuesMap         map[string]interface{}
-			renderInfo               *types.RenderSet
-			helmClient               helmclient.Client
-		)
-
-		rcsList := make([]ResourceComponentSet, 0)
-		deployments, errFindDeploy := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
-		if errFindDeploy != nil {
-			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindDeploy)
-		} else {
-			rcsList = append(rcsList, RcsListFromDeployments(deployments)...)
-		}
-		statefulSets, errFindSts := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
-		if errFindSts != nil {
-			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindSts)
-		} else {
-			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
-		}
-		p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, rcsList)
-
-		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
-			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
-
-		productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to get product %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-
-		renderInfo, err = p.getRenderSet(ctx, productInfo.Render.Name, productInfo.Render.Revision)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to get getRenderSet %s/%d",
-				productInfo.Render.Name, productInfo.Render.Revision)
-			return
-		}
-
-		serviceRevisionInProduct := int64(0)
-		var targetContainer *types.Container
-		for _, service := range productInfo.GetServiceMap() {
-			if service.ServiceName == p.Task.ServiceName {
-				serviceRevisionInProduct = service.Revision
-				for _, container := range service.Containers {
-					if container.Name == p.Task.ContainerName {
-						targetContainer = container
-						break
-					}
-				}
-				break
-			}
-		}
-
-		if targetContainer == nil {
-			err = errors.Errorf("failed to find target container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
-			return
-		}
-
-		if targetContainer.ImagePath == nil {
-			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
-			return
-		}
-
-		for _, chartInfo := range renderInfo.ChartInfos {
-			if chartInfo.ServiceName == p.Task.ServiceName {
-				renderChart = chartInfo
-				break
-			}
-		}
-
-		if renderChart == nil {
-			err = errors.Errorf("failed to update container image in %s/%s，chart not found",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-
-		// use revision of service currently applied in environment instead of the latest revision
-		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
-			pipelineTask.StorageURI, serviceRevisionInProduct)
-		if errDownload != nil {
-			p.Log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-				serviceRevisionInProduct, p.Task.ServiceName)
-			path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
-				pipelineTask.StorageURI, 0)
-			if errDownload != nil {
-				err = errors.WithMessagef(
-					errDownload,
-					"failed to download service %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				return
-			}
-		}
-
-		chartPath, err = fsutil.RelativeToCurrentPath(path)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to get relative path %s",
-				servicePath,
-			)
-			return
-		}
-
-		serviceValuesYaml := renderChart.ValuesYaml
-
-		// prepare image replace info
-		validMatchData := getValidMatchData(targetContainer.ImagePath)
-
-		replaceValuesMap, err = assignImageData(p.Task.Image, validMatchData)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to pase image uri %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-
-		// replace image into service's values.yaml
-		replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to replace image uri %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-		if replacedValuesYaml == "" {
-			err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-
-		// merge override values and kvs into service's yaml
-		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to merge override values %s",
-				renderChart.OverrideValues,
-			)
-			return
-		}
-
-		// replace image into final merged values.yaml
-		replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to replace image uri into helm values %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-		if replacedMergedValuesYaml == "" {
-			err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-
-		p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
-
-		helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to create helm client %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-
-		chartSpec := helmclient.ChartSpec{
-			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
-			ChartName:   chartPath,
-			Namespace:   p.Task.Namespace,
-			ReuseValues: true,
-			Version:     renderChart.ChartVersion,
-			ValuesYaml:  replacedMergedValuesYaml,
-			SkipCRDs:    false,
-			UpgradeCRDs: true,
-			Timeout:     time.Second * setting.DeployTimeout,
-			Wait:        true,
-		}
-
-		done := make(chan bool)
-		go func(chan bool) {
-			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to Install helm chart %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				done <- false
-			} else {
-				done <- true
-			}
-		}(done)
-
-		pendingStatusProcess := func(typ string) error {
-			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
-			if errHistory != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to ListReleaseHistory: %s,error:%s",
-					chartSpec.ReleaseName, errHistory)
-				return err
-			}
-			if len(hrs) > 0 {
-				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-				rel := hrs[0]
-				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
-					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
-					if deleteErr != nil {
-						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-						return err
-					}
-				}
-			}
-			if err != nil {
-				err = fmt.Errorf("failed to install %s:%s", typ, err)
-			}
-			return err
-		}
-		select {
-		case d := <-done:
-			if !d {
-				err = pendingStatusProcess("normal")
-			}
-		case <-time.After(chartSpec.Timeout + 5*time.Second):
-			err = pendingStatusProcess("timeout")
-		}
-		if err != nil {
-			return
-		}
-
-		//替换环境变量中的chartInfos
-		for _, chartInfo := range renderInfo.ChartInfos {
-			if chartInfo.ServiceName == p.Task.ServiceName {
-				chartInfo.ValuesYaml = replacedValuesYaml
-				break
-			}
-		}
-
-		// TODO too dangerous to override entire renderset!
-		err = p.updateRenderSet(ctx, &types.RenderSet{
-			Name:          renderInfo.Name,
-			Revision:      renderInfo.Revision,
-			DefaultValues: renderInfo.DefaultValues,
-			ChartInfos:    renderInfo.ChartInfos,
-		})
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to update renderset info %s/%s, renderset %s",
-				p.Task.Namespace, p.Task.ServiceName, renderInfo.Name)
-		}
-	}
-}
-
-func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
-
-	prod := &types.Product{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName))
+	// get servcie info
+	var (
+		serviceInfo *types.ServiceTmpl
+		selector    labels.Selector
+	)
+	serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 	if err != nil {
-		return nil, err
+		// Maybe it is a share service, the entity is not under the project
+		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
+		if err != nil {
+			return
+		}
 	}
-	return prod, nil
+	if serviceInfo.WorkloadType == "" {
+		selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
+
+		var deployments []*appsv1.Deployment
+		deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)
+		if err != nil {
+			return
+		}
+
+		var statefulSets []*appsv1.StatefulSet
+		statefulSets, err = getter.ListStatefulSets(p.Task.Namespace, selector, p.kubeClient)
+		if err != nil {
+			return
+		}
+
+	L:
+		for _, deploy := range deployments {
+			for _, container := range deploy.Spec.Template.Spec.Containers {
+				if container.Name == containerName {
+					err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, containerName, p.Task.Image, p.kubeClient)
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/deployments/%s/%s",
+							p.Task.Namespace, deploy.Name, container.Name)
+						return
+					}
+					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+						Kind:      setting.Deployment,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      deploy.Name,
+					})
+					replaced = true
+					break L
+				}
+			}
+		}
+	Loop:
+		for _, sts := range statefulSets {
+			for _, container := range sts.Spec.Template.Spec.Containers {
+				if container.Name == containerName {
+					err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, containerName, p.Task.Image, p.kubeClient)
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/statefulsets/%s/%s",
+							p.Task.Namespace, sts.Name, container.Name)
+						return
+					}
+					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+						Kind:      setting.StatefulSet,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      sts.Name,
+					})
+					replaced = true
+					break Loop
+				}
+			}
+		}
+	} else {
+		switch serviceInfo.WorkloadType {
+		case setting.StatefulSet:
+			var statefulSet *appsv1.StatefulSet
+			statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+			if err != nil {
+				return
+			}
+			for _, container := range statefulSet.Spec.Template.Spec.Containers {
+				if container.Name == containerName {
+					err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, containerName, p.Task.Image, p.kubeClient)
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/statefulsets/%s/%s",
+							p.Task.Namespace, statefulSet.Name, container.Name)
+						return
+					}
+					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+						Kind:      setting.StatefulSet,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      statefulSet.Name,
+					})
+					replaced = true
+					break
+				}
+			}
+		case setting.Deployment:
+			var deployment *appsv1.Deployment
+			deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+			if err != nil {
+				return
+			}
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if container.Name == containerName {
+					err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, containerName, p.Task.Image, p.kubeClient)
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/deployments/%s/%s",
+							p.Task.Namespace, deployment.Name, container.Name)
+						return
+					}
+					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+						Kind:      setting.Deployment,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      deployment.Name,
+					})
+					replaced = true
+					break
+				}
+			}
+		}
+	}
+	if !replaced {
+		err = errors.Errorf(
+			"container %s is not found in resources with label %s", containerName, selector)
+		return
+	}
 }
 
 func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string, revision int64) (*types.ServiceTmpl, error) {
@@ -635,173 +300,13 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 
 	s := &types.ServiceTmpl{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
-		"productName": productName,
+		"projectName": productName,
 		"revision":    fmt.Sprintf("%d", revision),
 	}))
 	if err != nil {
 		return nil, err
 	}
 	return s, nil
-}
-
-// download chart info of specific version, use the latest version if fails
-func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
-	logger := p.Log
-
-	fileName := serviceName
-	if revision > 0 {
-		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
-	}
-	tarball := fmt.Sprintf("%s.tar.gz", fileName)
-	localBase := configbase.LocalServicePath(productName, serviceName)
-	tarFilePath := filepath.Join(localBase, tarball)
-
-	exists, err := fsutil.FileExists(tarFilePath)
-	if err != nil {
-		return "", err
-	}
-	if exists {
-		return tarFilePath, nil
-	}
-
-	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
-	if err != nil {
-		return "", err
-	}
-
-	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
-	forcedPathStyle := true
-	if s3Storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-	if err != nil {
-		p.Log.Errorf("failed to create s3 client, err: %s", err)
-		return "", err
-	}
-	if err = s3Client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
-		logger.Errorf("failed to download file from s3, err: %s", err)
-		return "", err
-	}
-
-	exists, err = fsutil.FileExists(tarFilePath)
-	if err != nil {
-		return "", err
-	}
-	if !exists {
-		return "", fmt.Errorf("file %s on s3 not found", s3Storage.GetObjectPath(tarball))
-	}
-
-	return tarFilePath, nil
-}
-
-func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revision int64) (*types.RenderSet, error) {
-	url := fmt.Sprintf("/api/project/renders/render/%s/revision/%d", name, revision)
-
-	rs := &types.RenderSet{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(rs))
-	if err != nil {
-		return nil, err
-	}
-
-	return rs, nil
-}
-
-func (p *DeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.RenderSet) error {
-	url := "/api/project/renders"
-
-	_, err := p.httpClient.Put(url, httpclient.SetBody(args))
-
-	return err
-}
-
-func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
-	ret := make(map[string]string)
-	if spec.Repo != "" {
-		ret[setting.PathSearchComponentRepo] = spec.Repo
-	}
-	if spec.Image != "" {
-		ret[setting.PathSearchComponentImage] = spec.Image
-	}
-	if spec.Tag != "" {
-		ret[setting.PathSearchComponentTag] = spec.Tag
-	}
-	return ret
-}
-
-// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
-func resolveImageUrl(imageUrl string) map[string]string {
-	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
-	result := make(map[string]string)
-	exNames := imageParseRegex.SubexpNames()
-	for i, matchedStr := range subMatchAll {
-		if i != 0 && matchedStr != "" && matchedStr != ":" {
-			result[exNames[i]] = matchedStr
-		}
-	}
-	return result
-}
-
-// replace image defines in yaml by new version
-func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
-	nestedMap, err := converter.Expand(imageValuesMap)
-	if err != nil {
-		return "", err
-	}
-	bs, err := yaml.Marshal(nestedMap)
-	if err != nil {
-		return "", err
-	}
-	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
-	if err != nil {
-		return "", err
-	}
-	return string(mergedBs), nil
-}
-
-// assignImageData assign image url data into match data
-// matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
-// return: absolute-image-path=>image-value  absolute-repo-path=>repo-value absolute-tag-path=>tag-value
-func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
-	ret := make(map[string]interface{})
-	// total image url assigned into one single value
-	if len(matchData) == 1 {
-		for _, v := range matchData {
-			ret[v] = imageUrl
-		}
-		return ret, nil
-	}
-
-	resolvedImageUrl := resolveImageUrl(imageUrl)
-
-	// image url assigned into repo/image+tag
-	if len(matchData) == 3 {
-		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
-		ret[matchData[setting.PathSearchComponentImage]] = resolvedImageUrl[setting.PathSearchComponentImage]
-		ret[matchData[setting.PathSearchComponentTag]] = resolvedImageUrl[setting.PathSearchComponentTag]
-		return ret, nil
-	}
-
-	if len(matchData) == 2 {
-		// image url assigned into repo/image + tag
-		if tagPath, ok := matchData[setting.PathSearchComponentTag]; ok {
-			ret[tagPath] = resolvedImageUrl[setting.PathSearchComponentTag]
-			for k, imagePath := range matchData {
-				if k == setting.PathSearchComponentTag {
-					continue
-				}
-				ret[imagePath] = fmt.Sprintf("%s%s", resolvedImageUrl[setting.PathSearchComponentRepo], resolvedImageUrl[setting.PathSearchComponentImage])
-				break
-			}
-			return ret, nil
-		}
-		// image url assigned into repo + image(tag)
-		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
-		ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
-		return ret, nil
-	}
-
-	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
 }
 
 // Wait ...

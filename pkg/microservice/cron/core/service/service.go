@@ -16,6 +16,14 @@ limitations under the License.
 
 package service
 
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
+)
+
 type SvcRevision struct {
 	ServiceName     string            `json:"service_name"`
 	Type            string            `json:"type"`
@@ -72,6 +80,15 @@ type ProductResp struct {
 	Source      string      `json:"source"`
 }
 
+type ProductRenderset struct {
+	Name        string                        `bson:"name"                     json:"name"`
+	Revision    int64                         `bson:"revision"                 json:"revision"`
+	EnvName     string                        `bson:"env_name,omitempty"       json:"env_name,omitempty"`
+	ProductTmpl string                        `bson:"product_tmpl"             json:"product_tmpl"`
+	YamlData    *templatemodels.CustomYaml    `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	ChartInfos  []*templatemodels.RenderChart `bson:"chart_infos,omitempty"    json:"chart_infos,omitempty"`
+}
+
 type EnvConfig struct {
 	EnvName string   `json:"env_name"`
 	HostIDs []string `json:"host_ids"`
@@ -97,6 +114,15 @@ type PmHealthCheck struct {
 	UnhealthyThreshold  int    `json:"unhealthy_threshold,omitempty"`
 	CurrentHealthyNum   int    `json:"current_healthy_num,omitempty"`
 	CurrentUnhealthyNum int    `json:"current_unhealthy_num,omitempty"`
+}
+
+type PrivateKeyHosts struct {
+	ID           primitive.ObjectID   `json:"id,omitempty"`
+	IP           string               `json:"ip"`
+	Port         int64                `json:"port"`
+	Status       setting.PMHostStatus `json:"status"`
+	Probe        *types.Probe         `json:"probe"`
+	UpdateStatus bool                 `json:"update_status"`
 }
 
 type EnvStatus struct {

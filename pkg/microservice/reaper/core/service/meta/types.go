@@ -25,15 +25,16 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
-// Context ...
 type Context struct {
 	// API token 服务访问使用的api token
 	APIToken string `yaml:"api_token"`
 	// Workspace 容器工作目录 [必填]
 	Workspace string `yaml:"workspace"`
 
+	// TODO: Deprecated.
 	// CleanWorkspace 是否清理工作目录 [选填, 默认为 false]
 	CleanWorkspace bool `yaml:"clean_workspace"`
 
@@ -85,6 +86,7 @@ type Context struct {
 	// Git Github/Gitlab 配置
 	Git *Git `yaml:"git"`
 
+	// TODO: Deprecated.
 	// Caches Caches配置
 	Caches []string `yaml:"caches"`
 
@@ -117,6 +119,24 @@ type Context struct {
 	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
 	ArtifactPath    string        `yaml:"artifact_path"`
 	AesKey          string        `yaml:"aes_key"`
+
+	// New since V1.10.0.
+	CacheEnable  bool               `yaml:"cache_enable"`
+	Cache        types.Cache        `yaml:"cache"`
+	CacheDirType types.CacheDirType `yaml:"cache_dir_type"`
+	CacheUserDir string             `yaml:"cache_user_dir"`
+
+	// Upload To S3 related context
+	UploadEnabled     bool                             `yaml:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `yaml:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `yaml:"upload_info"`
+
+	// scanner used flag
+	ScannerFlag    bool   `yaml:"scanner_flag"`
+	ScannerType    string `yaml:"scanner_type"`
+	SonarParameter string `yaml:"sonar_parameter"`
+	SonarServer    string `yaml:"sonar_server"`
+	SonarLogin     string `yaml:"sonar_login"`
 }
 
 type ArtifactInfo struct {
@@ -163,6 +183,7 @@ type SSH struct {
 	Name       string `json:"name"`
 	UserName   string `json:"user_name"`
 	IP         string `json:"ip"`
+	Port       int64  `json:"port"`
 	IsProd     bool   `json:"is_prod"`
 	Label      string `json:"label"`
 	PrivateKey string `json:"private_key"`
@@ -241,20 +262,25 @@ type Install struct {
 
 // Repo ...
 type Repo struct {
-	Source       string `yaml:"source"`
-	Address      string `yaml:"address"`
-	Owner        string `yaml:"owner"`
-	Name         string `yaml:"name"`
-	RemoteName   string `yaml:"remote_name"`
-	Branch       string `yaml:"branch"`
-	PR           int    `yaml:"pr"`
-	Tag          string `yaml:"tag"`
-	CheckoutPath string `yaml:"checkout_path"`
-	SubModules   bool   `yaml:"submodules"`
-	OauthToken   string `yaml:"oauthToken"`
-	User         string `yaml:"username"`
-	Password     string `yaml:"password"`
-	CheckoutRef  string `yaml:"checkout_ref"`
+	Source             string         `yaml:"source"`
+	Address            string         `yaml:"address"`
+	Owner              string         `yaml:"owner"`
+	Name               string         `yaml:"name"`
+	Namespace          string         `yaml:"namespace"`
+	RemoteName         string         `yaml:"remote_name"`
+	Branch             string         `yaml:"branch"`
+	PR                 int            `yaml:"pr"`
+	Tag                string         `yaml:"tag"`
+	CheckoutPath       string         `yaml:"checkout_path"`
+	SubModules         bool           `yaml:"submodules"`
+	OauthToken         string         `yaml:"oauthToken"`
+	User               string         `yaml:"username"`
+	Password           string         `yaml:"password"`
+	CheckoutRef        string         `yaml:"checkout_ref"`
+	EnableProxy        bool           `yaml:"enable_proxy"`
+	AuthType           types.AuthType `yaml:"auth_type,omitempty"`
+	SSHKey             string         `yaml:"ssh_key,omitempty"`
+	PrivateAccessToken string         `yaml:"private_access_token,omitempty"`
 }
 
 // PRRef returns refs format
@@ -389,6 +415,8 @@ func (g *Git) SSHCloneURL(source, owner, name string) string {
 func (g *Git) HTTPSCloneURL(source, token, owner, name string) string {
 	if strings.ToLower(source) == ProviderGitlab {
 		return fmt.Sprintf("https://%s/%s/%s.git", g.GetGitlabHost(), owner, name)
+	} else if strings.ToLower(source) == ProviderGitee {
+		return fmt.Sprintf("https://%s:%s@%s/%s/%s.git", OauthTokenPrefix, token, "gitee.com", owner, name)
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
 	return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, g.GetGithubHost(), owner, name)
@@ -398,7 +426,7 @@ func (g *Git) HTTPSCloneURL(source, token, owner, name string) string {
 // e.g.
 //https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
 func (g *Git) OAuthCloneURL(source, token, address, owner, name, scheme string) string {
-	if strings.ToLower(source) == ProviderGitlab {
+	if strings.ToLower(source) == ProviderGitlab || strings.ToLower(source) == ProviderOther {
 		// address 需要传过来
 		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", scheme, OauthTokenPrefix, token, address, owner, name)
 	}

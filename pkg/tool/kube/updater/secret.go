@@ -17,14 +17,30 @@ limitations under the License.
 package updater
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
-func DeleteSecrets(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &corev1.Secret{}, cl)
+func DeleteSecrets(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	err := clientset.CoreV1().Secrets(namespace).DeleteCollection(
+		context.TODO(),
+		metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		},
+		metav1.ListOptions{
+			LabelSelector: selector.String(),
+		},
+	)
+
+	return util.IgnoreNotFoundError(err)
 }
 
 func UpdateOrCreateSecret(s *corev1.Secret, cl client.Client) error {
@@ -38,5 +54,5 @@ func DeleteSecretWithName(ns, name string, cl client.Client) error {
 			Name:      name,
 		},
 	}
-	return deleteObjects(secret, cl)
+	return deleteObject(secret, cl)
 }

@@ -116,9 +116,9 @@ func refreshWebHookSecret(secret string) error {
 
 		switch ch.Type {
 		case setting.SourceFromGithub:
-			cl = github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+			cl = github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		case setting.SourceFromGitlab:
-			cl, err = gitlab.NewClient(ch.Address, ch.AccessToken)
+			cl, err = gitlab.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 			if err != nil {
 				log.Warnf("Failed to create gitlab client, err: %s", err)
 				continue

@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -127,7 +128,7 @@ func DeleteTestModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteTestModule(name, c.Query("projectName"), ctx.RequestID, ctx.Logger)
+	ctx.Err = commonservice.DeleteTestModule(name, c.Query("projectName"), ctx.RequestID, ctx.Logger)
 }
 
 func GetHTMLTestReport(c *gin.Context) {

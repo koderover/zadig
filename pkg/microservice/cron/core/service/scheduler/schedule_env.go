@@ -33,18 +33,20 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
+	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // UpsertEnvServiceScheduler ...
 func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
-	envs, err := c.AslanCli.ListEnvs(log)
+	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{BasicFacility: setting.BasicFacilityCVM})
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	//当前的环境数据和上次做比较，如果环境有删除或者环境中的服务有删除，要清理掉定时器
-	c.compareProductRevision(envs, log)
+	c.comparePMProductRevision(envs, log)
 
 	log.Info("start init env scheduler..")
 	taskMap := make(map[string]bool)
@@ -195,6 +197,7 @@ func BuildScheduledEnvJob(scheduler *gocron.Scheduler, healthCheck *service.PmHe
 	}
 	return scheduler.Every(interval).Seconds()
 }
+
 func runProbe(healthCheck *service.PmHealthCheck, address string, log *zap.SugaredLogger) (string, error) {
 	var (
 		message string
@@ -203,7 +206,7 @@ func runProbe(healthCheck *service.PmHealthCheck, address string, log *zap.Sugar
 	timeout := time.Duration(healthCheck.TimeOut) * time.Second
 	switch healthCheck.Protocol {
 	case setting.ProtocolHTTP, setting.ProtocolHTTPS:
-		if message, err = doHTTPProbe(healthCheck.Protocol, address, healthCheck.Path, healthCheck.Port, timeout, log); err != nil {
+		if message, err = doHTTPProbe(healthCheck.Protocol, address, healthCheck.Path, healthCheck.Port, []*types.HTTPHeader{}, timeout, "", log); err != nil {
 			log.Errorf("doHttpProbe err:%v", err)
 			return Failure, err
 		}
@@ -238,7 +241,7 @@ func doTCPProbe(addr string, port int, timeout time.Duration, log *zap.SugaredLo
 	return Success, nil
 }
 
-func doHTTPProbe(protocol, address, path string, port int, timeout time.Duration, log *zap.SugaredLogger) (string, error) {
+func doHTTPProbe(protocol, address, path string, port int, headerList []*types.HTTPHeader, timeout time.Duration, responseSuccessFlag string, log *zap.SugaredLogger) (string, error) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 	transport := &http.Transport{
 		TLSClientConfig:   tlsConfig,
@@ -254,10 +257,14 @@ func doHTTPProbe(protocol, address, path string, port int, timeout time.Duration
 	if err != nil {
 		return Failure, err
 	}
+	headers := buildHeader(headerList)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return Failure, err
 	}
+	req.Header = headers
+	req.Host = headers.Get("Host")
+
 	res, err := client.Do(req)
 	if err != nil {
 		return Failure, err
@@ -269,10 +276,13 @@ func doHTTPProbe(protocol, address, path string, port int, timeout time.Duration
 	}
 
 	if res.StatusCode >= http.StatusOK && res.StatusCode < http.StatusBadRequest {
+		if responseSuccessFlag != "" && !strings.Contains(string(body), responseSuccessFlag) {
+			return Failure, fmt.Errorf("HTTP probe failed with response success flag: %s", responseSuccessFlag)
+		}
 		log.Infof("Probe succeeded for %s, Response: %v", url, *res)
 		return Success, nil
 	}
-	log.Infof("Probe failed for %s, response body: %v", url, string(body))
+	log.Warnf("Probe failed for %s, response body: %v", url, string(body))
 	return Failure, fmt.Errorf("HTTP probe failed with statuscode: %d", res.StatusCode)
 }
 
@@ -309,28 +319,67 @@ func formatURL(protocol, address, path string, port int) (string, error) {
 	return fmt.Sprintf("%s://%s:%d/%s", protocol, address, port, path), nil
 }
 
-// 先比较环境，再比较服务
-func (c *CronClient) compareProductRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
-	if len(c.lastProductRevisions) == 0 {
-		c.lastProductRevisions = currentProductRevisions
+func buildHeader(headerList []*types.HTTPHeader) http.Header {
+	headers := make(http.Header)
+	for _, header := range headerList {
+		headers[header.Name] = append(headers[header.Name], header.Value)
+	}
+	return headers
+}
+
+func buildEnvNameKey(productRevision *service.ProductRevision) string {
+	return "helm-values-sync-" + productRevision.ProductName + "-" + productRevision.EnvName
+}
+
+func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	if len(c.lastHelmProductRevisions) == 0 {
+		c.lastHelmProductRevisions = currentProductRevisions
+		return
+	}
+	deleteProductRevisions := make([]*service.ProductRevision, 0)
+	curEnvSet := sets.NewString()
+	for _, r := range currentProductRevisions {
+		curEnvSet.Insert(buildEnvNameKey(r))
+	}
+	for _, lastProductRevision := range c.lastHelmProductRevisions {
+		if !curEnvSet.Has(buildEnvNameKey(lastProductRevision)) {
+			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
+		}
+	}
+	// delete related schedulers when env is deleted
+	for _, env := range deleteProductRevisions {
+		envKey := buildEnvNameKey(env)
+		if _, ok := c.SchedulerController[envKey]; ok {
+			c.SchedulerController[envKey] <- true
+		}
+		if _, ok := c.Schedulers[envKey]; ok {
+			c.Schedulers[envKey].Clear()
+			delete(c.Schedulers, envKey)
+		}
+	}
+	c.lastHelmProductRevisions = currentProductRevisions
+}
+
+// compare environments and then services
+func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	if len(c.lastPMProductRevisions) == 0 {
+		c.lastPMProductRevisions = currentProductRevisions
 		return
 	}
 	deleteProductRevisions := make([]*service.ProductRevision, 0)
 	lastProductSvcRevisionMap := make(map[string][]*service.SvcRevision)
 	currentProductSvcRevisionMap := make(map[string][]*service.SvcRevision)
-	for _, lastProductRevision := range c.lastProductRevisions {
+	for _, lastProductRevision := range c.lastPMProductRevisions {
 		isContain := false
 		for _, currentProductRevision := range currentProductRevisions {
 			if currentProductRevision.ProductName == lastProductRevision.ProductName &&
 				currentProductRevision.EnvName == lastProductRevision.EnvName {
-
 				currentProductSvcRevisionMap[currentProductRevision.ProductName+"-"+currentProductRevision.EnvName] = currentProductRevision.ServiceRevisions
 				lastProductSvcRevisionMap[lastProductRevision.ProductName+"-"+lastProductRevision.EnvName] = lastProductRevision.ServiceRevisions
 				isContain = true
 				break
 			}
 		}
-
 		if !isContain {
 			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
 		}
@@ -451,7 +500,7 @@ func (c *CronClient) compareProductRevision(currentProductRevisions []*service.P
 		}
 	}
 
-	c.lastProductRevisions = currentProductRevisions
+	c.lastPMProductRevisions = currentProductRevisions
 }
 
 const (

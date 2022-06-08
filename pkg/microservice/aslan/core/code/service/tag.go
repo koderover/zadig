@@ -17,61 +17,38 @@ limitations under the License.
 package service
 
 import (
-	"context"
-
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/codehub"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
-func CodeHostListTags(codeHostID int, projectName string, namespace string, log *zap.SugaredLogger) ([]*Tag, error) {
+func CodeHostListTags(codeHostID int, projectName string, namespace string, key string, page int, perPage int, log *zap.SugaredLogger) ([]*client.Tag, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
-		log.Error(err)
-		return nil, e.ErrCodehostListTags.AddDesc("git client is nil")
+		log.Errorf("get code host info err:%s", err)
+		return nil, err
 	}
-
-	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListTags.AddDesc(err.Error())
-		}
-
-		tags, err := client.ListTags(namespace, projectName, nil)
-		if err != nil {
-			return nil, err
-		}
-		return ToTags(tags), nil
-	} else if ch.Type == gerrit.CodehostTypeGerrit {
-		client := gerrit.NewClient(ch.Address, ch.AccessToken)
-		tags, err := client.ListTags(projectName)
-		if err != nil {
-			return nil, err
-		}
-
-		return ToTags(tags), nil
-	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
-		tags, err := codeHubClient.TagList(projectName)
-		if err != nil {
-			return nil, err
-		}
-		return ToTags(tags), nil
-	} else {
-		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
-		tags, err := gh.ListTags(context.TODO(), namespace, projectName, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		return ToTags(tags), nil
+	if ch.Type == setting.SourceFromOther {
+		return []*client.Tag{}, nil
 	}
+	cli, err := open.OpenClient(ch, log)
+	if err != nil {
+		log.Errorf("open client err:%s", err)
+		return nil, err
+	}
+	tags, err := cli.ListTags(client.ListOpt{
+		Namespace:   namespace,
+		ProjectName: projectName,
+		Key:         key,
+		Page:        page,
+		PerPage:     page,
+	})
+	if err != nil {
+		log.Errorf("list tags err:%s", err)
+		return nil, err
+	}
+	return tags, nil
 }

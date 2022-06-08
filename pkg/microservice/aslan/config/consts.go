@@ -26,6 +26,7 @@ var (
 	// RenderTemplateAlias ...
 	RenderTemplateAlias = regexp.MustCompile(`{{\s?\.\w+\s?}}`)
 	ServiceNameAlias    = regexp.MustCompile(`\$Service\$`)
+	ProductNameAlias    = regexp.MustCompile(`\$Product\$`)
 	NameSpaceRegex      = regexp.MustCompile(NameSpaceRegexString)
 )
 
@@ -87,6 +88,8 @@ const (
 	WorkflowTypeV3 PipelineType = "workflow_v3"
 	// ArtifactPackageType package artifact
 	ArtifactType PipelineType = "artifact"
+	// ScanningType is the type for scanning
+	ScanningType PipelineType = "scanning"
 )
 
 type Status string
@@ -104,6 +107,9 @@ const (
 	StatusQueued     Status = "queued"
 	StatusBlocked    Status = "blocked"
 	QueueItemPending Status = "pending"
+	StatusChanged    Status = "changed"
+	StatusNotRun     Status = "notRun"
+	StatusPrepare    Status = "prepare"
 )
 
 type TaskStatus string
@@ -129,6 +135,7 @@ const (
 	TaskArtifactDeploy  TaskType = "artifact_deploy"
 	TaskDeploy          TaskType = "deploy"
 	TaskTestingV2       TaskType = "testingv2"
+	TaskScanning        TaskType = "scanning"
 	TaskDistributeToS3  TaskType = "distribute2kodo"
 	TaskReleaseImage    TaskType = "release_image"
 	TaskJira            TaskType = "jira"
@@ -137,6 +144,7 @@ const (
 	TaskResetImage      TaskType = "reset_image"
 	TaskDistribute      TaskType = "distribute"
 	TaskTrigger         TaskType = "trigger"
+	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
 )
 
@@ -186,6 +194,7 @@ type HookEventType string
 const (
 	HookEventPush    = HookEventType("push")
 	HookEventPr      = HookEventType("pull_request")
+	HookEventTag     = HookEventType("tag")
 	HookEventUpdated = HookEventType("ref-updated")
 )
 
@@ -214,4 +223,13 @@ const (
 const (
 	RoleBindingNameEdit = setting.ProductName + "-edit"
 	RoleBindingNameView = setting.ProductName + "-view"
+)
+
+type CommonEnvCfgType string
+
+const (
+	CommonEnvCfgTypeIngress   CommonEnvCfgType = "Ingress"
+	CommonEnvCfgTypeConfigMap CommonEnvCfgType = "ConfigMap"
+	CommonEnvCfgTypeSecret    CommonEnvCfgType = "Secret"
+	CommonEnvCfgTypePvc       CommonEnvCfgType = "PVC"
 )

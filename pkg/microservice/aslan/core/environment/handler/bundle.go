@@ -27,5 +27,5 @@ func GetBundleResources(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetBundleResources()
+	ctx.Resp, ctx.Err = service.GetBundleResources(ctx.Logger)
 }

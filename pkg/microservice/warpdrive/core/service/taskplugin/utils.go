@@ -21,15 +21,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
 	t "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kodo"
 )
 
@@ -107,6 +113,14 @@ func ToBuildTask(sb map[string]interface{}) (*task.Build, error) {
 	var t *task.Build
 	if err := IToi(sb, &t); err != nil {
 		return nil, fmt.Errorf("convert interface to BuildTaskV2 error: %s", err)
+	}
+	return t, nil
+}
+
+func ToScanningTask(sb map[string]interface{}) (*task.Scanning, error) {
+	var t *task.Scanning
+	if err := IToi(sb, &t); err != nil {
+		return nil, fmt.Errorf("convert interface to Scanning task error: %s", err)
 	}
 	return t, nil
 }
@@ -210,4 +224,77 @@ func ToTriggerTask(sb map[string]interface{}) (*task.Trigger, error) {
 		return nil, fmt.Errorf("convert interface to triggerTask error: %s", err)
 	}
 	return trigger, nil
+}
+
+func ToExtensionTask(sb map[string]interface{}) (*task.Extension, error) {
+	var extension *task.Extension
+	if err := task.IToi(sb, &extension); err != nil {
+		return nil, fmt.Errorf("convert interface to extensionTask error: %s", err)
+	}
+	return extension, nil
+}
+
+func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
+	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
+	}
+
+	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	return controllerRuntimeClient, clientset, restConfig, nil
+}
+
+// InstantiateBuildSysVariables instantiate system variables for build module
+func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
+	ret := make([]*task.KeyVal, 0)
+	for index, repo := range jobCtx.Builds {
+
+		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
+		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
+
+		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+
+		repoIndex := fmt.Sprintf("REPO_%d", index)
+		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
+
+		if len(repo.Branch) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
+		}
+
+		if len(repo.Tag) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
+		}
+
+		if repo.PR > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
+		}
+
+		if len(repo.CommitID) > 0 {
+			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
+		}
+	}
+	return ret
+}
+
+// getReaperImage generates the image used to run reaper
+// depends on the setting on page 'Build'
+func getReaperImage(reaperImage, buildOS, imageFrom string) string {
+	// for built-in image, reaperImage and buildOs can generate a complete image
+	// reaperImage: ccr.ccs.tencentyun.com/koderover-public/build-base:${BuildOS}-amd64
+	// buildOS: focal xenial bionic
+	jobImage := strings.ReplaceAll(reaperImage, "${BuildOS}", buildOS)
+	// for custom image, buildOS represents the exact custom image
+	if imageFrom == setting.ImageFromCustom {
+		jobImage = buildOS
+	}
+	return jobImage
 }

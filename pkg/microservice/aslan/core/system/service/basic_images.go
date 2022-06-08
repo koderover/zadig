@@ -55,6 +55,14 @@ func InitbasicImageInfos() []*commonmodels.BasicImage {
 			UpdateTime: time.Now().Unix(),
 			UpdateBy:   "system",
 		},
+		{
+			Value:      "sonarsource/sonar-scanner-cli",
+			Label:      "sonar:latest",
+			CreateTime: time.Now().Unix(),
+			UpdateTime: time.Now().Unix(),
+			UpdateBy:   "system",
+			ImageType:  "sonar",
+		},
 	}
 
 	return basicImageInfos
@@ -69,9 +77,10 @@ func GetBasicImage(id string, log *zap.SugaredLogger) (*commonmodels.BasicImage,
 	return resp, nil
 }
 
-func ListBasicImages(imageFrom string, log *zap.SugaredLogger) ([]*commonmodels.BasicImage, error) {
+func ListBasicImages(imageFrom string, imageType string, log *zap.SugaredLogger) ([]*commonmodels.BasicImage, error) {
 	opt := &commonrepo.BasicImageOpt{
 		ImageFrom: imageFrom,
+		ImageType: imageType,
 	}
 	resp, err := commonrepo.NewBasicImageColl().List(opt)
 	if err != nil {

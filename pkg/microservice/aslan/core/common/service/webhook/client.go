@@ -27,6 +27,7 @@ const (
 	ColliePrefix   = "collie-"
 	ServicePrefix  = "service-"
 	TestingPrefix  = "testing-"
+	ScannerPrefix  = "scanning-"
 
 	taskTimeoutSecond = 10
 )
@@ -42,24 +43,28 @@ func NewClient() *client {
 }
 
 type task struct {
-	owner, repo, address, token, ref, ak, sk, region string
-	from                                             string
-	add                                              bool
-	err                                              error
-	doneCh                                           chan struct{}
+	ID                                                          int
+	owner, namespace, repo, address, token, ref, ak, sk, region string
+	from                                                        string
+	add, enableProxy                                            bool
+	err                                                         error
+	doneCh                                                      chan struct{}
 }
 
 type TaskOption struct {
-	Name    string
-	Owner   string
-	Repo    string
-	Address string
-	Token   string
-	Ref     string
-	From    string
-	AK      string
-	SK      string
-	Region  string
+	ID          int
+	Name        string
+	Owner       string
+	Namespace   string
+	Repo        string
+	Address     string
+	Token       string
+	Ref         string
+	From        string
+	AK          string
+	SK          string
+	Region      string
+	EnableProxy bool
 }
 
 func (c *client) AddWebHook(taskOption *TaskOption) error {
@@ -68,17 +73,20 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 	}
 
 	t := &task{
-		owner:   taskOption.Owner,
-		repo:    taskOption.Repo,
-		address: taskOption.Address,
-		token:   taskOption.Token,
-		ref:     getFullReference(taskOption.Name, taskOption.Ref),
-		from:    taskOption.From,
-		add:     true,
-		ak:      taskOption.AK,
-		sk:      taskOption.SK,
-		region:  taskOption.Region,
-		doneCh:  make(chan struct{}),
+		ID:          taskOption.ID,
+		owner:       taskOption.Owner,
+		namespace:   taskOption.Namespace,
+		repo:        taskOption.Repo,
+		address:     taskOption.Address,
+		token:       taskOption.Token,
+		ref:         getFullReference(taskOption.Name, taskOption.Ref),
+		from:        taskOption.From,
+		add:         true,
+		enableProxy: taskOption.EnableProxy,
+		ak:          taskOption.AK,
+		sk:          taskOption.SK,
+		region:      taskOption.Region,
+		doneCh:      make(chan struct{}),
 	}
 
 	select {
@@ -102,17 +110,20 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 	}
 
 	t := &task{
-		owner:   taskOption.Owner,
-		repo:    taskOption.Repo,
-		address: taskOption.Address,
-		token:   taskOption.Token,
-		ref:     getFullReference(taskOption.Name, taskOption.Ref),
-		from:    taskOption.From,
-		add:     false,
-		ak:      taskOption.AK,
-		sk:      taskOption.SK,
-		region:  taskOption.Region,
-		doneCh:  make(chan struct{}),
+		ID:          taskOption.ID,
+		owner:       taskOption.Owner,
+		namespace:   taskOption.Namespace,
+		repo:        taskOption.Repo,
+		address:     taskOption.Address,
+		token:       taskOption.Token,
+		ref:         getFullReference(taskOption.Name, taskOption.Ref),
+		from:        taskOption.From,
+		add:         false,
+		enableProxy: taskOption.EnableProxy,
+		ak:          taskOption.AK,
+		sk:          taskOption.SK,
+		region:      taskOption.Region,
+		doneCh:      make(chan struct{}),
 	}
 
 	select {

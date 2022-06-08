@@ -35,12 +35,14 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/util"
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
@@ -96,16 +98,90 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
-// fill service display name if necessary
-func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product) {
-	if productInfo.Source == setting.SourceFromHelm {
-		for _, svc := range svcList {
-			svc.ServiceDisplayName = util.ExtraServiceName(svc.ServiceName, productInfo.Namespace)
+func UnMarshalSourceDetail(source interface{}) (*models.CreateFromRepo, error) {
+	bs, err := json.Marshal(source)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
+
+func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
+	if yamlData == nil || yamlData.Source != setting.SourceFromGitRepo {
+		return nil
+	}
+	sourceDetail, err := UnMarshalSourceDetail(yamlData.SourceDetail)
+	if err != nil {
+		return err
+	}
+	if sourceDetail.GitRepoConfig == nil {
+		return nil
+	}
+	sourceDetail.GitRepoConfig.Namespace = sourceDetail.GitRepoConfig.GetNamespace()
+	yamlData.SourceDetail = sourceDetail
+	return nil
+}
+
+func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, error) {
+
+	renderSetName := GetProductEnvNamespace(envName, productName, "")
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name: renderSetName,
+	}
+	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil {
+		return nil, err
+	}
+
+	if !existed {
+		return nil, nil
+	}
+
+	ret := make([]*RenderChartArg, 0)
+
+	matchedRenderChartModels := make([]*templatemodels.RenderChart, 0)
+	if len(serviceName) == 0 {
+		matchedRenderChartModels = rendersetObj.ChartInfos
+	} else {
+		serverList := strings.Split(serviceName, ",")
+		stringSet := sets.NewString(serverList...)
+		for _, singleChart := range rendersetObj.ChartInfos {
+			if !stringSet.Has(singleChart.ServiceName) {
+				continue
+			}
+			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 		}
+	}
+
+	for _, singleChart := range matchedRenderChartModels {
+		rcaObj := new(RenderChartArg)
+		rcaObj.LoadFromRenderChartModel(singleChart)
+		rcaObj.EnvName = envName
+		err = FillGitNamespace(rendersetObj.YamlData)
+		if err != nil {
+			// Note, since user can always reselect the git info, error should not block normal logic
+			log.Warnf("failed to fill git namespace data, err: %s", err)
+		}
+		rcaObj.YamlData = singleChart.OverrideYaml
+		ret = append(ret, rcaObj)
+	}
+	return ret, nil
+}
+
+// fill service display name if necessary
+func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
+	if productInfo.Source != setting.SourceFromHelm {
+		return
+	}
+	for _, svc := range svcList {
+		svc.ServiceDisplayName = svc.ServiceName
 	}
 }
 
-// ListWorkloadsInEnv returns all workloads in the given env which meat the filter.
+// ListWorkloadsInEnv returns all workloads in the given env which meet the filter.
 // A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
 // a and the value contain character b.
 func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
@@ -159,17 +235,41 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			return res
 		},
 	}
+
+	// for helm service, only show deploys/stss created by zadig
+	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
+			releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+			if err != nil {
+				log.Errorf("failed to generate relase map for product: %s:%s", productInfo.ProductName, productInfo.EnvName)
+				return workloads
+			}
+
+			var res []*Workload
+			for _, workload := range workloads {
+				if len(workload.Annotation) == 0 {
+					continue
+				}
+				releaseName := workload.Annotation[setting.HelmReleaseNameAnnotation]
+				if _, ok := releaseNameMap[releaseName]; ok {
+					res = append(res, workload)
+				}
+			}
+			return res
+		})
+	}
+
 	if filter != "" {
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			data, err := jsonutil.ToJSON(filter)
 			if err != nil {
-				log.Warnf("Invalid filter, err: %s", err)
+				log.Errorf("Invalid filter, err: %s", err)
 				return workloads
 			}
 
 			f := &workloadFilter{}
 			if err = json.Unmarshal(data, f); err != nil {
-				log.Warnf("Invalid filter, err: %s", err)
+				log.Errorf("Invalid filter, err: %s", err)
 				return workloads
 			}
 
@@ -188,18 +288,47 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 	if err != nil {
 		return count, resp, err
 	}
-	fillServiceDisplayName(resp, productInfo)
+
+	fillServiceInfo(resp, productInfo)
 	return count, resp, nil
 }
 
 type FilterFunc func(services []*Workload) []*Workload
 
 type workloadFilter struct {
-	Name string `json:"name"`
+	Name            string      `json:"name"`
+	ServiceName     string      `json:"serviceName"`
+	ServiceNameList sets.String `json:"-"`
+}
+
+type wfAlias workloadFilter
+
+func (f *workloadFilter) UnmarshalJSON(data []byte) error {
+	aliasData := &wfAlias{}
+	if err := json.Unmarshal(data, aliasData); err != nil {
+		return err
+	}
+	f.Name = aliasData.Name
+	f.ServiceName = aliasData.ServiceName
+	if f.ServiceName != "*" {
+		serviceNames := strings.Split(f.ServiceName, "|")
+		f.ServiceNameList = sets.NewString(serviceNames...)
+	}
+	return nil
 }
 
 func (f *workloadFilter) Match(workload *Workload) bool {
-	return strings.Contains(workload.Name, f.Name)
+	if len(f.Name) > 0 {
+		if !strings.Contains(workload.Name, f.Name) {
+			return false
+		}
+	}
+	if len(f.ServiceNameList) > 0 {
+		if !f.ServiceNameList.Has(workload.ServiceName) {
+			return false
+		}
+	}
+	return true
 }
 
 type Workload struct {
@@ -210,38 +339,99 @@ type Workload struct {
 	Spec        corev1.PodTemplateSpec `json:"-"`
 	Images      []string               `json:"-"`
 	Ready       bool                   `json:"ready"`
-	ServiceName string                 `json:"service_name"`
+	Annotation  map[string]string      `json:"-"`
+	ServiceName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
+}
+
+// fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
+// TODO optimize this function, use release.template to filter related resources
+func fillServiceName(envName, productName string, workloads []*Workload) error {
+	if len(envName) == 0 {
+		return nil
+	}
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return err
+	}
+	if productInfo.Source != setting.SourceFromHelm {
+		return nil
+	}
+	releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+	if err != nil {
+		return err
+	}
+	for _, wl := range workloads {
+		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
+			wl.ServiceName = releaseNameMap[chartRelease]
+		}
+	}
+	return nil
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
 	log.Infof("Start to list workloads in namespace %s", namespace)
 
 	var resp = make([]*ServiceResp, 0)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
-
+	informer, err := informer.NewInformer(clusterID, namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
 	var workLoads []*Workload
-	listDeployments, err := getter.ListDeployments(namespace, nil, kubeClient)
+	listDeployments, err := getter.ListDeploymentsWithCache(nil, informer)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
+
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.Deployment,
+			Images:     wrapper.Deployment(v).ImageInfos(),
+			Ready:      wrapper.Deployment(v).Ready(),
+			Annotation: v.Annotations,
+		})
 	}
-	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
+	statefulSets, err := getter.ListStatefulSetsWithCache(nil, informer)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.StatefulSet,
+			Images:     wrapper.StatefulSet(v).ImageInfos(),
+			Ready:      wrapper.StatefulSet(v).Ready(),
+			Annotation: v.Annotations,
+		})
+	}
+
+	// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
+	for _, workload := range workLoads {
+		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
+		_, _, images := kube.GetSelectedPodsInfo(selector, informer, log)
+		workload.Images = images
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
+
+	err = fillServiceName(envName, productName, workLoads)
+	// err of getting service name should not block the return of workloads
+	if err != nil {
+		log.Warnf("failed to set service name for workloads, error: %s", err)
+	}
 
 	// 对于workload过滤
 	for _, f := range filter {
@@ -268,15 +458,33 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	hostInfos := make([]resource.HostInfo, 0)
-	// get all ingresses
-	if ingresses, err := getter.ListIngresses(namespace, nil, kubeClient); err == nil {
-		for _, ingress := range ingresses {
-			hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
+		return 0, nil, err
+	}
+	if kubeclient.VersionLessThan122(version) {
+		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	} else {
+		ingresses, err := getter.ListNetworkingV1Ingress(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ingress)...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
 		}
 	}
 
 	// get all services
-	allServices, err := getter.ListServices(namespace, nil, kubeClient)
+	allServices, err := getter.ListServicesWithCache(nil, informer)
 	if err != nil {
 		log.Errorf("[%s][%s] list service error: %s", envName, namespace, err)
 	}
@@ -343,10 +551,71 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	return resp
 }
 
+func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error) {
+	// filter releases, only list releases deployed by zadig
+	productName, envName, serviceMap := prod.ProductName, prod.EnvName, prod.GetServiceMap()
+	if len(serviceMap) == 0 {
+		return nil, nil
+	}
+	listOpt := &commonrepo.SvcRevisionListOption{
+		ProductName:      prod.ProductName,
+		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
+	}
+	for _, productSvc := range serviceMap {
+		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
+			ServiceName: productSvc.ServiceName,
+			Revision:    productSvc.Revision,
+		})
+	}
+	templateServices, err := commonrepo.NewServiceColl().ListServicesWithSRevision(listOpt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
+	}
+	return templateServices, err
+}
+
+// GetReleaseNameToServiceNameMap generates mapping relationship: releaseName=>serviceName
+func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, error) {
+	productName, envName := prod.ProductName, prod.EnvName
+	templateServices, err := GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, err
+	}
+	// map[ReleaseName] => serviceName
+	releaseNameMap := make(map[string]string)
+	for _, svcInfo := range templateServices {
+		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
+	}
+	return releaseNameMap, nil
+}
+
+// GetServiceNameToReleaseNameMap generates mapping relationship: serviceName=>releaseName
+func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, error) {
+	productName, envName := prod.ProductName, prod.EnvName
+	templateServices, err := GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return nil, err
+	}
+	// map[serviceName] => ReleaseName
+	releaseNameMap := make(map[string]string)
+	for _, svcInfo := range templateServices {
+		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)
+	}
+	return releaseNameMap, nil
+}
+
 // GetHelmServiceName get service name from annotations of resources deployed by helm
 // resType currently only support Deployment and StatefulSet
-func GetHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
+// this function needs to be optimized
+func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client) (string, error) {
 	res := &unstructured.Unstructured{}
+	namespace := prod.Namespace
+
+	nameMap, err := GetReleaseNameToServiceNameMap(prod)
+	if err != nil {
+		return "", err
+	}
+
 	res.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apps",
 		Version: "v1",
@@ -361,8 +630,9 @@ func GetHelmServiceName(namespace, resType, resName string, kubeClient client.Cl
 	}
 	annotation := res.GetAnnotations()
 	if len(annotation) > 0 {
-		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
-			return util.ExtraServiceName(chartRelease, namespace), nil
+		releaseName := annotation[setting.HelmReleaseNameAnnotation]
+		if serviceName, ok := nameMap[releaseName]; ok {
+			return serviceName, nil
 		}
 	}
 	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)

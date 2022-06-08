@@ -180,4 +180,3 @@ more information.
 ### More resources
 
 - [Current maintainers](GOVERNANCE.md#maintainers)
-- [API docs](https://os.koderover.com/api/spock/apidocs/index.html)

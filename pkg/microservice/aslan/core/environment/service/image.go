@@ -20,9 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -37,6 +35,7 @@ import (
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type UpdateContainerImageArgs struct {
@@ -127,8 +126,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		replacedValuesYaml       string
 		mergedValuesYaml         string
 		replacedMergedValuesYaml string
-		restConfig               *rest.Config
-		helmClient               helmclient.Client
+		helmClient               *helmtool.HelmClient
 		namespace                string = product.Namespace
 	)
 
@@ -171,17 +169,22 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		return err
 	}
 
-	restConfig, err = kube.GetRESTConfig(product.ClusterID)
-	if err != nil {
-		return err
-	}
-	helmClient, err = helmtool.NewClientFromRestConf(restConfig, namespace)
+	helmClient, err = helmtool.NewClientFromNamespace(product.ClusterID, namespace)
 	if err != nil {
 		return err
 	}
 
+	param := &ReleaseInstallParam{
+		ProductName:  serviceObj.ProductName,
+		Namespace:    namespace,
+		ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
+		MergedValues: replacedMergedValuesYaml,
+		RenderChart:  targetChart,
+		serviceObj:   serviceObj,
+	}
+
 	// when replace image, should not wait
-	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, 0, false, helmClient, cl)
+	err = installOrUpgradeHelmChartWithValues(param, false, helmClient)
 	if err != nil {
 		return err
 	}
@@ -211,14 +214,14 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		return e.ErrUpdateConainterImage.AddErr(err)
 	}
 	// aws secrets needs to be refreshed
-	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	regs, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("Failed to get registries to update container images, the error is: %s", err)
 		return err
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(namespace, reg, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(namespace, reg, false, kubeClient); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -234,7 +237,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 
 	// update service in helm way
 	if product.Source == setting.HelmDeployType {
-		serviceName, err := commonservice.GetHelmServiceName(namespace, args.Type, args.Name, kubeClient)
+		serviceName, err := commonservice.GetHelmServiceName(product, args.Type, args.Name, kubeClient)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}

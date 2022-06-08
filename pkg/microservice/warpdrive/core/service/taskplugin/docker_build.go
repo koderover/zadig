@@ -24,6 +24,8 @@ import (
 
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -41,6 +43,8 @@ type DockerBuildPlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.DockerBuild
 	Log           *zap.SugaredLogger
 }
@@ -53,11 +57,14 @@ const (
 	DockerBuildTimeout = 60 * 60 // 60 minutes
 )
 
+// Note: Deprecated.
 // InitializeDockerBuildTaskPlugin init docker build plugin
 func InitializeDockerBuildTaskPlugin(taskType config.TaskType) TaskPlugin {
 	return &DockerBuildPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -217,7 +224,7 @@ func (p *DockerBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 
 // Wait ...
 func (p *DockerBuildPlugin) Wait(ctx context.Context) {
-	status := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
+	status := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
 }
 

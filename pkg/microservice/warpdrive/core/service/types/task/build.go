@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type Build struct {
@@ -57,8 +58,15 @@ type Build struct {
 	IsRestart         bool                 `bson:"is_restart"                      json:"is_restart"`
 	// Get the host bound to the environment of the cloud host service configuration
 	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
+	EnvHostNames map[string][]string `bson:"env_host_names,omitempty"        json:"env_host_names,omitempty"`
 	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
 	ClusterID    string              `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
+
+	// New since V1.10.0.
+	Cache        types.Cache        `bson:"cache"               json:"cache"`
+	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
 }
 
 type ArtifactInfo struct {
@@ -148,9 +156,11 @@ type DockerBuildStatus struct {
 }
 
 type JobCtx struct {
-	EnableProxy    bool   `bson:"enable_proxy"                   json:"enable_proxy"`
-	Proxy          *Proxy `bson:"proxy"                          json:"proxy"`
-	CleanWorkspace bool   `bson:"clean_workspace"                json:"clean_workspace"`
+	EnableProxy bool   `bson:"enable_proxy"                   json:"enable_proxy"`
+	Proxy       *Proxy `bson:"proxy"                          json:"proxy"`
+
+	// TODO: Deprecated.
+	CleanWorkspace bool `bson:"clean_workspace"                json:"clean_workspace"`
 
 	// BuildJobCtx
 	Builds     []*Repository `bson:"builds"                         json:"builds"`
@@ -173,8 +183,10 @@ type JobCtx struct {
 	FileArchiveCtx *FileArchiveCtx `bson:"file_archive_ctx,omitempty" json:"file_archive_ctx,omitempty"`
 	// TestType
 	TestType string `bson:"test_type"                       json:"test_type"`
-	// Caches
+
+	// TODO: Deprecated.
 	Caches []string `bson:"caches" json:"caches"`
+
 	// buildV3
 	ArtifactPath  string   `bson:"artifact_path,omitempty"  json:"artifact_path,omitempty"`
 	ArtifactPaths []string `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
@@ -186,6 +198,11 @@ type JobCtx struct {
 	ClassicBuild    bool   `bson:"classic_build"                  json:"classic_build"`
 	PostScripts     string `bson:"post_scripts,omitempty"         json:"post_scripts"`
 	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
+
+	// Upload To S3 related context
+	UploadEnabled     bool                             `json:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `json:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `json:"upload_info"`
 }
 
 type SSH struct {
@@ -193,6 +210,7 @@ type SSH struct {
 	Name       string `json:"name"`
 	UserName   string `json:"user_name"`
 	IP         string `json:"ip"`
+	Port       int64  `json:"port"`
 	IsProd     bool   `json:"is_prod"`
 	Label      string `json:"label"`
 	PrivateKey string `json:"private_key"`
@@ -227,10 +245,19 @@ func (buildCtx *DockerBuildCtx) GetDockerFile() string {
 	return buildCtx.DockerFile
 }
 
+type ParameterSettingType string
+
+const (
+	StringType ParameterSettingType = "string"
+	ChoiceType ParameterSettingType = "choice"
+)
+
 type KeyVal struct {
-	Key          string `bson:"key"                 json:"key"`
-	Value        string `bson:"value"               json:"value"`
-	IsCredential bool   `bson:"is_credential"       json:"is_credential"`
+	Key          string               `bson:"key"                 json:"key"`
+	Value        string               `bson:"value"               json:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"                json:"type,omitempty"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
+	IsCredential bool                 `bson:"is_credential"       json:"is_credential"`
 }
 
 type Repository struct {
@@ -238,6 +265,7 @@ type Repository struct {
 	Source        string `bson:"source,omitempty"          json:"source,omitempty"`
 	RepoOwner     string `bson:"repo_owner"                json:"repo_owner"`
 	RepoName      string `bson:"repo_name"                 json:"repo_name"`
+	RepoNamespace string `bson:"repo_namespace"            json:"repo_namespace"`
 	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"`
 	Branch        string `bson:"branch"                    json:"branch"`
 	PR            int    `bson:"pr,omitempty"              json:"pr,omitempty"`
@@ -261,6 +289,11 @@ type Repository struct {
 	ProjectUUID string `bson:"project_uuid,omitempty"       json:"project_uuid,omitempty"`
 	RepoUUID    string `bson:"repo_uuid,omitempty"          json:"repo_uuid,omitempty"`
 	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
+	EnableProxy bool   `bson:"enable_proxy,omitempty"       json:"enable_proxy,omitempty"`
+	// The address of the code base input of the other type
+	AuthType           types.AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"`
+	SSHKey             string         `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"`
+	PrivateAccessToken string         `bson:"private_access_token,omitempty"  json:"private_access_token,omitempty"`
 }
 
 type BuildStep struct {

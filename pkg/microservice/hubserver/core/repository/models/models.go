@@ -30,21 +30,22 @@ type K8SClusterInfo struct {
 }
 
 type K8SCluster struct {
-	ID           primitive.ObjectID      `json:"id"             bson:"_id"`
-	Name         string                  `json:"name"           bson:"name"`
-	Tags         []string                `json:"tags"           bson:"tags"`
-	Description  string                  `json:"description"    bson:"description"`
-	Namespace    string                  `json:"namespace"      bson:"namespace"`
-	Info         *K8SClusterInfo         `json:"info,omitempty" bson:"info,omitempty"`
-	Status       config.K8SClusterStatus `json:"status"         bson:"status"`
-	Error        string                  `json:"error"          bson:"error"`
-	Yaml         string                  `json:"yaml"           bson:"yaml"`
-	Production   bool                    `json:"production"     bson:"production"`
-	CreatedAt    int64                   `json:"createdAt"      bson:"createdAt"`
-	CreatedBy    string                  `json:"createdBy"      bson:"createdBy"`
-	Disconnected bool                    `json:"-"              bson:"disconnected"`
-	Token        string                  `json:"token"          bson:"-"`
-	Local        bool                    `json:"local"          bson:"local"`
+	ID                 primitive.ObjectID      `json:"id"                        bson:"_id"`
+	Name               string                  `json:"name"                      bson:"name"`
+	Tags               []string                `json:"tags"                      bson:"tags"`
+	Description        string                  `json:"description"               bson:"description"`
+	Namespace          string                  `json:"namespace"                 bson:"namespace"`
+	Info               *K8SClusterInfo         `json:"info,omitempty"            bson:"info,omitempty"`
+	Status             config.K8SClusterStatus `json:"status"                    bson:"status"`
+	Error              string                  `json:"error"                     bson:"error"`
+	Yaml               string                  `json:"yaml"                      bson:"yaml"`
+	Production         bool                    `json:"production"                bson:"production"`
+	CreatedAt          int64                   `json:"createdAt"                 bson:"createdAt"`
+	CreatedBy          string                  `json:"createdBy"                 bson:"createdBy"`
+	Disconnected       bool                    `json:"-"                         bson:"disconnected"`
+	Token              string                  `json:"token"                     bson:"-"`
+	Local              bool                    `json:"local"                     bson:"local"`
+	LastConnectionTime int64                   `json:"last_connection_time"      bson:"last_connection_time"`
 }
 
 func (K8SCluster) TableName() string {

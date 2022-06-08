@@ -2,8 +2,7 @@ fullnameOverride: $T-Service$
 replicaCount: 1
 port: {{.port}}
 
-registryConf: ""
-imagePullSecretsName: "$T-Service$-registry-secret"
+imagePullSecretsName: "default-registry-secret"
 
 image:
   repository: "ccr.ccs.tencentyun.com/koderover-public/$T-Service$"

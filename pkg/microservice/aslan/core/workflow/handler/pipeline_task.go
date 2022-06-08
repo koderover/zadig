@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -106,7 +107,7 @@ func ListPipelineTasksResult(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid start at number")
 		return
 	}
-	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), config.SingleType, maxResult, startAt, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), config.SingleType, "", []string{}, maxResult, startAt, ctx.Logger)
 }
 
 func GetPipelineTask(c *gin.Context) {
@@ -125,7 +126,7 @@ func GetPipelineTask(c *gin.Context) {
 func RestartPipelineTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "重启", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -139,7 +140,7 @@ func RestartPipelineTask(c *gin.Context) {
 func CancelTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "取消", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "取消", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -191,12 +192,22 @@ func GetArtifactFile(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
+	notHistoryFileFlag, err := strconv.ParseBool(c.DefaultQuery("notHistoryFileFlag", "false"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notHistoryFileFlag")
+		return
+	}
 
-	resp, err := workflow.GetArtifactFileContent(c.Param("pipelineName"), taskID, ctx.Logger)
+	resp, err := workflow.GetArtifactFileContent(c.Param("pipelineName"), taskID, notHistoryFileFlag, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
-	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
+	if notHistoryFileFlag {
+		c.Writer.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, setting.ArtifactResultOut))
+	} else {
+		c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
+	}
+
 	c.Data(200, "application/octet-stream", resp)
 }

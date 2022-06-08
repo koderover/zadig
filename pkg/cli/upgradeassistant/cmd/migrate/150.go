@@ -39,7 +39,7 @@ func V140ToV150() error {
 	log.Info("Migrating data from 1.4.0 to 1.5.0")
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		ExcludeStatus: setting.ProductStatusDeleting,
+		ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown},
 		Source:        setting.SourceFromHelm,
 	})
 	if err != nil {

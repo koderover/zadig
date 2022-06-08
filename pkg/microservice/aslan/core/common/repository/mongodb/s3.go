@@ -18,6 +18,8 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -27,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/tool/crypto"
+	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -200,4 +203,47 @@ func (c *S3StorageColl) FindAll() ([]*models.S3Storage, error) {
 	}
 
 	return storages, nil
+}
+
+func (c *S3StorageColl) InitData() error {
+	minioEndpoint := config.S3StorageEndpoint()
+	endpointInfo := strings.Split(minioEndpoint, ":")
+	if len(endpointInfo) != 2 {
+		return fmt.Errorf("invalid endpoint of minio: %s", minioEndpoint)
+	}
+	minioEndpoint = fmt.Sprintf("%s.%s.svc.cluster.local:%s", endpointInfo[0], config.Namespace(), endpointInfo[1])
+
+	// Check whether minio has been integrated.
+	err := c.FindOne(context.TODO(), bson.M{"endpoint": minioEndpoint}).Err()
+	if err == nil {
+		log.Infof("Has found %s.", minioEndpoint)
+		return nil
+	}
+	if err != mongo.ErrNoDocuments {
+		return fmt.Errorf("failed to operate on mongodb: %s", err)
+	}
+
+	// Check whether there's default S3 system.
+	var setDefault bool
+	err = c.FindOne(context.TODO(), bson.M{"is_default": true}).Err()
+	if err != nil {
+		if err != mongo.ErrNoDocuments {
+			return fmt.Errorf("failed to operate on mongodb: %s", err)
+		}
+
+		setDefault = true
+	}
+
+	minioStorage := models.S3Storage{
+		Ak:        config.S3StorageAK(),
+		Sk:        config.S3StorageSK(),
+		Endpoint:  minioEndpoint,
+		Bucket:    config.S3StorageBucket(),
+		IsDefault: setDefault,
+		Insecure:  true,
+		Provider:  0,
+	}
+	log.Infof("Begin to integrate minio storage: %s", minioEndpoint)
+
+	return c.Create(&minioStorage)
 }

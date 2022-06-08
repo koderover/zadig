@@ -35,12 +35,15 @@ const (
 	TaskResetImage      TaskType = "reset_image"
 	TaskDistribute      TaskType = "distribute"
 	TaskTrigger         TaskType = "trigger"
+	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
+	TaskScanning        TaskType = "scanning"
 )
 
 type Status string
 
 const (
+	StatusInit       Status = "init"
 	StatusDisabled   Status = "disabled"
 	StatusCreated    Status = "created"
 	StatusRunning    Status = "running"
@@ -53,6 +56,7 @@ const (
 	StatusQueued     Status = "queued"
 	StatusBlocked    Status = "blocked"
 	QueueItemPending Status = "pending"
+	StatusPrepare    Status = "prepare"
 )
 
 type PipelineType string
@@ -72,6 +76,8 @@ const (
 	WorkflowTypeV3 PipelineType = "workflow_v3"
 	// ArtifactType artifact build
 	ArtifactType PipelineType = "artifact"
+	// ScanningType is the type for scanning
+	ScanningType PipelineType = "scanning"
 )
 
 type NotifyType int

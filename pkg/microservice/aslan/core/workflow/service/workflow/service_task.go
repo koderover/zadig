@@ -21,19 +21,18 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
-	"github.com/koderover/zadig/pkg/types"
-
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const SplitSymbol = "&"
@@ -157,7 +156,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 				ServiceModule: container.Name,
 			}
 			serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, container.Name)
-			moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
+			moBuild, _ := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
 			if moBuild == nil {
 				continue
 			}
@@ -170,7 +169,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 			ServiceModule: service.ServiceName,
 		}
 		serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, service.ServiceName)
-		moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
+		moBuild, _ := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
 		if moBuild != nil {
 			resp.Targets = append(resp.Targets, target)
 		}
@@ -226,7 +225,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
 
-	task := &task.Task{
+	task := &taskmodels.Task{
 		Type:          config.ServiceType,
 		ProductName:   args.ProductName,
 		TaskCreator:   args.ServiceTaskCreator,
@@ -238,7 +237,9 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 	}
 	sort.Sort(ByTaskKind(task.SubTasks))
 
-	if err := ensurePipelineTask(task, "", log); err != nil {
+	if err := ensurePipelineTask(&taskmodels.TaskOpt{
+		Task: task,
+	}, log); err != nil {
 		log.Errorf("CreateServiceTask ensurePipelineTask err : %v", err)
 		return nil, err
 	}
@@ -302,6 +303,6 @@ func serviceTaskArgsToTaskArgs(serviceTaskArgs *commonmodels.ServiceTaskArgs) *c
 		resp.Builds = make([]*types.Repository, 0)
 		return resp
 	}
-	resp.Builds = buildObj.Repos
+	resp.Builds = commonservice.FindReposByTarget(serviceTaskArgs.ProductName, serviceTaskArgs.ServiceName, serviceTaskArgs.ServiceName, buildObj)
 	return resp
 }

@@ -101,6 +101,14 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 
 	for name := range desiredSet {
 		info := nameMap[name]
+		var deployType string
+		if info.CreateEnvType == "external" {
+			deployType = "external"
+		} else if info.BasicFacility == "cloud_host" {
+			deployType = "cloud_host"
+		} else {
+			deployType = info.DeployType
+		}
 		res = append(res, &ProjectDetailedRepresentation{
 			ProjectBriefRepresentation: &ProjectBriefRepresentation{
 				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
@@ -112,7 +120,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 			UpdatedBy:  info.UpdatedBy,
 			Onboard:    info.OnboardStatus != 0,
 			Public:     info.Public,
-			DeployType: info.DeployType,
+			DeployType: deployType,
 		})
 	}
 
@@ -288,7 +296,7 @@ func ClearProject(requestID string, log *zap.SugaredLogger) error {
 		}
 
 		// delete namespaces and other resource created by zadig
-		err = DeleteProductsAsync("zadig", projectName, requestID, log)
+		err = DeleteProductsAsync("zadig", projectName, requestID, true, log)
 		if err != nil {
 			errList = multierror.Append(errors.Wrapf(err, "failed to delete product for project: %s", projectName))
 			continue

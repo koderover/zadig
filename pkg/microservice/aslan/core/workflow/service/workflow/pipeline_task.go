@@ -114,7 +114,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 			}
 
 			if build.Registries == nil {
-				registries, err := commonservice.ListRegistryNamespaces(true, log)
+				registries, err := commonservice.ListRegistryNamespaces("", true, log)
 				if err != nil {
 					log.Errorf("ListRegistryNamespaces err:%v", err)
 				} else {
@@ -148,7 +148,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 			}
 
 			if testing.Registries == nil {
-				registries, err := commonservice.ListRegistryNamespaces(true, log)
+				registries, err := commonservice.ListRegistryNamespaces("", true, log)
 				if err != nil {
 					log.Errorf("ListRegistryNamespaces err:%v", err)
 				} else {
@@ -232,7 +232,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	repos, err := commonservice.ListRegistryNamespaces(false, log)
+	repos, err := commonservice.ListRegistryNamespaces("", false, log)
 	if err != nil {
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
@@ -242,7 +242,10 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		pt.ConfigPayload.RepoConfigs[repo.ID.Hex()] = repo
 	}
 
-	if err := ensurePipelineTask(pt, pt.TaskArgs.Deploy.Namespace, log); err != nil {
+	if err := ensurePipelineTask(&task.TaskOpt{
+		Task:    pt,
+		EnvName: pt.TaskArgs.Deploy.Namespace,
+	}, log); err != nil {
 		log.Errorf("Service.ensurePipelineTask failed %v %v", args, err)
 		if err, ok := err.(*ContainerNotFound); ok {
 			return nil, e.NewWithExtras(
@@ -293,20 +296,45 @@ type TaskResult struct {
 }
 
 // ListPipelineTasksV2Result 工作流任务分页信息
-func ListPipelineTasksV2Result(name string, typeString config.PipelineType, maxResult, startAt int, log *zap.SugaredLogger) (*TaskResult, error) {
+func ListPipelineTasksV2Result(name string, typeString config.PipelineType, queryType string, filters []string, maxResult, startAt int, log *zap.SugaredLogger) (*TaskResult, error) {
 	ret := &TaskResult{MaxResult: maxResult, StartAt: startAt}
 	var err error
-	ret.Data, err = commonrepo.NewTaskColl().List(&commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Detail: true, Type: typeString})
+	var listTaskOpt *commonrepo.ListTaskOption
+	var countTaskOpt *commonrepo.CountTaskOption
+	var restp []*commonrepo.TaskPreview
+	serviceNameFiltersMap := make(map[string]interface{}, len(filters))
+	if len(filters) == 0 || (len(filters) == 1 && filters[0] == "") {
+		queryType = ""
+	}
+	switch queryType {
+	case "creator":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, TaskCreators: filters, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, TaskCreators: filters, Type: typeString}
+	case "committer":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Committers: filters, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Committers: filters, Type: typeString}
+	case "serviceName":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
+		for _, svc := range filters {
+			containerName := strings.Split(svc, "_")[0]
+			serviceNameFiltersMap[containerName] = nil
+		}
+	case "taskStatus":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuses: filters, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Statuses: filters, Type: typeString}
+	default:
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
+	}
+	restp, err = commonrepo.NewTaskColl().List(listTaskOpt)
 	if err != nil {
-		log.Errorf("PipelineTaskV2.List error: %v", err)
+		log.Errorf("PipelineTaskV2.List:%s error: %s", listTaskOpt, err)
 		return ret, e.ErrListTasks
 	}
-
-	// 获取任务的服务列表
 	var buildStage, deployStage *commonmodels.Stage
-	for _, t := range ret.Data {
+	for _, t := range restp {
 		t.BuildServices = []string{}
-
 		for _, stage := range t.Stages {
 			if stage.TaskType == config.TaskBuild {
 				buildStage = stage
@@ -315,27 +343,50 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, maxR
 				deployStage = stage
 			}
 		}
-
-		// 有构建返回构建的服务，没构建返回部署的服务
+		existSvc := false
 		if buildStage != nil {
 			for serviceName := range buildStage.SubTasks {
+				if queryType == "serviceName" {
+					containerName := strings.Split(serviceName, "_")[0]
+					if _, ok := serviceNameFiltersMap[containerName]; ok {
+						existSvc = true
+					}
+				}
 				t.BuildServices = append(t.BuildServices, serviceName)
 			}
 		} else if deployStage != nil {
 			for serviceName := range deployStage.SubTasks {
+				if queryType == "serviceName" {
+					containerName := strings.Split(serviceName, "_")[0]
+					if _, ok := serviceNameFiltersMap[containerName]; ok {
+						existSvc = true
+					}
+				}
 				t.BuildServices = append(t.BuildServices, serviceName)
 			}
 		}
-
-		// 清理，下次循环再使用
-		buildStage = nil
-		deployStage = nil
+		buildStage, deployStage = nil, nil
+		if existSvc {
+			ret.Data = append(ret.Data, t)
+		}
 	}
-
-	pipelineList := []string{name}
-	ret.Total, err = commonrepo.NewTaskColl().Count(&commonrepo.CountTaskOption{PipelineNames: pipelineList, Type: typeString})
+	if queryType == "serviceName" {
+		ret.Total = len(ret.Data)
+		if startAt > ret.Total {
+			ret.Data = []*commonrepo.TaskPreview{}
+			return ret, nil
+		}
+		if startAt+maxResult <= ret.Total {
+			ret.Data = ret.Data[startAt : startAt+maxResult]
+		} else {
+			ret.Data = ret.Data[startAt:ret.Total]
+		}
+		return ret, nil
+	}
+	ret.Data = restp
+	ret.Total, err = commonrepo.NewTaskColl().Count(countTaskOpt)
 	if err != nil {
-		log.Errorf("PipelineTaskV2.List error: %v", err)
+		log.Errorf("PipelineTaskV2.List Count error: %v", err)
 		return ret, e.ErrCountTasks
 	}
 	return ret, nil
@@ -349,6 +400,64 @@ func GetPipelineTaskV2(taskID int64, pipelineName string, typeString config.Pipe
 	}
 
 	Clean(resp)
+	return resp, nil
+}
+
+func GetFiltersPipelineTaskV2(projectName, pipelineName, querytype string, typeString config.PipelineType, log *zap.SugaredLogger) ([]interface{}, error) {
+	resp := []interface{}{}
+	var err error
+	fieldName := ""
+	switch querytype {
+	case "creator":
+		fieldName = "task_creator"
+		resp, err = commonrepo.NewTaskColl().DistinctFieldsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
+		if err != nil {
+			log.Errorf("[%s] DistinctFeildsPipelineTask fieldName: %s error: %s", fieldName, pipelineName, err)
+			return resp, e.ErrGetTask
+		}
+	case "committer":
+		fieldName = "workflow_args.committer"
+		resp, err = commonrepo.NewTaskColl().DistinctFieldsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
+		if err != nil {
+			log.Errorf("[%s] DistinctFeildsPipelineTask fieldName: %s error: %s", fieldName, pipelineName, err)
+			return resp, e.ErrGetTask
+		}
+	case "serviceName":
+		data, err := commonrepo.NewTaskColl().List(&commonrepo.ListTaskOption{PipelineName: pipelineName, Detail: true, Type: typeString})
+		if err != nil {
+			log.Errorf("PipelineTaskV2.List error: %s", err)
+			return resp, e.ErrListTasks
+		}
+		var buildStage, deployStage *commonmodels.Stage
+		svcSets := sets.NewString()
+		for _, t := range data {
+			for _, stage := range t.Stages {
+				if stage.TaskType == config.TaskBuild {
+					buildStage = stage
+				}
+				if stage.TaskType == config.TaskDeploy {
+					deployStage = stage
+				}
+			}
+			if buildStage != nil {
+				for serviceName := range buildStage.SubTasks {
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
+				}
+			} else if deployStage != nil {
+				for serviceName := range deployStage.SubTasks {
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
+				}
+			}
+			buildStage, deployStage = nil, nil
+		}
+		for svc := range svcSets {
+			resp = append(resp, svc)
+		}
+	default:
+		return resp, fmt.Errorf("queryType parameter is invalid")
+	}
 	return resp, nil
 }
 
@@ -496,8 +605,10 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 				}
 			case config.TaskDeploy:
 				resetImage := false
+				resetImagePolicy := setting.ResetImagePolicyTaskCompletedOrder
 				if workflow, err := commonrepo.NewWorkflowColl().Find(t.PipelineName); err == nil {
 					resetImage = workflow.ResetImage
+					resetImagePolicy = workflow.ResetImagePolicy
 				}
 				timeout := 0
 				if productTempl, err := template.NewProductColl().Find(t.ProductName); err == nil {
@@ -510,6 +621,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 						deployInfo.Timeout = timeout
 						deployInfo.IsRestart = true
 						deployInfo.ResetImage = resetImage
+						deployInfo.ResetImagePolicy = resetImagePolicy
 						if newDeployInfo, err := deployInfo.ToSubTask(); err == nil {
 							subDeployTaskMap[serviceName] = newDeployInfo
 						}
@@ -531,6 +643,12 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *zap.SugaredLogger) (*task.Testing, error) {
 	var resp *task.Testing
 
+	testTask := &task.Testing{
+		TaskType: config.TaskTestingV2,
+		Enabled:  true,
+		TestName: "test",
+	}
+
 	allTestings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{ProductName: args.ProductName, TestType: ""})
 	if err != nil {
 		log.Errorf("testArgsToTestSubtask TestingModule.List error: %v", err)
@@ -545,7 +663,13 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			} else {
 				testArg.Builds = testing.Repos
 				pr, _ := strconv.Atoi(args.MergeRequestID)
-				testArg.Builds[0].PR = pr
+
+				for i, build := range testArg.Builds {
+					if build.Source == args.Source {
+						testArg.Builds[i].PR = pr
+					}
+				}
+
 			}
 
 			if testing.PreTest != nil {
@@ -553,6 +677,29 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			}
 
 			testArg.TestModuleName = args.TestName
+
+			// In some old testing configurations, the `pre_test.cluster_id` field is empty indicating that's a local cluster.
+			// We do a protection here to avoid query failure.
+			// Resaving the testing configuration after v1.8.0 will automatically populate this field.
+			if testing.PreTest.ClusterID == "" {
+				testing.PreTest.ClusterID = setting.LocalClusterID
+			}
+
+			clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testing.PreTest.ClusterID)
+			if err != nil {
+				return resp, e.ErrListTestModule.AddDesc(err.Error())
+			}
+			testTask.Cache = clusterInfo.Cache
+
+			// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+			if testTask.Cache.MediumType == "" {
+				testTask.CacheEnable = false
+			} else {
+				testTask.CacheEnable = testing.CacheEnable
+				testTask.CacheDirType = testing.CacheDirType
+				testTask.CacheUserDir = testing.CacheUserDir
+			}
+
 			break
 		}
 	}
@@ -562,12 +709,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		log.Errorf("[%s]get TestingModule error: %v", args.TestName, err)
 		return resp, err
 	}
-	testTask := &task.Testing{
-		TaskType: config.TaskTestingV2,
-		Enabled:  true,
-		TestName: "test",
-		Timeout:  testModule.Timeout,
-	}
+	testTask.Timeout = testModule.Timeout
 
 	testTask.TestModuleName = testModule.Name
 	testTask.JobCtx.TestType = testModule.TestType
@@ -575,11 +717,12 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 	testTask.JobCtx.BuildSteps = append(testTask.JobCtx.BuildSteps, &task.BuildStep{BuildType: "shell", Scripts: testModule.Scripts})
 
 	testTask.JobCtx.TestResultPath = testModule.TestResultPath
+	testTask.JobCtx.TestReportPath = testModule.TestReportPath
 	testTask.JobCtx.TestThreshold = testModule.Threshold
 	testTask.JobCtx.Caches = testModule.Caches
 	testTask.JobCtx.ArtifactPaths = testModule.ArtifactPaths
 	if testTask.Registries == nil {
-		registries, err := commonservice.ListRegistryNamespaces(true, log)
+		registries, err := commonservice.ListRegistryNamespaces("", true, log)
 		if err != nil {
 			log.Errorf("ListRegistryNamespaces err:%v", err)
 		} else {
@@ -605,6 +748,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			}
 		}
 		envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.TestType)})
+		envs = append(envs, &commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"})
 		testTask.JobCtx.EnvVars = envs
 		testTask.ImageID = testModule.PreTest.ImageID
 		testTask.BuildOS = testModule.PreTest.BuildOS
@@ -701,6 +845,9 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 func EnsureTestingResp(mt *commonmodels.Testing) {
 	if len(mt.Repos) == 0 {
 		mt.Repos = make([]*types.Repository, 0)
+	}
+	for _, repo := range mt.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
 	}
 
 	if mt.PreTest != nil {
@@ -931,10 +1078,13 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 	return fileBytes, packageFile, err
 }
 
-func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
-	s3Storage, client, artifactFiles, err := GetArtifactAndS3Info(pipelineName, "", taskID, log)
+func GetArtifactFileContent(pipelineName string, taskID int64, notHistoryFileFlag bool, log *zap.SugaredLogger) ([]byte, error) {
+	s3Storage, client, artifactFiles, artifactResultOutByts, err := GetArtifactAndS3Info(pipelineName, "", taskID, notHistoryFileFlag, log)
 	if err != nil {
 		return nil, fmt.Errorf("download artifact err: %s", err)
+	}
+	if notHistoryFileFlag {
+		return artifactResultOutByts, nil
 	}
 	tempDir, _ := ioutil.TempDir("", "")
 	sourcePath := path.Join(tempDir, "artifact")
@@ -976,13 +1126,13 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	return fileBytes, err
 }
 
-func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, error) {
+func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, notHistoryFileFlag bool, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, []byte, error) {
 	fis := make([]string, 0)
 
 	storage, err := s3.FindDefaultS3()
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
-		return nil, nil, fis, err
+		return nil, nil, fis, nil, err
 	}
 
 	if storage.Subfolder != "" {
@@ -997,13 +1147,29 @@ func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, log *zap.Sugar
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
-		return nil, nil, fis, err
+		return nil, nil, fis, nil, err
 	}
+
+	if notHistoryFileFlag {
+		objectKey := storage.GetObjectPath(fmt.Sprintf("%s/%s/%s", dir, "workspace", setting.ArtifactResultOut))
+		object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 2})
+		if err != nil {
+			log.Errorf("GetTestArtifactInfo GetFile err:%s", err)
+			return nil, nil, fis, nil, err
+		}
+		fileByts, err := ioutil.ReadAll(object.Body)
+		if err != nil {
+			log.Errorf("GetTestArtifactInfo ioutil.ReadAll err:%s", err)
+			return nil, nil, fis, nil, err
+		}
+		return storage, client, fis, fileByts, nil
+	}
+
 	prefix := storage.GetObjectPath(dir)
 	files, err := client.ListFiles(storage.Bucket, prefix, true)
 	if err != nil || len(files) <= 0 {
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		return nil, nil, fis, err
+		return nil, nil, fis, nil, err
 	}
-	return storage, client, files, nil
+	return storage, client, files, nil, nil
 }

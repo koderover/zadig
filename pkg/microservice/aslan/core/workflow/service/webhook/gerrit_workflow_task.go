@@ -179,6 +179,7 @@ func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo *commonmodels.MainHo
 			existEventNames = append(existEventNames, string(eventName))
 		}
 		if sets.NewString(existEventNames...).Has(event.Type) {
+			hookRepo.Committer = event.Submitter.Username
 			return true, nil
 		}
 	}
@@ -194,10 +195,11 @@ func (gruem *gerritChangeMergedEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
 	})
 
 	return args
@@ -210,7 +212,7 @@ type gerritPatchsetCreatedEventMatcher struct {
 	Event    *patchsetCreatedEvent
 }
 
-func (gpcem *gerritPatchsetCreatedEventMatcher) Match(*commonmodels.MainHookRepo) (bool, error) {
+func (gpcem *gerritPatchsetCreatedEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	event := gpcem.Event
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
@@ -222,6 +224,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) Match(*commonmodels.MainHookRepo
 			existEventNames = append(existEventNames, string(eventName))
 		}
 		if sets.NewString(existEventNames...).Has(event.Type) {
+			hookRepo.Committer = event.Uploader.Username
 			return true, nil
 		}
 	}
@@ -235,11 +238,12 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) UpdateTaskArgs(product *commonmo
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         gpcem.Event.Change.Number,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            gpcem.Event.Change.Number,
 	})
 
 	return args
@@ -365,7 +369,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 								mainRepo.RepoOwner = ""
 								mainRepo.Revision = m.Event.PatchSet.Revision
 								notification, _ = scmnotify.NewService().SendInitWebhookComment(
-									mainRepo, m.Event.Change.Number, baseURI, false, false, log,
+									mainRepo, m.Event.Change.Number, baseURI, false, false, false, log,
 								)
 							}
 						}
@@ -379,8 +383,9 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 						workflowArgs.Source = setting.SourceFromGerrit
 						workflowArgs.CodehostID = item.MainRepo.CodehostID
 						workflowArgs.RepoOwner = item.MainRepo.RepoOwner
+						workflowArgs.RepoNamespace = item.MainRepo.GetRepoNamespace()
 						workflowArgs.RepoName = item.MainRepo.RepoName
-
+						workflowArgs.Committer = item.MainRepo.Committer
 						if resp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log); err != nil {
 							log.Errorf("TriggerWorkflowByGerritEvent failed to create workflow task when receive push event %v due to %v ", event, err)
 							errorList = multierror.Append(errorList, err)
@@ -434,7 +439,7 @@ func checkLatestTaskStaus(pipelineName, mergeRequestID, commitID string, detail 
 	}
 
 	// 比较本次patchset 和 上一个触发任务的patchset 的change file是否相同
-	cli := gerrit.NewClient(detail.Address, detail.AccessToken)
+	cli := gerrit.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	isDiff, err := cli.CompareTwoPatchset(mergeRequestID, commitID, tasks[0].TriggerBy.CommitID)
 	if err != nil {
 		log.Errorf("CompareTwoPatchset failed, mergeRequestID:%s, patchsetID:%s, oldPatchsetID:%s, err:%v", mergeRequestID, commitID, tasks[0].TriggerBy.CommitID, err)

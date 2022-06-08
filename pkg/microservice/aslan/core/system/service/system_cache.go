@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -42,6 +43,38 @@ const (
 	CleanStatusCleaning = "cleaning"
 	CleanStatusFailed   = "failed"
 )
+
+//SetCron set the docker clean cron
+func SetCron(cron string, cronEnabled bool, logger *zap.SugaredLogger) error {
+	dindCleans, err := commonrepo.NewDindCleanColl().List()
+	if err != nil {
+		logger.Errorf("list dind cleans err:%s", err)
+		return err
+	}
+	switch len(dindCleans) {
+	case 0:
+		dindClean := &commonmodels.DindClean{
+			Status:         CleanStatusUnStart,
+			DindCleanInfos: []*commonmodels.DindCleanInfo{},
+			Cron:           cron,
+			CronEnabled:    cronEnabled,
+		}
+
+		if err := commonrepo.NewDindCleanColl().Upsert(dindClean); err != nil {
+			return e.ErrCreateDindClean.AddErr(err)
+		}
+	case 1:
+		dindClean := dindCleans[0]
+		dindClean.Status = CleanStatusSuccess
+		dindClean.DindCleanInfos = dindCleans[0].DindCleanInfos
+		dindClean.Cron = cron
+		dindClean.CronEnabled = cronEnabled
+		if err := commonrepo.NewDindCleanColl().Upsert(dindClean); err != nil {
+			return e.ErrUpdateDindClean.AddErr(err)
+		}
+	}
+	return nil
+}
 
 // CleanImageCache 清理镜像缓存
 func CleanImageCache(logger *zap.SugaredLogger) error {
@@ -71,28 +104,33 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		}
 		dindClean.Status = CleanStatusCleaning
 		dindClean.DindCleanInfos = []*commonmodels.DindCleanInfo{}
+		dindClean.Cron = dindCleans[0].Cron
+		dindClean.CronEnabled = dindCleans[0].CronEnabled
 		if err := commonrepo.NewDindCleanColl().Upsert(dindClean); err != nil {
 			return e.ErrUpdateDindClean.AddErr(err)
 		}
 	}
 
-	go func() {
+	namespace := config.Namespace()
+	selector := labels.Set{setting.ComponentLabel: "dind"}.AsSelector()
+	pods, err := getter.ListPods(namespace, selector, kubetool.Client())
+	if err != nil {
+		logger.Errorf("[%s]list dind pods error: %v", namespace, err)
+		return commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+			Status:         CleanStatusFailed,
+			DindCleanInfos: []*commonmodels.DindCleanInfo{},
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
+		})
+	}
+
+	timeout, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+	res := make(chan *commonmodels.DindClean)
+	go func(ch chan *commonmodels.DindClean) {
 		var (
-			namespace = config.Namespace()
-			status    = CleanStatusSuccess
+			status = CleanStatusSuccess
 		)
-
-		selector := labels.Set{setting.ComponentLabel: "dind"}.AsSelector()
-		pods, err := getter.ListPods(namespace, selector, kubetool.Client())
-
-		if err != nil {
-			logger.Errorf("[%s]list dind pods error: %v", namespace, err)
-			commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
-				Status:         CleanStatusFailed,
-				DindCleanInfos: []*commonmodels.DindCleanInfo{},
-			})
-			return
-		}
 
 		dindInfos := make([]*commonmodels.DindCleanInfo, 0, len(pods))
 		var wg sync.WaitGroup
@@ -126,11 +164,26 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 				break
 			}
 		}
-		commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+		res <- &commonmodels.DindClean{
 			Status:         status,
 			DindCleanInfos: dindInfos,
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
+		}
+
+	}(res)
+
+	select {
+	case <-timeout.Done():
+		commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+			Status:         CleanStatusFailed,
+			DindCleanInfos: []*commonmodels.DindCleanInfo{},
+			Cron:           dindCleans[0].Cron,
+			CronEnabled:    dindCleans[0].CronEnabled,
 		})
-	}()
+	case info := <-res:
+		commonrepo.NewDindCleanColl().Upsert(info)
+	}
 
 	return nil
 }
@@ -157,6 +210,8 @@ func GetOrCreateCleanCacheState() (*commonmodels.DindClean, error) {
 		Status:         dindCleans[0].Status,
 		UpdateTime:     dindCleans[0].UpdateTime,
 		DindCleanInfos: dindCleans[0].DindCleanInfos,
+		Cron:           dindCleans[0].Cron,
+		CronEnabled:    dindCleans[0].CronEnabled,
 	}
 	return dindClean, nil
 }

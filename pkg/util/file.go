@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"io/ioutil"
 	"os"
 )
 
@@ -45,4 +46,28 @@ func WriteFile(filename string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return nil
+}
+
+func ReadFile(filename string) ([]byte, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	contentByte, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	return contentByte, nil
+}
+
+func PathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }

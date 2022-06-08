@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func DeleteJira(c *gin.Context) {
@@ -33,7 +34,18 @@ func DeleteJira(c *gin.Context) {
 func GetJira(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GeJira(ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Resp, ctx.Err = service.GeJira(encryptedKey, ctx.Logger)
+}
+
+func GetJiraInternal(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.GeJiraInternal(ctx.Logger)
 }
 
 func CreateJira(c *gin.Context) {

@@ -21,17 +21,20 @@ import (
 	swaggerfiles "github.com/swaggo/files"
 	ginswagger "github.com/swaggo/gin-swagger"
 
+	cachehandler "github.com/koderover/zadig/pkg/handler/cache"
 	buildhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/build/handler"
 	codehosthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/code/handler"
+	collaborationhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/handler"
 	commonhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/common/handler"
 	cronhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/cron/handler"
 	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
 	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
+	labelhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/label/handler"
 	loghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/log/handler"
 	multiclusterhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/handler"
 	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	servicehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/service/handler"
-	settinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/setting/handler"
+	stathandler "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/handler"
 	systemhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/system/handler"
 	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
@@ -70,20 +73,23 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	router.GET("/api/kodespace/downloadUrl", commonhandler.GetToolDownloadURL)
 
 	for name, r := range map[string]injector{
-		"/api/project":     new(projecthandler.Router),
-		"/api/code":        new(codehosthandler.Router),
-		"/api/system":      new(systemhandler.Router),
-		"/api/service":     new(servicehandler.Router),
-		"/api/setting":     new(settinghandler.Router),
-		"/api/environment": new(environmenthandler.Router),
-		"/api/cron":        new(cronhandler.Router),
-		"/api/workflow":    new(workflowhandler.Router),
-		"/api/build":       new(buildhandler.Router),
-		"/api/delivery":    new(deliveryhandler.Router),
-		"/api/logs":        new(loghandler.Router),
-		"/api/testing":     new(testinghandler.Router),
-		"/api/cluster":     new(multiclusterhandler.Router),
-		"/api/template":    new(templatehandler.Router),
+		"/api/project":       new(projecthandler.Router),
+		"/api/code":          new(codehosthandler.Router),
+		"/api/system":        new(systemhandler.Router),
+		"/api/service":       new(servicehandler.Router),
+		"/api/environment":   new(environmenthandler.Router),
+		"/api/cron":          new(cronhandler.Router),
+		"/api/workflow":      new(workflowhandler.Router),
+		"/api/build":         new(buildhandler.Router),
+		"/api/delivery":      new(deliveryhandler.Router),
+		"/api/logs":          new(loghandler.Router),
+		"/api/testing":       new(testinghandler.Router),
+		"/api/cluster":       new(multiclusterhandler.Router),
+		"/api/template":      new(templatehandler.Router),
+		"/api/collaboration": new(collaborationhandler.Router),
+		"/api/label":         new(labelhandler.Router),
+		"/api/stat":          new(stathandler.Router),
+		"/api/cache":         cachehandler.NewRouter(),
 	} {
 		r.Inject(router.Group(name))
 	}

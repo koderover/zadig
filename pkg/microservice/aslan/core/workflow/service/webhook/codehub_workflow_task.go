@@ -43,6 +43,7 @@ func (cmem *codehubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo)
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
 		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
 			if ev.ObjectAttributes.State == "opened" {
+				hookRepo.Committer = ev.User.Username
 				return true, nil
 			}
 		}
@@ -59,11 +60,12 @@ func (cmem *codehubMergeEventMatcher) UpdateTaskArgs(
 	}
 
 	args = factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         cmem.event.ObjectAttributes.IID,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            cmem.event.ObjectAttributes.IID,
 	})
 
 	return args
@@ -79,6 +81,7 @@ func (cpem *codehubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 	ev := cpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
+			hookRepo.Committer = ev.UserUsername
 			return true, nil
 		}
 	}
@@ -95,10 +98,11 @@ func (cpem *codehubPushEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
 	})
 
 	return args
@@ -197,7 +201,9 @@ func TriggerWorkflowByCodehubEvent(event interface{}, baseURI, requestID string,
 			args.Source = setting.SourceFromCodeHub
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
+			args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 			args.RepoName = item.MainRepo.RepoName
+			args.Committer = item.MainRepo.Committer
 			// 3. create task with args
 			if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 				log.Errorf("failed to create workflow task when receive push event %v due to %v ", event, err)

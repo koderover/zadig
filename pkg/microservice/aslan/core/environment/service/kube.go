@@ -111,7 +111,7 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 }
 
 // ListAvailableNamespaces lists available namespaces created by non-koderover
-func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
+func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
 	resp := make([]*resource.Namespace, 0)
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
@@ -127,6 +127,14 @@ func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resou
 		return resp, err
 	}
 	filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
+	if listType == setting.ListNamespaceTypeCreate {
+		nsList, err := commonrepo.NewProductColl().ListExistedNamespace()
+		if err != nil {
+			log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
+			return nil, err
+		}
+		filterK8sNamespaces.Insert(nsList...)
+	}
 	for _, namespace := range namespaces {
 		if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
 			if value == setting.EnvCreator {

@@ -28,6 +28,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
@@ -69,6 +70,7 @@ func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
 		TestReports:             queueTask.TestReports,
 		RwLock:                  queueTask.RwLock,
 		ResetImage:              queueTask.ResetImage,
+		ResetImagePolicy:        queueTask.ResetImagePolicy,
 		TriggerBy:               queueTask.TriggerBy,
 		Features:                queueTask.Features,
 		IsRestart:               queueTask.IsRestart,
@@ -115,6 +117,7 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 		TestReports:             task.TestReports,
 		RwLock:                  task.RwLock,
 		ResetImage:              task.ResetImage,
+		ResetImagePolicy:        task.ResetImagePolicy,
 		TriggerBy:               task.TriggerBy,
 		Features:                task.Features,
 		IsRestart:               task.IsRestart,
@@ -123,6 +126,7 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 }
 
 type JenkinsBuildOption struct {
+	BuildName        string
 	Version          string
 	Target           string
 	ServiceName      string
@@ -136,6 +140,7 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	)
 
 	opt := &commonrepo.BuildListOption{
+		Name:        jenkinsBuildOption.BuildName,
 		ServiceName: jenkinsBuildOption.ServiceName,
 		ProductName: jenkinsBuildOption.ProductName,
 	}
@@ -149,25 +154,25 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	jenkinsIntegrations, err := commonrepo.NewJenkinsIntegrationColl().List()
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	registries, err := commonservice.ListRegistryNamespaces(true, log)
-	if err != nil {
-		return nil, e.ErrConvertSubTasks.AddErr(err)
-	}
-
-	jenkinsBuildParams := make([]*task.JenkinsBuildParam, 0)
+	jenkinsBuildParams := make([]*types.JenkinsBuildParam, 0)
 	for _, jenkinsBuildParam := range jenkinsBuildOption.JenkinsBuildArgs.JenkinsBuildParams {
-		jenkinsBuildParams = append(jenkinsBuildParams, &task.JenkinsBuildParam{
-			Name:  jenkinsBuildParam.Name,
-			Value: jenkinsBuildParam.Value,
+		jenkinsBuildParams = append(jenkinsBuildParams, &types.JenkinsBuildParam{
+			Name:         jenkinsBuildParam.Name,
+			Value:        jenkinsBuildParam.Value,
+			AutoGenerate: jenkinsBuildParam.AutoGenerate,
 		})
 	}
 
 	for _, module := range modules {
+		jenkinsIntegration := getJenkinsIntegration(module.JenkinsBuild)
+		if jenkinsIntegration == nil {
+			return nil, e.ErrConvertSubTasks.AddDesc("not found jenkins client")
+		}
 		build := &task.JenkinsBuild{
 			TaskType:    config.TaskJenkinsBuild,
 			Enabled:     true,
@@ -181,9 +186,9 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 				JenkinsBuildParams: jenkinsBuildParams,
 			},
 			JenkinsIntegration: &task.JenkinsIntegration{
-				URL:      jenkinsIntegrations[0].URL,
-				Username: jenkinsIntegrations[0].Username,
-				Password: jenkinsIntegrations[0].Password,
+				URL:      jenkinsIntegration.URL,
+				Username: jenkinsIntegration.Username,
+				Password: jenkinsIntegration.Password,
 			},
 			Registries: registries,
 		}
@@ -196,6 +201,17 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	}
 
 	return subTasks, nil
+}
+
+func getJenkinsIntegration(jenkinsBuild *commonmodels.JenkinsBuild) *commonmodels.JenkinsIntegration {
+	if jenkinsBuild == nil {
+		return nil
+	}
+	jenkinsIntegration, err := commonrepo.NewJenkinsIntegrationColl().Get(jenkinsBuild.JenkinsID)
+	if err != nil {
+		return nil
+	}
+	return jenkinsIntegration
 }
 
 func AddPipelineJiraSubTask(pipeline *commonmodels.Pipeline, log *zap.SugaredLogger) (map[string]interface{}, error) {

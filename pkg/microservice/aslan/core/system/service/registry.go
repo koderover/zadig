@@ -17,16 +17,21 @@ limitations under the License.
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
+	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	registrytool "github.com/koderover/zadig/pkg/tool/registries"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -52,7 +57,7 @@ const (
 
 // ListRegistries 为了抹掉ak和sk的数据
 func ListRegistries(log *zap.SugaredLogger) ([]*commonmodels.RegistryNamespace, error) {
-	registryNamespaces, err := commonservice.ListRegistryNamespaces(false, log)
+	registryNamespaces, err := commonservice.ListRegistryNamespaces("", false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %v", err)
 		return registryNamespaces, fmt.Errorf("RegistryNamespace.List error: %v", err)
@@ -94,7 +99,8 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 		log.Errorf("RegistryNamespace.Create error: %v", err)
 		return fmt.Errorf("RegistryNamespace.Create error: %v", err)
 	}
-	return nil
+
+	return SyncDinDForRegistries()
 }
 
 func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
@@ -126,20 +132,56 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 		log.Errorf("RegistryNamespace.Update error: %v", err)
 		return fmt.Errorf("RegistryNamespace.Update error: %v", err)
 	}
-	return nil
+	return SyncDinDForRegistries()
 }
 
 func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
-	if err := commonrepo.NewRegistryNamespaceColl().Delete(id); err != nil {
-		log.Errorf("RegistryNamespace.Delete error: %v", err)
+	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	if err != nil {
+		log.Errorf("RegistryNamespace.FindAll error: %s", err)
 		return err
 	}
-	return nil
+	var (
+		isDefault          = false
+		registryNamespaces []*commonmodels.RegistryNamespace
+	)
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ExcludeStatus: []string{setting.ProductStatusDeleting},
+	})
+
+	for _, env := range envs {
+		if env.RegistryID == id {
+			return errors.New("The registry cannot be deleted, it's being used by environment")
+		}
+	}
+
+	// whether it is the default registry
+	for _, registry := range registries {
+		if registry.ID.Hex() == id && registry.IsDefault {
+			isDefault = true
+			continue
+		}
+		registryNamespaces = append(registryNamespaces, registry)
+	}
+
+	if err := commonrepo.NewRegistryNamespaceColl().Delete(id); err != nil {
+		log.Errorf("RegistryNamespace.Delete error: %s", err)
+		return err
+	}
+
+	if isDefault && len(registryNamespaces) > 0 {
+		registryNamespaces[0].IsDefault = true
+		if err := commonrepo.NewRegistryNamespaceColl().Update(registryNamespaces[0].ID.Hex(), registryNamespaces[0]); err != nil {
+			log.Errorf("RegistryNamespace.Update error: %s", err)
+			return err
+		}
+	}
+	return SyncDinDForRegistries()
 }
 
 func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
 	repoInfos := make([]*RepoInfo, 0)
-	resp, err := commonservice.ListRegistryNamespaces(false, log)
+	resp, err := commonservice.ListRegistryNamespaces("", false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.List error: %v", err)
@@ -158,7 +200,13 @@ func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
 }
 
 func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string, logger *zap.SugaredLogger) ([]*RepoImgResp, error) {
-	repos, err := registry.NewV2Service(registryInfo.RegProvider).ListRepoImages(registry.ListRepoImagesOption{
+	var regService registry.Service
+	if registryInfo.AdvancedSetting != nil {
+		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
+	} else {
+		regService = registry.NewV2Service(registryInfo.RegProvider, true, "")
+	}
+	repos, err := regService.ListRepoImages(registry.ListRepoImagesOption{
 		Endpoint: registry.Endpoint{
 			Addr:      registryInfo.RegAddr,
 			Ak:        registryInfo.AccessKey,
@@ -191,7 +239,13 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 
 func GetRepoTags(registryInfo *commonmodels.RegistryNamespace, name string, log *zap.SugaredLogger) (*registry.ImagesResp, error) {
 	var resp *registry.ImagesResp
-	repos, err := registry.NewV2Service(registryInfo.RegProvider).ListRepoImages(registry.ListRepoImagesOption{
+	var regService registry.Service
+	if registryInfo.AdvancedSetting != nil {
+		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
+	} else {
+		regService = registry.NewV2Service(registryInfo.RegProvider, true, "")
+	}
+	repos, err := regService.ListRepoImages(registry.ListRepoImagesOption{
 		Endpoint: registry.Endpoint{
 			Addr:      registryInfo.RegAddr,
 			Ak:        registryInfo.AccessKey,
@@ -232,4 +286,33 @@ func UpdateRegistryNamespaceDefault(args *commonmodels.RegistryNamespace, log *z
 		return fmt.Errorf("UpdateRegistryNamespaceDefault.Update error: %v", err)
 	}
 	return nil
+}
+
+func SyncDinDForRegistries() error {
+	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	if err != nil {
+		return fmt.Errorf("failed to list registry to update dind, err: %s", err)
+	}
+
+	regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
+	for _, reg := range registries {
+		regItem := &registrytool.RegistryInfoForDinDUpdate{
+			ID:      reg.ID,
+			RegAddr: reg.RegAddr,
+		}
+		if reg.AdvancedSetting != nil {
+			regItem.AdvancedSetting = &registrytool.RegistryAdvancedSetting{
+				TLSEnabled: reg.AdvancedSetting.TLSEnabled,
+				TLSCert:    reg.AdvancedSetting.TLSCert,
+			}
+		}
+		regList = append(regList, regItem)
+	}
+
+	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
+	}
+
+	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList)
 }

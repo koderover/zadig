@@ -23,6 +23,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -52,7 +54,19 @@ func Delete(name, productName string, log *zap.SugaredLogger) error {
 		return e.ErrDeleteTestModule.AddDesc("empty Name")
 	}
 
-	err := mongodb.NewTestingColl().Delete(name, productName)
+	// find test data to delete webhook
+	testModule, err := commonrepo.NewTestingColl().Find(name, productName)
+	if err != nil {
+		return e.ErrDeleteTestModule.AddDesc(err.Error())
+	}
+
+	// delete webhooks of test
+	err = ProcessWebhook(nil, testModule.HookCtl.Items, webhook.TestingPrefix+name, log)
+	if err != nil {
+		return e.ErrDeleteTestModule.AddErr(err)
+	}
+
+	err = mongodb.NewTestingColl().Delete(name, productName)
 	if err != nil {
 		log.Errorf("[Testing.Delete] %s error: %v", name, err)
 		return e.ErrDeleteTestModule.AddErr(err)

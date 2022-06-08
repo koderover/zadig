@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Resource struct {
@@ -31,26 +32,28 @@ type Resource struct {
 
 // Deploy 容器部署任务
 type Deploy struct {
-	TaskType         config.TaskType `bson:"type"                          json:"type"`
-	Enabled          bool            `bson:"enabled"                       json:"enabled"`
-	TaskStatus       config.Status   `bson:"status"                        json:"status"`
-	Namespace        string          `bson:"namespace"                     json:"namespace"`
-	EnvName          string          `bson:"env_name"                      json:"env_name"`
-	ProductName      string          `bson:"product_name"                  json:"product_name"`
-	ServiceName      string          `bson:"service_name"                  json:"service_name"`
-	ServiceType      string          `bson:"service_type"                  json:"service_type"`
-	ServiceRevision  int64           `bson:"service_revision,omitempty"    json:"service_revision,omitempty"`
-	ContainerName    string          `bson:"container_name"                json:"container_name"`
-	Image            string          `bson:"image"                         json:"image"`
-	Timeout          int             `bson:"timeout,omitempty"             json:"timeout,omitempty"`
-	Error            string          `bson:"error,omitempty"               json:"error,omitempty"`
-	StartTime        int64           `bson:"start_time,omitempty"          json:"start_time,omitempty"`
-	EndTime          int64           `bson:"end_time,omitempty"            json:"end_time,omitempty"`
-	ClusterID        string          `bson:"cluster_id,omitempty"          json:"cluster_id,omitempty"`
-	ReplaceResources []Resource      `bson:"replace_resources"             json:"replace_resources"`
-	SkipWaiting      bool            `bson:"skipWaiting"                   json:"skipWaiting"`
-	IsRestart        bool            `bson:"is_restart"                    json:"is_restart"`
-	ResetImage       bool            `bson:"reset_image"                   json:"reset_image"`
+	TaskType         config.TaskType              `bson:"type"                          json:"type"`
+	Enabled          bool                         `bson:"enabled"                       json:"enabled"`
+	TaskStatus       config.Status                `bson:"status"                        json:"status"`
+	Namespace        string                       `bson:"namespace"                     json:"namespace"`
+	EnvName          string                       `bson:"env_name"                      json:"env_name"`
+	ProductName      string                       `bson:"product_name"                  json:"product_name"`
+	ServiceName      string                       `bson:"service_name"                  json:"service_name"`
+	ServiceType      string                       `bson:"service_type"                  json:"service_type"`
+	ServiceRevision  int64                        `bson:"service_revision,omitempty"    json:"service_revision,omitempty"`
+	ReleaseName      string                       `bson:"release_name"                  json:"release_name"`
+	ContainerName    string                       `bson:"container_name"                json:"container_name"`
+	Image            string                       `bson:"image"                         json:"image"`
+	Timeout          int                          `bson:"timeout,omitempty"             json:"timeout,omitempty"`
+	Error            string                       `bson:"error,omitempty"               json:"error,omitempty"`
+	StartTime        int64                        `bson:"start_time,omitempty"          json:"start_time,omitempty"`
+	EndTime          int64                        `bson:"end_time,omitempty"            json:"end_time,omitempty"`
+	ClusterID        string                       `bson:"cluster_id,omitempty"          json:"cluster_id,omitempty"`
+	ReplaceResources []Resource                   `bson:"replace_resources"             json:"replace_resources"`
+	SkipWaiting      bool                         `bson:"skipWaiting"                   json:"skipWaiting"`
+	IsRestart        bool                         `bson:"is_restart"                    json:"is_restart"`
+	ResetImage       bool                         `bson:"reset_image"                   json:"reset_image"`
+	ResetImagePolicy setting.ResetImagePolicyType `bson:"reset_image_policy"            json:"reset_image_policy"`
 }
 
 // SetNamespace ...

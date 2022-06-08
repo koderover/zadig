@@ -1,1 +1,1 @@
-FROM arm64v8/ubuntu:focal
+FROM ccr.ccs.tencentyun.com/koderover-public/build-base:focal-arm64

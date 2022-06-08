@@ -1,11 +1,7 @@
-#golang.Dockerfile
-
-RUN go build -v -o /hubagent ./cmd/hubagent/main.go
-
 #alpine-git.Dockerfile
 
 WORKDIR /app
 
-COPY --from=build /hubagent .
+ADD docker/dist/hub-agent .
 
-ENTRYPOINT ["/app/hubagent"]
+ENTRYPOINT ["/app/hub-agent"]

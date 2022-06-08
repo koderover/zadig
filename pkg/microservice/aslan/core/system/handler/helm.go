@@ -31,8 +31,12 @@ import (
 func ListHelmRepos(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = commonservice.ListHelmRepos(ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Resp, ctx.Err = commonservice.ListHelmRepos(encryptedKey, ctx.Logger)
 }
 
 func CreateHelmRepo(c *gin.Context) {
@@ -71,4 +75,11 @@ func DeleteHelmRepo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Err = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)
+}
+
+func ListCharts(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListCharts(c.Param("name"), ctx.Logger)
 }

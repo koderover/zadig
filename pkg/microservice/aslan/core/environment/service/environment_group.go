@@ -22,7 +22,7 @@ import (
 
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/informers"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -68,7 +69,12 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(allServices, func(i, j int) bool { return allServices[i].ServiceName < allServices[j].ServiceName })
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return resp, count, e.ErrListGroups.AddDesc(err.Error())
+	}
+	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
@@ -76,14 +82,14 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 
 	//这种针对的是获取所有数据的接口，内部调用
 	if page == 0 && perPage == 0 {
-		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(allServices, envName, productName, kubeClient, productInfo)
+		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(allServices, envName, productName, inf, productInfo)
 		return resp, count, nil
 	}
 
 	//针对获取环境状态的接口请求，这里不需要一次性获取所有的服务，先获取十条的数据，有异常的可以直接返回，不需要继续往下获取
 	if page == -1 && perPage == -1 {
 		// 获取环境的状态
-		resp = listGroupServiceStatus(allServices, envName, productName, kubeClient, productInfo, log)
+		resp = listGroupServiceStatus(allServices, envName, productName, inf, productInfo, log)
 		return resp, count, nil
 	}
 
@@ -96,11 +102,11 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 		}
 		currentServices = allServices[currentPage*perPage:]
 	}
-	resp = envHandleFunc(getProjectType(productName), log).listGroupServices(currentServices, envName, productName, kubeClient, productInfo)
+	resp = envHandleFunc(getProjectType(productName), log).listGroupServices(currentServices, envName, productName, inf, productInfo)
 	return resp, count, nil
 }
 
-func listGroupServiceStatus(allServices []*commonmodels.ProductService, envName, productName string, kubeClient client.Client, productInfo *commonmodels.Product, log *zap.SugaredLogger) []*commonservice.ServiceResp {
+func listGroupServiceStatus(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product, log *zap.SugaredLogger) []*commonservice.ServiceResp {
 	var (
 		count           = len(allServices)
 		currentServices = make([]*commonmodels.ProductService, 0)
@@ -113,7 +119,7 @@ func listGroupServiceStatus(allServices []*commonmodels.ProductService, envName,
 		} else {
 			currentServices = allServices[page*perPage:]
 		}
-		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(currentServices, envName, productName, kubeClient, productInfo)
+		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(currentServices, envName, productName, informer, productInfo)
 		allRunning := true
 		for _, serviceResp := range resp {
 			// Service是物理机部署时，无需判断状态
@@ -161,19 +167,42 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 		}
 		switch u.GetKind() {
 		case setting.Ingress:
-			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+			clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
 			if err != nil {
-				log.Errorf("failed to init kubeClient, clusterID: %s", product.ClusterID)
+				log.Errorf("failed to init clientset, clusterID: %s", product.ClusterID)
 				return nil
 			}
-			// need to get ingress from k8s
-			// serializer.NewDecoder()YamlToIngress() only supports ingress resource with apiVersion: apiVersion: extensions/v1beta1
-			ing, found, err := getter.GetIngress(product.Namespace, u.GetName(), kubeClient)
-			if err != nil || !found {
-				log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
+
+			inf, err := informer.NewInformer(product.ClusterID, product.Namespace, clientset)
+			if err != nil {
+				log.Errorf("failed to create informer from clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
+				return nil
+			}
+
+			version, err := clientset.Discovery().ServerVersion()
+			if err != nil {
+				log.Warnf("Failed to determine server version, error is: %s", err)
 				continue
 			}
-			hostInfos = append(hostInfos, wrapper.Ingress(ing).HostInfo()...)
+
+			if kubeclient.VersionLessThan122(version) {
+				// get the ingress info from kubernetes. For cluster version 1.22- we only search for
+				// extensions/v1beta1.
+				// FIXME: add networking.k8s.io/v1beta1 & networking.k8s.io/v1 support for cluster 1.22-
+				ing, found, err := getter.GetExtensionsV1Beta1Ingress(product.Namespace, u.GetName(), inf)
+				if err != nil || !found {
+					log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
+					continue
+				}
+				hostInfos = append(hostInfos, wrapper.Ingress(ing).HostInfo()...)
+			} else {
+				ing, err := getter.GetNetworkingV1Ingress(product.Namespace, u.GetName(), inf)
+				if err != nil {
+					log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
+					continue
+				}
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ing)...)
+			}
 		}
 	}
 	ingressInfo.HostInfo = hostInfos

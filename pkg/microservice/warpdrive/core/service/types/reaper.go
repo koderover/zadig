@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // Context ...
@@ -32,6 +33,7 @@ type Context struct {
 	// Workspace 容器工作目录 [必填]
 	Workspace string `yaml:"workspace"`
 
+	// TODO: Deprecated.
 	// CleanWorkspace 是否清理工作目录 [选填, 默认为 false]
 	CleanWorkspace bool `yaml:"clean_workspace"`
 
@@ -115,6 +117,24 @@ type Context struct {
 	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
 	ArtifactPath    string        `yaml:"artifact_path"`
 	AesKey          string        `yaml:"aes_key"`
+
+	// New since V1.10.0.
+	CacheEnable  bool               `yaml:"cache_enable"`
+	Cache        types.Cache        `yaml:"cache"`
+	CacheDirType types.CacheDirType `yaml:"cache_dir_type"`
+	CacheUserDir string             `yaml:"cache_user_dir"`
+
+	// Upload To S3 related context
+	UploadEnabled     bool                             `yaml:"upload_enabled"`
+	UploadStorageInfo *types.ObjectStorageInfo         `yaml:"upload_storage_info"`
+	UploadInfo        []*types.ObjectStoragePathDetail `yaml:"upload_info"`
+
+	// scanner used flag
+	ScannerFlag    bool   `yaml:"scanner_flag"`
+	ScannerType    string `yaml:"scanner_type"`
+	SonarParameter string `yaml:"sonar_parameter"`
+	SonarServer    string `yaml:"sonar_server"`
+	SonarLogin     string `yaml:"sonar_login"`
 }
 
 type ArtifactInfo struct {
@@ -197,20 +217,25 @@ type Install struct {
 
 // Repo ...
 type Repo struct {
-	Source       string `yaml:"source"`
-	Address      string `yaml:"address"`
-	Owner        string `yaml:"owner"`
-	Name         string `yaml:"name"`
-	RemoteName   string `yaml:"remote_name"`
-	Branch       string `yaml:"branch"`
-	PR           int    `yaml:"pr"`
-	Tag          string `yaml:"tag"`
-	CheckoutPath string `yaml:"checkout_path"`
-	SubModules   bool   `yaml:"submodules"`
-	OauthToken   string `yaml:"oauthToken"`
-	User         string `yaml:"username"`
-	Password     string `yaml:"password"`
-	CheckoutRef  string `yaml:"checkout_ref"`
+	Source             string         `yaml:"source"`
+	Address            string         `yaml:"address"`
+	Owner              string         `yaml:"owner"`
+	Namespace          string         `yaml:"namespace"`
+	Name               string         `yaml:"name"`
+	RemoteName         string         `yaml:"remote_name"`
+	Branch             string         `yaml:"branch"`
+	PR                 int            `yaml:"pr"`
+	Tag                string         `yaml:"tag"`
+	CheckoutPath       string         `yaml:"checkout_path"`
+	SubModules         bool           `yaml:"submodules"`
+	OauthToken         string         `yaml:"oauthToken"`
+	User               string         `yaml:"username"`
+	Password           string         `yaml:"password"`
+	CheckoutRef        string         `yaml:"checkout_ref"`
+	EnableProxy        bool           `yaml:"enable_proxy"`
+	AuthType           types.AuthType `yaml:"auth_type,omitempty"`
+	SSHKey             string         `yaml:"ssh_key,omitempty"`
+	PrivateAccessToken string         `yaml:"private_access_token,omitempty"`
 }
 
 // PRRef returns refs format

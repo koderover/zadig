@@ -50,6 +50,10 @@ func (c *Client) ListCommits(ctx context.Context, owner string, repo string, num
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*github.RepositoryCommit
 	cs, ok := commits.([]interface{})
 	if !ok {
@@ -71,6 +75,10 @@ func (c *Client) ListFiles(ctx context.Context, owner string, repo string, numbe
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		return nil, err
+	}
 
 	var res []*github.CommitFile
 	fs, ok := files.([]interface{})

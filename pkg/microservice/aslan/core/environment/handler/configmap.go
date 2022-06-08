@@ -35,46 +35,12 @@ func ListConfigMaps(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := &service.ListConfigMapArgs{
-		EnvName:     c.Query("envName"),
+		EnvName:     c.Param("envName"),
 		ProductName: c.Query("projectName"),
 		ServiceName: c.Query("serviceName"),
 	}
 
 	ctx.Resp, ctx.Err = service.ListConfigMaps(args, ctx.Logger)
-}
-
-func UpdateConfigMap(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(service.UpdateConfigMapArgs)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateConfigMap c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateConfigMap json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "集成环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	if len(args.Data) == 0 {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
-
-	// TODO: REVERT AUTH is disabled
-	//authed := service.CtrlMgr.IsProductAuthed(ctx.UserIDStr, args.ProductOwner, args.ProductName, collection.ProductWritePermission, ctx.Logger)
-	//if !authed {
-	//	ctx.Err = e.ErrUpdateConfigMap.AddDesc(e.ProductAccessDeniedErrMsg)
-	//	return
-	//}
-
-	ctx.Err = service.UpdateConfigMap(args.EnvName, args, ctx.UserName, ctx.UserID, ctx.Logger)
 }
 
 func RollBackConfigMap(c *gin.Context) {
@@ -89,7 +55,7 @@ func RollBackConfigMap(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("RollBackConfigMap json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "回滚", "集成环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "回滚", "环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -103,4 +69,14 @@ func RollBackConfigMap(c *gin.Context) {
 	}
 
 	ctx.Err = service.RollBackConfigMap(args.EnvName, args, ctx.UserName, ctx.UserID, ctx.Logger)
+}
+
+func MigrateHistoryConfigMaps(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Query("envName")
+	productName := c.Query("projectName")
+
+	ctx.Resp, ctx.Err = service.MigrateHistoryConfigMaps(envName, productName, ctx.Logger)
 }

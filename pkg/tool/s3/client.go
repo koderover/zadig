@@ -18,7 +18,10 @@ package s3
 
 import (
 	"fmt"
+	"io/fs"
+	"mime"
 	"os"
+	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -27,7 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util/fs"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
 const (
@@ -65,18 +68,13 @@ func NewClient(endpoint, ak, sk string, insecure, forcedPathStyle bool) (*Client
 
 // Validate the existence of bucket
 func (c *Client) ValidateBucket(bucketName string) error {
-	listBucketInput := &s3.ListBucketsInput{}
-	bucketListResp, err := c.ListBuckets(listBucketInput)
+	listObjectInput := &s3.ListObjectsInput{Bucket: aws.String(bucketName)}
+	_, err := c.ListObjects(listObjectInput)
 	if err != nil {
 		return fmt.Errorf("validate S3 error: %s", err.Error())
 	}
-	for _, bucket := range bucketListResp.Buckets {
-		if *bucket.Name == bucketName {
-			return nil
-		}
-	}
 
-	return fmt.Errorf("validate s3 error: given bucket does not exist")
+	return nil
 }
 
 func (c *Client) DownloadWithOption(bucketName, objectKey, dest string, option *DownloadOption) error {
@@ -113,7 +111,7 @@ func (c *Client) download(bucketName, objectKey, dest string, option *DownloadOp
 			retry++
 			continue
 		}
-		err = fs.SaveFile(obj.Body, dest)
+		err = fsutil.SaveFile(obj.Body, dest)
 		if err != nil {
 			log.Errorf("Failed to save file to %s, err: %s", dest, err)
 		}
@@ -196,6 +194,14 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 	}
 }
 
+func detectMimetype(path string) string {
+	fileext := filepath.Ext(path)
+	if fileext == "" {
+		return ""
+	}
+	return mime.TypeByExtension(fileext)
+}
+
 // Upload uploads a file from src to the bucket with the specified objectKey
 func (c *Client) Upload(bucketName, src string, objectKey string) error {
 	file, err := os.OpenFile(src, os.O_RDONLY, 0600)
@@ -208,8 +214,57 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(objectKey),
 	}
+	mimetype := detectMimetype(src)
+	if mimetype != "" {
+		input.ContentType = &mimetype
+	}
 	_, err = c.PutObject(input)
 	return err
+}
+
+// Upload upload all files in a directory to a S3 path recursively
+func (c *Client) UploadDir(bucketName, srcdir string, s3dir string) error {
+	err := fs.WalkDir(os.DirFS(srcdir), ".", func(p string, d fs.DirEntry, e error) error {
+		if e != nil {
+			return e
+		}
+		if d.IsDir() {
+			return nil
+		}
+		key := filepath.Join(s3dir, p)
+		originalFilePath := filepath.Join(srcdir, p)
+		return c.Upload(bucketName, originalFilePath, key)
+	})
+	return err
+}
+
+func (c *Client) GetFile(bucketName, objectKey string, option *DownloadOption) (*s3.GetObjectOutput, error) {
+	retry := 0
+	var err error
+
+	for retry < option.RetryNum {
+		opt := &s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(objectKey),
+		}
+		obj, err1 := c.GetObject(opt)
+		if err1 != nil {
+			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
+				if option.IgnoreNotExistError {
+					return nil, nil
+				}
+				return nil, err1
+			}
+
+			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
+			err = err1
+			retry++
+			continue
+		}
+
+		return obj, nil
+	}
+	return nil, err
 }
 
 // ListFiles with given prefix

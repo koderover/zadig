@@ -29,15 +29,19 @@ import (
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, opts *ListOptions) ([]*github.Repository, error) {
+func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, user string, opts *ListOptions) ([]*github.Repository, error) {
 	repositories, err := wrap(paginated(func(o *github.ListOptions) ([]interface{}, *github.Response, error) {
-		rs, r, err := c.Repositories.List(ctx, "", &github.RepositoryListOptions{ListOptions: *o})
+		rs, r, err := c.Repositories.List(ctx, user, &github.RepositoryListOptions{ListOptions: *o})
 		var res []interface{}
 		for _, r := range rs {
 			res = append(res, r)
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		return nil, err
+	}
 
 	var res []*github.Repository
 	rs, ok := repositories.([]interface{})
@@ -61,6 +65,10 @@ func (c *Client) ListBranches(ctx context.Context, owner, repo string, opts *Lis
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*github.Branch
 	bs, ok := branches.([]interface{})
 	if !ok {
@@ -82,6 +90,10 @@ func (c *Client) ListTags(ctx context.Context, owner, repo string, opts *ListOpt
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		return nil, err
+	}
 
 	var res []*github.RepositoryTag
 	ts, ok := tags.([]interface{})
@@ -105,6 +117,10 @@ func (c *Client) ListHooks(ctx context.Context, owner, repo string, opts *ListOp
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*github.Hook
 	hs, ok := hooks.([]interface{})
 	if !ok {
@@ -127,6 +143,10 @@ func (c *Client) ListReleases(ctx context.Context, owner, repo string, opts *Lis
 		return res, r, err
 	}, opts))
 
+	if err != nil {
+		return nil, err
+	}
+
 	var res []*github.RepositoryRelease
 	hs, ok := releases.([]interface{})
 	if !ok {
@@ -148,6 +168,10 @@ func (c *Client) ListRepositoryCommits(ctx context.Context, owner, repo, path, b
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		return nil, err
+	}
 
 	var res []*github.RepositoryCommit
 	hs, ok := releases.([]interface{})

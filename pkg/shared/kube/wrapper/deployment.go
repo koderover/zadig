@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 // deployment is the wrapper for appsv1.Deployment type.
@@ -57,7 +58,7 @@ func (w *deployment) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
 	}
 
 	for _, c := range w.Spec.Template.Spec.Containers {
-		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image})
+		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.ExtractImageName(c.Image)})
 	}
 
 	for _, p := range pods {

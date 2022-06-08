@@ -1,4 +1,4 @@
-FROM arm64v8/alpine
+FROM arm64v8/alpine:3.15.2
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk add git less openssh

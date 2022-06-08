@@ -23,15 +23,15 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
-	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -41,18 +41,6 @@ func init() {
 		Level: config.LogLevel(),
 	})
 }
-
-//go:embed contributor.yaml
-var contributor []byte
-
-//go:embed read-only.yaml
-var readOnly []byte
-
-//go:embed admin.yaml
-var admin []byte
-
-//go:embed project-admin.yaml
-var projectAdmin []byte
 
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -91,10 +79,6 @@ func initSystemConfig() error {
 		log.Errorf("presetSystemAdmin err:%s", err)
 		return err
 	}
-	if err := presetRole(); err != nil {
-		log.Errorf("presetRole err:%s", err)
-		return err
-	}
 
 	if err := presetRoleBinding(uid); err != nil {
 		log.Errorf("presetRoleBinding err:%s", err)
@@ -106,7 +90,26 @@ func initSystemConfig() error {
 		return err
 	}
 
+	if err := scaleWarpdrive(); err != nil {
+		log.Errorf("scale warpdrive err: %s", err)
+		return err
+	}
+
 	return nil
+}
+
+func scaleWarpdrive() error {
+	cfg, err := aslan.New(config.AslanServiceAddress()).GetWorkflowConcurrencySetting()
+	if err == nil {
+		client, err := kubeclient.GetKubeClient(config.HubServerServiceAddress(), setting.LocalClusterID)
+		if err != nil {
+			return err
+		}
+		return updater.ScaleDeployment(config.Namespace(), config.WarpDriveServiceName(), int(cfg.WorkflowConcurrency), client)
+	}
+
+	log.Errorf("Failed to get workflow concurrency settings, error: %s", err)
+	return err
 }
 
 func presetSystemAdmin(email string, password, domain string) (string, error) {
@@ -171,35 +174,9 @@ func presetRoleBinding(uid string) error {
 		Name: config.RoleBindingNameFromUIDAndRole(uid, setting.SystemAdmin, "*"),
 		UID:  uid,
 		Role: string(setting.SystemAdmin),
+		Type: setting.ResourceTypeSystem,
 	})
 
-}
-
-func presetRole() error {
-	g := new(errgroup.Group)
-	g.Go(func() error {
-		systemRole := &policy.Role{}
-		if err := yaml.Unmarshal(admin, systemRole); err != nil {
-			log.DPanic(err)
-		}
-		return policy.NewDefault().CreateSystemRole(systemRole.Name, systemRole)
-	})
-
-	rolesArray := [][]byte{readOnly, contributor, projectAdmin}
-
-	for _, v := range rolesArray {
-		role := &policy.Role{}
-		if err := yaml.Unmarshal(v, role); err != nil {
-			log.DPanic(err)
-		}
-		g.Go(func() error {
-			return policy.NewDefault().CreatePublicRole(role.Name, role)
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return err
-	}
-	return nil
 }
 
 func createLocalCluster() error {
