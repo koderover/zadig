@@ -554,6 +554,9 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error) {
 	// filter releases, only list releases deployed by zadig
 	productName, envName, serviceMap := prod.ProductName, prod.EnvName, prod.GetServiceMap()
+	if len(serviceMap) == 0 {
+		return nil, nil
+	}
 	listOpt := &commonrepo.SvcRevisionListOption{
 		ProductName:      prod.ProductName,
 		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
@@ -566,7 +569,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	}
 	templateServices, err := commonrepo.NewServiceColl().ListServicesWithSRevision(listOpt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s", productName, envName)
+		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
 	}
 	return templateServices, err
 }
