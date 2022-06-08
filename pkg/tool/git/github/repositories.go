@@ -31,6 +31,7 @@ import (
 
 func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, user string, opts *ListOptions) ([]*github.Repository, error) {
 	repositories, err := wrap(paginated(func(o *github.ListOptions) ([]interface{}, *github.Response, error) {
+		// Note. parameter user is not used when list repositories because private repos will NOT be in response data from gitHub even user is the exact owner of these private repos
 		rs, r, err := c.Repositories.List(ctx, "", &github.RepositoryListOptions{ListOptions: *o})
 		var res []interface{}
 		for _, r := range rs {
