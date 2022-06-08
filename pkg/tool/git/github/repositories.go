@@ -31,7 +31,7 @@ import (
 
 func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, user string, opts *ListOptions) ([]*github.Repository, error) {
 	repositories, err := wrap(paginated(func(o *github.ListOptions) ([]interface{}, *github.Response, error) {
-		rs, r, err := c.Repositories.List(ctx, user, &github.RepositoryListOptions{ListOptions: *o})
+		rs, r, err := c.Repositories.List(ctx, "", &github.RepositoryListOptions{ListOptions: *o})
 		var res []interface{}
 		for _, r := range rs {
 			res = append(res, r)
