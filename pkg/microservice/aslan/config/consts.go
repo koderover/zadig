@@ -153,6 +153,7 @@ type StepType string
 const (
 	StepTools             StepType = "tools"
 	StepShell             StepType = "shell"
+	StepGit               StepType = "git"
 	StepDockerBuild       StepType = "docker_build"
 	StepDeploy            StepType = "deploy"
 	StepHelmDeploy        StepType = "helm_deploy"

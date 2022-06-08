@@ -1,0 +1,72 @@
+package stepcontroller
+
+import (
+	"context"
+	"fmt"
+
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/step"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
+)
+
+type gitCtl struct {
+	step    *commonmodels.StepTask
+	gitSpec *step.StepGitSpec
+	log     *zap.SugaredLogger
+}
+
+func NewGitCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*gitCtl, error) {
+	yamlString, err := yaml.Marshal(stepTask.Spec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal git spec error: %v", err)
+	}
+	gitSpec := &step.StepGitSpec{}
+	if err := yaml.Unmarshal(yamlString, &gitSpec); err != nil {
+		return nil, fmt.Errorf("unmarshal git spec error: %v", err)
+	}
+	if gitSpec.Proxy == nil {
+		gitSpec.Proxy = &step.Proxy{}
+	}
+	return &gitCtl{gitSpec: gitSpec, log: log, step: stepTask}, nil
+}
+
+func (s *gitCtl) PreRun(ctx context.Context) {
+	for _, repo := range s.gitSpec.Repos {
+		cID := repo.CodeHostID
+		if cID == 0 {
+			log.Error("codehostID can't be empty")
+			return
+		}
+		detail, err := systemconfig.New().GetCodeHost(cID)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+		repo.Source = detail.Type
+		repo.OauthToken = detail.AccessToken
+		repo.Address = detail.Address
+		repo.User = detail.Username
+		repo.Password = detail.Password
+		repo.EnableProxy = detail.EnableProxy
+	}
+	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
+	if len(proxies) != 0 {
+		s.gitSpec.Proxy.Address = proxies[0].Address
+		s.gitSpec.Proxy.EnableApplicationProxy = proxies[0].EnableApplicationProxy
+		s.gitSpec.Proxy.EnableRepoProxy = proxies[0].EnableRepoProxy
+		s.gitSpec.Proxy.NeedPassword = proxies[0].NeedPassword
+		s.gitSpec.Proxy.Password = proxies[0].Password
+		s.gitSpec.Proxy.Port = proxies[0].Port
+		s.gitSpec.Proxy.Type = proxies[0].Type
+		s.gitSpec.Proxy.Username = proxies[0].Username
+	}
+	s.step.Spec = s.gitSpec
+}
+
+func (s *gitCtl) AfterRun(ctx context.Context) {
+
+}

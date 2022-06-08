@@ -21,10 +21,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/cmd"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -53,6 +55,16 @@ func runStep(ctx context.Context, step *meta.Step, workspace string, envs, secre
 	switch step.StepType {
 	case "shell":
 		stepInstance, err = NewShellStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
+	case "git":
+		stepInstance, err = NewGitStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
+	case "docker_build":
+		stepInstance, err = NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {
 			return err
 		}
@@ -109,6 +121,18 @@ const (
 	secretEnvMask = "********"
 )
 
+func maskSecret(secrets []string, message string) string {
+	out := message
+
+	for _, val := range secrets {
+		if len(val) == 0 {
+			continue
+		}
+		out = strings.Replace(out, val, "********", -1)
+	}
+	return out
+}
+
 func maskSecretEnvs(message string, secretEnvs []string) string {
 	out := message
 
@@ -129,4 +153,21 @@ func maskSecretEnvs(message string, secretEnvs []string) string {
 		out = strings.Replace(out, strings.Join(sl[1:], "="), secretEnvMask, -1)
 	}
 	return out
+}
+
+func isDirEmpty(dir string) bool {
+	f, err := os.Open(dir)
+	if err != nil {
+		return true
+	}
+	defer f.Close()
+
+	_, err = f.Readdir(1)
+	return err == io.EOF
+}
+
+func setCmdsWorkDir(dir string, cmds []*cmd.Command) {
+	for _, c := range cmds {
+		c.Cmd.Dir = dir
+	}
 }

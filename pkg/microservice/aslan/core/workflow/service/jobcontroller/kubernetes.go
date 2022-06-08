@@ -185,7 +185,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 								// 连接对应wd上的dockerdeamon
 								{
 									Name:  "DOCKER_HOST",
-									Value: workflowCtx.DockerHost,
+									Value: jobTask.Properties.DockerHost,
 								},
 							},
 							VolumeMounts: getVolumeMounts(workflowCtx.ConfigMapMountDir),

@@ -23,6 +23,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/stepcontroller"
 	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 )
@@ -46,12 +47,29 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	if job.Properties.ClusterID == "" {
 		job.Properties.ClusterID = setting.LocalClusterID
 	}
+	// init step configration.
+	if err := stepcontroller.PrepareSteps(ctx, workflowCtx, job.Steps, logger); err != nil {
+		logger.Error(err)
+		job.Error = err.Error()
+		job.Status = config.StatusFailed
+		job.EndTime = time.Now().Unix()
+		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
+		ack()
+		return
+	}
+
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
+		if err := stepcontroller.SummarizeSteps(ctx, workflowCtx, job.Steps, logger); err != nil {
+			logger.Error(err)
+			job.Error = err.Error()
+			job.Status = config.StatusFailed
+		}
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
 	}()
+
 	var jobCtl JobCtl
 	switch job.JobType {
 	case "deploy":

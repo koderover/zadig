@@ -26,11 +26,17 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/dockerhost"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	DindServer              = "dind"
+	KoderoverAgentNamespace = "koderover-agent"
 )
 
 type FreestyleJobCtl struct {
@@ -80,8 +86,31 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 
 	// decide which docker host to use.
 	// TODO: do not use code in warpdrive moudule, should move to a public place
-	// dockerhosts := common.NewDockerHosts(hubServerAddr, c.logger)
-	// dockerHost := dockerhosts.GetBestHost(common.ClusterID(c.job.Properties.ClusterID), "")
+	dockerhosts := dockerhost.NewDockerHosts(hubServerAddr, c.logger)
+	c.job.Properties.DockerHost = dockerhosts.GetBestHost(dockerhost.ClusterID(c.job.Properties.ClusterID), "")
+
+	// not local cluster
+	var (
+		replaceDindServer = "." + DindServer
+		dockerHost        = ""
+	)
+
+	if c.job.Properties.ClusterID != "" && c.job.Properties.ClusterID != setting.LocalClusterID {
+		if strings.Contains(c.job.Properties.DockerHost, config.Namespace()) {
+			// replace namespace only
+			dockerHost = strings.Replace(c.job.Properties.DockerHost, config.Namespace(), KoderoverAgentNamespace, 1)
+		} else {
+			// add namespace
+			dockerHost = strings.Replace(c.job.Properties.DockerHost, replaceDindServer, replaceDindServer+"."+KoderoverAgentNamespace, 1)
+		}
+	} else if c.job.Properties.ClusterID == "" || c.job.Properties.ClusterID == setting.LocalClusterID {
+		if !strings.Contains(c.job.Properties.DockerHost, config.Namespace()) {
+			// add namespace
+			dockerHost = strings.Replace(c.job.Properties.DockerHost, replaceDindServer, replaceDindServer+"."+config.Namespace(), 1)
+		}
+	}
+
+	c.job.Properties.DockerHost = dockerHost
 
 	// TODO: inject vars like task_id and etc, passing them into c.job.Properties.Args
 	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Properties.Namespace, IsCredential: false}
@@ -220,22 +249,6 @@ func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 		envVars = append(envVars, strings.Join([]string{env.Key, env.Value}, "="))
 	}
 
-	// inject global context into step spec.
-	workflowCtx.GlobalContextEach(func(k, v string) bool {
-		for _, step := range job.Steps {
-			yamlString, err := yaml.Marshal(step.Spec)
-			if err != nil {
-				logger.Errorf("marshal step spec error: %v", err)
-				return false
-			}
-			replacedString := strings.ReplaceAll(string(yamlString), fmt.Sprintf("$(%s)", k), v)
-			if err := yaml.Unmarshal([]byte(replacedString), &step.Spec); err != nil {
-				logger.Errorf("unmarshal step spec error: %v", err)
-				return false
-			}
-		}
-		return true
-	})
 	outputs := []string{}
 	for _, output := range job.Outputs {
 		outputs = append(outputs, output.Name)

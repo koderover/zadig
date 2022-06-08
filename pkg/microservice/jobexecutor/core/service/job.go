@@ -84,7 +84,7 @@ func NewJob() (*Job, error) {
 
 func (j *Job) EnsureActiveWorkspace(workspace string) error {
 	if workspace == "" {
-		tempWorkspace, err := ioutil.TempDir(os.TempDir(), "reaper")
+		tempWorkspace, err := ioutil.TempDir(os.TempDir(), "jobexecutor")
 		if err != nil {
 			return fmt.Errorf("create workspace error: %v", err)
 		}
@@ -122,7 +122,7 @@ func (j *Job) Run(ctx context.Context) error {
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
-	if err := step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.Ctx.Envs, j.Ctx.SecretEnvs); err != nil {
+	if err := step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
 		return err
 	}
 	return nil
