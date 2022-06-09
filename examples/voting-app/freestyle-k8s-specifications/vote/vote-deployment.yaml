@@ -22,3 +22,7 @@ spec:
         ports:
         - containerPort: 80
           name: vote
+        resources:
+          limits:
+            memory: 50Mi
+            cpu: 50m
