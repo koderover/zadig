@@ -703,6 +703,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
 	if notFoundErr == nil {
+		return nil, fmt.Errorf("service:%s is existed", serviceTmpl.ServiceName)
 		if args.Type == setting.K8SDeployType && args.Source == serviceTmpl.Source {
 			// 配置来源为zadig，对比配置内容是否变化，需要对比Yaml内容
 			// 如果Source没有设置，默认认为是zadig平台管理配置方式
