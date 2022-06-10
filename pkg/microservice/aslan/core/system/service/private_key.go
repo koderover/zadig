@@ -69,7 +69,7 @@ func ListPrivateKeys(encryptedKey, projectName, keyword string, log *zap.Sugared
 }
 
 func ListPrivateKeysInternal(log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
-	resp, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
+	resp, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{IsOverall: true})
 	if err != nil {
 		if commonrepo.IsErrNoDocuments(err) {
 			return []*commonmodels.PrivateKey{}, nil
