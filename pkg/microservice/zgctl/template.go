@@ -182,5 +182,5 @@ var syncthingConfigTmpl = `
 var syncthingRunTmpl = `
 #!/bin/sh
 
-nohup syncthing serve --config={{.ConfigDir}} --data={{.DataDir}} &
+nohup {{.SyncthingBin}} serve --config={{.ConfigDir}} --data={{.DataDir}} &
 `

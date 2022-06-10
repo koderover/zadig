@@ -602,8 +602,6 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 			// 服务需要更新，需要upsert
 			// 所有服务全部upsert一遍，确保所有服务起来
 			if svcRev.Updatable {
-				log.Infof("[Namespace:%s][Product:%s][Service:%s][IsNew:%v] upsert service",
-					envName, productName, svcRev.ServiceName, svcRev.New)
 
 				service := &commonmodels.ProductService{
 					ServiceName: svcRev.ServiceName,
@@ -615,7 +613,9 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 				service.Containers = svcRev.Containers
 				service.Render = updateProd.Render
 
-				if svcRev.Type == setting.K8SDeployType {
+				if svcRev.Type == setting.K8SDeployType && util.InStringArray(service.ServiceName, serviceNames) {
+					log.Infof("[Namespace:%s][Product:%s][Service:%s][IsNew:%v] upsert service",
+						envName, productName, svcRev.ServiceName, svcRev.New)
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
@@ -1301,6 +1301,13 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 			if !ok && !serviceNeedUpdateOrCreate.Has(svr.ServiceName) {
 				continue
 			}
+
+			// existed service has nothing to update
+			if ok && !serviceNeedUpdateOrCreate.Has(svr.ServiceName) {
+				svcGroup = append(svcGroup, ps)
+				continue
+			}
+
 			svcGroup = append(svcGroup, svr)
 			if ps == nil {
 				continue
@@ -3538,6 +3545,12 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		currentChartInfo, okC := currentChartInfoMap[serviceName]
 		renderArg, okR := renderChartArgMap[serviceName]
 		if !okR && !okC {
+			continue
+		}
+
+		// no need to update service revision in renderset.services
+		if !okR {
+			newChartInfos = append(newChartInfos, currentChartInfo)
 			continue
 		}
 
