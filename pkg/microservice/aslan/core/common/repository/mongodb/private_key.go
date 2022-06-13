@@ -93,9 +93,7 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 		query["name"] = args.Name
 	}
 
-	if args.ProjectName != "" {
-		query["project_name"] = args.ProjectName
-	}
+	query["project_name"] = args.ProjectName
 
 	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
