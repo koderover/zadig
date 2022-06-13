@@ -93,7 +93,11 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 		query["name"] = args.Name
 	}
 
-	query["project_name"] = args.ProjectName
+	if args.ProjectName != "" {
+		query["project_name"] = args.ProjectName
+	} else {
+		query["project_name"] = bson.M{"$exists": false}
+	}
 
 	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
