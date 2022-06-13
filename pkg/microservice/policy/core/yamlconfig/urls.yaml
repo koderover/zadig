@@ -394,3 +394,12 @@ exemption_urls:
     - endpoint: api/v1/policybindings/bulk-delete
       methods:
         - POST
+    - endpoint: api/aslan/project/pms/?*
+      methods:
+        - GET
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/project/pms/?*
+      methods:
+        - GET
+        - POST

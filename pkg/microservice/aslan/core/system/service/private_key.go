@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
@@ -69,7 +70,7 @@ func ListPrivateKeys(encryptedKey, projectName, keyword string, log *zap.Sugared
 }
 
 func ListPrivateKeysInternal(log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
-	resp, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{IsOverall: true})
+	resp, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
 	if err != nil {
 		if commonrepo.IsErrNoDocuments(err) {
 			return []*commonmodels.PrivateKey{}, nil
@@ -97,8 +98,7 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) err
 	}
 
 	privateKeyArgs := &commonrepo.PrivateKeyArgs{
-		Name:      args.Name,
-		IsOverall: true,
+		Name: args.Name,
 	}
 
 	if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(privateKeyArgs); len(privateKeys) > 0 {
@@ -114,12 +114,17 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) err
 }
 
 func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
-	err := commonrepo.NewPrivateKeyColl().Update(id, args)
+	_, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: id})
 	if err != nil {
-		log.Errorf("failed to update privateKey, error: %s", err)
-		return e.ErrUpdatePrivateKey
+		log.Errorf("failed to find privateKey with id: %s, error: %s", id, err)
+		return e.ErrUpdatePrivateKey.AddErr(fmt.Errorf("failed to find privateKey with id: %s, err: %s", id, err))
 	}
 
+	err = commonrepo.NewPrivateKeyColl().Update(id, args)
+	if err != nil {
+		log.Errorf("failed to update privateKey, error: %s", err)
+		return e.ErrUpdatePrivateKey.AddErr(err)
+	}
 	return nil
 }
 
@@ -196,22 +201,8 @@ func ListLabels() ([]string, error) {
 // override: Full coverage (temporarily reserved)
 // increment: Incremental coverage
 // patch: Overwrite existing
-func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, projectName, option, username string, log *zap.SugaredLogger) error {
+func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username string, log *zap.SugaredLogger) error {
 	switch option {
-	//case "override":
-	//	if err := commonrepo.NewPrivateKeyColl().DeleteAll(); err != nil {
-	//		return e.ErrBulkCreatePrivateKey.AddDesc("delete all privateKeys failed")
-	//	}
-	//	for _, currentPrivateKey := range args {
-	//		if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
-	//			return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
-	//		}
-	//		currentPrivateKey.UpdateBy = username
-	//		if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
-	//			log.Errorf("PrivateKey.Create error: %s", err)
-	//			return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
-	//		}
-	//	}
 	case "increment":
 		for _, currentPrivateKey := range args {
 			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
@@ -223,12 +214,10 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, projectName, option,
 			}
 
 			currentPrivateKey.UpdateBy = username
-			currentPrivateKey.ProjectName = projectName
 			if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
 				log.Errorf("PrivateKey.Create error: %s", err)
 				return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
 			}
-
 		}
 
 	case "patch":
@@ -237,7 +226,6 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, projectName, option,
 				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
 			currentPrivateKey.UpdateBy = username
-			currentPrivateKey.ProjectName = projectName
 			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 				if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
 					log.Errorf("PrivateKey.update error: %s", err)

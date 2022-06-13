@@ -878,8 +878,8 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
 		return err
 	}
-	changeEnvStatus := []*commonmodels.EnvStatus{}
-	changeEnvConfigs := []*commonmodels.EnvConfig{}
+	var changeEnvStatus []*commonmodels.EnvStatus
+	var changeEnvConfigs []*commonmodels.EnvConfig
 
 	changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
 	envConfigsSet := sets.String{}
@@ -891,7 +891,7 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 			changeEnvConfigs = append(changeEnvConfigs, v)
 		}
 	}
-	privateKeys := []*commonmodels.PrivateKey{}
+	var privateKeys []*commonmodels.PrivateKey
 	for _, envConfig := range args.EnvConfigs {
 		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 		if err != nil {

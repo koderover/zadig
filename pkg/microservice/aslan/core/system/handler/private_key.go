@@ -48,7 +48,7 @@ func ListPrivateKeys(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {
@@ -150,5 +150,5 @@ func BatchCreatePrivateKey(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.BatchCreatePrivateKey(args.Data, c.Query("projectName"), args.Option, ctx.UserName, ctx.Logger)
+	ctx.Err = service.BatchCreatePrivateKey(args.Data, args.Option, ctx.UserName, ctx.Logger)
 }
