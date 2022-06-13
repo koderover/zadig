@@ -23,4 +23,4 @@ const (
 	ShareEnv   EnvType = "share"
 )
 
-const DebugImage = "ccr.ccs.tencentyun.com/koderover-public/zadig-debug:v0.1.0"
+const DebugImage = "ccr.ccs.tencentyun.com/koderover-rc/zadig-debug:v0.1.0"
