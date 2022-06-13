@@ -249,3 +249,7 @@ func ServiceNameWithRevision(serviceName string, revision int64) string {
 func ServiceAccountNameForUser(userID string) string {
 	return fmt.Sprintf("%s-sa", userID)
 }
+
+func DindImage() string {
+	return viper.GetString(setting.DindImage)
+}
