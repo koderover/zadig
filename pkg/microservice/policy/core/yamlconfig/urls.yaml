@@ -399,7 +399,7 @@ exemption_urls:
         - GET
         - PUT
         - DELETE
-    - endpoint: api/aslan/project/pms/?*
+    - endpoint: api/aslan/project/pms
       methods:
         - GET
         - POST
