@@ -853,6 +853,7 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 
 func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
+	startTime := time.Now().Unix()
 	timeout := time.After(time.Duration(taskTimeout) * time.Second)
 	podTimeout := time.After(120 * time.Second)
 
@@ -887,6 +888,8 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 			return config.StatusCancelled
 
 		case <-timeout:
+			timeDuration := time.Now().Unix() - startTime
+			xl.Infof("job timeout after [%d] seconds !!!!", timeDuration)
 			return config.StatusTimeout
 
 		default:

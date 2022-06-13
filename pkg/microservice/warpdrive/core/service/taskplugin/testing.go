@@ -99,6 +99,7 @@ func (p *TestPlugin) TaskTimeout() int {
 			p.Task.Timeout = p.Task.Timeout * 60
 		}
 	}
+	p.Log.Infof("Setting test task timeout to [%d] seconds", p.Task.Timeout)
 	return p.Task.Timeout
 }
 
