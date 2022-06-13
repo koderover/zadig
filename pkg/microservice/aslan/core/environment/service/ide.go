@@ -422,7 +422,6 @@ func recoverWorkload(ctx context.Context, kclient client.Client, selector labels
 			return err
 		}
 	case types.StatefulSetWorkload:
-		log.Infof("[ZADIG]Begin to recover statefulset: %s", selector.String())
 		err := recoverStatefulSet(ctx, kclient, selector, ns)
 		if err != nil {
 			return err

@@ -688,6 +688,8 @@ metas:
         rules:
           - method: GET
             endpoint: '/api/podexec/?*/?*/?*/?*/podExec/:name'
+          - method: POST
+            endpoint: '/api/aslan/environment/kube/:name/pods/?*/debugcontainer'
       - action: ssh_pm
         alias: 主机登录
         description: ''

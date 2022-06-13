@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -499,4 +500,29 @@ func ClusterApplyUpgradeAgent() {
 		}
 		time.Sleep(20 * time.Second)
 	}
+}
+
+func CheckEphemeralContainers(ctx context.Context, clusterID string) (bool, error) {
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to new discovery client: %s", err)
+	}
+
+	resource, err := discoveryClient.ServerResourcesForGroupVersion("v1")
+	if err != nil {
+		return false, fmt.Errorf("failed to get server resource: %s", err)
+	}
+
+	for _, apiResource := range resource.APIResources {
+		if apiResource.Name == "pods/ephemeralcontainers" {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

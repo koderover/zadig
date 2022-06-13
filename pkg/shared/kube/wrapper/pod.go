@@ -133,7 +133,13 @@ func (w *pod) Resource() *resource.Pod {
 		p.Kind = w.OwnerReferences[0].Kind
 	}
 
-	for _, container := range w.Status.ContainerStatuses {
+	containersStatus := []corev1.ContainerStatus{}
+	containersStatus = append(containersStatus, w.Status.ContainerStatuses...)
+	if checkEphemeralContainerStatusFieldExist(&w.Status) {
+		containersStatus = append(containersStatus, w.Status.EphemeralContainerStatuses...)
+	}
+
+	for _, container := range containersStatus {
 		cs := resource.Container{
 			Name:         container.Name,
 			RestartCount: container.RestartCount,
@@ -173,6 +179,22 @@ func (w *pod) Resource() *resource.Pod {
 			}
 		}
 		p.ContainerStatuses = append(p.ContainerStatuses, cs)
+	}
+
+	// Note: Seems that in K8s versions [v1.16, v1.22], EphemeralContainerStatuses exist but are empty while in K8s versions
+	// [v1.23, ], EphemeralContainerStatuses exist and are not empty.
+	if checkEphemeralContainerStatusFieldExist(&w.Status) && len(w.Status.EphemeralContainerStatuses) == 0 &&
+		checkEphemeralContainerFieldExist(&w.Spec) {
+		for _, container := range w.Spec.EphemeralContainers {
+			cs := resource.Container{
+				Name:         container.Name,
+				Image:        container.Image,
+				RestartCount: 0,
+				Status:       "running",
+			}
+
+			p.ContainerStatuses = append(p.ContainerStatuses, cs)
+		}
 	}
 
 	if w.DeletionTimestamp != nil {

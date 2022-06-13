@@ -57,6 +57,7 @@ func (w *deployment) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
 		Pods:     make([]*resource.Pod, 0, len(pods)),
 	}
 
+	// Note: EphemeralContainers only belong to Pods and do not exist in Deployment Spec.
 	for _, c := range w.Spec.Template.Spec.Containers {
 		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.ExtractImageName(c.Image)})
 	}
