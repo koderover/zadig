@@ -105,7 +105,7 @@ func reloadServiceTmplFromGit(svc *commonmodels.Service, log *zap.SugaredLogger)
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
 		},
-	}, log)
+	}, true, log)
 	return err
 }
 

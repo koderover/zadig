@@ -315,7 +315,7 @@ func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogg
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
 		},
-	}, log)
+	}, true, log)
 	return err
 }
 

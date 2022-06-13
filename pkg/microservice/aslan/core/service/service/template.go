@@ -224,7 +224,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 		CreationDetail: service.CreateFrom,
 		AutoSync:       service.AutoSync,
 	}
-	ret, err := createOrUpdateHelmServiceFromChartTemplate(templateArgs, chartTemplate, service.ProductName, args, log.SugaredLogger())
+	ret, err := createOrUpdateHelmServiceFromChartTemplate(templateArgs, chartTemplate, service.ProductName, args, true, log.SugaredLogger())
 	if err != nil {
 		return err
 	}

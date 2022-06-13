@@ -340,6 +340,6 @@ func reloadServiceTmplFromGitee(svc *commonmodels.Service, log *zap.SugaredLogge
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
 		},
-	}, log)
+	}, true, log)
 	return err
 }
