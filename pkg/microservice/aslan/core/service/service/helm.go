@@ -1421,7 +1421,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	// update status of current service template to deleting
 	if currentSvcTmpl != nil {
 		if !force {
-			return nil, fmt.Errorf("service:%s already exist", args.ServiceName)
+			return nil, fmt.Errorf("service:%s already exists", args.ServiceName)
 		}
 		err = commonrepo.NewServiceColl().UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting)
 		if err != nil {
