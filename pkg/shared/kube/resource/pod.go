@@ -17,16 +17,17 @@ limitations under the License.
 package resource
 
 type Pod struct {
-	Kind              string            `json:"kind"`
-	Name              string            `json:"name"`
-	Status            string            `json:"status"`
-	Age               string            `json:"age"`
-	CreateTime        int64             `json:"createtime"`
-	IP                string            `json:"ip"`
-	Labels            map[string]string `json:"labels"`
-	ContainerStatuses []Container       `json:"containers"`
-	NodeName          string            `json:"node_name"`
-	HostIP            string            `json:"host_ip"`
+	Kind                 string            `json:"kind"`
+	Name                 string            `json:"name"`
+	Status               string            `json:"status"`
+	Age                  string            `json:"age"`
+	CreateTime           int64             `json:"createtime"`
+	IP                   string            `json:"ip"`
+	Labels               map[string]string `json:"labels"`
+	ContainerStatuses    []Container       `json:"containers"`
+	NodeName             string            `json:"node_name"`
+	HostIP               string            `json:"host_ip"`
+	EnableDebugContainer bool              `json:"enable_debug_container"`
 }
 
 type Container struct {
