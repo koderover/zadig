@@ -82,18 +82,23 @@ func (h *ExecHandler) HandleMessage(message *nsq.Message) error {
 	xl = Logger(pipelineTask)
 	ctx, cancel = context.WithCancel(context.Background())
 
-	go func(taskName string) {
+	go func(ctx context.Context, taskName string) {
 		for {
-			if pipelineTask == nil {
-				xl.Infof("Pipeline task %q has completed. Exit.", taskName)
-				break
-			}
+			select {
+			case <-ctx.Done():
+				xl.Infof("Pipeline task %q has been canceled. Exit.", taskName)
+				return
+			case <-time.After(durationTouchMsg):
+				if pipelineTask == nil {
+					xl.Infof("Pipeline task %q has completed. Exit.", taskName)
+					return
+				}
 
-			<-time.After(durationTouchMsg)
-			xl.Infof("After %s, touch message %q.", durationTouchMsg.String(), taskName)
-			message.Touch()
+				xl.Infof("After %s, touch message %q.", durationTouchMsg.String(), taskName)
+				message.Touch()
+			}
 		}
-	}(taskName)
+	}(ctx, taskName)
 
 	h.runPipelineTask(ctx, cancel, xl)
 
