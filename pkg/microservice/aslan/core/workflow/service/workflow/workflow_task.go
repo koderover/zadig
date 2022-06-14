@@ -858,12 +858,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
 
-		err = SetCandidateRegistry(configPayload, log)
-		if err != nil {
-			log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
-			return nil, err
-		}
-
 		AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
 	}
 
@@ -1991,13 +1985,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			log.Errorf("workflow_task ToSubTask err:%v", err)
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
-
-		err = SetCandidateRegistry(configPayload, log)
-		if err != nil {
-			log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
-			return nil, err
-		}
-
 		AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
 	}
 
@@ -2709,17 +2696,11 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					}
 				}
 
-				err = SetCandidateRegistry(taskOpt.Task.ConfigPayload, log)
-				if err != nil {
-					return err
-				}
-
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
 				}
 			}
-
 		case config.TaskTestingV2:
 			t, err := base.ToTestingTask(subTask)
 			if err != nil {
@@ -2738,11 +2719,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					SetTriggerBuilds(t.JobCtx.Builds, taskOpt.Task.TaskArgs.Test.Builds, log)
 				} else {
 					setManunalBuilds(t.JobCtx.Builds, taskOpt.Task.TaskArgs.Test.Builds, log)
-				}
-
-				err = SetCandidateRegistry(taskOpt.Task.ConfigPayload, log)
-				if err != nil {
-					return err
 				}
 
 				//use log path
