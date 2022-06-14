@@ -135,7 +135,7 @@ func (w *pod) Resource() *resource.Pod {
 
 	containersStatus := []corev1.ContainerStatus{}
 	containersStatus = append(containersStatus, w.Status.ContainerStatuses...)
-	if checkEphemeralContainerStatusFieldExist(&w.Status) {
+	if CheckEphemeralContainerStatusFieldExist(&w.Status) {
 		containersStatus = append(containersStatus, w.Status.EphemeralContainerStatuses...)
 	}
 
@@ -183,8 +183,8 @@ func (w *pod) Resource() *resource.Pod {
 
 	// Note: Seems that in K8s versions [v1.16, v1.22], EphemeralContainerStatuses exist but are empty while in K8s versions
 	// [v1.23, ], EphemeralContainerStatuses exist and are not empty.
-	if checkEphemeralContainerStatusFieldExist(&w.Status) && len(w.Status.EphemeralContainerStatuses) == 0 &&
-		checkEphemeralContainerFieldExist(&w.Spec) {
+	if CheckEphemeralContainerStatusFieldExist(&w.Status) && len(w.Status.EphemeralContainerStatuses) == 0 &&
+		CheckEphemeralContainerFieldExist(&w.Spec) {
 		for _, container := range w.Spec.EphemeralContainers {
 			cs := resource.Container{
 				Name:         container.Name,
