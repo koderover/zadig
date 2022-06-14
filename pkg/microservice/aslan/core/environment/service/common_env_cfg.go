@@ -20,11 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
