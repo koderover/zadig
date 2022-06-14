@@ -399,6 +399,12 @@ exemption_urls:
         - GET
         - PUT
         - DELETE
+    - endpoint: api/aslan/project/pms/labels
+      methods:
+        - GET
+    - endpoint: api/aslan/project/pms/batch
+      methods:
+        - POST
     - endpoint: api/aslan/project/pms
       methods:
         - GET
