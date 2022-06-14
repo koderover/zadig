@@ -658,6 +658,11 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		env.RegistryID = reg.ID.Hex()
 	}
 	configPayload.RegistryID = env.RegistryID
+	err = SetCandidateRegistry(configPayload, log)
+	if err != nil {
+		log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
+		return nil, err
+	}
 
 	nextTaskID, err := generateNextTaskID(args.WorkflowName)
 	if err != nil {
@@ -1816,6 +1821,12 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		for _, repo := range repos {
 			configPayload.RepoConfigs[repo.ID.Hex()] = repo
 		}
+	}
+
+	err = SetCandidateRegistry(configPayload, log)
+	if err != nil {
+		log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
+		return nil, err
 	}
 
 	configPayload.IgnoreCache = args.IgnoreCache
