@@ -144,6 +144,12 @@ func UpdateSecret(args *UpdateCommonEnvCfgArgs, userName, userID string, log *za
 		return e.ErrUpdateResource.AddErr(err)
 	}
 	secret.Namespace = product.Namespace
+
+	yamlData, err := ensureLabel(&secret.ObjectMeta, args.ProductName)
+	if err != nil {
+		return e.ErrUpdateResource.AddErr(err)
+	}
+
 	err = updater.UpdateOrCreateSecret(secret, kubeClient)
 	if err != nil {
 		log.Error(err)
@@ -154,7 +160,7 @@ func UpdateSecret(args *UpdateCommonEnvCfgArgs, userName, userID string, log *za
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
 		Name:           secret.Name,
-		YamlData:       args.YamlData,
+		YamlData:       yamlData,
 	}
 	if commonrepo.NewSecretColl().Create(envSecret, true) != nil {
 		return e.ErrUpdateResource.AddDesc(err.Error())
