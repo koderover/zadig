@@ -22,12 +22,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func checkEphemeralContainerFieldExist(podSpec *corev1.PodSpec) bool {
+func CheckEphemeralContainerFieldExist(podSpec *corev1.PodSpec) bool {
 	metaValue := reflect.ValueOf(podSpec).Elem()
 	return metaValue.FieldByName("EphemeralContainers") != (reflect.Value{})
 }
 
-func checkEphemeralContainerStatusFieldExist(podStatus *corev1.PodStatus) bool {
+func CheckEphemeralContainerStatusFieldExist(podStatus *corev1.PodStatus) bool {
 	metaValue := reflect.ValueOf(podStatus).Elem()
 	return metaValue.FieldByName("EphemeralContainerStatuses") != (reflect.Value{})
 }
