@@ -210,5 +210,9 @@ func (w *pod) Resource() *resource.Pod {
 		}
 	}
 
+	if CheckEphemeralContainerFieldExist(&w.Spec) && len(w.Spec.EphemeralContainers) > 0 {
+		p.EnableDebugContainer = true
+	}
+
 	return p
 }
