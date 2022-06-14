@@ -178,6 +178,16 @@ func (w *pod) Resource() *resource.Pod {
 				break
 			}
 		}
+
+		if CheckEphemeralContainerFieldExist(&w.Spec) {
+			for _, specContainer := range w.Spec.EphemeralContainers {
+				if specContainer.Name == container.Name {
+					cs.Image = specContainer.Image
+					break
+				}
+			}
+		}
+
 		p.ContainerStatuses = append(p.ContainerStatuses, cs)
 	}
 
