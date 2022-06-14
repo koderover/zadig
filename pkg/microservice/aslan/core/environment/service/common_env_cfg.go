@@ -23,7 +23,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,6 +40,11 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
+
+type ResourceWithLabel interface {
+	GetLabels() map[string]string
+	SetLabels(labels map[string]string)
+}
 
 func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgType config.CommonEnvCfgType, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -88,15 +92,20 @@ type CreateCommonEnvCfgArgs struct {
 }
 
 // ensureLabel ensure label 's-product' exists in particular resource(secret/configmap) deployed by zadig
-func ensureLabel(res *v1.ObjectMeta, projectName string) (string, error) {
+func ensureLabel(res ResourceWithLabel, projectName string) (string, error) {
 	resLabels := res.GetLabels()
 	if resLabels == nil {
 		resLabels = make(map[string]string)
 	}
 	resLabels[setting.ProductLabel] = projectName
 	res.SetLabels(resLabels)
-	yamlData, err := yaml.Marshal(res)
-	return string(yamlData), err
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", err
+	}
+	yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+	return string(yamlBytes), err
 }
 
 func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
@@ -144,7 +153,7 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 		}
 		cm.Namespace = product.Namespace
 
-		yamlData, err := ensureLabel(&cm.ObjectMeta, args.ProductName)
+		yamlData, err := ensureLabel(cm, args.ProductName)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
@@ -172,7 +181,7 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 		}
 		secret.Namespace = product.Namespace
 
-		yamlData, err := ensureLabel(&secret.ObjectMeta, args.ProductName)
+		yamlData, err := ensureLabel(secret, args.ProductName)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}

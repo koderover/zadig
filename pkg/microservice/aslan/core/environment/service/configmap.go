@@ -199,6 +199,10 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 		}(cmElem)
 	}
 	wg.Wait()
+
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].CmName < res[j].CmName
+	})
 	return res, nil
 }
 
@@ -240,7 +244,7 @@ func UpdateConfigMap(args *UpdateCommonEnvCfgArgs, userName, userID string, log 
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
 
-	yamlData, err := ensureLabel(&cm.ObjectMeta, args.ProductName)
+	yamlData, err := ensureLabel(cm, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}

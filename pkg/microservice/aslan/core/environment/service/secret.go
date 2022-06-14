@@ -18,6 +18,7 @@ package service
 
 import (
 	"encoding/json"
+	"sort"
 	"sync"
 	"time"
 
@@ -117,6 +118,9 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 		}(secret)
 	}
 	wg.Wait()
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].SecretName < res[j].SecretName
+	})
 	return res, nil
 }
 
@@ -145,7 +149,7 @@ func UpdateSecret(args *UpdateCommonEnvCfgArgs, userName, userID string, log *za
 	}
 	secret.Namespace = product.Namespace
 
-	yamlData, err := ensureLabel(&secret.ObjectMeta, args.ProductName)
+	yamlData, err := ensureLabel(secret, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
