@@ -491,6 +491,13 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		})
 	}()
 
+	// delete privateKey data
+	go func() {
+		if err = commonrepo.NewPrivateKeyColl().BulkDelete(productName); err != nil {
+			log.Errorf("failed to bulk delete privateKey, error:%s", err)
+		}
+	}()
+
 	return nil
 }
 
