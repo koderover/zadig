@@ -55,12 +55,18 @@ func (c *PrivateKeyColl) GetCollectionName() string {
 }
 
 func (c *PrivateKeyColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys:    bson.M{"label": 1},
-		Options: options.Index().SetUnique(false),
+	mods := []mongo.IndexModel{
+		{
+			Keys:    bson.M{"label": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.M{"name": 1},
+			Options: options.Index().SetUnique(true),
+		},
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mods)
 	return err
 }
 
