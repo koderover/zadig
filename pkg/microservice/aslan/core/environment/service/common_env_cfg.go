@@ -41,6 +41,11 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+type ResourceWithLabel interface {
+	GetLabels() map[string]string
+	SetLabels(labels map[string]string)
+}
+
 func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgType config.CommonEnvCfgType, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -84,6 +89,23 @@ type CreateCommonEnvCfgArgs struct {
 	ProductName      string                  `json:"product_name"`
 	YamlData         string                  `json:"yaml_data"`
 	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
+}
+
+// ensureLabel ensure label 's-product' exists in particular resource(secret/configmap) deployed by zadig
+func ensureLabel(res ResourceWithLabel, projectName string) (string, error) {
+	resLabels := res.GetLabels()
+	if resLabels == nil {
+		resLabels = make(map[string]string)
+	}
+	resLabels[setting.ProductLabel] = projectName
+	res.SetLabels(resLabels)
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", err
+	}
+	yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+	return string(yamlBytes), err
 }
 
 func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
@@ -130,24 +152,25 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 			return e.ErrUpdateResource.AddErr(err)
 		}
 		cm.Namespace = product.Namespace
-		addLables := cm.GetLabels()
-		if addLables == nil {
-			addLables = make(map[string]string)
+
+		yamlData, err := ensureLabel(cm, args.ProductName)
+		if err != nil {
+			return e.ErrUpdateResource.AddErr(err)
 		}
-		addLables[string(setting.ProductLabel)] = args.ProductName
-		cm.SetLabels(addLables)
+
 		if err := updater.CreateConfigMap(cm, kubeClient); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		envcm := &models.EnvConfigMap{
+
+		envCM := &models.EnvConfigMap{
 			ProductName:    args.ProductName,
 			UpdateUserName: userName,
 			EnvName:        args.EnvName,
 			Name:           cm.Name,
-			YamlData:       args.YamlData,
+			YamlData:       yamlData,
 		}
-		if err = commonrepo.NewConfigMapColl().Create(envcm, true); err != nil {
+		if err = commonrepo.NewConfigMapColl().Create(envCM, true); err != nil {
 			return e.ErrUpdateResource.AddDesc(err.Error())
 		}
 	case config.CommonEnvCfgTypeSecret:
@@ -157,22 +180,23 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 			return e.ErrUpdateResource.AddErr(err)
 		}
 		secret.Namespace = product.Namespace
-		addLables := secret.GetLabels()
-		if addLables == nil {
-			addLables = make(map[string]string)
+
+		yamlData, err := ensureLabel(secret, args.ProductName)
+		if err != nil {
+			return e.ErrUpdateResource.AddErr(err)
 		}
-		addLables[string(setting.ProductLabel)] = args.ProductName
-		secret.SetLabels(addLables)
+
 		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddDesc(err.Error())
 		}
+
 		envSecret := &models.EnvSecret{
 			ProductName:    args.ProductName,
 			UpdateUserName: userName,
 			EnvName:        args.EnvName,
 			Name:           secret.Name,
-			YamlData:       args.YamlData,
+			YamlData:       yamlData,
 		}
 		if err = commonrepo.NewSecretColl().Create(envSecret, true); err != nil {
 			return e.ErrUpdateResource.AddDesc(err.Error())

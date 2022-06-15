@@ -199,6 +199,10 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 		}(cmElem)
 	}
 	wg.Wait()
+
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].CmName < res[j].CmName
+	})
 	return res, nil
 }
 
@@ -239,6 +243,12 @@ func UpdateConfigMap(args *UpdateCommonEnvCfgArgs, userName, userID string, log 
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
+
+	yamlData, err := ensureLabel(cm, args.ProductName)
+	if err != nil {
+		return e.ErrUpdateResource.AddErr(err)
+	}
+
 	if err := updater.UpdateConfigMap(namespace, cm, clientset); err != nil {
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
@@ -248,7 +258,7 @@ func UpdateConfigMap(args *UpdateCommonEnvCfgArgs, userName, userID string, log 
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
 		Name:           cm.Name,
-		YamlData:       args.YamlData,
+		YamlData:       yamlData,
 	}
 	if err := commonrepo.NewConfigMapColl().Create(envcm, true); err != nil {
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())

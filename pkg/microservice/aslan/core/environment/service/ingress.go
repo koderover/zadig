@@ -19,6 +19,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -170,6 +171,9 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 			res = append(res, resElem)
 		}
 	}
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].IngressName < res[j].IngressName
+	})
 	return res, nil
 }
 
