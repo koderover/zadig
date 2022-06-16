@@ -167,6 +167,8 @@ metas:
             endpoint: /api/aslan/service/services
           - method: POST
             endpoint: /api/aslan/service/loader/load/?*/?*
+          - method: PUT
+            endpoint: /api/aslan/service/loader/load/?*/?*
           - method: POST
             endpoint: /api/aslan/service/template/load
           - method: POST
