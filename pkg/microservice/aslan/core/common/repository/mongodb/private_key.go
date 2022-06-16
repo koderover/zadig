@@ -34,6 +34,7 @@ import (
 type PrivateKeyArgs struct {
 	Name        string
 	ProjectName string
+	SystemOnly  bool
 }
 
 type PrivateKeyColl struct {
@@ -101,7 +102,8 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 
 	if args.ProjectName != "" {
 		query["project_name"] = args.ProjectName
-	} else {
+	}
+	if args.SystemOnly {
 		query["project_name"] = bson.M{"$exists": false}
 	}
 
