@@ -183,8 +183,8 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			if workflowSlice.Has(workflowName) {
 				continue
 			}
-			if _, err := commonrepo.NewWorkflowColl().Find(workflowName); err == nil {
-				errList = multierror.Append(errList, fmt.Errorf("workflow [%s] 在项目 [%s] 中已经存在", workflowName, productName))
+			if dupWorkflow, err := commonrepo.NewWorkflowColl().Find(workflowName); err == nil {
+				errList = multierror.Append(errList, fmt.Errorf("workflow [%s] 在项目 [%s] 中已经存在", workflowName, dupWorkflow.ProductTmplName))
 			}
 			workflow := new(commonmodels.Workflow)
 			workflow.Enabled = true
