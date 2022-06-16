@@ -684,7 +684,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	return nil
 }
 
-func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
+func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		ProductName:   args.ProductName,
@@ -702,7 +702,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 
 	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
-	if notFoundErr == nil {
+	if notFoundErr == nil && !force {
 		return nil, fmt.Errorf("service:%s already exists", serviceTmpl.ServiceName)
 		//if args.Type == setting.K8SDeployType && args.Source == serviceTmpl.Source {
 		//	// 配置来源为zadig，对比配置内容是否变化，需要对比Yaml内容

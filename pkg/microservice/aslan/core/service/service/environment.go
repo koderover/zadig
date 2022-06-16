@@ -166,7 +166,7 @@ type GetKubeWorkloadsYamlResp struct {
 	Services []ServiceYaml `json:"services"`
 }
 
-func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, log *zap.SugaredLogger) error {
+func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, force bool, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), params.ClusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s]", params.ClusterID)
@@ -257,7 +257,7 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, lo
 			Yaml:        yaml,
 			Source:      "spock",
 		}
-		_, err := CreateServiceTemplate(username, serviceParam, log)
+		_, err := CreateServiceTemplate(username, serviceParam, force, log)
 		if err != nil {
 			log.Errorf("CreateServiceTemplate error, msg:%s", err)
 			return err
