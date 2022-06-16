@@ -107,6 +107,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
+
+		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 	}
 
 	// ---------------------------------------------------------------------------------------

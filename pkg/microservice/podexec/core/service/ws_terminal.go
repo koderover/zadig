@@ -36,6 +36,7 @@ import (
 
 	conf "github.com/koderover/zadig/pkg/microservice/podexec/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -157,11 +158,21 @@ func ValidatePod(kubeClient kubernetes.Interface, namespace, podName, containerN
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 		return false, fmt.Errorf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase)
 	}
+
 	for _, c := range pod.Spec.Containers {
 		if containerName == c.Name {
 			return true, nil
 		}
 	}
+
+	if wrapper.CheckEphemeralContainerFieldExist(&pod.Spec) {
+		for _, c := range pod.Spec.EphemeralContainers {
+			if containerName == c.Name {
+				return true, nil
+			}
+		}
+	}
+
 	return false, fmt.Errorf("pod has no container '%s'", containerName)
 }
 

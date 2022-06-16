@@ -18,6 +18,7 @@ package service
 
 import (
 	"encoding/json"
+	"sort"
 	"sync"
 	"time"
 
@@ -117,6 +118,9 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 		}(secret)
 	}
 	wg.Wait()
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].SecretName < res[j].SecretName
+	})
 	return res, nil
 }
 
@@ -144,6 +148,12 @@ func UpdateSecret(args *UpdateCommonEnvCfgArgs, userName, userID string, log *za
 		return e.ErrUpdateResource.AddErr(err)
 	}
 	secret.Namespace = product.Namespace
+
+	yamlData, err := ensureLabel(secret, args.ProductName)
+	if err != nil {
+		return e.ErrUpdateResource.AddErr(err)
+	}
+
 	err = updater.UpdateOrCreateSecret(secret, kubeClient)
 	if err != nil {
 		log.Error(err)
@@ -154,7 +164,7 @@ func UpdateSecret(args *UpdateCommonEnvCfgArgs, userName, userID string, log *za
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
 		Name:           secret.Name,
-		YamlData:       args.YamlData,
+		YamlData:       yamlData,
 	}
 	if commonrepo.NewSecretColl().Create(envSecret, true) != nil {
 		return e.ErrUpdateResource.AddDesc(err.Error())

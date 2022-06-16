@@ -37,6 +37,7 @@ type PrivateKey struct {
 	UpdateBy     string               `bson:"update_by"              json:"update_by"`
 	Provider     int8                 `bson:"provider"               json:"provider"`
 	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
+	ProjectName  string               `bson:"project_name,omitempty" json:"project_name"`
 	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
 }
 

@@ -18,6 +18,7 @@ package service
 
 import (
 	"encoding/json"
+	"sort"
 	"sync"
 	"time"
 
@@ -142,6 +143,9 @@ func ListPvcs(envName, productName string, log *zap.SugaredLogger) ([]*ListPvcsR
 		}(pvcElem)
 	}
 	wg.Wait()
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].PvcName < res[j].PvcName
+	})
 	return res, nil
 }
 
