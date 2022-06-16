@@ -77,6 +77,8 @@ func instantiateStepCtl(step *commonmodels.StepTask, jobPath *string, logger *za
 		stepCtl, err = NewDockerBuildCtl(step, logger)
 	case config.StepTools:
 		stepCtl, err = NewToolInstallCtl(step, jobPath, logger)
+	case config.StepArchive:
+		stepCtl, err = NewArchiveInstallCtl(step, logger)
 	default:
 		logger.Infof("unknown step type: %s", step.StepType)
 	}

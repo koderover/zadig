@@ -51,17 +51,6 @@ type Repo struct {
 	PrivateAccessToken string         `yaml:"private_access_token,omitempty"`
 }
 
-type Proxy struct {
-	Type                   string `yaml:"type"`
-	Address                string `yaml:"address"`
-	Port                   int    `yaml:"port"`
-	NeedPassword           bool   `yaml:"need_password"`
-	Username               string `yaml:"username"`
-	Password               string `yaml:"password"`
-	EnableRepoProxy        bool   `yaml:"enable_repo_proxy"`
-	EnableApplicationProxy bool   `yaml:"enable_application_proxy"`
-}
-
 const (
 	// ProviderGithub ...
 	ProviderGithub = "github"
