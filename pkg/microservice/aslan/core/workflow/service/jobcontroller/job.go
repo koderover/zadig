@@ -48,7 +48,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		job.Properties.ClusterID = setting.LocalClusterID
 	}
 	// init step configration.
-	if err := stepcontroller.PrepareSteps(ctx, workflowCtx, job.Steps, logger); err != nil {
+	if err := stepcontroller.PrepareSteps(ctx, workflowCtx, &job.Properties.Paths, job.Steps, logger); err != nil {
 		logger.Error(err)
 		job.Error = err.Error()
 		job.Status = config.StatusFailed
@@ -60,7 +60,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
-		if err := stepcontroller.SummarizeSteps(ctx, workflowCtx, job.Steps, logger); err != nil {
+		if err := stepcontroller.SummarizeSteps(ctx, workflowCtx, &job.Properties.Paths, job.Steps, logger); err != nil {
 			logger.Error(err)
 			job.Error = err.Error()
 			job.Status = config.StatusFailed

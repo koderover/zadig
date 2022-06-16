@@ -59,6 +59,7 @@ type JobProperties struct {
 	BuildOS         string          `bson:"build_os"               json:"build_os"`
 	Namespace       string          `bson:"namespace"              json:"namespace"`
 	Args            []*KeyVal       `bson:"args"                   json:"args"`
+	Paths           string          `bson:"-"                      json:"-"`
 	DockerHost      string          `bson:"-"                      json:"docker_host,omitempty"`
 }
 

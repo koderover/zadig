@@ -36,9 +36,10 @@ type ShellStep struct {
 	envs       []string
 	secretEnvs []string
 	workspace  string
+	Paths      string
 }
 
-func NewShellStep(spec interface{}, workspace string, envs, secretEnvs []string) (*ShellStep, error) {
+func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs []string) (*ShellStep, error) {
 	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {

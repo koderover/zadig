@@ -57,7 +57,11 @@ func NewJob() (*Job, error) {
 		return nil, fmt.Errorf("cannot unmarshal job data: %v", err)
 	}
 
-	ctx.Paths = config.Path()
+	if ctx.Paths != "" {
+		ctx.Paths = fmt.Sprintf("%s:%s", config.Path(), ctx.Paths)
+	} else {
+		ctx.Paths = config.Path()
+	}
 
 	job := &Job{
 		Ctx: ctx,
@@ -122,7 +126,7 @@ func (j *Job) Run(ctx context.Context) error {
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
-	if err := step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
+	if err := step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
 		return err
 	}
 	return nil

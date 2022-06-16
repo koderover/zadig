@@ -36,15 +36,15 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunSteps(ctx context.Context, steps []*meta.Step, workspace string, envs, secretEnvs []string) error {
+func RunSteps(ctx context.Context, steps []*meta.Step, workspace, paths string, envs, secretEnvs []string) error {
 	for _, stepInfo := range steps {
-		if err := runStep(ctx, stepInfo, workspace, envs, secretEnvs); err != nil {
+		if err := runStep(ctx, stepInfo, workspace, paths, envs, secretEnvs); err != nil {
 			return err
 		}
 	}
 	return nil
 }
-func runStep(ctx context.Context, step *meta.Step, workspace string, envs, secretEnvs []string) error {
+func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string) error {
 	start := time.Now()
 	var stepInstance Step
 	var err error
@@ -54,7 +54,7 @@ func runStep(ctx context.Context, step *meta.Step, workspace string, envs, secre
 	}()
 	switch step.StepType {
 	case "shell":
-		stepInstance, err = NewShellStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs)
 		if err != nil {
 			return err
 		}
@@ -65,6 +65,11 @@ func runStep(ctx context.Context, step *meta.Step, workspace string, envs, secre
 		}
 	case "docker_build":
 		stepInstance, err = NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
+	case "tools":
+		stepInstance, err = NewToolInstallStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {
 			return err
 		}

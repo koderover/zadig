@@ -29,7 +29,7 @@ type JobContext struct {
 	// TaskID
 	TaskID int64 `yaml:"task_id"`
 	// Paths 执行脚本Path
-	Paths string `yaml:"-"`
+	Paths string `yaml:"paths"`
 
 	Steps   []*Step  `yaml:"steps"`
 	Outputs []string `yaml:"outputs"`

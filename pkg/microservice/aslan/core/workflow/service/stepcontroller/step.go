@@ -18,7 +18,7 @@ type StepCtl interface {
 	AfterRun(ctx context.Context)
 }
 
-func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
+func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
 	// inject global context into step spec.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		for _, step := range steps {
@@ -38,7 +38,7 @@ func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx
 
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, logger)
+		stepCtl, err := instantiateStepCtl(step, jobPath, logger)
 		if err != nil {
 			return err
 		}
@@ -50,10 +50,10 @@ func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx
 	return nil
 }
 
-func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
+func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, logger)
+		stepCtl, err := instantiateStepCtl(step, jobPath, logger)
 		if err != nil {
 			return err
 		}
@@ -65,7 +65,7 @@ func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskC
 	return nil
 }
 
-func instantiateStepCtl(step *commonmodels.StepTask, logger *zap.SugaredLogger) (StepCtl, error) {
+func instantiateStepCtl(step *commonmodels.StepTask, jobPath *string, logger *zap.SugaredLogger) (StepCtl, error) {
 	var stepCtl StepCtl
 	var err error
 	switch step.StepType {
@@ -75,6 +75,8 @@ func instantiateStepCtl(step *commonmodels.StepTask, logger *zap.SugaredLogger) 
 		stepCtl, err = NewShellCtl(step, logger)
 	case config.StepDockerBuild:
 		stepCtl, err = NewDockerBuildCtl(step, logger)
+	case config.StepTools:
+		stepCtl, err = NewToolInstallCtl(step, jobPath, logger)
 	default:
 		logger.Infof("unknown step type: %s", step.StepType)
 	}

@@ -45,15 +45,18 @@ type FreestyleJobCtl struct {
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
 	kubeclient  crClient.Client
+	paths       *string
 	ack         func()
 }
 
 func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
+	paths := ""
 	return &FreestyleJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
 		logger:      logger,
 		ack:         ack,
+		paths:       &paths,
 		jobName:     fmt.Sprintf("%s-%s-%d", job.Name, job.JobType, workflowCtx.TaskID),
 	}
 }
@@ -262,5 +265,6 @@ func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 		TaskID:       workflowCtx.TaskID,
 		Outputs:      outputs,
 		Steps:        job.Steps,
+		Paths:        job.Properties.Paths,
 	}
 }

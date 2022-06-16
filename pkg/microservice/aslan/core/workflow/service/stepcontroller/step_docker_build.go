@@ -21,11 +21,11 @@ type dockerBuildCtl struct {
 func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*dockerBuildCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("marshal git spec error: %v", err)
+		return nil, fmt.Errorf("marshal docker build spec error: %v", err)
 	}
 	dockerBuildSpec := &step.StepDockerBuildSpec{}
 	if err := yaml.Unmarshal(yamlString, &dockerBuildSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal git spec error: %v", err)
+		return nil, fmt.Errorf("unmarshal docker build spec error: %v", err)
 	}
 	if dockerBuildSpec.Proxy == nil {
 		dockerBuildSpec.Proxy = &step.Proxy{}
