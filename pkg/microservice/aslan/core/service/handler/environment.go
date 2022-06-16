@@ -55,5 +55,5 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, ctx.Logger)
+	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, false, ctx.Logger)
 }
