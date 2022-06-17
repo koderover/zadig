@@ -92,7 +92,7 @@ func CreateServiceTemplate(c *gin.Context) {
 	}
 	args.CreateBy = ctx.UserName
 
-	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, args, false, ctx.Logger)
 }
 
 func UpdateServiceTemplate(c *gin.Context) {

@@ -89,7 +89,27 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, false, ctx.Logger)
+}
+
+func UpdateHelmService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
+
+	args := new(svcservice.HelmServiceCreationArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		return
+	}
+	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
+
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, true, ctx.Logger)
 }
 
 func CreateOrUpdateBulkHelmServices(c *gin.Context) {
@@ -109,10 +129,10 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectName, args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectName, args, false, ctx.Logger)
 }
 
-func UpdateHelmService(c *gin.Context) {
+func EditHelmService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -124,5 +144,5 @@ func UpdateHelmService(c *gin.Context) {
 	args.CreateBy = ctx.UserName
 	args.ProductName = c.Param("productName")
 
-	ctx.Err = svcservice.UpdateHelmService(args, ctx.Logger)
+	ctx.Err = svcservice.EditHelmService(args, ctx.Logger)
 }
