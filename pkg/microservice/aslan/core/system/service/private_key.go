@@ -34,10 +34,10 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-func ListPrivateKeys(encryptedKey, projectName, keyword string, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
+func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
 	var resp []*commonmodels.PrivateKey
 	var err error
-	privateKeys, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{ProjectName: projectName})
+	privateKeys, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{ProjectName: projectName, SystemOnly: systemOnly})
 	if err != nil {
 		log.Errorf("PrivateKey.List error: %s", err)
 		return resp, e.ErrListPrivateKeys
