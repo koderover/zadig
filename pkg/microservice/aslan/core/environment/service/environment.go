@@ -2135,7 +2135,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 			}()
 
 			if isDelete {
-				if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
+				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
 					for _, services := range productInfo.Services {
 						for _, service := range services {
 							if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
@@ -2144,7 +2144,9 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 						}
 					}
 				} else {
-					log.Errorf("获取helmClient err:%v", err)
+					log.Errorf("failed to get helmClient, err:%v", errHelmClient)
+					err = e.ErrDeleteEnv.AddErr(errHelmClient)
+					return
 				}
 
 				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
