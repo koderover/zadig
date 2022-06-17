@@ -46,7 +46,7 @@ func ListPMHosts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = systemservice.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), ctx.Logger)
+	ctx.Resp, ctx.Err = systemservice.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), false, ctx.Logger)
 }
 
 func GetPMHost(c *gin.Context) {
