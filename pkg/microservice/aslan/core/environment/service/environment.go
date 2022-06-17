@@ -2134,22 +2134,24 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 			}()
 
-			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
-				for _, services := range productInfo.Services {
-					for _, service := range services {
-						if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
-							log.Errorf("UninstallRelease err:%v", err)
+			if isDelete {
+				if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
+					for _, services := range productInfo.Services {
+						for _, service := range services {
+							if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
+								log.Errorf("UninstallRelease err:%v", err)
+							}
 						}
 					}
+				} else {
+					log.Errorf("获取helmClient err:%v", err)
 				}
-			} else {
-				log.Errorf("获取helmClient err:%v", err)
-			}
 
-			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-			if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
-				err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
-				return
+				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+				if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
+					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
+					return
+				}
 			}
 		}()
 	case setting.SourceFromExternal:
