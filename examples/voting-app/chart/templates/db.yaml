@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: db
+  name: db
+spec:
+  replicas: {{ .Values.services.db.replicas }}
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - image: {{ .Values.services.db.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        name: postgres
+        ports:
+        - containerPort: {{ .Values.services.db.port }}
+          name: postgres
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: db-data
+        env:
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: trust
+        resources:
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+      volumes:
+      - name: db-data
+        emptyDir: {} 
+      imagePullSecrets:
+      - name: {{ .Values.imagePullSecretsName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: db
+  name: db
+spec:
+  type: ClusterIP
+  ports:
+  - name: "db-service"
+    port: {{ .Values.services.db.port }}
+    targetPort: {{ .Values.services.db.port }}
+  selector:
+    app: db
