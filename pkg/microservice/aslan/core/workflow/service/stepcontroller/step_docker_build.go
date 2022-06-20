@@ -33,7 +33,7 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 	return &dockerBuildCtl{dockerBuildSpec: dockerBuildSpec, log: log, step: stepTask}, nil
 }
 
-func (s *dockerBuildCtl) PreRun(ctx context.Context) {
+func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
 	s.dockerBuildSpec.DockerRegistry = &step.DockerRegistry{
 		UserName:  config.RegistryAccessKey(),
 		Password:  config.RegistrySecretKey(),
@@ -52,8 +52,13 @@ func (s *dockerBuildCtl) PreRun(ctx context.Context) {
 		s.dockerBuildSpec.Proxy.Username = proxies[0].Username
 	}
 	s.step.Spec = s.dockerBuildSpec
+	return nil
 }
 
-func (s *dockerBuildCtl) AfterRun(ctx context.Context) {
+func (s *dockerBuildCtl) Run(ctx context.Context) (config.Status, error) {
+	return config.StatusPassed, nil
+}
 
+func (s *dockerBuildCtl) AfterRun(ctx context.Context) error {
+	return nil
 }

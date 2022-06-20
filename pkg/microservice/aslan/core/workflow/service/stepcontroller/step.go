@@ -13,9 +13,12 @@ import (
 
 type StepCtl interface {
 	// get required info from aslan before job run.
-	PreRun(ctx context.Context)
+	PreRun(ctx context.Context) error
+	// run specific step, now only use for deploy job (freestyle job merge step together)
+	Run(ctx context.Context) (config.Status, error)
+
 	// collect required info after job run.(like test report)
-	AfterRun(ctx context.Context)
+	AfterRun(ctx context.Context) error
 }
 
 func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
@@ -38,34 +41,56 @@ func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx
 
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, jobPath, logger)
+		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, logger)
 		if err != nil {
 			return err
 		}
 		stepCtls = append(stepCtls, stepCtl)
 	}
 	for _, stepCtl := range stepCtls {
-		stepCtl.PreRun(ctx)
+		if err := stepCtl.PreRun(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func RunSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) (config.Status, error) {
+	stepCtls := []StepCtl{}
+	for _, step := range steps {
+		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, logger)
+		if err != nil {
+			return config.StatusFailed, err
+		}
+		stepCtls = append(stepCtls, stepCtl)
+	}
+	for _, stepCtl := range stepCtls {
+		status, err := stepCtl.Run(ctx)
+		if err != nil || status != config.StatusPassed {
+			return status, err
+		}
+	}
+	return config.StatusPassed, nil
 }
 
 func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, jobPath, logger)
+		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, logger)
 		if err != nil {
 			return err
 		}
 		stepCtls = append(stepCtls, stepCtl)
 	}
 	for _, stepCtl := range stepCtls {
-		stepCtl.AfterRun(ctx)
+		if err := stepCtl.AfterRun(ctx); err != nil {
+			return nil
+		}
 	}
 	return nil
 }
 
-func instantiateStepCtl(step *commonmodels.StepTask, jobPath *string, logger *zap.SugaredLogger) (StepCtl, error) {
+func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, logger *zap.SugaredLogger) (StepCtl, error) {
 	var stepCtl StepCtl
 	var err error
 	switch step.StepType {
@@ -78,7 +103,11 @@ func instantiateStepCtl(step *commonmodels.StepTask, jobPath *string, logger *za
 	case config.StepTools:
 		stepCtl, err = NewToolInstallCtl(step, jobPath, logger)
 	case config.StepArchive:
-		stepCtl, err = NewArchiveInstallCtl(step, logger)
+		stepCtl, err = NewArchiveCtl(step, logger)
+	case config.StepDeploy:
+		stepCtl, err = NewDeployCtl(step, workflowCtx, logger)
+	case config.StepHelmDeploy:
+		stepCtl, err = NewHelmDeployCtl(step, workflowCtx, logger)
 	default:
 		logger.Infof("unknown step type: %s", step.StepType)
 	}

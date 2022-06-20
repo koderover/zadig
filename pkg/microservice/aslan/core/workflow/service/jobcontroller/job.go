@@ -73,7 +73,14 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	var jobCtl JobCtl
 	switch job.JobType {
 	case "deploy":
-		// TODO
+		// do deploy inside aslan instead of jobexecutor.
+		status, err := stepcontroller.RunSteps(ctx, workflowCtx, &job.Properties.Paths, job.Steps, logger)
+		job.Status = status
+		if err != nil {
+			logger.Error(err)
+			job.Error = err.Error()
+		}
+		return
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

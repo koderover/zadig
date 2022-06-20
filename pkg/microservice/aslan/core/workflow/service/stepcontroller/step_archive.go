@@ -18,19 +18,19 @@ type archiveCtl struct {
 	log              *zap.SugaredLogger
 }
 
-func NewArchiveInstallCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*archiveCtl, error) {
+func NewArchiveCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*archiveCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal tool install spec error: %v", err)
 	}
-	toolInstallSpec := &step.StepArchiveSpec{}
-	if err := yaml.Unmarshal(yamlString, &toolInstallSpec); err != nil {
+	archiveSpec := &step.StepArchiveSpec{}
+	if err := yaml.Unmarshal(yamlString, &archiveSpec); err != nil {
 		return nil, fmt.Errorf("unmarshal git spec error: %v", err)
 	}
-	return &archiveCtl{toolInstalldSpec: toolInstallSpec, log: log, step: stepTask}, nil
+	return &archiveCtl{toolInstalldSpec: archiveSpec, log: log, step: stepTask}, nil
 }
 
-func (s *archiveCtl) PreRun(ctx context.Context) {
+func (s *archiveCtl) PreRun(ctx context.Context) error {
 	spec := &step.StepArchiveSpec{
 		FilePath:        s.toolInstalldSpec.FilePath,
 		AbsFilePath:     s.toolInstalldSpec.AbsFilePath,
@@ -46,7 +46,7 @@ func (s *archiveCtl) PreRun(ctx context.Context) {
 	}
 	if s.toolInstalldSpec.S3StorageID == "" {
 		s.toolInstalldSpec = spec
-		return
+		return nil
 	}
 	objectStorage, _ := mongodb.NewS3StorageColl().Find(s.toolInstalldSpec.S3StorageID)
 	if objectStorage != nil {
@@ -61,8 +61,13 @@ func (s *archiveCtl) PreRun(ctx context.Context) {
 		}
 	}
 	s.step.Spec = spec
+	return nil
 }
 
-func (s *archiveCtl) AfterRun(ctx context.Context) {
+func (s *archiveCtl) Run(ctx context.Context) (config.Status, error) {
+	return config.StatusPassed, nil
+}
 
+func (s *archiveCtl) AfterRun(ctx context.Context) error {
+	return nil
 }

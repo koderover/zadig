@@ -28,12 +28,12 @@ func NewToolInstallCtl(stepTask *commonmodels.StepTask, jobPath *string, log *za
 	}
 	toolInstallSpec := &step.StepToolInstallSpec{}
 	if err := yaml.Unmarshal(yamlString, &toolInstallSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal git spec error: %v", err)
+		return nil, fmt.Errorf("unmarshal tool spec error: %v", err)
 	}
 	return &toolInstallCtl{toolInstalldSpec: toolInstallSpec, jobPath: jobPath, log: log, step: stepTask}, nil
 }
 
-func (s *toolInstallCtl) PreRun(ctx context.Context) {
+func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 	install, err := buildInstallCtx(s.toolInstalldSpec.Name, s.toolInstalldSpec.Version)
 	if err != nil {
 		s.log.Error(err)
@@ -73,11 +73,15 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) {
 	} else {
 		*s.jobPath = install.BinPath
 	}
-
+	return nil
 }
 
-func (s *toolInstallCtl) AfterRun(ctx context.Context) {
+func (s *toolInstallCtl) Run(ctx context.Context) (config.Status, error) {
+	return config.StatusPassed, nil
+}
 
+func (s *toolInstallCtl) AfterRun(ctx context.Context) error {
+	return nil
 }
 
 //根据用户的配置和BuildStep中步骤的依赖，从系统配置的InstallItems中获取配置项，构建Install Context

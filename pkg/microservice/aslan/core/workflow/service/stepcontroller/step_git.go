@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -34,17 +35,17 @@ func NewGitCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*gitCtl
 	return &gitCtl{gitSpec: gitSpec, log: log, step: stepTask}, nil
 }
 
-func (s *gitCtl) PreRun(ctx context.Context) {
+func (s *gitCtl) PreRun(ctx context.Context) error {
 	for _, repo := range s.gitSpec.Repos {
 		cID := repo.CodeHostID
 		if cID == 0 {
 			log.Error("codehostID can't be empty")
-			return
+			return nil
 		}
 		detail, err := systemconfig.New().GetCodeHost(cID)
 		if err != nil {
 			s.log.Error(err)
-			return
+			return nil
 		}
 		repo.Source = detail.Type
 		repo.OauthToken = detail.AccessToken
@@ -65,8 +66,13 @@ func (s *gitCtl) PreRun(ctx context.Context) {
 		s.gitSpec.Proxy.Username = proxies[0].Username
 	}
 	s.step.Spec = s.gitSpec
+	return nil
 }
 
-func (s *gitCtl) AfterRun(ctx context.Context) {
+func (s *gitCtl) Run(ctx context.Context) (config.Status, error) {
+	return config.StatusPassed, nil
+}
 
+func (s *gitCtl) AfterRun(ctx context.Context) error {
+	return nil
 }
