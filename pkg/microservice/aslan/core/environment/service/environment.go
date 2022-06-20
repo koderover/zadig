@@ -2121,11 +2121,11 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 		}
 
 		go func() {
-			var err error
+			errList := &multierror.Error{}
 			defer func() {
-				if err != nil {
+				if errList.ErrorOrNil() != nil {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
-					commonservice.SendErrorMessage(username, title, requestID, err, log)
+					commonservice.SendErrorMessage(username, title, requestID, errList.ErrorOrNil(), log)
 					_ = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
 				} else {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 成功!", productName, envName)
@@ -2134,22 +2134,25 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 			}()
 
-			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
-				for _, services := range productInfo.Services {
-					for _, service := range services {
+			if isDelete {
+				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
+					for _, service := range productInfo.GetServiceMap() {
 						if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
-							log.Errorf("UninstallRelease err:%v", err)
+							log.Warnf("UninstallRelease for service %s err:%s", service.ServiceName, err)
+							errList = multierror.Append(errList, err)
 						}
 					}
+				} else {
+					log.Errorf("failed to get helmClient, err: %s", errHelmClient)
+					errList = multierror.Append(errList, e.ErrDeleteEnv.AddErr(errHelmClient))
+					return
 				}
-			} else {
-				log.Errorf("获取helmClient err:%v", err)
-			}
 
-			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-			if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
-				err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
-				return
+				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+				if err := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+					errList = multierror.Append(errList, e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg+": "+err.Error()))
+					return
+				}
 			}
 		}()
 	case setting.SourceFromExternal:
