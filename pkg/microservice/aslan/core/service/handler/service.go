@@ -90,9 +90,15 @@ func CreateServiceTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ServiceTmpl json args")
 		return
 	}
+
+	force, err := strconv.ParseBool(c.Query("force"))
+	if err != nil {
+		e.ErrInvalidParam.AddDesc("force params error")
+	}
+
 	args.CreateBy = ctx.UserName
 
-	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, args, false, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, args, force, ctx.Logger)
 }
 
 func UpdateServiceTemplate(c *gin.Context) {
