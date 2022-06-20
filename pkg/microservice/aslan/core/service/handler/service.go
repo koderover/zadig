@@ -93,7 +93,8 @@ func CreateServiceTemplate(c *gin.Context) {
 
 	force, err := strconv.ParseBool(c.Query("force"))
 	if err != nil {
-		e.ErrInvalidParam.AddDesc("force params error")
+		ctx.Err = e.ErrInvalidParam.AddDesc("force params error")
+		return
 	}
 
 	args.CreateBy = ctx.UserName
