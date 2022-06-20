@@ -473,8 +473,7 @@ func checkWebhookTaskNamespace(currentTask *task.Task) bool {
 		if t.PipelineName != currentTask.PipelineName {
 			continue
 		}
-
-		if !runningNamespaces.Has(t.WorkflowArgs.Namespace) {
+		if t.WorkflowArgs != nil && !runningNamespaces.Has(t.WorkflowArgs.Namespace) {
 			runningNamespaces.Insert(t.WorkflowArgs.Namespace)
 		}
 	}
