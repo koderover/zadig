@@ -415,7 +415,7 @@ func ParallelRunningAndQueuedTasks(currentTask *task.Task) bool {
 		return false
 	}
 	//如果是产品工作流判断是否设置了并行
-	if currentTask.Type == config.WorkflowType && !currentTask.WorkflowArgs.IsParallel {
+	if currentTask.Type == config.WorkflowType && currentTask.WorkflowArgs != nil && !currentTask.WorkflowArgs.IsParallel {
 		return false
 	}
 	//优先处理webhook
@@ -473,11 +473,12 @@ func checkWebhookTaskNamespace(currentTask *task.Task) bool {
 		if t.PipelineName != currentTask.PipelineName {
 			continue
 		}
+
 		if t.WorkflowArgs != nil && !runningNamespaces.Has(t.WorkflowArgs.Namespace) {
 			runningNamespaces.Insert(t.WorkflowArgs.Namespace)
 		}
 	}
-	if !runningNamespaces.Has(currentTask.WorkflowArgs.Namespace) && currentTask.WorkflowArgs.IsParallel {
+	if currentTask.WorkflowArgs != nil && !runningNamespaces.Has(currentTask.WorkflowArgs.Namespace) && currentTask.WorkflowArgs.IsParallel {
 		return true
 	}
 
