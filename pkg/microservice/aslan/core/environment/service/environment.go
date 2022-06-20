@@ -1261,7 +1261,7 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
-	currentProductService := productResp.Services
+
 	// create product data from product template
 	templateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
 	if err != nil {
@@ -1278,17 +1278,16 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 		serviceNeedUpdateOrCreate.Insert(chart.ServiceName)
 	}
 
+	productServiceMap := productResp.GetServiceMap()
+
 	// get deleted services map[serviceName]=>serviceRevision
-	for _, svcGroup := range currentProductService {
-		for _, svc := range svcGroup {
-			if deletedSvcSet.Has(svc.ServiceName) {
-				deletedSvcRevision[svc.ServiceName] = svc.Revision
-			}
+	for _, svc := range productServiceMap {
+		if deletedSvcSet.Has(svc.ServiceName) {
+			deletedSvcRevision[svc.ServiceName] = svc.Revision
 		}
 	}
 
 	// use service definition from service template, but keep the image info
-	productServiceMap := productResp.GetServiceMap()
 	allServices := make([][]*commonmodels.ProductService, 0)
 	for _, svrs := range templateProd.Services {
 		svcGroup := make([]*commonmodels.ProductService, 0)
@@ -1330,9 +1329,10 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
+
 	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
-		err := updateProductGroup(username, productName, envName, productResp, currentProductService, overrideCharts, deletedSvcRevision, log)
+		err := updateProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -1891,9 +1891,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 		if productRevision.ProductName != productName || !envNameSet.Has(productRevision.EnvName) {
 			continue
 		}
-		if !productRevision.Updatable {
-			continue
-		}
+		// NOTE. there is no need to check if product is updatable anymore
 		productMap[productRevision.EnvName] = productRevision
 		if len(productMap) == len(envNames) {
 			break
@@ -3432,12 +3430,8 @@ func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, 
 	return errList
 }
 
-func updateProductGroup(username, productName, envName string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService,
+func updateProductGroup(username, productName, envName string, productResp *commonmodels.Product,
 	overrideCharts []*commonservice.RenderChartArg, deletedSvcRevision map[string]int64, log *zap.SugaredLogger) error {
-	var (
-		productServiceMap      = make(map[string]*commonmodels.ProductService)
-		productTemplServiceMap = make(map[string]*commonmodels.ProductService)
-	)
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -3450,18 +3444,6 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
 		}
-	}
-
-	// current service applied in product
-	for _, serviceGroup := range currentProductServices {
-		for _, service := range serviceGroup {
-			productServiceMap[service.ServiceName] = service
-		}
-	}
-
-	// services need to keep in product
-	for _, service := range productResp.GetServiceMap() {
-		productTemplServiceMap[service.ServiceName] = service
 	}
 
 	renderSet, err := diffRenderSet(username, productName, envName, productResp, overrideCharts, log)
