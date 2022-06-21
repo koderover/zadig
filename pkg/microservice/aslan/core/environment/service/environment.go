@@ -922,6 +922,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 				}
 				container := &commonmodels.Container{
 					Name:      c.Name,
+					ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					Image:     image,
 					ImagePath: c.ImagePath,
 				}

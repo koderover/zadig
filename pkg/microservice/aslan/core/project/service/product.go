@@ -50,6 +50,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type CustomParseDataArgs struct {
@@ -543,6 +544,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 						Name:      c.Name,
 						Image:     c.Image,
 						ImagePath: c.ImagePath,
+						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
