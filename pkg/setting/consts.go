@@ -104,6 +104,9 @@ const (
 	// jenkins
 	JenkinsBuildImage = "JENKINS_BUILD_IMAGE"
 
+	// dind
+	DindImage = "DIND_IMAGE"
+
 	DebugMode   = "debug"
 	ReleaseMode = "release"
 	TestMode    = "test"
