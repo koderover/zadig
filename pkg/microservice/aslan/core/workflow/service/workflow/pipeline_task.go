@@ -345,24 +345,42 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		}
 		existSvc := false
 		if buildStage != nil {
-			for serviceName := range buildStage.SubTasks {
+			for serviceName, subTask := range buildStage.SubTasks {
+				buildInfo, err := base.ToBuildTask(subTask)
+				containerName := buildInfo.Service
+				if err != nil {
+					log.Errorf("get buildInfo failed ! err: %s", err)
+					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get build info for task: %d, err: %s", t.TaskID, err))
+				}
 				if queryType == "serviceName" {
-					containerName := strings.Split(serviceName, "_")[0]
 					if _, ok := serviceNameFiltersMap[containerName]; ok {
 						existSvc = true
 					}
 				}
 				t.BuildServices = append(t.BuildServices, serviceName)
+				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
+					ServiceName:   containerName,
+					ServiceModule: strings.TrimSuffix(serviceName, "_"+buildInfo.Service),
+				})
 			}
 		} else if deployStage != nil {
-			for serviceName := range deployStage.SubTasks {
+			for serviceName, subTask := range deployStage.SubTasks {
+				deployInfo, err := base.ToDeployTask(subTask)
+				containerName := deployInfo.ServiceName
+				if err != nil {
+					log.Errorf("get deployInfo failed ! err: %s", err)
+					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get deploy info for task: %d, err: %s", t.TaskID, err))
+				}
 				if queryType == "serviceName" {
-					containerName := strings.Split(serviceName, "_")[0]
 					if _, ok := serviceNameFiltersMap[containerName]; ok {
 						existSvc = true
 					}
 				}
 				t.BuildServices = append(t.BuildServices, serviceName)
+				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
+					ServiceName:   containerName,
+					ServiceModule: strings.TrimSuffix(serviceName, "_"+deployInfo.ServiceName),
+				})
 			}
 		}
 		buildStage, deployStage = nil, nil
