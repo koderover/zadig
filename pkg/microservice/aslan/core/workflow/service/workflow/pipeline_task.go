@@ -347,11 +347,11 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		if buildStage != nil {
 			for serviceName, subTask := range buildStage.SubTasks {
 				buildInfo, err := base.ToBuildTask(subTask)
-				serviceModule := strings.TrimSuffix(serviceName, "_"+buildInfo.Service)
 				if err != nil {
 					log.Errorf("get buildInfo failed ! err: %s", err)
 					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get build info for task: %d, err: %s", t.TaskID, err))
 				}
+				serviceModule := strings.TrimSuffix(serviceName, "_"+buildInfo.Service)
 				if queryType == "serviceName" {
 					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
 						existSvc = true
@@ -366,11 +366,11 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		} else if deployStage != nil {
 			for serviceName, subTask := range deployStage.SubTasks {
 				deployInfo, err := base.ToDeployTask(subTask)
-				serviceModule := strings.TrimSuffix(serviceName, "_"+deployInfo.ServiceName)
 				if err != nil {
 					log.Errorf("get deployInfo failed ! err: %s", err)
 					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get deploy info for task: %d, err: %s", t.TaskID, err))
 				}
+				serviceModule := strings.TrimSuffix(serviceName, "_"+deployInfo.ServiceName)
 				if queryType == "serviceName" {
 					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
 						existSvc = true
