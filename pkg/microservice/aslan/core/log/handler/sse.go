@@ -96,15 +96,16 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 
 	subTask := c.Query("subTask")
 	options := &logservice.GetContainerOptions{
-		Namespace:    config.Namespace(),
-		PipelineName: c.Param("pipelineName"),
-		SubTask:      subTask,
-		TailLines:    tails,
-		TaskID:       taskID,
-		ServiceName:  c.Param("serviceName"),
-		PipelineType: string(config.WorkflowType),
-		EnvName:      c.Query("envName"),
-		ProductName:  c.Query("projectName"),
+		Namespace:     config.Namespace(),
+		PipelineName:  c.Param("pipelineName"),
+		SubTask:       subTask,
+		TailLines:     tails,
+		TaskID:        taskID,
+		ServiceName:   c.Param("serviceName"),
+		ServiceModule: c.Query("serviceModule"),
+		PipelineType:  string(config.WorkflowType),
+		EnvName:       c.Query("envName"),
+		ProductName:   c.Query("projectName"),
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
