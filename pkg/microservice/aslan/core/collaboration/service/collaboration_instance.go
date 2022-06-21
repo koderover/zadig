@@ -1134,25 +1134,27 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			}
 		}
 	}
-	renderSets, err := getRenderSet(projectName, newProductName.List())
-	if err != nil {
-		logger.Errorf("getRenderSet error:%s", err)
-		return nil, err
-	}
-	if renderSets != nil {
-		productRenderSetMap := make(map[string]models2.RenderSet)
-		for _, set := range renderSets {
-			productRenderSetMap[set.EnvName] = set
+	if len(newProduct) > 0 && newProduct[0].DeployType == setting.K8SDeployType {
+		renderSets, err := getRenderSet(projectName, newProductName.List())
+		if err != nil {
+			logger.Errorf("getRenderSet error:%s", err)
+			return nil, err
 		}
-		for _, product := range newProduct {
-			set, ok := productRenderSetMap[product.BaseName]
-			if !ok {
-				logger.Warnf("product:%s renderSet not exist", product.BaseName)
-				continue
+		if renderSets != nil {
+			productRenderSetMap := make(map[string]models2.RenderSet)
+			for _, set := range renderSets {
+				productRenderSetMap[set.EnvName] = set
 			}
+			for _, product := range newProduct {
+				set, ok := productRenderSetMap[product.BaseName]
+				if !ok {
+					logger.Warnf("product:%s renderSet not exist", product.BaseName)
+					continue
+				}
 
-			product.Vars = set.KVs
-			product.DefaultValues = set.DefaultValues
+				product.Vars = set.KVs
+				product.DefaultValues = set.DefaultValues
+			}
 		}
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
