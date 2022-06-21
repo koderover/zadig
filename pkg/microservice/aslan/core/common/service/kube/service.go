@@ -280,6 +280,7 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			DindReplicas:        dindReplicas,
 			DindLimitsCPU:       dindLimitsCPU,
 			DindLimitsMemory:    dindLimitsMemory,
+			DindImage:           config.DindImage(),
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -293,6 +294,7 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 			DindReplicas:        dindReplicas,
 			DindLimitsCPU:       dindLimitsCPU,
 			DindLimitsMemory:    dindLimitsMemory,
+			DindImage:           config.DindImage(),
 		})
 	}
 
@@ -345,6 +347,7 @@ type TemplateSchema struct {
 	DindReplicas        int
 	DindLimitsCPU       string
 	DindLimitsMemory    string
+	DindImage           string
 }
 
 const (
@@ -573,7 +576,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
+          image: {{.DindImage}}
           args:
             - --mtu=1376
           env:
@@ -825,7 +828,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
+          image: {{.DindImage}}
           args:
             - --mtu=1376
           env:
