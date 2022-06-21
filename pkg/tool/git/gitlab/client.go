@@ -65,6 +65,8 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 		ch, err := systemconfig.New().GetCodeHost(id)
 		// The normal expiration time is 7200
 		if err == nil && (time.Now().Unix()-ch.UpdatedAt) >= 7000 {
+			log.Infof("Refreshing gitlab access token.")
+			oldToken := ch.AccessToken
 			token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
 			if err == nil {
 				accessToken = token.AccessToken
@@ -78,6 +80,7 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 			} else {
 				log.Errorf("failed to refresh accessToken, err:%s", err)
 			}
+			log.Infof("AccessToken changed from %s to %s.", oldToken, token.AccessToken)
 		} else if err != nil {
 			log.Errorf("failed to get codeHost id: %d, err:%s", id, err)
 		}
