@@ -347,39 +347,39 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		if buildStage != nil {
 			for serviceName, subTask := range buildStage.SubTasks {
 				buildInfo, err := base.ToBuildTask(subTask)
-				containerName := buildInfo.Service
+				serviceModule := strings.TrimSuffix(serviceName, "_"+buildInfo.Service)
 				if err != nil {
 					log.Errorf("get buildInfo failed ! err: %s", err)
 					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get build info for task: %d, err: %s", t.TaskID, err))
 				}
 				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[containerName]; ok {
+					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
 						existSvc = true
 					}
 				}
 				t.BuildServices = append(t.BuildServices, serviceName)
 				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
-					ServiceName:   containerName,
-					ServiceModule: strings.TrimSuffix(serviceName, "_"+buildInfo.Service),
+					ServiceName:   buildInfo.Service,
+					ServiceModule: serviceModule,
 				})
 			}
 		} else if deployStage != nil {
 			for serviceName, subTask := range deployStage.SubTasks {
 				deployInfo, err := base.ToDeployTask(subTask)
-				containerName := deployInfo.ServiceName
+				serviceModule := strings.TrimSuffix(serviceName, "_"+deployInfo.ServiceName)
 				if err != nil {
 					log.Errorf("get deployInfo failed ! err: %s", err)
 					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get deploy info for task: %d, err: %s", t.TaskID, err))
 				}
 				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[containerName]; ok {
+					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
 						existSvc = true
 					}
 				}
 				t.BuildServices = append(t.BuildServices, serviceName)
 				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
-					ServiceName:   containerName,
-					ServiceModule: strings.TrimSuffix(serviceName, "_"+deployInfo.ServiceName),
+					ServiceName:   deployInfo.ServiceName,
+					ServiceModule: serviceModule,
 				})
 			}
 		}
