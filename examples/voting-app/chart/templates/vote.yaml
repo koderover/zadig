@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   labels:
     app: vote
-  name: vote-rc-origin
+  name: vote
 spec:
   replicas: {{ .Values.services.vote.replicas }}
   selector:
