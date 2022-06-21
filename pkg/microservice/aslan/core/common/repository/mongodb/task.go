@@ -59,6 +59,11 @@ type FindTaskOption struct {
 	Type         config.PipelineType
 }
 
+type ServiceModule struct {
+	ServiceModule string `json:"service_module"`
+	ServiceName   string `json:"service_name"`
+}
+
 type TaskPreview struct {
 	TaskID       int64                     `bson:"task_id"               json:"task_id"`
 	TaskCreator  string                    `bson:"task_creator"          json:"task_creator"`
@@ -77,8 +82,9 @@ type TaskPreview struct {
 	Type         config.PipelineType       `bson:"type"                  json:"type"`
 	Stages       []*models.Stage           `bson:"stages"                json:"stages,omitempty"`
 	// 服务名称，用于任务列表的展示
-	BuildServices []string          `bson:"-"                     json:"build_services"`
-	TriggerBy     *models.TriggerBy `bson:"trigger_by,omitempty"  json:"trigger_by,omitempty"`
+	BuildServices  []string          `bson:"-"                     json:"build_services"`
+	ServiceModules []*ServiceModule  `bson:"-"                     json:"service_modules"`
+	TriggerBy      *models.TriggerBy `bson:"trigger_by,omitempty"  json:"trigger_by,omitempty"`
 }
 
 type ListAllTaskOption struct {
