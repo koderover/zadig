@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: result
+  name: result
+spec:
+  replicas: {{ .Values.services.vote.replicas }}
+  selector:
+    matchLabels:
+      app: result
+  template:
+    metadata:
+      labels:
+        app: result
+    spec:
+      containers:
+      - image: {{ .Values.services.result.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        name: result-e2e
+        ports:
+        - containerPort: 80
+          name: result
+        resources:
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.imagePullSecretsName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: result
+    version: rc-origin
+  name: result
+spec:
+  type: NodePort
+  ports:
+  - name: "result-service"
+    port: {{ .Values.services.result.port }}
+    targetPort: 80
+  selector:
+    app: result
+

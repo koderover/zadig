@@ -345,24 +345,42 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		}
 		existSvc := false
 		if buildStage != nil {
-			for serviceName := range buildStage.SubTasks {
+			for serviceName, subTask := range buildStage.SubTasks {
+				buildInfo, err := base.ToBuildTask(subTask)
+				if err != nil {
+					log.Errorf("get buildInfo failed ! err: %s", err)
+					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get build info for task: %d, err: %s", t.TaskID, err))
+				}
+				serviceModule := strings.TrimSuffix(serviceName, "_"+buildInfo.Service)
 				if queryType == "serviceName" {
-					containerName := strings.Split(serviceName, "_")[0]
-					if _, ok := serviceNameFiltersMap[containerName]; ok {
+					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
 						existSvc = true
 					}
 				}
 				t.BuildServices = append(t.BuildServices, serviceName)
+				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
+					ServiceName:   buildInfo.Service,
+					ServiceModule: serviceModule,
+				})
 			}
 		} else if deployStage != nil {
-			for serviceName := range deployStage.SubTasks {
+			for serviceName, subTask := range deployStage.SubTasks {
+				deployInfo, err := base.ToDeployTask(subTask)
+				if err != nil {
+					log.Errorf("get deployInfo failed ! err: %s", err)
+					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get deploy info for task: %d, err: %s", t.TaskID, err))
+				}
+				serviceModule := strings.TrimSuffix(serviceName, "_"+deployInfo.ServiceName)
 				if queryType == "serviceName" {
-					containerName := strings.Split(serviceName, "_")[0]
-					if _, ok := serviceNameFiltersMap[containerName]; ok {
+					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
 						existSvc = true
 					}
 				}
 				t.BuildServices = append(t.BuildServices, serviceName)
+				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
+					ServiceName:   deployInfo.ServiceName,
+					ServiceModule: serviceModule,
+				})
 			}
 		}
 		buildStage, deployStage = nil, nil

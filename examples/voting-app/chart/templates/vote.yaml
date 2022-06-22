@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vote
+  name: vote
+spec:
+  replicas: {{ .Values.services.vote.replicas }}
+  selector:
+    matchLabels:
+      app: vote
+      version: rc-origin
+  template:
+    metadata:
+      labels:
+        app: vote
+        version: rc-origin
+    spec:
+      containers:
+      - image: {{ .Values.services.vote.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        name: vote-e2e
+        ports:
+        - containerPort: 80
+          name: vote
+        resources:
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.imagePullSecretsName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: vote
+  name: vote
+spec:
+  type: NodePort
+  ports:
+  - name: "vote-service"
+    port: {{ .Values.services.vote.port }}
+    targetPort: 80
+  selector:
+    app: vote
+    version: rc-origin
+
