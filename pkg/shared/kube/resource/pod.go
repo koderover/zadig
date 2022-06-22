@@ -28,6 +28,9 @@ type Pod struct {
 	NodeName             string            `json:"node_name"`
 	HostIP               string            `json:"host_ip"`
 	EnableDebugContainer bool              `json:"enable_debug_container"`
+	PodReady             bool              `json:"pod_ready"`
+	ContainersReady      bool              `json:"containers_ready"`
+	ContainersMessage    string            `json:"containers_message"`
 }
 
 type Container struct {
@@ -35,6 +38,7 @@ type Container struct {
 	Image        string `json:"image"`
 	RestartCount int32  `json:"restart_count"`
 	Status       string `json:"status"`
+	Ready        bool   `json:"ready"`
 	// Message regarding the last termination of the container
 	Message string `json:"message"`
 	// reason from the last termination of the container
