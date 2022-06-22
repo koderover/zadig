@@ -19,9 +19,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -70,22 +70,28 @@ func run() error {
 	log.Infof("Migrating from %s to %s", from, to)
 
 	versionSets := sets.NewString()
-
 	for _, rh := range upgradepath.RegisteredHandlers {
 		versionSets.Insert(rh.FromVersion, rh.ToVersion)
 	}
-	upgradepath.VersionDatas = versionSets.List()
-	sort.Strings(upgradepath.VersionDatas)
 
 	if len(from) == 0 {
 		from = oldestVersion
 	}
 	if len(to) == 0 {
-		to = upgradepath.VersionDatas[len(upgradepath.VersionDatas)-1]
+		return fmt.Errorf("target version not assigned")
 	}
 	versionSets.Insert(from, to)
-	upgradepath.VersionDatas = versionSets.List()
-	sort.Strings(upgradepath.VersionDatas)
+
+	for _, verStr := range versionSets.List() {
+		semVersion, err := semver.Make(verStr)
+		if err != nil {
+			return fmt.Errorf("failed to parse version: %s, err: %s", verStr, err)
+		}
+		upgradepath.VersionDatas = append(upgradepath.VersionDatas, semVersion)
+	}
+
+	// sort versions by semver orders
+	semver.Sort(upgradepath.VersionDatas)
 
 	// add default handlers
 	for i := 0; i < len(upgradepath.VersionDatas)-1; i++ {
