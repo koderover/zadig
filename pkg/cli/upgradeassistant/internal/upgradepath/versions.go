@@ -23,16 +23,11 @@ import (
 
 var VersionDatas versionList
 
-type versionList []string
+type versionList semver.Versions
 
 func (v versionList) VersionIndex(version string) int {
-	t, err := semver.Make(version)
-	if err != nil {
-		return 0
-	}
-
 	for index, _version := range VersionDatas {
-		if _version == t.FinalizeVersion() {
+		if _version.String() == version {
 			return index
 		}
 	}
