@@ -79,19 +79,20 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 
 // 产品列表页服务Response
 type ServiceResp struct {
-	ServiceName        string              `json:"service_name"`
-	ServiceDisplayName string              `json:"service_display_name"`
-	Type               string              `json:"type"`
-	Status             string              `json:"status"`
-	Images             []string            `json:"images,omitempty"`
-	ProductName        string              `json:"product_name"`
-	EnvName            string              `json:"env_name"`
-	Ingress            *IngressInfo        `json:"ingress"`
-	Ready              string              `json:"ready"`
-	EnvStatuses        []*models.EnvStatus `json:"env_statuses,omitempty"`
-	WorkLoadType       string              `json:"workLoadType"`
-	Revision           int64               `json:"revision"`
-	EnvConfigs         []*models.EnvConfig `json:"env_configs"`
+	ServiceName        string       `json:"service_name"`
+	ServiceDisplayName string       `json:"service_display_name"`
+	Type               string       `json:"type"`
+	Status             string       `json:"status"`
+	Images             []string     `json:"images,omitempty"`
+	ProductName        string       `json:"product_name"`
+	EnvName            string       `json:"env_name"`
+	Ingress            *IngressInfo `json:"ingress"`
+	//deprecated
+	Ready        string              `json:"ready"`
+	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
+	WorkLoadType string              `json:"workLoadType"`
+	Revision     int64               `json:"revision"`
+	EnvConfigs   []*models.EnvConfig `json:"env_configs"`
 }
 
 type IngressInfo struct {
