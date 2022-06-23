@@ -618,7 +618,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, label := range resp.Labels {
 			ids = append(ids, label.ID.Hex())
 		}
-		err = service.DeleteLabels(ids, true, logger)
+		err = service.DeleteLabels(ids, true, userName, logger)
 		if err != nil {
 			logger.Errorf("delete labels error, error msg:%s", err)
 			return err
@@ -1283,7 +1283,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 		labelIds = append(labelIds, l.ID.Hex())
 	}
 
-	err = service.DeleteLabels(labelIds, true, logger)
+	err = service.DeleteLabels(labelIds, true, "system", logger)
 	if err != nil {
 		return err
 	}

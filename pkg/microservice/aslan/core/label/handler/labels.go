@@ -79,7 +79,7 @@ func DeleteLabels(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, forceBool, ctx.Logger)
+	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, forceBool, ctx.UserName, ctx.Logger)
 }
 
 func ListResourcesByLabels(c *gin.Context) {
