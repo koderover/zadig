@@ -302,105 +302,66 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 	var listTaskOpt *commonrepo.ListTaskOption
 	var countTaskOpt *commonrepo.CountTaskOption
 	var restp []*commonrepo.TaskPreview
-	serviceNameFiltersMap := make(map[string]interface{}, len(filters))
 	if len(filters) == 0 || (len(filters) == 1 && filters[0] == "") {
 		queryType = ""
 	}
 	switch queryType {
 	case "creator":
-		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, TaskCreators: filters, Detail: true, Type: typeString}
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, TaskCreators: filters, ForWorkflowTaskList: true, Type: typeString}
 		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, TaskCreators: filters, Type: typeString}
 	case "committer":
-		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Committers: filters, Detail: true, Type: typeString}
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Committers: filters, ForWorkflowTaskList: true, Type: typeString}
 		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Committers: filters, Type: typeString}
 	case "serviceName":
-		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Detail: true, Type: typeString}
-		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
-		for _, svc := range filters {
-			containerName := strings.Split(svc, "_")[0]
-			serviceNameFiltersMap[containerName] = nil
-		}
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, ServiceModule: filters, ForWorkflowTaskList: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, ServiceModule: filters, Type: typeString}
 	case "taskStatus":
-		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuses: filters, Detail: true, Type: typeString}
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuses: filters, ForWorkflowTaskList: true, Type: typeString}
 		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Statuses: filters, Type: typeString}
 	default:
-		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Detail: true, Type: typeString}
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, ForWorkflowTaskList: true, Type: typeString}
 		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
 	}
 	restp, err = commonrepo.NewTaskColl().List(listTaskOpt)
 	if err != nil {
-		log.Errorf("PipelineTaskV2.List:%s error: %s", listTaskOpt, err)
+		log.Errorf("PipelineTaskV2.List: %v error: %s", listTaskOpt, err)
 		return ret, e.ErrListTasks
 	}
-	var buildStage, deployStage *commonmodels.Stage
+
 	for _, t := range restp {
-		t.BuildServices = []string{}
-		for _, stage := range t.Stages {
-			if stage.TaskType == config.TaskBuild {
-				buildStage = stage
-			}
-			if stage.TaskType == config.TaskDeploy {
-				deployStage = stage
+		if t.WorkflowArgs == nil {
+			continue
+		}
+		t.Namespace = t.WorkflowArgs.Namespace
+		serviceModuleMap := make(map[string]*commonrepo.ServiceModule)
+
+		for _, target := range t.WorkflowArgs.Target {
+			serviceModuleMap[fmt.Sprintf("%s_%s", target.Name, target.ServiceName)] = &commonrepo.ServiceModule{
+				ServiceName:   target.ServiceName,
+				ServiceModule: target.Name,
 			}
 		}
-		existSvc := false
-		if buildStage != nil {
-			for serviceName, subTask := range buildStage.SubTasks {
-				buildInfo, err := base.ToBuildTask(subTask)
-				if err != nil {
-					log.Errorf("get buildInfo failed ! err: %s", err)
-					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get build info for task: %d, err: %s", t.TaskID, err))
+
+		if len(t.BuildStages) > 0 {
+			buildStage := t.BuildStages[0]
+			for fullServiceName, buildTask := range buildStage.SubTasks {
+				if len(buildTask.JobCtx.Builds) == 0 {
+					continue
 				}
-				serviceModule := strings.TrimSuffix(serviceName, "_"+buildInfo.Service)
-				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
-						existSvc = true
-					}
+				if sm, ok := serviceModuleMap[fullServiceName]; ok {
+					sm.CommitMessage = buildTask.JobCtx.Builds[0].CommitMessage
+					sm.CommitId = buildTask.JobCtx.Builds[0].CommitID
+					sm.AuthorName = buildTask.JobCtx.Builds[0].AuthorName
 				}
-				t.BuildServices = append(t.BuildServices, serviceName)
-				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
-					ServiceName:   buildInfo.Service,
-					ServiceModule: serviceModule,
-				})
-			}
-		} else if deployStage != nil {
-			for serviceName, subTask := range deployStage.SubTasks {
-				deployInfo, err := base.ToDeployTask(subTask)
-				if err != nil {
-					log.Errorf("get deployInfo failed ! err: %s", err)
-					return ret, e.ErrListTasks.AddDesc(fmt.Sprintf("failed to get deploy info for task: %d, err: %s", t.TaskID, err))
-				}
-				serviceModule := strings.TrimSuffix(serviceName, "_"+deployInfo.ServiceName)
-				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[serviceModule]; ok {
-						existSvc = true
-					}
-				}
-				t.BuildServices = append(t.BuildServices, serviceName)
-				t.ServiceModules = append(t.ServiceModules, &commonrepo.ServiceModule{
-					ServiceName:   deployInfo.ServiceName,
-					ServiceModule: serviceModule,
-				})
 			}
 		}
-		buildStage, deployStage = nil, nil
-		if existSvc {
-			ret.Data = append(ret.Data, t)
+
+		for _, sm := range serviceModuleMap {
+			t.ServiceModules = append(t.ServiceModules, sm)
 		}
+		t.WorkflowArgs = nil
 	}
-	if queryType == "serviceName" {
-		ret.Total = len(ret.Data)
-		if startAt > ret.Total {
-			ret.Data = []*commonrepo.TaskPreview{}
-			return ret, nil
-		}
-		if startAt+maxResult <= ret.Total {
-			ret.Data = ret.Data[startAt : startAt+maxResult]
-		} else {
-			ret.Data = ret.Data[startAt:ret.Total]
-		}
-		return ret, nil
-	}
+
 	ret.Data = restp
 	ret.Total, err = commonrepo.NewTaskColl().Count(countTaskOpt)
 	if err != nil {
@@ -441,37 +402,11 @@ func GetFiltersPipelineTaskV2(projectName, pipelineName, querytype string, typeS
 			return resp, e.ErrGetTask
 		}
 	case "serviceName":
-		data, err := commonrepo.NewTaskColl().List(&commonrepo.ListTaskOption{PipelineName: pipelineName, Detail: true, Type: typeString})
+		fieldName = "workflow_args.targets.name"
+		resp, err = commonrepo.NewTaskColl().DistinctFieldsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
 		if err != nil {
-			log.Errorf("PipelineTaskV2.List error: %s", err)
-			return resp, e.ErrListTasks
-		}
-		var buildStage, deployStage *commonmodels.Stage
-		svcSets := sets.NewString()
-		for _, t := range data {
-			for _, stage := range t.Stages {
-				if stage.TaskType == config.TaskBuild {
-					buildStage = stage
-				}
-				if stage.TaskType == config.TaskDeploy {
-					deployStage = stage
-				}
-			}
-			if buildStage != nil {
-				for serviceName := range buildStage.SubTasks {
-					containerName := strings.Split(serviceName, "_")[0]
-					svcSets.Insert(containerName)
-				}
-			} else if deployStage != nil {
-				for serviceName := range deployStage.SubTasks {
-					containerName := strings.Split(serviceName, "_")[0]
-					svcSets.Insert(containerName)
-				}
-			}
-			buildStage, deployStage = nil, nil
-		}
-		for svc := range svcSets {
-			resp = append(resp, svc)
+			log.Errorf("[%s] DistinctFeildsPipelineTask fieldName: %s error: %s", fieldName, pipelineName, err)
+			return resp, e.ErrGetTask
 		}
 	default:
 		return resp, fmt.Errorf("queryType parameter is invalid")

@@ -33,24 +33,26 @@ import (
 )
 
 type ListTaskOption struct {
-	PipelineName   string
-	PipelineNames  []string
-	Status         config.Status
-	Statuses       []string
-	Team           string
-	TeamID         int
-	Limit          int
-	Skip           int
-	Detail         bool
-	Type           config.PipelineType
-	CreateTime     int64
-	TaskCreator    string
-	TaskCreators   []string
-	Source         string
-	Committers     []string
-	MergeRequestID string
-	NeedTriggerBy  bool
-	NeedAllData    bool
+	PipelineName        string
+	PipelineNames       []string
+	Status              config.Status
+	Statuses            []string
+	Team                string
+	TeamID              int
+	Limit               int
+	Skip                int
+	Detail              bool
+	ForWorkflowTaskList bool
+	Type                config.PipelineType
+	CreateTime          int64
+	TaskCreator         string
+	TaskCreators        []string
+	Source              string
+	Committers          []string
+	ServiceModule       []string
+	MergeRequestID      string
+	NeedTriggerBy       bool
+	NeedAllData         bool
 }
 
 type FindTaskOption struct {
@@ -62,6 +64,13 @@ type FindTaskOption struct {
 type ServiceModule struct {
 	ServiceModule string `json:"service_module"`
 	ServiceName   string `json:"service_name"`
+	AuthorName    string `json:"author_name"`
+	CommitId      string `json:"commit_id"`
+	CommitMessage string `json:"commit_message"`
+}
+
+type BuildStage struct {
+	SubTasks map[string]task.Build `bson:"sub_tasks"                    json:"-"`
 }
 
 type TaskPreview struct {
@@ -81,8 +90,8 @@ type TaskPreview struct {
 	TestReports  map[string]interface{}    `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
 	Type         config.PipelineType       `bson:"type"                  json:"type"`
 	Stages       []*models.Stage           `bson:"stages"                json:"stages,omitempty"`
+	BuildStages  []*BuildStage             `bson:"build_stages"          json:"-"`
 	// 服务名称，用于任务列表的展示
-	BuildServices  []string          `bson:"-"                     json:"build_services"`
 	ServiceModules []*ServiceModule  `bson:"-"                     json:"service_modules"`
 	TriggerBy      *models.TriggerBy `bson:"trigger_by,omitempty"  json:"trigger_by,omitempty"`
 }
@@ -290,6 +299,9 @@ func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) 
 	if len(option.Committers) > 0 {
 		query["workflow_args.committer"] = bson.M{"$in": option.Committers}
 	}
+	if len(option.ServiceModule) > 0 {
+		query["workflow_args.targets.name"] = bson.M{"$in": option.ServiceModule}
+	}
 	if option.Source != "" {
 		query["trigger_by.source"] = option.Source
 	}
@@ -330,24 +342,58 @@ func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) 
 		selector = append(selector, bson.E{"test_reports", 1})
 		selector = append(selector, bson.E{"stages", 1})
 	}
-	opt := options.Find()
-	opt.SetSort(bson.D{{"create_time", -1}})
+
+	// show necessary fields when listing workflow tasks
+	if option.ForWorkflowTaskList {
+		selector = append(selector, bson.E{"workflow_args.targets.name", 1})
+		selector = append(selector, bson.E{"workflow_args.targets.service_name", 1})
+		selector = append(selector, bson.E{"workflow_args.namespace", 1})
+		selector = append(selector, bson.E{"test_reports", 1})
+		// query build tasks to extract code commit info
+		selector = append(selector, bson.E{"build_stages", bson.M{
+			"$filter": bson.M{
+				"input": "$stages",
+				"as":    "stage",
+				"cond": bson.M{
+					"$eq": bson.A{"$$stage.type", config.TaskBuild},
+				},
+			},
+		}})
+	}
+
+	pipeline := []bson.M{
+		{
+			"$match": query,
+		},
+		{
+			"$sort": bson.M{"create_time": -1},
+		},
+		{
+			"$project": selector,
+		},
+	}
+
 	if option.Limit != 0 {
-		opt.SetProjection(selector).SetSkip(int64(option.Skip)).SetLimit(int64(option.Limit))
+		pipeline = append(pipeline, bson.M{
+			"$skip": option.Skip,
+		}, bson.M{
+			"$limit": option.Limit,
+		})
 	} else if option.CreateTime > 0 {
 		selector = append(selector, bson.E{"stages", 1})
-
 		query["type"] = config.WorkflowType
 		query["stages"] = bson.M{"$elemMatch": bson.M{"type": "buildv2"}}
 		query["create_time"] = bson.M{"$gt": option.CreateTime}
-		opt.SetProjection(selector)
 	}
 
-	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {
-		return
+		return nil, err
 	}
-	err = cursor.All(context.TODO(), &ret)
+
+	if err = cursor.All(context.TODO(), &ret); err != nil {
+		return nil, err
+	}
 	return
 }
 
@@ -410,6 +456,7 @@ type CountTaskOption struct {
 	Status        config.TaskStatus
 	TaskCreators  []string
 	Committers    []string
+	ServiceModule []string
 	Type          config.PipelineType
 }
 
@@ -424,6 +471,9 @@ func (c *TaskColl) Count(option *CountTaskOption) (ret int, err error) {
 	}
 	if len(option.Committers) > 0 {
 		query["workflow_args.committer"] = bson.M{"$in": option.Committers}
+	}
+	if len(option.ServiceModule) > 0 {
+		query["workflow_args.targets.name"] = bson.M{"$in": option.ServiceModule}
 	}
 	if option.PipelineNames != nil {
 		query["pipeline_name"] = bson.M{"$in": option.PipelineNames}
