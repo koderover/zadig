@@ -21,6 +21,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/koderover/zadig/pkg/types"
+
 	timeutil "github.com/jinzhu/now"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -68,9 +70,9 @@ type CodeInfo struct {
 }
 
 type ServiceModule struct {
-	ServiceModule string      `json:"service_module"`
-	ServiceName   string      `json:"service_name"`
-	CodeInfo      []*CodeInfo `json:"code_info"`
+	ServiceModule string              `json:"service_module"`
+	ServiceName   string              `json:"service_name"`
+	CodeInfo      []*types.Repository `json:"code_info"`
 }
 
 type BuildStage struct {

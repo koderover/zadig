@@ -336,10 +336,12 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		serviceModuleMap := make(map[string]*commonrepo.ServiceModule)
 
 		for _, target := range t.WorkflowArgs.Target {
-			serviceModuleMap[fmt.Sprintf("%s_%s", target.Name, target.ServiceName)] = &commonrepo.ServiceModule{
+			sm := &commonrepo.ServiceModule{
 				ServiceName:   target.ServiceName,
 				ServiceModule: target.Name,
 			}
+			serviceModuleMap[fmt.Sprintf("%s_%s", target.Name, target.ServiceName)] = sm
+			t.ServiceModules = append(t.ServiceModules, sm)
 		}
 
 		if len(t.BuildStages) > 0 {
@@ -347,18 +349,10 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 			for fullServiceName, buildTask := range buildStage.SubTasks {
 				if sm, ok := serviceModuleMap[fullServiceName]; ok {
 					for _, buildInfo := range buildTask.JobCtx.Builds {
-						sm.CodeInfo = append(sm.CodeInfo, &commonrepo.CodeInfo{
-							AuthorName:    buildInfo.AuthorName,
-							CommitId:      buildInfo.CommitID,
-							CommitMessage: buildInfo.CommitMessage,
-						})
+						sm.CodeInfo = append(sm.CodeInfo, buildInfo)
 					}
 				}
 			}
-		}
-
-		for _, sm := range serviceModuleMap {
-			t.ServiceModules = append(t.ServiceModules, sm)
 		}
 		t.WorkflowArgs = nil
 	}
