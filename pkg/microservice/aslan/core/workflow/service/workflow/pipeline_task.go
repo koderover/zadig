@@ -345,13 +345,14 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		if len(t.BuildStages) > 0 {
 			buildStage := t.BuildStages[0]
 			for fullServiceName, buildTask := range buildStage.SubTasks {
-				if len(buildTask.JobCtx.Builds) == 0 {
-					continue
-				}
 				if sm, ok := serviceModuleMap[fullServiceName]; ok {
-					sm.CommitMessage = buildTask.JobCtx.Builds[0].CommitMessage
-					sm.CommitId = buildTask.JobCtx.Builds[0].CommitID
-					sm.AuthorName = buildTask.JobCtx.Builds[0].AuthorName
+					for _, buildInfo := range buildTask.JobCtx.Builds {
+						sm.CodeInfo = append(sm.CodeInfo, &commonrepo.CodeInfo{
+							AuthorName:    buildInfo.AuthorName,
+							CommitId:      buildInfo.CommitID,
+							CommitMessage: buildInfo.CommitMessage,
+						})
+					}
 				}
 			}
 		}

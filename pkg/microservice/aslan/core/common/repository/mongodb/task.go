@@ -61,12 +61,16 @@ type FindTaskOption struct {
 	Type         config.PipelineType
 }
 
-type ServiceModule struct {
-	ServiceModule string `json:"service_module"`
-	ServiceName   string `json:"service_name"`
+type CodeInfo struct {
 	AuthorName    string `json:"author_name"`
 	CommitId      string `json:"commit_id"`
 	CommitMessage string `json:"commit_message"`
+}
+
+type ServiceModule struct {
+	ServiceModule string      `json:"service_module"`
+	ServiceName   string      `json:"service_name"`
+	CodeInfo      []*CodeInfo `json:"code_info"`
 }
 
 type BuildStage struct {
