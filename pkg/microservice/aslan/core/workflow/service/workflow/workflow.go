@@ -56,6 +56,7 @@ type Workflow struct {
 	SchedulerEnabled     bool                       `json:"schedulerEnabled"`
 	EnabledStages        []string                   `json:"enabledStages"`
 	IsFavorite           bool                       `json:"isFavorite"`
+	WorkflowType         string                     `json:"workflow_type"`
 	RecentTask           *TaskInfo                  `json:"recentTask"`
 	RecentSuccessfulTask *TaskInfo                  `json:"recentSuccessfulTask"`
 	RecentFailedTask     *TaskInfo                  `json:"recentFailedTask"`
