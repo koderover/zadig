@@ -37,20 +37,20 @@ func NewGitCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*gitCtl
 
 func (s *gitCtl) PreRun(ctx context.Context) error {
 	for _, repo := range s.gitSpec.Repos {
-		cID := repo.CodeHostID
+		cID := repo.CodehostID
 		if cID == 0 {
 			log.Error("codehostID can't be empty")
-			return nil
+			return fmt.Errorf("codehostID can't be empty")
 		}
 		detail, err := systemconfig.New().GetCodeHost(cID)
 		if err != nil {
 			s.log.Error(err)
-			return nil
+			return err
 		}
 		repo.Source = detail.Type
 		repo.OauthToken = detail.AccessToken
 		repo.Address = detail.Address
-		repo.User = detail.Username
+		repo.Username = detail.Username
 		repo.Password = detail.Password
 		repo.EnableProxy = detail.EnableProxy
 	}

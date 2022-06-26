@@ -341,6 +341,7 @@ const (
 	PipelineTaskFmt   = "PipelineTask:%s"
 	WorkflowTaskFmt   = "WorkflowTask:%s"
 	WorkflowTaskV3Fmt = "WorkflowTaskV3:%s"
+	WorkflowTaskV4Fmt = "WorkflowTaskV4:%s"
 	TestTaskFmt       = "TestTask:%s"
 	ServiceTaskFmt    = "ServiceTask:%s"
 	ScanningTaskFmt   = "ScanningTask:%s"

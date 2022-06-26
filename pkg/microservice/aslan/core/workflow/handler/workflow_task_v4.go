@@ -30,11 +30,22 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+type listWorkflowTaskV4Query struct {
+	PageSize     int64  `json:"page_size"    form:"page_size,default=20"`
+	PageNum      int64  `json:"page_num"     form:"page_num,default=1"`
+	WorkflowName string `json:"workflow_name" form:"workflow_name"`
+}
+
+type listWorkflowTaskV4Resp struct {
+	WorkflowList []*commonmodels.WorkflowTask `json:"workflow_list"`
+	Total        int64                        `json:"total"`
+}
+
 func CreateWorkflowTaskV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonmodels.WorkflowTask)
+	args := new(commonmodels.WorkflowV4)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateWorkflowTaskv4 c.GetRawData() err : %s", err)
@@ -50,5 +61,23 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger)
+	ctx.Err = workflow.CreateWorkflowTaskV4(ctx.UserName, args, ctx.Logger)
+}
+
+func ListWorkflowTaskV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &listWorkflowTaskV4Query{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	taskList, total, err := workflow.ListWorkflowTaskV4(args.WorkflowName, args.PageNum, args.PageSize, ctx.Logger)
+	resp := listWorkflowTaskV4Resp{
+		WorkflowList: taskList,
+		Total:        total,
+	}
+	ctx.Resp = resp
+	ctx.Err = err
 }

@@ -234,6 +234,8 @@ func initDatabase() {
 		commonrepo.NewEnvSvcDependColl(),
 		commonrepo.NewBuildTemplateColl(),
 		commonrepo.NewScanningColl(),
+		commonrepo.NewWorkflowV4Coll(),
+		commonrepo.NewworkflowTaskv4Coll(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

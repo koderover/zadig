@@ -40,13 +40,9 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 	}()
-	var stageCtl StageCtl
-	switch stage.StageType {
-	case "approve":
-		// TODO approval stage
-	default:
-		stageCtl = NewCustomStageCtl(stage, workflowCtx, logger, ack)
-	}
+
+	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
+
 	stageCtl.Run(ctx, concurrency)
 }
 

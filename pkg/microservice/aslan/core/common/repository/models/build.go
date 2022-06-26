@@ -168,11 +168,11 @@ type TargetRepo struct {
 }
 
 type KeyVal struct {
-	Key          string               `bson:"key"                           json:"key"`
-	Value        string               `bson:"value"                         json:"value"`
-	Type         ParameterSettingType `bson:"type,omitempty"                json:"type,omitempty"`
-	ChoiceOption []string             `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
-	IsCredential bool                 `bson:"is_credential"                 json:"is_credential"`
+	Key          string               `bson:"key"                       json:"key"                         yaml:"key"`
+	Value        string               `bson:"value"                     json:"value"                       yaml:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choiceOption,omitempty"`
+	IsCredential bool                 `bson:"is_credential"             json:"is_credential"               yaml:"isCredential"`
 }
 
 type Item struct {

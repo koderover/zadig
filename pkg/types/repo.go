@@ -19,6 +19,7 @@ package types
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -110,4 +111,65 @@ func (repo *Repository) GetRepoNamespace() string {
 		return repo.RepoNamespace
 	}
 	return repo.RepoOwner
+}
+
+const (
+	// ProviderGithub ...
+	ProviderGithub = "github"
+	// ProviderGitlab ...
+	ProviderGitlab = "gitlab"
+
+	// ProviderGerrit
+	ProviderGerrit = "gerrit"
+
+	// ProviderCodehub
+	ProviderCodehub = "codehub"
+
+	// ProviderGitee
+	ProviderGitee = "gitee"
+
+	// ProviderOther
+	ProviderOther = "other"
+)
+
+// PRRef returns refs format
+// It will check repo provider type, by default returns github refs format.
+//
+// e.g. github returns refs/pull/1/head
+// e.g. gitlab returns merge-requests/1/head
+func (r *Repository) PRRef() string {
+	if strings.ToLower(r.Source) == ProviderGitlab || strings.ToLower(r.Source) == ProviderCodehub {
+		return fmt.Sprintf("merge-requests/%d/head", r.PR)
+	} else if strings.ToLower(r.Source) == ProviderGerrit {
+		return r.CheckoutRef
+	}
+	return fmt.Sprintf("refs/pull/%d/head", r.PR)
+}
+
+// BranchRef returns branch refs format
+// e.g. refs/heads/master
+func (r *Repository) BranchRef() string {
+	return fmt.Sprintf("refs/heads/%s", r.Branch)
+}
+
+// TagRef returns the tag ref of current repo
+// e.g. refs/tags/v1.0.0
+func (r *Repository) TagRef() string {
+	return fmt.Sprintf("refs/tags/%s", r.Tag)
+}
+
+// Ref returns the changes ref of current repo in the following order:
+// 1. tag ref
+// 2. branch ref
+// 3. pr ref
+func (r *Repository) Ref() string {
+	if len(r.Tag) > 0 {
+		return r.TagRef()
+	} else if len(r.Branch) > 0 {
+		return r.BranchRef()
+	} else if r.PR > 0 {
+		return r.PRRef()
+	}
+
+	return ""
 }

@@ -164,11 +164,25 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// 新版本 通用工作流（暂命名） 接口
+	// ---------------------------------------------------------------------------------------
+	workflowV4 := router.Group("v4")
+	{
+		workflowV4.POST("", CreateWorkflowV4)
+		workflowV4.GET("", ListWorkflowV4)
+		workflowV4.GET("/name/:name", FindWorkflowV4)
+		workflowV4.PUT("/:name", UpdateWorkflowV4)
+		workflowV4.DELETE("/:name", DeleteWorkflowV4)
+		workflowV4.GET("/preset/:name", GetWorkflowV4Preset)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// workflow v4 任务接口
 	// ---------------------------------------------------------------------------------------
 	taskV4 := router.Group("v4/workflowtask")
 	{
 		taskV4.POST("", CreateWorkflowTaskV4)
+		taskV4.GET("", ListWorkflowTaskV4)
 	}
 
 	bundles := router.Group("bundle-resources")

@@ -45,7 +45,19 @@ func (s *archiveCtl) PreRun(ctx context.Context) error {
 		},
 	}
 	if s.toolInstalldSpec.S3StorageID == "" {
-		s.toolInstalldSpec = spec
+		objectStorage, _ := mongodb.NewS3StorageColl().FindDefault()
+		if objectStorage != nil {
+			spec.S3.Endpoint = objectStorage.Endpoint
+			spec.S3.Sk = objectStorage.Sk
+			spec.S3.Ak = objectStorage.Ak
+			spec.S3.Subfolder = objectStorage.Subfolder
+			spec.S3.Bucket = objectStorage.Bucket
+			spec.S3.Protocol = "https"
+			if objectStorage.Insecure {
+				spec.S3.Protocol = "http"
+			}
+		}
+		s.step.Spec = spec
 		return nil
 	}
 	objectStorage, _ := mongodb.NewS3StorageColl().Find(s.toolInstalldSpec.S3StorageID)

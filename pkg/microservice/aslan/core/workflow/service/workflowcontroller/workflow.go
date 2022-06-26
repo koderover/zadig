@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
 )
@@ -132,6 +133,9 @@ func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 
 func (c *workflowCtl) updateWorkflowTask() {
 	// TODO update workflow task
+	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
+		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
+	}
 }
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {

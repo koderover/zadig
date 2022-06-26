@@ -164,6 +164,23 @@ const (
 	StepHtmlReport        StepType = "html_report"
 )
 
+type JobType string
+
+const (
+	JobBuild       JobType = "build"
+	JobDeploy      JobType = "deploy"
+	JobZadigBuild  JobType = "zadig-build"
+	JobZadigDeploy JobType = "zadig-deploy"
+	JobFreestyle   JobType = "freestyle"
+)
+
+type DeploySourceType string
+
+const (
+	SourceRuntime DeploySourceType = "runtime"
+	SourceFromJob DeploySourceType = "fromjob"
+)
+
 type StageType string
 
 const (
