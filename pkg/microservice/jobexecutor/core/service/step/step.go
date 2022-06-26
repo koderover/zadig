@@ -48,9 +48,9 @@ func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 	start := time.Now()
 	var stepInstance Step
 	var err error
-	log.Infof("====================== %s Start ======================", step.Name)
+	fmt.Printf("====================== %s Start ======================\n", step.Name)
 	defer func() {
-		log.Infof("====================== %s End. Duration: %.2f seconds ======================", step.Name, time.Since(start).Seconds())
+		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", step.Name, time.Since(start).Seconds())
 	}()
 	switch step.StepType {
 	case "shell":

@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/fs"
 	"gopkg.in/yaml.v3"
@@ -66,7 +65,7 @@ func (s DockerBuildStep) dockerLogin() error {
 		return nil
 	}
 	if s.spec.DockerRegistry.UserName != "" {
-		log.Infof("Logining Docker Registry: %s.", s.spec.DockerRegistry.Host)
+		fmt.Printf("Logining Docker Registry: %s.\n", s.spec.DockerRegistry.Host)
 		startTimeDockerLogin := time.Now()
 		cmd := dockerLogin(s.spec.DockerRegistry.UserName, s.spec.DockerRegistry.Password, s.spec.DockerRegistry.Host)
 		var out bytes.Buffer
@@ -76,7 +75,7 @@ func (s DockerBuildStep) dockerLogin() error {
 			return fmt.Errorf("failed to login docker registry: %s", err)
 		}
 
-		log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
+		fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
 	}
 	return nil
 }
@@ -86,19 +85,19 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		return nil
 	}
 
-	log.Info("Preparing Dockerfile.")
+	fmt.Printf("Preparing Dockerfile.\n")
 	startTimePrepareDockerfile := time.Now()
 	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent)
 	if err != nil {
 		return fmt.Errorf("failed to prepare dockerfile: %s", err)
 	}
-	log.Infof("Preparation ended. Duration: %.2f seconds.", time.Since(startTimePrepareDockerfile).Seconds())
+	fmt.Printf("Preparation ended. Duration: %.2f seconds.\n", time.Since(startTimePrepareDockerfile).Seconds())
 
 	if s.spec.Proxy != nil {
 		setProxy(s.spec)
 	}
 
-	log.Info("Runing Docker Build.")
+	fmt.Printf("Runing Docker Build.\n")
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
@@ -110,7 +109,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 			return fmt.Errorf("failed to run docker build: %s", err)
 		}
 	}
-	log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(startTimeDockerBuild).Seconds())
+	fmt.Printf("Docker build ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerBuild).Seconds())
 
 	return nil
 }

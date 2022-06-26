@@ -15,7 +15,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 
-	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
 	"gopkg.in/yaml.v3"
@@ -95,7 +94,7 @@ func (s *ToolInstallStep) runIntallationScripts() error {
 					tmpPath,
 					objectKey,
 				)
-				log.Infof("Package loaded from url: %s", s.spec.Download)
+				fmt.Printf("Package loaded from url: %s\n", s.spec.Download)
 			}
 		} else {
 			err := httpclient.Download(s.spec.Download, tmpPath)

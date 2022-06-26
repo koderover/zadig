@@ -18,6 +18,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -28,29 +29,45 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
+const (
+	ZadigContextDir    = "/zadig/"
+	ZadigLogFile       = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
+)
+
 func Execute(ctx context.Context) error {
+	f, err := os.OpenFile(ZadigLogFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
+	if err != nil {
+		fmt.Println("open log file error")
+		return err
+	}
+	os.Stdout = f
+	os.Stderr = f
+
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
 		NoCaller:    true,
 		NoLogLevel:  true,
 		Development: commonconfig.Mode() != setting.ReleaseMode,
+		SendToFile:  true,
+		Filename:    ZadigLogFile,
 	})
 
 	start := time.Now()
 
 	excutor := "job-excutor"
-	var err error
 	defer func() {
+		os.Remove(ZadigLifeCycleFile)
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
-			log.Errorf("Failed to run: %s.", err)
-			log.Infof("====================== %s End. Duration: %.2f seconds ======================", excutor, time.Since(start).Seconds())
+			fmt.Printf("Failed to run: %s.\n", err)
+			fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
 			os.Exit(1)
 		}
-		log.Infof("Job Status: %s", resultMsg)
+		fmt.Printf("Job Status: %s\n", resultMsg)
 
-		log.Infof("====================== %s End. Duration: %.2f seconds ======================", excutor, time.Since(start).Seconds())
+		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
 	}()
 
 	var j *job.Job
@@ -58,7 +75,7 @@ func Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("====================== %s Start ======================", excutor)
+	fmt.Printf("====================== %s Start ======================\n", excutor)
 	if err = j.Run(ctx); err != nil {
 		return err
 	}

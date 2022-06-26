@@ -46,6 +46,13 @@ import (
 	"github.com/koderover/zadig/pkg/types/job"
 )
 
+const (
+	BusyBoxImage       = "ccr.ccs.tencentyun.com/koderover-public/busybox:latest"
+	ZadigContextDir    = "/zadig/"
+	ZadigLogFile       = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
+)
+
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
 	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
 	if err != nil {
@@ -130,6 +137,13 @@ func getReaperImage(reaperImage, buildOS string) string {
 }
 
 func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+	tailLogCommandTemplate := `tail -f %s &
+while [ -f %s ];
+do
+	sleep 1s;
+done;
+`
+	tailLogCommand := fmt.Sprintf(tailLogCommandTemplate, ZadigLogFile, ZadigLifeCycleFile)
 
 	labels := getJobLabels(&JobLabel{
 		WorkflowName: workflowCtx.WorkflowName,
@@ -172,11 +186,28 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 				Spec: corev1.PodSpec{
 					RestartPolicy:    corev1.RestartPolicyNever,
 					ImagePullSecrets: ImagePullSecrets,
+					InitContainers: []corev1.Container{
+						{
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Name:            "init-log-file",
+							Image:           BusyBoxImage,
+							VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir),
+							Command:         []string{"/bin/sh", "-c", fmt.Sprintf("touch %s %s", ZadigLogFile, ZadigLifeCycleFile)},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
 							Name:            labels[jobLabelNameKey],
 							Image:           jobImage,
+							Command:         []string{"/bin/sh", "-c", "jobexecutor"},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"/bin/sh", "-c", fmt.Sprintf("rm %s", ZadigLifeCycleFile)},
+									},
+								},
+							},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "JOB_CONFIG_FILE",
@@ -193,6 +224,15 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 							TerminationMessagePath:   job.JobTerminationFile,
+						},
+						{
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Name:            "log",
+							Image:           BusyBoxImage,
+							VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir),
+							Command:         []string{"/bin/sh", "-c"},
+							Args:            []string{tailLogCommand},
+							Lifecycle:       &corev1.Lifecycle{},
 						},
 					},
 					Volumes: getVolumes(jobName),
@@ -240,7 +280,7 @@ func getVolumeMounts(configMapMountDir string) []corev1.VolumeMount {
 	})
 	resp = append(resp, corev1.VolumeMount{
 		Name:      "zadig-context",
-		MountPath: "/zadig/",
+		MountPath: ZadigContextDir,
 	})
 
 	return resp

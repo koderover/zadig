@@ -75,7 +75,7 @@ func (s *GitStep) runGitCmds() error {
 
 	envs := s.envs
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
+	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
 		noProxy := ""
 		proxyFlag := false
 		for _, repo := range s.spec.Repos {
@@ -110,11 +110,11 @@ func (s *GitStep) runGitCmds() error {
 	var tokens []string
 	var hostNames = sets.NewString()
 	for _, repo := range s.spec.Repos {
-		if repo == nil || len(repo.Name) == 0 {
+		if repo == nil || len(repo.RepoName) == 0 {
 			continue
 		}
 
-		if repo.Source == step.ProviderGerrit {
+		if repo.Source == types.ProviderGerrit {
 			userpass, _ := base64.StdEncoding.DecodeString(repo.OauthToken)
 			userpassPair := strings.Split(string(userpass), ":")
 			var user, password string
@@ -122,14 +122,14 @@ func (s *GitStep) runGitCmds() error {
 				password = userpassPair[1]
 			}
 			user = userpassPair[0]
-			repo.User = user
+			repo.Username = user
 			if password != "" {
 				repo.Password = password
 				tokens = append(tokens, repo.Password)
 			}
-		} else if repo.Source == step.ProviderCodehub {
+		} else if repo.Source == types.ProviderCodehub {
 			tokens = append(tokens, repo.Password)
-		} else if repo.Source == step.ProviderOther {
+		} else if repo.Source == types.ProviderOther {
 			tokens = append(tokens, repo.PrivateAccessToken)
 			tokens = append(tokens, repo.SSHKey)
 		}
@@ -170,7 +170,7 @@ func (s *GitStep) runGitCmds() error {
 
 		c.Cmd.Env = envs
 		if !c.DisableTrace {
-			log.Infof("%s", strings.Join(c.Cmd.Args, " "))
+			fmt.Printf("%s\n", strings.Join(c.Cmd.Args, " "))
 		}
 		if err := c.Cmd.Run(); err != nil {
 			if c.IgnoreError {
@@ -182,15 +182,15 @@ func (s *GitStep) runGitCmds() error {
 	return nil
 }
 
-func (s *GitStep) buildGitCommands(repo *step.Repo, hostNames sets.String) []*c.Command {
+func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String) []*c.Command {
 
 	cmds := make([]*c.Command, 0)
 
-	if len(repo.Name) == 0 {
+	if len(repo.RepoName) == 0 {
 		return cmds
 	}
 
-	workDir := filepath.Join(s.workspace, repo.Name)
+	workDir := filepath.Join(s.workspace, repo.RepoName)
 	if len(repo.CheckoutPath) != 0 {
 		workDir = filepath.Join(s.workspace, repo.CheckoutPath)
 	}
@@ -216,35 +216,35 @@ func (s *GitStep) buildGitCommands(repo *step.Repo, hostNames sets.String) []*c.
 	}
 
 	// namespace represents the real owner
-	owner := repo.Namespace
+	owner := repo.RepoNamespace
 	if len(owner) == 0 {
-		owner = repo.Owner
+		owner = repo.RepoOwner
 	}
-	if repo.Source == step.ProviderGitlab {
+	if repo.Source == types.ProviderGitlab {
 		u, _ := url.Parse(repo.Address)
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, owner, repo.Name, u.Scheme)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, owner, repo.RepoName, u.Scheme)),
 			DisableTrace: true,
 		})
-	} else if repo.Source == step.ProviderGerrit {
+	} else if repo.Source == types.ProviderGerrit {
 		u, _ := url.Parse(repo.Address)
-		u.Path = fmt.Sprintf("/a/%s", repo.Name)
-		u.User = url.UserPassword(repo.User, repo.Password)
+		u.Path = fmt.Sprintf("/a/%s", repo.RepoName)
+		u.User = url.UserPassword(repo.Username, repo.Password)
 
 		cmds = append(cmds, &c.Command{
 			Cmd:          c.RemoteAdd(repo.RemoteName, u.String()),
 			DisableTrace: true,
 		})
-	} else if repo.Source == step.ProviderCodehub {
+	} else if repo.Source == types.ProviderCodehub {
 		u, _ := url.Parse(repo.Address)
-		user := url.QueryEscape(repo.User)
+		user := url.QueryEscape(repo.Username)
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, owner, repo.Name)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, owner, repo.RepoName)),
 			DisableTrace: true,
 		})
-	} else if repo.Source == step.ProviderGitee {
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
-	} else if repo.Source == step.ProviderOther {
+	} else if repo.Source == types.ProviderGitee {
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName)), DisableTrace: true})
+	} else if repo.Source == types.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
@@ -253,10 +253,10 @@ func (s *GitStep) buildGitCommands(repo *step.Repo, hostNames sets.String) []*c.
 				}
 				hostNames.Insert(host)
 			}
-			remoteName := fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)
+			remoteName := fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.RepoOwner, repo.RepoName)
 			// Including the case of the port
 			if strings.Contains(repo.Address, ":") {
-				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.Owner, repo.Name)
+				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.RepoOwner, repo.RepoName)
 			}
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
@@ -268,14 +268,14 @@ func (s *GitStep) buildGitCommands(repo *step.Repo, hostNames sets.String) []*c.
 				log.Errorf("failed to parse url,err:%s", err)
 			} else {
 				cmds = append(cmds, &c.Command{
-					Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, u.Host, repo.Owner, repo.Name, u.Scheme)),
+					Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, u.Host, repo.RepoOwner, repo.RepoName, u.Scheme)),
 					DisableTrace: true,
 				})
 			}
 		}
 	} else {
 		// github
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.Name)), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.RepoName)), DisableTrace: true})
 	}
 
 	ref := repo.Ref()
@@ -352,7 +352,7 @@ func getHost(address string) string {
 // e.g.
 //https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
 func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
-	if strings.ToLower(source) == step.ProviderGitlab || strings.ToLower(source) == step.ProviderOther {
+	if strings.ToLower(source) == types.ProviderGitlab || strings.ToLower(source) == types.ProviderOther {
 		// address 需要传过来
 		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", scheme, step.OauthTokenPrefix, token, address, owner, name)
 	}
@@ -362,9 +362,9 @@ func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
 
 // HTTPSCloneURL returns HTTPS clone url
 func HTTPSCloneURL(source, token, owner, name string) string {
-	if strings.ToLower(source) == step.ProviderGitlab {
+	if strings.ToLower(source) == types.ProviderGitlab {
 		return fmt.Sprintf("https://%s/%s/%s.git", "gitlab.koderover.com", owner, name)
-	} else if strings.ToLower(source) == step.ProviderGitee {
+	} else if strings.ToLower(source) == types.ProviderGitee {
 		return fmt.Sprintf("https://%s:%s@%s/%s/%s.git", step.OauthTokenPrefix, token, "gitee.com", owner, name)
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
