@@ -1623,7 +1623,7 @@ func EditHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, createdBy string, log *zap.SugaredLogger) {
 	// 对比上个版本的renderset，新增一个版本
 	latestChartInfos := make([]*templatemodels.RenderChart, 0)
-	renderOpt := &commonrepo.RenderSetFindOption{Name: productName}
+	renderOpt := &commonrepo.RenderSetFindOption{Name: productName, ProductTmpl: productName, IsDefault: true}
 	if latestDefaultRenderSet, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
 		latestChartInfos = latestDefaultRenderSet.ChartInfos
 	}

@@ -121,7 +121,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd.Render = &commonmodels.RenderInfo{ProductTmpl: exitedProd.ProductName}
 	}
 	// 检查renderset是否覆盖服务所有key
-	newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, serviceInfo, k.log)
+	newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
 	if err != nil {
 		k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrUpdateProduct.AddDesc(err.Error())

@@ -707,7 +707,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 		mutex.Unlock()
 	}()
 	if baseProduct.Render != nil {
-		if renderSet, _ := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: baseProduct.Render.Name, Revision: baseProduct.Render.Revision}); renderSet != nil {
+		if renderSet, _ := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: baseProduct.Render.Name, Revision: baseProduct.Render.Revision, ProductTmpl: baseProduct.ProductName}); renderSet != nil {
 			baseProduct.Vars = renderSet.KVs
 		}
 	}
