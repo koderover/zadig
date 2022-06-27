@@ -16,9 +16,22 @@ limitations under the License.
 
 package types
 
+import corev1 "k8s.io/api/core/v1"
+
 type WorkloadType string
 
 const (
 	DeploymentWorkload  WorkloadType = "deployment"
 	StatefulSetWorkload WorkloadType = "statefulset"
 )
+
+type DindPod struct {
+	ClusterID   string
+	ClusterName string
+	Pod         *corev1.Pod
+}
+
+const DindStatefulSetName = "dind"
+const DindContainerName = "dind"
+const DindMountName = "zadig-docker"
+const DindMountPath = "/var/lib/docker"

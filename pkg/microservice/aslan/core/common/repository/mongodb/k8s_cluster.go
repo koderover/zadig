@@ -278,3 +278,21 @@ func (c *K8SClusterColl) GetByToken(token string) (*models.K8SCluster, error) {
 
 	return c.Get(id)
 }
+
+func (c *K8SClusterColl) FindActiveClusters() ([]*models.K8SCluster, error) {
+	connectedClusters, err := c.FindConnectedClusters()
+	if err != nil {
+		return nil, err
+	}
+
+	activeClusters := []*models.K8SCluster{}
+	for _, cluster := range connectedClusters {
+		if cluster.Status != setting.Normal {
+			continue
+		}
+
+		activeClusters = append(activeClusters, cluster)
+	}
+
+	return activeClusters, nil
+}
