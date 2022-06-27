@@ -1197,7 +1197,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productName,
 	// merge chart infos, use chart info in product to override charts in template_project
 	sourceRenderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 		Name:        sourceRendersetName,
-		EnvName:     arg.EnvName,
+		EnvName:     arg.BaseName,
 		ProductTmpl: arg.ProductName,
 	})
 	if err != nil {
