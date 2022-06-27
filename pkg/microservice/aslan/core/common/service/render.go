@@ -194,7 +194,7 @@ func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*temp
 	return kvs, prodTmpl.AllServiceInfoMap(), err
 }
 
-func GetRenderSet(renderName string, revision int64, isDefault bool, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// 未指定renderName返回空的renderSet
 	if renderName == "" {
 		return &commonmodels.RenderSet{KVs: []*templatemodels.RenderKV{}}, nil
@@ -203,6 +203,7 @@ func GetRenderSet(renderName string, revision int64, isDefault bool, log *zap.Su
 		Name:      renderName,
 		Revision:  revision,
 		IsDefault: isDefault,
+		EnvName:   envName,
 	}
 	resp, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {

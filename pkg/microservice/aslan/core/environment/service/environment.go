@@ -291,7 +291,7 @@ func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) e
 			renderName = product.Render.Name
 			revision = product.Render.Revision
 		}
-		renderSet, err := commonservice.GetRenderSet(renderName, revision, false, log)
+		renderSet, err := commonservice.GetRenderSet(renderName, revision, false, product.EnvName, log)
 		if err != nil {
 			log.Errorf("Failed to find render set, productName: %s, namespace: %s,  err: %s", product.ProductName, product.Namespace, err)
 			return e.ErrGetRenderSet.AddDesc(err.Error())
