@@ -287,6 +287,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			Name:        env.Render.Name,
 			Revision:    service.Render.Revision,
 			ProductTmpl: env.ProductName,
+			EnvName:     envName,
 		}
 		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
 		if err != nil {
@@ -485,6 +486,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 						Name:        serviceObj.Render.Name,
 						Revision:    serviceObj.Render.Revision,
 						ProductTmpl: productObj.ProductName,
+						EnvName:     productObj.EnvName,
 					}
 					newRender, err = commonrepo.NewRenderSetColl().Find(opt)
 					if err != nil {

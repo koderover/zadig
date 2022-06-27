@@ -1167,7 +1167,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 
 	if serviceType == setting.HelmDeployType {
 		// 更新helm renderset
-		err = removeServiceFromRenderset(productName, productName, serviceName)
+		err = removeServiceFromRenderset(productName, productName, "", serviceName)
 		if err != nil {
 			log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", productName, serviceName, err.Error())
 		}
@@ -1201,7 +1201,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			envNames := []string{"dev", "qa"}
 			for _, envName := range envNames {
 				rendersetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-				err := removeServiceFromRenderset(productName, rendersetName, serviceName)
+				err := removeServiceFromRenderset(productName, rendersetName, envName, serviceName)
 				if err != nil {
 					log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", rendersetName, serviceName, err.Error())
 				}
@@ -1215,8 +1215,8 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 }
 
 // remove specific services from rendersets.chartinfos
-func removeServiceFromRenderset(productName, renderName, serviceName string) error {
-	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
+func removeServiceFromRenderset(productName, renderName, envName, serviceName string) error {
+	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName, EnvName: envName}
 	if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
 		chartInfos := make([]*templatemodels.RenderChart, 0)
 		for _, chartInfo := range rs.ChartInfos {
