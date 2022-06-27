@@ -116,8 +116,9 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	}
 
 	opt := &commonrepo.RenderSetFindOption{
-		Name:     productInfo.Render.Name,
-		Revision: productInfo.Render.Revision,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+		ProductTmpl: productName,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {

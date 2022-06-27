@@ -374,7 +374,7 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 		product.Namespace = productInfo.Namespace
 	}
 
-	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, log); err == nil {
+	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, false, log); err == nil {
 		product.Vars = renderSet.KVs
 	} else {
 		log.Errorf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)

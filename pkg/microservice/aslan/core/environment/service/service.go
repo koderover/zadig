@@ -283,7 +283,11 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			)
 		}
 
-		renderSetFindOpt := &commonrepo.RenderSetFindOption{Name: env.Render.Name, Revision: service.Render.Revision}
+		renderSetFindOpt := &commonrepo.RenderSetFindOption{
+			Name:        env.Render.Name,
+			Revision:    service.Render.Revision,
+			ProductTmpl: env.ProductName,
+		}
 		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
 		if err != nil {
 			log.Errorf("find renderset[%s] error: %v", service.Render.Name, err)
@@ -477,7 +481,11 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
 						return
 					}
-					opt := &commonrepo.RenderSetFindOption{Name: serviceObj.Render.Name, Revision: serviceObj.Render.Revision}
+					opt := &commonrepo.RenderSetFindOption{
+						Name:        serviceObj.Render.Name,
+						Revision:    serviceObj.Render.Revision,
+						ProductTmpl: productObj.ProductName,
+					}
 					newRender, err = commonrepo.NewRenderSetColl().Find(opt)
 					if err != nil {
 						log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
