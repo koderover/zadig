@@ -145,7 +145,10 @@ func (w *pod) Resource() *resource.Pod {
 	containersStatus := []corev1.ContainerStatus{}
 	containersStatus = append(containersStatus, w.Status.ContainerStatuses...)
 	if CheckEphemeralContainerStatusFieldExist(&w.Status) {
-		containersStatus = append(containersStatus, w.Status.EphemeralContainerStatuses...)
+		for _, status := range w.Status.EphemeralContainerStatuses {
+			status.Ready = true
+			containersStatus = append(containersStatus, status)
+		}
 	}
 
 	for _, container := range containersStatus {
@@ -210,8 +213,8 @@ func (w *pod) Resource() *resource.Pod {
 				Image:        container.Image,
 				RestartCount: 0,
 				Status:       "running",
+				Ready:        true,
 			}
-
 			p.ContainerStatuses = append(p.ContainerStatuses, cs)
 		}
 	}
