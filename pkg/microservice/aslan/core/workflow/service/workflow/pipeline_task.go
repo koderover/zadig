@@ -344,17 +344,27 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 			t.ServiceModules = append(t.ServiceModules, sm)
 		}
 
-		if len(t.BuildStages) > 0 {
-			buildStage := t.BuildStages[0]
-			for fullServiceName, buildTask := range buildStage.SubTasks {
+		for _, stage := range t.Stages {
+			if stage.TaskType != config.TaskBuild {
+				continue
+			}
+			for fullServiceName, sTask := range stage.SubTasks {
+				buildTask, err := base.ToBuildTask(sTask)
+				if err != nil {
+					log.Warnf("failed to get build task for task: %s, err: %s", name, err)
+					continue
+				}
 				if sm, ok := serviceModuleMap[fullServiceName]; ok {
 					for _, buildInfo := range buildTask.JobCtx.Builds {
 						sm.CodeInfo = append(sm.CodeInfo, buildInfo)
 					}
 				}
 			}
+			break
 		}
+
 		t.WorkflowArgs = nil
+		t.Stages = nil
 	}
 
 	ret.Data = restp
