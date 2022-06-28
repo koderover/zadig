@@ -314,11 +314,11 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 			var pr *PRCommit
 			var err error
 			if build.Tag != "" {
-				commit, err = QueryByTag(build.CodehostID, build.RepoOwner, build.RepoName, build.Tag, log)
+				commit, err = QueryByTag(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Tag, log)
 			} else if build.Branch != "" && build.PR == 0 {
-				commit, err = QueryByBranch(build.CodehostID, build.RepoOwner, build.RepoName, build.Branch, log)
+				commit, err = QueryByBranch(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Branch, log)
 			} else if build.PR > 0 {
-				pr, err = GetLatestPrCommit(build.CodehostID, build.PR, build.RepoOwner, build.RepoName, log)
+				pr, err = GetLatestPrCommit(build.CodehostID, build.PR, build.GetRepoNamespace(), build.RepoName, log)
 				if err == nil && pr != nil {
 					commit = &RepoCommit{
 						ID:         pr.ID,
