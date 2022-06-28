@@ -172,7 +172,9 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	var renderSet *models.RenderSet
 	if args.Render == nil || args.Render.Revision == 0 {
 		renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			Name: args.Namespace,
+			EnvName:     args.EnvName,
+			Name:        args.Namespace,
+			ProductTmpl: args.ProductName,
 		})
 
 		if err != nil {
@@ -207,7 +209,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
+	renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, args.EnvName, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -370,7 +372,7 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 	// 如果是版本回滚，则args.Render.Revision > 0
 	if args.Render.Revision == 0 {
 		// 检查renderset是否覆盖产品所有key
-		renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, nil, log)
+		renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, args.EnvName, nil, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
 			return e.ErrCreateEnv.AddDesc(err.Error())

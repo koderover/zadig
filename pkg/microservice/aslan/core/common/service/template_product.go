@@ -188,7 +188,7 @@ func FillProductTemplateVars(productTemplates []*template.Product, log *zap.Suga
 				<-ch
 				wg.Done()
 			}()
-			renderSet, err := GetRenderSet(tmpl.ProductName, 0, log)
+			renderSet, err := GetRenderSet(tmpl.ProductName, 0, true, "", log)
 			if err != nil {
 				errStr += fmt.Sprintf("Failed to find render set for product template, productName:%s, err:%v\n", tmpl.ProductName, err)
 				log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)

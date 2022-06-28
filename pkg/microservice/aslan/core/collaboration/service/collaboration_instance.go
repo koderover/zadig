@@ -618,7 +618,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, label := range resp.Labels {
 			ids = append(ids, label.ID.Hex())
 		}
-		err = service.DeleteLabels(ids, true, logger)
+		err = service.DeleteLabels(ids, true, userName, logger)
 		if err != nil {
 			logger.Errorf("delete labels error, error msg:%s", err)
 			return err
@@ -1134,25 +1134,27 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			}
 		}
 	}
-	renderSets, err := getRenderSet(projectName, newProductName.List())
-	if err != nil {
-		logger.Errorf("getRenderSet error:%s", err)
-		return nil, err
-	}
-	if renderSets != nil {
-		productRenderSetMap := make(map[string]models2.RenderSet)
-		for _, set := range renderSets {
-			productRenderSetMap[set.EnvName] = set
+	if len(newProduct) > 0 && newProduct[0].DeployType == setting.K8SDeployType {
+		renderSets, err := getRenderSet(projectName, newProductName.List())
+		if err != nil {
+			logger.Errorf("getRenderSet error:%s", err)
+			return nil, err
 		}
-		for _, product := range newProduct {
-			set, ok := productRenderSetMap[product.BaseName]
-			if !ok {
-				logger.Warnf("product:%s renderSet not exist", product.BaseName)
-				continue
+		if renderSets != nil {
+			productRenderSetMap := make(map[string]models2.RenderSet)
+			for _, set := range renderSets {
+				productRenderSetMap[set.EnvName] = set
 			}
+			for _, product := range newProduct {
+				set, ok := productRenderSetMap[product.BaseName]
+				if !ok {
+					logger.Warnf("product:%s renderSet not exist", product.BaseName)
+					continue
+				}
 
-			product.Vars = set.KVs
-			product.DefaultValues = set.DefaultValues
+				product.Vars = set.KVs
+				product.DefaultValues = set.DefaultValues
+			}
 		}
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
@@ -1281,7 +1283,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 		labelIds = append(labelIds, l.ID.Hex())
 	}
 
-	err = service.DeleteLabels(labelIds, true, logger)
+	err = service.DeleteLabels(labelIds, true, "system", logger)
 	if err != nil {
 		return err
 	}
@@ -1341,8 +1343,10 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 			revision = productService.Render.Revision
 		}
 		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
-			Revision: revision,
-			Name:     product.Namespace,
+			Revision:    revision,
+			ProductTmpl: projectName,
+			EnvName:     product.EnvName,
+			Name:        product.Namespace,
 		})
 	}
 	renderSets, err := commonrepo.NewRenderSetColl().ListByFindOpts(&commonrepo.RenderSetListOption{

@@ -87,7 +87,12 @@ func prepareData(namespace, serviceName, containerName, image string, product *m
 		return
 	}
 
-	renderSet, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: namespace, Revision: product.Render.Revision})
+	renderSet, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: product.ProductName,
+		Name:        namespace,
+		EnvName:     product.EnvName,
+		Revision:    product.Render.Revision,
+	})
 	if err != nil {
 		log.Errorf("[RenderSet.find] update product %s error: %s", product.ProductName, err.Error())
 		err = fmt.Errorf("failed to find redset name %s revision %d", namespace, product.Render.Revision)

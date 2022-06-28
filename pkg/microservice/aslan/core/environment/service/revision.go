@@ -135,7 +135,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		rendersetName := ""
 		if product.Render != nil {
 			rendersetName = product.Render.Name
-			newRender, err = commonservice.GetRenderSet(product.Render.Name, 0, log)
+			newRender, err = commonservice.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
 			if err != nil {
 				return prodRev, err
 			}

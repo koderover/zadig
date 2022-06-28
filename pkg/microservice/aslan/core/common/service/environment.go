@@ -49,7 +49,7 @@ import (
 
 // FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
 func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.SugaredLogger) error {
-	renderSet, err := GetRenderSet(tmpl.ProductName, 0, log)
+	renderSet, err := GetRenderSet(tmpl.ProductName, 0, true, "", log)
 	if err != nil {
 		log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
 		return err
@@ -79,19 +79,20 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 
 // 产品列表页服务Response
 type ServiceResp struct {
-	ServiceName        string              `json:"service_name"`
-	ServiceDisplayName string              `json:"service_display_name"`
-	Type               string              `json:"type"`
-	Status             string              `json:"status"`
-	Images             []string            `json:"images,omitempty"`
-	ProductName        string              `json:"product_name"`
-	EnvName            string              `json:"env_name"`
-	Ingress            *IngressInfo        `json:"ingress"`
-	Ready              string              `json:"ready"`
-	EnvStatuses        []*models.EnvStatus `json:"env_statuses,omitempty"`
-	WorkLoadType       string              `json:"workLoadType"`
-	Revision           int64               `json:"revision"`
-	EnvConfigs         []*models.EnvConfig `json:"env_configs"`
+	ServiceName        string       `json:"service_name"`
+	ServiceDisplayName string       `json:"service_display_name"`
+	Type               string       `json:"type"`
+	Status             string       `json:"status"`
+	Images             []string     `json:"images,omitempty"`
+	ProductName        string       `json:"product_name"`
+	EnvName            string       `json:"env_name"`
+	Ingress            *IngressInfo `json:"ingress"`
+	//deprecated
+	Ready        string              `json:"ready"`
+	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
+	WorkLoadType string              `json:"workLoadType"`
+	Revision     int64               `json:"revision"`
+	EnvConfigs   []*models.EnvConfig `json:"env_configs"`
 }
 
 type IngressInfo struct {
@@ -129,7 +130,9 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{
-		Name: renderSetName,
+		ProductTmpl: productName,
+		EnvName:     envName,
+		Name:        renderSetName,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {

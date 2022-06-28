@@ -225,7 +225,7 @@ func UpdateConfigMap(args *UpdateCommonEnvCfgArgs, userName, userID string, log 
 	}
 
 	namespace := product.Namespace
-	renderSet, err := commonservice.GetRenderSet(namespace, 0, log)
+	renderSet, err := commonservice.GetRenderSet(namespace, 0, false, product.EnvName, log)
 	if err != nil {
 		log.Errorf("Failed to find render set for product template %s, err: %v", product.ProductName, err)
 		return err

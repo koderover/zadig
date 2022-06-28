@@ -793,8 +793,10 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productInfo *commonmodels.Product) (map[string]*DeliveryChartData, error) {
 
 	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Revision: productInfo.Render.Revision,
-		Name:     productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+		Name:        productInfo.Render.Name,
+		EnvName:     productInfo.EnvName,
+		ProductTmpl: productInfo.ProductName,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find renderSet: %s, revision: %d", productInfo.Render.Name, productInfo.Render.Revision)
