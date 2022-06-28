@@ -183,6 +183,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		taskV4.POST("", CreateWorkflowTaskV4)
 		taskV4.GET("", ListWorkflowTaskV4)
+		taskV4.GET("/workflow/:workflowName/task/:taskID", GetWorkflowTaskV4)
 	}
 
 	bundles := router.Group("bundle-resources")

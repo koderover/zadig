@@ -17,19 +17,79 @@ limitations under the License.
 package workflow
 
 import (
-	"context"
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/koderover/zadig/pkg/types"
+	stepspec "github.com/koderover/zadig/pkg/types/step"
 	"go.uber.org/zap"
 )
+
+type CreateTaskV4Resp struct {
+	ProjectName  string `json:"project_name"`
+	WorkflowName string `json:"workflow_name"`
+	TaskID       int64  `json:"task_id"`
+}
+
+type WorkflowTaskPreview struct {
+	TaskID       int64               `bson:"task_id"                   json:"task_id"`
+	WorkflowName string              `bson:"workflow_name"             json:"workflow_name"`
+	Status       config.Status       `bson:"status"                    json:"status,omitempty"`
+	TaskCreator  string              `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskRevoker  string              `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
+	CreateTime   int64               `bson:"create_time"               json:"create_time,omitempty"`
+	StartTime    int64               `bson:"start_time"                json:"start_time,omitempty"`
+	EndTime      int64               `bson:"end_time"                  json:"end_time,omitempty"`
+	Stages       []*StageTaskPreview `bson:"stages"                    json:"stages"`
+	ProjectName  string              `bson:"project_name"              json:"project_name"`
+	Error        string              `bson:"error,omitempty"           json:"error,omitempty"`
+	IsRestart    bool                `bson:"is_restart"                json:"is_restart"`
+}
+
+type StageTaskPreview struct {
+	Name      string                 `bson:"name"          json:"name"`
+	Status    config.Status          `bson:"status"        json:"status"`
+	StartTime int64                  `bson:"start_time"    json:"start_time,omitempty"`
+	EndTime   int64                  `bson:"end_time"      json:"end_time,omitempty"`
+	Parallel  bool                   `bson:"parallel"      json:"parallel"`
+	Approval  *commonmodels.Approval `bson:"approval"      json:"approval"`
+	Jobs      []*JobTaskPreview      `bson:"jobs"          json:"jobs"`
+}
+
+type JobTaskPreview struct {
+	Name      string        `bson:"name"           json:"name"`
+	JobType   string        `bson:"type"           json:"type"`
+	Status    config.Status `bson:"status"         json:"status"`
+	StartTime int64         `bson:"start_time"     json:"start_time,omitempty"`
+	EndTime   int64         `bson:"end_time"       json:"end_time,omitempty"`
+	Error     string        `bson:"error"          json:"error"`
+	Spec      interface{}   `bson:"spec"           json:"spec"`
+}
+
+type ZadigBuildJobSpec struct {
+	Repos         []*types.Repository `bson:"repos"           json:"repos"`
+	Image         string              `bson:"image"           json:"image"`
+	ServiceName   string              `bson:"service_name"    json:"service_name"`
+	ServiceModule string              `bson:"service_module"  json:"service_module"`
+}
+
+type ZadigDeployJobSpec struct {
+	Env              string             `bson:"env"                          json:"env"`
+	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+}
+
+type ServiceAndImage struct {
+	ServiceName   string `bson:"service_name"           json:"service_name"`
+	ServiceModule string `bson:"service_module"         json:"service_module"`
+	Image         string `bson:"image"                  json:"image"`
+}
 
 func GetWorkflowv4Preset(workflowName string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
@@ -48,13 +108,19 @@ func GetWorkflowv4Preset(workflowName string, log *zap.SugaredLogger) (*commonmo
 	return workflow, nil
 }
 
-func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) error {
+func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
+	resp := &CreateTaskV4Resp{
+		ProjectName:  workflow.Project,
+		WorkflowName: workflow.Name,
+	}
 	workflowTask := &commonmodels.WorkflowTask{}
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
 	if err != nil {
 		log.Errorf("Counter.GetNextSeq error: %v", err)
-		return e.ErrGetCounter.AddDesc(err.Error())
+		return resp, e.ErrGetCounter.AddDesc(err.Error())
 	}
+	resp.TaskID = nextTaskID
+
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = user
 	workflowTask.TaskRevoker = user
@@ -70,33 +136,37 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		}
 		workflowTask.Stages = append(workflowTask.Stages, stageTask)
 		for _, job := range stage.Jobs {
-			if err := setZadigBuildRepos(job, log); err != nil {
-				log.Errorf("set build info error: %v", err)
-				return e.ErrCreateTask.AddDesc(err.Error())
+			if job.JobType == config.JobZadigBuild {
+				if err := setZadigBuildRepos(job, log); err != nil {
+					log.Errorf("set build info error: %v", err)
+					return resp, e.ErrCreateTask.AddDesc(err.Error())
+				}
 			}
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
 				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
-				return e.ErrCreateTask.AddDesc(err.Error())
+				return resp, e.ErrCreateTask.AddDesc(err.Error())
 			}
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
 		}
 
 	}
-	idString, err := commonrepo.NewworkflowTaskv4Coll().Create(workflowTask)
-	if err != nil {
-		log.Errorf("cannot create workflow task %s, the error is: %v", workflow.Name, err)
-		return e.ErrCreateTask.AddDesc(err.Error())
+	// idString, err := commonrepo.NewworkflowTaskv4Coll().Create(workflowTask)
+	// if err != nil {
+	// 	log.Errorf("cannot create workflow task %s, the error is: %v", workflow.Name, err)
+	// 	return resp, e.ErrCreateTask.AddDesc(err.Error())
+	// }
+	// id, err := primitive.ObjectIDFromHex(idString)
+	// if err != nil {
+	// 	log.Errorf("transform task id error: %v", err)
+	// 	return resp, e.ErrCreateTask.AddDesc(err.Error())
+	// }
+	// workflowTask.ID = id
+	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
+		log.Errorf("create workflow task error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
-	id, err := primitive.ObjectIDFromHex(idString)
-	if err != nil {
-		log.Errorf("transform task id error: %v", err)
-		return e.ErrCreateTask.AddDesc(err.Error())
-	}
-	ctx := context.Background()
-	workflowTask.ID = id
-	go workflowcontroller.NewWorkflowController(workflowTask, log).Run(ctx, 5)
-	return nil
+	return resp, nil
 }
 
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
@@ -118,6 +188,113 @@ func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *za
 		return resp, total, err
 	}
 	return resp, total, nil
+}
+
+func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*WorkflowTaskPreview, error) {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("list workflowTaskV4 error: %s", err)
+		return nil, err
+	}
+	resp := &WorkflowTaskPreview{
+		TaskID:       task.TaskID,
+		WorkflowName: task.WorkflowName,
+		ProjectName:  task.ProjectName,
+		Status:       task.Status,
+		TaskCreator:  task.TaskCreator,
+		TaskRevoker:  task.TaskRevoker,
+		CreateTime:   task.CreateTime,
+		StartTime:    task.StartTime,
+		EndTime:      task.EndTime,
+		Error:        task.Error,
+		IsRestart:    task.IsRestart,
+	}
+	for _, stage := range task.Stages {
+		resp.Stages = append(resp.Stages, &StageTaskPreview{
+			Name:      stage.Name,
+			Status:    stage.Status,
+			StartTime: stage.StartTime,
+			EndTime:   stage.EndTime,
+			Parallel:  stage.Parallel,
+			Approval:  stage.Approval,
+			Jobs:      jobsToJobPreviews(stage.Jobs),
+		})
+	}
+	return resp, nil
+}
+
+func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
+	resp := []*JobTaskPreview{}
+	for _, job := range jobs {
+		jobPreview := &JobTaskPreview{
+			Name:      job.Name,
+			Status:    job.Status,
+			StartTime: job.StartTime,
+			EndTime:   job.EndTime,
+			Error:     job.Error,
+			JobType:   job.JobType,
+		}
+		switch job.JobType {
+		case string(config.JobZadigBuild):
+			spec := ZadigBuildJobSpec{}
+			for _, arg := range job.Properties.Args {
+				if arg.Key == "IMAGE" {
+					spec.Image = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE" {
+					spec.ServiceName = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE_MODULE" {
+					spec.ServiceModule = arg.Value
+					continue
+				}
+			}
+			for _, step := range job.Steps {
+				if step.StepType == config.StepGit {
+					stepSpec := &stepspec.StepGitSpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					spec.Repos = stepSpec.Repos
+					continue
+				}
+			}
+			jobPreview.Spec = spec
+		case string(config.JobZadigDeploy):
+			spec := ZadigDeployJobSpec{}
+			for _, step := range job.Steps {
+				if step.StepType == config.StepDeploy {
+					stepSpec := &stepspec.StepDeploySpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					spec.Env = stepSpec.Env
+					spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+						ServiceName:   stepSpec.ServiceName,
+						ServiceModule: stepSpec.ServiceModule,
+						Image:         stepSpec.Image,
+					})
+					continue
+				}
+				if step.StepType == config.StepHelmDeploy {
+					stepSpec := &stepspec.StepHelmDeploySpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					spec.Env = stepSpec.Env
+					for _, imageAndmodule := range stepSpec.ImageAndModules {
+						spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+							ServiceName:   stepSpec.ServiceName,
+							ServiceModule: imageAndmodule.ServiceModule,
+							Image:         imageAndmodule.Image,
+						})
+					}
+					continue
+				}
+			}
+			jobPreview.Spec = spec
+		default:
+			jobPreview.Spec = job.Steps
+		}
+		resp = append(resp, jobPreview)
+	}
+	return resp
 }
 
 func setZadigBuildRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {

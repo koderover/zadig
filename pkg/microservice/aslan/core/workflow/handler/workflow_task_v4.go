@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -61,7 +62,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.CreateWorkflowTaskV4(ctx.UserName, args, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(ctx.UserName, args, ctx.Logger)
 }
 
 func ListWorkflowTaskV4(c *gin.Context) {
@@ -80,4 +81,17 @@ func ListWorkflowTaskV4(c *gin.Context) {
 	}
 	ctx.Resp = resp
 	ctx.Err = err
+}
+
+func GetWorkflowTaskV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
 }
