@@ -190,6 +190,14 @@ func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *za
 	return resp, total, nil
 }
 
+func CancelWorkflowTaskV4(userName, workflowName string, taskID int64, logger *zap.SugaredLogger) error {
+	if err := workflowcontroller.CancelWorkflowTask(userName, workflowName, taskID, logger); err != nil {
+		logger.Errorf("cancel workflowTaskV4 error: %s", err)
+		return e.ErrCancelTask.AddErr(err)
+	}
+	return nil
+}
+
 func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*WorkflowTaskPreview, error) {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
