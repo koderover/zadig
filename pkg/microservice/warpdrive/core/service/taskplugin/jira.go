@@ -165,13 +165,31 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 					repoCommits = append(repoCommits, list...)
 					opt.Page = resp.NextPage
 				}
-				for _, rc := range repoCommits {
-					// parse commit message
-					if rc != nil && rc.Message != "" {
-						keys := util.GetJiraKeys(rc.Message)
-						if len(keys) > 0 {
-							jiraKeys = append(jiraKeys, keys...)
-						}
+
+			} else {
+				opts := &gitlab.ListCommitsOptions{
+					RefName: &build.Branch,
+					ListOptions: gitlab.ListOptions{
+						PerPage: 1,
+						Page:    1,
+					},
+				}
+				commits, _, err := gitlabCli.Commits.ListCommits(fmt.Sprintf("%s/%s", build.RepoOwner, build.RepoName), opts)
+				if err != nil {
+					p.Log.Errorf("gitlab ListCommits [%s/%s] error: %v", build.RepoOwner, build.RepoName, err)
+					p.Task.TaskStatus = config.StatusSkipped
+					p.Task.Error = err.Error()
+					return
+				}
+				repoCommits = append(repoCommits, commits...)
+			}
+
+			for _, rc := range repoCommits {
+				// parse commit message
+				if rc != nil && rc.Message != "" {
+					keys := util.GetJiraKeys(rc.Message)
+					if len(keys) > 0 {
+						jiraKeys = append(jiraKeys, keys...)
 					}
 				}
 			}
@@ -230,6 +248,30 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 					return
 				}
 
+				for _, rc := range commits {
+					// parse commit message
+					if rc.Commit != nil && rc.Commit.Message != nil {
+						keys := util.GetJiraKeys(*rc.Commit.Message)
+						if len(keys) > 0 {
+							jiraKeys = append(jiraKeys, keys...)
+						}
+					}
+				}
+			} else {
+				opt := &github.CommitsListOptions{
+					SHA: build.Branch,
+					ListOptions: github.ListOptions{
+						Page:    1,
+						PerPage: 1,
+					},
+				}
+				commits, _, err := gh.Client.Repositories.ListCommits(context.TODO(), build.RepoOwner, build.RepoName, opt)
+				if err != nil {
+					p.Log.Errorf("github ListCommits [%s/%s] error: %v", build.RepoOwner, build.RepoName, err)
+					p.Task.TaskStatus = config.StatusSkipped
+					p.Task.Error = err.Error()
+					return
+				}
 				for _, rc := range commits {
 					// parse commit message
 					if rc.Commit != nil && rc.Commit.Message != nil {
