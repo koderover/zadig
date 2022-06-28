@@ -43,6 +43,8 @@ type RenderSetListOption struct {
 type RenderSetFindOption struct {
 	// if Revision == 0 then search max revision of RenderSet
 	ProductTmpl string
+	EnvName     string
+	IsDefault   bool
 	Revision    int64
 	Name        string
 }
@@ -212,6 +214,12 @@ func (c *RenderSetColl) Find(opt *RenderSetFindOption) (*models.RenderSet, error
 
 	if len(opt.ProductTmpl) > 0 {
 		query["product_tmpl"] = opt.ProductTmpl
+	}
+	if len(opt.EnvName) > 0 {
+		query["env_name"] = opt.EnvName
+	}
+	if opt.IsDefault {
+		query["is_default"] = opt.IsDefault
 	}
 
 	rs := &models.RenderSet{}

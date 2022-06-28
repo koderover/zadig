@@ -49,7 +49,7 @@ import (
 
 // FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
 func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.SugaredLogger) error {
-	renderSet, err := GetRenderSet(tmpl.ProductName, 0, log)
+	renderSet, err := GetRenderSet(tmpl.ProductName, 0, true, "", log)
 	if err != nil {
 		log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
 		return err
@@ -130,7 +130,9 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{
-		Name: renderSetName,
+		ProductTmpl: productName,
+		EnvName:     envName,
+		Name:        renderSetName,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {

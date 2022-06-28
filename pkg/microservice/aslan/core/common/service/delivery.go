@@ -374,7 +374,7 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 		product.Namespace = productInfo.Namespace
 	}
 
-	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, log); err == nil {
+	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, false, product.Namespace, log); err == nil {
 		product.Vars = renderSet.KVs
 	} else {
 		log.Errorf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)
@@ -450,7 +450,12 @@ func updateServiceImage(serviceName, image, containerName string, product *commo
 
 func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commonmodels.Container, serviceName, deployType string, log *zap.SugaredLogger) (string, error) {
 	if deployType == setting.K8SDeployType {
-		opt := &commonrepo.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision}
+		opt := &commonrepo.RenderSetFindOption{
+			Name:        productInfo.Render.Name,
+			Revision:    productInfo.Render.Revision,
+			EnvName:     productInfo.EnvName,
+			ProductTmpl: productInfo.ProductName,
+		}
 		newRender, err := commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)

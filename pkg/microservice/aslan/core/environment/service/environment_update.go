@@ -142,8 +142,10 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 	}()
 
 	renderInfo, errRender := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:     productInfo.Render.Name,
-		Revision: productInfo.Render.Revision})
+		ProductTmpl: productInfo.ProductName,
+		EnvName:     productInfo.EnvName,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision})
 	if errRender != nil {
 		err = fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, errRender)
 		return
@@ -210,8 +212,10 @@ func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, 
 	}()
 
 	renderInfo, errFindRender := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:     productInfo.Render.Name,
-		Revision: productInfo.Render.Revision})
+		ProductTmpl: productInfo.ProductName,
+		EnvName:     productInfo.EnvName,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision})
 	if errFindRender != nil {
 		err = fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, errFindRender)
 		return
