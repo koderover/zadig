@@ -59,3 +59,9 @@ const (
 	WorkspaceCacheDir   CacheDirType = "workspace"
 	UserDefinedCacheDir CacheDirType = "user_defined"
 )
+
+type StorageClassType string
+
+const (
+	StorageClassAll StorageClassType = "all"
+)

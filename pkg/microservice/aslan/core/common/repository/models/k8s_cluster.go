@@ -83,8 +83,22 @@ type Resources struct {
 }
 
 type DindCfg struct {
-	Replicas  int        `json:"replicas"   bson:"replicas"`
-	Resources *Resources `json:"resources"  bson:"resources"`
+	Replicas  int          `json:"replicas"   bson:"replicas"`
+	Resources *Resources   `json:"resources"  bson:"resources"`
+	Storage   *DindStorage `json:"storage"    bson:"storage"`
+}
+
+type DindStorageType string
+
+const (
+	DindStorageRootfs  DindStorageType = "rootfs"
+	DindStorageDynamic DindStorageType = "dynamic"
+)
+
+type DindStorage struct {
+	Type             DindStorageType `json:"type"                bson:"type"`
+	StorageClass     string          `json:"storage_class"       bson:"storage_class"`
+	StorageSizeInGiB int64           `json:"storage_size_in_gib" bson:"storage_size_in_gib"`
 }
 
 func (K8SCluster) TableName() string {
