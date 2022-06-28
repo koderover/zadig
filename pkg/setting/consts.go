@@ -170,6 +170,10 @@ const (
 	EditorIDAnnotation              = companyLabel + "/" + "editor-id"
 	LastUpdateTimeAnnotation        = companyLabel + "/" + "last-update-time"
 
+	JobLabelTaskKey  = "s-task"
+	JobLabelNameKey  = "s-name"
+	JobLabelSTypeKey = "s-type"
+
 	LabelValueTrue = "true"
 
 	// Pod status

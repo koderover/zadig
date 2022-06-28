@@ -187,6 +187,16 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
+func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
+	if options == nil {
+		return
+	}
+	log.Debugf("Start to get task container log.")
+
+	selector := getWorkflowSelector(options)
+	waitAndGetLog(ctx, streamChan, selector, options, log)
+}
+
 func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
 	options.SubTask = string(config.TaskTestingV2)
 	selector := getPipelineSelector(options)
@@ -275,4 +285,18 @@ func getPipelineSelector(options *GetContainerOptions) labels.Selector {
 	}
 
 	return ret.AsSelector()
+}
+
+func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
+	retMap := map[string]string{
+		setting.JobLabelTaskKey: fmt.Sprintf("%s-%d", strings.ToLower(options.PipelineName), options.TaskID),
+		setting.JobLabelNameKey: strings.Replace(options.SubTask, "_", "-", -1),
+	}
+	// no need to add labels with empty value to a job
+	for k, v := range retMap {
+		if len(v) == 0 {
+			delete(retMap, k)
+		}
+	}
+	return labels.Set(retMap).AsSelector()
 }

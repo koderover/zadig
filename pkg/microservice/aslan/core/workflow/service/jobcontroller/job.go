@@ -18,6 +18,8 @@ package jobcontroller
 
 import (
 	"context"
+	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -30,11 +32,14 @@ import (
 
 type JobCtl interface {
 	Run(ctx context.Context)
+	Wait(ctx context.Context)
+	Complete(ctx context.Context)
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
 	job.Status = config.StatusRunning
 	job.StartTime = time.Now().Unix()
+	ack()
 	// set default timeout
 	if job.Properties.Timeout <= 0 {
 		job.Properties.Timeout = 600
@@ -69,10 +74,11 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
 	}()
-
 	var jobCtl JobCtl
 	switch job.JobType {
-	case "deploy":
+	case string(config.JobZadigDeploy):
+		fallthrough
+	case string(config.JobDeploy):
 		// do deploy inside aslan instead of jobexecutor.
 		status, err := stepcontroller.RunSteps(ctx, workflowCtx, &job.Properties.Paths, job.Steps, logger)
 		job.Status = status
@@ -84,7 +90,10 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
+
 	jobCtl.Run(ctx)
+	jobCtl.Wait(ctx)
+	jobCtl.Complete(ctx)
 }
 
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
@@ -143,4 +152,16 @@ func (p *Pool) work() {
 		runJob(p.ctx, job, p.workflowCtx, p.logger, p.ack)
 		p.wg.Done()
 	}
+}
+
+func saveFile(src io.Reader, localFile string) error {
+	out, err := os.Create(localFile)
+	if err != nil {
+		return err
+	}
+
+	defer out.Close()
+
+	_, err = io.Copy(out, src)
+	return err
 }

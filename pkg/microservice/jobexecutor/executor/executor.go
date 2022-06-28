@@ -19,7 +19,7 @@ package executor
 import (
 	"context"
 	"fmt"
-	"os"
+	"io/ioutil"
 	"time"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
@@ -29,45 +29,49 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-const (
-	ZadigContextDir    = "/zadig/"
-	ZadigLogFile       = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
-)
+// const (
+// 	ZadigContextDir    = "/zadig/"
+// 	ZadigLogFile       = ZadigContextDir + "zadig.log"
+// 	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
+// )
 
 func Execute(ctx context.Context) error {
-	f, err := os.OpenFile(ZadigLogFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
-	if err != nil {
-		fmt.Println("open log file error")
-		return err
-	}
-	os.Stdout = f
-	os.Stderr = f
+	// f, err := os.OpenFile(ZadigLogFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
+	// if err != nil {
+	// 	fmt.Println("open log file error")
+	// 	return err
+	// }
+	// os.Stdout = f
+	// os.Stderr = f
 
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
 		NoCaller:    true,
 		NoLogLevel:  true,
 		Development: commonconfig.Mode() != setting.ReleaseMode,
-		SendToFile:  true,
-		Filename:    ZadigLogFile,
+		// SendToFile:  true,
+		// Filename:    ZadigLogFile,
 	})
 
 	start := time.Now()
 
 	excutor := "job-excutor"
+	var err error
 	defer func() {
-		os.Remove(ZadigLifeCycleFile)
+		// os.Remove(ZadigLifeCycleFile)
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
 			fmt.Printf("Failed to run: %s.\n", err)
-			fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
-			os.Exit(1)
 		}
 		fmt.Printf("Job Status: %s\n", resultMsg)
+		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
+		if dogFoodErr != nil {
+			log.Errorf("Failed to create dog food: %s.", dogFoodErr)
+		}
 
 		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
+		time.Sleep(30 * time.Second)
 	}()
 
 	var j *job.Job

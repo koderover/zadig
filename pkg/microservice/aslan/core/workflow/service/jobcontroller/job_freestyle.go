@@ -31,6 +31,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -45,6 +47,8 @@ type FreestyleJobCtl struct {
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
 	kubeclient  crClient.Client
+	clientset   kubernetes.Interface
+	restConfig  *rest.Config
 	paths       *string
 	ack         func()
 }
@@ -62,22 +66,18 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 }
 
 func (c *FreestyleJobCtl) Run(ctx context.Context) {
-	c.run(ctx)
-	c.wait(ctx)
-	c.complete(ctx)
-}
-
-func (c *FreestyleJobCtl) run(ctx context.Context) {
 	// get kube client
 	hubServerAddr := config.HubServerAddress()
 	switch c.job.Properties.ClusterID {
 	case setting.LocalClusterID:
 		c.job.Properties.Namespace = zadigconfig.Namespace()
 		c.kubeclient = krkubeclient.Client()
+		c.clientset = krkubeclient.Clientset()
+		c.restConfig = krkubeclient.RESTConfig()
 	default:
 		c.job.Properties.Namespace = setting.AttachedClusterNamespace
 
-		crClient, _, _, err := GetK8sClients(hubServerAddr, c.job.Properties.ClusterID)
+		crClient, clientset, restConfig, err := GetK8sClients(hubServerAddr, c.job.Properties.ClusterID)
 		if err != nil {
 			c.job.Status = config.StatusFailed
 			c.job.Error = err.Error()
@@ -85,6 +85,8 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 			return
 		}
 		c.kubeclient = crClient
+		c.clientset = clientset
+		c.restConfig = restConfig
 	}
 
 	// decide which docker host to use.
@@ -195,12 +197,12 @@ func (c *FreestyleJobCtl) run(ctx context.Context) {
 	c.logger.Infof("succeed to create job %s", c.jobName)
 }
 
-func (c *FreestyleJobCtl) wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, int(c.job.Properties.Timeout), c.job.Properties.Namespace, c.jobName, c.kubeclient, c.logger)
+func (c *FreestyleJobCtl) Wait(ctx context.Context) {
+	status := waitJobEndWithFile(ctx, int(c.job.Properties.Timeout), c.job.Properties.Namespace, c.jobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
 	c.job.Status = status
 }
 
-func (c *FreestyleJobCtl) complete(ctx context.Context) {
+func (c *FreestyleJobCtl) Complete(ctx context.Context) {
 	jobLabel := &JobLabel{
 		WorkflowName: c.workflowCtx.WorkflowName,
 		TaskID:       c.workflowCtx.TaskID,
@@ -221,7 +223,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	}()
 
 	// get job outputs info from pod terminate message.
-	outputs, err := getJobOutput(c.job.Properties.Namespace, jobLabel, c.kubeclient)
+	outputs, err := getJobOutput(c.job.Properties.Namespace, c.job.Name, jobLabel, c.kubeclient)
 	if err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
@@ -232,14 +234,11 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		c.workflowCtx.GlobalContextSet(strings.Join([]string{c.job.Name, output.Name}, "."), output.Value)
 	}
 
-	// err := saveContainerLog(pipelineTask, p.KubeNamespace, "", c.FileName, jobLabel, c.kubeclient)
-	// if err != nil {
-	// 	p.Log.Error(err)
-	// 	p.Task.Error = err.Error()
-	// 	return
-	// }
-
-	// p.Task.LogFile = p.FileName
+	if err := saveContainerLog(c.job, c.workflowCtx.WorkflowName, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {
+		c.logger.Error(err)
+		c.job.Error = err.Error()
+		return
+	}
 }
 
 func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
