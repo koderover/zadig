@@ -18,6 +18,7 @@ package workflow
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"go.uber.org/zap"
@@ -25,8 +26,13 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+)
+
+const (
+	JobNameRegx = "^[a-z][a-z0-9-]{1,32}$"
 )
 
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
@@ -34,6 +40,9 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	if err == nil {
 		errStr := fmt.Sprintf("workflow v4 [%s] 在项目 [%s] 中已经存在!", workflow.Name, workflow.Project)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
+	}
+	if err := workflowLint(workflow, logger); err != nil {
+		return err
 	}
 
 	workflow.CreatedBy = user
@@ -63,6 +72,9 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return e.ErrFindWorkflow.AddErr(err)
+	}
+	if err := workflowLint(inputWorkflow, logger); err != nil {
+		return err
 	}
 
 	inputWorkflow.UpdatedBy = user
@@ -144,4 +156,39 @@ func ListWorkflowV4(projectName, userID string, pageNum, pageSize int64, logger 
 		})
 	}
 	return resp, total, nil
+}
+
+func workflowLint(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(workflow.Project)
+	if err != nil {
+		logger.Errorf("Failed to get project %s services, error: %v", workflow.Project, err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	if len(services) > 0 {
+		if services[0].Type != setting.K8SDeployType && services[0].Type != setting.HelmDeployType {
+			logger.Error("common workflow do not support PM project yet")
+			return e.ErrUpsertWorkflow.AddDesc("common workflow do not support PM project yet")
+		}
+	}
+	jobNameMap := make(map[string]bool, 0)
+	reg, err := regexp.Compile(JobNameRegx)
+	if err != nil {
+		logger.Errorf("reg compile failed: %v", err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if match := reg.MatchString(job.Name); !match {
+				logger.Errorf("job name [%s] did not match %s", job.Name, JobNameRegx)
+				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, JobNameRegx))
+			}
+			if _, ok := jobNameMap[job.Name]; !ok {
+				jobNameMap[job.Name] = true
+			} else {
+				logger.Errorf("duplicated job name: %s", job.Name)
+				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated job name: %s", job.Name))
+			}
+		}
+	}
+	return nil
 }
