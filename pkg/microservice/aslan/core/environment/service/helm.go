@@ -672,47 +672,51 @@ func initEnvConfigSetAction(envName, productName, userName string, envConfigYaml
 				}
 				switch u.GetKind() {
 				case setting.ConfigMap:
-					envCm := &models.EnvConfigMap{
+					envCm := &models.EnvResource{
 						ProductName:    productName,
 						UpdateUserName: userName,
 						EnvName:        envName,
 						Name:           u.GetName(),
 						YamlData:       string(yamlData),
+						Type:           string(config.CommonEnvCfgTypeConfigMap),
 					}
-					if err := commonrepo.NewConfigMapColl().Create(envCm, true); err != nil {
+					if err := commonrepo.NewEnvResourceColl().Create(envCm); err != nil {
 						errList = multierror.Append(errList, err)
 					}
 				case setting.Ingress:
-					envIngress := &models.EnvIngress{
+					envIngress := &models.EnvResource{
 						ProductName:    productName,
 						UpdateUserName: userName,
 						EnvName:        envName,
 						Name:           u.GetName(),
 						YamlData:       string(yamlData),
+						Type:           string(config.CommonEnvCfgTypeIngress),
 					}
-					if err := commonrepo.NewIngressColl().Create(envIngress, true); err != nil {
+					if err := commonrepo.NewEnvResourceColl().Create(envIngress); err != nil {
 						errList = multierror.Append(errList, err)
 					}
 				case setting.Secret:
-					envSecret := &models.EnvSecret{
+					envSecret := &models.EnvResource{
 						ProductName:    productName,
 						UpdateUserName: userName,
 						EnvName:        envName,
 						Name:           u.GetName(),
 						YamlData:       string(yamlData),
+						Type:           string(config.CommonEnvCfgTypeSecret),
 					}
-					if err := commonrepo.NewSecretColl().Create(envSecret, true); err != nil {
+					if err := commonrepo.NewEnvResourceColl().Create(envSecret); err != nil {
 						errList = multierror.Append(errList, err)
 					}
 				case setting.PersistentVolumeClaim:
-					envPvc := &models.EnvPvc{
+					envPvc := &models.EnvResource{
 						ProductName:    productName,
 						UpdateUserName: userName,
 						EnvName:        envName,
 						Name:           u.GetName(),
 						YamlData:       string(yamlData),
+						Type:           string(config.CommonEnvCfgTypePvc),
 					}
-					if err := commonrepo.NewPvcColl().Create(envPvc, true); err != nil {
+					if err := commonrepo.NewEnvResourceColl().Create(envPvc); err != nil {
 						errList = multierror.Append(errList, err)
 					}
 				}

@@ -51,7 +51,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(service.CreateCommonEnvCfgArgs)
+	args := new(service.CreateUpdateCommonEnvCfgArgs)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateCommonEnvCfg c.GetRawData() err : %v", err)
@@ -83,7 +83,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(service.UpdateCommonEnvCfgArgs)
+	args := new(service.CreateUpdateCommonEnvCfgArgs)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateCommonEnvCfg c.GetRawData() err : %v", err)
@@ -118,5 +118,5 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 	args.CommonEnvCfgType = config.CommonEnvCfgType(c.Query("commonEnvCfgType"))
 	args.Name = c.Param("objectName")
 
-	ctx.Resp, ctx.Err = service.ListCommonEnvCfgHistory(args, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListEnvResourceHistory(args, ctx.Logger)
 }

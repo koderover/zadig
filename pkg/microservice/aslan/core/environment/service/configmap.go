@@ -45,6 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type ListConfigMapArgs struct {
@@ -80,19 +81,28 @@ type configMap struct {
 	lastUpdateTime    time.Time
 }
 
-type configMapWithHistory struct {
-	Current             *configMap   `json:"current"`
-	HistoricalRevisions []*configMap `json:"historicalRevisions"`
+type ResourceResp interface {
+	SetSourceDetail(sd *models.CreateFromRepo)
+	GetName() string
 }
 
 type ListConfigMapRes struct {
-	CmName         string            `json:"cm_name"`
-	Immutable      bool              `json:"immutable"`
-	CmData         map[string]string `json:"cm_data"`
-	YamlData       string            `json:"yaml_data"`
-	UpdateUserName string            `json:"update_username"`
-	CreateTime     time.Time         `json:"create_time"`
-	Services       []string          `json:"services"`
+	CmName         string                 `json:"cm_name"`
+	Immutable      bool                   `json:"immutable"`
+	CmData         map[string]string      `json:"cm_data"`
+	YamlData       string                 `json:"yaml_data"`
+	UpdateUserName string                 `json:"update_username"`
+	CreateTime     time.Time              `json:"create_time"`
+	Services       []string               `json:"services"`
+	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
+}
+
+func (resp *ListConfigMapRes) SetSourceDetail(sd *models.CreateFromRepo) {
+	resp.SourceDetail = sd
+}
+
+func (resp *ListConfigMapRes) GetName() string {
+	return resp.CmName
 }
 
 func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
@@ -105,6 +115,20 @@ func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
 		CreationTimestamp: util.FormatTime(icm.CreationTimestamp.Time),
 		LastUpdateTime:    util.FormatTime(u),
 		lastUpdateTime:    u,
+	}
+}
+
+func setSourceDetailData(res ResourceResp, resType config.CommonEnvCfgType) {
+	cmDataConfig, err := commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
+		Name: res.GetName(),
+		Type: string(resType),
+	})
+	if err != nil {
+		log.Warnf("failed to f get %v with name : %s, err: %s", resType, res.GetName(), err)
+		return
+	}
+	if cmDataConfig != nil {
+		res.SetSourceDetail(cmDataConfig.SourceDetail)
 	}
 }
 
@@ -182,6 +206,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 			Services:   tempSvcs,
 			CreateTime: cm.GetCreationTimestamp().Time,
 		}
+		setSourceDetailData(resElem, config.CommonEnvCfgTypeConfigMap)
 		mutex.Lock()
 		res = append(res, resElem)
 		mutex.Unlock()
@@ -206,7 +231,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 	return res, nil
 }
 
-func UpdateConfigMap(args *UpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateConfigMap(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	cm := &corev1.ConfigMap{}
 	err = json.Unmarshal(js, cm)
@@ -253,14 +278,15 @@ func UpdateConfigMap(args *UpdateCommonEnvCfgArgs, userName, userID string, log 
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
-	envcm := &models.EnvConfigMap{
+	envCM := &models.EnvResource{
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
 		Name:           cm.Name,
 		YamlData:       yamlData,
+		Type:           string(config.CommonEnvCfgTypeConfigMap),
 	}
-	if err := commonrepo.NewConfigMapColl().Create(envcm, true); err != nil {
+	if err := commonrepo.NewEnvResourceColl().Create(envCM); err != nil {
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
 	tplProduct, err := commontpl.NewProductColl().Find(args.ProductName)
@@ -412,9 +438,9 @@ func cleanArchiveConfigMap(namespace string, ls map[string]string, kubeClient cl
 type MigrateHistoryConfigMapsRes struct {
 }
 
-func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogger) ([]*models.EnvConfigMap, error) {
+func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogger) ([]*models.EnvResource, error) {
 
-	res := make([]*models.EnvConfigMap, 0)
+	res := make([]*models.EnvResource, 0)
 	products := make([]*models.Product, 0)
 	var err error
 	if productName != "" {
@@ -448,11 +474,11 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 		for _, cm := range cms {
 			cmNames := strings.Split(cm.Name, "-bak-")
 			cmName := cmNames[0]
-			envCm := &models.EnvConfigMap{
+			envResource := &models.EnvResource{
 				ProductName: product.ProductName,
 				EnvName:     product.EnvName,
-				Namespace:   product.Namespace,
 				Name:        cmName,
+				Type:        string(config.CommonEnvCfgTypeConfigMap),
 			}
 			cmLables := cm.GetLabels()
 			if _, ok := cmLables[setting.UpdateTime]; ok {
@@ -460,7 +486,7 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 				if err != nil {
 					return nil, e.ErrListResources.AddErr(err)
 				}
-				envCm.CreateTime = tm.Unix()
+				envResource.CreateTime = tm.Unix()
 			}
 
 			delete(cmLables, setting.UpdateTime)
@@ -476,12 +502,12 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 				log.Error(err)
 				return nil, e.ErrListResources.AddDesc(err.Error())
 			}
-			envCm.YamlData = string(yamlData)
-			err = commonrepo.NewConfigMapColl().Create(envCm, false)
+			envResource.YamlData = string(yamlData)
+			err = commonrepo.NewEnvResourceColl().Create(envResource)
 			if err != nil {
 				return nil, e.ErrListResources.AddErr(err)
 			}
-			res = append(res, envCm)
+			res = append(res, envResource)
 		}
 	}
 	return res, nil

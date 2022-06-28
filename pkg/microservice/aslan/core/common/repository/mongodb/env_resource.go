@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Note this file should be deleted in future
-
 package mongodb
 
 import (
@@ -33,27 +31,28 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type ConfigMapColl struct {
+type EnvResourceColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewConfigMapColl() *ConfigMapColl {
-	name := models.EnvConfigMap{}.TableName()
-	return &ConfigMapColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+func NewEnvResourceColl() *EnvResourceColl {
+	name := models.EnvResource{}.TableName()
+	return &EnvResourceColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
-func (c *ConfigMapColl) GetCollectionName() string {
+func (c *EnvResourceColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *ConfigMapColl) EnsureIndex(ctx context.Context) error {
+func (c *EnvResourceColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "name", Value: 1},
 			bson.E{Key: "create_time", Value: 1},
 			bson.E{Key: "env_name", Value: 1},
+			bson.E{Key: "type", Value: 1},
 			bson.E{Key: "product_name", Value: 1},
 		},
 		Options: options.Index().SetUnique(true),
@@ -64,23 +63,27 @@ func (c *ConfigMapColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ConfigMapColl) Create(args *models.EnvConfigMap, isCreateTime bool) error {
-	if isCreateTime {
+func (c *EnvResourceColl) Create(args *models.EnvResource) error {
+	if args.CreateTime == 0 {
 		args.CreateTime = time.Now().Unix()
 	}
 	_, err := c.InsertOne(context.TODO(), args)
 	return err
 }
 
-type ListEnvCfgOption struct {
-	IsSort      bool
-	ProductName string
-	Namespace   string
-	EnvName     string
-	Name        string
+type QueryEnvResourceOption struct {
+	Id             string
+	CreateTime     string
+	IsSort         bool
+	ProductName    string
+	Namespace      string
+	EnvName        string
+	Name           string
+	Type           string
+	IgnoreNotFound bool
 }
 
-func (c *ConfigMapColl) List(opt *ListEnvCfgOption) ([]*models.EnvConfigMap, error) {
+func (c *EnvResourceColl) List(opt *QueryEnvResourceOption) ([]*models.EnvResource, error) {
 	query := bson.M{}
 	if len(opt.ProductName) > 0 {
 		query["product_name"] = opt.ProductName
@@ -94,8 +97,11 @@ func (c *ConfigMapColl) List(opt *ListEnvCfgOption) ([]*models.EnvConfigMap, err
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
 	}
+	if len(opt.Type) > 0 {
+		query["type"] = opt.Type
+	}
 
-	var resp []*models.EnvConfigMap
+	var resp []*models.EnvResource
 	ctx := context.Background()
 	opts := options.Find()
 	if opt.IsSort {
@@ -114,31 +120,7 @@ func (c *ConfigMapColl) List(opt *ListEnvCfgOption) ([]*models.EnvConfigMap, err
 	return resp, nil
 }
 
-func (c *ConfigMapColl) Update(id string, services []string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return err
-	}
-
-	query := bson.M{"_id": oid}
-	change := bson.M{"$set": bson.M{
-		"services": services,
-	}}
-
-	_, err = c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
-	return err
-}
-
-type FindEnvCfgOption struct {
-	Id          string
-	CreateTime  string
-	ProductName string
-	Namespace   string
-	EnvName     string
-	Name        string
-}
-
-func (c *ConfigMapColl) Find(opt *FindEnvCfgOption) (*models.EnvConfigMap, error) {
+func (c *EnvResourceColl) Find(opt *QueryEnvResourceOption) (*models.EnvResource, error) {
 	if opt == nil {
 		return nil, errors.New("FindEnvCfgOption cannot be nil")
 	}
@@ -155,6 +137,9 @@ func (c *ConfigMapColl) Find(opt *FindEnvCfgOption) (*models.EnvConfigMap, error
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
 	}
+	if len(opt.Type) > 0 {
+		query["type"] = opt.Type
+	}
 	if len(opt.Id) > 0 {
 		oid, err := primitive.ObjectIDFromHex(opt.Id)
 		if err != nil {
@@ -169,9 +154,12 @@ func (c *ConfigMapColl) Find(opt *FindEnvCfgOption) (*models.EnvConfigMap, error
 		opts.SetSort(bson.D{{"create_time", -1}})
 	}
 
-	rs := &models.EnvConfigMap{}
+	rs := &models.EnvResource{}
 	err := c.FindOne(context.TODO(), query, opts).Decode(&rs)
 	if err != nil {
+		if err == mongo.ErrNoDocuments && opt.IgnoreNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return rs, err

@@ -30,6 +30,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// Note this file should be deleted in future
+
 type PvcColl struct {
 	*mongo.Collection
 

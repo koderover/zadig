@@ -36,12 +36,21 @@ import (
 )
 
 type ListSecretsResponse struct {
-	SecretName     string    `json:"secret_name"`
-	SecretType     string    `json:"secret_type"`
-	YamlData       string    `json:"yaml_data"`
-	UpdateUserName string    `json:"update_username"`
-	CreateTime     time.Time `json:"create_time"`
-	Services       []string  `json:"services"`
+	SecretName     string                 `json:"secret_name"`
+	SecretType     string                 `json:"secret_type"`
+	YamlData       string                 `json:"yaml_data"`
+	UpdateUserName string                 `json:"update_username"`
+	CreateTime     time.Time              `json:"create_time"`
+	Services       []string               `json:"services"`
+	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
+}
+
+func (resp *ListSecretsResponse) SetSourceDetail(sd *models.CreateFromRepo) {
+	resp.SourceDetail = sd
+}
+
+func (resp *ListSecretsResponse) GetName() string {
+	return resp.SecretName
 }
 
 func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSecretsResponse, error) {
@@ -101,6 +110,7 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 			Services:   tempSvcs,
 			CreateTime: secret.GetCreationTimestamp().Time,
 		}
+		setSourceDetailData(resElem, config.CommonEnvCfgTypeIngress)
 		mutex.Lock()
 		res = append(res, resElem)
 		mutex.Unlock()
@@ -124,7 +134,7 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 	return res, nil
 }
 
-func UpdateSecret(args *UpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateSecret(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	secret := &corev1.Secret{}
 	err = json.Unmarshal(js, secret)
@@ -159,14 +169,15 @@ func UpdateSecret(args *UpdateCommonEnvCfgArgs, userName, userID string, log *za
 		log.Error(err)
 		return e.ErrUpdateResource.AddDesc(err.Error())
 	}
-	envSecret := &models.EnvSecret{
+	envSecret := &models.EnvResource{
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
 		Name:           secret.Name,
 		YamlData:       yamlData,
+		Type:           string(config.CommonEnvCfgTypeSecret),
 	}
-	if commonrepo.NewSecretColl().Create(envSecret, true) != nil {
+	if commonrepo.NewEnvResourceColl().Create(envSecret) != nil {
 		return e.ErrUpdateResource.AddDesc(err.Error())
 	}
 

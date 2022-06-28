@@ -14,24 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Note this file should be deleted in future
-
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
-type EnvIngress struct {
+type EnvResource struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
+	Type           string             `bson:"type"                      json:"type"`
 	ProductName    string             `bson:"product_name"              json:"product_name"`
 	CreateTime     int64              `bson:"create_time"               json:"create_time"`
 	UpdateUserName string             `bson:"update_user_name"          json:"update_user_name"`
 	Namespace      string             `bson:"namespace,omitempty"       json:"namespace,omitempty"`
-	Status         string             `bson:"status"                    json:"status"`
 	EnvName        string             `bson:"env_name"                  json:"env_name"`
 	Name           string             `bson:"name"                      json:"name"`
 	YamlData       string             `bson:"yaml_data"                 json:"yaml_data"`
+	SourceDetail   *CreateFromRepo    `json:"source_detail"             json:"source_detail"`
 }
 
-func (EnvIngress) TableName() string {
-	return "env_ingress"
+func (EnvResource) TableName() string {
+	return "env_resource"
 }
