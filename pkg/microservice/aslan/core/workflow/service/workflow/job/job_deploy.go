@@ -46,15 +46,19 @@ func (j *DeployJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	if j.spec.Source != config.SourceRuntime {
-		return nil
-	}
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(j.workflow.Project)
 	if err != nil {
 		return err
 	}
+	if len(services) > 0 {
+		j.spec.DeployType = services[0].Type
+	}
+
+	if j.spec.Source != config.SourceRuntime {
+		return nil
+	}
+
 	for _, service := range services {
-		j.spec.DeployType = service.Type
 		for _, container := range service.Containers {
 			j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{ServiceName: service.ServiceName, ServiceModule: container.Name})
 		}
@@ -101,7 +105,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		for _, deploy := range j.spec.ServiceAndImages {
 			jobTask := &commonmodels.JobTask{
 				Name:    j.job.Name + "-" + deploy.ServiceName + "-" + deploy.ServiceModule,
-				JobType: string(config.JobDeploy),
+				JobType: string(config.JobZadigDeploy),
 			}
 			deployStep := &commonmodels.StepTask{
 				Name:     deploy.ServiceName + "-deploy",
@@ -128,7 +132,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		for serviceName, deploys := range deployServiceMap {
 			jobTask := &commonmodels.JobTask{
 				Name:    j.job.Name + "-" + serviceName,
-				JobType: string(config.JobDeploy),
+				JobType: string(config.JobZadigDeploy),
 			}
 			deployStep := &commonmodels.StepTask{
 				Name:     serviceName + "-deploy",

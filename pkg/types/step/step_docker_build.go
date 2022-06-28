@@ -23,24 +23,24 @@ import (
 )
 
 type StepDockerBuildSpec struct {
-	Source                string          `yaml:"source"`
-	WorkDir               string          `yaml:"work_dir"`
-	RegistryHost          string          `yaml:"registry_host"`
-	DockerFile            string          `yaml:"docker_file"`
-	ImageName             string          `yaml:"image_name"`
-	BuildArgs             string          `yaml:"build_args"`
-	ImageReleaseTag       string          `yaml:"image_release_tag"`
-	DockerTemplateContent string          `yaml:"docker_template_content"`
-	Proxy                 *Proxy          `yaml:"proxy"`
-	IgnoreCache           bool            `yaml:"ignore_cache"`
-	DockerRegistry        *DockerRegistry `yaml:"docker_registry"`
+	Source                string          `bson:"source"                              json:"source"                                 yaml:"source"`
+	WorkDir               string          `bson:"work_dir"                            json:"work_dir"                               yaml:"work_dir"`
+	RegistryHost          string          `bson:"registry_host"                       json:"registry_host"                          yaml:"registry_host"`
+	DockerFile            string          `bson:"docker_file"                         json:"docker_file"                            yaml:"docker_file"`
+	ImageName             string          `bson:"image_name"                          json:"image_name"                             yaml:"image_name"`
+	BuildArgs             string          `bson:"build_args"                          json:"build_args"                             yaml:"build_args"`
+	ImageReleaseTag       string          `bson:"image_release_tag"                   json:"image_release_tag"                      yaml:"image_release_tag"`
+	DockerTemplateContent string          `bson:"docker_template_content"             json:"docker_template_content"                yaml:"docker_template_content"`
+	Proxy                 *Proxy          `bson:"proxy"                               json:"proxy"                                  yaml:"proxy"`
+	IgnoreCache           bool            `bson:"ignore_cache"                        json:"ignore_cache"                           yaml:"ignore_cache"`
+	DockerRegistry        *DockerRegistry `bson:"docker_registry"                     json:"docker_registry"                        yaml:"docker_registry"`
 }
 
 type DockerRegistry struct {
-	Host      string `yaml:"host"`
-	Namespace string `yaml:"namespace"`
-	UserName  string `yaml:"username"`
-	Password  string `yaml:"password"`
+	Host      string `bson:"host"                              json:"host"                                 yaml:"host"`
+	Namespace string `bson:"namespace"                         json:"namespace"                            yaml:"namespace"`
+	UserName  string `bson:"username"                          json:"username"                             yaml:"username"`
+	Password  string `bson:"password"                          json:"password"                             yaml:"password"`
 }
 
 func (s *StepDockerBuildSpec) GetDockerFile() string {

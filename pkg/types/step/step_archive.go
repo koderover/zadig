@@ -17,9 +17,9 @@ limitations under the License.
 package step
 
 type StepArchiveSpec struct {
-	FilePath        string `yaml:"file_path"`
-	AbsFilePath     string `yaml:"abs_file_path"`
-	DestinationPath string `yaml:"dest_path"`
-	S3StorageID     string `yaml:"s3_storage_id"`
-	S3              *S3    `yaml:"s3_storage"`
+	FilePath        string `bson:"file_path"                              json:"file_path"                                 yaml:"file_path"`
+	AbsFilePath     string `bson:"abs_file_path"                          json:"aabs_file_pathk"                           yaml:"abs_file_path"`
+	DestinationPath string `bson:"dest_path"                              json:"dest_path"                                 yaml:"dest_path"`
+	S3StorageID     string `bson:"s3_storage_id"                          json:"s3_storage_id"                             yaml:"s3_storage_id"`
+	S3              *S3    `bson:"s3_storage"                             json:"s3_storage"                                yaml:"s3_storage"`
 }

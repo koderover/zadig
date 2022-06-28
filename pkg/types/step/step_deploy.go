@@ -17,19 +17,19 @@ limitations under the License.
 package step
 
 type StepDeploySpec struct {
-	Env              string     `yaml:"env"`
-	ServiceName      string     `yaml:"service_name"`
-	ServiceType      string     `yaml:"service_type"`
-	ServiceModule    string     `yaml:"service_module"`
-	Image            string     `yaml:"image"`
-	ClusterID        string     `yaml:"cluster_id"`
-	Timeout          int        `yaml:"timeout"`
-	ReplaceResources []Resource `yaml:"replace_resources"`
+	Env              string     `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName      string     `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType      string     `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	ServiceModule    string     `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
+	Image            string     `bson:"image"                            json:"image"                               yaml:"image"`
+	ClusterID        string     `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout          int        `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources []Resource `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 }
 
 type Resource struct {
-	Name      string `yaml:"name"`
-	Kind      string `yaml:"kind"`
-	Container string `yaml:"container"`
-	Origin    string `yaml:"origin"`
+	Name      string `bson:"name"                              json:"name"                                 yaml:"name"`
+	Kind      string `bson:"kind"                              json:"kind"                                 yaml:"kind"`
+	Container string `bson:"container"                         json:"container"                            yaml:"container"`
+	Origin    string `bson:"origin"                            json:"origin"                               yaml:"origin"`
 }

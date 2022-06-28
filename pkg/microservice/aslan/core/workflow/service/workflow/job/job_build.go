@@ -89,8 +89,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			imageTag = repo.GetReleaseCandidateTag(taskID)
 			if len(registry.Namespace) > 0 {
 				build.Image = fmt.Sprintf("%s/%s/%s:%s", registry.RegAddr, registry.Namespace, build.ServiceModule, imageTag)
+			} else {
+				build.Image = fmt.Sprintf("%s/%s:%s", registry.RegAddr, build.ServiceModule, imageTag)
 			}
-			build.Image = fmt.Sprintf("%s/%s:%s", registry.RegAddr, build.ServiceModule, imageTag)
+
 			build.Image = strings.TrimPrefix(build.Image, "http://")
 			build.Image = strings.TrimPrefix(build.Image, "https://")
 			break
@@ -98,7 +100,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		build.Package = fmt.Sprintf("%s-%s-%d.tar.gz", build.ServiceModule, time.Now().Format("20060102150405"), taskID)
 
 		jobTask := &commonmodels.JobTask{
-			Name:    j.job.Name + "-" + build.ServiceName,
+			Name:    j.job.Name + "-" + build.ServiceName + "-" + build.ServiceModule,
 			JobType: string(config.JobZadigBuild),
 		}
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
@@ -255,6 +257,7 @@ func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project,
 	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: build.ServiceName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: build.ServiceModule, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: build.Image, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "ZADIG", Value: "true", IsCredential: false})

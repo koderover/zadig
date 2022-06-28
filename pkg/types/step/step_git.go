@@ -23,8 +23,8 @@ import (
 )
 
 type StepGitSpec struct {
-	Repos []*types.Repository `yaml:"repos"`
-	Proxy *Proxy              `yaml:"proxy"`
+	Repos []*types.Repository `bson:"repos"          json:"repos"    yaml:"repos"`
+	Proxy *Proxy              `bson:"proxy"          json:"proxy"    yaml:"proxy"`
 }
 
 const (

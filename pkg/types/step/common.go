@@ -17,23 +17,23 @@ limitations under the License.
 package step
 
 type Proxy struct {
-	Type                   string `yaml:"type"`
-	Address                string `yaml:"address"`
-	Port                   int    `yaml:"port"`
-	NeedPassword           bool   `yaml:"need_password"`
-	Username               string `yaml:"username"`
-	Password               string `yaml:"password"`
-	EnableRepoProxy        bool   `yaml:"enable_repo_proxy"`
-	EnableApplicationProxy bool   `yaml:"enable_application_proxy"`
+	Type                   string `bson:"type"                              json:"type"                                 yaml:"type"`
+	Address                string `bson:"address"                           json:"address"                              yaml:"address"`
+	Port                   int    `bson:"port"                              json:"port"                                 yaml:"port"`
+	NeedPassword           bool   `bson:"need_password"                     json:"need_password"                        yaml:"need_password"`
+	Username               string `bson:"username"                          json:"username"                             yaml:"username"`
+	Password               string `bson:"password"                          json:"password"                             yaml:"password"`
+	EnableRepoProxy        bool   `bson:"enable_repo_proxy"                 json:"enable_repo_proxy"                    yaml:"enable_repo_proxy"`
+	EnableApplicationProxy bool   `bson:"enable_application_proxy"          json:"enable_application_proxy"             yaml:"enable_application_proxy"`
 }
 
 type S3 struct {
-	Ak        string `yaml:"ak"`
-	Sk        string `yaml:"sk"`
-	Endpoint  string `yaml:"endpoint"`
-	Bucket    string `yaml:"bucket"`
-	Subfolder string `yaml:"subfolder"`
-	Insecure  bool   `yaml:"insecure"`
-	Provider  int    `yaml:"provider"`
-	Protocol  string `yaml:"protocol"`
+	Ak        string `bson:"ak"                              json:"ak"                                 yaml:"ak"`
+	Sk        string `bson:"sk"                              json:"sk"                                 yaml:"sk"`
+	Endpoint  string `bson:"endpoint"                        json:"endpoint"                           yaml:"endpoint"`
+	Bucket    string `bson:"bucket"                          json:"bucket"                             yaml:"bucket"`
+	Subfolder string `bson:"subfolder"                       json:"subfolder"                          yaml:"subfolder"`
+	Insecure  bool   `bson:"insecure"                        json:"insecure"                           yaml:"insecure"`
+	Provider  int    `bson:"provider"                        json:"provider"                           yaml:"provider"`
+	Protocol  string `bson:"protocol"                        json:"protocol"                           yaml:"protocol"`
 }

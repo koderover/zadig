@@ -17,5 +17,5 @@ limitations under the License.
 package step
 
 type StepShellSpec struct {
-	Scripts []string `yaml:"scripts"`
+	Scripts []string `bson:"scripts"                              json:"scripts"                                 yaml:"scripts"`
 }
