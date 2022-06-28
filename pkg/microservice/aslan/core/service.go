@@ -39,6 +39,7 @@ import (
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -122,6 +123,7 @@ func Start(ctx context.Context) {
 	systemservice.SetProxyConfig()
 
 	workflowservice.InitPipelineController()
+	workflowcontroller.InitWorkflowController()
 	// 如果集群环境所属的项目不存在，则删除此集群环境
 	environmentservice.CleanProducts()
 
@@ -236,6 +238,7 @@ func initDatabase() {
 		commonrepo.NewScanningColl(),
 		commonrepo.NewWorkflowV4Coll(),
 		commonrepo.NewworkflowTaskv4Coll(),
+		commonrepo.NewWorkflowQueueColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

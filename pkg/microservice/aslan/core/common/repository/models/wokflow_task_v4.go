@@ -40,6 +40,7 @@ type WorkflowTask struct {
 	IsArchived    bool               `bson:"is_archived"               json:"is_archived"`
 	Error         string             `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart     bool               `bson:"is_restart"                json:"is_restart"`
+	MultiRun      bool               `bson:"multi_run"                 json:"multi_run"`
 }
 
 func (WorkflowTask) TableName() string {

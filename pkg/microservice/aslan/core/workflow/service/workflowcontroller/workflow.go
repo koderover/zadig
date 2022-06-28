@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
@@ -48,16 +49,43 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 	return ctl
 }
 
-func CancelWorkflowTask(workflowName string, id int64) error {
-	value, ok := cancelChannelMap.Load(fmt.Sprintf("%s-%d", workflowName, id))
+func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap.SugaredLogger) error {
+	t, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("[%s] task: %s:%d not found", userName, workflowName, taskID)
+		return err
+	}
+
+	if t.Status == config.StatusPassed {
+		logger.Errorf("[%s] task: %s:%d is passed, cannot cancel", userName, workflowName, taskID)
+		return fmt.Errorf("task: %s:%d is passed, cannot cancel", workflowName, taskID)
+	}
+
+	t.Status = config.StatusCancelled
+	t.TaskRevoker = userName
+
+	logger.Infof("[%s] CancelRunningTask %s:%d", userName, taskID, taskID)
+
+	if err := mongodb.NewworkflowTaskv4Coll().Update(t.ID.Hex(), t); err != nil {
+		logger.Errorf("[%s] update task: %s:%d error: %v", userName, workflowName, taskID, err)
+		return err
+	}
+
+	q := ConvertTaskToQueue(t)
+	if err := Remove(q); err != nil {
+		logger.Errorf("[%s] remove queue task: %s:%d error: %v", userName, workflowName, taskID, err)
+		return err
+	}
+
+	value, ok := cancelChannelMap.Load(fmt.Sprintf("%s-%d", workflowName, taskID))
 	if !ok {
-		return fmt.Errorf("no mactched task found, id: %d, workflow name: %s", id, workflowName)
+		return fmt.Errorf("no mactched task found, id: %d, workflow name: %s", taskID, workflowName)
 	}
 	if f, ok := value.(context.CancelFunc); ok {
 		f()
 		return nil
 	}
-	return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", id, workflowName)
+	return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", taskID, workflowName)
 }
 
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
@@ -132,10 +160,44 @@ func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 }
 
 func (c *workflowCtl) updateWorkflowTask() {
+	taskInColl, err := commonrepo.NewworkflowTaskv4Coll().Find(c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+	if err != nil {
+		c.logger.Errorf("find workflow task v4 %s failed,error: %v", c.workflowTask.WorkflowName, err)
+		return
+	}
+	// 如果当前状态已经通过或者失败, 不处理新接受到的ACK
+	if taskInColl.Status == config.StatusPassed || taskInColl.Status == config.StatusFailed || taskInColl.Status == config.StatusTimeout {
+		c.logger.Infof("%s:%d:%s task already done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, taskInColl.Status)
+		return
+	}
+	// 如果当前状态已经是取消状态, 一般为用户取消了任务, 此时任务在短暂时间内会继续运行一段时间,
+	if taskInColl.Status == config.StatusCancelled {
+		// Task终止状态可能为Pass, Fail, Cancel, Timeout
+		// backend 会继续接受到ACK, 在这种情况下, 终止状态之外的ACK都无需处理，避免出现取消之后又被重置成运行态
+		if c.workflowTask.Status != config.StatusFailed && c.workflowTask.Status != config.StatusPassed && c.workflowTask.Status != config.StatusCancelled && c.workflowTask.Status != config.StatusTimeout {
+			c.logger.Infof("%s:%d task has been cancelled, ACK dropped", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+			return
+		}
+	}
+	if success := UpdateQueue(c.workflowTask); !success {
+		c.logger.Errorf("%s:%d update t status error", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+	}
 	// TODO update workflow task
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
 		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
 	}
+
+	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled {
+		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
+		q := ConvertTaskToQueue(c.workflowTask)
+		if err := Remove(q); err != nil {
+			c.logger.Errorf("remove queue task: %s:%d error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
+		}
+		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(c.workflowTask.WorkflowName, 100); err != nil {
+			c.logger.Errorf("ArchiveHistoryWorkflowTask error: %v", err)
+		}
+	}
+
 }
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {

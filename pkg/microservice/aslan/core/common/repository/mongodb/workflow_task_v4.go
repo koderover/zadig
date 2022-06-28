@@ -124,9 +124,28 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option, pageNum, pageSi
 	return resp, count, nil
 }
 
-func (c *WorkflowTaskv4Coll) Find(name string) (*models.WorkflowTask, error) {
+func (c *WorkflowTaskv4Coll) InCompletedTasks() ([]*models.WorkflowTask, error) {
+	ret := make([]*models.WorkflowTask, 0)
+	query := bson.M{"status": bson.M{"$in": []string{"created", "running"}}}
+	query["is_deleted"] = false
+
+	opt := options.Find()
+	opt.SetSort(bson.D{{"create_time", 1}})
+
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (c *WorkflowTaskv4Coll) Find(workflowName string, taskID int64) (*models.WorkflowTask, error) {
 	resp := new(models.WorkflowTask)
-	query := bson.M{"name": name}
+	query := bson.M{"workflow_name": workflowName, "task_id": taskID}
 
 	err := c.FindOne(context.TODO(), query).Decode(&resp)
 	if err != nil {
@@ -173,5 +192,20 @@ func (c *WorkflowTaskv4Coll) DeleteByWorkflowName(workflowName string) error {
 	}}
 
 	_, err := c.UpdateMany(context.TODO(), query, change)
+	return err
+}
+
+func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, remain int) error {
+	query := bson.M{"workflow_name": workflowName, "is_deleted": false}
+	count, err := c.CountDocuments(context.TODO(), query)
+	if err != nil {
+		return err
+	}
+	query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
+	change := bson.M{"$set": bson.M{
+		"is_archived": true,
+	}}
+	_, err = c.UpdateMany(context.TODO(), query, change)
+
 	return err
 }
