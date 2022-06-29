@@ -75,6 +75,7 @@ type CreateUpdateCommonEnvCfgArgs struct {
 	CommonEnvCfgType     config.CommonEnvCfgType       `json:"common_env_cfg_type"`
 	Services             []string                      `json:"services"`
 	GitRepoConfig        *templatemodels.GitRepoConfig `json:"git_repo_config"`
+	SourceDetail         *CreateFromRepo               `json:"-"`
 	AutoSync             bool                          `json:"auto_sync"`
 }
 

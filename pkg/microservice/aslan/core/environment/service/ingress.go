@@ -198,7 +198,7 @@ type UpdateIngressArgs struct {
 	RestartAssociatedSvc bool   `json:"restart_associated_svc"`
 }
 
-func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, isCreate bool, log *zap.SugaredLogger) error {
+func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName string, isCreate bool, log *zap.SugaredLogger) error {
 	u, err := serializer.NewDecoder().YamlToUnstructured([]byte(args.YamlData))
 	if err != nil {
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", args.YamlData, err)
@@ -221,6 +221,12 @@ func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName, 
 		return e.ErrUpdateResource.AddErr(err)
 	}
 	u.SetNamespace(product.Namespace)
+
+	yamlData, err := ensureLabel(u, args.ProductName)
+	if err != nil {
+		return e.ErrUpdateResource.AddErr(err)
+	}
+
 	err = updater.UpdateOrCreateUnstructured(u, kubeClient)
 	if err != nil {
 		log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
@@ -231,9 +237,9 @@ func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName, 
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
 		Name:           u.GetName(),
-		YamlData:       args.YamlData,
+		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeIngress),
-		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		SourceDetail:   args.SourceDetail,
 		AutoSync:       args.AutoSync,
 	}
 	if commonrepo.NewEnvResourceColl().Create(envIngress) != nil {

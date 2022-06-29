@@ -155,7 +155,7 @@ func geneSourceDetail(gitRepoConfig *templatemodels.GitRepoConfig) *models.Creat
 	return ret
 }
 
-func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
@@ -282,7 +282,17 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName, use
 	return nil
 }
 
-func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func getLatestEnvResource(name, resType, envName, productName string) (*models.EnvResource, error) {
+	return commonrepo.NewEnvResourceColl().Find(
+		&commonrepo.QueryEnvResourceOption{
+			Name:        name,
+			ProductName: productName,
+			Type:        resType,
+			EnvName:     envName,
+		})
+}
+
+func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName string, isRollback bool, log *zap.SugaredLogger) error {
 	var err error
 	u, err := serializer.NewDecoder().YamlToUnstructured([]byte(args.YamlData))
 	if err != nil {
@@ -296,15 +306,27 @@ func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName, use
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("param commonEnvCfgType:%s not match yaml kind %s ", args.CommonEnvCfgType, u.GetKind()))
 	}
 
+	// when rollback env configs, git config should not change
+	if isRollback {
+		latestResource, err := getLatestEnvResource(args.Name, string(args.CommonEnvCfgType), args.EnvName, args.ProductName)
+		if err != nil {
+			return err
+		}
+		args.AutoSync = latestResource.AutoSync
+		args.SourceDetail = latestResource.SourceDetail
+	} else {
+		args.SourceDetail = geneSourceDetail(args.GitRepoConfig)
+	}
+
 	switch args.CommonEnvCfgType {
 	case config.CommonEnvCfgTypeConfigMap:
-		err = UpdateConfigMap(args, userName, userID, log)
+		err = UpdateConfigMap(args, userName, log)
 	case config.CommonEnvCfgTypeSecret:
-		err = UpdateSecret(args, userName, userID, log)
+		err = UpdateSecret(args, userName, log)
 	case config.CommonEnvCfgTypeIngress:
-		err = UpdateOrCreateIngress(args, userName, userID, false, log)
+		err = UpdateOrCreateIngress(args, userName, false, log)
 	case config.CommonEnvCfgTypePvc:
-		err = UpdatePvc(args, userName, userID, log)
+		err = UpdatePvc(args, userName, log)
 	default:
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("%s is not support update", args.CommonEnvCfgType))
 	}
@@ -316,10 +338,10 @@ func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName, use
 }
 
 type ListCommonEnvCfgHistoryArgs struct {
-	EnvName          string `json:"envName"`
-	ProductName      string `json:"productName"`
+	EnvName          string
+	ProductName      string
 	Name             string
-	CommonEnvCfgType config.CommonEnvCfgType `json:"commonEnvCfgType"`
+	CommonEnvCfgType config.CommonEnvCfgType
 }
 
 type ListCommonEnvCfgHistoryRes struct {

@@ -127,7 +127,7 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 	return res, nil
 }
 
-func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	secret := &corev1.Secret{}
 	err = json.Unmarshal(js, secret)
@@ -169,7 +169,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID st
 		Name:           secret.Name,
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeSecret),
-		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		SourceDetail:   args.SourceDetail,
 		AutoSync:       args.AutoSync,
 	}
 	if commonrepo.NewEnvResourceColl().Create(envSecret) != nil {

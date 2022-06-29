@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 
@@ -78,7 +79,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 	}
 	args.EnvName = c.Param("envName")
 	args.ProductName = c.Query("projectName")
-	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.UserID, ctx.Logger)
+	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.Logger)
 }
 
 func UpdateCommonEnvCfg(c *gin.Context) {
@@ -101,13 +102,21 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 		return
 	}
 	if len(args.YamlData) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.Err = e.ErrInvalidParam.AddDesc("yaml info can't be nil")
 		return
 	}
 	args.EnvName = c.Param("envName")
 	args.ProductName = c.Query("projectName")
+	isRollBack := false
+	if len(c.Query("rollback")) > 0 {
+		isRollBack, err = strconv.ParseBool(c.Query("rollback"))
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddErr(err)
+			return
+		}
+	}
 
-	ctx.Err = service.UpdateCommonEnvCfg(args, ctx.UserName, ctx.UserID, ctx.Logger)
+	ctx.Err = service.UpdateCommonEnvCfg(args, ctx.UserName, isRollBack, ctx.Logger)
 }
 
 func ListCommonEnvCfgHistory(c *gin.Context) {

@@ -160,7 +160,7 @@ type UpdatePvcArgs struct {
 	RestartAssociatedSvc bool   `json:"restart_associated_svc"`
 }
 
-func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	pvc := &corev1.PersistentVolumeClaim{}
 	err = json.Unmarshal(js, pvc)
@@ -185,6 +185,12 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID strin
 		return e.ErrUpdateResource.AddErr(err)
 	}
 	pvc.Namespace = product.Namespace
+
+	yamlData, err := ensureLabel(pvc, args.ProductName)
+	if err != nil {
+		return e.ErrUpdateResource.AddErr(err)
+	}
+
 	err = updater.UpdatePvc(product.Namespace, pvc, clientset)
 	if err != nil {
 		log.Error(err)
@@ -195,9 +201,9 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID strin
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
 		Name:           pvc.Name,
-		YamlData:       args.YamlData,
+		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypePvc),
-		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		SourceDetail:   args.SourceDetail,
 		AutoSync:       args.AutoSync,
 	}
 	if commonrepo.NewEnvResourceColl().Create(envPvc) != nil {

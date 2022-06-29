@@ -206,7 +206,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 	return res, nil
 }
 
-func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	cm := &corev1.ConfigMap{}
 	err = json.Unmarshal(js, cm)
@@ -260,7 +260,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID
 		Name:           cm.Name,
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeConfigMap),
-		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		SourceDetail:   args.SourceDetail,
 		AutoSync:       args.AutoSync,
 	}
 	if err := commonrepo.NewEnvResourceColl().Create(envCM); err != nil {
