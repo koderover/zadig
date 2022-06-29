@@ -188,8 +188,6 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 // A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
 // a and the value contain character b.
 func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
-	log.Infof("Start to list workloads for env %s for project %s", envName, productName)
-	defer log.Info("Finish to list workloads")
 
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
@@ -375,7 +373,6 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
-	log.Infof("Start to list workloads in namespace %s", namespace)
 
 	var resp = make([]*ServiceResp, 0)
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
@@ -421,15 +418,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		})
 	}
 
-	// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
-	for _, workload := range workLoads {
-		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
-		_, _, images := kube.GetSelectedPodsInfo(selector, informer, log)
-		workload.Images = images
-	}
-
-	log.Debugf("Found %d workloads in total", len(workLoads))
-
 	err = fillServiceName(envName, productName, workLoads)
 	// err of getting service name should not block the return of workloads
 	if err != nil {
@@ -442,8 +430,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	count := len(workLoads)
-
-	log.Debugf("%d matching workloads left after filtering", count)
 
 	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
@@ -507,10 +493,11 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Ready:        setting.PodReady,
 			Status:       setting.PodRunning,
 		}
-		if !workload.Ready {
-			productRespInfo.Status = setting.PodUnstable
-			productRespInfo.Ready = setting.PodNotReady
-		}
+
+		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
+		// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
+		// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
+		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
 
 		productRespInfo.Ingress = &IngressInfo{
 			HostInfo: findServiceFromIngress(hostInfos, workload, allServices),
@@ -518,7 +505,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 
 		resp = append(resp, productRespInfo)
 	}
-	log.Infof("Finish to list workloads in namespace %s", namespace)
 
 	return count, resp, nil
 }
