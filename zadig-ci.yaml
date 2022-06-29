@@ -2,6 +2,7 @@ version: '1.0'
 stages:
   - clone
   - ut
+  - test
 steps:
   clone:
     git: github
