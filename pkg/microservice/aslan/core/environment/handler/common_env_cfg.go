@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -51,7 +53,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(service.CreateUpdateCommonEnvCfgArgs)
+	args := new(models.CreateUpdateCommonEnvCfgArgs)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateCommonEnvCfg c.GetRawData() err : %v", err)
@@ -83,7 +85,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(service.CreateUpdateCommonEnvCfgArgs)
+	args := new(models.CreateUpdateCommonEnvCfgArgs)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateCommonEnvCfg c.GetRawData() err : %v", err)

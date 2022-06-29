@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -37,25 +36,13 @@ import (
 )
 
 type ListPvcsResponse struct {
-	PvcName        string                 `json:"pvc_name"`
-	Status         string                 `json:"status"`
-	Volume         string                 `json:"volume"`
-	AccessModes    string                 `json:"access_modes"`
-	StorageClass   string                 `json:"storageclass"`
-	Capacity       string                 `json:"capacity"`
-	YamlData       string                 `json:"yaml_data"`
-	UpdateUserName string                 `json:"update_username"`
-	CreateTime     time.Time              `json:"create_time"`
-	Services       []string               `json:"services"`
-	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
-}
-
-func (resp *ListPvcsResponse) SetSourceDetail(sd *models.CreateFromRepo) {
-	resp.SourceDetail = sd
-}
-
-func (resp *ListPvcsResponse) GetName() string {
-	return resp.PvcName
+	*ResourceResponseBase
+	PvcName      string `json:"pvc_name"`
+	Status       string `json:"status"`
+	Volume       string `json:"volume"`
+	AccessModes  string `json:"access_modes"`
+	StorageClass string `json:"storageclass"`
+	Capacity     string `json:"capacity"`
 }
 
 func ListPvcs(envName, productName string, log *zap.SugaredLogger) ([]*ListPvcsResponse, error) {
@@ -132,11 +119,17 @@ func ListPvcs(envName, productName string, log *zap.SugaredLogger) ([]*ListPvcsR
 			AccessModes:  accessModes,
 			StorageClass: storageClassName,
 			Capacity:     capacity,
-			YamlData:     string(yamlData),
-			Services:     tempSvcs,
-			CreateTime:   pvc.GetCreationTimestamp().Time,
+			ResourceResponseBase: &ResourceResponseBase{
+				Name:        pvc.Name,
+				Type:        config.CommonEnvCfgTypePvc,
+				EnvName:     envName,
+				ProjectName: productName,
+				YamlData:    string(yamlData),
+				Services:    tempSvcs,
+				CreateTime:  pvc.GetCreationTimestamp().Time,
+			},
 		}
-		setSourceDetailData(resElem, config.CommonEnvCfgTypeIngress)
+		resElem.setSourceDetailData()
 		mutex.Lock()
 		res = append(res, resElem)
 		mutex.Unlock()
@@ -167,7 +160,7 @@ type UpdatePvcArgs struct {
 	RestartAssociatedSvc bool   `json:"restart_associated_svc"`
 }
 
-func UpdatePvc(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	pvc := &corev1.PersistentVolumeClaim{}
 	err = json.Unmarshal(js, pvc)
@@ -204,6 +197,8 @@ func UpdatePvc(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log 
 		Name:           pvc.Name,
 		YamlData:       args.YamlData,
 		Type:           string(config.CommonEnvCfgTypePvc),
+		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		AutoSync:       args.AutoSync,
 	}
 	if commonrepo.NewEnvResourceColl().Create(envPvc) != nil {
 		return e.ErrUpdateResource.AddDesc(err.Error())

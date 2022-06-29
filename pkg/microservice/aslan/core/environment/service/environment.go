@@ -168,21 +168,21 @@ type EnvRendersetArg struct {
 }
 
 type CreateHelmProductArg struct {
-	ProductName    string                          `json:"productName"`
-	EnvName        string                          `json:"envName"`
-	Namespace      string                          `json:"namespace"`
-	ClusterID      string                          `json:"clusterID"`
-	DefaultValues  string                          `json:"defaultValues"`
-	ValuesData     *commonservice.ValuesDataArgs   `json:"valuesData"`
-	RegistryID     string                          `json:"registry_id"`
-	ChartValues    []*commonservice.RenderChartArg `json:"chartValues"`
-	BaseEnvName    string                          `json:"baseEnvName"`
-	BaseName       string                          `json:"base_name,omitempty"`
-	IsExisted      bool                            `json:"is_existed"`
-	EnvConfigYamls []string                        `json:"env_config_yamls,omitempty"`
-
+	ProductName   string                          `json:"productName"`
+	EnvName       string                          `json:"envName"`
+	Namespace     string                          `json:"namespace"`
+	ClusterID     string                          `json:"clusterID"`
+	DefaultValues string                          `json:"defaultValues"`
+	ValuesData    *commonservice.ValuesDataArgs   `json:"valuesData"`
+	RegistryID    string                          `json:"registry_id"`
+	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
+	BaseEnvName   string                          `json:"baseEnvName"`
+	BaseName      string                          `json:"base_name,omitempty"`
+	IsExisted     bool                            `json:"is_existed"`
 	// New Since v1.12.0
 	ShareEnv commonmodels.ProductShareEnv `json:"share_env"`
+	// New Since v1.13.0
+	EnvConfigs []*commonmodels.CreateUpdateCommonEnvCfgArgs `json:"env_configs"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -1013,7 +1013,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		IsForkedProduct: false,
 		RegistryID:      registryID,
 		IsExisted:       arg.IsExisted,
-		EnvConfigYamls:  arg.EnvConfigYamls,
+		EnvConfigs:      arg.EnvConfigs,
 		ShareEnv:        arg.ShareEnv,
 	}
 
@@ -1192,7 +1192,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productName,
 	productInfo.ClusterID = arg.ClusterID
 	productInfo.BaseName = arg.BaseName
 	productInfo.Namespace = commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace)
-	productInfo.EnvConfigYamls = arg.EnvConfigYamls
+	productInfo.EnvConfigs = arg.EnvConfigs
 
 	// merge chart infos, use chart info in product to override charts in template_project
 	sourceRenderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
@@ -2591,7 +2591,7 @@ func createGroups(envName, user, requestID string, args *commonmodels.Product, e
 		}
 	}()
 
-	err = envHandleFunc(getProjectType(args.ProductName), log).initEnvConfigSet(envName, args.ProductName, user, args.EnvConfigYamls, informer, kubeClient)
+	err = envHandleFunc(getProjectType(args.ProductName), log).initEnvConfigSet(envName, args.Namespace, args.ProductName, user, args.EnvConfigs, informer, kubeClient)
 	if err != nil {
 		args.Status = setting.ProductStatusFailed
 		log.Errorf("initEnvConfigSet error :%s", err)

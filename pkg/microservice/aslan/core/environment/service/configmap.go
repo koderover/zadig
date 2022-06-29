@@ -45,7 +45,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type ListConfigMapArgs struct {
@@ -81,28 +80,11 @@ type configMap struct {
 	lastUpdateTime    time.Time
 }
 
-type ResourceResp interface {
-	SetSourceDetail(sd *models.CreateFromRepo)
-	GetName() string
-}
-
 type ListConfigMapRes struct {
-	CmName         string                 `json:"cm_name"`
-	Immutable      bool                   `json:"immutable"`
-	CmData         map[string]string      `json:"cm_data"`
-	YamlData       string                 `json:"yaml_data"`
-	UpdateUserName string                 `json:"update_username"`
-	CreateTime     time.Time              `json:"create_time"`
-	Services       []string               `json:"services"`
-	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
-}
-
-func (resp *ListConfigMapRes) SetSourceDetail(sd *models.CreateFromRepo) {
-	resp.SourceDetail = sd
-}
-
-func (resp *ListConfigMapRes) GetName() string {
-	return resp.CmName
+	*ResourceResponseBase
+	CmName    string            `json:"cm_name"`
+	Immutable bool              `json:"immutable"`
+	CmData    map[string]string `json:"cm_data"`
 }
 
 func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
@@ -115,20 +97,6 @@ func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
 		CreationTimestamp: util.FormatTime(icm.CreationTimestamp.Time),
 		LastUpdateTime:    util.FormatTime(u),
 		lastUpdateTime:    u,
-	}
-}
-
-func setSourceDetailData(res ResourceResp, resType config.CommonEnvCfgType) {
-	cmDataConfig, err := commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
-		Name: res.GetName(),
-		Type: string(resType),
-	})
-	if err != nil {
-		log.Warnf("failed to f get %v with name : %s, err: %s", resType, res.GetName(), err)
-		return
-	}
-	if cmDataConfig != nil {
-		res.SetSourceDetail(cmDataConfig.SourceDetail)
 	}
 }
 
@@ -199,14 +167,21 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 			immutable = *cm.Immutable
 		}
 		resElem := &ListConfigMapRes{
-			CmName:     cm.Name,
-			Immutable:  immutable,
-			CmData:     cm.Data,
-			YamlData:   string(yamlData),
-			Services:   tempSvcs,
-			CreateTime: cm.GetCreationTimestamp().Time,
+			CmName:    cm.Name,
+			Immutable: immutable,
+			CmData:    cm.Data,
+			ResourceResponseBase: &ResourceResponseBase{
+				Name:        cm.Name,
+				Type:        config.CommonEnvCfgTypeConfigMap,
+				EnvName:     args.EnvName,
+				ProjectName: args.ProductName,
+				YamlData:    string(yamlData),
+				Services:    tempSvcs,
+				CreateTime:  cm.GetCreationTimestamp().Time,
+			},
 		}
-		setSourceDetailData(resElem, config.CommonEnvCfgTypeConfigMap)
+		resElem.setSourceDetailData()
+
 		mutex.Lock()
 		res = append(res, resElem)
 		mutex.Unlock()
@@ -231,7 +206,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 	return res, nil
 }
 
-func UpdateConfigMap(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	cm := &corev1.ConfigMap{}
 	err = json.Unmarshal(js, cm)
@@ -285,6 +260,8 @@ func UpdateConfigMap(args *CreateUpdateCommonEnvCfgArgs, userName, userID string
 		Name:           cm.Name,
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeConfigMap),
+		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		AutoSync:       args.AutoSync,
 	}
 	if err := commonrepo.NewEnvResourceColl().Create(envCM); err != nil {
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())

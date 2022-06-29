@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -39,23 +38,12 @@ import (
 )
 
 type ListIngressesResponse struct {
-	IngressName    string                 `json:"ingress_name"`
-	HostInfo       string                 `json:"host_info"`
-	Address        string                 `json:"address"`
-	Ports          string                 `json:"ports"`
-	ErrorReason    string                 `json:"error_reason"`
-	YamlData       string                 `json:"yaml_data"`
-	UpdateUserName string                 `json:"update_username"`
-	CreateTime     time.Time              `json:"create_time"`
-	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
-}
-
-func (resp *ListIngressesResponse) SetSourceDetail(sd *models.CreateFromRepo) {
-	resp.SourceDetail = sd
-}
-
-func (resp *ListIngressesResponse) GetName() string {
-	return resp.IngressName
+	*ResourceResponseBase
+	IngressName string `json:"ingress_name"`
+	HostInfo    string `json:"host_info"`
+	Address     string `json:"address"`
+	Ports       string `json:"ports"`
+	ErrorReason string `json:"error_reason"`
 }
 
 func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*ListIngressesResponse, error) {
@@ -130,10 +118,17 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 				HostInfo:    hostInfo,
 				Ports:       ports,
 				ErrorReason: errorReason,
-				YamlData:    string(yamlData),
 				Address:     address,
+				ResourceResponseBase: &ResourceResponseBase{
+					Name:        ingress.GetName(),
+					Type:        config.CommonEnvCfgTypeIngress,
+					EnvName:     envName,
+					ProjectName: productName,
+					YamlData:    string(yamlData),
+					CreateTime:  ingress.GetCreationTimestamp().Time,
+				},
 			}
-			setSourceDetailData(resElem, config.CommonEnvCfgTypeIngress)
+			resElem.setSourceDetailData()
 			res = append(res, resElem)
 		}
 
@@ -175,10 +170,17 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 				HostInfo:    hostInfo,
 				Ports:       ports,
 				ErrorReason: errorReason,
-				YamlData:    string(yamlData),
 				Address:     address,
+				ResourceResponseBase: &ResourceResponseBase{
+					Name:        ingress.GetName(),
+					Type:        config.CommonEnvCfgTypeIngress,
+					EnvName:     envName,
+					ProjectName: productName,
+					YamlData:    string(yamlData),
+					CreateTime:  ingress.GetCreationTimestamp().Time,
+				},
 			}
-			setSourceDetailData(resElem, config.CommonEnvCfgTypeIngress)
+			resElem.setSourceDetailData()
 			res = append(res, resElem)
 		}
 	}
@@ -196,7 +198,7 @@ type UpdateIngressArgs struct {
 	RestartAssociatedSvc bool   `json:"restart_associated_svc"`
 }
 
-func UpdateOrCreateIngress(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, isCreate bool, log *zap.SugaredLogger) error {
+func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, isCreate bool, log *zap.SugaredLogger) error {
 	u, err := serializer.NewDecoder().YamlToUnstructured([]byte(args.YamlData))
 	if err != nil {
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", args.YamlData, err)
@@ -231,6 +233,8 @@ func UpdateOrCreateIngress(args *CreateUpdateCommonEnvCfgArgs, userName, userID 
 		Name:           u.GetName(),
 		YamlData:       args.YamlData,
 		Type:           string(config.CommonEnvCfgTypeIngress),
+		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		AutoSync:       args.AutoSync,
 	}
 	if commonrepo.NewEnvResourceColl().Create(envIngress) != nil {
 		return e.ErrUpdateResource.AddDesc(err.Error())

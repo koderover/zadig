@@ -30,7 +30,8 @@ type EnvResource struct {
 	EnvName        string             `bson:"env_name"                  json:"env_name"`
 	Name           string             `bson:"name"                      json:"name"`
 	YamlData       string             `bson:"yaml_data"                 json:"yaml_data"`
-	SourceDetail   *CreateFromRepo    `json:"source_detail"             json:"source_detail"`
+	SourceDetail   *CreateFromRepo    `bson:"source_detail"             json:"source_detail"`
+	AutoSync       bool               `bson:"auto_sync"                 json:"auto_sync"`
 }
 
 func (EnvResource) TableName() string {

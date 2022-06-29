@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -48,16 +49,36 @@ type ResourceWithLabel interface {
 	SetLabels(labels map[string]string)
 }
 
-type CreateUpdateCommonEnvCfgArgs struct {
-	EnvName              string                        `json:"env_name"`
-	ProductName          string                        `json:"product_name"`
-	ServiceName          string                        `json:"service_name"`
-	Name                 string                        `json:"name"`
-	YamlData             string                        `json:"yaml_data"`
-	RestartAssociatedSvc bool                          `json:"restart_associated_svc"`
-	CommonEnvCfgType     config.CommonEnvCfgType       `json:"common_env_cfg_type"`
-	Services             []string                      `json:"services"`
-	GitRepoConfig        *templatemodels.GitRepoConfig `json:"git_repo_config"`
+type ResourceResponseBase struct {
+	Name           string                  `json:"-"`
+	Type           config.CommonEnvCfgType `json:"-"`
+	EnvName        string                  `json:"-"`
+	ProjectName    string                  `json:"-"`
+	YamlData       string                  `json:"yaml_data"`
+	UpdateUserName string                  `json:"update_username"`
+	CreateTime     time.Time               `json:"create_time"`
+	Services       []string                `json:"services"`
+	SourceDetail   *models.CreateFromRepo  `json:"source_detail"`
+	AutoSync       bool                    `json:"auto_sync"`
+}
+
+func (resp *ResourceResponseBase) setSourceDetailData() {
+	envResource, err := commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
+		Name:           resp.Name,
+		Type:           string(resp.Type),
+		EnvName:        resp.EnvName,
+		ProductName:    resp.ProjectName,
+		IgnoreNotFound: true,
+	})
+	if err != nil {
+		log.Warnf("failed to f get %v with name : %s, err: %s", string(resp.Type), resp.Name, err)
+		return
+	}
+	if envResource != nil {
+		resp.SourceDetail = envResource.SourceDetail
+		resp.AutoSync = envResource.AutoSync
+		resp.UpdateUserName = envResource.UpdateUserName
+	}
 }
 
 func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgType config.CommonEnvCfgType, log *zap.SugaredLogger) error {
@@ -125,7 +146,7 @@ func geneSourceDetail(gitRepoConfig *templatemodels.GitRepoConfig) *models.Creat
 			Owner:      gitRepoConfig.Owner,
 			Repo:       gitRepoConfig.Repo,
 			Branch:     gitRepoConfig.Branch,
-			Namespace:  gitRepoConfig.Namespace,
+			Namespace:  gitRepoConfig.GetNamespace(),
 		},
 	}
 	if len(gitRepoConfig.ValuesPaths) > 0 {
@@ -134,7 +155,7 @@ func geneSourceDetail(gitRepoConfig *templatemodels.GitRepoConfig) *models.Creat
 	return ret
 }
 
-func CreateCommonEnvCfg(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
@@ -176,6 +197,7 @@ func CreateCommonEnvCfg(args *CreateUpdateCommonEnvCfgArgs, userName, userID str
 		EnvName:        args.EnvName,
 		Type:           string(args.CommonEnvCfgType),
 		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		AutoSync:       args.AutoSync,
 	}
 
 	switch args.CommonEnvCfgType {
@@ -260,7 +282,7 @@ func CreateCommonEnvCfg(args *CreateUpdateCommonEnvCfgArgs, userName, userID str
 	return nil
 }
 
-func UpdateCommonEnvCfg(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
 	var err error
 	u, err := serializer.NewDecoder().YamlToUnstructured([]byte(args.YamlData))
 	if err != nil {

@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -36,21 +35,9 @@ import (
 )
 
 type ListSecretsResponse struct {
-	SecretName     string                 `json:"secret_name"`
-	SecretType     string                 `json:"secret_type"`
-	YamlData       string                 `json:"yaml_data"`
-	UpdateUserName string                 `json:"update_username"`
-	CreateTime     time.Time              `json:"create_time"`
-	Services       []string               `json:"services"`
-	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
-}
-
-func (resp *ListSecretsResponse) SetSourceDetail(sd *models.CreateFromRepo) {
-	resp.SourceDetail = sd
-}
-
-func (resp *ListSecretsResponse) GetName() string {
-	return resp.SecretName
+	*ResourceResponseBase
+	SecretName string `json:"secret_name"`
+	SecretType string `json:"secret_type"`
 }
 
 func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSecretsResponse, error) {
@@ -106,11 +93,17 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 		resElem := &ListSecretsResponse{
 			SecretName: secret.Name,
 			SecretType: string(secret.Type),
-			YamlData:   string(yamlData),
-			Services:   tempSvcs,
-			CreateTime: secret.GetCreationTimestamp().Time,
+			ResourceResponseBase: &ResourceResponseBase{
+				Name:        secret.Name,
+				Type:        config.CommonEnvCfgTypeSecret,
+				EnvName:     envName,
+				ProjectName: productName,
+				YamlData:    string(yamlData),
+				Services:    tempSvcs,
+				CreateTime:  secret.GetCreationTimestamp().Time,
+			},
 		}
-		setSourceDetailData(resElem, config.CommonEnvCfgTypeIngress)
+		resElem.setSourceDetailData()
 		mutex.Lock()
 		res = append(res, resElem)
 		mutex.Unlock()
@@ -134,7 +127,7 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 	return res, nil
 }
 
-func UpdateSecret(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	secret := &corev1.Secret{}
 	err = json.Unmarshal(js, secret)
@@ -176,6 +169,8 @@ func UpdateSecret(args *CreateUpdateCommonEnvCfgArgs, userName, userID string, l
 		Name:           secret.Name,
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeSecret),
+		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		AutoSync:       args.AutoSync,
 	}
 	if commonrepo.NewEnvResourceColl().Create(envSecret) != nil {
 		return e.ErrUpdateResource.AddDesc(err.Error())
