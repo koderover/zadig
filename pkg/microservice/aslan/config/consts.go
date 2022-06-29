@@ -110,6 +110,7 @@ const (
 	StatusChanged    Status = "changed"
 	StatusNotRun     Status = "notRun"
 	StatusPrepare    Status = "prepare"
+	StatusReject     Status = "reject"
 )
 
 type TaskStatus string
@@ -172,6 +173,13 @@ const (
 	JobZadigBuild  JobType = "zadig-build"
 	JobZadigDeploy JobType = "zadig-deploy"
 	JobFreestyle   JobType = "freestyle"
+)
+
+type ApproveOrReject string
+
+const (
+	Approve ApproveOrReject = "approve"
+	Reject  ApproveOrReject = "reject"
 )
 
 type DeploySourceType string

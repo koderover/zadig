@@ -55,6 +55,7 @@ type StageTask struct {
 	Parallel  bool          `bson:"parallel"      json:"parallel"`
 	Approval  *Approval     `bson:"approval"      json:"approval"`
 	Jobs      []*JobTask    `bson:"jobs"          json:"jobs"`
+	Error     string        `bson:"error"        json:"errror"`
 }
 
 type JobTask struct {

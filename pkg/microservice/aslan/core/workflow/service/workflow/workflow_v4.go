@@ -23,6 +23,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
@@ -32,7 +33,7 @@ import (
 )
 
 const (
-	JobNameRegx = "^[a-z][a-z0-9-]{1,32}$"
+	JobNameRegx = "^[a-z][a-z0-9-]{0,31}$"
 )
 
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
@@ -170,23 +171,48 @@ func workflowLint(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) 
 			return e.ErrUpsertWorkflow.AddDesc("common workflow do not support PM project yet")
 		}
 	}
-	jobNameMap := make(map[string]bool, 0)
+	stageNameMap := make(map[string]bool, 0)
+	jobNameMap := make(map[string]string, 0)
 	reg, err := regexp.Compile(JobNameRegx)
 	if err != nil {
 		logger.Errorf("reg compile failed: %v", err)
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	for _, stage := range workflow.Stages {
+		if _, ok := stageNameMap[stage.Name]; !ok {
+			stageNameMap[stage.Name] = true
+		} else {
+			logger.Errorf("duplicated stage name: %s", stage.Name)
+			return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated job name: %s", stage.Name))
+		}
+
 		for _, job := range stage.Jobs {
 			if match := reg.MatchString(job.Name); !match {
 				logger.Errorf("job name [%s] did not match %s", job.Name, JobNameRegx)
 				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, JobNameRegx))
 			}
 			if _, ok := jobNameMap[job.Name]; !ok {
-				jobNameMap[job.Name] = true
+				jobNameMap[job.Name] = string(job.JobType)
 			} else {
 				logger.Errorf("duplicated job name: %s", job.Name)
 				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated job name: %s", job.Name))
+			}
+
+			if job.JobType == config.JobZadigDeploy {
+				spec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf("decode job spec error: %v", err)
+					return e.ErrUpsertWorkflow.AddErr(err)
+				}
+				if spec.Source != config.SourceFromJob {
+					continue
+				}
+				jobType, ok := jobNameMap[spec.JobName]
+				if !ok || jobType != string(config.JobZadigBuild) {
+					errMsg := fmt.Sprintf("build job %s not found", spec.JobName)
+					logger.Error(errMsg)
+					return e.ErrCreateTask.AddDesc(errMsg)
+				}
 			}
 		}
 	}

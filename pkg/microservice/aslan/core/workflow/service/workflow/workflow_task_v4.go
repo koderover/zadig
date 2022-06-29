@@ -113,6 +113,9 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
 	}
+	if err := workflowLint(workflow, log); err != nil {
+		return resp, err
+	}
 	workflowTask := &commonmodels.WorkflowTask{}
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
 	if err != nil {
@@ -149,19 +152,12 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 			}
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
 		}
-
 	}
-	// idString, err := commonrepo.NewworkflowTaskv4Coll().Create(workflowTask)
-	// if err != nil {
-	// 	log.Errorf("cannot create workflow task %s, the error is: %v", workflow.Name, err)
-	// 	return resp, e.ErrCreateTask.AddDesc(err.Error())
-	// }
-	// id, err := primitive.ObjectIDFromHex(idString)
-	// if err != nil {
-	// 	log.Errorf("transform task id error: %v", err)
-	// 	return resp, e.ErrCreateTask.AddDesc(err.Error())
-	// }
-	// workflowTask.ID = id
+
+	if err := workflowTaskLint(workflowTask, log); err != nil {
+		return resp, err
+	}
+
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
@@ -229,6 +225,17 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		})
 	}
 	return resp, nil
+}
+
+func ApproveStage(workflowName, stageName, userName, userID string, taskID int64, approve bool, logger *zap.SugaredLogger) error {
+	if workflowName == "" || stageName == "" || taskID == 0 {
+		return nil
+	}
+	if err := workflowcontroller.ApproveStage(workflowName, stageName, userName, userID, taskID, approve); err != nil {
+		logger.Error(err)
+		return e.ErrApproveTask.AddErr(err)
+	}
+	return nil
 }
 
 func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
@@ -316,5 +323,21 @@ func setZadigBuildRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error 
 		}
 	}
 	job.Spec = spec
+	return nil
+}
+
+func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
+	if len(workflowTask.Stages) <= 0 {
+		errMsg := fmt.Sprintf("no stage found in workflow task: %s,taskID: %d", workflowTask.WorkflowName, workflowTask.TaskID)
+		logger.Error(errMsg)
+		return e.ErrCreateTask.AddDesc(errMsg)
+	}
+	for _, stage := range workflowTask.Stages {
+		if len(stage.Jobs) <= 0 {
+			errMsg := fmt.Sprintf("no job found in workflow task: %s,taskID: %d,stage: %s", workflowTask.WorkflowName, workflowTask.TaskID, stage.Name)
+			logger.Error(errMsg)
+			return e.ErrCreateTask.AddDesc(errMsg)
+		}
+	}
 	return nil
 }

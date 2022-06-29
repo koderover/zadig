@@ -42,6 +42,15 @@ type listWorkflowTaskV4Resp struct {
 	Total        int64                        `json:"total"`
 }
 
+type ApproveRequest struct {
+	StageName    string `json:"stage_name"`
+	WorkflowName string `json:"workflow_name"`
+	TaskID       int64  `json:"task_id"`
+	UserName     string `json:"user_name"`
+	UserID       string `json:"user_id"`
+	Approve      bool   `json:"approve"`
+}
+
 func CreateWorkflowTaskV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -61,7 +70,6 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(ctx.UserName, args, ctx.Logger)
 }
 
@@ -105,4 +113,17 @@ func CancelWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 	ctx.Err = workflow.CancelWorkflowTaskV4(ctx.UserName, c.Param("workflowName"), taskID, ctx.Logger)
+}
+
+func ApproveStage(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &ApproveRequest{}
+
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = workflow.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.TaskID, args.Approve, ctx.Logger)
 }

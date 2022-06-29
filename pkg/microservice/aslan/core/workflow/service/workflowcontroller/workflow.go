@@ -24,13 +24,11 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
 )
 
-var approveChannelMap sync.Map
 var cancelChannelMap sync.Map
 
 type workflowCtl struct {
@@ -50,7 +48,7 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 }
 
 func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap.SugaredLogger) error {
-	t, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	t, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("[%s] task: %s:%d not found", userName, workflowName, taskID)
 		return err
@@ -66,7 +64,7 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 
 	logger.Infof("[%s] CancelRunningTask %s:%d", userName, taskID, taskID)
 
-	if err := mongodb.NewworkflowTaskv4Coll().Update(t.ID.Hex(), t); err != nil {
+	if err := commonrepo.NewworkflowTaskv4Coll().Update(t.ID.Hex(), t); err != nil {
 		logger.Errorf("[%s] update task: %s:%d error: %v", userName, workflowName, taskID, err)
 		return err
 	}
@@ -103,7 +101,9 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	}()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cancelChannelMap.Store(fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID), cancel)
+	cancelKey := fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+	cancelChannelMap.Store(cancelKey, cancel)
+	defer cancelChannelMap.Delete(cancelKey)
 
 	workflowCtx := &commonmodels.WorkflowTaskCtx{
 		WorkflowName:      c.workflowTask.WorkflowName,
@@ -124,6 +124,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 
 func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 	statusMap := map[config.Status]int{
+		config.StatusReject:    5,
 		config.StatusCancelled: 4,
 		config.StatusTimeout:   3,
 		config.StatusFailed:    2,
