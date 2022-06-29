@@ -19,12 +19,12 @@ package migrate
 import (
 	"context"
 
-	"github.com/koderover/zadig/pkg/tool/log"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func init() {
