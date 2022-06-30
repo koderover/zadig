@@ -18,7 +18,6 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -47,6 +46,7 @@ import (
 type ResourceWithLabel interface {
 	GetLabels() map[string]string
 	SetLabels(labels map[string]string)
+	SetNamespace(ns string)
 }
 
 type ResourceResponseBase struct {
@@ -62,7 +62,23 @@ type ResourceResponseBase struct {
 	AutoSync       bool                    `json:"auto_sync"`
 }
 
-func (resp *ResourceResponseBase) setSourceDetailData() {
+func resourceCreatedByZadig(resource ResourceWithLabel, projectName string) bool {
+	resourceLabels := resource.GetLabels()
+	if resourceLabels == nil {
+		return false
+	}
+	if productName, ok := resourceLabels[setting.ProductLabel]; !ok || productName != projectName {
+		return false
+	}
+	return true
+}
+
+func (resp *ResourceResponseBase) setSourceDetailData(resource ResourceWithLabel) {
+	// make sure the resource is created by zadig
+	if !resourceCreatedByZadig(resource, resp.ProjectName) {
+		return
+	}
+
 	envResource, err := commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
 		Name:           resp.Name,
 		Type:           string(resp.Type),
@@ -119,14 +135,15 @@ func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgTyp
 	return nil
 }
 
-// ensureLabel ensure label 's-product' exists in particular resource(secret/configmap) deployed by zadig
-func ensureLabel(res ResourceWithLabel, projectName string) (string, error) {
+// ensureLabelAndNs ensure label 's-product' exists in particular resource(secret/configmap) deployed by zadig
+func ensureLabelAndNs(res ResourceWithLabel, namespace, projectName string) (string, error) {
 	resLabels := res.GetLabels()
 	if resLabels == nil {
 		resLabels = make(map[string]string)
 	}
 	resLabels[setting.ProductLabel] = projectName
 	res.SetLabels(resLabels)
+	res.SetNamespace(namespace)
 
 	jsonBytes, err := json.Marshal(res)
 	if err != nil {
@@ -207,9 +224,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		cm.Namespace = product.Namespace
-
-		yamlData, err := ensureLabel(cm, args.ProductName)
+		yamlData, err := ensureLabelAndNs(cm, product.Namespace, args.ProductName)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
@@ -227,9 +242,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		secret.Namespace = product.Namespace
-
-		yamlData, err := ensureLabel(secret, args.ProductName)
+		yamlData, err := ensureLabelAndNs(secret, product.Namespace, args.ProductName)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
@@ -248,14 +261,18 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddDesc("ingress Yaml Name is incorrect")
 		}
 
-		u.SetNamespace(product.Namespace)
+		yamlData, err := ensureLabelAndNs(u, product.Namespace, args.ProductName)
+		if err != nil {
+			return e.ErrUpdateResource.AddErr(err)
+		}
+
 		err = updater.UpdateOrCreateUnstructured(u, kubeClient)
 		if err != nil {
 			log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 			return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))
 		}
 		envResource.Name = u.GetName()
-		envResource.YamlData = args.YamlData
+		envResource.YamlData = yamlData
 
 	case config.CommonEnvCfgTypePvc:
 		pvc := &corev1.PersistentVolumeClaim{}
@@ -263,13 +280,18 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		pvc.Namespace = product.Namespace
+
+		yamlData, err := ensureLabelAndNs(pvc, product.Namespace, args.ProductName)
+		if err != nil {
+			return e.ErrUpdateResource.AddErr(err)
+		}
+
 		if err := updater.CreatePvc(product.Namespace, pvc, clientset); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddErr(err)
 		}
 		envResource.Name = pvc.Name
-		envResource.YamlData = args.YamlData
+		envResource.YamlData = yamlData
 
 	default:
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("%s is not support create", args.CommonEnvCfgType))
@@ -356,10 +378,55 @@ type ListCommonEnvCfgHistoryRes struct {
 	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
 }
 
+func GetResourceByCfgType(namespace, name string, cfgType config.CommonEnvCfgType, client client.Client, clientset *kubernetes.Clientset) (ResourceWithLabel, error) {
+	switch cfgType {
+	case config.CommonEnvCfgTypeConfigMap:
+		cm, _, err := getter.GetConfigMap(namespace, name, client)
+		return cm, err
+	case config.CommonEnvCfgTypeSecret:
+		secret, _, err := getter.GetSecret(namespace, name, client)
+		return secret, err
+	case config.CommonEnvCfgTypePvc:
+		pvc, _, err := getter.GetPvc(namespace, name, client)
+		return pvc, err
+	case config.CommonEnvCfgTypeIngress:
+		ingress, _, err := getter.GetIngress(namespace, name, client, clientset)
+		return ingress, err
+	}
+	return nil, fmt.Errorf("unrecognized env config type: %s", cfgType)
+}
+
 func ListEnvResourceHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredLogger) ([]*ListCommonEnvCfgHistoryRes, error) {
 	if len(args.CommonEnvCfgType) == 0 {
-		return nil, errors.New("env resource type can't be nil")
+		return nil, e.ErrListResources.AddDesc("env resource type can't be nil")
 	}
+
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
+	})
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+
+	envResource, err := GetResourceByCfgType(product.Namespace, args.Name, args.CommonEnvCfgType, kubeClient, clientset)
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+
+	// only list history for resources created from environment config management page
+	if !resourceCreatedByZadig(envResource, product.ProductName) {
+		return nil, nil
+	}
+
 	opts := &commonrepo.QueryEnvResourceOption{
 		IsSort:      true,
 		ProductName: args.ProductName,

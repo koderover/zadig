@@ -649,8 +649,13 @@ func initEnvConfigSetAction(envName, namespace, productName, userName string, en
 			ls := kube.MergeLabels(clusterLabels, u.GetLabels())
 			u.SetNamespace(namespace)
 			u.SetLabels(ls)
+			_, err := ensureLabelAndNs(u, namespace, productName)
+			if err != nil {
+				errList = multierror.Append(errList, err)
+				continue
+			}
 
-			err := updater.CreateOrPatchUnstructuredNeverAnnotation(u, kubeClient)
+			err = updater.CreateOrPatchUnstructuredNeverAnnotation(u, kubeClient)
 			if err != nil {
 				log.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
 				errList = multierror.Append(errList, err)

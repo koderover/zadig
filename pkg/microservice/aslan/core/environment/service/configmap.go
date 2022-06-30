@@ -101,7 +101,8 @@ func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
 }
 
 func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListConfigMapRes, error) {
-	selector := labels.Set{setting.ProductLabel: args.ProductName}.AsSelector()
+	selector := labels.Set{}.AsSelector()
+	// Note. when listing configs from [配置管理] on workload page, service name will be passed as query condition
 	if args.ServiceName != "" {
 		selector = labels.Set{setting.ProductLabel: args.ProductName, setting.ServiceLabel: args.ServiceName}.AsSelector()
 	}
@@ -180,7 +181,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 				CreateTime:  cm.GetCreationTimestamp().Time,
 			},
 		}
-		resElem.setSourceDetailData()
+		resElem.setSourceDetailData(cm)
 
 		mutex.Lock()
 		res = append(res, resElem)
@@ -244,7 +245,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
 
-	yamlData, err := ensureLabel(cm, args.ProductName)
+	yamlData, err := ensureLabelAndNs(cm, product.Namespace, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
@@ -474,12 +475,12 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 			cm.SetAnnotations(make(map[string]string))
 			cm.SetName(cmName)
 
-			yamlData, err := yaml.Marshal(cm)
+			yamlData, err := ensureLabelAndNs(cm, product.Namespace, productName)
 			if err != nil {
-				log.Error(err)
 				return nil, e.ErrListResources.AddDesc(err.Error())
 			}
-			envResource.YamlData = string(yamlData)
+
+			envResource.YamlData = yamlData
 			err = commonrepo.NewEnvResourceColl().Create(envResource)
 			if err != nil {
 				return nil, e.ErrListResources.AddErr(err)

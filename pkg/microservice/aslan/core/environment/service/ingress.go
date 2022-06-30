@@ -128,7 +128,7 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 					CreateTime:  ingress.GetCreationTimestamp().Time,
 				},
 			}
-			resElem.setSourceDetailData()
+			resElem.setSourceDetailData(&ingress)
 			res = append(res, resElem)
 		}
 
@@ -180,7 +180,7 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 					CreateTime:  ingress.GetCreationTimestamp().Time,
 				},
 			}
-			resElem.setSourceDetailData()
+			resElem.setSourceDetailData(&ingress)
 			res = append(res, resElem)
 		}
 	}
@@ -220,9 +220,8 @@ func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName s
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
-	u.SetNamespace(product.Namespace)
 
-	yamlData, err := ensureLabel(u, args.ProductName)
+	yamlData, err := ensureLabelAndNs(u, product.Namespace, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}

@@ -17,12 +17,14 @@ limitations under the License.
 package getter
 
 import (
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,6 +39,29 @@ func GetExtensionsV1Beta1Ingress(namespace, name string, lister informers.Shared
 
 func GetNetworkingV1Ingress(namespace, name string, lister informers.SharedInformerFactory) (*v1.Ingress, error) {
 	return lister.Networking().V1().Ingresses().Lister().Ingresses(namespace).Get(name)
+}
+
+func GetIngress(namespace, name string, cl client.Client, clientset *kubernetes.Clientset) (*unstructured.Unstructured, bool, error) {
+	version, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		return nil, false, err
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "extensions",
+		Kind:    "Ingress",
+		Version: "v1beta1",
+	}
+	if !kubeclient.VersionLessThan122(version) {
+		gvk = schema.GroupVersionKind{
+			Group:   "networking.k8s.io",
+			Kind:    "Ingress",
+			Version: "v1",
+		}
+	}
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(gvk)
+	found, err := GetResourceInCache(namespace, name, u, cl)
+	return u, found, err
 }
 
 // ListExtensionsV1Beta1Ingresses gets the ingress (extensions/v1beta1) from the informer

@@ -129,7 +129,7 @@ func ListPvcs(envName, productName string, log *zap.SugaredLogger) ([]*ListPvcsR
 				CreateTime:  pvc.GetCreationTimestamp().Time,
 			},
 		}
-		resElem.setSourceDetailData()
+		resElem.setSourceDetailData(pvc)
 		mutex.Lock()
 		res = append(res, resElem)
 		mutex.Unlock()
@@ -184,9 +184,8 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateResource.AddErr(err)
 	}
-	pvc.Namespace = product.Namespace
 
-	yamlData, err := ensureLabel(pvc, args.ProductName)
+	yamlData, err := ensureLabelAndNs(pvc, product.Namespace, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}

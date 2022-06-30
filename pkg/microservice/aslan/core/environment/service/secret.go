@@ -103,7 +103,7 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 				CreateTime:  secret.GetCreationTimestamp().Time,
 			},
 		}
-		resElem.setSourceDetailData()
+		resElem.setSourceDetailData(secret)
 		mutex.Lock()
 		res = append(res, resElem)
 		mutex.Unlock()
@@ -150,9 +150,8 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
-	secret.Namespace = product.Namespace
 
-	yamlData, err := ensureLabel(secret, args.ProductName)
+	yamlData, err := ensureLabelAndNs(secret, product.Namespace, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
