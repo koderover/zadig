@@ -133,18 +133,18 @@ func ConvertSecretToResource(secrets []*models.EnvSecret) []*models.EnvResource 
 
 func ConvertPVCToResource(pvcs []*models.EnvPvc) []*models.EnvResource {
 	resourceList := make([]*models.EnvResource, 0)
-	for _, secret := range pvcs {
+	for _, pvc := range pvcs {
 		resourceList = append(resourceList, &models.EnvResource{
 			ID:             primitive.ObjectID{},
 			Type:           "PVC",
-			ProductName:    secret.ProductName,
-			CreateTime:     secret.CreateTime,
-			UpdateUserName: secret.UpdateUserName,
-			Namespace:      secret.Namespace,
-			EnvName:        secret.EnvName,
-			Status:         secret.Status,
-			Name:           secret.Name,
-			YamlData:       secret.YamlData,
+			ProductName:    pvc.ProductName,
+			CreateTime:     pvc.CreateTime,
+			UpdateUserName: pvc.UpdateUserName,
+			Namespace:      pvc.Namespace,
+			EnvName:        pvc.EnvName,
+			Status:         pvc.Status,
+			Name:           pvc.Name,
+			YamlData:       pvc.YamlData,
 		})
 	}
 	return resourceList

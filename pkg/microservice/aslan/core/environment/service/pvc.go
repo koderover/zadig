@@ -199,6 +199,7 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
+		Namespace:      product.Namespace,
 		Name:           pvc.Name,
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypePvc),

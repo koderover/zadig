@@ -212,6 +212,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
+		Namespace:      product.Namespace,
 		Type:           string(args.CommonEnvCfgType),
 		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
 		AutoSync:       args.AutoSync,
@@ -390,7 +391,7 @@ func GetResourceByCfgType(namespace, name string, cfgType config.CommonEnvCfgTyp
 		pvc, _, err := getter.GetPvc(namespace, name, client)
 		return pvc, err
 	case config.CommonEnvCfgTypeIngress:
-		ingress, _, err := getter.GetIngress(namespace, name, client, clientset)
+		ingress, _, err := getter.GetUnstructuredIngress(namespace, name, client, clientset)
 		return ingress, err
 	}
 	return nil, fmt.Errorf("unrecognized env config type: %s", cfgType)
@@ -420,6 +421,9 @@ func ListEnvResourceHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 	envResource, err := GetResourceByCfgType(product.Namespace, args.Name, args.CommonEnvCfgType, kubeClient, clientset)
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
+	}
+	if envResource == nil {
+		return nil, e.ErrListResources.AddDesc(fmt.Sprintf("failed to get resource %s:%s from namespace: %s", args.Name, args.CommonEnvCfgType, product.Namespace))
 	}
 
 	// only list history for resources created from environment config management page

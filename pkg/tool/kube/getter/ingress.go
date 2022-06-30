@@ -17,7 +17,6 @@ limitations under the License.
 package getter
 
 import (
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,6 +26,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 )
 
 func GetExtensionsV1Beta1Ingress(namespace, name string, lister informers.SharedInformerFactory) (*extensionsv1beta1.Ingress, bool, error) {
@@ -41,7 +42,7 @@ func GetNetworkingV1Ingress(namespace, name string, lister informers.SharedInfor
 	return lister.Networking().V1().Ingresses().Lister().Ingresses(namespace).Get(name)
 }
 
-func GetIngress(namespace, name string, cl client.Client, clientset *kubernetes.Clientset) (*unstructured.Unstructured, bool, error) {
+func GetUnstructuredIngress(namespace, name string, cl client.Client, clientset *kubernetes.Clientset) (*unstructured.Unstructured, bool, error) {
 	version, err := clientset.Discovery().ServerVersion()
 	if err != nil {
 		return nil, false, err
@@ -61,6 +62,9 @@ func GetIngress(namespace, name string, cl client.Client, clientset *kubernetes.
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(gvk)
 	found, err := GetResourceInCache(namespace, name, u, cl)
+	if err != nil || !found {
+		u = nil
+	}
 	return u, found, err
 }
 

@@ -672,6 +672,7 @@ func initEnvConfigSetAction(envName, namespace, productName, userName string, en
 				ProductName:    productName,
 				UpdateUserName: userName,
 				EnvName:        envName,
+				Namespace:      namespace,
 				Name:           u.GetName(),
 				YamlData:       string(yamlData),
 				SourceDetail:   geneSourceDetail(envResource.GitRepoConfig),

@@ -165,6 +165,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
+		Namespace:      product.Namespace,
 		Name:           secret.Name,
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeSecret),

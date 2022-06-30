@@ -235,6 +235,7 @@ func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName s
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
+		Namespace:      product.Namespace,
 		Name:           u.GetName(),
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeIngress),

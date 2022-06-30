@@ -74,10 +74,7 @@ func (c *ConfigMapColl) List() ([]*models.EnvConfigMap, error) {
 	}
 
 	err = cursor.All(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return resp, err
 }
 
 type IngressColl struct {
@@ -107,10 +104,7 @@ func (c *IngressColl) List() ([]*models.EnvIngress, error) {
 	}
 
 	err = cursor.All(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return resp, err
 }
 
 type PvcColl struct {
@@ -140,10 +134,7 @@ func (c *PvcColl) List() ([]*models.EnvPvc, error) {
 	}
 
 	err = cursor.All(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return resp, err
 }
 
 type SecretColl struct {
@@ -173,8 +164,5 @@ func (c *SecretColl) List() ([]*models.EnvSecret, error) {
 	}
 
 	err = cursor.All(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return resp, err
 }

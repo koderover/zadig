@@ -258,6 +258,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
+		Namespace:      product.Namespace,
 		Name:           cm.Name,
 		YamlData:       yamlData,
 		Type:           string(config.CommonEnvCfgTypeConfigMap),
@@ -455,6 +456,7 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 			envResource := &models.EnvResource{
 				ProductName: product.ProductName,
 				EnvName:     product.EnvName,
+				Namespace:   product.Namespace,
 				Name:        cmName,
 				Type:        string(config.CommonEnvCfgTypeConfigMap),
 			}
