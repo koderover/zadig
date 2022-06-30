@@ -155,7 +155,8 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 	c.logger.Infof("succeed to create cm for job %s", c.jobName)
 
 	// TODO: do not use default image
-	jobImage := "ccr.ccs.tencentyun.com/koderover-rc/job-excutor:guoyu-test2"
+	jobImage := getBaseImage(c.job.Properties.BuildOS, c.job.Properties.ImageFrom)
+	// jobImage := "ccr.ccs.tencentyun.com/koderover-rc/job-excutor:guoyu-test2"
 	// jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
 	//Resource request default value is LOW

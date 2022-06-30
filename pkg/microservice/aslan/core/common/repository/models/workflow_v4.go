@@ -110,6 +110,7 @@ type JobProperties struct {
 	ResourceRequest setting.Request `bson:"resource_request"       json:"resource_request"`
 	ClusterID       string          `bson:"cluster_id"             json:"cluster_id"`
 	BuildOS         string          `bson:"build_os"               json:"build_os"`
+	ImageFrom       string          `bson:"image_from"             json:"image_from"`
 	Namespace       string          `bson:"namespace"              json:"namespace"`
 	Args            []*KeyVal       `bson:"args"                   json:"args"`
 	Paths           string          `bson:"-"                      json:"-"`

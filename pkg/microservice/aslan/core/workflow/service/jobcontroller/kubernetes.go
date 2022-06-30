@@ -62,6 +62,8 @@ const (
 	ZadigContextDir    = "/zadig/"
 	ZadigLogFile       = ZadigContextDir + "zadig.log"
 	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
+	JobExecutorFile    = "http://resource-server/jobexecutor"
+	ResourceServer     = "resource-server"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
@@ -131,13 +133,15 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 	return updater.CreateConfigMap(cm, kubeClient)
 }
 
-// getReaperImage generates the image used to run reaper
-// depends on the setting on page 'Build'
-func getReaperImage(reaperImage, buildOS string) string {
+func getBaseImage(buildOS, imageFrom string) string {
 	// for built-in image, reaperImage and buildOs can generate a complete image
 	// reaperImage: ccr.ccs.tencentyun.com/koderover-public/build-base:${BuildOS}-amd64
 	// buildOS: focal xenial bionic
-	jobImage := strings.ReplaceAll(reaperImage, "${BuildOS}", buildOS)
+	jobImage := strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", buildOS)
+	// for custom image, buildOS represents the exact custom image
+	if imageFrom == setting.ImageFromCustom {
+		jobImage = buildOS
+	}
 	return jobImage
 }
 
@@ -149,6 +153,19 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	// done;
 	// `
 	// 	tailLogCommand := fmt.Sprintf(tailLogCommandTemplate, ZadigLogFile, ZadigLifeCycleFile)
+
+	var (
+		jobExecutorBootingScript string
+		jobExecutorBinaryFile    = JobExecutorFile
+	)
+	// not local cluster
+	if clusterID != "" && clusterID != setting.LocalClusterID {
+		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
+	} else {
+		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
+	}
+
+	jobExecutorBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
 
 	labels := getJobLabels(&JobLabel{
 		WorkflowName: workflowCtx.WorkflowName,
@@ -205,6 +222,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 							ImagePullPolicy: corev1.PullAlways,
 							Name:            jobTask.Name,
 							Image:           jobImage,
+							Command:         []string{"/bin/sh", "-c"},
+							Args:            []string{jobExecutorBootingScript},
 							// Command:         []string{"/bin/sh", "-c", "jobexecutor"},
 							// Lifecycle: &corev1.Lifecycle{
 							// 	PreStop: &corev1.Handler{

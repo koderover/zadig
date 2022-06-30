@@ -114,6 +114,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ResourceRequest: buildInfo.PreBuild.ResReq,
 			Args:            renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
 			ClusterID:       buildInfo.PreBuild.ClusterID,
+			BuildOS:         buildInfo.PreBuild.BuildOS,
+			ImageFrom:       buildInfo.PreBuild.ImageFrom,
 		}
 		jobTask.Properties.Args = append(jobTask.Properties.Args, getJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
 
