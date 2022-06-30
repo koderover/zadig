@@ -88,6 +88,7 @@ func ConvertCmToResource(cms []*models.EnvConfigMap) []*models.EnvResource {
 			EnvName:        cm.EnvName,
 			Name:           cm.Name,
 			YamlData:       cm.YamlData,
+			DeletedAt:      0,
 		})
 	}
 	return resourceList
@@ -107,6 +108,7 @@ func ConvertIngToResource(ings []*models.EnvIngress) []*models.EnvResource {
 			Status:         ingress.Status,
 			Name:           ingress.Name,
 			YamlData:       ingress.YamlData,
+			DeletedAt:      0,
 		})
 	}
 	return resourceList
@@ -126,6 +128,7 @@ func ConvertSecretToResource(secrets []*models.EnvSecret) []*models.EnvResource 
 			Status:         secret.Status,
 			Name:           secret.Name,
 			YamlData:       secret.YamlData,
+			DeletedAt:      0,
 		})
 	}
 	return resourceList
@@ -145,6 +148,7 @@ func ConvertPVCToResource(pvcs []*models.EnvPvc) []*models.EnvResource {
 			Status:         pvc.Status,
 			Name:           pvc.Name,
 			YamlData:       pvc.YamlData,
+			DeletedAt:      0,
 		})
 	}
 	return resourceList

@@ -164,3 +164,13 @@ func (c *EnvResourceColl) Find(opt *QueryEnvResourceOption) (*models.EnvResource
 	}
 	return rs, err
 }
+
+func (c *EnvResourceColl) Delete(oid primitive.ObjectID) error {
+	query := bson.M{}
+	query["_id"] = oid
+	change := bson.M{"$set": bson.M{
+		"deleted_at": time.Now().Unix(),
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}

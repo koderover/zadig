@@ -132,6 +132,21 @@ func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgTyp
 		log.Error(err)
 		return e.ErrDeleteResource.AddDesc(err.Error())
 	}
+
+	resourceData, err := commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
+		ProductName:    productName,
+		EnvName:        product.EnvName,
+		Name:           objectName,
+		Type:           string(commonEnvCfgType),
+		IgnoreNotFound: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	if resourceData != nil {
+		return commonrepo.NewEnvResourceColl().Delete(resourceData.ID)
+	}
 	return nil
 }
 
@@ -312,6 +327,7 @@ func getLatestEnvResource(name, resType, envName, productName string) (*models.E
 			ProductName: productName,
 			Type:        resType,
 			EnvName:     envName,
+			IsSort:      true,
 		})
 }
 
@@ -334,6 +350,9 @@ func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		latestResource, err := getLatestEnvResource(args.Name, string(args.CommonEnvCfgType), args.EnvName, args.ProductName)
 		if err != nil {
 			return err
+		}
+		if latestResource == nil {
+			return fmt.Errorf("failed to find env resource %s:%s", args.Name, string(args.CommonEnvCfgType))
 		}
 		args.AutoSync = latestResource.AutoSync
 		args.SourceDetail = latestResource.SourceDetail

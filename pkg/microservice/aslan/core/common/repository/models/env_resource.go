@@ -26,6 +26,7 @@ type EnvResource struct {
 	ProductName    string             `bson:"product_name"              json:"product_name"`
 	CreateTime     int64              `bson:"create_time"               json:"create_time"`
 	UpdateUserName string             `bson:"update_user_name"          json:"update_user_name"`
+	DeletedAt      int64              `bson:"deleted_at"                json:"deleted_at" `
 	Namespace      string             `bson:"namespace,omitempty"       json:"namespace,omitempty"`
 	EnvName        string             `bson:"env_name"                  json:"env_name"`
 	Name           string             `bson:"name"                      json:"name"`
