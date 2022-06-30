@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -160,15 +161,16 @@ func ListWorkflowV4(projectName, userID string, pageNum, pageSize int64, logger 
 }
 
 func workflowLint(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(workflow.Project)
+	project, err := templaterepo.NewProductColl().Find(workflow.Project)
 	if err != nil {
-		logger.Errorf("Failed to get project %s services, error: %v", workflow.Project, err)
+		logger.Errorf("Failed to get project %s, error: %v", workflow.Project, err)
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
-	if len(services) > 0 {
-		if services[0].Type != setting.K8SDeployType && services[0].Type != setting.HelmDeployType {
-			logger.Error("common workflow do not support PM project yet")
-			return e.ErrUpsertWorkflow.AddDesc("common workflow do not support PM project yet")
+
+	if project.ProductFeature != nil {
+		if project.ProductFeature.DeployType != setting.K8SDeployType && project.ProductFeature.DeployType != setting.HelmDeployType {
+			logger.Error("common workflow only support k8s and helm project")
+			return e.ErrUpsertWorkflow.AddDesc("common workflow only support k8s and helm project")
 		}
 	}
 	stageNameMap := make(map[string]bool, 0)
@@ -200,7 +202,7 @@ func workflowLint(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) 
 
 			if job.JobType == config.JobZadigDeploy {
 				spec := &commonmodels.ZadigDeployJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+				if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
 					logger.Errorf("decode job spec error: %v", err)
 					return e.ErrUpsertWorkflow.AddErr(err)
 				}

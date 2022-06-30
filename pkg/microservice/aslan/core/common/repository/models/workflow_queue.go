@@ -28,6 +28,7 @@ type WorkflowQueue struct {
 	ProjectName  string             `bson:"project_name"                               json:"project_name"`
 	WorkflowName string             `bson:"workflow_name"                              json:"workflow_name"`
 	Status       config.Status      `bson:"status"                                     json:"status,omitempty"`
+	Stages       []*StageTask       `bson:"stages"                                     json:"stages"`
 	TaskCreator  string             `bson:"task_creator"                               json:"task_creator,omitempty"`
 	TaskRevoker  string             `bson:"task_revoker,omitempty"                     json:"task_revoker,omitempty"`
 	CreateTime   int64              `bson:"create_time"                                json:"create_time,omitempty"`

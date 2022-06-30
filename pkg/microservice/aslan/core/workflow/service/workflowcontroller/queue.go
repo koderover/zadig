@@ -18,6 +18,7 @@ package workflowcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -29,8 +30,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func RunningTasks() []*commonmodels.WorkflowTask {
-	tasks := make([]*commonmodels.WorkflowTask, 0)
+func RunningTasks() []*commonmodels.WorkflowQueue {
+	tasks := make([]*commonmodels.WorkflowQueue, 0)
 	queueTasks, err := commonrepo.NewWorkflowQueueColl().List(&commonrepo.ListWorfklowQueueOption{})
 	if err != nil {
 		log.Errorf("list queue worklfow task failed, err:%v", err)
@@ -39,16 +40,14 @@ func RunningTasks() []*commonmodels.WorkflowTask {
 	for _, t := range queueTasks {
 		// task状态为TaskQueued说明task已经被send到nsq,wd已经开始处理但是没有返回ack
 		if t.Status == config.StatusRunning {
-			if t, err := commonrepo.NewworkflowTaskv4Coll().Find(t.WorkflowName, t.TaskID); err == nil {
-				tasks = append(tasks, t)
-			}
+			tasks = append(tasks, t)
 		}
 	}
 	return tasks
 }
 
-func PendingTasks() []*commonmodels.WorkflowTask {
-	tasks := make([]*commonmodels.WorkflowTask, 0)
+func PendingTasks() []*commonmodels.WorkflowQueue {
+	tasks := make([]*commonmodels.WorkflowQueue, 0)
 	queueTasks, err := commonrepo.NewWorkflowQueueColl().List(&commonrepo.ListWorfklowQueueOption{})
 	if err != nil {
 		log.Errorf("list queue workflow task failed, err:%v", err)
@@ -56,9 +55,7 @@ func PendingTasks() []*commonmodels.WorkflowTask {
 	}
 	for _, t := range queueTasks {
 		if t.Status == config.StatusWaiting || t.Status == config.StatusBlocked || t.Status == config.StatusQueued {
-			if t, err := commonrepo.NewworkflowTaskv4Coll().Find(t.WorkflowName, t.TaskID); err == nil {
-				tasks = append(tasks, t)
-			}
+			tasks = append(tasks, t)
 		}
 	}
 	return tasks
@@ -281,14 +278,27 @@ func UpdateQueue(task *commonmodels.WorkflowTask) bool {
 func ConvertTaskToQueue(task *commonmodels.WorkflowTask) *commonmodels.WorkflowQueue {
 	return &commonmodels.WorkflowQueue{
 		TaskID:       task.TaskID,
-		ProjectName:  task.ProjectName,
 		WorkflowName: task.WorkflowName,
+		ProjectName:  task.ProjectName,
 		Status:       task.Status,
+		Stages:       cleanStages(task.Stages),
 		TaskCreator:  task.TaskCreator,
 		TaskRevoker:  task.TaskRevoker,
 		CreateTime:   task.CreateTime,
 		MultiRun:     task.MultiRun,
 	}
+}
+
+func cleanStages(stages []*commonmodels.StageTask) []*commonmodels.StageTask {
+	resp := []*commonmodels.StageTask{}
+	data, _ := json.Marshal(stages)
+	json.Unmarshal(data, &resp)
+	for _, stage := range resp {
+		for _, job := range stage.Jobs {
+			job.Steps = nil
+		}
+	}
+	return resp
 }
 
 func Remove(taskQueue *commonmodels.WorkflowQueue) error {

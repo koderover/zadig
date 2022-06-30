@@ -20,6 +20,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types/step"
 )
@@ -46,12 +47,17 @@ func (j *DeployJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(j.workflow.Project)
+	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
 		return err
 	}
-	if len(services) > 0 {
-		j.spec.DeployType = services[0].Type
+	if project.ProductFeature != nil {
+		j.spec.DeployType = project.ProductFeature.DeployType
+	}
+
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(j.workflow.Project)
+	if err != nil {
+		return err
 	}
 
 	if j.spec.Source != config.SourceRuntime {
@@ -80,6 +86,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err != nil {
 		return resp, err
 	}
+
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		for _, stage := range j.workflow.Stages {
