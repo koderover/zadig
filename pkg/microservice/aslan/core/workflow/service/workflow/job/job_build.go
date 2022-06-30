@@ -27,6 +27,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
@@ -110,10 +112,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTask.Properties = commonmodels.JobProperties{
 			Timeout:         int64(buildInfo.Timeout),
 			ResourceRequest: buildInfo.PreBuild.ResReq,
-			Args:            buildInfo.PreBuild.Envs,
+			Args:            renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
 			ClusterID:       buildInfo.PreBuild.ClusterID,
 		}
-		jobTask.Properties.Args = append(jobTask.Properties.Args, getJobVariables(build, taskID, j.workflow.Project, j.workflow.Name)...)
+		jobTask.Properties.Args = append(jobTask.Properties.Args, getJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
 
 		// init tools install step
 		for _, tool := range buildInfo.PreBuild.Installs {
@@ -130,16 +132,20 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name:     build.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: build.Repos},
+			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos)},
 		}
 		jobTask.Steps = append(jobTask.Steps, gitStep)
 
 		// init shell step
+		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
+		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 		shellStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-shell",
 			JobName:  jobTask.Name,
 			StepType: config.StepShell,
-			Spec:     step.StepShellSpec{Scripts: strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")},
+			Spec: &step.StepShellSpec{
+				Scripts: scripts,
+			},
 		}
 		jobTask.Steps = append(jobTask.Steps, shellStep)
 
@@ -166,6 +172,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					ImageReleaseTag:       imageTag,
 					BuildArgs:             buildInfo.PostBuild.DockerBuild.BuildArgs,
 					DockerTemplateContent: dockefileContent,
+					DockerRegistry: &step.DockerRegistry{
+						DockerRegistryID: j.spec.DockerRegistryID,
+					},
 				},
 			}
 			jobTask.Steps = append(jobTask.Steps, dockerBuildStep)
@@ -218,6 +227,17 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 	return origin
 }
 
+func renderRepos(input, origin []*types.Repository) []*types.Repository {
+	for i, originRepo := range origin {
+		for _, inputRepo := range input {
+			if originRepo.RepoName == inputRepo.RepoName && originRepo.RepoOwner == inputRepo.RepoOwner {
+				origin[i] = inputRepo
+			}
+		}
+	}
+	return origin
+}
+
 func replaceWrapLine(script string) string {
 	return strings.Replace(strings.Replace(
 		script,
@@ -227,7 +247,7 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName string) []*commonmodels.KeyVal {
+func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	for index, repo := range build.Repos {
 
@@ -255,6 +275,14 @@ func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project,
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
 		}
 	}
+	reg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: dockerRegistryID})
+	if err != nil {
+		log.Errorf("find docker registry by ID %s error: %v", dockerRegistryID, err)
+	}
+	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_HOST", Value: reg.RegAddr, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_AK", Value: reg.AccessKey, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_SK", Value: reg.SecretKey, IsCredential: true})
+
 	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: build.ServiceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: build.ServiceModule, IsCredential: false})

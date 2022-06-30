@@ -118,6 +118,7 @@ func (c *WorkflowQueueColl) Update(args *models.WorkflowQueue) error {
 	query := bson.M{"task_id": args.TaskID, "workflow_name": args.WorkflowName, "create_time": args.CreateTime}
 	change := bson.M{"$set": bson.M{
 		"status": args.Status,
+		"stages": args.Stages,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

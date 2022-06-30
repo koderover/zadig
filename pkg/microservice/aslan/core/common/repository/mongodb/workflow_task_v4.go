@@ -109,6 +109,7 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option, pageNum, pageSi
 		findOption = options.Find()
 	} else {
 		findOption = options.Find().
+			SetSort(bson.D{{"create_time", -1}}).
 			SetSkip((pageNum - 1) * pageSize).
 			SetLimit(pageSize)
 	}

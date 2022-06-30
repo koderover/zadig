@@ -37,10 +37,11 @@ type StepDockerBuildSpec struct {
 }
 
 type DockerRegistry struct {
-	Host      string `bson:"host"                              json:"host"                                 yaml:"host"`
-	Namespace string `bson:"namespace"                         json:"namespace"                            yaml:"namespace"`
-	UserName  string `bson:"username"                          json:"username"                             yaml:"username"`
-	Password  string `bson:"password"                          json:"password"                             yaml:"password"`
+	DockerRegistryID string `bson:"docker_registry_id"                json:"docker_registry_id"                   yaml:"docker_registry_id"`
+	Host             string `bson:"host"                              json:"host"                                 yaml:"host"`
+	Namespace        string `bson:"namespace"                         json:"namespace"                            yaml:"namespace"`
+	UserName         string `bson:"username"                          json:"username"                             yaml:"username"`
+	Password         string `bson:"password"                          json:"password"                             yaml:"password"`
 }
 
 func (s *StepDockerBuildSpec) GetDockerFile() string {

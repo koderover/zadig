@@ -34,12 +34,21 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 }
 
 func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
-	s.dockerBuildSpec.DockerRegistry = &step.DockerRegistry{
-		UserName:  config.RegistryAccessKey(),
-		Password:  config.RegistrySecretKey(),
-		Namespace: config.RegistryNamespace(),
-		Host:      config.RegistryAddress(),
+	if s.dockerBuildSpec.DockerRegistry != nil && s.dockerBuildSpec.DockerRegistry.DockerRegistryID != "" {
+		reg, _ := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{ID: s.dockerBuildSpec.DockerRegistry.DockerRegistryID})
+		s.dockerBuildSpec.DockerRegistry.UserName = reg.AccessKey
+		s.dockerBuildSpec.DockerRegistry.Password = reg.SecretKey
+		s.dockerBuildSpec.DockerRegistry.Namespace = reg.Namespace
+		s.dockerBuildSpec.DockerRegistry.Host = reg.RegAddr
+	} else {
+		s.dockerBuildSpec.DockerRegistry = &step.DockerRegistry{
+			UserName:  config.RegistryAccessKey(),
+			Password:  config.RegistrySecretKey(),
+			Namespace: config.RegistryNamespace(),
+			Host:      config.RegistryAddress(),
+		}
 	}
+
 	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
 	if len(proxies) != 0 {
 		s.dockerBuildSpec.Proxy.Address = proxies[0].Address
