@@ -238,11 +238,13 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 	return resp, nil
 }
 
-func ApproveStage(workflowName, stageName, userName, userID string, taskID int64, approve bool, logger *zap.SugaredLogger) error {
+func ApproveStage(workflowName, stageName, userName, userID, comment string, taskID int64, approve bool, logger *zap.SugaredLogger) error {
 	if workflowName == "" || stageName == "" || taskID == 0 {
-		return nil
+		errMsg := fmt.Sprintf("can not find approved workflow: %s, taskID: %d,stage: %s", workflowName, taskID, stageName)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
 	}
-	if err := workflowcontroller.ApproveStage(workflowName, stageName, userName, userID, taskID, approve); err != nil {
+	if err := workflowcontroller.ApproveStage(workflowName, stageName, userName, userID, comment, taskID, approve); err != nil {
 		logger.Error(err)
 		return e.ErrApproveTask.AddErr(err)
 	}

@@ -46,9 +46,8 @@ type ApproveRequest struct {
 	StageName    string `json:"stage_name"`
 	WorkflowName string `json:"workflow_name"`
 	TaskID       int64  `json:"task_id"`
-	UserName     string `json:"user_name"`
-	UserID       string `json:"user_id"`
 	Approve      bool   `json:"approve"`
+	Comment      string `json:"comment"`
 }
 
 func CreateWorkflowTaskV4(c *gin.Context) {
@@ -132,10 +131,20 @@ func ApproveStage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &ApproveRequest{}
 
-	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("ApproveStage c.GetRawData() err : %s", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("ApproveStage json.Unmarshal err : %s", err)
+	}
+
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = workflow.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.TaskID, args.Approve, ctx.Logger)
+	ctx.Err = workflow.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
 }

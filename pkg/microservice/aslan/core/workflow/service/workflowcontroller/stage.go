@@ -57,6 +57,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		stage.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
+		return
 	}
 	defer func() {
 		updateStageStatus(stage)
@@ -79,13 +80,13 @@ func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCt
 	}
 }
 
-func ApproveStage(workflowName, stageName, userName, userID string, taskID int64, approve bool) error {
+func ApproveStage(workflowName, stageName, userName, userID, comment string, taskID int64, approve bool) error {
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowName, taskID, stageName)
 	approveWithL, ok := globalApproveMap.getApproval(approveKey)
 	if !ok {
 		return fmt.Errorf("workflow %s ID %d stage %s do not need approve", workflowName, taskID, stageName)
 	}
-	return approveWithL.doApproval(userName, userID, approve)
+	return approveWithL.doApproval(userName, userID, comment, approve)
 }
 
 func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func()) error {
@@ -101,7 +102,10 @@ func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflo
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
 	approveWithL := &approveWithLock{approval: stage.Approval}
 	globalApproveMap.setApproval(approveKey, approveWithL)
-	defer globalApproveMap.deleteApproval(approveKey)
+	defer func() {
+		globalApproveMap.deleteApproval(approveKey)
+		ack()
+	}()
 
 	timeout := time.After(time.Duration(stage.Approval.Timeout) * time.Minute)
 	latestApproveCount := 0
@@ -195,11 +199,12 @@ func (c *approveMap) deleteApproval(key string) {
 }
 
 func (c *approveWithLock) isApproval() (bool, int, error) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 	approveCount := 0
 	for _, user := range c.approval.ApproveUsers {
 		if user.RejectOrApprove == config.Reject {
+			c.approval.RejectOrApprove = config.Reject
 			return false, approveCount, fmt.Errorf("%s reject this task", user.UserName)
 		}
 		if user.RejectOrApprove == config.Approve {
@@ -207,12 +212,13 @@ func (c *approveWithLock) isApproval() (bool, int, error) {
 		}
 	}
 	if approveCount >= c.approval.NeededApprovers {
+		c.approval.RejectOrApprove = config.Approve
 		return true, approveCount, nil
 	}
 	return false, approveCount, nil
 }
 
-func (c *approveWithLock) doApproval(userName, userID string, appvove bool) error {
+func (c *approveWithLock) doApproval(userName, userID, comment string, appvove bool) error {
 	c.Lock()
 	defer c.Unlock()
 	for _, user := range c.approval.ApproveUsers {
@@ -222,10 +228,14 @@ func (c *approveWithLock) doApproval(userName, userID string, appvove bool) erro
 		if user.RejectOrApprove != "" {
 			return fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
 		}
+		user.Comment = comment
+		user.OperationTime = time.Now().Unix()
 		if appvove {
 			user.RejectOrApprove = config.Approve
+			return nil
 		} else {
 			user.RejectOrApprove = config.Reject
+			return nil
 		}
 	}
 	return fmt.Errorf("user %s has no authority to approve", userName)

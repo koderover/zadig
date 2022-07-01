@@ -48,17 +48,20 @@ type WorkflowStage struct {
 }
 
 type Approval struct {
-	Enabled         bool    `bson:"enabled"          yaml:"enabled"           json:"enabled"`
-	ApproveUsers    []*User `bson:"approve_users"    yaml:"approve_users"     json:"approve_users"`
-	Timeout         int     `bson:"timeout"          yaml:"timeout"           json:"timeout"`
-	NeededApprovers int     `bson:"needed_approvers" yaml:"needed_approvers"  json:"needed_approvers"`
-	Description     string  `bson:"description"      yaml:"description"       json:"description"`
+	Enabled         bool                   `bson:"enabled"                     yaml:"enabled"                    json:"enabled"`
+	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Timeout         int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
+	Description     string                 `bson:"description"                 yaml:"description"                json:"description"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type User struct {
 	UserID          string                 `bson:"user_id"                     yaml:"user_id"                    json:"user_id"`
 	UserName        string                 `bson:"user_name"                   yaml:"user_name"                  json:"user_name"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
+	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
 }
 
 type Job struct {
