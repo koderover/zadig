@@ -86,19 +86,21 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
-		imageTag := ""
+		imageTag := time.Now().Format("20060102150405")
 		for _, repo := range build.Repos {
 			imageTag = repo.GetReleaseCandidateTag(taskID)
-			if len(registry.Namespace) > 0 {
-				build.Image = fmt.Sprintf("%s/%s/%s:%s", registry.RegAddr, registry.Namespace, build.ServiceModule, imageTag)
-			} else {
-				build.Image = fmt.Sprintf("%s/%s:%s", registry.RegAddr, build.ServiceModule, imageTag)
-			}
-
-			build.Image = strings.TrimPrefix(build.Image, "http://")
-			build.Image = strings.TrimPrefix(build.Image, "https://")
 			break
 		}
+
+		if len(registry.Namespace) > 0 {
+			build.Image = fmt.Sprintf("%s/%s/%s:%s", registry.RegAddr, registry.Namespace, build.ServiceModule, imageTag)
+		} else {
+			build.Image = fmt.Sprintf("%s/%s:%s", registry.RegAddr, build.ServiceModule, imageTag)
+		}
+
+		build.Image = strings.TrimPrefix(build.Image, "http://")
+		build.Image = strings.TrimPrefix(build.Image, "https://")
+
 		build.Package = fmt.Sprintf("%s-%s-%d.tar.gz", build.ServiceModule, time.Now().Format("20060102150405"), taskID)
 
 		jobTask := &commonmodels.JobTask{
