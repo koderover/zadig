@@ -62,7 +62,7 @@ type Product struct {
 	ShareEnv ProductShareEnv `bson:"share_env" json:"share_env"`
 
 	// New Since v1.13.0.
-	EnvConfigs []*CreateUpdateCommonEnvCfgArgs `bson:"-,omitempty"   json:"env_configs,omitempty"`
+	EnvConfigs []*CreateUpdateCommonEnvCfgArgs `bson:"-"   json:"env_configs,omitempty"`
 }
 
 type CreateUpdateCommonEnvCfgArgs struct {

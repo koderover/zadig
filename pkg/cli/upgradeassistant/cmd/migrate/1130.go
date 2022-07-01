@@ -41,9 +41,7 @@ func V1130ToV1120() error {
 }
 
 func CombineEnvResources() error {
-
 	log.Info("start CombineEnvResources")
-
 	resourceList := make([]*models.EnvResource, 0)
 
 	cms, err := internalmongodb.NewConfigMapColl().List()
@@ -70,13 +68,11 @@ func CombineEnvResources() error {
 	}
 	resourceList = append(resourceList, ConvertPVCToResource(pvcs)...)
 
-	log.Infof("total count of current env resource record is %v", len(resourceList))
-
 	return internalmongodb.NewEnvResourceColl().BatchInsert(resourceList)
 }
 
 func ConvertCmToResource(cms []*models.EnvConfigMap) []*models.EnvResource {
-	resourceList := make([]*models.EnvResource, 0)
+	resourceList := make([]*models.EnvResource, 0, len(cms))
 	for _, cm := range cms {
 		resourceList = append(resourceList, &models.EnvResource{
 			ID:             primitive.ObjectID{},
@@ -95,7 +91,7 @@ func ConvertCmToResource(cms []*models.EnvConfigMap) []*models.EnvResource {
 }
 
 func ConvertIngToResource(ings []*models.EnvIngress) []*models.EnvResource {
-	resourceList := make([]*models.EnvResource, 0)
+	resourceList := make([]*models.EnvResource, 0, len(ings))
 	for _, ingress := range ings {
 		resourceList = append(resourceList, &models.EnvResource{
 			ID:             primitive.ObjectID{},
@@ -115,7 +111,7 @@ func ConvertIngToResource(ings []*models.EnvIngress) []*models.EnvResource {
 }
 
 func ConvertSecretToResource(secrets []*models.EnvSecret) []*models.EnvResource {
-	resourceList := make([]*models.EnvResource, 0)
+	resourceList := make([]*models.EnvResource, 0, len(secrets))
 	for _, secret := range secrets {
 		resourceList = append(resourceList, &models.EnvResource{
 			ID:             primitive.ObjectID{},
@@ -135,7 +131,7 @@ func ConvertSecretToResource(secrets []*models.EnvSecret) []*models.EnvResource 
 }
 
 func ConvertPVCToResource(pvcs []*models.EnvPvc) []*models.EnvResource {
-	resourceList := make([]*models.EnvResource, 0)
+	resourceList := make([]*models.EnvResource, 0, len(pvcs))
 	for _, pvc := range pvcs {
 		resourceList = append(resourceList, &models.EnvResource{
 			ID:             primitive.ObjectID{},
