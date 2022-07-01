@@ -158,11 +158,22 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		return resp, err
 	}
 
+	workflowTask.WorkflowArgs = workflow
+
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 	return resp, nil
+}
+
+func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("find workflowTaskV4 error: %s", err)
+		return nil, e.ErrGetTask.AddErr(err)
+	}
+	return task.WorkflowArgs, nil
 }
 
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
@@ -197,7 +208,7 @@ func CancelWorkflowTaskV4(userName, workflowName string, taskID int64, logger *z
 func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*WorkflowTaskPreview, error) {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
-		logger.Errorf("list workflowTaskV4 error: %s", err)
+		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return nil, err
 	}
 	resp := &WorkflowTaskPreview{

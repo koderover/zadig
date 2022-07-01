@@ -26,7 +26,8 @@ type WorkflowTask struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
 	TaskID        int64              `bson:"task_id"                   json:"task_id"`
 	WorkflowName  string             `bson:"workflow_name"             json:"workflow_name"`
-	Args          []*KeyVal          `bson:"args"                      json:"args"`
+	WorkflowArgs  *WorkflowV4        `bson:"workflow_args"             json:"workflow_args"`
+	KeyVals       []*KeyVal          `bson:"key_vals"                  json:"key_vals"`
 	GlobalContext map[string]string  `bson:"global_context"            json:"global_context"`
 	Status        config.Status      `bson:"status"                    json:"status,omitempty"`
 	TaskCreator   string             `bson:"task_creator"              json:"task_creator,omitempty"`
@@ -90,7 +91,7 @@ type WorkflowTaskCtx struct {
 	DistDir           string
 	DockerMountDir    string
 	ConfigMapMountDir string
-	WorkflowArgs      []*KeyVal
+	WorkflowKeyVals   []*KeyVal
 	GlobalContextGet  func(key string) (string, bool)
 	GlobalContextSet  func(key, value string)
 	GlobalContextEach func(f func(k, v string) bool)
