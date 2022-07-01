@@ -63,6 +63,28 @@ func CreateWorkflowV4(c *gin.Context) {
 	ctx.Err = workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger)
 }
 
+func LintWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.WorkflowV4)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateWorkflowv4 c.GetRawData() err : %s", err)
+	}
+	if err = yaml.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateWorkflowv4 json.Unmarshal err : %s", err)
+	}
+
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.ShouldBindYAML(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = workflow.LintWorkflowV4(args, ctx.Logger)
+}
+
 func ListWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

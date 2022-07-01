@@ -43,7 +43,7 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		errStr := fmt.Sprintf("workflow v4 [%s] 在项目 [%s] 中已经存在!", workflow.Name, workflow.Project)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
-	if err := workflowLint(workflow, logger); err != nil {
+	if err := LintWorkflowV4(workflow, logger); err != nil {
 		return err
 	}
 
@@ -75,7 +75,7 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return e.ErrFindWorkflow.AddErr(err)
 	}
-	if err := workflowLint(inputWorkflow, logger); err != nil {
+	if err := LintWorkflowV4(inputWorkflow, logger); err != nil {
 		return err
 	}
 
@@ -160,7 +160,12 @@ func ListWorkflowV4(projectName, userID string, pageNum, pageSize int64, logger 
 	return resp, total, nil
 }
 
-func workflowLint(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+	if workflow.Project == "" {
+		err := fmt.Errorf("project should not be empty")
+		logger.Errorf(err.Error())
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
 	project, err := templaterepo.NewProductColl().Find(workflow.Project)
 	if err != nil {
 		logger.Errorf("Failed to get project %s, error: %v", workflow.Project, err)

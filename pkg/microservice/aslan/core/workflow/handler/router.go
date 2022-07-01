@@ -172,6 +172,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workflowV4.POST("", CreateWorkflowV4)
 		workflowV4.GET("", ListWorkflowV4)
+		workflowV4.POST("/lint", LintWorkflowV4)
 		workflowV4.GET("/name/:name", FindWorkflowV4)
 		workflowV4.PUT("/:name", UpdateWorkflowV4)
 		workflowV4.DELETE("/:name", DeleteWorkflowV4)

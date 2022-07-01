@@ -113,7 +113,7 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
 	}
-	if err := workflowLint(workflow, log); err != nil {
+	if err := LintWorkflowV4(workflow, log); err != nil {
 		return resp, err
 	}
 	workflowTask := &commonmodels.WorkflowTask{}
