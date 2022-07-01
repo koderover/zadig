@@ -140,6 +140,10 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	}
 	var res []*client.Project
 	for _, o := range repos {
+		// since we can't filter the repo by gitHub api, we filter by ourselves
+		if len(opt.Namespace) > 0 && o.GetOwner().GetLogin() != opt.Namespace {
+			continue
+		}
 		res = append(res, &client.Project{
 			ID:            int(o.GetID()),
 			Name:          o.GetName(),
