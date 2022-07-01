@@ -154,7 +154,10 @@ func ListWorkflowV4(projectName, userID string, pageNum, pageSize int64, logger 
 			ProjectName:   workflow.Project,
 			EnabledStages: stages,
 			CreateTime:    workflow.CreateTime,
+			UpdateTime:    workflow.UpdateTime,
+			UpdateBy:      workflow.UpdatedBy,
 			WorkflowType:  "common_workflow",
+			Description:   workflow.Description,
 		})
 	}
 	return resp, total, nil
