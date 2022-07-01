@@ -23,7 +23,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/cmd"
@@ -45,13 +44,9 @@ func RunSteps(ctx context.Context, steps []*meta.Step, workspace, paths string, 
 	return nil
 }
 func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string) error {
-	start := time.Now()
 	var stepInstance Step
 	var err error
-	fmt.Printf("====================== %s Start ======================\n", step.Name)
-	defer func() {
-		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", step.Name, time.Since(start).Seconds())
-	}()
+
 	switch step.StepType {
 	case "shell":
 		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs)

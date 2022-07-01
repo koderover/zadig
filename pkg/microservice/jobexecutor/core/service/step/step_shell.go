@@ -25,7 +25,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util"
 	"gopkg.in/yaml.v3"
@@ -52,6 +54,12 @@ func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs []
 }
 
 func (s *ShellStep) Run(ctx context.Context) error {
+	start := time.Now()
+	log.Infof("Executing user script.")
+	defer func() {
+		log.Infof("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+	}()
+
 	if len(s.spec.Scripts) == 0 {
 		return nil
 	}

@@ -27,6 +27,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -58,6 +59,11 @@ func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (
 }
 
 func (s *GitStep) Run(ctx context.Context) error {
+	start := time.Now()
+	log.Infof("Start git clone.")
+	defer func() {
+		log.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+	}()
 	return s.runGitCmds()
 }
 

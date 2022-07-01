@@ -22,8 +22,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
 	"gopkg.in/yaml.v3"
@@ -49,6 +51,12 @@ func NewArchiveStep(spec interface{}, workspace string, envs, secretEnvs []strin
 }
 
 func (s *ArchiveStep) Run(ctx context.Context) error {
+	start := time.Now()
+	log.Infof("Start archive %s.", s.spec.FilePath)
+	defer func() {
+		log.Infof("Archive %s ended. Duration: %.2f seconds", s.spec.FilePath, time.Since(start).Seconds())
+	}()
+
 	if s.spec.DestinationPath == "" || s.spec.FilePath == "" {
 		return nil
 	}
