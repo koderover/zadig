@@ -140,6 +140,11 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	}
 	var res []*client.Project
 	for _, o := range repos {
+		// Note. when using gitHub api to filter repos, private repo will not be returned
+		// we need to filter the repos with query namespace when repo list is returned
+		if len(opt.Namespace) > 0 && o.GetOwner().GetLogin() != opt.Namespace {
+			continue
+		}
 		res = append(res, &client.Project{
 			ID:            int(o.GetID()),
 			Name:          o.GetName(),
