@@ -34,6 +34,6 @@ type S3 struct {
 	Bucket    string `bson:"bucket"                          json:"bucket"                             yaml:"bucket"`
 	Subfolder string `bson:"subfolder"                       json:"subfolder"                          yaml:"subfolder"`
 	Insecure  bool   `bson:"insecure"                        json:"insecure"                           yaml:"insecure"`
-	Provider  int    `bson:"provider"                        json:"provider"                           yaml:"provider"`
+	Provider  int8   `bson:"provider"                        json:"provider"                           yaml:"provider"`
 	Protocol  string `bson:"protocol"                        json:"protocol"                           yaml:"protocol"`
 }

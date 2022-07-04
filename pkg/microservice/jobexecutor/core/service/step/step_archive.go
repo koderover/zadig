@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -88,6 +89,10 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 	s.spec.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", s.spec.FilePath)
 	s.spec.AbsFilePath = replaceEnvWithValue(s.spec.AbsFilePath, envmaps)
 	s.spec.DestinationPath = replaceEnvWithValue(s.spec.DestinationPath, envmaps)
+
+	if len(s.spec.S3.Subfolder) > 0 {
+		s.spec.DestinationPath = strings.TrimLeft(path.Join(s.spec.S3.Subfolder, s.spec.DestinationPath), "/")
+	}
 
 	info, err := os.Stat(s.spec.AbsFilePath)
 	if err != nil {

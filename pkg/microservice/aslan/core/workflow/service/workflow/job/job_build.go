@@ -84,6 +84,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err != nil {
 		return resp, err
 	}
+	defaultS3, err := commonrepo.NewS3StorageColl().FindDefault()
+	if err != nil {
+		return resp, err
+	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
 		imageTag := time.Now().Format("20060102150405")
@@ -101,10 +105,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		build.Image = strings.TrimPrefix(build.Image, "http://")
 		build.Image = strings.TrimPrefix(build.Image, "https://")
 
-		build.Package = fmt.Sprintf("%s-%s-%d.tar.gz", build.ServiceModule, time.Now().Format("20060102150405"), taskID)
+		build.Package = fmt.Sprintf("%s-%s-%s-%d.tar.gz", j.job.Name, build.ServiceModule, time.Now().Format("20060102150405"), taskID)
 
 		jobTask := &commonmodels.JobTask{
-			Name:    j.job.Name + "-" + build.ServiceName + "-" + build.ServiceModule,
+			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
 			JobType: string(config.JobZadigBuild),
 		}
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
@@ -192,7 +196,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				StepType: config.StepArchive,
 				Spec: step.StepArchiveSpec{
 					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), j.job.Name, "archive"),
+					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "archive"),
+					S3:              modelS3toS3(defaultS3),
 				},
 			}
 			jobTask.Steps = append(jobTask.Steps, archiveStep)
@@ -200,15 +205,21 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		// init object storage step
 		if buildInfo.PostBuild.ObjectStorageUpload != nil && buildInfo.PostBuild.ObjectStorageUpload.Enabled {
+			modelS3, err := commonrepo.NewS3StorageColl().Find(buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID)
+			if err != nil {
+				return resp, err
+			}
+			s3 := modelS3toS3(modelS3)
+			s3.Subfolder = ""
 			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
 				archiveStep := &commonmodels.StepTask{
-					Name:     build.ServiceName + "-archive",
+					Name:     build.ServiceName + "-object-storage",
 					JobName:  jobTask.Name,
 					StepType: config.StepArchive,
 					Spec: step.StepArchiveSpec{
 						FilePath:        detail.FilePath,
 						DestinationPath: detail.DestinationPath,
-						S3StorageID:     buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID,
+						S3:              s3,
 					},
 				}
 				jobTask.Steps = append(jobTask.Steps, archiveStep)
@@ -293,8 +304,24 @@ func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project,
 	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: build.Image, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "ZADIG", Value: "true", IsCredential: false})
-	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
+	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: build.Package, IsCredential: false})
 	return ret
+}
+
+func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
+	resp := &step.S3{
+		Ak:        modelS3.Ak,
+		Sk:        modelS3.Sk,
+		Endpoint:  modelS3.Endpoint,
+		Bucket:    modelS3.Bucket,
+		Subfolder: modelS3.Subfolder,
+		Insecure:  modelS3.Insecure,
+		Provider:  modelS3.Provider,
+	}
+	if modelS3.Insecure {
+		resp.Protocol = "http"
+	}
+	return resp
 }

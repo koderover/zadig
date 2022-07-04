@@ -66,3 +66,10 @@ func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int
 	}
 	return jobCtl.ToJobs(taskID)
 }
+
+func jobNameFormat(jobName string) string {
+	if len(jobName) > 50 {
+		return jobName[:50]
+	}
+	return jobName
+}

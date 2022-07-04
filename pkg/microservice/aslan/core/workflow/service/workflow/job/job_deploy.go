@@ -111,7 +111,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if j.spec.DeployType == setting.K8SDeployType {
 		for _, deploy := range j.spec.ServiceAndImages {
 			jobTask := &commonmodels.JobTask{
-				Name:    j.job.Name + "-" + deploy.ServiceName + "-" + deploy.ServiceModule,
+				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + j.job.Name),
 				JobType: string(config.JobZadigDeploy),
 			}
 			deployStep := &commonmodels.StepTask{
@@ -138,7 +138,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		for serviceName, deploys := range deployServiceMap {
 			jobTask := &commonmodels.JobTask{
-				Name:    j.job.Name + "-" + serviceName,
+				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
 				JobType: string(config.JobZadigDeploy),
 			}
 			deployStep := &commonmodels.StepTask{

@@ -213,14 +213,14 @@ func (c *FreestyleJobCtl) Complete(ctx context.Context) {
 
 	// 清理用户取消和超时的任务
 	defer func() {
-		if err := ensureDeleteJob(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
-			c.logger.Error(err)
-			c.job.Error = err.Error()
-		}
-		if err := ensureDeleteConfigMap(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
-			c.logger.Error(err)
-			c.job.Error = err.Error()
-		}
+		go func() {
+			if err := ensureDeleteJob(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+				c.logger.Error(err)
+			}
+			if err := ensureDeleteConfigMap(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+				c.logger.Error(err)
+			}
+		}()
 	}()
 
 	// get job outputs info from pod terminate message.
