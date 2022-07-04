@@ -75,7 +75,7 @@ type Service struct {
 }
 
 type CreateFromRepo struct {
-	GitRepoConfig *templatemodels.GitRepoConfig `bson:"git_repo_config,omitempty"            json:"git_repo_config,omitempty"`
+	GitRepoConfig *templatemodels.GitRepoConfig `bson:"git_repo_config,omitempty"      json:"git_repo_config,omitempty"`
 	LoadPath      string                        `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 }
 

@@ -19,6 +19,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
@@ -44,6 +46,55 @@ import (
 type ResourceWithLabel interface {
 	GetLabels() map[string]string
 	SetLabels(labels map[string]string)
+	SetNamespace(ns string)
+}
+
+type ResourceResponseBase struct {
+	Name           string                  `json:"-"`
+	Type           config.CommonEnvCfgType `json:"-"`
+	EnvName        string                  `json:"-"`
+	ProjectName    string                  `json:"-"`
+	YamlData       string                  `json:"yaml_data"`
+	UpdateUserName string                  `json:"update_username"`
+	CreateTime     time.Time               `json:"create_time"`
+	Services       []string                `json:"services"`
+	SourceDetail   *models.CreateFromRepo  `json:"source_detail"`
+	AutoSync       bool                    `json:"auto_sync"`
+}
+
+func resourceCreatedByZadig(resource ResourceWithLabel, projectName string) bool {
+	resourceLabels := resource.GetLabels()
+	if resourceLabels == nil {
+		return false
+	}
+	if productName, ok := resourceLabels[setting.ProductLabel]; !ok || productName != projectName {
+		return false
+	}
+	return true
+}
+
+func (resp *ResourceResponseBase) setSourceDetailData(resource ResourceWithLabel) {
+	// make sure the resource is created by zadig
+	if !resourceCreatedByZadig(resource, resp.ProjectName) {
+		return
+	}
+
+	envResource, err := commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
+		Name:           resp.Name,
+		Type:           string(resp.Type),
+		EnvName:        resp.EnvName,
+		ProductName:    resp.ProjectName,
+		IgnoreNotFound: true,
+	})
+	if err != nil {
+		log.Warnf("failed to f get %v with name : %s, err: %s", string(resp.Type), resp.Name, err)
+		return
+	}
+	if envResource != nil {
+		resp.SourceDetail = envResource.SourceDetail
+		resp.AutoSync = envResource.AutoSync
+		resp.UpdateUserName = envResource.UpdateUserName
+	}
 }
 
 func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgType config.CommonEnvCfgType, log *zap.SugaredLogger) error {
@@ -81,24 +132,33 @@ func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgTyp
 		log.Error(err)
 		return e.ErrDeleteResource.AddDesc(err.Error())
 	}
+
+	resourceData, err := commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
+		ProductName:    productName,
+		EnvName:        product.EnvName,
+		Name:           objectName,
+		Type:           string(commonEnvCfgType),
+		IgnoreNotFound: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	if resourceData != nil {
+		return commonrepo.NewEnvResourceColl().Delete(resourceData.ID)
+	}
 	return nil
 }
 
-type CreateCommonEnvCfgArgs struct {
-	EnvName          string                  `json:"env_name"`
-	ProductName      string                  `json:"product_name"`
-	YamlData         string                  `json:"yaml_data"`
-	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
-}
-
-// ensureLabel ensure label 's-product' exists in particular resource(secret/configmap) deployed by zadig
-func ensureLabel(res ResourceWithLabel, projectName string) (string, error) {
+// ensureLabelAndNs ensure label 's-product' exists in particular resource(secret/configmap) deployed by zadig
+func ensureLabelAndNs(res ResourceWithLabel, namespace, projectName string) (string, error) {
 	resLabels := res.GetLabels()
 	if resLabels == nil {
 		resLabels = make(map[string]string)
 	}
 	resLabels[setting.ProductLabel] = projectName
 	res.SetLabels(resLabels)
+	res.SetNamespace(namespace)
 
 	jsonBytes, err := json.Marshal(res)
 	if err != nil {
@@ -108,7 +168,26 @@ func ensureLabel(res ResourceWithLabel, projectName string) (string, error) {
 	return string(yamlBytes), err
 }
 
-func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func geneSourceDetail(gitRepoConfig *templatemodels.GitRepoConfig) *models.CreateFromRepo {
+	if gitRepoConfig == nil {
+		return nil
+	}
+	ret := &models.CreateFromRepo{
+		GitRepoConfig: &templatemodels.GitRepoConfig{
+			CodehostID: gitRepoConfig.CodehostID,
+			Owner:      gitRepoConfig.Owner,
+			Repo:       gitRepoConfig.Repo,
+			Branch:     gitRepoConfig.Branch,
+			Namespace:  gitRepoConfig.GetNamespace(),
+		},
+	}
+	if len(gitRepoConfig.ValuesPaths) > 0 {
+		ret.LoadPath = gitRepoConfig.ValuesPaths[0]
+	}
+	return ret
+}
+
+func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
@@ -144,6 +223,16 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("param commonEnvCfgType:%s not match yaml kind %s ", args.CommonEnvCfgType, u.GetKind()))
 	}
 
+	envResource := &models.EnvResource{
+		ProductName:    args.ProductName,
+		UpdateUserName: userName,
+		EnvName:        args.EnvName,
+		Namespace:      product.Namespace,
+		Type:           string(args.CommonEnvCfgType),
+		SourceDetail:   geneSourceDetail(args.GitRepoConfig),
+		AutoSync:       args.AutoSync,
+	}
+
 	switch args.CommonEnvCfgType {
 	case config.CommonEnvCfgTypeConfigMap:
 		cm := &corev1.ConfigMap{}
@@ -151,9 +240,7 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		cm.Namespace = product.Namespace
-
-		yamlData, err := ensureLabel(cm, args.ProductName)
+		yamlData, err := ensureLabelAndNs(cm, product.Namespace, args.ProductName)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
@@ -162,26 +249,16 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 			log.Error(err)
 			return e.ErrUpdateResource.AddErr(err)
 		}
+		envResource.Name = cm.Name
+		envResource.YamlData = yamlData
 
-		envCM := &models.EnvConfigMap{
-			ProductName:    args.ProductName,
-			UpdateUserName: userName,
-			EnvName:        args.EnvName,
-			Name:           cm.Name,
-			YamlData:       yamlData,
-		}
-		if err = commonrepo.NewConfigMapColl().Create(envCM, true); err != nil {
-			return e.ErrUpdateResource.AddDesc(err.Error())
-		}
 	case config.CommonEnvCfgTypeSecret:
 		secret := &corev1.Secret{}
 		err = json.Unmarshal(js, secret)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		secret.Namespace = product.Namespace
-
-		yamlData, err := ensureLabel(secret, args.ProductName)
+		yamlData, err := ensureLabelAndNs(secret, product.Namespace, args.ProductName)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
@@ -190,66 +267,71 @@ func CreateCommonEnvCfg(args *CreateCommonEnvCfgArgs, userName, userID string, l
 			log.Error(err)
 			return e.ErrUpdateResource.AddDesc(err.Error())
 		}
+		envResource.Name = secret.Name
+		envResource.YamlData = yamlData
 
-		envSecret := &models.EnvSecret{
-			ProductName:    args.ProductName,
-			UpdateUserName: userName,
-			EnvName:        args.EnvName,
-			Name:           secret.Name,
-			YamlData:       yamlData,
-		}
-		if err = commonrepo.NewSecretColl().Create(envSecret, true); err != nil {
-			return e.ErrUpdateResource.AddDesc(err.Error())
-		}
 	case config.CommonEnvCfgTypeIngress:
-		uia := &UpdateCommonEnvCfgArgs{
-			EnvName:     args.EnvName,
-			ProductName: args.ProductName,
-			YamlData:    args.YamlData,
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(args.YamlData))
+		if err != nil {
+			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", args.YamlData, err)
+			return e.ErrUpdateResource.AddDesc("ingress Yaml Name is incorrect")
 		}
-		if err = UpdateOrCreateIngress(uia, userName, userID, true, log); err != nil {
-			log.Error(err)
+
+		yamlData, err := ensureLabelAndNs(u, product.Namespace, args.ProductName)
+		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
+
+		err = updater.UpdateOrCreateUnstructured(u, kubeClient)
+		if err != nil {
+			log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+			return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))
+		}
+		envResource.Name = u.GetName()
+		envResource.YamlData = yamlData
+
 	case config.CommonEnvCfgTypePvc:
 		pvc := &corev1.PersistentVolumeClaim{}
 		err = json.Unmarshal(js, pvc)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		pvc.Namespace = product.Namespace
+
+		yamlData, err := ensureLabelAndNs(pvc, product.Namespace, args.ProductName)
+		if err != nil {
+			return e.ErrUpdateResource.AddErr(err)
+		}
+
 		if err := updater.CreatePvc(product.Namespace, pvc, clientset); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddErr(err)
 		}
-		envPvc := &models.EnvPvc{
-			ProductName:    args.ProductName,
-			UpdateUserName: userName,
-			EnvName:        args.EnvName,
-			Name:           pvc.Name,
-			YamlData:       args.YamlData,
-		}
-		if err = commonrepo.NewPvcColl().Create(envPvc, true); err != nil {
-			return e.ErrUpdateResource.AddDesc(err.Error())
-		}
+		envResource.Name = pvc.Name
+		envResource.YamlData = yamlData
+
 	default:
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("%s is not support create", args.CommonEnvCfgType))
 	}
+
+	if err = commonrepo.NewEnvResourceColl().Create(envResource); err != nil {
+		return e.ErrUpdateResource.AddDesc(err.Error())
+	}
+
 	return nil
 }
 
-type UpdateCommonEnvCfgArgs struct {
-	EnvName              string                  `json:"env_name"`
-	ProductName          string                  `json:"product_name"`
-	ServiceName          string                  `json:"service_name"`
-	Name                 string                  `json:"name"`
-	YamlData             string                  `json:"yaml_data"`
-	RestartAssociatedSvc bool                    `json:"restart_associated_svc"`
-	CommonEnvCfgType     config.CommonEnvCfgType `json:"common_env_cfg_type"`
-	Services             []string                `json:"services"`
+func getLatestEnvResource(name, resType, envName, productName string) (*models.EnvResource, error) {
+	return commonrepo.NewEnvResourceColl().Find(
+		&commonrepo.QueryEnvResourceOption{
+			Name:        name,
+			ProductName: productName,
+			Type:        resType,
+			EnvName:     envName,
+			IsSort:      true,
+		})
 }
 
-func UpdateCommonEnvCfg(args *UpdateCommonEnvCfgArgs, userName, userID string, log *zap.SugaredLogger) error {
+func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName string, isRollback bool, log *zap.SugaredLogger) error {
 	var err error
 	u, err := serializer.NewDecoder().YamlToUnstructured([]byte(args.YamlData))
 	if err != nil {
@@ -263,15 +345,30 @@ func UpdateCommonEnvCfg(args *UpdateCommonEnvCfgArgs, userName, userID string, l
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("param commonEnvCfgType:%s not match yaml kind %s ", args.CommonEnvCfgType, u.GetKind()))
 	}
 
+	// when rollback env configs, git config should not change
+	if isRollback {
+		latestResource, err := getLatestEnvResource(args.Name, string(args.CommonEnvCfgType), args.EnvName, args.ProductName)
+		if err != nil {
+			return err
+		}
+		if latestResource == nil {
+			return fmt.Errorf("failed to find env resource %s:%s", args.Name, string(args.CommonEnvCfgType))
+		}
+		args.AutoSync = latestResource.AutoSync
+		args.SourceDetail = latestResource.SourceDetail
+	} else {
+		args.SourceDetail = geneSourceDetail(args.GitRepoConfig)
+	}
+
 	switch args.CommonEnvCfgType {
 	case config.CommonEnvCfgTypeConfigMap:
-		err = UpdateConfigMap(args, userName, userID, log)
+		err = UpdateConfigMap(args, userName, log)
 	case config.CommonEnvCfgTypeSecret:
-		err = UpdateSecret(args, userName, userID, log)
+		err = UpdateSecret(args, userName, log)
 	case config.CommonEnvCfgTypeIngress:
-		err = UpdateOrCreateIngress(args, userName, userID, false, log)
+		err = UpdateOrCreateIngress(args, userName, false, log)
 	case config.CommonEnvCfgTypePvc:
-		err = UpdatePvc(args, userName, userID, log)
+		err = UpdatePvc(args, userName, log)
 	default:
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("%s is not support update", args.CommonEnvCfgType))
 	}
@@ -283,113 +380,102 @@ func UpdateCommonEnvCfg(args *UpdateCommonEnvCfgArgs, userName, userID string, l
 }
 
 type ListCommonEnvCfgHistoryArgs struct {
-	EnvName          string `json:"envName"`
-	ProductName      string `json:"productName"`
+	EnvName          string
+	ProductName      string
 	Name             string
-	CommonEnvCfgType config.CommonEnvCfgType `json:"commonEnvCfgType"`
-}
-type ListCommonEnvCfgHistoryRes struct {
-	ID             primitive.ObjectID `json:"id,omitempty"`
-	ProductName    string             `json:"product_name"`
-	CreateTime     int64              `json:"create_time"`
-	UpdateUserName string             `json:"update_user_name"`
-	Namespace      string             `json:"namespace,omitempty"`
-	EnvName        string             `json:"env_name"`
-	Name           string             `json:"name"`
-	YamlData       string             `json:"yaml_data"`
+	CommonEnvCfgType config.CommonEnvCfgType
 }
 
-func ListCommonEnvCfgHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredLogger) ([]*ListCommonEnvCfgHistoryRes, error) {
-	opts := &commonrepo.ListEnvCfgOption{
+type ListCommonEnvCfgHistoryRes struct {
+	ID             primitive.ObjectID     `json:"id,omitempty"`
+	ProductName    string                 `json:"product_name"`
+	CreateTime     int64                  `json:"create_time"`
+	UpdateUserName string                 `json:"update_user_name"`
+	Namespace      string                 `json:"namespace,omitempty"`
+	EnvName        string                 `json:"env_name"`
+	Name           string                 `json:"name"`
+	YamlData       string                 `json:"yaml_data"`
+	SourceDetail   *models.CreateFromRepo `json:"source_detail"`
+}
+
+func GetResourceByCfgType(namespace, name string, cfgType config.CommonEnvCfgType, client client.Client, clientset *kubernetes.Clientset) (ResourceWithLabel, error) {
+	switch cfgType {
+	case config.CommonEnvCfgTypeConfigMap:
+		cm, _, err := getter.GetConfigMap(namespace, name, client)
+		return cm, err
+	case config.CommonEnvCfgTypeSecret:
+		secret, _, err := getter.GetSecret(namespace, name, client)
+		return secret, err
+	case config.CommonEnvCfgTypePvc:
+		pvc, _, err := getter.GetPvc(namespace, name, client)
+		return pvc, err
+	case config.CommonEnvCfgTypeIngress:
+		ingress, _, err := getter.GetUnstructuredIngress(namespace, name, client, clientset)
+		return ingress, err
+	}
+	return nil, fmt.Errorf("unrecognized env config type: %s", cfgType)
+}
+
+func ListEnvResourceHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredLogger) ([]*ListCommonEnvCfgHistoryRes, error) {
+	if len(args.CommonEnvCfgType) == 0 {
+		return nil, e.ErrListResources.AddDesc("env resource type can't be nil")
+	}
+
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
+	})
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+
+	envResource, err := GetResourceByCfgType(product.Namespace, args.Name, args.CommonEnvCfgType, kubeClient, clientset)
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
+	}
+	if envResource == nil {
+		return nil, e.ErrListResources.AddDesc(fmt.Sprintf("failed to get resource %s:%s from namespace: %s", args.Name, args.CommonEnvCfgType, product.Namespace))
+	}
+
+	// only list history for resources created from environment config management page
+	if !resourceCreatedByZadig(envResource, product.ProductName) {
+		return nil, nil
+	}
+
+	opts := &commonrepo.QueryEnvResourceOption{
 		IsSort:      true,
 		ProductName: args.ProductName,
 		EnvName:     args.EnvName,
 		Name:        args.Name,
+		Type:        string(args.CommonEnvCfgType),
 	}
-	switch args.CommonEnvCfgType {
-	case config.CommonEnvCfgTypeConfigMap:
-		res, err := commonrepo.NewConfigMapColl().List(opts)
-		if err != nil {
-			return nil, e.ErrListResources.AddErr(err)
-		}
-		var listRes []*ListCommonEnvCfgHistoryRes
-		for _, resElem := range res {
-			listElem := &ListCommonEnvCfgHistoryRes{
-				ID:             resElem.ID,
-				ProductName:    resElem.ProductName,
-				CreateTime:     resElem.CreateTime,
-				UpdateUserName: resElem.UpdateUserName,
-				Namespace:      resElem.Namespace,
-				EnvName:        resElem.EnvName,
-				Name:           resElem.Name,
-				YamlData:       resElem.YamlData,
-			}
-			listRes = append(listRes, listElem)
-		}
-		return listRes, nil
-	case config.CommonEnvCfgTypeSecret:
-		res, err := commonrepo.NewSecretColl().List(opts)
-		if err != nil {
-			return nil, e.ErrListResources.AddErr(err)
-		}
-		var listRes []*ListCommonEnvCfgHistoryRes
-		for _, resElem := range res {
-			listElem := &ListCommonEnvCfgHistoryRes{
-				ID:             resElem.ID,
-				ProductName:    resElem.ProductName,
-				CreateTime:     resElem.CreateTime,
-				UpdateUserName: resElem.UpdateUserName,
-				Namespace:      resElem.Namespace,
-				EnvName:        resElem.EnvName,
-				Name:           resElem.Name,
-				YamlData:       resElem.YamlData,
-			}
-			listRes = append(listRes, listElem)
-		}
-		return listRes, nil
-	case config.CommonEnvCfgTypeIngress:
-		res, err := commonrepo.NewIngressColl().List(opts)
-		if err != nil {
-			return nil, e.ErrListResources.AddErr(err)
-		}
-		var listRes []*ListCommonEnvCfgHistoryRes
-		for _, resElem := range res {
-			listElem := &ListCommonEnvCfgHistoryRes{
-				ID:             resElem.ID,
-				ProductName:    resElem.ProductName,
-				CreateTime:     resElem.CreateTime,
-				UpdateUserName: resElem.UpdateUserName,
-				Namespace:      resElem.Namespace,
-				EnvName:        resElem.EnvName,
-				Name:           resElem.Name,
-				YamlData:       resElem.YamlData,
-			}
-			listRes = append(listRes, listElem)
-		}
-		return listRes, nil
-	case config.CommonEnvCfgTypePvc:
-		res, err := commonrepo.NewPvcColl().List(opts)
-		if err != nil {
-			return nil, e.ErrListResources.AddErr(err)
-		}
-		var listRes []*ListCommonEnvCfgHistoryRes
-		for _, resElem := range res {
-			listElem := &ListCommonEnvCfgHistoryRes{
-				ID:             resElem.ID,
-				ProductName:    resElem.ProductName,
-				CreateTime:     resElem.CreateTime,
-				UpdateUserName: resElem.UpdateUserName,
-				Namespace:      resElem.Namespace,
-				EnvName:        resElem.EnvName,
-				Name:           resElem.Name,
-				YamlData:       resElem.YamlData,
-			}
-			listRes = append(listRes, listElem)
-		}
-		return listRes, nil
-	default:
-		return nil, e.ErrUpdateResource.AddDesc(fmt.Sprintf("%s is not support update", args.CommonEnvCfgType))
+	res, err := commonrepo.NewEnvResourceColl().List(opts)
+	if err != nil {
+		return nil, e.ErrListResources.AddErr(err)
 	}
+	var listRes []*ListCommonEnvCfgHistoryRes
+	for _, resElem := range res {
+		listElem := &ListCommonEnvCfgHistoryRes{
+			ID:             resElem.ID,
+			ProductName:    resElem.ProductName,
+			CreateTime:     resElem.CreateTime,
+			UpdateUserName: resElem.UpdateUserName,
+			EnvName:        resElem.EnvName,
+			Name:           resElem.Name,
+			YamlData:       resElem.YamlData,
+			SourceDetail:   resElem.SourceDetail,
+		}
+		listRes = append(listRes, listElem)
+	}
+	return listRes, nil
 }
 
 func restartPod(name, productName, envName, namespace string, commonEnvCfgType config.CommonEnvCfgType, clientset *kubernetes.Clientset, kubcli client.Client) error {

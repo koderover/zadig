@@ -52,6 +52,15 @@ func GetPVCYaml(ns string, name string, cl client.Client) ([]byte, bool, error) 
 	return GetResourceYamlInCache(ns, name, gvk, cl)
 }
 
+func GetPvc(ns, name string, cl client.Client) (*corev1.PersistentVolumeClaim, bool, error) {
+	g := &corev1.PersistentVolumeClaim{}
+	found, err := GetResourceInCache(ns, name, g, cl)
+	if err != nil || !found {
+		g = nil
+	}
+	return g, found, err
+}
+
 func GetPVCYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
 	gvk := schema.GroupVersionKind{
 		Group:   "",
