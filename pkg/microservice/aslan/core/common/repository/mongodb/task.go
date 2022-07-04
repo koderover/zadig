@@ -129,6 +129,15 @@ func (c *TaskColl) EnsureIndex(ctx context.Context) error {
 			},
 			Options: options.Index().SetUnique(false),
 		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "pipeline_name", Value: 1},
+				bson.E{Key: "is_archived", Value: 1},
+				bson.E{Key: "status", Value: 1},
+				bson.E{Key: "task_id", Value: -1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
@@ -208,15 +217,18 @@ type taskGrouped struct {
 }
 
 func (c *TaskColl) ListRecentTasks(args *ListTaskOption) ([]*TaskInfo, error) {
-	query := bson.M{"is_deleted": false}
-	if args.Type != "" {
-		query["type"] = args.Type
+	query := bson.M{}
+	if len(args.PipelineNames) > 0 {
+		query["pipeline_name"] = bson.M{"$in": args.PipelineNames}
 	}
+	query["is_archived"] = false
+
 	if args.Status != "" {
 		query["status"] = args.Status
 	}
-	if len(args.PipelineNames) > 0 {
-		query["pipeline_name"] = bson.M{"$in": args.PipelineNames}
+
+	if args.Type != "" {
+		query["type"] = args.Type
 	}
 
 	pipeline := []bson.M{
