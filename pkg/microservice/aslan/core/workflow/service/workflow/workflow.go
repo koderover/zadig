@@ -643,19 +643,12 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 		workflowStatMap[s.Name] = s
 	}
 
-	recentTaskMap := getTaskMap(workflowNames, "", log)
-	recentSuccessfulTaskMap := getTaskMap(workflowNames, config.StatusPassed, log)
-	recentFailedTaskMap := getTaskMap(workflowNames, config.StatusFailed, log)
+	tasks, err := commonrepo.NewTaskColl().ListPreview(workflowNames)
+	if err != nil {
+		log.Warnf("Failed to list workflow tasks, err: %s", err)
+	}
 	for _, r := range res {
-		if t, ok := recentTaskMap[r.Name]; ok {
-			r.RecentTask = t
-		}
-		if t, ok := recentSuccessfulTaskMap[r.Name]; ok {
-			r.RecentSuccessfulTask = t
-		}
-		if t, ok := recentFailedTaskMap[r.Name]; ok {
-			r.RecentFailedTask = t
-		}
+		getRecentTaskInfo(r, tasks)
 
 		if favoriteSet.Has(r.Name) {
 			r.IsFavorite = true
@@ -674,24 +667,45 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 	return res, nil
 }
 
-func getTaskMap(names []string, status config.Status, logger *zap.SugaredLogger) map[string]*TaskInfo {
-	res := make(map[string]*TaskInfo)
-
-	tasks, err := commonrepo.NewTaskColl().ListRecentTasks(&commonrepo.ListTaskOption{PipelineNames: names, Type: config.WorkflowType, Status: status})
-	if err != nil {
-		logger.Warnf("Failed to list tasks, err: %s", err)
-		return res
-	}
-
-	for _, t := range tasks {
-		res[t.PipelineName] = &TaskInfo{
-			TaskID:       t.TaskID,
-			PipelineName: t.PipelineName,
-			Status:       t.Status,
+func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
+	recentTask := &commonrepo.TaskPreview{}
+	recentFailedTask := &commonrepo.TaskPreview{}
+	recentSucceedTask := &commonrepo.TaskPreview{}
+	for _, task := range tasks {
+		if task.PipelineName != workflow.Name {
+			continue
+		}
+		if task.TaskID > recentTask.TaskID {
+			recentTask = task
+		}
+		if task.Status == config.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
+			recentSucceedTask = task
+		}
+		if task.Status == config.StatusFailed && task.TaskID > recentFailedTask.TaskID {
+			recentFailedTask = task
 		}
 	}
-
-	return res
+	if recentTask.TaskID > 0 {
+		workflow.RecentTask = &TaskInfo{
+			TaskID:       recentTask.TaskID,
+			PipelineName: recentTask.PipelineName,
+			Status:       string(recentTask.Status),
+		}
+	}
+	if recentSucceedTask.TaskID > 0 {
+		workflow.RecentSuccessfulTask = &TaskInfo{
+			TaskID:       recentSucceedTask.TaskID,
+			PipelineName: recentSucceedTask.PipelineName,
+			Status:       string(recentSucceedTask.Status),
+		}
+	}
+	if recentFailedTask.TaskID > 0 {
+		workflow.RecentFailedTask = &TaskInfo{
+			TaskID:       recentFailedTask.TaskID,
+			PipelineName: recentFailedTask.PipelineName,
+			Status:       string(recentFailedTask.Status),
+		}
+	}
 }
 
 func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
