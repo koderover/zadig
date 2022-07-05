@@ -412,7 +412,7 @@ func (c *TaskColl) ListPreview(pipelineNames []string) (ret []*TaskPreview, err 
 	opt.SetProjection(selector)
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)
 	if err != nil {
-		return
+		return ret, err
 	}
 	err = cursor.All(context.TODO(), &ret)
 	return
