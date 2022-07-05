@@ -32,18 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-const (
-	defaultWorkflowMaxDays int = 365
-	//logTag                     = "SysCap"
-)
-
-var defaultWorkflowTaskRetention = &commonmodels.CapacityStrategy{
-	Target: commonmodels.WorkflowTaskRetention,
-	Retention: &commonmodels.RetentionConfig{
-		MaxDays: defaultWorkflowMaxDays,
-	},
-}
-
 func UpdateSysCapStrategy(strategy *commonmodels.CapacityStrategy) error {
 	if err := validateStrategy(strategy); err != nil {
 		return err
@@ -63,7 +51,7 @@ func UpdateSysCapStrategy(strategy *commonmodels.CapacityStrategy) error {
 func GetCapacityStrategy(target commonmodels.CapacityTarget) (*commonmodels.CapacityStrategy, error) {
 	result, err := commonrepo.NewStrategyColl().GetByTarget(target)
 	if err != nil && target == commonmodels.WorkflowTaskRetention {
-		return defaultWorkflowTaskRetention, nil // Return default setup
+		return commonmodels.DefaultWorkflowTaskRetention, nil // Return default setup
 	}
 	return result, err
 }
@@ -72,7 +60,7 @@ func HandleSystemGC(dryRun bool) error {
 	// Find the strategy
 	strategy, err := commonrepo.NewStrategyColl().GetByTarget(commonmodels.WorkflowTaskRetention)
 	if err != nil {
-		strategy = defaultWorkflowTaskRetention
+		strategy = commonmodels.DefaultWorkflowTaskRetention
 	} else if err = validateStrategy(strategy); err != nil {
 		return err
 	}

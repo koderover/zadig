@@ -2973,6 +2973,7 @@ func removeOldResources(
 
 	for name, item := range oldItemsMap {
 		_, exists := itemsMap[name]
+		item.SetNamespace(env.Namespace)
 		if !exists {
 			if err = updater.DeleteUnstructured(item, kubeClient); err != nil {
 				log.Errorf(

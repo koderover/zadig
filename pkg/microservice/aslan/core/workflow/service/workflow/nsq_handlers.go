@@ -206,8 +206,13 @@ func (h *TaskAckHandler) handle(message *nsq.Message) error {
 		}
 	}
 
-	// 更新历史pipeline状态（默认留下前一百个）
-	if err = h.ptColl.ArchiveHistoryPipelineTask(pt.PipelineName, pt.Type, 100); err != nil {
+	// update history tasks status to archive
+	result, err := commonrepo.NewStrategyColl().GetByTarget(commonmodels.WorkflowTaskRetention)
+	if err != nil {
+		h.log.Errorf("get workflow task retention strategy error: %s", err)
+		result = commonmodels.DefaultWorkflowTaskRetention
+	}
+	if err = h.ptColl.ArchiveHistoryPipelineTask(pt.PipelineName, pt.Type, result.Retention.MaxItems, result.Retention.MaxDays); err != nil {
 		h.log.Errorf("ArchiveHistoryPipelineTask error: %v", err)
 	}
 

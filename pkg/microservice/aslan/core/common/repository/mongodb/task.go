@@ -147,6 +147,14 @@ func (c *TaskColl) EnsureIndex(ctx context.Context) error {
 			},
 			Options: options.Index().SetUnique(false),
 		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "pipeline_name", Value: 1},
+				bson.E{Key: "is_archived", Value: 1},
+				bson.E{Key: "is_deleted", Value: 1},
+			},
+			Options: options.Index().SetUnique(false).SetBackground(true),
+		},
 	}
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
@@ -311,6 +319,7 @@ func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) 
 	if option.MergeRequestID != "" {
 		query["trigger_by.merge_request_id"] = option.MergeRequestID
 	}
+	query["is_archived"] = false
 	query["is_deleted"] = false
 
 	//是否需要subtask信息
@@ -371,12 +380,41 @@ func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) 
 
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	if err = cursor.All(context.TODO(), &ret); err != nil {
 		return nil, err
 	}
+	return
+}
+
+func (c *TaskColl) ListPreview(pipelineNames []string) (ret []*TaskPreview, err error) {
+	ret = make([]*TaskPreview, 0)
+	query := bson.M{}
+	if pipelineNames != nil {
+		query["pipeline_name"] = bson.M{"$in": pipelineNames}
+	}
+	query["is_archived"] = false
+	query["is_deleted"] = false
+	selector := bson.D{
+		{"task_id", 1},
+		{"task_creator", 1},
+		{"product_name", 1},
+		{"pipeline_name", 1},
+		{"status", 1},
+		{"create_time", 1},
+		{"start_time", 1},
+		{"end_time", 1},
+		{"type", 1},
+	}
+	opt := options.Find()
+	opt.SetProjection(selector)
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return ret, err
+	}
+	err = cursor.All(context.TODO(), &ret)
 	return
 }
 
@@ -469,6 +507,7 @@ func (c *TaskColl) Count(option *CountTaskOption) (ret int, err error) {
 	if option.Type != "" {
 		query["type"] = option.Type
 	}
+	query["is_archived"] = false
 	query["is_deleted"] = false
 
 	// 仅支持查询最近三个月的数据
@@ -637,13 +676,21 @@ func (c *TaskColl) UpdateUnfinishedTask(args *task.Task) error {
 	return err
 }
 
-func (c *TaskColl) ArchiveHistoryPipelineTask(pipelineName string, taskType config.PipelineType, remain int) error {
+func (c *TaskColl) ArchiveHistoryPipelineTask(pipelineName string, taskType config.PipelineType, remain, remainDays int) error {
+	if remain == 0 && remainDays == 0 {
+		return nil
+	}
 	query := bson.M{"pipeline_name": pipelineName, "type": taskType, "is_deleted": false}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return err
 	}
-	query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
+	if remain > 0 {
+		query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
+	}
+	if remainDays > 0 {
+		query["create_time"] = bson.M{"$lt": time.Now().AddDate(0, 0, -remainDays).Unix()}
+	}
 	change := bson.M{"$set": bson.M{
 		"is_archived": true,
 	}}
