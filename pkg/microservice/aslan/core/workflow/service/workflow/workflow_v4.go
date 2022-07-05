@@ -151,7 +151,7 @@ func ListWorkflowV4(projectName, userID string, logger *zap.SugaredLogger) ([]*W
 		workflowList = append(workflowList, wV4.Name)
 	}
 	resp = append(resp, workflow...)
-	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList}, 0, 0)
+	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList})
 	if err != nil {
 		return resp, err
 	}

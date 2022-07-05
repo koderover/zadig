@@ -168,17 +168,25 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 	defer sendSyscapNotify(handleErr, &totalCleanTasks)
 
 	// Figuring out starting option based on capacity strategy
-	var option *commonrepo.ListAllTaskOption
 	const batch = 100
 	retention := strategy.Retention
 	if retention.MaxDays > 0 {
 		retentionTime := time.Now().AddDate(0, 0, -retention.MaxDays).Unix()
-		option = &commonrepo.ListAllTaskOption{
+		option := &commonrepo.ListAllTaskOption{
 			BeforeCreatTime: true,
 			CreateTime:      retentionTime,
 			Limit:           batch,
 		}
 		totalCleanTasks, handleErr = handleWorkflowTaskRetention(dryRun, batch, option)
+		if handleErr != nil {
+			return handleErr
+		}
+		v4Option := &commonrepo.ListWorkflowTaskV4Option{
+			BeforeCreatTime: true,
+			CreateTime:      retentionTime,
+			Limit:           batch,
+		}
+		totalCleanTasks, handleErr = handleWorkflowTaskV4Retention(dryRun, batch, v4Option)
 		return handleErr
 	}
 
@@ -191,7 +199,7 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			return err
 		}
 		for _, workflow := range workflows {
-			option = &commonrepo.ListAllTaskOption{
+			option := &commonrepo.ListAllTaskOption{
 				ProductName:  workflow.ProductTmplName,
 				PipelineName: workflow.Name,
 				Type:         config.WorkflowType,
@@ -199,6 +207,26 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 				Limit:        batch,
 			}
 			count, err := handleWorkflowTaskRetention(dryRun, batch, option)
+			if err != nil {
+				continue
+			}
+			totalCleanTasks += count
+		}
+
+		// clean workflow task v4 data
+		workflowV4s, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
+		if err != nil {
+			log.Errorf("list workflowV4s failed, err:%v", err)
+			handleErr = err
+			return err
+		}
+		for _, workflow := range workflowV4s {
+			option := &commonrepo.ListWorkflowTaskV4Option{
+				WorkflowName: workflow.Name,
+				Skip:         retention.MaxItems,
+				Limit:        batch,
+			}
+			count, err := handleWorkflowTaskV4Retention(dryRun, batch, option)
 			if err != nil {
 				continue
 			}
@@ -213,7 +241,7 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			return err
 		}
 		for _, pipeline := range pipelines {
-			option = &commonrepo.ListAllTaskOption{
+			option := &commonrepo.ListAllTaskOption{
 				ProductName:  pipeline.ProductName,
 				PipelineName: pipeline.Name,
 				Type:         config.SingleType,
@@ -235,7 +263,7 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			return err
 		}
 		for _, testing := range testings {
-			option = &commonrepo.ListAllTaskOption{
+			option := &commonrepo.ListAllTaskOption{
 				ProductName:  testing.ProductName,
 				PipelineName: fmt.Sprintf("%s-%s", testing.Name, "job"),
 				Type:         config.TestType,
@@ -286,6 +314,33 @@ func handleWorkflowTaskRetention(dryRun bool, batch int, option *commonrepo.List
 	return len(removeIds), nil
 }
 
+func handleWorkflowTaskV4Retention(dryRun bool, batch int, option *commonrepo.ListWorkflowTaskV4Option) (int, error) {
+	s3Server, _ := s3.FindDefaultS3()
+	// Clean up in batches to prevent pressure of memory spike
+	var removeIds []string
+
+	for {
+		staleTasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(option)
+		if err != nil {
+			return 0, err
+		}
+		if len(staleTasks) == 0 {
+			break
+		}
+		ids := cleanStaleTaskV4s(staleTasks, s3Server, dryRun)
+		if ids != nil {
+			removeIds = append(removeIds, ids...)
+		}
+		if len(staleTasks) < batch { // last batch
+			break
+		}
+		option.Skip += batch
+	}
+
+	log.Infof("%d stale workflow tasks will be cleaned up", len(removeIds))
+	return len(removeIds), nil
+}
+
 //
 //func (s *Service) logInfo(format string, args ...interface{}) {
 //	s.logger.Infof("[%v]: %v", logTag, fmt.Sprintf(format, args...))
@@ -300,6 +355,24 @@ func cleanStaleTasks(tasks []*task.Task, s3Server *s3.S3, dryRun bool) []string 
 	for i, task := range tasks {
 		ids[i] = task.ID.Hex()
 		paths[i] = fmt.Sprintf("%s/%d/", task.PipelineName, task.TaskID)
+	}
+	forcedPathStyle := true
+	if s3Server.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Insecure, forcedPathStyle)
+	if err == nil {
+		go s3client.RemoveFiles(s3Server.Bucket, paths)
+	}
+	return ids
+}
+
+func cleanStaleTaskV4s(tasks []*commonmodels.WorkflowTask, s3Server *s3.S3, dryRun bool) []string {
+	ids := make([]string, len(tasks))
+	paths := make([]string, len(tasks))
+	for i, task := range tasks {
+		ids[i] = task.ID.Hex()
+		paths[i] = fmt.Sprintf("%s/%d/", task.WorkflowName, task.TaskID)
 	}
 	forcedPathStyle := true
 	if s3Server.Provider == setting.ProviderSourceAli {

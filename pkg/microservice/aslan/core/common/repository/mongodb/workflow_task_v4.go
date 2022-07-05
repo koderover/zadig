@@ -32,8 +32,12 @@ import (
 )
 
 type ListWorkflowTaskV4Option struct {
-	WorkflowName  string
-	WorkflowNames []string
+	WorkflowName    string
+	WorkflowNames   []string
+	CreateTime      int64
+	BeforeCreatTime bool
+	Limit           int
+	Skip            int
 }
 
 type WorkflowTaskv4Coll struct {
@@ -97,7 +101,7 @@ func (c *WorkflowTaskv4Coll) Create(obj *models.WorkflowTask) (string, error) {
 	return ID.Hex(), err
 }
 
-func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option, pageNum, pageSize int64) ([]*models.WorkflowTask, int64, error) {
+func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.WorkflowTask, int64, error) {
 	resp := make([]*models.WorkflowTask, 0)
 	query := bson.M{}
 	if opt.WorkflowName != "" {
@@ -108,18 +112,23 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option, pageNum, pageSi
 	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
+	if opt.CreateTime > 0 {
+		comparison := "$gte"
+		if opt.BeforeCreatTime {
+			comparison = "$lte"
+		}
+		query["create_time"] = bson.M{comparison: opt.CreateTime}
+	}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return nil, 0, err
 	}
-	var findOption *options.FindOptions
-	if pageNum == 0 && pageSize == 0 {
-		findOption = options.Find()
-	} else {
-		findOption = options.Find().
-			SetSort(bson.D{{"create_time", -1}}).
-			SetSkip((pageNum - 1) * pageSize).
-			SetLimit(pageSize)
+
+	findOption := options.Find()
+	if opt.Limit > 0 {
+		findOption.SetSort(bson.D{{"create_time", -1}})
+		findOption.SetSkip(int64(opt.Skip))
+		findOption.SetLimit(int64(opt.Limit))
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
