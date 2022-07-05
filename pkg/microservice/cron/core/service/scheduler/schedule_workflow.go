@@ -144,6 +144,10 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 			if strings.HasPrefix(name, "helm-values-sync-") {
 				continue
 			}
+			// exclude env resource sync timers
+			if strings.HasPrefix(name, "env-resource") {
+				continue
+			}
 			log.Warnf("[%s]deleted workflow detached", name)
 			if _, ok := c.SchedulerController[name]; ok {
 				c.SchedulerController[name] <- true

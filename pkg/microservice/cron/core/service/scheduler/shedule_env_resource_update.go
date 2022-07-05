@@ -19,16 +19,14 @@ package scheduler
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/setting"
-
+	"github.com/jasonlvhit/gocron"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
-
-	"github.com/jasonlvhit/gocron"
-	"go.uber.org/zap"
 )
 
 func buildEnvResourceCronKey(envResource *service.EnvResource) string {
