@@ -174,6 +174,59 @@ func geneSourceDetail(gitRepoConfig *templatemodels.GitRepoConfig) *models.Creat
 	return ret
 }
 
+func getResourceYamlAndName(sourceYaml []byte, namespace, productName string, resType config.CommonEnvCfgType) (name, yamlData string, err error) {
+	switch resType {
+	case config.CommonEnvCfgTypeConfigMap:
+		cm := &corev1.ConfigMap{}
+		err = json.Unmarshal(sourceYaml, cm)
+		if err != nil {
+			return
+		}
+		yamlData, err = ensureLabelAndNs(cm, namespace, productName)
+		if err != nil {
+			return
+		}
+		name = cm.Name
+	case config.CommonEnvCfgTypeSecret:
+		secret := &corev1.Secret{}
+		err = json.Unmarshal(sourceYaml, secret)
+		if err != nil {
+			return
+		}
+		yamlData, err = ensureLabelAndNs(secret, namespace, productName)
+		if err != nil {
+			return
+		}
+		name = secret.Name
+	case config.CommonEnvCfgTypeIngress:
+		u, errDecode := serializer.NewDecoder().YamlToUnstructured(sourceYaml)
+		if errDecode != nil {
+			err = fmt.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", string(sourceYaml), errDecode)
+			return
+		}
+		yamlData, err = ensureLabelAndNs(u, namespace, productName)
+		if err != nil {
+			return
+		}
+		name = u.GetName()
+	case config.CommonEnvCfgTypePvc:
+		pvc := &corev1.PersistentVolumeClaim{}
+		err = json.Unmarshal(sourceYaml, pvc)
+		if err != nil {
+			return
+		}
+		yamlData, err = ensureLabelAndNs(pvc, namespace, productName)
+		if err != nil {
+			return
+		}
+		name = pvc.Name
+	default:
+		err = fmt.Errorf("%s is not support create", resType)
+		return
+	}
+	return
+}
+
 func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
 	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	if err != nil {
@@ -524,7 +577,7 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 	}
 
 	repoConfig := envResource.SourceDetail.GitRepoConfig
-	yamlData, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+	sourceYaml, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Namespace:  repoConfig.GetNamespace(),
 		Owner:      repoConfig.Owner,
@@ -536,17 +589,22 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	u, err := serializer.NewDecoder().YamlToUnstructured(yamlData)
+	js, err := yaml.YAMLToJSON(sourceYaml)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	yamlDataStr, err := ensureLabelAndNs(u, product.Namespace, product.ProductName)
+	resName, yamlData, err := getResourceYamlAndName(js, product.Namespace, args.ProductName, config.CommonEnvCfgType(envResource.Type))
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	equal, err := yamlutil.Equal(yamlDataStr, envResource.YamlData)
+	// asset resource name be the same
+	if resName != envResource.Name {
+		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("resource name not match, expect: %s while parsed: %s", envResource.Name, resName))
+	}
+
+	equal, err := yamlutil.Equal(yamlData, envResource.YamlData)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
@@ -559,7 +617,7 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 		EnvName:              args.EnvName,
 		ProductName:          args.ProductName,
 		Name:                 args.Name,
-		YamlData:             yamlDataStr,
+		YamlData:             yamlData,
 		RestartAssociatedSvc: false,
 		CommonEnvCfgType:     config.CommonEnvCfgType(envResource.Type),
 		AutoSync:             envResource.AutoSync,
