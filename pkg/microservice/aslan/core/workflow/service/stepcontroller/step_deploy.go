@@ -237,8 +237,7 @@ func (s *deployCtl) run(ctx context.Context) error {
 		}
 	}
 	if !replaced {
-		err = errors.Errorf(
-			"container %s is not found in resources with label %s", s.deploySpec.ServiceModule, selector)
+		err = errors.Errorf("service %s container name %s is not found in env %s", s.deploySpec.ServiceName, s.deploySpec.ServiceModule, s.deploySpec.Env)
 		return err
 	}
 	s.step.Spec = s.deploySpec
