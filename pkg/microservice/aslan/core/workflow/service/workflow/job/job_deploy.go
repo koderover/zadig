@@ -17,12 +17,15 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types/step"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type DeployJob struct {
@@ -84,7 +87,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
 	if err != nil {
-		return resp, err
+		return resp, fmt.Errorf("env %s not exists", j.spec.Env)
 	}
 
 	// get deploy info from previous build job
@@ -137,6 +140,22 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			deployServiceMap[deploy.ServiceName] = append(deployServiceMap[deploy.ServiceName], deploy)
 		}
 		for serviceName, deploys := range deployServiceMap {
+
+			var serviceRevision int64
+			if pSvc, ok := product.GetServiceMap()[serviceName]; ok {
+				serviceRevision = pSvc.Revision
+			}
+
+			revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+				ServiceName: serviceName,
+				Revision:    serviceRevision,
+				ProductName: product.ProductName,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, serviceRevision, err)
+			}
+			releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), product.ProductName, product.Namespace, product.EnvName, serviceName)
+
 			jobTask := &commonmodels.JobTask{
 				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
 				JobType: string(config.JobZadigDeploy),
@@ -151,6 +170,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ServiceName: serviceName,
 				ServiceType: setting.HelmDeployType,
 				ClusterID:   product.ClusterID,
+				ReleaseName: releaseName,
 			}
 			for _, deploy := range deploys {
 				helmDeploySpec.ImageAndModules = append(helmDeploySpec.ImageAndModules, &step.ImageAndServiceModule{
