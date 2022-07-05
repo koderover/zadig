@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -189,6 +190,12 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, err
 	}
 
+	scanningImage := imageInfo.Value
+
+	if imageInfo.ImageFrom == commonmodels.ImageFromKoderover {
+		scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", imageInfo.Value)
+	}
+
 	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
@@ -237,7 +244,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		Status:     config.StatusCreated,
 		ScanningID: scanningInfo.ID.Hex(),
 		Name:       scanningInfo.Name,
-		ImageInfo:  imageInfo.Value,
+		ImageInfo:  scanningImage,
 		ResReq:     scanningInfo.AdvancedSetting.ResReq,
 		ResReqSpec: scanningInfo.AdvancedSetting.ResReqSpec,
 		Registries: registries,
@@ -399,10 +406,15 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
-	if err != nil {
-		log.Errorf("failed to get sonar integration info, error: %s", err)
-		return nil, err
+	resultAddr := ""
+
+	if scanningInfo.ScannerType == "sonarQube" {
+		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+		if err != nil {
+			log.Errorf("failed to get sonar integration info, error: %s", err)
+			return nil, err
+		}
+		resultAddr = sonarInfo.ServerAddress
 	}
 
 	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]
@@ -425,7 +437,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		CreateTime: resp.CreateTime,
 		EndTime:    resp.EndTime,
 		RepoInfo:   scanningTaskInfo.Repos,
-		ResultLink: sonarInfo.ServerAddress,
+		ResultLink: resultAddr,
 	}, nil
 }
 

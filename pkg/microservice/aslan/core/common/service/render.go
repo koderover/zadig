@@ -194,14 +194,16 @@ func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*temp
 	return kvs, prodTmpl.AllServiceInfoMap(), err
 }
 
-func GetRenderSet(renderName string, revision int64, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// 未指定renderName返回空的renderSet
 	if renderName == "" {
 		return &commonmodels.RenderSet{KVs: []*templatemodels.RenderKV{}}, nil
 	}
 	opt := &commonrepo.RenderSetFindOption{
-		Name:     renderName,
-		Revision: revision,
+		Name:      renderName,
+		Revision:  revision,
+		IsDefault: isDefault,
+		EnvName:   envName,
 	}
 	resp, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
@@ -231,11 +233,11 @@ func GetRenderSetInfo(renderName string, revision int64) (*commonmodels.RenderSe
 }
 
 // ValidateRenderSet 检查指定renderSet是否能覆盖产品所有需要渲染的值
-func ValidateRenderSet(productName, renderName string, serviceInfo *templatemodels.ServiceInfo, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func ValidateRenderSet(productName, renderName, envName string, serviceInfo *templatemodels.ServiceInfo, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	resp := &commonmodels.RenderSet{ProductTmpl: productName}
 	var err error
 	if renderName != "" {
-		opt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
+		opt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName, EnvName: envName}
 		resp, err = commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("find renderset[%s] error: %v", renderName, err)
@@ -281,7 +283,7 @@ func mergeKVs(newKVs []*templatemodels.RenderKV, oldKVs []*templatemodels.Render
 }
 
 func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl, EnvName: args.EnvName}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
 		if rs.Diff(args) {
@@ -305,7 +307,11 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 }
 
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
+	opt := &commonrepo.RenderSetFindOption{
+		Name:        args.Name,
+		ProductTmpl: args.ProductTmpl,
+		EnvName:     args.EnvName,
+	}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
 		if rs.Diff(args) {
@@ -328,7 +334,11 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 
 // CreateHelmRenderSet 添加renderSet
 func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl}
+	opt := &commonrepo.RenderSetFindOption{
+		Name:        args.Name,
+		ProductTmpl: args.ProductTmpl,
+		EnvName:     args.EnvName,
+	}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
 		// 已经存在渲染配置集
@@ -568,8 +578,9 @@ func getValueFromSharedRenderSet(kv *templatemodels.RenderKV, productName string
 	}
 
 	renderSetOpt := &commonrepo.RenderSetFindOption{
-		Name:     targetProduct,
-		Revision: 0,
+		Name:      targetProduct,
+		IsDefault: true,
+		Revision:  0,
 	}
 	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 	if err != nil {

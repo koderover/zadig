@@ -360,6 +360,9 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 	}
 
 	mb.Repos = mb.SafeRepos()
+	for _, repo := range mb.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
 
 	if mb.PreBuild != nil {
 		if len(mb.PreBuild.Installs) == 0 {
@@ -655,6 +658,11 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		env.RegistryID = reg.ID.Hex()
 	}
 	configPayload.RegistryID = env.RegistryID
+	err = SetCandidateRegistry(configPayload, log)
+	if err != nil {
+		log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
+		return nil, err
+	}
 
 	nextTaskID, err := generateNextTaskID(args.WorkflowName)
 	if err != nil {
@@ -853,12 +861,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		if err != nil {
 			log.Errorf("workflow_task ToSubTask err:%v", err)
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
-		}
-
-		err = SetCandidateRegistry(configPayload, log)
-		if err != nil {
-			log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
-			return nil, err
 		}
 
 		AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
@@ -1417,10 +1419,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return nil, err
 	}
 	deployTask.ServiceName = envList[0]
-	deployTask.ContainerName = envList[1]
-	if !strings.Contains(envList[1], "_") {
-		deployTask.ContainerName = envList[1] + "_" + envList[0]
-	}
+	deployTask.ContainerName = envList[1] + "_" + envList[0]
 
 	switch env.Type {
 	case setting.K8SDeployType:
@@ -1821,6 +1820,12 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		}
 	}
 
+	err = SetCandidateRegistry(configPayload, log)
+	if err != nil {
+		log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
+		return nil, err
+	}
+
 	configPayload.IgnoreCache = args.IgnoreCache
 	configPayload.ResetCache = args.ResetCache
 
@@ -1988,13 +1993,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			log.Errorf("workflow_task ToSubTask err:%v", err)
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
-
-		err = SetCandidateRegistry(configPayload, log)
-		if err != nil {
-			log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
-			return nil, err
-		}
-
 		AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
 	}
 
@@ -2706,17 +2704,11 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					}
 				}
 
-				err = SetCandidateRegistry(taskOpt.Task.ConfigPayload, log)
-				if err != nil {
-					return err
-				}
-
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
 				}
 			}
-
 		case config.TaskTestingV2:
 			t, err := base.ToTestingTask(subTask)
 			if err != nil {
@@ -2735,11 +2727,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					SetTriggerBuilds(t.JobCtx.Builds, taskOpt.Task.TaskArgs.Test.Builds, log)
 				} else {
 					setManunalBuilds(t.JobCtx.Builds, taskOpt.Task.TaskArgs.Test.Builds, log)
-				}
-
-				err = SetCandidateRegistry(taskOpt.Task.ConfigPayload, log)
-				if err != nil {
-					return err
 				}
 
 				//use log path

@@ -53,7 +53,7 @@ func geneCreateFromDetail(templateId string, variables []*Variable) *commonmodel
 	}
 }
 
-func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, logger *zap.SugaredLogger) error {
+func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	projectName, serviceName, templateID, variables, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.Variables, req.AutoSync
 	template, err := commonrepo.NewYamlTemplateColl().GetById(templateID)
 	if err != nil {
@@ -72,7 +72,7 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		AutoSync:    autoSync,
 		CreateFrom:  geneCreateFromDetail(templateID, variables),
 	}
-	_, err = CreateServiceTemplate(username, service, logger)
+	_, err = CreateServiceTemplate(username, service, force, logger)
 	if err != nil {
 		logger.Errorf("Failed to create service template from template ID: %s, the error is: %s", templateID, err)
 	}
@@ -112,7 +112,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 		AutoSync:    autoSync,
 		CreateFrom:  geneCreateFromDetail(templateID, variables),
 	}
-	_, err = CreateServiceTemplate(username, svc, logger)
+	_, err = CreateServiceTemplate(username, svc, true, logger)
 	if err != nil {
 		logger.Errorf("Failed to create service template from template ID: %s, the error is: %s", service.TemplateID, err)
 	}
@@ -224,7 +224,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 		CreationDetail: service.CreateFrom,
 		AutoSync:       service.AutoSync,
 	}
-	ret, err := createOrUpdateHelmServiceFromChartTemplate(templateArgs, chartTemplate, service.ProductName, args, log.SugaredLogger())
+	ret, err := createOrUpdateHelmServiceFromChartTemplate(templateArgs, chartTemplate, service.ProductName, args, true, log.SugaredLogger())
 	if err != nil {
 		return err
 	}
@@ -347,7 +347,7 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		CreateFrom:  service.CreateFrom,
 		AutoSync:    service.AutoSync,
 	}
-	_, err = CreateServiceTemplate(userName, svc, log.SugaredLogger())
+	_, err = CreateServiceTemplate(userName, svc, true, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("failed to reload service template from template ID: %s, error : %s", service.TemplateID, err)
 	}

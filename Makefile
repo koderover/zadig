@@ -10,12 +10,15 @@ REAPER_OS= focal xenial bionic
 ALL_IMAGES=$(TARGETS:=.image)
 ALL_PUSH=$(TARGETS:=.push)
 
-all: $(ALL_IMAGES:=.amd64) $(ALL_IMAGES:=.arm64) resource-server.build.amd64 resource-server.build.arm64
-all.push: $(ALL_PUSH:=.amd64) $(ALL_PUSH:=.arm64) resource-server.upload.amd64 resource-server.upload.arm64
+PLATFORMS=darwin linux windows
+ARCHITECTURES=amd64 arm64
 
-all.amd64: $(ALL_IMAGES:=.amd64) resource-server.build.amd64
+all: $(ALL_IMAGES:=.amd64) $(ALL_IMAGES:=.arm64) resource-server.build.amd64 resource-server.build.arm64 build-zgctl-all-platforms zgctl-sidecar.build.amd64 zadig-debug.build.amd64
+all.push: $(ALL_PUSH:=.amd64) $(ALL_PUSH:=.arm64) resource-server.upload.amd64 resource-server.upload.arm64 zgctl-sidecar.upload.amd64 zadig-debug.upload.amd64
+
+all.amd64: $(ALL_IMAGES:=.amd64) resource-server.build.amd64 zgctl-sidecar.build.amd64 zadig-debug.build.amd64
 all.arm64: $(ALL_IMAGES:=.amd64)  resource-server.build.arm64
-allpush.amd64: $(ALL_PUSH:=.amd64) $(ALL_REAPER_PUSH:=.amd64) resource-server.upload.amd64
+allpush.amd64: $(ALL_PUSH:=.amd64) $(ALL_REAPER_PUSH:=.amd64) resource-server.upload.amd64 zgctl-sidecar.upload.amd64 zadig-debug.upload.amd64
 allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64) resource-server.upload.arm64
 
 %.push.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/$*:${VERSION}-amd64
@@ -74,6 +77,30 @@ resource-server.upload.arm64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/resource-server:
 resource-server.upload.arm64: resource-server.build.arm64
 	@docker push ${MAKE_IMAGE}
 
+pre-build:
+	@mkdir -p bin/
+
+build-zgctl-all-platforms: pre-build
+	$(foreach GOOS, $(PLATFORMS),\
+	$(foreach GOARCH, $(ARCHITECTURES), $(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); CGO_ENABLED=0 go build -v -o bin/zgctl-$(GOOS)-$(GOARCH) cmd/zgctl/main.go)))
+
+zgctl-sidecar.build.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/zgctl-sidecar:${VERSION}-amd64
+zgctl-sidecar.build.amd64:
+	@docker build -f docker/service/syncthing.Dockerfile --tag ${MAKE_IMAGE} .
+
+zgctl-sidecar.upload.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/zgctl-sidecar:${VERSION}-amd64
+zgctl-sidecar.upload.amd64: zgctl-sidecar.build.amd64
+	@docker push ${MAKE_IMAGE}
+
+zadig-debug.build.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/zadig-debug:${VERSION}-amd64
+zadig-debug.build.amd64:
+	@docker build -f docker/service/zadig-debug.Dockerfile --tag ${MAKE_IMAGE} .
+
+zadig-debug.upload.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/zadig-debug:${VERSION}-amd64
+zadig-debug.upload.amd64: zadig-debug.build.amd64
+	@docker push ${MAKE_IMAGE}
+
 .PHONY: clean
 clean:
 	@rm -rf docker/dist
+	@rm -rf bin/

@@ -23,3 +23,7 @@ func GetBoolPointer(data bool) *bool {
 func GetStrPointer(data string) *string {
 	return &data
 }
+
+func GetInt32Pointer(data int32) *int32 {
+	return &data
+}

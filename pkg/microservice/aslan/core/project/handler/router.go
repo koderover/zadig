@@ -64,4 +64,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		project.GET("", ListProjects)
 	}
+
+	pms := router.Group("pms")
+	{
+		pms.GET("", ListPMHosts)
+		pms.GET("/:id", GetPMHost)
+		pms.GET("/labels", ListLabels)
+		pms.POST("", gin2.UpdateOperationLogStatus, CreatePMHost)
+		pms.POST("/batch", gin2.UpdateOperationLogStatus, BatchCreatePMHost)
+		pms.PUT("/:id", gin2.UpdateOperationLogStatus, UpdatePMHost)
+		pms.DELETE("/:id", gin2.UpdateOperationLogStatus, DeletePMHost)
+	}
 }

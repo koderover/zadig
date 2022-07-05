@@ -26,6 +26,10 @@ spec:
           ports:
             - protocol: TCP
               containerPort: {{.port}}
+          resources:
+            limits:
+              memory: {{.memoryLimit}}
+              cpu: {{.cpuLimit}}
 ---
 apiVersion: v1
 kind: Service

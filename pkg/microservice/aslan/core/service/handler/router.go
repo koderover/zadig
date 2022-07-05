@@ -40,8 +40,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.GET("/:productName/:serviceName/filePath", GetFilePath)
 		helm.GET("/:productName/:serviceName/fileContent", GetFileContent)
 		helm.POST("/services", CreateOrUpdateHelmService)
+		helm.PUT("/services", UpdateHelmService)
 		helm.POST("/services/bulk", CreateOrUpdateBulkHelmServices)
-		helm.PUT("/:productName", UpdateHelmService)
+		helm.PUT("/:productName", EditHelmService)
 		helm.PUT("/services/releaseNaming", HelmReleaseNaming)
 	}
 
@@ -77,6 +78,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		loader.GET("/preload/:codehostId", PreloadServiceTemplate)
 		loader.POST("/load/:codehostId", LoadServiceTemplate)
+		loader.PUT("/load/:codehostId", SyncServiceTemplate)
 		loader.GET("/validateUpdate/:codehostId", ValidateServiceUpdate)
 	}
 

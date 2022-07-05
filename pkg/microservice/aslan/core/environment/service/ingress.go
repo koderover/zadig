@@ -19,8 +19,8 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -38,14 +38,12 @@ import (
 )
 
 type ListIngressesResponse struct {
-	IngressName    string    `json:"ingress_name"`
-	HostInfo       string    `json:"host_info"`
-	Address        string    `json:"address"`
-	Ports          string    `json:"ports"`
-	ErrorReason    string    `json:"error_reason"`
-	YamlData       string    `json:"yaml_data"`
-	UpdateUserName string    `json:"update_username"`
-	CreateTime     time.Time `json:"create_time"`
+	*ResourceResponseBase
+	IngressName string `json:"ingress_name"`
+	HostInfo    string `json:"host_info"`
+	Address     string `json:"address"`
+	Ports       string `json:"ports"`
+	ErrorReason string `json:"error_reason"`
 }
 
 func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*ListIngressesResponse, error) {
@@ -120,9 +118,17 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 				HostInfo:    hostInfo,
 				Ports:       ports,
 				ErrorReason: errorReason,
-				YamlData:    string(yamlData),
 				Address:     address,
+				ResourceResponseBase: &ResourceResponseBase{
+					Name:        ingress.GetName(),
+					Type:        config.CommonEnvCfgTypeIngress,
+					EnvName:     envName,
+					ProjectName: productName,
+					YamlData:    string(yamlData),
+					CreateTime:  ingress.GetCreationTimestamp().Time,
+				},
 			}
+			resElem.setSourceDetailData(&ingress)
 			res = append(res, resElem)
 		}
 
@@ -164,12 +170,23 @@ func ListIngresses(envName, productName string, log *zap.SugaredLogger) ([]*List
 				HostInfo:    hostInfo,
 				Ports:       ports,
 				ErrorReason: errorReason,
-				YamlData:    string(yamlData),
 				Address:     address,
+				ResourceResponseBase: &ResourceResponseBase{
+					Name:        ingress.GetName(),
+					Type:        config.CommonEnvCfgTypeIngress,
+					EnvName:     envName,
+					ProjectName: productName,
+					YamlData:    string(yamlData),
+					CreateTime:  ingress.GetCreationTimestamp().Time,
+				},
 			}
+			resElem.setSourceDetailData(&ingress)
 			res = append(res, resElem)
 		}
 	}
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].IngressName < res[j].IngressName
+	})
 	return res, nil
 }
 
@@ -181,7 +198,7 @@ type UpdateIngressArgs struct {
 	RestartAssociatedSvc bool   `json:"restart_associated_svc"`
 }
 
-func UpdateOrCreateIngress(args *UpdateCommonEnvCfgArgs, userName, userID string, isCreate bool, log *zap.SugaredLogger) error {
+func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName string, isCreate bool, log *zap.SugaredLogger) error {
 	u, err := serializer.NewDecoder().YamlToUnstructured([]byte(args.YamlData))
 	if err != nil {
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", args.YamlData, err)
@@ -203,20 +220,29 @@ func UpdateOrCreateIngress(args *UpdateCommonEnvCfgArgs, userName, userID string
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
-	u.SetNamespace(product.Namespace)
+
+	yamlData, err := ensureLabelAndNs(u, product.Namespace, args.ProductName)
+	if err != nil {
+		return e.ErrUpdateResource.AddErr(err)
+	}
+
 	err = updater.UpdateOrCreateUnstructured(u, kubeClient)
 	if err != nil {
 		log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 		return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))
 	}
-	envIngress := &models.EnvIngress{
+	envIngress := &models.EnvResource{
 		ProductName:    args.ProductName,
 		UpdateUserName: userName,
 		EnvName:        args.EnvName,
+		Namespace:      product.Namespace,
 		Name:           u.GetName(),
-		YamlData:       args.YamlData,
+		YamlData:       yamlData,
+		Type:           string(config.CommonEnvCfgTypeIngress),
+		SourceDetail:   args.SourceDetail,
+		AutoSync:       args.AutoSync,
 	}
-	if commonrepo.NewIngressColl().Create(envIngress, true) != nil {
+	if commonrepo.NewEnvResourceColl().Create(envIngress) != nil {
 		return e.ErrUpdateResource.AddDesc(err.Error())
 	}
 	return err

@@ -22,7 +22,7 @@ spec:
       - name: master
         image: k8s.gcr.io/redis:e2e  # or just image: redis
         resources:
-          requests:
+          limits:
             cpu: 100m
             memory: 100Mi
         ports:

@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: worker
+  name: worker
+spec:
+  replicas: {{ .Values.services.worker.replicas }}
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - image: {{ .Values.services.worker.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        name: worker-e2e
+        resources:
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.imagePullSecretsName }}

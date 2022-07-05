@@ -162,7 +162,7 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 	}
 
 	// 1. Delete all associated subenvironments.
-	err = ensureDeleteAssociatedEnvs(ctx, prod.EnvName)
+	err = ensureDeleteAssociatedEnvs(ctx, prod)
 	if err != nil {
 		return fmt.Errorf("failed to delete associated subenvironments of base ns `%s`: %s", ns, err)
 	}
@@ -460,6 +460,7 @@ func ensureVirtualService(ctx context.Context, kclient client.Client, istioClien
 	matchedEnvs := []MatchedEnv{}
 	if env.ShareEnv.Enable && env.ShareEnv.IsBase {
 		subEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:            env.ProductName,
 			ShareEnvEnable:  zadigutil.GetBoolPointer(true),
 			ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
 			ShareEnvBaseEnv: zadigutil.GetStrPointer(env.EnvName),
@@ -1168,7 +1169,7 @@ func EnsureDeleteShareEnvConfig(ctx context.Context, env *commonmodels.Product, 
 
 	if env.ShareEnv.IsBase {
 		// 1. Delete all associated subenvironments.
-		err := ensureDeleteAssociatedEnvs(ctx, env.EnvName)
+		err := ensureDeleteAssociatedEnvs(ctx, env)
 		if err != nil {
 			return err
 		}

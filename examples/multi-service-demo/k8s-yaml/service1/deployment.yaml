@@ -26,4 +26,8 @@ spec:
           ports:
             - protocol: TCP
               containerPort: 20221
+          resources:
+            limits:
+              memory: 50Mi
+              cpu: 50m
      

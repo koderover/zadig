@@ -107,6 +107,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
+
+		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -154,6 +156,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/check/sharenv/:op/ready", CheckShareEnvReady)
 
 		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
+
+		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
+		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
 	}
 
 	// ---------------------------------------------------------------------------------------

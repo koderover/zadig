@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -103,6 +104,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		logger.Errorf("failed to create cluster %s %v", cluster.Name, err)
 		return nil, e.ErrCreateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
+
 	cluster.Status = setting.Pending
 	if id == setting.LocalClusterID {
 		cluster.Status = setting.Normal
@@ -110,6 +112,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		cluster.AdvancedConfig = &commonmodels.AdvancedConfig{
 			Strategy: "normal",
 		}
+		cluster.DindCfg = nil
 	}
 	err = s.coll.Create(cluster, id)
 	if err != nil {
@@ -191,6 +194,22 @@ func (s *Service) GetCluster(id string, logger *zap.SugaredLogger) (*models.K8SC
 	if err != nil {
 		return nil, err
 	}
+
+	if cluster.DindCfg == nil {
+		cluster.DindCfg = &commonmodels.DindCfg{
+			Replicas: DefaultDindReplicas,
+			Resources: &commonmodels.Resources{
+				Limits: &commonmodels.Limits{
+					CPU:    DefaultDindLimitsCPU,
+					Memory: DefaultDindLimitsMemory,
+				},
+			},
+			Storage: &commonmodels.DindStorage{
+				Type: DefaultDindStorageType,
+			},
+		}
+	}
+
 	cluster.Token = token
 	return cluster, nil
 }
@@ -252,24 +271,40 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 		return nil, err
 	}
 
+	dindReplicas, dindLimitsCPU, dindLimitsMemory, dindEnablePV, dindSCName, dindStorageSizeInGiB := getDindCfg(cluster)
+
 	if cluster.Namespace == "" {
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
-			HubAgentImage:       agentImage,
-			ResourceServerImage: rsImage,
-			ClientToken:         token,
-			HubServerBaseAddr:   hubBase.String(),
-			AslanBaseAddr:       config2.SystemAddress(),
-			UseDeployment:       useDeployment,
+			HubAgentImage:        agentImage,
+			ResourceServerImage:  rsImage,
+			ClientToken:          token,
+			HubServerBaseAddr:    hubBase.String(),
+			AslanBaseAddr:        config2.SystemAddress(),
+			UseDeployment:        useDeployment,
+			DindReplicas:         dindReplicas,
+			DindLimitsCPU:        dindLimitsCPU,
+			DindLimitsMemory:     dindLimitsMemory,
+			DindImage:            config.DindImage(),
+			DindEnablePV:         dindEnablePV,
+			DindStorageClassName: dindSCName,
+			DindStorageSizeInGiB: dindStorageSizeInGiB,
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
-			HubAgentImage:       agentImage,
-			ResourceServerImage: rsImage,
-			ClientToken:         token,
-			HubServerBaseAddr:   hubBase.String(),
-			AslanBaseAddr:       config2.SystemAddress(),
-			UseDeployment:       useDeployment,
-			Namespace:           cluster.Namespace,
+			HubAgentImage:        agentImage,
+			ResourceServerImage:  rsImage,
+			ClientToken:          token,
+			HubServerBaseAddr:    hubBase.String(),
+			AslanBaseAddr:        config2.SystemAddress(),
+			UseDeployment:        useDeployment,
+			Namespace:            cluster.Namespace,
+			DindReplicas:         dindReplicas,
+			DindLimitsCPU:        dindLimitsCPU,
+			DindLimitsMemory:     dindLimitsMemory,
+			DindImage:            config.DindImage(),
+			DindEnablePV:         dindEnablePV,
+			DindStorageClassName: dindSCName,
+			DindStorageSizeInGiB: dindStorageSizeInGiB,
 		})
 	}
 
@@ -280,15 +315,73 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 	return buffer.Bytes(), nil
 }
 
-type TemplateSchema struct {
-	HubAgentImage       string
-	ResourceServerImage string
-	ClientToken         string
-	HubServerBaseAddr   string
-	Namespace           string
-	UseDeployment       bool
-	AslanBaseAddr       string
+func (s *Service) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) error {
+	_, err := s.coll.Get(id)
+	if err != nil {
+		return err
+	}
+	err = s.coll.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
+	return err
 }
+
+func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemory string, enablePV bool, scName string, storageSizeInGiB int) {
+	replicas = DefaultDindReplicas
+	limitsCPU = strconv.Itoa(DefaultDindLimitsCPU) + setting.CpuUintM
+	limitsMemory = strconv.Itoa(DefaultDindLimitsMemory) + setting.MemoryUintMi
+	enablePV = DefaultDindEnablePV
+	scName = DefaultDindStorageClassName
+	storageSizeInGiB = DefaultDindStorageSizeInGiB
+
+	if cluster.DindCfg != nil {
+		if cluster.DindCfg.Replicas > 0 {
+			replicas = cluster.DindCfg.Replicas
+		}
+
+		if cluster.DindCfg.Resources != nil && cluster.DindCfg.Resources.Limits != nil {
+			if cluster.DindCfg.Resources.Limits.CPU > 0 {
+				limitsCPU = strconv.Itoa(cluster.DindCfg.Resources.Limits.CPU) + setting.CpuUintM
+			}
+			if cluster.DindCfg.Resources.Limits.Memory > 0 {
+				limitsMemory = strconv.Itoa(cluster.DindCfg.Resources.Limits.Memory) + setting.MemoryUintMi
+			}
+		}
+
+		if cluster.DindCfg.Storage != nil && cluster.DindCfg.Storage.Type == commonmodels.DindStorageDynamic {
+			enablePV = true
+			scName = cluster.DindCfg.Storage.StorageClass
+			storageSizeInGiB = int(cluster.DindCfg.Storage.StorageSizeInGiB)
+		}
+	}
+
+	return
+}
+
+type TemplateSchema struct {
+	HubAgentImage        string
+	ResourceServerImage  string
+	ClientToken          string
+	HubServerBaseAddr    string
+	Namespace            string
+	UseDeployment        bool
+	AslanBaseAddr        string
+	DindReplicas         int
+	DindLimitsCPU        string
+	DindLimitsMemory     string
+	DindImage            string
+	DindEnablePV         bool
+	DindStorageClassName string
+	DindStorageSizeInGiB int
+}
+
+const (
+	DefaultDindReplicas         int                          = 1
+	DefaultDindLimitsCPU        int                          = 4000
+	DefaultDindLimitsMemory     int                          = 8192
+	DefaultDindStorageType      commonmodels.DindStorageType = commonmodels.DindStorageRootfs
+	DefaultDindEnablePV         bool                         = false
+	DefaultDindStorageClassName string                       = ""
+	DefaultDindStorageSizeInGiB int                          = 10
+)
 
 var YamlTemplate = template.Must(template.New("agentYaml").Parse(`
 ---
@@ -491,7 +584,7 @@ metadata:
     app.kubernetes.io/name: zadig
 spec:
   serviceName: dind
-  replicas: 1
+  replicas: {{.DindReplicas}}
   selector:
     matchLabels:
       app.kubernetes.io/component: dind
@@ -510,9 +603,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
-          args:
-            - --mtu=1376
+          image: {{.DindImage}}
           env:
             - name: DOCKER_TLS_CERTDIR
               value: ""
@@ -523,11 +614,25 @@ spec:
               containerPort: 2375
           resources:
             limits:
-              cpu: "4"
-              memory: 8Gi
+              cpu: {{.DindLimitsCPU}}
+              memory: {{.DindLimitsMemory}}
             requests:
               cpu: 100m
               memory: 128Mi
+{{- if .DindEnablePV }}
+          volumeMounts:
+          - name: zadig-docker
+            mountPath: /var/lib/docker
+  volumeClaimTemplates:
+  - metadata:
+      name: zadig-docker
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{.DindStorageClassName}}
+      resources:
+        requests:
+          storage: {{.DindStorageSizeInGiB}}Gi
+{{- end }}
 
 ---
 
@@ -762,9 +867,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: dind
-          image: ccr.ccs.tencentyun.com/koderover-public/docker:20.10.14-dind
-          args:
-            - --mtu=1376
+          image: {{.DindImage}}
           env:
             - name: DOCKER_TLS_CERTDIR
               value: ""
@@ -780,6 +883,20 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
+{{- if .DindEnablePV }}
+          volumeMounts:
+          - name: zadig-docker
+            mountPath: /var/lib/docker
+  volumeClaimTemplates:
+  - metadata:
+      name: zadig-docker
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{.DindStorageClassName}}
+      resources:
+        requests:
+          storage: {{.DindStorageSizeInGiB}}Gi
+{{- end }}
 
 ---
 

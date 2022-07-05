@@ -25,24 +25,27 @@ import (
 )
 
 type K8SCluster struct {
-	ID             primitive.ObjectID       `json:"id,omitempty"              bson:"_id,omitempty"`
-	Name           string                   `json:"name"                      bson:"name"`
-	Tags           []string                 `json:"tags"                      bson:"tags"`
-	Description    string                   `json:"description"               bson:"description"`
-	Namespace      string                   `json:"namespace"                 bson:"namespace"`
-	Info           *K8SClusterInfo          `json:"info,omitempty"            bson:"info,omitempty"`
-	AdvancedConfig *AdvancedConfig          `json:"advanced_config,omitempty" bson:"advanced_config,omitempty"`
-	Status         setting.K8SClusterStatus `json:"status"                    bson:"status"`
-	Error          string                   `json:"error"                     bson:"error"`
-	Yaml           string                   `json:"yaml"                      bson:"yaml"`
-	Production     bool                     `json:"production"                bson:"production"`
-	CreatedAt      int64                    `json:"createdAt"                 bson:"createdAt"`
-	CreatedBy      string                   `json:"createdBy"                 bson:"createdBy"`
-	Disconnected   bool                     `json:"-"                         bson:"disconnected"`
-	Token          string                   `json:"token"                     bson:"-"`
-	Provider       int8                     `json:"provider"                  bson:"provider"`
-	Local          bool                     `json:"local"                     bson:"local"`
-	Cache          types.Cache              `json:"cache"                     bson:"cache"`
+	ID                     primitive.ObjectID       `json:"id,omitempty"              bson:"_id,omitempty"`
+	Name                   string                   `json:"name"                      bson:"name"`
+	Tags                   []string                 `json:"tags"                      bson:"tags"`
+	Description            string                   `json:"description"               bson:"description"`
+	Namespace              string                   `json:"namespace"                 bson:"namespace"`
+	Info                   *K8SClusterInfo          `json:"info,omitempty"            bson:"info,omitempty"`
+	AdvancedConfig         *AdvancedConfig          `json:"advanced_config,omitempty" bson:"advanced_config,omitempty"`
+	Status                 setting.K8SClusterStatus `json:"status"                    bson:"status"`
+	Error                  string                   `json:"error"                     bson:"error"`
+	Yaml                   string                   `json:"yaml"                      bson:"yaml"`
+	Production             bool                     `json:"production"                bson:"production"`
+	CreatedAt              int64                    `json:"createdAt"                 bson:"createdAt"`
+	CreatedBy              string                   `json:"createdBy"                 bson:"createdBy"`
+	Disconnected           bool                     `json:"-"                         bson:"disconnected"`
+	Token                  string                   `json:"token"                     bson:"-"`
+	Provider               int8                     `json:"provider"                  bson:"provider"`
+	Local                  bool                     `json:"local"                     bson:"local"`
+	Cache                  types.Cache              `json:"cache"                     bson:"cache"`
+	LastConnectionTime     int64                    `json:"last_connection_time"      bson:"last_connection_time"`
+	UpdateHubagentErrorMsg string                   `json:"update_hubagent_error_msg" bson:"update_hubagent_error_msg"`
+	DindCfg                *DindCfg                 `json:"dind_cfg"                  bson:"dind_cfg"`
 }
 
 type K8SClusterResp struct {
@@ -68,6 +71,34 @@ type NodeSelectorRequirement struct {
 	Key      string                      `json:"key"      bson:"key"`
 	Value    []string                    `json:"value"    bson:"value"`
 	Operator corev1.NodeSelectorOperator `json:"operator" bson:"operator"`
+}
+
+type Limits struct {
+	CPU    int `json:"cpu"    bson:"cpu"`
+	Memory int `json:"memory" bson:"memory"`
+}
+
+type Resources struct {
+	Limits *Limits `json:"limits" bson:"limits"`
+}
+
+type DindCfg struct {
+	Replicas  int          `json:"replicas"   bson:"replicas"`
+	Resources *Resources   `json:"resources"  bson:"resources"`
+	Storage   *DindStorage `json:"storage"    bson:"storage"`
+}
+
+type DindStorageType string
+
+const (
+	DindStorageRootfs  DindStorageType = "rootfs"
+	DindStorageDynamic DindStorageType = "dynamic"
+)
+
+type DindStorage struct {
+	Type             DindStorageType `json:"type"                bson:"type"`
+	StorageClass     string          `json:"storage_class"       bson:"storage_class"`
+	StorageSizeInGiB int64           `json:"storage_size_in_gib" bson:"storage_size_in_gib"`
 }
 
 func (K8SCluster) TableName() string {

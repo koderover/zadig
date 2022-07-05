@@ -127,6 +127,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		Password:    p.Task.Repos[0].Password,
 		EnableProxy: p.Task.Repos[0].EnableProxy,
 		RemoteName:  p.Task.Repos[0].RemoteName,
+		SubModules:  p.Task.Repos[0].SubModules,
 	}
 	if repo.RemoteName == "" {
 		repo.RemoteName = "origin"

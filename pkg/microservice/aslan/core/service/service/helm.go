@@ -429,22 +429,22 @@ func clearLocalChartFiles(projectName, serviceName string, revision int64, logge
 	}
 }
 
-func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	switch args.Source {
 	case LoadFromRepo, LoadFromPublicRepo:
-		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
+		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, force, logger)
 	case LoadFromChartTemplate:
-		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
+		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, force, logger)
 	case LoadFromGerrit, setting.SourceFromGitee:
-		return CreateOrUpdateHelmServiceFromRepo(projectName, args, logger)
+		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
 	case LoadFromChartRepo:
-		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, logger)
+		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, force, logger)
 	default:
 		return nil, fmt.Errorf("invalid source")
 	}
 }
 
-func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	chartRepoArgs, ok := args.CreateFrom.(*CreateFromChartRepo)
 	if !ok {
 		return nil, e.ErrCreateTemplate.AddDesc("invalid argument")
@@ -522,7 +522,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 			CreateBy:        args.CreatedBy,
 			RequestID:       args.RequestID,
 			Source:          setting.SourceFromChartRepo,
-		},
+		}, force,
 		log,
 	)
 	if err != nil {
@@ -550,7 +550,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	}, nil
 }
 
-func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
 		return nil, fmt.Errorf("invalid argument")
@@ -561,10 +561,10 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return nil, err
 	}
 
-	return createOrUpdateHelmServiceFromChartTemplate(templateArgs, templateChartInfo, projectName, args, logger)
+	return createOrUpdateHelmServiceFromChartTemplate(templateArgs, templateChartInfo, projectName, args, force, logger)
 }
 
-func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTemplate, templateChartInfo *ChartTemplateData, projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTemplate, templateChartInfo *ChartTemplateData, projectName string, args *HelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 
 	// NOTE we may need a better way to handle service name with spaces
 	args.Name = strings.TrimSpace(args.Name)
@@ -655,7 +655,7 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 			ValuesSource:     args.ValuesData,
 			CreationDetail:   args.CreationDetail,
 			AutoSync:         args.AutoSync,
-		},
+		}, force,
 		logger,
 	)
 
@@ -695,7 +695,7 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *system
 	return ch.Type, ch, nil
 }
 
-func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	var (
 		filePaths []string
 		response  = &BulkHelmServiceCreationResponse{}
@@ -827,6 +827,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			svc, err := createOrUpdateHelmService(
 				nil,
 				helmServiceCreationArgs,
+				force,
 				log,
 			)
 			if err != nil {
@@ -850,7 +851,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
-func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	var err error
 	var repoLink string
 	repoArgs, ok := args.CreateFrom.(*CreateFromRepo)
@@ -975,7 +976,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					Branch:          repoArgs.Branch,
 					RepoLink:        repoLink,
 					Source:          source,
-				},
+				}, force,
 				log,
 			)
 			if err != nil {
@@ -999,16 +1000,16 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
-func CreateOrUpdateBulkHelmService(projectName string, args *BulkHelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateBulkHelmService(projectName string, args *BulkHelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	switch args.Source {
 	case LoadFromChartTemplate:
-		return CreateOrUpdateBulkHelmServiceFromTemplate(projectName, args, logger)
+		return CreateOrUpdateBulkHelmServiceFromTemplate(projectName, args, force, logger)
 	default:
 		return nil, fmt.Errorf("invalid source")
 	}
 }
 
-func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
 		return nil, fmt.Errorf("invalid argument")
@@ -1040,7 +1041,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer wg.Done()
-			renderChart, svcInfo, err := handleSingleService(projectName, repoConfig, path, from, args, templateChartData, logger)
+			renderChart, svcInfo, err := handleSingleService(projectName, repoConfig, path, from, args, templateChartData, force, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
@@ -1082,7 +1083,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 }
 
 func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath string, args *BulkHelmServiceCreationArgs,
-	templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, *commonmodels.Service, error) {
+	templateChartData *ChartTemplateData, force bool, logger *zap.SugaredLogger) (*templatemodels.RenderChart, *commonmodels.Service, error) {
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
@@ -1174,6 +1175,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			AutoSync:         args.AutoSync,
 			ValuesSource:     args.ValuesData,
 		},
+		force,
 		logger,
 	)
 	if err != nil {
@@ -1328,7 +1330,7 @@ func renderVariablesToYaml(valuesYaml string, productName, serviceName string, v
 	return valuesYaml, nil
 }
 
-func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*commonmodels.Service, error) {
+func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*commonmodels.Service, error) {
 	var (
 		chartName, chartVersion string
 		err                     error
@@ -1418,6 +1420,9 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 
 	// update status of current service template to deleting
 	if currentSvcTmpl != nil {
+		if !force {
+			return nil, fmt.Errorf("service:%s already exists", args.ServiceName)
+		}
 		err = commonrepo.NewServiceColl().UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting)
 		if err != nil {
 			log.Errorf("Failed to set status of current service templates, serviceName: %s, err: %s", args.ServiceName, err)
@@ -1506,8 +1511,8 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	return fis, nil
 }
 
-// UpdateHelmService deprecated
-func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
+// EditHelmService deprecated
+func EditHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 	serviceMap := make(map[string]int64)
 	for _, helmServiceInfo := range args.HelmServiceInfos {
 
@@ -1618,7 +1623,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, createdBy string, log *zap.SugaredLogger) {
 	// 对比上个版本的renderset，新增一个版本
 	latestChartInfos := make([]*templatemodels.RenderChart, 0)
-	renderOpt := &commonrepo.RenderSetFindOption{Name: productName}
+	renderOpt := &commonrepo.RenderSetFindOption{Name: productName, ProductTmpl: productName, IsDefault: true}
 	if latestDefaultRenderSet, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
 		latestChartInfos = latestDefaultRenderSet.ChartInfos
 	}

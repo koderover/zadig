@@ -50,6 +50,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type CustomParseDataArgs struct {
@@ -402,7 +403,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		return err
 	}
 
-	if err = DeleteLabels(productName, log); err != nil {
+	if err = DeleteLabels(productName, userName, log); err != nil {
 		log.Errorf("DeleteLabels  productName %s  err: %s", productName, err)
 		return err
 	}
@@ -491,6 +492,13 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		})
 	}()
 
+	// delete privateKey data
+	go func() {
+		if err = commonrepo.NewPrivateKeyColl().BulkDelete(productName); err != nil {
+			log.Errorf("failed to bulk delete privateKey, error:%s", err)
+		}
+	}()
+
 	return nil
 }
 
@@ -536,6 +544,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 						Name:      c.Name,
 						Image:     c.Image,
 						ImagePath: c.ImagePath,
+						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
@@ -971,8 +980,8 @@ func DeletePolicy(productName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func DeleteLabels(productName string, log *zap.SugaredLogger) error {
-	if err := service2.DeleteLabelsAndBindingsByProject(productName, log); err != nil {
+func DeleteLabels(productName, userName string, log *zap.SugaredLogger) error {
+	if err := service2.DeleteLabelsAndBindingsByProject(productName, userName, log); err != nil {
 		log.Errorf("delete labels and bindings by project fail , err :%s", err)
 		return err
 	}

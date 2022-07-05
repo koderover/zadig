@@ -48,7 +48,7 @@ func ListPrivateKeys(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {

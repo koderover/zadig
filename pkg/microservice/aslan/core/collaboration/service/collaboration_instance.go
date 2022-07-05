@@ -618,7 +618,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, label := range resp.Labels {
 			ids = append(ids, label.ID.Hex())
 		}
-		err = service.DeleteLabels(ids, true, logger)
+		err = service.DeleteLabels(ids, true, userName, logger)
 		if err != nil {
 			logger.Errorf("delete labels error, error msg:%s", err)
 			return err
@@ -1134,23 +1134,27 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			}
 		}
 	}
-	renderSets, err := getRenderSet(projectName, newProductName.List())
-	if err != nil {
-		return nil, err
-	}
-	if renderSets != nil {
-		productRenderSetMap := make(map[string]models2.RenderSet)
-		for _, set := range renderSets {
-			productRenderSetMap[set.EnvName] = *set
+	if len(newProduct) > 0 && newProduct[0].DeployType == setting.K8SDeployType {
+		renderSets, err := getRenderSet(projectName, newProductName.List())
+		if err != nil {
+			logger.Errorf("getRenderSet error:%s", err)
+			return nil, err
 		}
-		for _, product := range newProduct {
-			set, ok := productRenderSetMap[product.BaseName]
-			if !ok {
-				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
+		if renderSets != nil {
+			productRenderSetMap := make(map[string]models2.RenderSet)
+			for _, set := range renderSets {
+				productRenderSetMap[set.EnvName] = set
 			}
+			for _, product := range newProduct {
+				set, ok := productRenderSetMap[product.BaseName]
+				if !ok {
+					logger.Warnf("product:%s renderSet not exist", product.BaseName)
+					continue
+				}
 
-			product.Vars = set.KVs
-			product.DefaultValues = set.DefaultValues
+				product.Vars = set.KVs
+				product.DefaultValues = set.DefaultValues
+			}
 		}
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
@@ -1158,6 +1162,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			chart, ok := envChartsMap[product.BaseName]
 			if !ok {
+				logger.Errorf("product:%s not exist", product.BaseName)
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
 
@@ -1278,7 +1283,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 		labelIds = append(labelIds, l.ID.Hex())
 	}
 
-	err = service.DeleteLabels(labelIds, true, logger)
+	err = service.DeleteLabels(labelIds, true, "system", logger)
 	if err != nil {
 		return err
 	}
@@ -1317,10 +1322,13 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return nil, err
 	}
+	if updateResp == nil || (updateResp.Update == nil && updateResp.New == nil && updateResp.UpdateInstance == nil && updateResp.Delete == nil) {
+		return nil, nil
+	}
 	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
 }
 
-func getRenderSet(projectName string, envs []string) ([]*models2.RenderSet, error) {
+func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		InProjects: []string{projectName},
 		InEnvs:     envs,
@@ -1330,13 +1338,20 @@ func getRenderSet(projectName string, envs []string) ([]*models2.RenderSet, erro
 	}
 	var findOpts []commonrepo.RenderSetFindOption
 	for _, product := range products {
+		var revision int64
+		for _, productService := range product.GetServiceMap() {
+			revision = productService.Render.Revision
+		}
 		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
-			Revision: product.Revision,
-			Name:     product.Namespace,
+			Revision:    revision,
+			ProductTmpl: projectName,
+			EnvName:     product.EnvName,
+			Name:        product.Namespace,
 		})
 	}
-	renderSets, err := commonrepo.NewRenderSetColl().List(&commonrepo.RenderSetListOption{
+	renderSets, err := commonrepo.NewRenderSetColl().ListByFindOpts(&commonrepo.RenderSetListOption{
 		ProductTmpl: projectName,
+		FindOpts:    findOpts,
 	})
 	if err != nil {
 		return nil, err

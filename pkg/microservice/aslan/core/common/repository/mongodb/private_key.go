@@ -32,7 +32,9 @@ import (
 )
 
 type PrivateKeyArgs struct {
-	Name string
+	Name        string
+	ProjectName string
+	SystemOnly  bool
 }
 
 type PrivateKeyColl struct {
@@ -54,12 +56,18 @@ func (c *PrivateKeyColl) GetCollectionName() string {
 }
 
 func (c *PrivateKeyColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys:    bson.M{"label": 1},
-		Options: options.Index().SetUnique(false),
+	mods := []mongo.IndexModel{
+		{
+			Keys:    bson.M{"label": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.M{"name": 1},
+			Options: options.Index().SetUnique(true),
+		},
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mods)
 	return err
 }
 
@@ -91,6 +99,14 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 	if args.Name != "" {
 		query["name"] = args.Name
 	}
+
+	if args.ProjectName != "" {
+		query["project_name"] = args.ProjectName
+	}
+	if args.SystemOnly {
+		query["project_name"] = bson.M{"$exists": false}
+	}
+
 	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
 
@@ -165,6 +181,14 @@ func (c *PrivateKeyColl) Delete(id string) error {
 	query := bson.M{"_id": oid}
 
 	_, err = c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *PrivateKeyColl) BulkDelete(projectName string) error {
+	query := bson.M{}
+	query["project_name"] = projectName
+
+	_, err := c.DeleteMany(context.TODO(), query)
 	return err
 }
 

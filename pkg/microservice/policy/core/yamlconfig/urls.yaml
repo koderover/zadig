@@ -1,6 +1,12 @@
 description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
 exemption_urls:
   public:
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/patch
+      methods:
+        - POST
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/recover
+      methods:
+        - POST
     - endpoint: api/v1/permission/project/?*
       methods:
         - GET
@@ -135,6 +141,9 @@ exemption_urls:
     - endpoint: api/aslan/cluster/clusters
       methods:
         - POST
+    - endpoint: api/aslan/cluster/agent/?*/upgrade
+      methods:
+        - GET
     - endpoint: api/aslan/cluster/clusters/?*
       methods:
         - PUT
@@ -384,4 +393,19 @@ exemption_urls:
         - DELETE
     - endpoint: api/v1/policybindings/bulk-delete
       methods:
+        - POST
+    - endpoint: api/aslan/project/pms/?*
+      methods:
+        - GET
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/project/pms/labels
+      methods:
+        - GET
+    - endpoint: api/aslan/project/pms/batch
+      methods:
+        - POST
+    - endpoint: api/aslan/project/pms
+      methods:
+        - GET
         - POST

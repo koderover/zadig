@@ -43,7 +43,7 @@ func (w *event) Unwrap() *corev1.Event {
 }
 
 func (w *event) Resource() *resource.Event {
-	return &resource.Event{
+	e := &resource.Event{
 		Reason:    w.Reason,
 		Message:   w.Message,
 		FirstSeen: w.FirstTimestamp.Unix(),
@@ -51,4 +51,9 @@ func (w *event) Resource() *resource.Event {
 		Count:     w.Count,
 		Type:      w.Type,
 	}
+	if (w.FirstTimestamp.IsZero() || w.LastTimestamp.IsZero()) && !w.EventTime.IsZero() {
+		e.FirstSeen = w.EventTime.Unix()
+		e.LastSeen = w.EventTime.Unix()
+	}
+	return e
 }

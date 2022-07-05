@@ -105,7 +105,7 @@ func reloadServiceTmplFromGit(svc *commonmodels.Service, log *zap.SugaredLogger)
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
 		},
-	}, log)
+	}, true, log)
 	return err
 }
 
@@ -289,7 +289,7 @@ func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(fmt.Sprintf("failed to get codehost:%d, err: %s", codehost, err))
 	}
-	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+	client, err := gitlabtool.NewClient(codehost.ID, codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -308,7 +308,7 @@ func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
-	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+	client, err := gitlabtool.NewClient(codehost.ID, codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())

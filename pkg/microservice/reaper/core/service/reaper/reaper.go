@@ -456,22 +456,22 @@ func (r *Reaper) AfterExec() error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 		for _, upload := range r.Ctx.UploadInfo {
-			info, err := os.Stat(upload.FilePath)
+			info, err := os.Stat(upload.AbsFilePath)
 			if err != nil {
-				return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %s", upload.FilePath, upload.DestinationPath, err)
+				return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %s", upload.AbsFilePath, upload.DestinationPath, err)
 			}
 			// if the given path is a directory
 			if info.IsDir() {
-				err := client.UploadDir(r.Ctx.UploadStorageInfo.Bucket, upload.FilePath, upload.DestinationPath)
+				err := client.UploadDir(r.Ctx.UploadStorageInfo.Bucket, upload.AbsFilePath, upload.DestinationPath)
 				if err != nil {
-					log.Errorf("Failed to upload dir [%s] to path [%s] on s3, the error is: %s", upload.FilePath, upload.DestinationPath, err)
+					log.Errorf("Failed to upload dir [%s] to path [%s] on s3, the error is: %s", upload.AbsFilePath, upload.DestinationPath, err)
 					return err
 				}
 			} else {
 				key := filepath.Join(upload.DestinationPath, info.Name())
-				err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, upload.FilePath, key)
+				err := client.Upload(r.Ctx.UploadStorageInfo.Bucket, upload.AbsFilePath, key)
 				if err != nil {
-					log.Errorf("Failed to upload [%s] to key [%s] on s3, the error is: %s", upload.FilePath, key, err)
+					log.Errorf("Failed to upload [%s] to key [%s] on s3, the error is: %s", upload.AbsFilePath, key, err)
 					return err
 				}
 			}

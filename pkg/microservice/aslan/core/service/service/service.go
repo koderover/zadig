@@ -684,7 +684,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	return nil
 }
 
-func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
+func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		ProductName:   args.ProductName,
@@ -702,52 +702,53 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 
 	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
-	if notFoundErr == nil {
-		if args.Type == setting.K8SDeployType && args.Source == serviceTmpl.Source {
-			// 配置来源为zadig，对比配置内容是否变化，需要对比Yaml内容
-			// 如果Source没有设置，默认认为是zadig平台管理配置方式
-			if args.Source == setting.SourceFromZadig || args.Source == "" {
-				if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
-					log.Info("Yaml config remains the same, quit creation.")
-					return GetServiceOption(serviceTmpl, log)
-				}
-			}
-			// 配置来源为Gitlab，对比配置的ChangeLog是否变化
-			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromGitee {
-				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Infof("%s change log remains the same, quit creation", args.Source)
-					return GetServiceOption(serviceTmpl, log)
-				}
-				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
-					log.Errorf("Changing load path is not allowed")
-					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
-				}
-			} else if args.Source == setting.SourceFromGerrit {
-				if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
-					log.Info("gerrit Yaml config remains the same, quit creation.")
-					return GetServiceOption(serviceTmpl, log)
-				}
-				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
-					log.Errorf("Changing load path is not allowed")
-					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
-				}
-				if err := updateGerritWebhookByService(serviceTmpl, args); err != nil {
-					log.Infof("gerrit update webhook err :%v", err)
-					return nil, err
-				}
-			}
-		} else if args.Source == setting.SourceFromGerrit {
-			err := GetGerritServiceYaml(args, log)
-			if err != nil {
-				log.Errorf("GetGerritServiceYaml from gerrit failed, error: %v", err)
-				return nil, err
-			}
-			//创建gerrit webhook
-			if err = createGerritWebhookByService(args.GerritCodeHostID, args.ServiceName, args.GerritRepoName, args.GerritBranchName); err != nil {
-				log.Errorf("createGerritWebhookByService error: %v", err)
-				return nil, err
-			}
-		}
+	if notFoundErr == nil && !force {
+		return nil, fmt.Errorf("service:%s already exists", serviceTmpl.ServiceName)
+		//if args.Type == setting.K8SDeployType && args.Source == serviceTmpl.Source {
+		//	// 配置来源为zadig，对比配置内容是否变化，需要对比Yaml内容
+		//	// 如果Source没有设置，默认认为是zadig平台管理配置方式
+		//	if args.Source == setting.SourceFromZadig || args.Source == "" {
+		//		if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
+		//			log.Info("Yaml config remains the same, quit creation.")
+		//			return GetServiceOption(serviceTmpl, log)
+		//		}
+		//	}
+		//	// 配置来源为Gitlab，对比配置的ChangeLog是否变化
+		//	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromGitee {
+		//		if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
+		//			log.Infof("%s change log remains the same, quit creation", args.Source)
+		//			return GetServiceOption(serviceTmpl, log)
+		//		}
+		//		if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
+		//			log.Errorf("Changing load path is not allowed")
+		//			return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
+		//		}
+		//	} else if args.Source == setting.SourceFromGerrit {
+		//		if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
+		//			log.Info("gerrit Yaml config remains the same, quit creation.")
+		//			return GetServiceOption(serviceTmpl, log)
+		//		}
+		//		if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
+		//			log.Errorf("Changing load path is not allowed")
+		//			return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
+		//		}
+		//		if err := updateGerritWebhookByService(serviceTmpl, args); err != nil {
+		//			log.Infof("gerrit update webhook err :%v", err)
+		//			return nil, err
+		//		}
+		//	}
+		//} else if args.Source == setting.SourceFromGerrit {
+		//	err := GetGerritServiceYaml(args, log)
+		//	if err != nil {
+		//		log.Errorf("GetGerritServiceYaml from gerrit failed, error: %v", err)
+		//		return nil, err
+		//	}
+		//	//创建gerrit webhook
+		//	if err = createGerritWebhookByService(args.GerritCodeHostID, args.ServiceName, args.GerritRepoName, args.GerritBranchName); err != nil {
+		//		log.Errorf("createGerritWebhookByService error: %v", err)
+		//		return nil, err
+		//	}
+		//}
 	} else {
 		if args.Source == setting.SourceFromGerrit {
 			//创建gerrit webhook
@@ -878,8 +879,8 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
 		return err
 	}
-	changeEnvStatus := []*commonmodels.EnvStatus{}
-	changeEnvConfigs := []*commonmodels.EnvConfig{}
+	var changeEnvStatus []*commonmodels.EnvStatus
+	var changeEnvConfigs []*commonmodels.EnvConfig
 
 	changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
 	envConfigsSet := sets.String{}
@@ -891,7 +892,7 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 			changeEnvConfigs = append(changeEnvConfigs, v)
 		}
 	}
-	privateKeys := []*commonmodels.PrivateKey{}
+	var privateKeys []*commonmodels.PrivateKey
 	for _, envConfig := range args.EnvConfigs {
 		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 		if err != nil {
@@ -1166,7 +1167,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 
 	if serviceType == setting.HelmDeployType {
 		// 更新helm renderset
-		err = removeServiceFromRenderset(productName, productName, serviceName)
+		err = removeServiceFromRenderset(productName, productName, "", serviceName)
 		if err != nil {
 			log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", productName, serviceName, err.Error())
 		}
@@ -1200,7 +1201,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			envNames := []string{"dev", "qa"}
 			for _, envName := range envNames {
 				rendersetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-				err := removeServiceFromRenderset(productName, rendersetName, serviceName)
+				err := removeServiceFromRenderset(productName, rendersetName, envName, serviceName)
 				if err != nil {
 					log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", rendersetName, serviceName, err.Error())
 				}
@@ -1214,8 +1215,8 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 }
 
 // remove specific services from rendersets.chartinfos
-func removeServiceFromRenderset(productName, renderName, serviceName string) error {
-	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
+func removeServiceFromRenderset(productName, renderName, envName, serviceName string) error {
+	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName, EnvName: envName}
 	if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
 		chartInfos := make([]*templatemodels.RenderChart, 0)
 		for _, chartInfo := range rs.ChartInfos {

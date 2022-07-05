@@ -21,36 +21,38 @@ import (
 	"errors"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type PvcColl struct {
+type EnvResourceColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewPvcColl() *PvcColl {
-	name := models.EnvPvc{}.TableName()
-	return &PvcColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+func NewEnvResourceColl() *EnvResourceColl {
+	name := models.EnvResource{}.TableName()
+	return &EnvResourceColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
-func (c *PvcColl) GetCollectionName() string {
+func (c *EnvResourceColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *PvcColl) EnsureIndex(ctx context.Context) error {
+func (c *EnvResourceColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "name", Value: 1},
 			bson.E{Key: "create_time", Value: 1},
 			bson.E{Key: "env_name", Value: 1},
+			bson.E{Key: "type", Value: 1},
 			bson.E{Key: "product_name", Value: 1},
 		},
 		Options: options.Index().SetUnique(true),
@@ -61,15 +63,27 @@ func (c *PvcColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *PvcColl) Create(args *models.EnvPvc, isCreateTime bool) error {
-	if isCreateTime {
+func (c *EnvResourceColl) Create(args *models.EnvResource) error {
+	if args.CreateTime == 0 {
 		args.CreateTime = time.Now().Unix()
 	}
 	_, err := c.InsertOne(context.TODO(), args)
 	return err
 }
 
-func (c *PvcColl) List(opt *ListEnvCfgOption) ([]*models.EnvPvc, error) {
+type QueryEnvResourceOption struct {
+	Id             string
+	CreateTime     string
+	IsSort         bool
+	ProductName    string
+	Namespace      string
+	EnvName        string
+	Name           string
+	Type           string
+	IgnoreNotFound bool
+}
+
+func (c *EnvResourceColl) List(opt *QueryEnvResourceOption) ([]*models.EnvResource, error) {
 	query := bson.M{}
 	if len(opt.ProductName) > 0 {
 		query["product_name"] = opt.ProductName
@@ -83,8 +97,11 @@ func (c *PvcColl) List(opt *ListEnvCfgOption) ([]*models.EnvPvc, error) {
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
 	}
+	if len(opt.Type) > 0 {
+		query["type"] = opt.Type
+	}
 
-	var resp []*models.EnvPvc
+	var resp []*models.EnvResource
 	ctx := context.Background()
 	opts := options.Find()
 	if opt.IsSort {
@@ -99,25 +116,11 @@ func (c *PvcColl) List(opt *ListEnvCfgOption) ([]*models.EnvPvc, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-func (c *PvcColl) Update(id string, services []string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return err
-	}
-
-	query := bson.M{"_id": oid}
-	change := bson.M{"$set": bson.M{
-		"services": services,
-	}}
-
-	_, err = c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
-	return err
-}
-
-func (c *PvcColl) Find(opt *FindEnvCfgOption) (*models.EnvPvc, error) {
+func (c *EnvResourceColl) Find(opt *QueryEnvResourceOption) (*models.EnvResource, error) {
 	if opt == nil {
 		return nil, errors.New("FindEnvCfgOption cannot be nil")
 	}
@@ -134,6 +137,9 @@ func (c *PvcColl) Find(opt *FindEnvCfgOption) (*models.EnvPvc, error) {
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
 	}
+	if len(opt.Type) > 0 {
+		query["type"] = opt.Type
+	}
 	if len(opt.Id) > 0 {
 		oid, err := primitive.ObjectIDFromHex(opt.Id)
 		if err != nil {
@@ -148,10 +154,23 @@ func (c *PvcColl) Find(opt *FindEnvCfgOption) (*models.EnvPvc, error) {
 		opts.SetSort(bson.D{{"create_time", -1}})
 	}
 
-	rs := &models.EnvPvc{}
+	rs := &models.EnvResource{}
 	err := c.FindOne(context.TODO(), query, opts).Decode(&rs)
 	if err != nil {
+		if err == mongo.ErrNoDocuments && opt.IgnoreNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return rs, err
+}
+
+func (c *EnvResourceColl) Delete(oid primitive.ObjectID) error {
+	query := bson.M{}
+	query["_id"] = oid
+	change := bson.M{"$set": bson.M{
+		"deleted_at": time.Now().Unix(),
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
 }
