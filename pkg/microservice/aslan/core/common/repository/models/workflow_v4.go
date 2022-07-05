@@ -19,11 +19,12 @@ package models
 import (
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"gopkg.in/yaml.v3"
 )
 
 type WorkflowV4 struct {
