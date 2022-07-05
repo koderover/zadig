@@ -86,7 +86,7 @@ type QueryEnvResourceOption struct {
 }
 
 type EnvResourceBaseData struct {
-	ProjectName string `bson:"product_name"`
+	ProductName string `bson:"product_name"`
 	EnvName     string `bson:"env_name"`
 	Name        string `bson:"name"`
 	Type        string `bson:"type"`
@@ -155,10 +155,7 @@ func (c *EnvResourceColl) Find(opt *QueryEnvResourceOption) (*models.EnvResource
 		query["type"] = opt.Type
 	}
 	if opt.Active {
-		query["deleted_at"] = bson.M{"$or": []bson.M{
-			bson.M{"deleted_at": bson.M{"$eq": 0}},
-			bson.M{"deleted_at": bson.M{"$eq": nil}},
-		}}
+		query["deleted_at"] = 0
 	}
 	if len(opt.Id) > 0 {
 		oid, err := primitive.ObjectIDFromHex(opt.Id)
@@ -226,10 +223,7 @@ func (c *EnvResourceColl) ListLatestResource(opt *QueryEnvResourceOption) ([]*En
 	)
 
 	pipeline = append(pipeline, bson.M{
-		"$match": bson.M{"$or": []bson.M{
-			bson.M{"deleted_at": bson.M{"$eq": 0}},
-			bson.M{"deleted_at": bson.M{"$eq": nil}},
-		}},
+		"$match": bson.M{"deleted_at": 0},
 	})
 
 	if opt.AutoSync {

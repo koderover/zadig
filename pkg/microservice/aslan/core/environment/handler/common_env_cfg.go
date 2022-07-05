@@ -149,15 +149,11 @@ func SyncEnvResource(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Param("envName")
-	resType := c.Param("type")
-	resName := c.Param("objectName")
-
 	args := &service.SyncEnvResourceArg{
-		EnvName:     envName,
+		EnvName:     c.Param("envName"),
 		ProductName: c.Query("projectName"),
-		Name:        resName,
-		Type:        resType,
+		Name:        c.Param("objectName"),
+		Type:        c.Param("type"),
 	}
 	ctx.Err = service.SyncEnvResource(args, ctx.Logger)
 }

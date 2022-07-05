@@ -21,10 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
-
-	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +34,7 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -45,6 +42,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type ResourceWithLabel interface {
@@ -379,10 +377,10 @@ type ListCommonEnvCfgHistoryArgs struct {
 }
 
 type SyncEnvResourceArg struct {
-	EnvName     string `json:"env_name"            form:"envName"`
-	ProductName string `json:"product_name"        form:"projectName"`
-	Name        string `json:"name"                form:"name"`
-	Type        string `json:"type"                form:"type"`
+	EnvName     string `json:"env_name"`
+	ProductName string `json:"product_name"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
 }
 
 type ListCommonEnvCfgHistoryRes struct {
@@ -487,7 +485,7 @@ func ListLatestEnvResources(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 	var listRes []*ListCommonEnvCfgHistoryRes
 	for _, resElem := range res {
 		listElem := &ListCommonEnvCfgHistoryRes{
-			ProductName: resElem.ID.ProjectName,
+			ProductName: resElem.ID.ProductName,
 			EnvName:     resElem.ID.EnvName,
 			Type:        resElem.ID.Type,
 			Name:        resElem.ID.Name,
@@ -499,8 +497,6 @@ func ListLatestEnvResources(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 }
 
 func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
-
-	log.Infof("########## syncing env resource: %+v", *args)
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
@@ -536,6 +532,9 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 		Path:       envResource.SourceDetail.LoadPath,
 		Branch:     repoConfig.Branch,
 	})
+	if err != nil {
+		return e.ErrUpdateResource.AddErr(err)
+	}
 
 	u, err := serializer.NewDecoder().YamlToUnstructured(yamlData)
 	if err != nil {
@@ -553,7 +552,6 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 	}
 
 	if equal {
-		log.Infof("yaml data all the same, no need to update")
 		return nil
 	}
 

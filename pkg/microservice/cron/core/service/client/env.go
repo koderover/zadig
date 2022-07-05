@@ -70,7 +70,7 @@ func (c *Client) ListEnvResources(productName, envName string, log *zap.SugaredL
 	url := fmt.Sprintf("%s/environment/envcfgs?autoSync=true&projectName=%s&envName=%s", c.APIBase, productName, envName)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Errorf("ListEnvs new http request error: %v", err)
+		log.Errorf("ListEnvResources new http request error: %s", err)
 		return nil, err
 	}
 
@@ -218,7 +218,7 @@ func (c *Client) SyncEnvResource(productName, envName, resType, resName string, 
 	url := fmt.Sprintf("%s/environment/envcfgs/%s/%s/%s/sync?projectName=%s", c.APIBase, envName, resType, resName, productName)
 	request, err := http.NewRequest("PUT", url, nil)
 	if err != nil {
-		log.Errorf("SyncEnvVariables new http request error: %v", err)
+		log.Errorf("SyncEnvResource new http request error: %v", err)
 		return err
 	}
 

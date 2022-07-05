@@ -192,7 +192,6 @@ func (c *ProductColl) ListWithOption(opt *ProductListOpt) ([]*template.Product, 
 		query["product_feature.basic_facility"] = opt.BasicFacility
 	}
 	if opt.DeployType != "" {
-		//query["product_feature.deploy_type"] = opt.DeployType
 		query["product_feature.deploy_type"] = bson.M{"$in": strings.Split(opt.DeployType, ",")}
 	}
 

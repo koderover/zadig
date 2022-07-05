@@ -99,6 +99,6 @@ func (c *CronClient) RunScheduledEnvResourceUpdate(productName, envName, resType
 	log.Infof("start to Run RunScheduledEnvResourceUpdate, productName: %s, envName: %s, resType: %s, resName: %s", productName, envName, resType, resName)
 	err := c.AslanCli.SyncEnvResource(productName, envName, resType, resName, log)
 	if err != nil {
-		log.Errorf("failed to sync variables for env: %s:%s", productName, envName)
+		log.Warnf("failed to sync variables for env: %s:%s", productName, envName)
 	}
 }
