@@ -94,10 +94,10 @@ func ListWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	workflowList, total, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, args.PageNum, args.PageSize, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
-		Total:        total,
+		Total:        0,
 	}
 	ctx.Resp = resp
 	ctx.Err = err

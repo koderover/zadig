@@ -31,7 +31,8 @@ import (
 )
 
 type ListWorkflowTaskV4Option struct {
-	WorkflowName string
+	WorkflowName  string
+	WorkflowNames []string
 }
 
 type WorkflowTaskv4Coll struct {
@@ -67,6 +68,7 @@ func (c *WorkflowTaskv4Coll) EnsureIndex(ctx context.Context) error {
 		{
 			Keys: bson.D{
 				bson.E{Key: "workflow_name", Value: 1},
+				bson.E{Key: "is_archived", Value: 1},
 				bson.E{Key: "is_deleted", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
@@ -100,6 +102,11 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option, pageNum, pageSi
 	if opt.WorkflowName != "" {
 		query["workflow_name"] = opt.WorkflowName
 	}
+	if opt.WorkflowNames != nil {
+		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
+	}
+	query["is_archived"] = false
+	query["is_deleted"] = false
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return nil, 0, err

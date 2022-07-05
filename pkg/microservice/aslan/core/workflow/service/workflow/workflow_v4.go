@@ -122,46 +122,101 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 		logger.Errorf("Failed to delete WorkflowV4: %s, the error is: %v", name, err)
 		return e.ErrDeleteWorkflow.AddErr(err)
 	}
-
+	if err := commonrepo.NewworkflowTaskv4Coll().DeleteByWorkflowName(name); err != nil {
+		logger.Errorf("Failed to delete WorkflowV4 task: %s, the error is: %v", name, err)
+		return e.ErrDeleteWorkflow.AddErr(err)
+	}
 	if err := commonrepo.NewCounterColl().Delete("WorkflowTaskV4:" + name); err != nil {
 		log.Errorf("Counter.Delete error: %s", err)
 	}
 	return nil
 }
 
-func ListWorkflowV4(projectName, userID string, pageNum, pageSize int64, logger *zap.SugaredLogger) ([]*Workflow, int64, error) {
+func ListWorkflowV4(projectName, userID string, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
-	workflowV4List, total, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
+	workflowV4List, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
 		ProjectName: projectName,
-	}, pageNum, pageSize)
+	}, 0, 0)
 	if err != nil {
 		logger.Errorf("Failed to list workflow v4, the error is: %s", err)
-		return resp, 0, err
+		return resp, err
 	}
 
 	workflow, err := ListWorkflows([]string{projectName}, userID, []string{}, logger)
 	if err != nil {
-		return resp, 0, err
+		return resp, err
+	}
+	workflowList := []string{}
+	for _, wV4 := range workflowV4List {
+		workflowList = append(workflowList, wV4.Name)
 	}
 	resp = append(resp, workflow...)
+	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList}, 0, 0)
+	if err != nil {
+		return resp, err
+	}
 
-	for _, workflow := range workflowV4List {
+	for _, workflowModel := range workflowV4List {
 		stages := []string{}
-		for _, stage := range workflow.Stages {
+		for _, stage := range workflowModel.Stages {
 			stages = append(stages, stage.Name)
 		}
-		resp = append(resp, &Workflow{
-			Name:          workflow.Name,
-			ProjectName:   workflow.Project,
+		workflow := &Workflow{
+			Name:          workflowModel.Name,
+			ProjectName:   workflowModel.Project,
 			EnabledStages: stages,
-			CreateTime:    workflow.CreateTime,
-			UpdateTime:    workflow.UpdateTime,
-			UpdateBy:      workflow.UpdatedBy,
+			CreateTime:    workflowModel.CreateTime,
+			UpdateTime:    workflowModel.UpdateTime,
+			UpdateBy:      workflowModel.UpdatedBy,
 			WorkflowType:  "common_workflow",
-			Description:   workflow.Description,
-		})
+			Description:   workflowModel.Description,
+		}
+		getRecentTaskInfo(workflow, tasks)
+
+		resp = append(resp, workflow)
 	}
-	return resp, total, nil
+	return resp, nil
+}
+
+func getRecentTaskInfo(workflow *Workflow, tasks []*commonmodels.WorkflowTask) {
+	recentTask := &commonmodels.WorkflowTask{}
+	recentFailedTask := &commonmodels.WorkflowTask{}
+	recentSucceedTask := &commonmodels.WorkflowTask{}
+	for _, task := range tasks {
+		if task.WorkflowName != workflow.Name {
+			continue
+		}
+		if task.TaskID > recentTask.TaskID {
+			recentTask = task
+		}
+		if task.Status == config.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
+			recentSucceedTask = task
+		}
+		if task.Status == config.StatusFailed && task.TaskID > recentFailedTask.TaskID {
+			recentFailedTask = task
+		}
+	}
+	if recentTask.TaskID > 0 {
+		workflow.RecentTask = &TaskInfo{
+			TaskID:       recentTask.TaskID,
+			PipelineName: recentTask.WorkflowName,
+			Status:       string(recentTask.Status),
+		}
+	}
+	if recentSucceedTask.TaskID > 0 {
+		workflow.RecentSuccessfulTask = &TaskInfo{
+			TaskID:       recentSucceedTask.TaskID,
+			PipelineName: recentSucceedTask.WorkflowName,
+			Status:       string(recentSucceedTask.Status),
+		}
+	}
+	if recentFailedTask.TaskID > 0 {
+		workflow.RecentFailedTask = &TaskInfo{
+			TaskID:       recentFailedTask.TaskID,
+			PipelineName: recentFailedTask.WorkflowName,
+			Status:       string(recentFailedTask.Status),
+		}
+	}
 }
 
 func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
