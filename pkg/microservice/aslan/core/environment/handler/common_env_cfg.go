@@ -141,7 +141,6 @@ func ListLatestEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-
 	ctx.Resp, ctx.Err = service.ListLatestEnvResources(args, ctx.Logger)
 }
 

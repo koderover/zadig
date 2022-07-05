@@ -550,7 +550,6 @@ func ListLatestEnvResources(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 }
 
 func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
-
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -565,7 +564,7 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 		Type:        args.Type,
 	})
 	if err != nil {
-		return e.ErrUpdateResource.AddErr(fmt.Errorf("failed to find env resource: %s:%s of env: %s:%s", args.Type, args.Name, args.ProductName, args.EnvName))
+		return e.ErrUpdateResource.AddErr(fmt.Errorf("failed to find env resource: %s:%s of env: %s:%s, err: %s", args.Type, args.Name, args.ProductName, args.EnvName, err))
 	}
 
 	if !envResource.AutoSync {
