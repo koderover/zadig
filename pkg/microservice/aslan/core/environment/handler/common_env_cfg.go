@@ -125,7 +125,7 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 
 	args := new(service.ListCommonEnvCfgHistoryArgs)
 	args.EnvName = c.Param("envName")
-	args.ProductName = c.Query("projectName")
+	args.ProjectName = c.Query("projectName")
 	args.CommonEnvCfgType = config.CommonEnvCfgType(c.Query("commonEnvCfgType"))
 	args.Name = c.Param("objectName")
 

@@ -423,9 +423,9 @@ func UpdateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 
 type ListCommonEnvCfgHistoryArgs struct {
 	EnvName          string                  `json:"env_name"            form:"envName"`
-	ProductName      string                  `json:"product_name"        form:"projectName"`
+	ProjectName      string                  `json:"project_name"        form:"projectName"`
 	Name             string                  `json:"name"                form:"name"`
-	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type" form:"CommonEnvCfgType"`
+	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type" form:"commonEnvCfgType"`
 	AutoSync         bool                    `json:"auto_sync"           form:"autoSync"`
 }
 
@@ -473,7 +473,7 @@ func ListEnvResourceHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
+		Name:    args.ProjectName,
 		EnvName: args.EnvName,
 	})
 	if err != nil {
@@ -498,7 +498,7 @@ func ListEnvResourceHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 
 	opts := &commonrepo.QueryEnvResourceOption{
 		IsSort:      true,
-		ProductName: args.ProductName,
+		ProductName: args.ProjectName,
 		EnvName:     args.EnvName,
 		Name:        args.Name,
 		Type:        string(args.CommonEnvCfgType),
@@ -526,7 +526,7 @@ func ListEnvResourceHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 
 func ListLatestEnvResources(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredLogger) ([]*ListCommonEnvCfgHistoryRes, error) {
 	opts := &commonrepo.QueryEnvResourceOption{
-		ProductName: args.ProductName,
+		ProductName: args.ProjectName,
 		EnvName:     args.EnvName,
 		Name:        args.Name,
 		AutoSync:    args.AutoSync,

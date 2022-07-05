@@ -225,10 +225,6 @@ func (c *Client) SyncEnvResource(productName, envName, resType, resName string, 
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()
-		_, err := ioutil.ReadAll(ret.Body)
-		if err != nil {
-			return errors.WithMessage(err, "failed to sync product variables ")
-		}
 	}
 	return nil
 }
