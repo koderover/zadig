@@ -171,14 +171,14 @@ func ListWorkflowV4(projectName, userID string, logger *zap.SugaredLogger) ([]*W
 			WorkflowType:  "common_workflow",
 			Description:   workflowModel.Description,
 		}
-		getRecentTaskInfo(workflow, tasks)
+		getRecentTaskV4Info(workflow, tasks)
 
 		resp = append(resp, workflow)
 	}
 	return resp, nil
 }
 
-func getRecentTaskInfo(workflow *Workflow, tasks []*commonmodels.WorkflowTask) {
+func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask) {
 	recentTask := &commonmodels.WorkflowTask{}
 	recentFailedTask := &commonmodels.WorkflowTask{}
 	recentSucceedTask := &commonmodels.WorkflowTask{}

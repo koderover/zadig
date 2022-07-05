@@ -77,7 +77,8 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 
 	value, ok := cancelChannelMap.Load(fmt.Sprintf("%s-%d", workflowName, taskID))
 	if !ok {
-		return fmt.Errorf("no mactched task found, id: %d, workflow name: %s", taskID, workflowName)
+		logger.Errorf("no mactched task found, id: %d, workflow name: %s", taskID, workflowName)
+		return nil
 	}
 	if f, ok := value.(context.CancelFunc); ok {
 		f()
@@ -194,7 +195,12 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := Remove(q); err != nil {
 			c.logger.Errorf("remove queue task: %s:%d error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
-		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(c.workflowTask.WorkflowName, 100); err != nil {
+		result, err := commonrepo.NewStrategyColl().GetByTarget(commonmodels.WorkflowTaskRetention)
+		if err != nil {
+			c.logger.Errorf("get workflow task retention strategy error: %s", err)
+			result = commonmodels.DefaultWorkflowTaskRetention
+		}
+		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(c.workflowTask.WorkflowName, result.Retention.MaxItems, result.Retention.MaxDays); err != nil {
 			c.logger.Errorf("ArchiveHistoryWorkflowTask error: %v", err)
 		}
 	}

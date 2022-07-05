@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -203,13 +204,21 @@ func (c *WorkflowTaskv4Coll) DeleteByWorkflowName(workflowName string) error {
 	return err
 }
 
-func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, remain int) error {
+func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, remain, remainDays int) error {
+	if remain == 0 && remainDays == 0 {
+		return nil
+	}
 	query := bson.M{"workflow_name": workflowName, "is_deleted": false}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return err
 	}
-	query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
+	if remain > 0 {
+		query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
+	}
+	if remainDays > 0 {
+		query["create_time"] = bson.M{"$lt": time.Now().AddDate(0, 0, -remainDays).Unix()}
+	}
 	change := bson.M{"$set": bson.M{
 		"is_archived": true,
 	}}
