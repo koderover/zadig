@@ -34,7 +34,8 @@ import (
 )
 
 const (
-	JobNameRegx = "^[a-z][a-z0-9-]{0,31}$"
+	JobNameRegx  = "^[a-z][a-z0-9-]{0,31}$"
+	WorkflowRegx = "^[a-z0-9-]{1,32}$"
 )
 
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
@@ -169,6 +170,16 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		logger.Errorf(err.Error())
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
+	match, err := regexp.MatchString(WorkflowRegx, workflow.Name)
+	if err != nil {
+		logger.Errorf("reg compile failed: %v", err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	if !match {
+		err := fmt.Errorf("workflow name should match %s", WorkflowRegx)
+		logger.Errorf(err.Error())
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
 	project, err := templaterepo.NewProductColl().Find(workflow.Project)
 	if err != nil {
 		logger.Errorf("Failed to get project %s, error: %v", workflow.Project, err)
@@ -181,8 +192,11 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 			return e.ErrUpsertWorkflow.AddDesc("common workflow only support k8s and helm project")
 		}
 	}
-	stageNameMap := make(map[string]bool, 0)
-	jobNameMap := make(map[string]string, 0)
+	stageNameMap := make(map[string]bool)
+	jobNameMap := make(map[string]string)
+	// deploy job can not qoute a build job which runs after it.
+	buildJobNameMap := make(map[string]string)
+
 	reg, err := regexp.Compile(JobNameRegx)
 	if err != nil {
 		logger.Errorf("reg compile failed: %v", err)
@@ -195,8 +209,13 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 			logger.Errorf("duplicated stage name: %s", stage.Name)
 			return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated job name: %s", stage.Name))
 		}
-
+		stageBuildJobNameMap := make(map[string]string)
 		for _, job := range stage.Jobs {
+			if !stage.Parallel {
+				buildJobNameMap[job.Name] = string(job.JobType)
+			} else {
+				stageBuildJobNameMap[job.Name] = string(job.JobType)
+			}
 			if match := reg.MatchString(job.Name); !match {
 				logger.Errorf("job name [%s] did not match %s", job.Name, JobNameRegx)
 				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, JobNameRegx))
@@ -217,13 +236,16 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 				if spec.Source != config.SourceFromJob {
 					continue
 				}
-				jobType, ok := jobNameMap[spec.JobName]
+				jobType, ok := buildJobNameMap[spec.JobName]
 				if !ok || jobType != string(config.JobZadigBuild) {
-					errMsg := fmt.Sprintf("build job %s not found", spec.JobName)
+					errMsg := fmt.Sprintf("can not quote job %s in job %s", spec.JobName, job.Name)
 					logger.Error(errMsg)
-					return e.ErrCreateTask.AddDesc(errMsg)
+					return e.ErrUpsertWorkflow.AddDesc(errMsg)
 				}
 			}
+		}
+		for k, v := range stageBuildJobNameMap {
+			buildJobNameMap[k] = v
 		}
 	}
 	return nil
