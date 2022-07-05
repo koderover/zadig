@@ -46,6 +46,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/workflows/id/:id/pipelines/:name", GetWorkflowTaskSSE)
 		sse.GET("/tasks/running", RunningPipelineTasksSSE)
 		sse.GET("/tasks/pending", PendingPipelineTasksSSE)
+		sse.GET("/workflowTasks/running", RunningWorkflowTasksSSE)
+		sse.GET("/workflowTasks/pending", PendingWorkflowTasksSSE)
 		sse.GET("/tasks/id/:id/pipelines/:name", GetPipelineTaskSSE)
 		sse.GET("/workflowtask/v3/id/:id/name/:name", GetWorkflowTaskV3SSE)
 	}
@@ -161,6 +163,33 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
 		taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
 		taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// 新版本 通用工作流（暂命名） 接口
+	// ---------------------------------------------------------------------------------------
+	workflowV4 := router.Group("v4")
+	{
+		workflowV4.POST("", CreateWorkflowV4)
+		workflowV4.GET("", ListWorkflowV4)
+		workflowV4.POST("/lint", LintWorkflowV4)
+		workflowV4.GET("/name/:name", FindWorkflowV4)
+		workflowV4.PUT("/:name", UpdateWorkflowV4)
+		workflowV4.DELETE("/:name", DeleteWorkflowV4)
+		workflowV4.GET("/preset/:name", GetWorkflowV4Preset)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// workflow v4 任务接口
+	// ---------------------------------------------------------------------------------------
+	taskV4 := router.Group("v4/workflowtask")
+	{
+		taskV4.POST("", CreateWorkflowTaskV4)
+		taskV4.GET("", ListWorkflowTaskV4)
+		taskV4.GET("/workflow/:workflowName/task/:taskID", GetWorkflowTaskV4)
+		taskV4.DELETE("/workflow/:workflowName/task/:taskID", CancelWorkflowTaskV4)
+		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)
+		taskV4.POST("/approve", ApproveStage)
 	}
 
 	bundles := router.Group("bundle-resources")

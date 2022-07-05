@@ -58,6 +58,7 @@ resource-server.build.amd64:
 	@cp docker/service/resource-server.Dockerfile docker/dist/amd64/resource-server.Dockerfile
 	@sed -i -e '/#nginx.Dockerfile/ {' -e 'r docker/base/amd64/nginx.Dockerfile' -e 'd' -e '}' docker/dist/amd64/resource-server.Dockerfile
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o docker/dist/reaper cmd/reaper/main.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o docker/dist/jobexecutor cmd/jobexecutor/main.go
 	@docker build -f docker/dist/amd64/resource-server.Dockerfile --tag ${MAKE_IMAGE} .
 
 resource-server.upload.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/resource-server:${VERSION}-amd64

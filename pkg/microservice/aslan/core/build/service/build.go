@@ -40,6 +40,7 @@ type BuildResp struct {
 	ID          string                              `json:"id"`
 	Name        string                              `json:"name"`
 	Targets     []*commonmodels.ServiceModuleTarget `json:"targets"`
+	KeyVals     []*commonmodels.KeyVal              `json:"key_vals"`
 	UpdateTime  int64                               `json:"update_time"`
 	UpdateBy    string                              `json:"update_by"`
 	Pipelines   []string                            `json:"pipelines"`
@@ -141,8 +142,9 @@ func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger)
 			var resp []*BuildResp
 			for _, build := range buildModules {
 				resp = append(resp, &BuildResp{
-					ID:   build.ID.Hex(),
-					Name: build.Name,
+					ID:      build.ID.Hex(),
+					Name:    build.Name,
+					KeyVals: build.PreBuild.Envs,
 				})
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{

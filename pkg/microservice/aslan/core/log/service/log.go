@@ -55,6 +55,15 @@ func GetWorkflowBuildJobContainerLogs(pipelineName, serviceName, buildType strin
 	return buildLog, nil
 }
 
+func GetWorkflowV4JobContainerLogs(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	buildJobNamePrefix := jobName
+	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
+	if err != nil {
+		return "", err
+	}
+	return buildLog, nil
+}
+
 func GetTestJobContainerLogs(pipelineName, serviceName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	taskName := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineName, taskID, config.TaskTestingV2, serviceName)
 	return getContainerLogFromS3(pipelineName, taskName, taskID, log)

@@ -110,6 +110,7 @@ const (
 	StatusChanged    Status = "changed"
 	StatusNotRun     Status = "notRun"
 	StatusPrepare    Status = "prepare"
+	StatusReject     Status = "reject"
 )
 
 type TaskStatus string
@@ -146,6 +147,53 @@ const (
 	TaskTrigger         TaskType = "trigger"
 	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
+)
+
+type StepType string
+
+const (
+	StepTools             StepType = "tools"
+	StepShell             StepType = "shell"
+	StepGit               StepType = "git"
+	StepDockerBuild       StepType = "docker_build"
+	StepDeploy            StepType = "deploy"
+	StepHelmDeploy        StepType = "helm_deploy"
+	StepImageDistribute   StepType = "image_distribute"
+	StepArchive           StepType = "archive"
+	StepArchiveDistribute StepType = "archive_distribute"
+	StepJunitReport       StepType = "junit_report"
+	StepHtmlReport        StepType = "html_report"
+)
+
+type JobType string
+
+const (
+	JobBuild       JobType = "build"
+	JobDeploy      JobType = "deploy"
+	JobZadigBuild  JobType = "zadig-build"
+	JobZadigDeploy JobType = "zadig-deploy"
+	JobFreestyle   JobType = "freestyle"
+)
+
+type ApproveOrReject string
+
+const (
+	Approve ApproveOrReject = "approve"
+	Reject  ApproveOrReject = "reject"
+)
+
+type DeploySourceType string
+
+const (
+	SourceRuntime DeploySourceType = "runtime"
+	SourceFromJob DeploySourceType = "fromjob"
+)
+
+type StageType string
+
+const (
+	StageCustom  StageType = "custom"
+	StepApproval StageType = "approval"
 )
 
 type DistributeType string
