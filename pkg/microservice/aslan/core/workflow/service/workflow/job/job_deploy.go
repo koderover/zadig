@@ -90,6 +90,26 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, fmt.Errorf("env %s not exists", j.spec.Env)
 	}
 
+	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return resp, err
+	}
+
+	productServiceMap := product.GetServiceMap()
+
+	if project.ProductFeature != nil && project.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(j.workflow.Project, j.spec.Env)
+		if err != nil {
+			return resp, err
+		}
+		for _, service := range productServices {
+			productServiceMap[service.ServiceName] = &commonmodels.ProductService{
+				ServiceName: service.ServiceName,
+				Containers:  service.Containers,
+			}
+		}
+	}
+
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		for _, stage := range j.workflow.Stages {
@@ -113,6 +133,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	if j.spec.DeployType == setting.K8SDeployType {
 		for _, deploy := range j.spec.ServiceAndImages {
+			if err := checkServiceAndContainerExsistsInEnv(productServiceMap, deploy.ServiceName, deploy.ServiceModule, j.spec.Env); err != nil {
+				return resp, err
+			}
 			jobTask := &commonmodels.JobTask{
 				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + j.job.Name),
 				JobType: string(config.JobZadigDeploy),
@@ -140,9 +163,8 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			deployServiceMap[deploy.ServiceName] = append(deployServiceMap[deploy.ServiceName], deploy)
 		}
 		for serviceName, deploys := range deployServiceMap {
-
 			var serviceRevision int64
-			if pSvc, ok := product.GetServiceMap()[serviceName]; ok {
+			if pSvc, ok := productServiceMap[serviceName]; ok {
 				serviceRevision = pSvc.Revision
 			}
 
@@ -173,6 +195,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ReleaseName: releaseName,
 			}
 			for _, deploy := range deploys {
+				if err := checkServiceAndContainerExsistsInEnv(productServiceMap, serviceName, deploy.ServiceModule, j.spec.Env); err != nil {
+					return resp, err
+				}
 				helmDeploySpec.ImageAndModules = append(helmDeploySpec.ImageAndModules, &step.ImageAndServiceModule{
 					ServiceModule: deploy.ServiceModule,
 					Image:         deploy.Image,
@@ -187,4 +212,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	j.job.Spec = j.spec
 	return resp, nil
+}
+
+func checkServiceAndContainerExsistsInEnv(serviceMap map[string]*commonmodels.ProductService, serviceName, serviceModule, env string) error {
+	if service, ok := serviceMap[serviceName]; !ok {
+		return fmt.Errorf("service %s not exists in env %s", serviceName, env)
+	} else {
+		for _, container := range service.Containers {
+			if container.Name == serviceModule {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("service %s module %s not exists in env %s", serviceName, serviceModule, env)
 }
