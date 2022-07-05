@@ -77,6 +77,7 @@ type CreateUpdateCommonEnvCfgArgs struct {
 	GitRepoConfig        *templatemodels.GitRepoConfig `json:"git_repo_config"`
 	SourceDetail         *CreateFromRepo               `json:"-"`
 	AutoSync             bool                          `json:"auto_sync"`
+	LatestEnvResource    *EnvResource                  `json:"-"`
 }
 
 type RenderInfo struct {

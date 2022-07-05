@@ -41,7 +41,7 @@ func needCreateSchedule(rendersetObj *service.ProductRenderset) bool {
 }
 
 func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
-	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{DeployType: setting.HelmDeployType})
+	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{DeployType: []string{setting.HelmDeployType}})
 	if err != nil {
 		log.Error(err)
 		return

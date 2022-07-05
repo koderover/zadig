@@ -125,9 +125,34 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 
 	args := new(service.ListCommonEnvCfgHistoryArgs)
 	args.EnvName = c.Param("envName")
-	args.ProductName = c.Query("projectName")
+	args.ProjectName = c.Query("projectName")
 	args.CommonEnvCfgType = config.CommonEnvCfgType(c.Query("commonEnvCfgType"))
 	args.Name = c.Param("objectName")
 
 	ctx.Resp, ctx.Err = service.ListEnvResourceHistory(args, ctx.Logger)
+}
+
+func ListLatestEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.ListCommonEnvCfgHistoryArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.ListLatestEnvResources(args, ctx.Logger)
+}
+
+func SyncEnvResource(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.SyncEnvResourceArg{
+		EnvName:     c.Param("envName"),
+		ProductName: c.Query("projectName"),
+		Name:        c.Param("objectName"),
+		Type:        c.Param("type"),
+	}
+	ctx.Err = service.SyncEnvResource(args, ctx.Logger)
 }

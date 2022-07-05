@@ -50,6 +50,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	commonEnvCfgs := router.Group("envcfgs")
 	{
 		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.GET("", ListLatestEnvCfg)
+		commonEnvCfgs.PUT("/:envName/:type/:objectName/sync", SyncEnvResource)
 		commonEnvCfgs.PUT("/:envName", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
 		commonEnvCfgs.POST("/:envName", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
 		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)

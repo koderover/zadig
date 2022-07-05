@@ -40,11 +40,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
 
 type ListConfigMapArgs struct {
@@ -71,33 +69,11 @@ type UpdateConfigMapArgs struct {
 	Services             []string `json:"services"`
 }
 
-type configMap struct {
-	Name              string            `json:"name"`
-	Data              map[string]string `json:"data"`
-	ModifiedBy        string            `json:"modifiedBy"`
-	CreationTimestamp string            `json:"creationTimestamp"`
-	LastUpdateTime    string            `json:"lastUpdateTime"`
-	lastUpdateTime    time.Time
-}
-
 type ListConfigMapRes struct {
 	*ResourceResponseBase
 	CmName    string            `json:"cm_name"`
 	Immutable bool              `json:"immutable"`
 	CmData    map[string]string `json:"cm_data"`
-}
-
-func generateConfigMapResponse(cm *corev1.ConfigMap) *configMap {
-	icm := wrapper.ConfigMap(cm)
-	u, _ := icm.LastUpdateTime()
-	return &configMap{
-		Name:              icm.Name,
-		Data:              icm.Data,
-		ModifiedBy:        icm.ModifiedBy(),
-		CreationTimestamp: util.FormatTime(icm.CreationTimestamp.Time),
-		LastUpdateTime:    util.FormatTime(u),
-		lastUpdateTime:    u,
-	}
 }
 
 func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListConfigMapRes, error) {

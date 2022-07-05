@@ -81,6 +81,20 @@ type QueryEnvResourceOption struct {
 	Name           string
 	Type           string
 	IgnoreNotFound bool
+	AutoSync       bool
+	Active         bool
+}
+
+type EnvResourceBaseData struct {
+	ProductName string `bson:"product_name"`
+	EnvName     string `bson:"env_name"`
+	Name        string `bson:"name"`
+	Type        string `bson:"type"`
+}
+
+type EnvResourceAggregateData struct {
+	ID         EnvResourceBaseData `bson:"_id"`
+	CreateTime int64               `bson:"create_time"`
 }
 
 func (c *EnvResourceColl) List(opt *QueryEnvResourceOption) ([]*models.EnvResource, error) {
@@ -140,6 +154,9 @@ func (c *EnvResourceColl) Find(opt *QueryEnvResourceOption) (*models.EnvResource
 	if len(opt.Type) > 0 {
 		query["type"] = opt.Type
 	}
+	if opt.Active {
+		query["deleted_at"] = 0
+	}
 	if len(opt.Id) > 0 {
 		oid, err := primitive.ObjectIDFromHex(opt.Id)
 		if err != nil {
@@ -163,6 +180,68 @@ func (c *EnvResourceColl) Find(opt *QueryEnvResourceOption) (*models.EnvResource
 		return nil, err
 	}
 	return rs, err
+}
+
+func (c *EnvResourceColl) ListLatestResource(opt *QueryEnvResourceOption) ([]*EnvResourceAggregateData, error) {
+	query := bson.M{}
+	if len(opt.ProductName) > 0 {
+		query["product_name"] = opt.ProductName
+	}
+	if len(opt.Namespace) > 0 {
+		query["namespace"] = opt.Namespace
+	}
+	if len(opt.EnvName) > 0 {
+		query["env_name"] = opt.EnvName
+	}
+	if len(opt.Name) > 0 {
+		query["name"] = opt.Name
+	}
+	if len(opt.Type) > 0 {
+		query["type"] = opt.Type
+	}
+
+	var pipeline []bson.M
+	if len(query) > 0 {
+		pipeline = append(pipeline, bson.M{"$match": query})
+	}
+
+	pipeline = append(pipeline,
+		bson.M{"$sort": bson.M{"create_time": -1}},
+		bson.M{
+			"$group": bson.M{
+				"_id": bson.M{
+					"product_name": "$product_name",
+					"env_name":     "$env_name",
+					"name":         "$name",
+					"type":         "$type",
+				},
+				"create_time": bson.M{"$first": "$create_time"},
+				"deleted_at":  bson.M{"$first": "$deleted_at"},
+				"auto_sync":   bson.M{"$first": "$auto_sync"},
+			},
+		},
+	)
+
+	pipeline = append(pipeline, bson.M{
+		"$match": bson.M{"deleted_at": 0},
+	})
+
+	if opt.AutoSync {
+		pipeline = append(pipeline, bson.M{
+			"$match": bson.M{"auto_sync": true},
+		})
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*EnvResourceAggregateData, 0)
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return nil, err
+	}
+	return result, err
 }
 
 func (c *EnvResourceColl) Delete(oid primitive.ObjectID) error {

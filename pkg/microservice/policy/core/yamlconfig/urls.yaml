@@ -300,6 +300,12 @@ exemption_urls:
     - endpoint: api/v1/system-policybindings/?*
       methods:
         - DELETE
+    - endpoint: api/aslan/environment/envcfgs
+      methods:
+        - GET
+    - endpoint: api/aslan/environment/envcfgs/?*/sync
+      methods:
+        - PUT
   project_admin:
     - endpoint: api/aslan/project/products
       methods:
