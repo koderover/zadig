@@ -153,7 +153,7 @@ func (c *TaskColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "is_archived", Value: 1},
 				bson.E{Key: "is_deleted", Value: 1},
 			},
-			Options: options.Index().SetUnique(false),
+			Options: options.Index().SetUnique(false).SetBackground(true),
 		},
 	}
 
