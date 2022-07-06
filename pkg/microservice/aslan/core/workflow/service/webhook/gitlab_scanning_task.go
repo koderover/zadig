@@ -48,10 +48,6 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
 			log.Infof("find %d hooks in scanning %s", len(scanning.AdvancedSetting.HookCtl.Items), scanning.Name)
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {
-				// 1. print scanning hook info
-				log.Infof(">>>>>>>>>    matching webhook for scanning info   <<<<<<<<")
-				log.Infof("hook info: repoBranch[%s]", item.Branch)
-				log.Infof("hook info: repoEvents[%+v]", item.Events)
 				// 2. match webhook
 				matcher := createGitlabEventMatcherForScanning(event, diffSrv, scanning, log)
 				if matcher == nil {
@@ -145,7 +141,6 @@ type gitlabPushEventMatcherForScanning struct {
 }
 
 func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
-	gpem.log.Infof("Matching for push event")
 	ev := gpem.event
 	if hookRepo == nil {
 		return false, nil
@@ -154,10 +149,11 @@ func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHoo
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
 		if !EventConfigured(matchRepo, config.HookEventPush) {
-			gpem.log.Infof(" push event is not configured  !!!!!!!!!!!!")
 			return false, nil
 		}
-		gpem.log.Infof(" push event is configured  !!!!!!!!!!!!")
+		if hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
 
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
 		var changedFiles []string
