@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -57,6 +58,9 @@ func (j *BuildJob) SetPreset() error {
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 		if err != nil {
+			return err
+		}
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
 			return err
 		}
 		for _, target := range buildInfo.Targets {
@@ -113,6 +117,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 		if err != nil {
+			return resp, err
+		}
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
 			return resp, err
 		}
 		jobTask.Properties = commonmodels.JobProperties{
@@ -324,4 +331,41 @@ func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
 		resp.Protocol = "http"
 	}
 	return resp
+}
+
+func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string) error {
+	if moduleBuild.TemplateID == "" {
+		return nil
+	}
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		ID: moduleBuild.TemplateID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+	}
+
+	moduleBuild.Timeout = buildTemplate.Timeout
+	moduleBuild.PreBuild = buildTemplate.PreBuild
+	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.Scripts = buildTemplate.Scripts
+	moduleBuild.PostBuild = buildTemplate.PostBuild
+	moduleBuild.SSHs = buildTemplate.SSHs
+	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
+	moduleBuild.CacheEnable = buildTemplate.CacheEnable
+	moduleBuild.CacheDirType = buildTemplate.CacheDirType
+	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
+	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+
+	// repos are configured by service modules
+	for _, serviceConfig := range moduleBuild.Targets {
+		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
+			moduleBuild.Repos = serviceConfig.Repos
+			if moduleBuild.PreBuild == nil {
+				moduleBuild.PreBuild = &commonmodels.PreBuild{}
+			}
+			moduleBuild.PreBuild.Envs = commonservice.MergeBuildEnvs(moduleBuild.PreBuild.Envs, serviceConfig.Envs)
+			break
+		}
+	}
+	return nil
 }
