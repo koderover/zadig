@@ -137,7 +137,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				return resp, err
 			}
 			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + j.job.Name),
+				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + "-" + j.job.Name),
 				JobType: string(config.JobZadigDeploy),
 			}
 			deployStep := &commonmodels.StepTask{
