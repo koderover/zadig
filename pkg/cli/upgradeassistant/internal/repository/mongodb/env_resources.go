@@ -39,6 +39,9 @@ func NewEnvResourceColl() *EnvResourceColl {
 }
 
 func (c *EnvResourceColl) BatchInsert(resources []*models.EnvResource) error {
+	if len(resources) == 0 {
+		return nil
+	}
 	resList := make([]interface{}, 0, len(resources))
 	for _, res := range resources {
 		resList = append(resList, res)
