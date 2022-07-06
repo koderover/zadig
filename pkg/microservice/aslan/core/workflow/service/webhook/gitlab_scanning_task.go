@@ -177,7 +177,6 @@ type gitlabMergeEventMatcherForScanning struct {
 }
 
 func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
-	gmem.log.Infof(" Matching for merge event !!!!!!!!!!!!")
 	ev := gmem.event
 	if hookRepo == nil {
 		return false, nil
@@ -186,10 +185,8 @@ func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHo
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 		if !EventConfigured(matchRepo, config.HookEventPr) {
-			gmem.log.Infof(" merge event is not configured  !!!!!!!!!!!!")
 			return false, nil
 		}
-		gmem.log.Infof(" merge event is configured  !!!!!!!!!!!!")
 
 		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
 
