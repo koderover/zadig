@@ -152,6 +152,10 @@ func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHoo
 			return false, nil
 		}
 
+		if hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
+
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
 		var changedFiles []string
 		for _, commit := range ev.Commits {
