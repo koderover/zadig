@@ -17,6 +17,8 @@ limitations under the License.
 package webhook
 
 import (
+	"strconv"
+
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -25,7 +27,6 @@ import (
 	scanningservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
-	"strconv"
 )
 
 type gitEventMatcherForScanning interface {
@@ -114,6 +115,10 @@ func (gpem githubPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
 		if !EventConfigured(matchRepo, config.HookEventPush) {
+			return false, nil
+		}
+
+		if hookRepo.Branch != getBranchFromRef(*ev.Ref) {
 			return false, nil
 		}
 
