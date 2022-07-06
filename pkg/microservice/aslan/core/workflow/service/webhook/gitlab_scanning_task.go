@@ -151,6 +151,9 @@ func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHoo
 		if !EventConfigured(matchRepo, config.HookEventPush) {
 			return false, nil
 		}
+		if hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
 
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
 		var changedFiles []string
