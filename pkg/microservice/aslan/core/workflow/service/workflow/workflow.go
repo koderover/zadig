@@ -18,7 +18,6 @@ package workflow
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -404,41 +403,29 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 		log.Errorf("[Build.List] error: %v", err)
 		return nil, e.ErrListBuildModule.AddErr(err)
 	}
-	for k, v := range targets {
-		// 选择了一个特殊字符在项目名称、服务名称以及服务组件名称里面都不允许的特殊字符，避免出现异常
-		targetArr := strings.Split(k, SplitSymbol)
-		if len(targetArr) != 3 {
-			continue
-		}
-
-		preSet := &PreSetResp{
-			Target: &commonmodels.ServiceModuleTarget{
-				ProductName:   targetArr[0],
-				ServiceName:   targetArr[1],
-				ServiceModule: targetArr[2],
-			},
-			Deploy:          v,
-			BuildModuleVers: []string{},
-			Repos:           make([]*types.Repository, 0),
-		}
-
-		for _, mo := range moList {
-			for _, moTarget := range mo.Targets {
-				moduleTargetStr := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
-				if moduleTargetStr == k {
-					if mo.TemplateID != "" {
-						preSet.Repos = moTarget.Repos
-					} else {
-						preSet.Repos = mo.SafeRepos()
-					}
-					preSet.Target.BuildName = mo.Name
+	for _, mo := range moList {
+		for _, moTarget := range mo.Targets {
+			target := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
+			if v, ok := targets[target]; ok {
+				preSet := &PreSetResp{
+					Target: &commonmodels.ServiceModuleTarget{
+						ProductName:   moTarget.ProductName,
+						ServiceName:   moTarget.ServiceName,
+						ServiceModule: moTarget.ServiceModule,
+						BuildName:     mo.Name,
+					},
+					Deploy:          v,
+					BuildModuleVers: []string{},
+					Repos:           make([]*types.Repository, 0),
 				}
+				if mo.TemplateID != "" {
+					preSet.Repos = moTarget.Repos
+				} else {
+					preSet.Repos = mo.SafeRepos()
+				}
+				resp = append(resp, preSet)
 			}
 		}
-		for _, repo := range preSet.Repos {
-			repo.RepoNamespace = repo.GetRepoNamespace()
-		}
-		resp = append(resp, preSet)
 	}
 	return resp, nil
 }
