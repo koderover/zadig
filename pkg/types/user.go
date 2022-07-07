@@ -47,6 +47,6 @@ type RoleBinding struct {
 }
 
 type UserCountByType struct {
-	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
-	Count        int64  `json:"count"`
+	IdentityType string `gorm:"default:'unknown'" json:"identity_type" gorm:"identity_type"`
+	Count        int64  `json:"count" gorm:"count"`
 }
