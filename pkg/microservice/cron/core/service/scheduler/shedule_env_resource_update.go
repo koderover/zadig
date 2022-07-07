@@ -37,6 +37,7 @@ func (c *CronClient) deleteEnvResourceScheduler(envResourceKey string) {
 	log.Infof("deleting single env resource scheduler: %s", envResourceKey)
 	if _, ok := c.SchedulerController[envResourceKey]; ok {
 		c.SchedulerController[envResourceKey] <- true
+		delete(c.SchedulerController, envResourceKey)
 	}
 	if _, ok := c.Schedulers[envResourceKey]; ok {
 		c.Schedulers[envResourceKey].Clear()
@@ -48,7 +49,7 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 
 	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{DeployType: []string{setting.HelmDeployType, setting.K8SDeployType}})
 	if err != nil {
-		log.Error(err)
+		log.Errorf("failed to list envs for env resource update: %s", err)
 		return
 	}
 
@@ -92,6 +93,7 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 
 	for _, k := range lastScheduler.List() {
 		c.deleteEnvResourceScheduler(k)
+		delete(c.lastEnvResourceSchedulerData, k)
 	}
 }
 
