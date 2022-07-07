@@ -47,8 +47,12 @@ func ListBuildModules(c *gin.Context) {
 func ListBuildModulesByServiceModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	var excludeJenkins bool
+	if c.Query("excludeJenkins") == "true" {
+		excludeJenkins = true
+	}
 
-	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("projectName"), c.Query("excludeJenkins"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("projectName"), excludeJenkins, ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {
