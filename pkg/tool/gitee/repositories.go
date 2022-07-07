@@ -43,6 +43,7 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(accessToken, keyword strin
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
+	// api reference: https://gitee.com/api/v5/swagger#/getV5UserRepos
 	url := "/v5/user/repos"
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
@@ -66,6 +67,7 @@ func (c *Client) ListRepositoriesForOrg(accessToken, org string, page, perPage i
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
+	// api reference: https://gitee.com/api/v5/swagger#/getV5OrgsOrgRepos
 	url := fmt.Sprintf("/v5/orgs/%s/repos", org)
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
