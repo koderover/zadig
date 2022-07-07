@@ -27,6 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -75,6 +76,7 @@ func (j *BuildJob) SetPreset() error {
 }
 
 func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
@@ -163,11 +165,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if buildInfo.PostBuild.DockerBuild != nil {
 			dockefileContent := ""
 			if buildInfo.PostBuild.DockerBuild.TemplateID != "" {
-				dockerfileTemplate, err := commonrepo.NewDockerfileTemplateColl().GetById(buildInfo.PostBuild.DockerBuild.TemplateID)
-				if err != nil {
-					return resp, nil
+				if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(buildInfo.PostBuild.DockerBuild.TemplateID, logger); err == nil {
+					dockefileContent = dockerfileDetail.Content
 				}
-				dockefileContent = dockerfileTemplate.Content
 			}
 
 			dockerBuildStep := &commonmodels.StepTask{
