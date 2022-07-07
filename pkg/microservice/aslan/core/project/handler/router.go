@@ -63,7 +63,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	project := router.Group("projects")
 	{
 		project.GET("", ListProjects)
-		product.POST("/clear", gin2.UpdateOperationLogStatus, ClearProject)
 	}
 
 	pms := router.Group("pms")
