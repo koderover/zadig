@@ -141,6 +141,14 @@ func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger)
 			}
 			var resp []*BuildResp
 			for _, build := range buildModules {
+				// get build env vars when it's a template build
+				if build.TemplateID != "" {
+					for _, target := range build.Targets {
+						if target.ServiceModule == container.Name && target.ServiceName == serviceTmpl.ServiceName {
+							build.PreBuild.Envs = target.Envs
+						}
+					}
+				}
 				resp = append(resp, &BuildResp{
 					ID:      build.ID.Hex(),
 					Name:    build.Name,
