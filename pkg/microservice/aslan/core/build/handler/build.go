@@ -48,7 +48,7 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("projectName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("projectName"), c.Query("filterJenkins"), ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {

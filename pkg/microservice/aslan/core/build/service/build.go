@@ -118,7 +118,7 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	return resp, nil
 }
 
-func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
+func ListBuildModulesByServiceModule(productName, filterJenkins string, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return nil, e.ErrListBuildModule.AddErr(err)
@@ -141,6 +141,9 @@ func ListBuildModulesByServiceModule(productName string, log *zap.SugaredLogger)
 			}
 			var resp []*BuildResp
 			for _, build := range buildModules {
+				if filterJenkins == "true" && build.JenkinsBuild != nil {
+					continue
+				}
 				// get build env vars when it's a template build
 				if build.TemplateID != "" {
 					for _, target := range build.Targets {
