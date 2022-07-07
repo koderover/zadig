@@ -72,7 +72,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			return nil, err
 		}
 		if ch.Type == setting.SourceFromOther {
-			return []*GitRepoInfo{}, nil
+			continue
 		}
 		codehostClient, err := open.OpenClient(ch, log)
 		if err != nil {
