@@ -153,9 +153,9 @@ func UpdateUser(uid string, user *models.User, db *gorm.DB) error {
 
 func CountUserByType(db *gorm.DB) ([]*types.UserCountByType, error) {
 	var resp []*types.UserCountByType
-	err := db.Model(&models.User{}).Debug().Select("count(*) as count, identity_type").Group("identity_type").Find(&resp).Error
+	err := db.Model(&models.User{}).Select("count(*) as count, identity_type").Group("identity_type").Find(&resp)
 	if err != nil {
-		return nil, err
+		return nil, err.Error
 	}
 	return resp, nil
 }
