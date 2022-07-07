@@ -523,6 +523,8 @@ metas:
             endpoint: /api/aslan/workflow/v3
           - method: POST
             endpoint: /api/aslan/workflow/v4
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/lint
       - action: delete_workflow
         alias: 删除
         description: ''
