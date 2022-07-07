@@ -17,11 +17,11 @@ limitations under the License.
 package orm
 
 import (
-	"github.com/koderover/zadig/pkg/types"
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // CreateUser create a user
@@ -153,7 +153,7 @@ func UpdateUser(uid string, user *models.User, db *gorm.DB) error {
 
 func CountUserByType(db *gorm.DB) ([]*types.UserCountByType, error) {
 	var resp []*types.UserCountByType
-	err := db.Model(&models.User{}).Select("count(*) as count, identity_type").Find(&resp)
+	err := db.Model(&models.User{}).Select("count(*) as count, identity_type").Group("identity_type").Find(&resp)
 	if err != nil {
 		return nil, err.Error
 	}
