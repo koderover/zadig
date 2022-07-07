@@ -596,5 +596,8 @@ func GetUserCount(logger *zap.SugaredLogger) ([]*types.UserCountByType, error) {
 		logger.Errorf("Failed to count user by type from db, the error is: %s", err.Error())
 		return nil, err
 	}
+	for _, res := range resp {
+		logger.Infof("res is: %+v", res)
+	}
 	return resp, nil
 }
