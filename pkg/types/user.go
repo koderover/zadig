@@ -45,3 +45,8 @@ type RoleBinding struct {
 	Preset bool                 `json:"preset"`
 	Type   setting.ResourceType `json:"type"`
 }
+
+type UserCountByType struct {
+	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
+	Count        int64  `json:"count"`
+}
