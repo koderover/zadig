@@ -93,8 +93,9 @@ func ListWorkflowV4(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+	workflowNames, _ := internalhandler.GetResourcesInHeader(c)
 
-	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, workflowNames, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,

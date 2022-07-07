@@ -86,6 +86,7 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 	if opt.ProjectName != "" {
 		query["project"] = opt.ProjectName
 	}
+
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return nil, 0, err
