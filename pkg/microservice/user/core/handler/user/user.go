@@ -34,6 +34,13 @@ func SyncLdapUser(c *gin.Context) {
 	ctx.Err = user.SearchAndSyncUser(ldapID, ctx.Logger)
 }
 
+func CountSystemUsers(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = user.GetUserCount(ctx.Logger)
+}
+
 func GetUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

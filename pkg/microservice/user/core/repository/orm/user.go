@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // CreateUser create a user
@@ -148,4 +149,13 @@ func UpdateUser(uid string, user *models.User, db *gorm.DB) error {
 		return err
 	}
 	return nil
+}
+
+func CountUserByType(db *gorm.DB) ([]*types.UserCountByType, error) {
+	var resp []*types.UserCountByType
+	err := db.Model(&models.User{}).Select("count(*) as count, identity_type").Group("identity_type").Find(&resp).Error
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
