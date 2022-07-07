@@ -48,7 +48,7 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(accessToken, keyword strin
 	queryParams["access_token"] = accessToken
 	//queryParams["visibility"] = "all"
 	//queryParams["affiliation"] = "owner"
-	queryParams["type"] = "owner"
+	queryParams["type"] = "personal"
 	queryParams["q"] = keyword
 	queryParams["page"] = strconv.Itoa(page)
 	queryParams["per_page"] = strconv.Itoa(perPage)
