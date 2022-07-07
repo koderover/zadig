@@ -142,10 +142,14 @@ func ListWorkflowV4(projectName, userID string, names []string, logger *zap.Suga
 		return resp, err
 	}
 
-	workflow, err := ListWorkflows([]string{projectName}, userID, names, logger)
-	if err != nil {
-		return resp, err
+	workflow := []*Workflow{}
+	if len(names) > 0 {
+		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
+		if err != nil {
+			return resp, err
+		}
 	}
+
 	workflowList := []string{}
 	for _, wV4 := range workflowV4List {
 		workflowList = append(workflowList, wV4.Name)
