@@ -17,6 +17,7 @@ limitations under the License.
 package orm
 
 import (
+	"github.com/koderover/zadig/pkg/types"
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core"
@@ -148,4 +149,13 @@ func UpdateUser(uid string, user *models.User, db *gorm.DB) error {
 		return err
 	}
 	return nil
+}
+
+func CountUserByType(db *gorm.DB) ([]*types.UserCountByType, error) {
+	var resp []*types.UserCountByType
+	err := db.Model(&models.User{}).Select("count(*) as count, identity_type").Find(&resp)
+	if err != nil {
+		return nil, err.Error
+	}
+	return resp, nil
 }
