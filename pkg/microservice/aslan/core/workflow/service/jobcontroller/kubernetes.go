@@ -198,9 +198,10 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			Labels: labels,
 		},
 		Spec: batchv1.JobSpec{
-			Completions:  int32Ptr(1),
-			Parallelism:  int32Ptr(1),
-			BackoffLimit: int32Ptr(0),
+			Completions:             int32Ptr(1),
+			Parallelism:             int32Ptr(1),
+			BackoffLimit:            int32Ptr(0),
+			TTLSecondsAfterFinished: int32Ptr(60),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
