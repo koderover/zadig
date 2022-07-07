@@ -464,6 +464,23 @@ metas:
             endpoint: /api/aslan/workflow/v3/?*/args
           - method: GET
             endpoint: /api/aslan/workflow/servicetask/workflows/?*/?*/?*/?*
+          - method: GET
+            endpoint: api/aslan/workflow/v4
+            filter: true
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/name/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/preset/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/workflowtask
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/workflowtask/workflow/?*/task/?*
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/workflowtask/clone/workflow/?*/task/?*
+          - method: GET
+            endpoint: /api/aslan/logs/log/v4/workflow/?*/tasks/?*/jobs/?*
+          - method: GET
+            endpoint: /api/aslan/logs/sse/v4/workflow/?*/tasks/?*/jobs/?*
       - action: edit_workflow
         alias: 编辑
         description: ''
@@ -480,6 +497,10 @@ metas:
             endpoint: /api/aslan/workflow/v3/?*
           - method: GET
             endpoint: /api/aslan/build/build/serviceModule
+          - method: PUT
+            endpoint: /api/aslan/workflow/v4/?*
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/lint
       - action: create_workflow
         alias: 新建
         description: ''
@@ -500,6 +521,8 @@ metas:
             endpoint: /api/aslan/testing/testdetail
           - method: POST
             endpoint: /api/aslan/workflow/v3
+          - method: POST
+            endpoint: /api/aslan/workflow/v4
       - action: delete_workflow
         alias: 删除
         description: ''
@@ -508,6 +531,8 @@ metas:
             endpoint: /api/aslan/workflow/workflow/?*
           - method: DELETE
             endpoint: /api/aslan/workflow/v3/?*
+          - method: DELETE
+            endpoint: /api/aslan/workflow/v4/?*
       - action: run_workflow
         alias: 执行
         description: ''
@@ -538,6 +563,12 @@ metas:
             endpoint: /api/aslan/workflow/v3/workflowtask/id/?*/name/?*/restart
           - method: DELETE
             endpoint: /api/aslan/workflow/v3/workflowtask/id/?*/name/?*
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/workflowtask
+          - method: DELETE
+            endpoint: /api/aslan/workflow/v4/workflowtask/workflow/?*/task/?*
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/workflowtask/approve
   - resource: Environment
     alias: 环境
     description: ''
