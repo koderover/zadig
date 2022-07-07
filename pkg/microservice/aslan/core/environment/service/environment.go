@@ -3505,17 +3505,18 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 		return svcNameSet.Has(svc.ServiceName)
 	}
 
+	productResp.Render.Revision = renderSet.Revision
+	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
+		log.Errorf("Failed to update env, err: %s", err)
+		return err
+	}
+
 	err = proceedHelmRelease(productName, envName, productResp, renderSet, helmClient, filter, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err
 	}
 
-	productResp.Render.Revision = renderSet.Revision
-	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
-		log.Errorf("Failed to update env, err: %s", err)
-		return err
-	}
 	return nil
 }
 
@@ -3807,11 +3808,8 @@ func proceedHelmRelease(productName, envName string, productResp *commonmodels.P
 			log.Errorf("Failed to update service group %d. Error: %v", groupIndex, err)
 			return err
 		}
-		if errList.ErrorOrNil() != nil {
-			return errList.ErrorOrNil()
-		}
 	}
-	return nil
+	return errList.ErrorOrNil()
 }
 
 func setFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fields ...string) map[string]interface{} {
