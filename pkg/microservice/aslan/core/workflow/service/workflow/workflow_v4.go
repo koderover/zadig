@@ -132,7 +132,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func ListWorkflowV4(projectName, userID string, names []string, logger *zap.SugaredLogger) ([]*Workflow, error) {
+func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
 	workflowV4List, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
 		ProjectName: projectName,
@@ -143,7 +143,8 @@ func ListWorkflowV4(projectName, userID string, names []string, logger *zap.Suga
 	}
 
 	workflow := []*Workflow{}
-	if len(names) > 0 {
+
+	if !ignoreWorkflow {
 		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
 		if err != nil {
 			return resp, err
