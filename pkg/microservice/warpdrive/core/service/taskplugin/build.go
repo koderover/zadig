@@ -248,8 +248,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 
 	// Since we allow users to use custom environment variables, variable resolution is required.
-	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == types.NFSMedium &&
-		pipelineCtx.CacheDirType == types.UserDefinedCacheDir {
+	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == types.NFSMedium {
 		pipelineCtx.CacheUserDir = p.renderEnv(pipelineCtx.CacheUserDir)
 		pipelineCtx.Cache.NFSProperties.Subpath = p.renderEnv(pipelineCtx.Cache.NFSProperties.Subpath)
 	}
