@@ -198,11 +198,12 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			Labels: labels,
 		},
 		Spec: batchv1.JobSpec{
-			Completions:             int32Ptr(1),
-			Parallelism:             int32Ptr(1),
-			BackoffLimit:            int32Ptr(0),
-			TTLSecondsAfterFinished: int32Ptr(60),
-			// in case zombie job never stop.
+			Completions:  int32Ptr(1),
+			Parallelism:  int32Ptr(1),
+			BackoffLimit: int32Ptr(0),
+			// in case finished zombie job not cleaned up by zadig
+			TTLSecondsAfterFinished: int32Ptr(3600),
+			// in case zombie job never stop
 			ActiveDeadlineSeconds: int64Ptr(jobTask.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
