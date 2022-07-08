@@ -93,9 +93,13 @@ func ListWorkflowV4(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	workflowNames, _ := internalhandler.GetResourcesInHeader(c)
+	ignoreWorkflow := false
+	workflowNames, found := internalhandler.GetResourcesInHeader(c)
+	if found && len(workflowNames) == 0 {
+		ignoreWorkflow = true
+	}
 
-	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, workflowNames, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, workflowNames, ignoreWorkflow, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,
