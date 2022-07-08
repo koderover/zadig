@@ -23,14 +23,18 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	templ "text/template"
+	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -38,8 +42,13 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util/converter"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+)
+
+const (
+	InterceptCommitID = 8
 )
 
 type yamlPreview struct {
@@ -785,6 +794,130 @@ type Variable struct {
 	REPO_TAG       string
 	REPO_BRANCH    string
 	REPO_PR        string
+}
+
+type candidate struct {
+	Branch      string
+	Tag         string
+	CommitID    string
+	PR          int
+	TaskID      int64
+	Timestamp   string
+	ProductName string
+	ServiceName string
+	ImageName   string
+	EnvName     string
+}
+
+// releaseCandidate 根据 TaskID 生成编译镜像Tag或者二进制包后缀
+// TODO: max length of a tag is 128
+func ReleaseCandidate(builds []*types.Repository, taskID int64, productName, serviceName, envName, imageName, deliveryType string) string {
+	timeStamp := time.Now().Format("20060102150405")
+
+	if imageName == "" {
+		imageName = serviceName
+	}
+	if len(builds) == 0 {
+		switch deliveryType {
+		case config.TarResourceType:
+			return fmt.Sprintf("%s-%s", serviceName, timeStamp)
+		default:
+			return fmt.Sprintf("%s:%s", imageName, timeStamp)
+		}
+	}
+
+	first := builds[0]
+	for index, build := range builds {
+		if build.IsPrimary {
+			first = builds[index]
+		}
+	}
+
+	// 替换 Tag 和 Branch 中的非法字符为 "-", 避免 docker build 失败
+	var (
+		reg             = regexp.MustCompile(`[^\w.-]`)
+		customImageRule *template.CustomRule
+		customTarRule   *template.CustomRule
+		commitID        = first.CommitID
+	)
+
+	if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
+		log.Errorf("find project err:%s", err)
+	} else {
+		customImageRule = project.CustomImageRule
+		customTarRule = project.CustomTarRule
+	}
+
+	if len(commitID) > InterceptCommitID {
+		commitID = commitID[0:InterceptCommitID]
+	}
+
+	candidate := &candidate{
+		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
+		CommitID:    commitID,
+		PR:          first.PR,
+		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
+		EnvName:     envName,
+		Timestamp:   timeStamp,
+		TaskID:      taskID,
+		ProductName: productName,
+		ServiceName: serviceName,
+		ImageName:   imageName,
+	}
+	switch deliveryType {
+	case config.TarResourceType:
+		newTarRule := replaceVariable(customTarRule, candidate)
+		if strings.Contains(newTarRule, ":") {
+			return strings.Replace(newTarRule, ":", "-", -1)
+		}
+		return newTarRule
+	default:
+		return replaceVariable(customImageRule, candidate)
+	}
+}
+
+// There are four situations in total
+// 1.Execute workflow selection tag build
+// 2.Execute workflow selection branch and pr build
+// 3.Execute workflow selection branch pr build
+// 4.Execute workflow selection branch build
+func replaceVariable(customRule *template.CustomRule, candidate *candidate) string {
+	var currentRule string
+	if candidate.Tag != "" {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
+		}
+		currentRule = customRule.TagRule
+	} else if candidate.Branch != "" && candidate.PR != 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
+		}
+		currentRule = customRule.PRAndBranchRule
+	} else if candidate.Branch == "" && candidate.PR != 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
+		}
+		currentRule = customRule.PRRule
+	} else if candidate.Branch != "" && candidate.PR == 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
+		}
+		currentRule = customRule.BranchRule
+	}
+
+	currentRule = ReplaceRuleVariable(currentRule, &Variable{
+		SERVICE:        candidate.ServiceName,
+		IMAGE_NAME:     candidate.ImageName,
+		TIMESTAMP:      candidate.Timestamp,
+		TASK_ID:        strconv.FormatInt(candidate.TaskID, 10),
+		REPO_COMMIT_ID: candidate.CommitID,
+		PROJECT:        candidate.ProductName,
+		ENV_NAME:       candidate.EnvName,
+		REPO_TAG:       candidate.Tag,
+		REPO_BRANCH:    candidate.Branch,
+		REPO_PR:        strconv.Itoa(candidate.PR),
+	})
+	return currentRule
 }
 
 func ReplaceRuleVariable(rule string, replaceValue *Variable) string {
