@@ -130,6 +130,8 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	workflowTask.CreateTime = time.Now().Unix()
 	workflowTask.WorkflowName = workflow.Name
 	workflowTask.ProjectName = workflow.Project
+	workflowTask.KeyVals = workflow.KeyVals
+	workflowTask.MultiRun = workflow.MultiRun
 
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
