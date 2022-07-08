@@ -258,6 +258,7 @@ func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 		Envs:         envVars,
 		SecretEnvs:   secretEnvVars,
 		WorkflowName: workflowCtx.WorkflowName,
+		Workspace:    workflowCtx.Workspace,
 		TaskID:       workflowCtx.TaskID,
 		Outputs:      outputs,
 		Steps:        job.Steps,
