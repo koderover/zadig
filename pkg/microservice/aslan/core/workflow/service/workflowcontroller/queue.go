@@ -258,7 +258,7 @@ func updateQueueAndRunTask(t *commonmodels.WorkflowQueue, jobConcurrency int) er
 		logger.Errorf("%s:%d get workflow task error: %v", t.WorkflowName, t.TaskID, err)
 		return fmt.Errorf("%s:%d get workflow task error: %v", t.WorkflowName, t.TaskID, err)
 	}
-	workflowTask.Status = t.Status
+	workflowTask.Status = config.StatusQueued
 	if success := UpdateQueue(workflowTask); !success {
 		logger.Errorf("%s:%d update t status error", t.WorkflowName, t.TaskID)
 		return fmt.Errorf("%s:%d update t status error", t.WorkflowName, t.TaskID)
