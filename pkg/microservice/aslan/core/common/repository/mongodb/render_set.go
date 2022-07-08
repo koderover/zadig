@@ -207,19 +207,24 @@ func (c *RenderSetColl) Find(opt *RenderSetFindOption) (*models.RenderSet, error
 	query := bson.M{"name": opt.Name}
 	opts := options.FindOne()
 	if opt.Revision > 0 {
+		// revisionName + revision are enough to locate the target record
+		// there is no need to set other query condition
+		// Note. the query logic has been rolled back to 1.12.0
 		query["revision"] = opt.Revision
 	} else {
 		opts.SetSort(bson.D{{"revision", -1}})
-	}
 
-	if len(opt.ProductTmpl) > 0 {
-		query["product_tmpl"] = opt.ProductTmpl
-	}
-	if len(opt.EnvName) > 0 {
-		query["env_name"] = opt.EnvName
-	}
-	if opt.IsDefault {
-		query["is_default"] = opt.IsDefault
+		if len(opt.EnvName) > 0 {
+			query["env_name"] = opt.EnvName
+		}
+
+		if len(opt.ProductTmpl) > 0 {
+			query["product_tmpl"] = opt.ProductTmpl
+		}
+
+		if opt.IsDefault {
+			query["is_default"] = opt.IsDefault
+		}
 	}
 
 	rs := &models.RenderSet{}
