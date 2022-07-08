@@ -201,6 +201,10 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			Completions:  int32Ptr(1),
 			Parallelism:  int32Ptr(1),
 			BackoffLimit: int32Ptr(0),
+			// in case finished zombie job not cleaned up by zadig
+			TTLSecondsAfterFinished: int32Ptr(3600),
+			// in case zombie job never stop
+			ActiveDeadlineSeconds: int64Ptr(jobTask.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -397,6 +401,7 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+func int64Ptr(i int64) *int64 { return &i }
 
 func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
