@@ -2500,7 +2500,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				}
-				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, taskOpt.ImageName, "image"))
+				t.JobCtx.Image = GetImage(reg, commonservice.ReleaseCandidate(t.JobCtx.Builds, taskOpt.Task.TaskID, taskOpt.Task.ProductName, t.ServiceName, taskOpt.EnvName, taskOpt.ImageName, "image"))
 				taskOpt.Task.TaskArgs.Deploy.Image = t.JobCtx.Image
 
 				if taskOpt.ServiceName != "" {
@@ -2521,7 +2521,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				// 二进制文件名称
 				// 编译任务使用 t.JobCtx.PackageFile
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.PackageFile 获取, 必须要有编译任务
-				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, taskOpt.ImageName, "tar"))
+				t.JobCtx.PackageFile = GetPackageFile(commonservice.ReleaseCandidate(t.JobCtx.Builds, taskOpt.Task.TaskID, taskOpt.Task.ProductName, t.ServiceName, taskOpt.EnvName, taskOpt.ImageName, "tar"))
 				taskOpt.Task.TaskArgs.Deploy.PackageFile = t.JobCtx.PackageFile
 
 				// 注入编译模块中用户定义环境变量

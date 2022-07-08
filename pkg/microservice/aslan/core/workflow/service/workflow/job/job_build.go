@@ -21,13 +21,13 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -76,6 +76,7 @@ func (j *BuildJob) SetPreset() error {
 }
 
 func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
@@ -94,22 +95,18 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
-		imageTag := time.Now().Format("20060102150405")
-		for _, repo := range build.Repos {
-			imageTag = repo.GetReleaseCandidateTag(taskID)
-			break
-		}
+		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceName, "", build.ServiceModule, "image")
 
 		if len(registry.Namespace) > 0 {
-			build.Image = fmt.Sprintf("%s/%s/%s:%s", registry.RegAddr, registry.Namespace, build.ServiceModule, imageTag)
+			build.Image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
 		} else {
-			build.Image = fmt.Sprintf("%s/%s:%s", registry.RegAddr, build.ServiceModule, imageTag)
+			build.Image = fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 		}
 
 		build.Image = strings.TrimPrefix(build.Image, "http://")
 		build.Image = strings.TrimPrefix(build.Image, "https://")
 
-		build.Package = fmt.Sprintf("%s-%s-%s-%d.tar.gz", j.job.Name, build.ServiceModule, time.Now().Format("20060102150405"), taskID)
+		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceName, "", build.ServiceModule, "tar"))
 
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
@@ -168,11 +165,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if buildInfo.PostBuild.DockerBuild != nil {
 			dockefileContent := ""
 			if buildInfo.PostBuild.DockerBuild.TemplateID != "" {
-				dockerfileTemplate, err := commonrepo.NewDockerfileTemplateColl().GetById(buildInfo.PostBuild.DockerBuild.TemplateID)
-				if err != nil {
-					return resp, nil
+				if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(buildInfo.PostBuild.DockerBuild.TemplateID, logger); err == nil {
+					dockefileContent = dockerfileDetail.Content
 				}
-				dockefileContent = dockerfileTemplate.Content
 			}
 
 			dockerBuildStep := &commonmodels.StepTask{
@@ -231,6 +226,20 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				}
 				jobTask.Steps = append(jobTask.Steps, archiveStep)
 			}
+		}
+
+		// init psot build shell step
+		if buildInfo.PostBuild.Scripts != "" {
+			scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
+			shellStep := &commonmodels.StepTask{
+				Name:     build.ServiceName + "-post-shell",
+				JobName:  jobTask.Name,
+				StepType: config.StepShell,
+				Spec: &step.StepShellSpec{
+					Scripts: scripts,
+				},
+			}
+			jobTask.Steps = append(jobTask.Steps, shellStep)
 		}
 		resp = append(resp, jobTask)
 	}
