@@ -65,12 +65,19 @@ type Repository struct {
 
 type BranchFilterInfo struct {
 	// repository identifier
-	CodehostID int    `bson:"codehost_id"  json:"codehost_id"`
-	RepoOwner  string `bson:"repo_owner"   json:"repo_owner"`
-	RepoName   string `bson:"repo_name"    json:"repo_name"`
-
+	CodehostID    int    `bson:"codehost_id"  json:"codehost_id"`
+	RepoOwner     string `bson:"repo_owner"   json:"repo_owner"`
+	RepoName      string `bson:"repo_name"    json:"repo_name"`
+	RepoNamespace string `bson:"repo_namespace" json:"repo_namespace"`
 	// actual regular expression filter
 	FilterRegExp string `bson:"filter_regexp" json:"filter_regexp"`
+}
+
+func (bf *BranchFilterInfo) GetNamespace() string {
+	if len(bf.RepoNamespace) > 0 {
+		return bf.RepoNamespace
+	}
+	return bf.RepoOwner
 }
 
 // GetReleaseCandidateTag 返回待发布对象Tag

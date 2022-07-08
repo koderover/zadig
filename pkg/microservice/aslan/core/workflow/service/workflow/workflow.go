@@ -335,6 +335,12 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 		}
 	}
 
+	for _, module := range resp.BuildStage.Modules {
+		for _, bf := range module.BranchFilter {
+			bf.RepoNamespace = bf.GetNamespace()
+		}
+	}
+
 	return resp, nil
 }
 
