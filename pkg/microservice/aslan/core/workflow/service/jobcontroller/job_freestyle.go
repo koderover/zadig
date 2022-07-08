@@ -117,10 +117,6 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 
 	c.job.Properties.DockerHost = dockerHost
 
-	// TODO: inject vars like task_id and etc, passing them into c.job.Properties.Args
-	envNameVar := &commonmodels.KeyVal{Key: "ENV_NAME", Value: c.job.Properties.Namespace, IsCredential: false}
-	c.job.Properties.Args = append(c.job.Properties.Args, envNameVar)
-
 	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.job, c.workflowCtx, c.logger))
 	if err != nil {
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
