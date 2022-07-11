@@ -108,6 +108,15 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Containers:  service.Containers,
 			}
 		}
+		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: j.workflow.Project,
+			EnvName:     j.spec.Env,
+		})
+		for _, service := range servicesInExternalEnv {
+			productServiceMap[service.ServiceName] = &commonmodels.ProductService{
+				ServiceName: service.ServiceName,
+			}
+		}
 	}
 
 	// get deploy info from previous build job
@@ -133,7 +142,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	if j.spec.DeployType == setting.K8SDeployType {
 		for _, deploy := range j.spec.ServiceAndImages {
-			if err := checkServiceAndContainerExsistsInEnv(productServiceMap, deploy.ServiceName, deploy.ServiceModule, j.spec.Env); err != nil {
+			if err := checkServiceExsistsInEnv(productServiceMap, deploy.ServiceName, j.spec.Env); err != nil {
 				return resp, err
 			}
 			jobTask := &commonmodels.JobTask{
@@ -195,7 +204,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ReleaseName: releaseName,
 			}
 			for _, deploy := range deploys {
-				if err := checkServiceAndContainerExsistsInEnv(productServiceMap, serviceName, deploy.ServiceModule, j.spec.Env); err != nil {
+				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
 					return resp, err
 				}
 				helmDeploySpec.ImageAndModules = append(helmDeploySpec.ImageAndModules, &step.ImageAndServiceModule{
@@ -214,15 +223,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	return resp, nil
 }
 
-func checkServiceAndContainerExsistsInEnv(serviceMap map[string]*commonmodels.ProductService, serviceName, serviceModule, env string) error {
-	if service, ok := serviceMap[serviceName]; !ok {
+func checkServiceExsistsInEnv(serviceMap map[string]*commonmodels.ProductService, serviceName, env string) error {
+	if _, ok := serviceMap[serviceName]; !ok {
 		return fmt.Errorf("service %s not exists in env %s", serviceName, env)
-	} else {
-		for _, container := range service.Containers {
-			if container.Name == serviceModule {
-				return nil
-			}
-		}
 	}
-	return fmt.Errorf("service %s module %s not exists in env %s", serviceName, serviceModule, env)
+	return nil
 }
