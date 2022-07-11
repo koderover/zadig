@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -67,9 +68,11 @@ func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int
 	return jobCtl.ToJobs(taskID)
 }
 
+// use service name and service module hash to generate job name
 func jobNameFormat(jobName string) string {
-	if len(jobName) > 50 {
-		return jobName[:50]
+	if len(jobName) > 63 {
+		jobName = jobName[:63]
 	}
+	jobName = strings.Trim(jobName, "-")
 	return jobName
 }
