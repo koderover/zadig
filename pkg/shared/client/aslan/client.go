@@ -17,6 +17,8 @@ limitations under the License.
 package aslan
 
 import (
+	"crypto/tls"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -44,6 +46,8 @@ func NewExternal(host, token string) *Client {
 		httpclient.SetAuthToken(token),
 		httpclient.SetHostURL(host+"/api/aslan"),
 	)
+
+	c.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
 	return &Client{
 		Client:   c,
