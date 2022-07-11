@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -55,13 +56,14 @@ type FreestyleJobCtl struct {
 
 func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
 	paths := ""
+	uid, _ := uuid.NewUUID()
 	return &FreestyleJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
 		logger:      logger,
 		ack:         ack,
 		paths:       &paths,
-		jobName:     fmt.Sprintf("%s-%s-%d", job.Name, job.JobType, workflowCtx.TaskID),
+		jobName:     uid.String(),
 	}
 }
 
