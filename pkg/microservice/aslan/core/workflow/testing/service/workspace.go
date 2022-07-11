@@ -102,6 +102,9 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 			if strings.HasSuffix(tarFile, "/") {
 				continue
 			}
+			if strings.TrimSpace(tarFile) == "" {
+				continue
+			}
 			fis = append(fis, tarFile)
 		}
 		resp.FileNames = fis
