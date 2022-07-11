@@ -110,6 +110,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		WorkflowName:      c.workflowTask.WorkflowName,
 		ProjectName:       c.workflowTask.ProjectName,
 		TaskID:            c.workflowTask.TaskID,
+		Workspace:         "/workspace",
 		DistDir:           fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
 		DockerMountDir:    fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewV4(), time.Now().Unix()),
 		ConfigMapMountDir: fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewV4(), time.Now().Unix()),
