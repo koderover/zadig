@@ -109,17 +109,21 @@ type ServiceAndImage struct {
 }
 
 type JobProperties struct {
-	Timeout         int64           `bson:"timeout"                json:"timeout"`
-	Retry           int64           `bson:"retry"                  json:"retry"`
-	ResourceRequest setting.Request `bson:"resource_request"       json:"resource_request"`
-	ClusterID       string          `bson:"cluster_id"             json:"cluster_id"`
-	BuildOS         string          `bson:"build_os"               json:"build_os"`
-	ImageFrom       string          `bson:"image_from"             json:"image_from"`
-	Namespace       string          `bson:"namespace"              json:"namespace"`
-	Args            []*KeyVal       `bson:"args"                   json:"args"`
-	Paths           string          `bson:"-"                      json:"-"`
-	LogFileName     string          `bson:"log_file_name"          json:"log_file_name"`
-	DockerHost      string          `bson:"-"                      json:"docker_host,omitempty"`
+	Timeout         int64              `bson:"timeout"                json:"timeout"`
+	Retry           int64              `bson:"retry"                  json:"retry"`
+	ResourceRequest setting.Request    `bson:"resource_request"       json:"resource_request"`
+	ClusterID       string             `bson:"cluster_id"             json:"cluster_id"`
+	BuildOS         string             `bson:"build_os"               json:"build_os"`
+	ImageFrom       string             `bson:"image_from"             json:"image_from"`
+	Namespace       string             `bson:"namespace"              json:"namespace"`
+	Args            []*KeyVal          `bson:"args"                   json:"args"`
+	Paths           string             `bson:"-"                      json:"-"`
+	LogFileName     string             `bson:"log_file_name"          json:"log_file_name"`
+	DockerHost      string             `bson:"-"                      json:"docker_host,omitempty"`
+	Cache           types.Cache        `bson:"cache"                  json:"cache"`
+	CacheEnable     bool               `bson:"cache_enable"           json:"cache_enable"`
+	CacheDirType    types.CacheDirType `bson:"cache_dir_type"         json:"cache_dir_type"`
+	CacheUserDir    string             `bson:"cache_user_dir"         json:"cache_user_dir"`
 }
 
 type Step struct {
