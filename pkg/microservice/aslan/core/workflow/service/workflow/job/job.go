@@ -70,8 +70,8 @@ func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int
 
 // use service name and service module hash to generate job name
 func jobNameFormat(jobName string) string {
-	if len(jobName) > 50 {
-		jobName = jobName[:50]
+	if len(jobName) > 63 {
+		jobName = jobName[:63]
 	}
 	jobName = strings.Trim(jobName, "-")
 	return jobName
