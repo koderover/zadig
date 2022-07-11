@@ -437,9 +437,9 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 }
 
 func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
-	_, err := commonrepo.NewWorkflowColl().Find(workflow.Name)
+	existedWorkflow, err := commonrepo.NewWorkflowColl().Find(workflow.Name)
 	if err == nil {
-		errStr := fmt.Sprintf("workflow [%s] 在项目 [%s] 中已经存在!", workflow.Name, workflow.ProductTmplName)
+		errStr := fmt.Sprintf("workflow [%s] 在项目 [%s] 中已经存在!", workflow.Name, existedWorkflow.ProductTmplName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 
