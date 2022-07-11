@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -127,7 +128,25 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			BuildOS:         buildInfo.PreBuild.BuildOS,
 			ImageFrom:       buildInfo.PreBuild.ImageFrom,
 		}
+		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
+		if err != nil {
+			return resp, err
+		}
+
+		if clusterInfo.Cache.MediumType == "" {
+			jobTask.Properties.CacheEnable = false
+		} else {
+			jobTask.Properties.Cache = clusterInfo.Cache
+			jobTask.Properties.CacheEnable = buildInfo.CacheEnable
+			jobTask.Properties.CacheDirType = buildInfo.CacheDirType
+			jobTask.Properties.CacheUserDir = buildInfo.CacheUserDir
+		}
 		jobTask.Properties.Args = append(jobTask.Properties.Args, getJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
+
+		if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == types.NFSMedium {
+			jobTask.Properties.CacheUserDir = renderEnv(jobTask.Properties.CacheUserDir, jobTask.Properties.Args)
+			jobTask.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTask.Properties.Cache.NFSProperties.Subpath, jobTask.Properties.Args)
+		}
 
 		// init tools install step
 		for _, tool := range buildInfo.PreBuild.Installs {
@@ -317,6 +336,8 @@ func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project,
 	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: build.ServiceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: build.ServiceModule, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "PROJECT", Value: project, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: build.Image, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "ZADIG", Value: "true", IsCredential: false})
@@ -377,4 +398,19 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 		}
 	}
 	return nil
+}
+
+func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
+	mapper := func(data string) string {
+		for _, envar := range kvs {
+			if data != envar.Key {
+				continue
+			}
+
+			return envar.Value
+		}
+
+		return fmt.Sprintf("$%s", data)
+	}
+	return os.Expand(data, mapper)
 }

@@ -269,28 +269,28 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		},
 	}
 
-	// if ctx.CacheEnable && ctx.Cache.MediumType == commontypes.NFSMedium {
-	// 	volumeName := "build-cache"
-	// 	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
-	// 		Name: volumeName,
-	// 		VolumeSource: corev1.VolumeSource{
-	// 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-	// 				ClaimName: ctx.Cache.NFSProperties.PVC,
-	// 			},
-	// 		},
-	// 	})
+	if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == commontypes.NFSMedium {
+		volumeName := "build-cache"
+		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: jobTask.Properties.Cache.NFSProperties.PVC,
+				},
+			},
+		})
 
-	// 	mountPath := ctx.CacheUserDir
-	// 	if ctx.CacheDirType == commontypes.WorkspaceCacheDir {
-	// 		mountPath = "/workspace"
-	// 	}
+		mountPath := jobTask.Properties.CacheUserDir
+		if jobTask.Properties.CacheDirType == commontypes.WorkspaceCacheDir {
+			mountPath = workflowCtx.Workspace
+		}
 
-	// 	job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-	// 		Name:      volumeName,
-	// 		MountPath: mountPath,
-	// 		SubPath:   ctx.Cache.NFSProperties.Subpath,
-	// 	})
-	// }
+		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
+			SubPath:   jobTask.Properties.Cache.NFSProperties.Subpath,
+		})
+	}
 
 	// if affinity := addNodeAffinity(clusterID, pipelineTask.ConfigPayload.K8SClusters); affinity != nil {
 	// 	job.Spec.Template.Spec.Affinity = affinity
