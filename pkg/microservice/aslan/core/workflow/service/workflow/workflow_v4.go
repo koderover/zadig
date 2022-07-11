@@ -39,9 +39,9 @@ const (
 )
 
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+	existedWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
 	if err == nil {
-		errStr := fmt.Sprintf("workflow v4 [%s] 在项目 [%s] 中已经存在!", workflow.Name, workflow.Project)
+		errStr := fmt.Sprintf("workflow v4 [%s] 在项目 [%s] 中已经存在!", workflow.Name, existedWorkflow.Project)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	if err := LintWorkflowV4(workflow, logger); err != nil {
