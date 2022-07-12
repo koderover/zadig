@@ -53,26 +53,26 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		return "", fmt.Errorf("get codehost info error: [%s]", err)
 	}
 
-	if time.Now().Unix()-ch.UpdatedAt >= TokenExpirationThreshold {
-		token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
-		if err != nil {
-			return "", err
-		}
-
-		ch.AccessToken = token.AccessToken
-		ch.RefreshToken = token.RefreshToken
-		ch.UpdatedAt = int64(token.CreatedAt)
-
-		// Since the new token is valid, we simply log the error
-		// No error will be returned, only the new token is returned
-		if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
-			log.Errorf("failed to update codehost, err: %s", err)
-		}
-
-		return token.AccessToken, nil
+	if time.Now().Unix()-ch.UpdatedAt <= TokenExpirationThreshold {
+		return accessToken, nil
 	}
 
-	return accessToken, nil
+	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
+	if err != nil {
+		return "", err
+	}
+
+	ch.AccessToken = token.AccessToken
+	ch.RefreshToken = token.RefreshToken
+	ch.UpdatedAt = int64(token.CreatedAt)
+
+	// Since the new token is valid, we simply log the error
+	// No error will be returned, only the new token is returned
+	if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
+		log.Errorf("failed to update codehost, err: %s", err)
+	}
+
+	return token.AccessToken, nil
 }
 
 func refreshAccessToken(address, clientID, clientSecret, refreshToken string) (*AccessToken, error) {
