@@ -50,8 +50,6 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	log.Infof("Starting to update gitlab token")
-
 	ch, err := systemconfig.New().GetCodeHost(id)
 
 	if err != nil {
@@ -59,8 +57,10 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	}
 
 	if time.Now().Unix()-ch.UpdatedAt <= TokenExpirationThreshold {
-		return accessToken, nil
+		return ch.AccessToken, nil
 	}
+
+	log.Infof("Starting to refresh gitlab token")
 
 	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
 	if err != nil {
