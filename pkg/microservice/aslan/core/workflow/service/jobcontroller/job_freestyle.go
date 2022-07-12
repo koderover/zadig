@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -30,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/dockerhost"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/util/rand"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes"
@@ -56,15 +56,29 @@ type FreestyleJobCtl struct {
 
 func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
 	paths := ""
-	uid, _ := uuid.NewUUID()
 	return &FreestyleJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
 		logger:      logger,
 		ack:         ack,
 		paths:       &paths,
-		jobName:     uid.String(),
+		jobName:     getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID),
 	}
+}
+
+func getJobName(workflowName string, taskID int64) string {
+	// max lenth of workflowName was 32, so job name was unique in one task.
+	base := strings.Replace(
+		strings.ToLower(
+			fmt.Sprintf(
+				"%s-%d-",
+				workflowName,
+				taskID,
+			),
+		),
+		"_", "-", -1,
+	)
+	return rand.GenerateName(base)
 }
 
 func (c *FreestyleJobCtl) Run(ctx context.Context) {
