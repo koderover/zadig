@@ -49,6 +49,9 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	lock := lockInterface.(*sync.RWMutex)
 	lock.Lock()
 	defer lock.Unlock()
+
+	log.Infof("Starting to update gitlab token")
+
 	ch, err := systemconfig.New().GetCodeHost(id)
 
 	if err != nil {
@@ -73,6 +76,8 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
 		log.Errorf("failed to update codehost, err: %s", err)
 	}
+
+	log.Infof("gitlab token for client [%d] changed from [%s] to [%s]", id, accessToken, token.AccessToken)
 
 	return token.AccessToken, nil
 }
