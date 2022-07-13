@@ -28,6 +28,6 @@ type StartDevmodeInfo struct {
 	DevImage string `json:"dev_image"`
 }
 
-const IDESidecarImage = "ccr.ccs.tencentyun.com/koderover-rc/zgctl-sidecar:20220526172433-amd64"
+const IDESidecarImage = "koderover.tencentcloudcr.com/koderover-public/zgctl-sidecar:20220526172433-amd64"
 
 const DevmodeWorkDir = "/home/zadig/"
