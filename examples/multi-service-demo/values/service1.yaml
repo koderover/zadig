@@ -5,7 +5,7 @@ port: 20221
 imagePullSecretsName: "default-registry-secret"
 
 image:
-  repository: "ccr.ccs.tencentyun.com/koderover-public/service1"
+  repository: "koderover.tencentcloudcr.com/koderover-demo/service1"
   tag: "latest"
 
 resources:

@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: ccr.ccs.tencentyun.com/koderover-rc/nginx:v1
+        image: koderover.tencentcloudcr.com/koderover-demo/nginx:v1
         ports:
         - containerPort: 80
         resources:

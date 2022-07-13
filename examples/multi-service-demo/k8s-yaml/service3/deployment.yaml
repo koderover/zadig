@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: service3
-          image: ccr.ccs.tencentyun.com/koderover-public/service3:latest
+          image: koderover.tencentcloudcr.com/koderover-demo/service3:latest
           imagePullPolicy: Always 
           command:
             - /workspace/service3

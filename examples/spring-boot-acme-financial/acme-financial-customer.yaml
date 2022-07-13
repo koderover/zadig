@@ -16,7 +16,7 @@ spec:
     spec:
       initContainers:
         - name: init-skywalking-agent
-          image: ccr.ccs.tencentyun.com/koderover-public/skywalking-agent:8.8.0
+          image: koderover.tencentcloudcr.com/koderover-demo/skywalking-agent:8.8.0
           command:
             - 'sh'
             - '-c'
@@ -39,7 +39,7 @@ spec:
           value: "acme-financial-customer"
         - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
           value: "skywalking-oap.skywalking.svc.cluster.local:11800"
-        image: ccr.ccs.tencentyun.com/koderover-public/acme-financial-customer:v0.1
+        image: koderover.tencentcloudcr.com/koderover-demo/acme-financial-customer:v0.1
         imagePullPolicy: Always
         name: customer
         ports:

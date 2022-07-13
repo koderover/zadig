@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: myapp-3
-        image: ccr.ccs.tencentyun.com/koderover-rc/myapp-3:v0.1__linux_amd64
+        image: koderover.tencentcloudcr.com/koderover-demo/myapp-3:v0.1__linux_amd64
         imagePullPolicy: Always
         command: ["/myapp-3"]
         ports:
