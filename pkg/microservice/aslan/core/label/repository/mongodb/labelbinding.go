@@ -142,6 +142,17 @@ func (c *LabelBindingColl) ListByOpt(opt *LabelBindingCollFindOpt) ([]*models.La
 	return ret, err
 }
 
+func (c *LabelBindingColl) BulkDeleteByProject(projectName string) error {
+	if projectName == "" {
+		return nil
+	}
+
+	query := bson.M{}
+	query["project_name"] = projectName
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
 func (c *LabelBindingColl) BulkDeleteByLabelIds(labelIds []string) error {
 	if len(labelIds) == 0 {
 		return nil
