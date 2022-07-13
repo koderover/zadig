@@ -20,7 +20,7 @@ import (
 	"context"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/jobcontroller"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"go.uber.org/zap"
 )
 
