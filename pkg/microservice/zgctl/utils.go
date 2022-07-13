@@ -17,11 +17,11 @@ limitations under the License.
 package zgctl
 
 var devImages = []string{
-	"ccr.ccs.tencentyun.com/koderover-rc/golang:1.18.1",
-	"ccr.ccs.tencentyun.com/koderover-rc/node:18.2",
-	"ccr.ccs.tencentyun.com/koderover-rc/python:3.10.4-buster",
-	"ccr.ccs.tencentyun.com/koderover-rc/openjdk:19-jdk-buster",
-	"ccr.ccs.tencentyun.com/koderover-rc/php:8.1.6-fpm",
-	"ccr.ccs.tencentyun.com/koderover-rc/ruby:3.1.2",
-	"ccr.ccs.tencentyun.com/koderover-rc/rust:1.61.0",
+	"koderover.tencentcloudcr.com/koderover-public/golang:1.18.1",
+	"koderover.tencentcloudcr.com/koderover-public/node:18.2",
+	"koderover.tencentcloudcr.com/koderover-public/python:3.10.4-buster",
+	"koderover.tencentcloudcr.com/koderover-public/openjdk:19-jdk-buster",
+	"koderover.tencentcloudcr.com/koderover-public/php:8.1.6-fpm",
+	"koderover.tencentcloudcr.com/koderover-public/ruby:3.1.2",
+	"koderover.tencentcloudcr.com/koderover-public/rust:1.61.0",
 }

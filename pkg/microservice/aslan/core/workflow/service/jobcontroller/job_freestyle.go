@@ -169,7 +169,7 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 
 	// TODO: do not use default image
 	jobImage := getBaseImage(c.job.Properties.BuildOS, c.job.Properties.ImageFrom)
-	// jobImage := "ccr.ccs.tencentyun.com/koderover-rc/job-excutor:guoyu-test2"
+	// jobImage := "koderover.tencentcloudcr.com/test/job-excutor:guoyu-test2"
 	// jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
 	//Resource request default value is LOW

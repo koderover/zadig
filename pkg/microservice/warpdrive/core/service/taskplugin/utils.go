@@ -289,7 +289,7 @@ func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 // depends on the setting on page 'Build'
 func getReaperImage(reaperImage, buildOS, imageFrom string) string {
 	// for built-in image, reaperImage and buildOs can generate a complete image
-	// reaperImage: ccr.ccs.tencentyun.com/koderover-public/build-base:${BuildOS}-amd64
+	// reaperImage: koderover.tencentcloudcr.com/koderover-public/build-base:${BuildOS}-amd64
 	// buildOS: focal xenial bionic
 	jobImage := strings.ReplaceAll(reaperImage, "${BuildOS}", buildOS)
 	// for custom image, buildOS represents the exact custom image
