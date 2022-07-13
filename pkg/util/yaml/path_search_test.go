@@ -73,7 +73,7 @@ env: dev
 
 repoData1:
   global:
-    hub: koderover.tencentcloudcr.com/koderover-public  
+    hub: koderover.tencentcloudcr.com/koderover-public 
 
 testSpec:
   image:

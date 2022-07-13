@@ -135,7 +135,7 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 
 func getBaseImage(buildOS, imageFrom string) string {
 	// for built-in image, reaperImage and buildOs can generate a complete image
-	// reaperImage: koderover.tencentcloudcr.com/koderover-public /build-base:${BuildOS}-amd64
+	// reaperImage: koderover.tencentcloudcr.com/koderover-public/build-base:${BuildOS}-amd64
 	// buildOS: focal xenial bionic
 	jobImage := strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", buildOS)
 	// for custom image, buildOS represents the exact custom image
