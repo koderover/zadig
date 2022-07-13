@@ -42,7 +42,7 @@ spec:
         tier: backend
     spec:
       containers:
-      - image: ccr.ccs.tencentyun.com/koderover-public/library-postgres:9.6
+      - image: koderover.tencentcloudcr.com/koderover-public/library-postgres:9.6
         imagePullPolicy: IfNotPresent
         name: postgres
         ports:
