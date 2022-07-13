@@ -216,31 +216,9 @@ func DeleteLabels(ids []string, forceDelete bool, userName string, logger *zap.S
 	return mongodb.NewLabelColl().BulkDelete(ids)
 }
 
-func DeleteLabelsAndBindingsByProject(projectName, userName string, logger *zap.SugaredLogger) error {
-
-	labels, err := mongodb.NewLabelColl().ListByProjectName(projectName)
-	if err != nil {
-		return err
-	}
-
-	ids := []string{}
-	for _, label := range labels {
-		ids = append(ids, label.ID.Hex())
-	}
-
-	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: ids})
-	if err != nil {
-		logger.Errorf("list labelbingding err:%s", err)
-		return err
-	}
-
-	var labelBindingIDs []string
-	for _, labelBinding := range labelBindings {
-		labelBindingIDs = append(labelBindingIDs, labelBinding.ID.Hex())
-	}
-	logger.Infof("user:%s DeleteLabelsAndBindingsByProject labelbindingIDs:%s", userName, labelBindingIDs)
-	if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
-		logger.Errorf("BulkDeleteByIds err :%s,ids:%v", err, labelBindingIDs)
+func DeleteLabelsAndBindingsByProject(projectName string, logger *zap.SugaredLogger) error {
+	if err := mongodb.NewLabelBindingColl().BulkDeleteByProject(projectName); err != nil {
+		logger.Errorf("DeleteLabelsByProject err:%s", err)
 		return err
 	}
 
