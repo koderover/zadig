@@ -1,2 +1,2 @@
-FROM ccr.ccs.tencentyun.com/koderover-public/build-base:xenial-arm64
+FROM koderover.tencentcloudcr.com/koderover-public/build-base:xenial-arm64
 

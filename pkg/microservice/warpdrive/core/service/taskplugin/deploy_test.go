@@ -33,12 +33,12 @@ env: dev
 ingressClassName: koderover-admin-nginx
 
 image:
-  - repository: ccr.ccs.tencentyun.com/trial/go-sample-site
+  - repository: koderover.tencentcloudcr.com/test/go-sample-site
     pullPolicy: IfNotPresent
     tag: "0.1.0"
 
 imageNormal:
-    repository: ccr.ccs.tencentyun.com/trial/go-sample-site
+    repository: koderover.tencentcloudcr.com/test/go-sample-site
     pullPolicy: IfNotPresent
     tag: "0.1.0"
 

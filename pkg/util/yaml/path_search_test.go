@@ -73,7 +73,7 @@ env: dev
 
 repoData1:
   global:
-    hub: ccr.ccs.tencentyun.com/trial
+    hub: koderover.tencentcloudcr.com/koderover-public 
 
 testSpec:
   image:
@@ -109,7 +109,7 @@ var testYaml9 = `
     - name: default-registry-secret
 
   global:
-    hub: ccr.ccs.tencentyun.com/trial 
+    hub: koderover.tencentcloudcr.com/test
 
   deploy:
     image:

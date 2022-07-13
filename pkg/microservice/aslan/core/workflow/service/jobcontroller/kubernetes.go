@@ -58,7 +58,7 @@ import (
 )
 
 const (
-	BusyBoxImage       = "ccr.ccs.tencentyun.com/koderover-public/busybox:latest"
+	BusyBoxImage       = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
 	ZadigContextDir    = "/zadig/"
 	ZadigLogFile       = ZadigContextDir + "zadig.log"
 	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
@@ -135,7 +135,7 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 
 func getBaseImage(buildOS, imageFrom string) string {
 	// for built-in image, reaperImage and buildOs can generate a complete image
-	// reaperImage: ccr.ccs.tencentyun.com/koderover-public/build-base:${BuildOS}-amd64
+	// reaperImage: koderover.tencentcloudcr.com/koderover-public/build-base:${BuildOS}-amd64
 	// buildOS: focal xenial bionic
 	jobImage := strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", buildOS)
 	// for custom image, buildOS represents the exact custom image

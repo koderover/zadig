@@ -1,7 +1,7 @@
 # New Makefile for multi-architecture
 .PHONY: all
 
-IMAGE_REPOSITORY = ccr.ccs.tencentyun.com/koderover-rc
+IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
 TARGETS = aslan config cron hub-agent hub-server init jenkins-plugin packager-plugin picket podexec policy predator-plugin ua user warpdrive
