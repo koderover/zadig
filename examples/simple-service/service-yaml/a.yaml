@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: myapp-1
-        image: ccr.ccs.tencentyun.com/koderover-rc/myapp-1:v0.1__linux_amd64
+        image: koderover.tencentcloudcr.com/koderover-demo/myapp-1:v0.1__linux_amd64
         imagePullPolicy: Always
         command: ["/myapp-1"]
         args: ["--downstream-addr", "$(DOWNSTREAM_ADDR)", "--headers", "$(HEADERS)"]

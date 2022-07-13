@@ -41,7 +41,7 @@ spec:
         app: auth-mongodb
     spec:
       containers:
-      - image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-mongodb:v0.1.1
+      - image: koderover.tencentcloudcr.com/koderover-demo/piggymetrics-mongodb:v0.1.1
         name: auth-mongodb
         env:
           - name: MONGODB_PASSWORD

@@ -1,4 +1,4 @@
-FROM ccr.ccs.tencentyun.com/trial-dist/frontend-base:0.1  As builder
+FROM koderover.tencentcloudcr.com/koderover-demo/frontend-base:0.1  As builder
 
 WORKDIR /frontend
 

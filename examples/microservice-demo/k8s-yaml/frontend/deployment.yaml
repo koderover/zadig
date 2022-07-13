@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ccr.ccs.tencentyun.com/koderover-public/frontend:latest
+          image: koderover.tencentcloudcr.com/koderover-demo/frontend:latest
           imagePullPolicy: Always
           ports:
             - protocol: TCP

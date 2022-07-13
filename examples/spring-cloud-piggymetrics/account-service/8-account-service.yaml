@@ -42,7 +42,7 @@ spec:
     spec:
       initContainers:
         - name: init-skywalking-agent
-          image: ccr.ccs.tencentyun.com/koderover-public/skywalking-agent:8.8.0
+          image: koderover.tencentcloudcr.com/koderover-demo/skywalking-agent:8.8.0
           command:
             - 'sh'
             - '-c'
@@ -78,7 +78,7 @@ spec:
            name: special-config-env              
         ports:
           - containerPort: 6000
-        image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-account-service:v0.3.0
+        image: koderover.tencentcloudcr.com/koderover-demo/piggymetrics-account-service:v0.3.0
         name: account-service
         resources:
           limits:

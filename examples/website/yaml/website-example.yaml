@@ -28,6 +28,6 @@ spec:
     spec:
       containers:
         - name: website-example
-          image: ccr.ccs.tencentyun.com/koderover-public/website-example:1.0.0
+          image: koderover.tencentcloudcr.com/koderover-demo/website-example:1.0.0
           ports:
             - containerPort: 80

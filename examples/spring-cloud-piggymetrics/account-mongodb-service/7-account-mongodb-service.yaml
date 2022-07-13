@@ -52,7 +52,7 @@ spec:
               key: account_mongodb_password
         ports:
           - containerPort: 27017
-        image: ccr.ccs.tencentyun.com/koderover-public/piggymetrics-mongodb:v0.1.1
+        image: koderover.tencentcloudcr.com/koderover-demo/piggymetrics-mongodb:v0.1.1
         resources:
           limits:
             cpu: 500m
