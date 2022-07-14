@@ -19,12 +19,16 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ccr.ccs.tencentyun.com/koderover-public/backend:latest
+          image: koderover.tencentcloudcr.com/koderover-demo/backend:latest
           imagePullPolicy: Always
           command:
             - /workspace/backend
           ports:
             - protocol: TCP
               containerPort: 20219
+          resources:
+            limits:
+              memory: 50Mi
+              cpu: 50m
       imagePullSecrets:
         - name: default-registry-secret

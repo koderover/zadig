@@ -5,7 +5,7 @@ port: {{.port}}
 imagePullSecretsName: "default-registry-secret"
 
 image:
-  repository: "ccr.ccs.tencentyun.com/koderover-public/$T-Service$"
+  repository: "koderover.tencentcloudcr.com/koderover-demo/$T-Service$"
   tag: "latest"
 
 resources:

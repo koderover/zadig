@@ -43,18 +43,19 @@ func NewClient() *client {
 }
 
 type task struct {
-	ID                                               int
-	owner, repo, address, token, ref, ak, sk, region string
-	from                                             string
-	add, enableProxy                                 bool
-	err                                              error
-	doneCh                                           chan struct{}
+	ID                                                          int
+	owner, namespace, repo, address, token, ref, ak, sk, region string
+	from                                                        string
+	add, enableProxy                                            bool
+	err                                                         error
+	doneCh                                                      chan struct{}
 }
 
 type TaskOption struct {
 	ID          int
 	Name        string
 	Owner       string
+	Namespace   string
 	Repo        string
 	Address     string
 	Token       string
@@ -74,6 +75,7 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 	t := &task{
 		ID:          taskOption.ID,
 		owner:       taskOption.Owner,
+		namespace:   taskOption.Namespace,
 		repo:        taskOption.Repo,
 		address:     taskOption.Address,
 		token:       taskOption.Token,
@@ -110,6 +112,7 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 	t := &task{
 		ID:          taskOption.ID,
 		owner:       taskOption.Owner,
+		namespace:   taskOption.Namespace,
 		repo:        taskOption.Repo,
 		address:     taskOption.Address,
 		token:       taskOption.Token,

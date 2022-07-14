@@ -50,6 +50,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type CustomParseDataArgs struct {
@@ -355,7 +356,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 }
 
 // DeleteProductTemplate 删除产品模板
-func DeleteProductTemplate(userName, productName, requestID string, log *zap.SugaredLogger) (err error) {
+func DeleteProductTemplate(userName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
 	publicServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName, Visibility: setting.PublicService})
 	if err != nil {
 		log.Errorf("pre delete check failed, err: %s", err)
@@ -417,6 +418,11 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
+	if err = commonservice.DeleteWorkflowV4sByProjectName(productName, log); err != nil {
+		log.Errorf("DeleteProductTemplate Delete productName %s workflowV4 err: %s", productName, err)
+		return err
+	}
+
 	if err = commonservice.DeletePipelines(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %s", productName, err)
 		return err
@@ -459,7 +465,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		_ = commonrepo.NewBuildColl().Delete("", productName)
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
-		_ = DeleteProductsAsync(userName, productName, requestID, log)
+		_ = DeleteProductsAsync(userName, productName, requestID, isDelete, log)
 
 		// delete service webhooks after services are deleted
 		for _, s := range services {
@@ -468,25 +474,34 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	}()
 
 	// 删除workload
-	go func() {
-		workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
-		for _, v := range workloads {
-			// update workloads
-			tmp := []commonmodels.Workload{}
-			for _, vv := range v.Workloads {
-				if vv.ProductName != productName {
-					tmp = append(tmp, vv)
+	if isDelete {
+		go func() {
+			workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
+			for _, v := range workloads {
+				// update workloads
+				tmp := []commonmodels.Workload{}
+				for _, vv := range v.Workloads {
+					if vv.ProductName != productName {
+						tmp = append(tmp, vv)
+					}
 				}
+				v.Workloads = tmp
+				commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
 			}
-			v.Workloads = tmp
-			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
-		}
-	}()
+		}()
+	}
 	// delete servicesInExternalEnv data
 	go func() {
 		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
 			ProductName: productName,
 		})
+	}()
+
+	// delete privateKey data
+	go func() {
+		if err = commonrepo.NewPrivateKeyColl().BulkDelete(productName); err != nil {
+			log.Errorf("failed to bulk delete privateKey, error:%s", err)
+		}
 	}()
 
 	return nil
@@ -534,6 +549,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 						Name:      c.Name,
 						Image:     c.Image,
 						ImagePath: c.ImagePath,
+						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
@@ -633,7 +649,7 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 		log.Errorf("Failed to delete roleBinding, err: %s", err)
 		return e.ErrForkProduct
 	}
-	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
+	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, true, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			if description != "not found" {
@@ -719,14 +735,14 @@ func ensureProductTmpl(args *template.Product) error {
 	return nil
 }
 
-func DeleteProductsAsync(userName, productName, requestID string, log *zap.SugaredLogger) error {
+func DeleteProductsAsync(userName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) error {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
 		return e.ErrListProducts.AddDesc(err.Error())
 	}
 	errList := new(multierror.Error)
 	for _, env := range envs {
-		err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, log)
+		err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, isDelete, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}

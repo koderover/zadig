@@ -589,3 +589,12 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 	}
 	return user, nil
 }
+
+func GetUserCount(logger *zap.SugaredLogger) ([]*types.UserCountByType, error) {
+	resp, err := orm.CountUserByType(core.DB)
+	if err != nil {
+		logger.Errorf("Failed to count user by type from db, the error is: %s", err.Error())
+		return nil, err
+	}
+	return resp, nil
+}

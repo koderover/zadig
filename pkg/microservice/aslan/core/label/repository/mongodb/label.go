@@ -111,12 +111,13 @@ func (c *LabelColl) BulkDeleteByProject(projectName string) error {
 }
 
 func (c *LabelColl) ListByProjectName(projectName string) ([]*models.Label, error) {
+	if len(projectName) == 0 {
+		return nil, nil
+	}
 	query := bson.M{}
 	var res []*models.Label
 	query["project_name"] = projectName
-	opts := options.Find()
 	ctx := context.Background()
-	opts.SetSort(bson.D{{"key", 1}})
 	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err

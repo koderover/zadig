@@ -151,7 +151,8 @@ type ServiceModuleTarget struct {
 	ServiceName   string              `bson:"service_name"                  json:"service_name"`
 	ServiceModule string              `bson:"service_module"                json:"service_module"`
 	BuildName     string              `bson:"build_name"                    json:"build_name"`
-	Repos         []*types.Repository `bson:"repos,omitempty"  json:"repos,omitempty"`
+	Repos         []*types.Repository `bson:"repos,omitempty"               json:"repos,omitempty"`
+	Envs          []*KeyVal           `bson:"envs,omitempty"                json:"envs"`
 }
 
 type ServiceModuleTargetBase struct {
@@ -163,14 +164,15 @@ type ServiceModuleTargetBase struct {
 type TargetRepo struct {
 	Service *ServiceModuleTargetBase `json:"service"`
 	Repos   []*types.Repository      `json:"repos"`
+	Envs    []*KeyVal                `json:"envs"`
 }
 
 type KeyVal struct {
-	Key          string               `bson:"key"                           json:"key"`
-	Value        string               `bson:"value"                         json:"value"`
-	Type         ParameterSettingType `bson:"type,omitempty"                json:"type,omitempty"`
-	ChoiceOption []string             `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
-	IsCredential bool                 `bson:"is_credential"                 json:"is_credential"`
+	Key          string               `bson:"key"                       json:"key"                         yaml:"key"`
+	Value        string               `bson:"value"                     json:"value"                       yaml:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	IsCredential bool                 `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 type Item struct {

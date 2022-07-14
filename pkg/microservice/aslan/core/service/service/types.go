@@ -71,6 +71,7 @@ type BulkHelmServiceCreationResponse struct {
 type CreateFromRepo struct {
 	CodehostID int      `json:"codehostID"`
 	Owner      string   `json:"owner"`
+	Namespace  string   `json:"namespace"`
 	Repo       string   `json:"repo"`
 	Branch     string   `json:"branch"`
 	Paths      []string `json:"paths"`

@@ -75,14 +75,15 @@ type Queue struct {
 
 type TriggerBy struct {
 	// 触发此次任务的代码库信息
-	CodehostID int    `bson:"codehost_id,omitempty"      json:"codehost_id,omitempty"`
-	RepoOwner  string `bson:"repo_owner,omitempty"       json:"repo_owner,omitempty"`
-	RepoName   string `bson:"repo_name,omitempty"        json:"repo_name,omitempty"`
-	Source     string `json:"source,omitempty" bson:"source,omitempty"`
+	CodehostID    int    `bson:"codehost_id,omitempty"      json:"codehost_id,omitempty"`
+	RepoOwner     string `bson:"repo_owner,omitempty"       json:"repo_owner,omitempty"`
+	RepoName      string `bson:"repo_name,omitempty"        json:"repo_name,omitempty"`
+	RepoNamespace string `bson:"repo_namespace" json:"repo_namespace"`
+	Source        string `json:"source,omitempty" bson:"source,omitempty"`
 	// 触发此次任务的merge request id，用于判断多个任务对应的commit是否属于同一个merge request
 	MergeRequestID string `json:"merge_request_id,omitempty" bson:"merge_request_id,omitempty"`
 	// 触发此次任务的commit id
-	CommitID string `json:"commit_id,omitempty" bson:"commit_id,omitempty"`
+	CommitID string `bson:"commit_id,omitempty" json:"commit_id,omitempty"`
 }
 
 type ServiceTaskArgs struct {

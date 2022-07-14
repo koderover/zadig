@@ -43,12 +43,13 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(accessToken, keyword strin
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
+	// api reference: https://gitee.com/api/v5/swagger#/getV5UserRepos
 	url := "/v5/user/repos"
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
 	//queryParams["visibility"] = "all"
 	//queryParams["affiliation"] = "owner"
-	queryParams["type"] = "owner"
+	queryParams["type"] = "personal"
 	queryParams["q"] = keyword
 	queryParams["page"] = strconv.Itoa(page)
 	queryParams["per_page"] = strconv.Itoa(perPage)
@@ -66,6 +67,7 @@ func (c *Client) ListRepositoriesForOrg(accessToken, org string, page, perPage i
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
+	// api reference: https://gitee.com/api/v5/swagger#/getV5OrgsOrgRepos
 	url := fmt.Sprintf("/v5/orgs/%s/repos", org)
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
@@ -150,7 +152,7 @@ func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, h
 func (c *Client) GetContents(ctx context.Context, owner, repo, sha string) (gitee.Blob, error) {
 	fileContent, _, err := c.GitDataApi.GetV5ReposOwnerRepoGitBlobsSha(ctx, owner, repo, sha, &gitee.GetV5ReposOwnerRepoGitBlobsShaOpts{})
 	if err != nil {
-		return gitee.Blob{}, err
+		return fileContent, err
 	}
 	return fileContent, nil
 }

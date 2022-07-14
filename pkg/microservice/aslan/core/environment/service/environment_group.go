@@ -145,7 +145,7 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 
 	renderSet := &commonmodels.RenderSet{}
 	if product.Render != nil {
-		renderSet, err = commonservice.GetRenderSet(product.Render.Name, 0, log)
+		renderSet, err = commonservice.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
 		if err != nil {
 			log.Errorf("GetRenderSet %s error: %v", product.ProductName, err)
 			return ingressInfo

@@ -26,6 +26,11 @@ spec:
         env:
         - name: POSTGRES_HOST_AUTH_METHOD
           value: trust
+        resources:
+          limits:
+            memory: 50Mi
+            cpu: 50m
       volumes:
       - name: db-data
         emptyDir: {} 
+      

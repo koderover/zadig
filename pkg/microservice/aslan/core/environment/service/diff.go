@@ -88,11 +88,11 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	oldRender := &commonmodels.RenderSet{}
 	newRender := &commonmodels.RenderSet{}
 	if productInfo.Render != nil {
-		oldRender, err = commonservice.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, log)
+		oldRender, err = commonservice.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, false, envName, log)
 		if err != nil {
 			return resp, err
 		}
-		newRender, err = commonservice.GetRenderSet(productInfo.Render.Name, 0, log)
+		newRender, err = commonservice.GetRenderSet(productInfo.Render.Name, 0, false, envName, log)
 		if err != nil {
 			return resp, err
 		}

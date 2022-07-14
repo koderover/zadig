@@ -31,7 +31,7 @@ type envHandle interface {
 	listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp
 	updateService(args *SvcOptArgs) error
 	queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClient informers.SharedInformerFactory) (string, string, []string)
-	initEnvConfigSet(envName, productName, username string, envConfigYamls []string, inf informers.SharedInformerFactory, kubeClient client.Client) error
+	initEnvConfigSet(envName, namespace, productName, username string, envConfigs []*commonmodels.CreateUpdateCommonEnvCfgArgs, inf informers.SharedInformerFactory, kubeClient client.Client) error
 }
 
 func envHandleFunc(projectType string, log *zap.SugaredLogger) envHandle {

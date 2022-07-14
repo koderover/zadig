@@ -45,7 +45,7 @@ type Client struct {
 	*gitlab.Client
 }
 
-func NewClient(address, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
+func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
 	var client *http.Client
 	if enableProxy {
 		proxyURL, err := url.Parse(proxyAddr)
@@ -58,7 +58,12 @@ func NewClient(address, accessToken, proxyAddr string, enableProxy bool) (*Clien
 		client = http.DefaultClient
 	}
 
-	cli, err := gitlab.NewOAuthClient(accessToken, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
+	token, err := UpdateGitlabToken(id, accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh gitlab token, err: %s", err)
+	}
+
+	cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gitlab client, err: %s", err)
 	}

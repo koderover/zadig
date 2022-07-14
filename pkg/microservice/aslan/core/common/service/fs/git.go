@@ -34,10 +34,18 @@ import (
 type DownloadFromSourceArgs struct {
 	CodehostID int    `json:"codeHostID"`
 	Owner      string `json:"owner"`
+	Namespace  string `json:"namespace"`
 	Repo       string `json:"repo"`
 	Path       string `json:"path"`
 	Branch     string `json:"branch"`
 	RepoLink   string `json:"repoLink"`
+}
+
+func (args *DownloadFromSourceArgs) GetNamespace() string {
+	if len(args.Namespace) > 0 {
+		return args.Namespace
+	}
+	return args.Owner
 }
 
 func DownloadFileFromSource(args *DownloadFromSourceArgs) ([]byte, error) {
@@ -46,8 +54,8 @@ func DownloadFileFromSource(args *DownloadFromSourceArgs) ([]byte, error) {
 		log.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, err
 	}
-
-	return getter.GetFileContent(args.Owner, args.Repo, args.Path, args.Branch)
+	owner := args.GetNamespace()
+	return getter.GetFileContent(owner, args.Repo, args.Path, args.Branch)
 }
 
 func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(afero.Fs) (string, error)) (fs.FS, error) {
@@ -56,8 +64,11 @@ func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(a
 		log.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, err
 	}
-
-	chartTree, err := getter.GetTreeContents(args.Owner, args.Repo, args.Path, args.Branch)
+	owner := args.Namespace
+	if owner == "" {
+		owner = args.Owner
+	}
+	chartTree, err := getter.GetTreeContents(owner, args.Repo, args.Path, args.Branch)
 	if err != nil {
 		log.Errorf("Failed to get tree contents for service %+v, err: %s", args, err)
 		return nil, err
@@ -112,7 +123,7 @@ func GetTreeGetter(codeHostID int) (TreeGetter, error) {
 	case setting.SourceFromGithub:
 		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
 	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+		return gitlabservice.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	default:
 		// should not have happened here
 		log.DPanicf("invalid source: %s", ch.Type)

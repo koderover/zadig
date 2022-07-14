@@ -34,7 +34,7 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, ctx.Logger)
+	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
 func ReloadServiceFromYamlTemplate(c *gin.Context) {

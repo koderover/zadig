@@ -101,7 +101,7 @@ type ListResourcesByLabelsResp struct {
 }
 
 func BuildLabelString(key string, value string) string {
-	return fmt.Sprintf("%s-%s", key, value)
+	return fmt.Sprintf("%s:%s", key, value)
 }
 
 func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (*ListResourcesByLabelsResp, error) {
@@ -200,12 +200,13 @@ type DeleteLabelsArgs struct {
 	IDs []string
 }
 
-func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) error {
+func DeleteLabels(ids []string, forceDelete bool, userName string, logger *zap.SugaredLogger) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
 	if forceDelete {
+		logger.Infof("user:%s force deleteLabels:%s", userName, ids)
 		if err := mongodb.NewLabelBindingColl().BulkDeleteByLabelIds(ids); err != nil {
 			logger.Errorf("BulkDeleteByIds err :%s,ids:%v", err, ids)
 			return err
@@ -216,30 +217,8 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 }
 
 func DeleteLabelsAndBindingsByProject(projectName string, logger *zap.SugaredLogger) error {
-
-	labels, err := mongodb.NewLabelColl().ListByProjectName(projectName)
-	if err != nil {
-		return err
-	}
-
-	ids := []string{}
-	for _, label := range labels {
-		ids = append(ids, label.ID.Hex())
-	}
-
-	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: ids})
-	if err != nil {
-		logger.Errorf("list labelbingding err:%s", err)
-		return err
-	}
-
-	var labelBindingIDs []string
-	for _, labelBinding := range labelBindings {
-		labelBindingIDs = append(labelBindingIDs, labelBinding.ID.Hex())
-	}
-
-	if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
-		logger.Errorf("BulkDeleteByIds err :%s,ids:%v", err, labelBindingIDs)
+	if err := mongodb.NewLabelBindingColl().BulkDeleteByProject(projectName); err != nil {
+		logger.Errorf("DeleteLabelsByProject err:%s", err)
 		return err
 	}
 

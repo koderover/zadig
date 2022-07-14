@@ -17,6 +17,6 @@ limitations under the License.
 package webhook
 
 type WebHook struct {
-	Owner, Repo, Address, Name string
-	CodeHostID                 int
+	Owner, Namespace, Repo, Address, Name string
+	CodeHostID                            int
 }

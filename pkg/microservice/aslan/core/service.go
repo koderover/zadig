@@ -34,22 +34,19 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
-	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
-	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
+	multiclusterservice "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/policy"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
@@ -57,7 +54,7 @@ const (
 )
 
 type policyGetter interface {
-	Policies() []*policy.PolicyMeta
+	Policies() []*types.PolicyMeta
 }
 
 type Controller interface {
@@ -82,28 +79,6 @@ func StartControllers(stopCh <-chan struct{}) {
 	}
 
 	wg.Wait()
-}
-
-func registerPolicies() {
-	policyClient := policy.NewWithRetry()
-	var policies []*policy.PolicyMeta
-	for _, r := range []policyGetter{
-		new(workflowhandler.Router),
-		new(environmenthandler.Router),
-		new(projecthandler.Router),
-		new(testinghandler.Router),
-		new(deliveryhandler.Router),
-	} {
-		policies = append(policies, r.Policies()...)
-	}
-
-	for _, p := range policies {
-		err := policyClient.CreateOrUpdatePolicyRegistration(p)
-		if err != nil {
-			// should not have happened here
-			log.DPanic(err)
-		}
-	}
 }
 
 func initRsaKey() {
@@ -149,17 +124,18 @@ func Start(ctx context.Context) {
 	systemservice.SetProxyConfig()
 
 	workflowservice.InitPipelineController()
+	workflowcontroller.InitWorkflowController()
 	// 如果集群环境所属的项目不存在，则删除此集群环境
 	environmentservice.CleanProducts()
 
 	environmentservice.ResetProductsStatus()
 
-	registerPolicies()
-
 	//Parse the workload dependencies configMap, PVC, ingress, secret
 	go environmentservice.StartClusterInformer()
 
 	go StartControllers(ctx.Done())
+
+	go multiclusterservice.ClusterApplyUpgradeAgent()
 
 	initRsaKey()
 }
@@ -256,13 +232,13 @@ func initDatabase() {
 		commonrepo.NewChartColl(),
 		commonrepo.NewDockerfileTemplateColl(),
 		commonrepo.NewProjectClusterRelationColl(),
-		commonrepo.NewConfigMapColl(),
-		commonrepo.NewIngressColl(),
-		commonrepo.NewSecretColl(),
-		commonrepo.NewPvcColl(),
+		commonrepo.NewEnvResourceColl(),
 		commonrepo.NewEnvSvcDependColl(),
 		commonrepo.NewBuildTemplateColl(),
 		commonrepo.NewScanningColl(),
+		commonrepo.NewWorkflowV4Coll(),
+		commonrepo.NewworkflowTaskv4Coll(),
+		commonrepo.NewWorkflowQueueColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

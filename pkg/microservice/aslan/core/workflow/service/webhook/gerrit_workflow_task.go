@@ -195,10 +195,11 @@ func (gruem *gerritChangeMergedEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
 	})
 
 	return args
@@ -237,11 +238,12 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) UpdateTaskArgs(product *commonmo
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         gpcem.Event.Change.Number,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            gpcem.Event.Change.Number,
 	})
 
 	return args
@@ -367,7 +369,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 								mainRepo.RepoOwner = ""
 								mainRepo.Revision = m.Event.PatchSet.Revision
 								notification, _ = scmnotify.NewService().SendInitWebhookComment(
-									mainRepo, m.Event.Change.Number, baseURI, false, false, log,
+									mainRepo, m.Event.Change.Number, baseURI, false, false, false, log,
 								)
 							}
 						}
@@ -381,6 +383,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 						workflowArgs.Source = setting.SourceFromGerrit
 						workflowArgs.CodehostID = item.MainRepo.CodehostID
 						workflowArgs.RepoOwner = item.MainRepo.RepoOwner
+						workflowArgs.RepoNamespace = item.MainRepo.GetRepoNamespace()
 						workflowArgs.RepoName = item.MainRepo.RepoName
 						workflowArgs.Committer = item.MainRepo.Committer
 						if resp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log); err != nil {

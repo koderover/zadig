@@ -23,8 +23,16 @@ type CapacityTarget string
 
 const (
 	// 工作流任务的留存
-	WorkflowTaskRetention CapacityTarget = "WorkflowTaskRetention"
+	WorkflowTaskRetention     CapacityTarget = "WorkflowTaskRetention"
+	DefaultWorkflowRemainDays int            = 365
 )
+
+var DefaultWorkflowTaskRetention = &CapacityStrategy{
+	Target: WorkflowTaskRetention,
+	Retention: &RetentionConfig{
+		MaxDays: DefaultWorkflowRemainDays,
+	},
+}
 
 // RetentionConfig 资源留存相关的配置
 type RetentionConfig struct {

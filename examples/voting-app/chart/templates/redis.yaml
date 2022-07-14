@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: redis
+  name: redis
+spec:
+  replicas: {{ .Values.services.redis.replicas }}
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - image: {{ .Values.services.redis.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        name: redis
+        ports:
+        - containerPort: {{ .Values.services.redis.port }}
+          name: redis
+        volumeMounts:
+        - mountPath: /data
+          name: redis-data
+        resources:
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+      volumes:
+      - name: redis-data
+        emptyDir: {} 
+      imagePullSecrets:
+      - name: {{ .Values.imagePullSecretsName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: redis
+  name: redis
+spec:
+  type: ClusterIP
+  ports:
+  - name: "redis-service"
+    port: {{ .Values.services.redis.port }}
+    targetPort: {{ .Values.services.redis.port }}
+  selector:
+    app: redis

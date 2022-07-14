@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -89,6 +90,36 @@ func PendingPipelineTasksSSE(c *gin.Context) {
 		startTime := time.Now()
 		wait.NonSlidingUntilWithContext(ctx1, func(_ context.Context) {
 			msgChan <- workflow.PendingPipelineTasks()
+
+			if time.Since(startTime).Minutes() == float64(60) {
+				ctx.Logger.Warnf("[%s] Query PendingPipelineTasksSSE API over 60 minutes", ctx.UserName)
+			}
+		}, time.Second)
+	}, ctx.Logger)
+}
+
+func RunningWorkflowTasksSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
+		startTime := time.Now()
+		wait.NonSlidingUntilWithContext(ctx1, func(_ context.Context) {
+			msgChan <- workflowcontroller.RunningTasks()
+
+			if time.Since(startTime).Minutes() == float64(60) {
+				ctx.Logger.Warnf("[%s] Query RunningPipelineTasksSSE API over 60 minutes", ctx.UserName)
+			}
+		}, time.Second)
+	}, ctx.Logger)
+}
+
+func PendingWorkflowTasksSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
+		startTime := time.Now()
+		wait.NonSlidingUntilWithContext(ctx1, func(_ context.Context) {
+			msgChan <- workflowcontroller.PendingTasks()
 
 			if time.Since(startTime).Minutes() == float64(60) {
 				ctx.Logger.Warnf("[%s] Query PendingPipelineTasksSSE API over 60 minutes", ctx.UserName)

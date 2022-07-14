@@ -19,11 +19,15 @@ spec:
     spec:
       containers:
         - name: service2
-          image: ccr.ccs.tencentyun.com/koderover-public/service2:latest
+          image: koderover.tencentcloudcr.com/koderover-demo/service2:latest
           imagePullPolicy: Always 
           command:
             - /workspace/service2
           ports:
             - protocol: TCP
               containerPort: 20222
+          resources:
+            limits:
+              memory: 50Mi
+              cpu: 50m
      

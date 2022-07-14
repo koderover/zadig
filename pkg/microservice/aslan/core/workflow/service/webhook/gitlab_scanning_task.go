@@ -17,13 +17,14 @@ limitations under the License.
 package webhook
 
 import (
-	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	scanningservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -40,6 +41,8 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
+
+	var notification *commonmodels.Notification
 
 	for _, scanning := range scanningList {
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
@@ -60,6 +63,13 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						// 如果是merge request，且该webhook触发器配置了自动取消，
 						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
 						mergeRequestID = ev.ObjectAttributes.IID
+
+						if notification == nil {
+							mainRepo := ConvertScanningHookToMainHookRepo(item)
+							notification, _ = scmnotify.NewService().SendInitWebhookComment(
+								mainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
+							)
+						}
 					}
 
 					triggerRepoInfo := make([]*scanningservice.ScanningRepoInfo, 0)
@@ -75,7 +85,12 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 					repoInfo.PR = mergeRequestID
 
-					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, "webhook", log); err != nil {
+					notificationID := ""
+					if notification != nil {
+						notificationID = notification.ID.Hex()
+					}
+
+					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, notificationID, "webhook", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {
@@ -134,6 +149,9 @@ func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHoo
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
 		if !EventConfigured(matchRepo, config.HookEventPush) {
+			return false, nil
+		}
+		if hookRepo.Branch != getBranchFromRef(ev.Ref) {
 			return false, nil
 		}
 
@@ -195,5 +213,16 @@ type gitlabTagEventMatcherForScanning struct {
 }
 
 func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+		hookInfo := ConvertScanningHookToMainHookRepo(hookRepo)
+		if !EventConfigured(hookInfo, config.HookEventTag) {
+			return false, nil
+		}
+
+		hookRepo.Branch = ev.Project.DefaultBranch
+		return true, nil
+	}
+
 	return false, nil
 }

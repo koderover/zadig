@@ -63,8 +63,10 @@ func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
 }
 
 // prepare necessary data from db
-func prepareData(namespace, serviceName string, containerName string, product *models.Product) (targetContainer *models.Container,
+func prepareData(namespace, serviceName, containerName, image string, product *models.Product) (targetContainer *models.Container,
 	targetChart *templatemodels.RenderChart, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
+
+	imageName := commonservice.ExtractImageName(image)
 
 	var targetProductService *models.ProductService
 	for _, productService := range product.GetServiceMap() {
@@ -73,20 +75,24 @@ func prepareData(namespace, serviceName string, containerName string, product *m
 		}
 		targetProductService = productService
 		for _, container := range productService.Containers {
-			if container.Name != containerName {
-				continue
+			if container.ImageName == imageName {
+				targetContainer = container
+				break
 			}
-			targetContainer = container
-			break
 		}
 		break
 	}
 	if targetContainer == nil {
-		err = fmt.Errorf("failed to find container %s", containerName)
+		err = fmt.Errorf("failed to find image config: %s for container %s", imageName, containerName)
 		return
 	}
 
-	renderSet, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: namespace, Revision: product.Render.Revision})
+	renderSet, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: product.ProductName,
+		Name:        namespace,
+		EnvName:     product.EnvName,
+		Revision:    product.Render.Revision,
+	})
 	if err != nil {
 		log.Errorf("[RenderSet.find] update product %s error: %s", product.ProductName, err.Error())
 		err = fmt.Errorf("failed to find redset name %s revision %d", namespace, product.Render.Revision)
@@ -130,7 +136,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		namespace                string = product.Namespace
 	)
 
-	targetContainer, targetChart, renderSet, serviceObj, err := prepareData(namespace, serviceName, containerName, product)
+	targetContainer, targetChart, renderSet, serviceObj, err := prepareData(namespace, serviceName, containerName, image, product)
 	if err != nil {
 		return err
 	}

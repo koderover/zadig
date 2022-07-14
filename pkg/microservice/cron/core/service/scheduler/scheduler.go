@@ -42,16 +42,17 @@ import (
 
 // CronClient ...
 type CronClient struct {
-	AslanCli                 *client.Client
-	Schedulers               map[string]*gocron.Scheduler
-	SchedulerController      map[string]chan bool
-	lastSchedulers           map[string][]*service.Schedule
-	lastServiceSchedulers    map[string]*service.SvcRevision
-	lastEnvSchedulerData     map[string]*service.ProductResp
-	enabledMap               map[string]bool
-	lastPMProductRevisions   []*service.ProductRevision
-	lastHelmProductRevisions []*service.ProductRevision
-	log                      *zap.SugaredLogger
+	AslanCli                     *client.Client
+	Schedulers                   map[string]*gocron.Scheduler
+	SchedulerController          map[string]chan bool
+	lastSchedulers               map[string][]*service.Schedule
+	lastServiceSchedulers        map[string]*service.SvcRevision
+	lastEnvSchedulerData         map[string]*service.ProductResp
+	lastEnvResourceSchedulerData map[string]*service.EnvResource
+	enabledMap                   map[string]bool
+	lastPMProductRevisions       []*service.ProductRevision
+	lastHelmProductRevisions     []*service.ProductRevision
+	log                          *zap.SugaredLogger
 }
 
 type CronV3Client struct {
@@ -130,6 +131,8 @@ const (
 	InitHealthCheckPmHostScheduler = "InitHealthCheckPmHostScheduler"
 
 	InitHelmEnvSyncValuesScheduler = "InitHelmEnvSyncValuesScheduler"
+
+	EnvResourceSyncScheduler = "EnvResourceSyncScheduler"
 )
 
 // NewCronClient ...
@@ -164,14 +167,15 @@ func NewCronClient() *CronClient {
 	}
 
 	return &CronClient{
-		AslanCli:              aslanCli,
-		Schedulers:            make(map[string]*gocron.Scheduler),
-		lastSchedulers:        make(map[string][]*service.Schedule),
-		lastServiceSchedulers: make(map[string]*service.SvcRevision),
-		lastEnvSchedulerData:  make(map[string]*service.ProductResp),
-		SchedulerController:   make(map[string]chan bool),
-		enabledMap:            make(map[string]bool),
-		log:                   log.SugaredLogger(),
+		AslanCli:                     aslanCli,
+		Schedulers:                   make(map[string]*gocron.Scheduler),
+		lastSchedulers:               make(map[string][]*service.Schedule),
+		lastServiceSchedulers:        make(map[string]*service.SvcRevision),
+		lastEnvSchedulerData:         make(map[string]*service.ProductResp),
+		lastEnvResourceSchedulerData: make(map[string]*service.EnvResource),
+		SchedulerController:          make(map[string]chan bool),
+		enabledMap:                   make(map[string]bool),
+		log:                          log.SugaredLogger(),
 	}
 }
 
@@ -202,6 +206,8 @@ func (c *CronClient) Init() {
 	c.InitHealthCheckPmHostScheduler()
 	// sync values from remote for helm envs at regular intervals
 	c.InitHelmEnvSyncValuesScheduler()
+	// sync env resources from git at regular intervals
+	c.InitEnvResourceSyncScheduler()
 }
 
 func (c *CronClient) InitCleanJobScheduler() {
@@ -309,4 +315,12 @@ func (c *CronClient) InitHelmEnvSyncValuesScheduler() {
 	c.Schedulers[InitHelmEnvSyncValuesScheduler].Every(20).Seconds().Do(c.UpsertEnvValueSyncScheduler, c.log)
 
 	c.Schedulers[InitHelmEnvSyncValuesScheduler].Start()
+}
+
+func (c *CronClient) InitEnvResourceSyncScheduler() {
+	c.Schedulers[EnvResourceSyncScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[EnvResourceSyncScheduler].Every(20).Seconds().Do(c.UpsertEnvResourceSyncScheduler, c.log)
+
+	c.Schedulers[EnvResourceSyncScheduler].Start()
 }

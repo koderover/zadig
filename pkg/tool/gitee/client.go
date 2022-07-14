@@ -18,7 +18,6 @@ package gitee
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Client struct {
@@ -64,9 +64,13 @@ func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) *Client 
 				ch.UpdatedAt = int64(token.CreatedAt)
 
 				if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
-					fmt.Println(fmt.Sprintf("failed to updateCodeHost err:%s", err))
+					log.Errorf("failed to updateCodeHost err:%s", err)
 				}
+			} else {
+				log.Errorf("failed to refresh accessToken, err:%s", err)
 			}
+		} else if err != nil {
+			log.Errorf("failed to get codeHost id: %d, err:%s", id, err)
 		}
 
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)

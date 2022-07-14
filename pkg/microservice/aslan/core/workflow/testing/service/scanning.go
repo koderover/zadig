@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -166,7 +168,8 @@ func DeleteScanningModuleByID(id string, log *zap.SugaredLogger) error {
 	return err
 }
 
-func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log *zap.SugaredLogger) (int64, error) {
+// CreateScanningTask uses notificationID if the task is triggered by webhook, otherwise it should be empty
+func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, username string, log *zap.SugaredLogger) (int64, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
@@ -187,6 +190,12 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		return 0, err
 	}
 
+	scanningImage := imageInfo.Value
+
+	if imageInfo.ImageFrom == commonmodels.ImageFromKoderover {
+		scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", imageInfo.Value)
+	}
+
 	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
@@ -200,19 +209,34 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
 			return 0, err
 		}
-		repos = append(repos, &types.Repository{
-			Source:      rep.Type,
-			RepoOwner:   arg.RepoOwner,
-			RepoName:    arg.RepoName,
-			Branch:      arg.Branch,
-			PR:          arg.PR,
-			CodehostID:  arg.CodehostID,
-			OauthToken:  rep.AccessToken,
-			Address:     rep.Address,
-			Username:    rep.Username,
-			Password:    rep.Password,
-			EnableProxy: rep.EnableProxy,
-		})
+
+		repoInfo := &types.Repository{
+			Source:        rep.Type,
+			RepoOwner:     arg.RepoOwner,
+			RepoName:      arg.RepoName,
+			Branch:        arg.Branch,
+			PR:            arg.PR,
+			CodehostID:    arg.CodehostID,
+			OauthToken:    rep.AccessToken,
+			Address:       rep.Address,
+			Username:      rep.Username,
+			Password:      rep.Password,
+			EnableProxy:   rep.EnableProxy,
+			RepoNamespace: arg.RepoNamespace,
+			Tag:           arg.Tag,
+		}
+
+		for _, repo := range scanningInfo.Repos {
+			// make sure we are using the same repo's configuration
+			if repo.CodehostID == arg.CodehostID && repo.RepoName == arg.RepoName {
+				repoInfo.SubModules = repo.SubModules
+				repoInfo.RemoteName = repo.RemoteName
+				repoInfo.CheckoutPath = repo.CheckoutPath
+				break
+			}
+		}
+
+		repos = append(repos, repoInfo)
 	}
 
 	scanningTask := &task.Scanning{
@@ -220,7 +244,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		Status:     config.StatusCreated,
 		ScanningID: scanningInfo.ID.Hex(),
 		Name:       scanningInfo.Name,
-		ImageInfo:  imageInfo.Value,
+		ImageInfo:  scanningImage,
 		ResReq:     scanningInfo.AdvancedSetting.ResReq,
 		ResReqSpec: scanningInfo.AdvancedSetting.ResReqSpec,
 		Registries: registries,
@@ -288,6 +312,11 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 		Stages:        stages,
 		ConfigPayload: configPayload,
 		StorageURI:    defaultURL,
+		ScanningArgs: &commonmodels.ScanningArgs{
+			ScanningName:   scanningInfo.Name,
+			ScanningID:     scanningInfo.ID.Hex(),
+			NotificationID: notificationID,
+		},
 	}
 
 	if len(finalTask.Stages) <= 0 {
@@ -297,6 +326,12 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, username string, log
 	if err := workflowservice.CreateTask(finalTask); err != nil {
 		log.Error(err)
 		return 0, e.ErrCreateTask
+	}
+
+	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
+	err = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
+	if err != nil {
+		log.Warnf("Failed to update comment for scanning: %s, the error is: %s", scanningInfo.ID.Hex(), err)
 	}
 
 	return nextTaskID, nil
@@ -371,10 +406,15 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
-	if err != nil {
-		log.Errorf("failed to get sonar integration info, error: %s", err)
-		return nil, err
+	resultAddr := ""
+
+	if scanningInfo.ScannerType == "sonarQube" {
+		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+		if err != nil {
+			log.Errorf("failed to get sonar integration info, error: %s", err)
+			return nil, err
+		}
+		resultAddr = sonarInfo.ServerAddress
 	}
 
 	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]
@@ -397,6 +437,18 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		CreateTime: resp.CreateTime,
 		EndTime:    resp.EndTime,
 		RepoInfo:   scanningTaskInfo.Repos,
-		ResultLink: sonarInfo.ServerAddress,
+		ResultLink: resultAddr,
 	}, nil
+}
+
+func CancelScanningTask(userName, scanningID string, taskID int64, typeString config.PipelineType, requestID string, log *zap.SugaredLogger) error {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return err
+	}
+
+	scanningTaskName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
+
+	return commonservice.CancelTaskV2(userName, scanningTaskName, taskID, typeString, requestID, log)
 }

@@ -39,6 +39,7 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type GetCollaborationUpdateResp struct {
@@ -377,19 +378,19 @@ func buildPolicybindingName(uid, policyName, projectName string) string {
 
 func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityType, userName, uid string,
 	logger *zap.SugaredLogger) error {
-	var policies []*policy.Policy
+	var policies []*types.Policy
 	var policyBindings []*policy.PolicyBinding
 	for _, mode := range updateResp.New {
-		var rules []*policy.Rule
+		var rules []*types.Rule
 
 		policyName := buildPolicyName(projectName, mode.Name, identityType, userName)
 
 		for _, workflow := range mode.Workflows {
-			rules = append(rules, &policy.Rule{
+			rules = append(rules, &types.Rule{
 				Verbs:     workflow.Verbs,
 				Kind:      "resource",
 				Resources: []string{string(config2.ResourceTypeWorkflow)},
-				MatchAttributes: []policy.MatchAttribute{
+				MatchAttributes: []types.MatchAttribute{
 					{
 						Key:   "policy",
 						Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name),
@@ -398,19 +399,19 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			})
 		}
 		for _, product := range mode.Products {
-			rules = append(rules, &policy.Rule{
+			rules = append(rules, &types.Rule{
 				Verbs:     product.Verbs,
 				Kind:      "resource",
-				Resources: []string{string(config2.ResourceTypeProduct)},
-				MatchAttributes: []policy.MatchAttribute{
+				Resources: []string{string(config2.ResourceTypeEnvironment)},
+				MatchAttributes: []types.MatchAttribute{
 					{
 						Key:   "policy",
-						Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeProduct), product.Name),
+						Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name),
 					},
 				},
 			})
 		}
-		policies = append(policies, &policy.Policy{
+		policies = append(policies, &types.Policy{
 			Name:        policyName,
 			UpdateTime:  time.Now().Unix(),
 			Description: buildPolicyDescription(mode.Name, userName),
@@ -440,15 +441,15 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			return err
 		}
 	}
-	var updatePolicies []*policy.Policy
+	var updatePolicies []*types.Policy
 	for _, instance := range updateResp.UpdateInstance {
-		var rules []*policy.Rule
+		var rules []*types.Rule
 		for _, workflow := range instance.Workflows {
-			rules = append(rules, &policy.Rule{
+			rules = append(rules, &types.Rule{
 				Verbs:     workflow.Verbs,
 				Kind:      "resource",
 				Resources: []string{string(config2.ResourceTypeWorkflow)},
-				MatchAttributes: []policy.MatchAttribute{
+				MatchAttributes: []types.MatchAttribute{
 					{
 						Key:   "policy",
 						Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.BaseName),
@@ -457,19 +458,19 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			})
 		}
 		for _, product := range instance.Products {
-			rules = append(rules, &policy.Rule{
+			rules = append(rules, &types.Rule{
 				Verbs:     product.Verbs,
 				Kind:      "resource",
-				Resources: []string{string(config2.ResourceTypeProduct)},
-				MatchAttributes: []policy.MatchAttribute{
+				Resources: []string{string(config2.ResourceTypeEnvironment)},
+				MatchAttributes: []types.MatchAttribute{
 					{
 						Key:   "policy",
-						Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeProduct), product.BaseName),
+						Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeEnvironment), product.BaseName),
 					},
 				},
 			})
 		}
-		updatePolicies = append(updatePolicies, &policy.Policy{
+		updatePolicies = append(updatePolicies, &types.Policy{
 			Name:        instance.PolicyName,
 			Description: buildPolicyDescription(instance.CollaborationName, userName),
 			UpdateTime:  time.Now().Unix(),
@@ -528,7 +529,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			labels = append(labels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
-					string(config2.ResourceTypeProduct), product.Name),
+					string(config2.ResourceTypeEnvironment), product.Name),
 				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
@@ -548,7 +549,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			labels = append(labels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeProduct), product.Name),
+					string(config2.ResourceTypeEnvironment), product.Name),
 				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
@@ -566,7 +567,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			deleteLabels = append(deleteLabels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeProduct), product.BaseName),
+					string(config2.ResourceTypeEnvironment), product.BaseName),
 				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
@@ -586,7 +587,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			deleteLabels = append(deleteLabels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
-					string(config2.ResourceTypeProduct), product.BaseName),
+					string(config2.ResourceTypeEnvironment), product.BaseName),
 				Type: setting.ResourceTypeSystem,
 			})
 		}
@@ -617,7 +618,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, label := range resp.Labels {
 			ids = append(ids, label.ID.Hex())
 		}
-		err = service.DeleteLabels(ids, true, logger)
+		err = service.DeleteLabels(ids, true, userName, logger)
 		if err != nil {
 			logger.Errorf("delete labels error, error msg:%s", err)
 			return err
@@ -635,7 +636,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, product := range item.UpdateSpec.Products {
 			labels = append(labels, mongodb2.Label{
 				Key:   "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name),
+				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.New.Name),
 				Type:  setting.ResourceTypeSystem,
 			})
 		}
@@ -683,7 +684,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 		for _, product := range mode.Products {
-			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeProduct), product.Name)
+			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name)
 			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
@@ -697,7 +698,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Resource: mongodb2.Resource{
 					Name:        name,
 					ProjectName: projectName,
-					Type:        string(config2.ResourceTypeProduct),
+					Type:        string(config2.ResourceTypeEnvironment),
 				},
 			})
 		}
@@ -723,7 +724,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 		for _, product := range item.NewSpec.Products {
-			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.Name)
+			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name)
 			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
@@ -736,7 +737,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				LabelID: labelId,
 				Resource: mongodb2.Resource{
 					Name:        name,
-					Type:        string(config2.ResourceTypeProduct),
+					Type:        string(config2.ResourceTypeEnvironment),
 					ProjectName: projectName,
 				},
 			})
@@ -791,7 +792,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		}
 		for _, product := range item.UpdateSpec.Products {
 			if product.Old.CollaborationType == config.CollaborationShare && product.New.CollaborationType == config.CollaborationNew {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name)
+				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.New.Name)
 				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
@@ -800,7 +801,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        buildName(product.New.Name, item.CollaborationMode, identityType, userName),
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})
@@ -808,13 +809,13 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        product.Old.BaseName,
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})
 			}
 			if product.Old.CollaborationType == config.CollaborationNew && product.New.CollaborationType == config.CollaborationShare {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name)
+				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.New.Name)
 				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
@@ -823,7 +824,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        product.New.Name,
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})
@@ -831,7 +832,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        product.Old.Name,
-						Type:        string(config2.ResourceTypeProduct),
+						Type:        string(config2.ResourceTypeEnvironment),
 						ProjectName: projectName,
 					},
 				})
@@ -878,7 +879,7 @@ func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projec
 	log *zap.SugaredLogger) (err error) {
 	deleteResp := getCollaborationDelete(updateResp)
 	for _, product := range deleteResp.Products {
-		err := service2.DeleteProduct(username, product, projectName, requestID, log)
+		err := service2.DeleteProduct(username, product, projectName, requestID, true, log)
 		if err != nil && err != mongo.ErrNoDocuments {
 			log.Errorf("delete product err:%v", err)
 			return err
@@ -1133,23 +1134,27 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			}
 		}
 	}
-	renderSets, err := getRenderSet(projectName, newProductName.List())
-	if err != nil {
-		return nil, err
-	}
-	if renderSets != nil {
-		productRenderSetMap := make(map[string]models2.RenderSet)
-		for _, set := range renderSets {
-			productRenderSetMap[set.EnvName] = *set
+	if len(newProduct) > 0 && newProduct[0].DeployType == setting.K8SDeployType {
+		renderSets, err := getRenderSet(projectName, newProductName.List())
+		if err != nil {
+			logger.Errorf("getRenderSet error:%s", err)
+			return nil, err
 		}
-		for _, product := range newProduct {
-			set, ok := productRenderSetMap[product.BaseName]
-			if !ok {
-				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
+		if renderSets != nil {
+			productRenderSetMap := make(map[string]models2.RenderSet)
+			for _, set := range renderSets {
+				productRenderSetMap[set.EnvName] = set
 			}
+			for _, product := range newProduct {
+				set, ok := productRenderSetMap[product.BaseName]
+				if !ok {
+					logger.Warnf("product:%s renderSet not exist", product.BaseName)
+					continue
+				}
 
-			product.Vars = set.KVs
-			product.DefaultValues = set.DefaultValues
+				product.Vars = set.KVs
+				product.DefaultValues = set.DefaultValues
+			}
 		}
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
@@ -1157,6 +1162,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			chart, ok := envChartsMap[product.BaseName]
 			if !ok {
+				logger.Errorf("product:%s not exist", product.BaseName)
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
 
@@ -1277,7 +1283,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 		labelIds = append(labelIds, l.ID.Hex())
 	}
 
-	err = service.DeleteLabels(labelIds, true, logger)
+	err = service.DeleteLabels(labelIds, true, "system", logger)
 	if err != nil {
 		return err
 	}
@@ -1292,7 +1298,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 		}
 		for _, product := range ci.Products {
 			if product.CollaborationType == config.CollaborationNew {
-				err = service2.DeleteProduct(userName, product.Name, ci.ProjectName, requestID, logger)
+				err = service2.DeleteProduct(userName, product.Name, ci.ProjectName, requestID, true, logger)
 				if err != nil {
 					return err
 				}
@@ -1316,10 +1322,13 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return nil, err
 	}
+	if updateResp == nil || (updateResp.Update == nil && updateResp.New == nil && updateResp.UpdateInstance == nil && updateResp.Delete == nil) {
+		return nil, nil
+	}
 	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
 }
 
-func getRenderSet(projectName string, envs []string) ([]*models2.RenderSet, error) {
+func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		InProjects: []string{projectName},
 		InEnvs:     envs,
@@ -1329,13 +1338,20 @@ func getRenderSet(projectName string, envs []string) ([]*models2.RenderSet, erro
 	}
 	var findOpts []commonrepo.RenderSetFindOption
 	for _, product := range products {
+		var revision int64
+		for _, productService := range product.GetServiceMap() {
+			revision = productService.Render.Revision
+		}
 		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
-			Revision: product.Revision,
-			Name:     product.Namespace,
+			Revision:    revision,
+			ProductTmpl: projectName,
+			EnvName:     product.EnvName,
+			Name:        product.Namespace,
 		})
 	}
-	renderSets, err := commonrepo.NewRenderSetColl().List(&commonrepo.RenderSetListOption{
+	renderSets, err := commonrepo.NewRenderSetColl().ListByFindOpts(&commonrepo.RenderSetListOption{
 		ProductTmpl: projectName,
+		FindOpts:    findOpts,
 	})
 	if err != nil {
 		return nil, err

@@ -50,6 +50,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	commonEnvCfgs := router.Group("envcfgs")
 	{
 		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.GET("", ListLatestEnvCfg)
+		commonEnvCfgs.PUT("/:envName/:type/:objectName/sync", SyncEnvResource)
 		commonEnvCfgs.PUT("/:envName", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
 		commonEnvCfgs.POST("/:envName", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
 		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
@@ -107,6 +109,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
+
+		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -154,6 +158,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/check/sharenv/:op/ready", CheckShareEnvReady)
 
 		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
+
+		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
+		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
 	}
 
 	// ---------------------------------------------------------------------------------------

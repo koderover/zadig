@@ -48,12 +48,14 @@ type ListScanningRespItem struct {
 }
 
 type ScanningRepoInfo struct {
-	CodehostID int    `json:"codehost_id"`
-	Source     string `json:"source"`
-	RepoOwner  string `json:"repo_owner"`
-	RepoName   string `json:"repo_name"`
-	PR         int    `json:"pr"`
-	Branch     string `json:"branch"`
+	CodehostID    int    `json:"codehost_id"`
+	Source        string `json:"source"`
+	RepoOwner     string `json:"repo_owner"`
+	RepoNamespace string `json:"repo_namespace"`
+	RepoName      string `json:"repo_name"`
+	PR            int    `json:"pr"`
+	Branch        string `json:"branch"`
+	Tag           string `json:"tag"`
 }
 
 type ScanningStatistic struct {
@@ -106,6 +108,9 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 }
 
 func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
+	for _, repo := range scanning.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
 	return &Scanning{
 		ID:              scanning.ID.Hex(),
 		Name:            scanning.Name,

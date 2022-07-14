@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -25,9 +24,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -43,6 +42,7 @@ type YamlContentRequestArg struct {
 	CodehostID  int    `json:"codehostID" form:"codehostID"`
 	Owner       string `json:"owner" form:"owner"`
 	Repo        string `json:"repo" form:"repo"`
+	Namespace   string `json:"namespace" form:"namespace"`
 	Branch      string `json:"branch" form:"branch"`
 	RepoLink    string `json:"repoLink" form:"repoLink"`
 	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
@@ -58,16 +58,6 @@ func fromGitRepo(source string) bool {
 	return false
 }
 
-func unMarshalJson(source interface{}) (*models.CreateFromRepo, error) {
-	bs, err := json.Marshal(source)
-	if err != nil {
-		return nil, err
-	}
-	ret := &models.CreateFromRepo{}
-	err = json.Unmarshal(bs, ret)
-	return ret, err
-}
-
 // SyncYamlFromSource sync values.yaml from source
 // NOTE currently only support gitHub and gitlab
 func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
@@ -78,7 +68,7 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 		return false, "", nil
 	}
 
-	sourceDetail, err := unMarshalJson(yamlData.SourceDetail)
+	sourceDetail, err := service.UnMarshalSourceDetail(yamlData.SourceDetail)
 	if err != nil {
 		return false, "", err
 	}
@@ -90,6 +80,7 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
+		Namespace:  repoConfig.Namespace,
 		Owner:      repoConfig.Owner,
 		Repo:       repoConfig.Repo,
 		Path:       sourceDetail.LoadPath,
@@ -125,8 +116,10 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	}
 
 	opt := &commonrepo.RenderSetFindOption{
-		Name:     productInfo.Render.Name,
-		Revision: productInfo.Render.Revision,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+		ProductTmpl: productName,
+		EnvName:     productInfo.EnvName,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
@@ -137,6 +130,11 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	ret.DefaultValues = rendersetObj.DefaultValues
+	err = service.FillGitNamespace(rendersetObj.YamlData)
+	if err != nil {
+		// Note, since user can always reselect the git info, error should not block normal logic
+		log.Warnf("failed to fill git namespace data, err: %s", err)
+	}
 	ret.YamlData = rendersetObj.YamlData
 	return ret, nil
 }
@@ -155,6 +153,7 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 				&fsservice.DownloadFromSourceArgs{
 					CodehostID: arg.CodehostID,
 					Owner:      arg.Owner,
+					Namespace:  arg.Namespace,
 					Repo:       arg.Repo,
 					Path:       path,
 					Branch:     arg.Branch,

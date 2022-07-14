@@ -49,7 +49,7 @@ import (
 
 // FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
 func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.SugaredLogger) error {
-	renderSet, err := GetRenderSet(tmpl.ProductName, 0, log)
+	renderSet, err := GetRenderSet(tmpl.ProductName, 0, true, "", log)
 	if err != nil {
 		log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
 		return err
@@ -79,23 +79,50 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 
 // 产品列表页服务Response
 type ServiceResp struct {
-	ServiceName        string              `json:"service_name"`
-	ServiceDisplayName string              `json:"service_display_name"`
-	Type               string              `json:"type"`
-	Status             string              `json:"status"`
-	Images             []string            `json:"images,omitempty"`
-	ProductName        string              `json:"product_name"`
-	EnvName            string              `json:"env_name"`
-	Ingress            *IngressInfo        `json:"ingress"`
-	Ready              string              `json:"ready"`
-	EnvStatuses        []*models.EnvStatus `json:"env_statuses,omitempty"`
-	WorkLoadType       string              `json:"workLoadType"`
-	Revision           int64               `json:"revision"`
-	EnvConfigs         []*models.EnvConfig `json:"env_configs"`
+	ServiceName        string       `json:"service_name"`
+	ServiceDisplayName string       `json:"service_display_name"`
+	Type               string       `json:"type"`
+	Status             string       `json:"status"`
+	Images             []string     `json:"images,omitempty"`
+	ProductName        string       `json:"product_name"`
+	EnvName            string       `json:"env_name"`
+	Ingress            *IngressInfo `json:"ingress"`
+	//deprecated
+	Ready        string              `json:"ready"`
+	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
+	WorkLoadType string              `json:"workLoadType"`
+	Revision     int64               `json:"revision"`
+	EnvConfigs   []*models.EnvConfig `json:"env_configs"`
 }
 
 type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
+}
+
+func UnMarshalSourceDetail(source interface{}) (*models.CreateFromRepo, error) {
+	bs, err := json.Marshal(source)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
+
+func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
+	if yamlData == nil || yamlData.Source != setting.SourceFromGitRepo {
+		return nil
+	}
+	sourceDetail, err := UnMarshalSourceDetail(yamlData.SourceDetail)
+	if err != nil {
+		return err
+	}
+	if sourceDetail.GitRepoConfig == nil {
+		return nil
+	}
+	sourceDetail.GitRepoConfig.Namespace = sourceDetail.GitRepoConfig.GetNamespace()
+	yamlData.SourceDetail = sourceDetail
+	return nil
 }
 
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, error) {
@@ -103,7 +130,9 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{
-		Name: renderSetName,
+		ProductTmpl: productName,
+		EnvName:     envName,
+		Name:        renderSetName,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
@@ -134,6 +163,11 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		rcaObj := new(RenderChartArg)
 		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
+		err = FillGitNamespace(rendersetObj.YamlData)
+		if err != nil {
+			// Note, since user can always reselect the git info, error should not block normal logic
+			log.Warnf("failed to fill git namespace data, err: %s", err)
+		}
 		rcaObj.YamlData = singleChart.OverrideYaml
 		ret = append(ret, rcaObj)
 	}
@@ -154,8 +188,6 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 // A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
 // a and the value contain character b.
 func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
-	log.Infof("Start to list workloads for env %s for project %s", envName, productName)
-	defer log.Info("Finish to list workloads")
 
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
@@ -341,7 +373,6 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
-	log.Infof("Start to list workloads in namespace %s", namespace)
 
 	var resp = make([]*ServiceResp, 0)
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
@@ -387,15 +418,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		})
 	}
 
-	// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
-	for _, workload := range workLoads {
-		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
-		_, _, images := kube.GetSelectedPodsInfo(selector, informer, log)
-		workload.Images = images
-	}
-
-	log.Debugf("Found %d workloads in total", len(workLoads))
-
 	err = fillServiceName(envName, productName, workLoads)
 	// err of getting service name should not block the return of workloads
 	if err != nil {
@@ -408,8 +430,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	count := len(workLoads)
-
-	log.Debugf("%d matching workloads left after filtering", count)
 
 	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
@@ -473,10 +493,11 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Ready:        setting.PodReady,
 			Status:       setting.PodRunning,
 		}
-		if !workload.Ready {
-			productRespInfo.Status = setting.PodUnstable
-			productRespInfo.Ready = setting.PodNotReady
-		}
+
+		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
+		// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
+		// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
+		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
 
 		productRespInfo.Ingress = &IngressInfo{
 			HostInfo: findServiceFromIngress(hostInfos, workload, allServices),
@@ -484,7 +505,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 
 		resp = append(resp, productRespInfo)
 	}
-	log.Infof("Finish to list workloads in namespace %s", namespace)
 
 	return count, resp, nil
 }
@@ -523,6 +543,9 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error) {
 	// filter releases, only list releases deployed by zadig
 	productName, envName, serviceMap := prod.ProductName, prod.EnvName, prod.GetServiceMap()
+	if len(serviceMap) == 0 {
+		return nil, nil
+	}
 	listOpt := &commonrepo.SvcRevisionListOption{
 		ProductName:      prod.ProductName,
 		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
@@ -535,7 +558,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	}
 	templateServices, err := commonrepo.NewServiceColl().ListServicesWithSRevision(listOpt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s", productName, envName)
+		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
 	}
 	return templateServices, err
 }

@@ -145,6 +145,7 @@ func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.Roun
 	d := r.Dialer(clientKey)
 	transport.DialContext = d
 	transport.Proxy = http.ProxyFromEnvironment
+	transport.IdleConnTimeout = 30 * time.Second
 
 	r.caCert = clusterCaCert
 	if r.httpTransport != nil {

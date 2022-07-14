@@ -20,22 +20,30 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type Chart struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name           string             `bson:"name"         json:"name"`
-	Source         string             `bson:"source"       json:"source"`
-	Owner          string             `bson:"owner"        json:"owner"`
-	Repo           string             `bson:"repo"         json:"repo"`
-	Path           string             `bson:"path"         json:"path"`
-	Branch         string             `bson:"branch"         json:"branch"`
-	CodeHostID     int                `bson:"codehost_id"  json:"codeHostID"`
-	Revision       int64              `bson:"revision"     json:"revision"`
+	Name           string             `bson:"name"          json:"name"`
+	Source         string             `bson:"source"        json:"source"`
+	Owner          string             `bson:"owner"         json:"owner"`
+	Namespace      string             `bson:"namespace"     json:"namespace"`
+	Repo           string             `bson:"repo"          json:"repo"`
+	Path           string             `bson:"path"          json:"path"`
+	Branch         string             `bson:"branch"        json:"branch"`
+	CodeHostID     int                `bson:"codehost_id"   json:"codeHostID"`
+	Revision       int64              `bson:"revision"      json:"revision"`
 	ChartVariables []*ChartVariable   `bson:"variables"     json:"variables"`
-	Sha1           string             `bson:"sha1"         json:"sha1"`
+	Sha1           string             `bson:"sha1"          json:"sha1"`
 }
 
 type ChartVariable struct {
 	Key         string `json:"key"`
 	Value       string `json:"value,omitempty"`
 	Description string `json:"description,omitempty"`
+}
+
+func (chart *Chart) GetNamespace() string {
+	if len(chart.Namespace) > 0 {
+		return chart.Namespace
+	}
+	return chart.Owner
 }
 
 func (chart *Chart) GetVariableMap() map[string]*ChartVariable {

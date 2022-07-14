@@ -268,21 +268,25 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	for _, build := range b.JobCtx.Builds {
 		repo := &types.Repo{
-			Source:       build.Source,
-			Owner:        build.RepoOwner,
-			Name:         build.RepoName,
-			RemoteName:   build.RemoteName,
-			Branch:       build.Branch,
-			PR:           build.PR,
-			Tag:          build.Tag,
-			CheckoutPath: build.CheckoutPath,
-			SubModules:   build.SubModules,
-			OauthToken:   build.OauthToken,
-			Address:      build.Address,
-			CheckoutRef:  build.CheckoutRef,
-			User:         build.Username,
-			Password:     build.Password,
-			EnableProxy:  build.EnableProxy,
+			Source:             build.Source,
+			Owner:              build.RepoOwner,
+			Name:               build.RepoName,
+			Namespace:          build.RepoNamespace,
+			RemoteName:         build.RemoteName,
+			Branch:             build.Branch,
+			PR:                 build.PR,
+			Tag:                build.Tag,
+			CheckoutPath:       build.CheckoutPath,
+			SubModules:         build.SubModules,
+			OauthToken:         build.OauthToken,
+			Address:            build.Address,
+			CheckoutRef:        build.CheckoutRef,
+			User:               build.Username,
+			Password:           build.Password,
+			EnableProxy:        build.EnableProxy,
+			AuthType:           build.AuthType,
+			SSHKey:             build.SSHKey,
+			PrivateAccessToken: build.PrivateAccessToken,
 		}
 		ctx.Repos = append(ctx.Repos, repo)
 	}
@@ -301,9 +305,10 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	if b.JobCtx.UploadEnabled {
 		for _, upload := range b.JobCtx.UploadInfo {
 			// since the frontend won't change the file path, the backend will have to add it
-			upload.FilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
+			// use AbsFilePath to avoid change the original user input since a job may be retried
+			upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 			// then we replace it with our env variables
-			upload.FilePath = replaceEnvWithValue(upload.FilePath, envmaps)
+			upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 			upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		}
 	}
@@ -821,9 +826,13 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 		default:
 			time.Sleep(time.Second)
 
-			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
+			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
 			if err != nil {
 				xl.Errorf("Failed to get job `%s` in namespace `%s`: %s", jobName, namespace, err)
+				continue
+			}
+			if !found {
+				xl.Errorf("Job `%s` not found in namespace `%s`, retry in a second", jobName, namespace)
 				continue
 			}
 

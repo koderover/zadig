@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: account-service
+  name: account-service
+spec:
+  ports:
+  - name: http
+    port: 6000
+    targetPort: 6000
+  selector:
+    project: piggymetrics
+    tier: backend
+    app: account-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: account-service 
+  name: account-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+     project: piggymetrics
+     tier: backend
+     app: account-service  
+  strategy: 
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: backend
+        app: account-service
+    spec:
+      initContainers:
+        - name: init-skywalking-agent
+          image: koderover.tencentcloudcr.com/koderover-demo/skywalking-agent:8.8.0
+          command:
+            - 'sh'
+            - '-c'
+            - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+          volumeMounts:
+            - mountPath: /vmskywalking/agent
+              name: skywalking-agent
+      containers:
+      - env:
+        - name: JAVA_OPTS
+          value: "-javaagent:/opt/skywalking/agent/skywalking-agent.jar -Duser.timezone=GMT+8"
+        - name: SW_AGENT_NAME
+          value: "account-service"
+        - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
+          value: "skywalking-oap.skywalking.svc.cluster.local:11800"
+        - name: ACCOUNT_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: account_service_password
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: account_mongodb_password
+        envFrom:
+        - configMapRef:
+           name: special-config-env              
+        ports:
+          - containerPort: 6000
+        image: koderover.tencentcloudcr.com/koderover-demo/piggymetrics-account-service:v0.3.0
+        name: account-service
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1G
+          requests:
+            cpu: 500m
+            memory: 512M        
+        imagePullPolicy: Always
+        volumeMounts:
+          - mountPath: /opt/skywalking/agent
+            name: skywalking-agent
+      restartPolicy: Always
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}

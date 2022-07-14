@@ -22,14 +22,21 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -40,23 +47,31 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
 var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,32}$`)
 
 type K8SCluster struct {
-	ID             string                   `json:"id,omitempty"`
-	Name           string                   `json:"name"`
-	Description    string                   `json:"description"`
-	AdvancedConfig *AdvancedConfig          `json:"advanced_config,omitempty"`
-	Status         setting.K8SClusterStatus `json:"status"`
-	Production     bool                     `json:"production"`
-	CreatedAt      int64                    `json:"createdAt"`
-	CreatedBy      string                   `json:"createdBy"`
-	Provider       int8                     `json:"provider"`
-	Local          bool                     `json:"local"`
-	Cache          types.Cache              `json:"cache"`
+	ID                     string                   `json:"id,omitempty"`
+	Name                   string                   `json:"name"`
+	Description            string                   `json:"description"`
+	AdvancedConfig         *AdvancedConfig          `json:"advanced_config,omitempty"`
+	Status                 setting.K8SClusterStatus `json:"status"`
+	Production             bool                     `json:"production"`
+	CreatedAt              int64                    `json:"createdAt"`
+	CreatedBy              string                   `json:"createdBy"`
+	Provider               int8                     `json:"provider"`
+	Local                  bool                     `json:"local"`
+	Cache                  types.Cache              `json:"cache"`
+	LastConnectionTime     int64                    `json:"last_connection_time"`
+	UpdateHubagentErrorMsg string                   `json:"update_hubagent_error_msg"`
+	DindCfg                *commonmodels.DindCfg    `json:"dind_cfg"`
 }
 
 type AdvancedConfig struct {
@@ -114,18 +129,37 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 				ProjectNames: getProjectNames(c.ID.Hex(), logger),
 			}
 		}
+
+		if c.DindCfg == nil {
+			c.DindCfg = &commonmodels.DindCfg{
+				Replicas: kube.DefaultDindReplicas,
+				Resources: &commonmodels.Resources{
+					Limits: &commonmodels.Limits{
+						CPU:    kube.DefaultDindLimitsCPU,
+						Memory: kube.DefaultDindLimitsMemory,
+					},
+				},
+				Storage: &commonmodels.DindStorage{
+					Type: kube.DefaultDindStorageType,
+				},
+			}
+		}
+
 		res = append(res, &K8SCluster{
-			ID:             c.ID.Hex(),
-			Name:           c.Name,
-			Description:    c.Description,
-			Status:         c.Status,
-			Production:     c.Production,
-			CreatedBy:      c.CreatedBy,
-			CreatedAt:      c.CreatedAt,
-			Provider:       c.Provider,
-			Local:          c.Local,
-			AdvancedConfig: advancedConfig,
-			Cache:          c.Cache,
+			ID:                     c.ID.Hex(),
+			Name:                   c.Name,
+			Description:            c.Description,
+			Status:                 c.Status,
+			Production:             c.Production,
+			CreatedBy:              c.CreatedBy,
+			CreatedAt:              c.CreatedAt,
+			Provider:               c.Provider,
+			Local:                  c.Local,
+			AdvancedConfig:         advancedConfig,
+			Cache:                  c.Cache,
+			LastConnectionTime:     c.LastConnectionTime,
+			UpdateHubagentErrorMsg: c.UpdateHubagentErrorMsg,
+			DindCfg:                c.DindCfg,
 		})
 	}
 
@@ -183,7 +217,11 @@ func convertToNodeSelectorRequirements(nodeLabels []string) []*commonmodels.Node
 }
 
 func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
-	s, _ := kube.NewService("")
+	s, err := kube.NewService("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to new kube service: %s", err)
+	}
+
 	var advancedConfig *commonmodels.AdvancedConfig
 	if args.AdvancedConfig != nil {
 		advancedConfig = &commonmodels.AdvancedConfig{
@@ -194,9 +232,15 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	}
 
 	// If user does not configure a cache for the cluster, object storage is used by default.
-	err := setClusterCache(args)
+	err = setClusterCache(args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set cache for cluster %s: %s", args.ID, err)
+	}
+
+	// If user does not set a dind config for the cluster, set the default values.
+	err = setClusterDind(args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set dind args for cluster %s: %s", args.ID, err)
 	}
 
 	cluster := &commonmodels.K8SCluster{
@@ -209,13 +253,18 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		CreatedAt:      args.CreatedAt,
 		CreatedBy:      args.CreatedBy,
 		Cache:          args.Cache,
+		DindCfg:        args.DindCfg,
 	}
 
 	return s.CreateCluster(cluster, args.ID, logger)
 }
 
 func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
-	s, _ := kube.NewService("")
+	s, err := kube.NewService("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to new kube service: %s", err)
+	}
+
 	advancedConfig := new(commonmodels.AdvancedConfig)
 	if args.AdvancedConfig != nil {
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
@@ -238,9 +287,15 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	}
 
 	// If user does not configure a cache for the cluster, object storage is used by default.
-	err := setClusterCache(args)
+	err = setClusterCache(args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set cache for cluster %s: %s", id, err)
+	}
+
+	// If user does not set a dind config for the cluster, set the default values.
+	err = setClusterDind(args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set dind args for cluster %s: %s", args.ID, err)
 	}
 
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
@@ -256,6 +311,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		switch id {
 		case setting.LocalClusterID:
 			namespace = config.Namespace()
+			args.DindCfg = nil
 		default:
 			namespace = setting.AttachedClusterNamespace
 		}
@@ -313,8 +369,15 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		AdvancedConfig: advancedConfig,
 		Production:     args.Production,
 		Cache:          args.Cache,
+		DindCfg:        args.DindCfg,
 	}
-	return s.UpdateCluster(id, cluster, logger)
+
+	cluster, err = s.UpdateCluster(id, cluster, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
+	}
+
+	return cluster, UpgradeAgent(id, logger)
 }
 
 func DeleteCluster(username, clusterID string, logger *zap.SugaredLogger) error {
@@ -363,6 +426,70 @@ func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) (
 	return s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
 }
 
+func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
+	s, err := kube.NewService("")
+	if err != nil {
+		return fmt.Errorf("failed to new kube service: %s", err)
+	}
+
+	clusterInfo, err := s.GetCluster(id, logger)
+	if err != nil {
+		return err
+	}
+	if clusterInfo.Status != setting.Normal {
+		return fmt.Errorf("cluster %s status %s not support Upgrade Agent", clusterInfo.Name, clusterInfo.Status)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), id)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %s cluster: %s", err, clusterInfo.Name)
+	}
+
+	// Upgrade local cluster.
+	if id == setting.LocalClusterID {
+		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
+	}
+
+	// Upgrade attached cluster.
+	yamls, err := s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), "/api/hub", true, logger)
+	if err != nil {
+		return err
+	}
+
+	errList := new(multierror.Error)
+	manifests := releaseutil.SplitManifests(string(yamls))
+	resources := make([]*unstructured.Unstructured, 0, len(manifests))
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			log.Errorf("[UpgradeAgent] Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
+			errList = multierror.Append(errList, err)
+			continue
+		}
+		resources = append(resources, u)
+	}
+
+	for _, u := range resources {
+		if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
+			err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
+		} else {
+			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+		}
+
+		if err != nil {
+			log.Errorf("[UpgradeAgent] Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+			errList = multierror.Append(errList, err)
+			continue
+		}
+	}
+	updateHubagentErrorMsg := ""
+	if len(errList.Errors) > 0 {
+		updateHubagentErrorMsg = errList.Error()
+	}
+
+	return s.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
+}
+
 func setClusterCache(args *K8SCluster) error {
 	if args.Cache.MediumType != "" {
 		return nil
@@ -390,4 +517,256 @@ func setClusterCache(args *K8SCluster) error {
 	}
 
 	return nil
+}
+
+func setClusterDind(cluster *K8SCluster) error {
+	if cluster.DindCfg == nil {
+		cluster.DindCfg = &commonmodels.DindCfg{
+			Replicas: kube.DefaultDindReplicas,
+			Resources: &commonmodels.Resources{
+				Limits: &commonmodels.Limits{
+					CPU:    kube.DefaultDindLimitsCPU,
+					Memory: kube.DefaultDindLimitsMemory,
+				},
+			},
+			Storage: &commonmodels.DindStorage{
+				Type: kube.DefaultDindStorageType,
+			},
+		}
+
+		return nil
+	}
+
+	if cluster.DindCfg.Replicas <= 0 {
+		cluster.DindCfg.Replicas = kube.DefaultDindReplicas
+	}
+	if cluster.DindCfg.Resources == nil {
+		cluster.DindCfg.Resources = &commonmodels.Resources{
+			Limits: &commonmodels.Limits{
+				CPU:    kube.DefaultDindLimitsCPU,
+				Memory: kube.DefaultDindLimitsMemory,
+			},
+		}
+	}
+	if cluster.DindCfg.Storage == nil {
+		cluster.DindCfg.Storage = &commonmodels.DindStorage{
+			Type: kube.DefaultDindStorageType,
+		}
+	}
+	if cluster.DindCfg.Storage.Type == commonmodels.DindStorageRootfs {
+		cluster.DindCfg.Storage.StorageClass = ""
+		cluster.DindCfg.Storage.StorageSizeInGiB = 0
+	}
+
+	return nil
+}
+
+func ClusterApplyUpgradeAgent() {
+	for i := 0; i < 3; i++ {
+		time.Sleep(10 * time.Second)
+		k8sClusters, err := commonrepo.NewK8SClusterColl().List(nil)
+		if err != nil && !commonrepo.IsErrNoDocuments(err) {
+			log.Errorf("[ClusterApplyUpgradeAgent] list cluster error:%s", err)
+			return
+		}
+
+		for _, cluster := range k8sClusters {
+			if cluster.Status != setting.Normal {
+				log.Warnf("[ClusterApplyUpgradeAgent] not support apply. cluster %s status %s ", cluster.Name, cluster.Status)
+				continue
+			}
+			if err := UpgradeAgent(cluster.ID.Hex(), ginzap.WithContext(&gin.Context{}).Sugar()); err != nil {
+				log.Errorf("[ClusterApplyUpgradeAgent] UpgradeAgent cluster %s error:%s", cluster.Name, err)
+			} else {
+				log.Infof("[ClusterApplyUpgradeAgent] UpgradeAgent cluster %s successed", cluster.Name)
+			}
+		}
+		time.Sleep(20 * time.Second)
+	}
+}
+
+func CheckEphemeralContainers(ctx context.Context, clusterID string) (bool, error) {
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to new discovery client: %s", err)
+	}
+
+	resource, err := discoveryClient.ServerResourcesForGroupVersion("v1")
+	if err != nil {
+		return false, fmt.Errorf("failed to get server resource: %s", err)
+	}
+
+	for _, apiResource := range resource.APIResources {
+		if apiResource.Name == "pods/ephemeralcontainers" {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns string) error {
+	if cluster.DindCfg == nil {
+		return nil
+	}
+
+	ctx := context.TODO()
+	dindSts := &appsv1.StatefulSet{}
+	err := kclient.Get(ctx, client.ObjectKey{
+		Name:      types.DindStatefulSetName,
+		Namespace: ns,
+	}, dindSts)
+	if err != nil {
+		return fmt.Errorf("failed to get dind StatefulSet in local cluster: %s", err)
+	}
+
+	dindSts.Spec.Replicas = util.GetInt32Pointer(int32(cluster.DindCfg.Replicas))
+
+	if cluster.DindCfg.Resources != nil && cluster.DindCfg.Resources.Limits != nil {
+		cpuSize := fmt.Sprintf("%dm", cluster.DindCfg.Resources.Limits.CPU)
+		cpuQuantity, err := resource.ParseQuantity(cpuSize)
+		if err != nil {
+			return fmt.Errorf("failed to parse CPU resource %q: %s", cpuSize, err)
+		}
+
+		memSize := fmt.Sprintf("%dMi", cluster.DindCfg.Resources.Limits.Memory)
+		memQuantity, err := resource.ParseQuantity(memSize)
+		if err != nil {
+			return fmt.Errorf("failed to parse Memory resource %q: %s", memSize, err)
+		}
+
+		for i, container := range dindSts.Spec.Template.Spec.Containers {
+			if container.Name != types.DindContainerName {
+				continue
+			}
+
+			container.Resources.Limits = corev1.ResourceList{
+				corev1.ResourceCPU:    cpuQuantity,
+				corev1.ResourceMemory: memQuantity,
+			}
+			dindSts.Spec.Template.Spec.Containers[i] = container
+		}
+	}
+
+	if cluster.DindCfg.Storage != nil {
+		switch cluster.DindCfg.Storage.Type {
+		case commonmodels.DindStorageRootfs:
+			for i, container := range dindSts.Spec.Template.Spec.Containers {
+				if container.Name != types.DindContainerName {
+					continue
+				}
+
+				volumeMounts := []corev1.VolumeMount{}
+				for _, volumeMount := range container.VolumeMounts {
+					if volumeMount.MountPath == types.DindMountPath {
+						continue
+					}
+
+					volumeMounts = append(volumeMounts, volumeMount)
+				}
+				container.VolumeMounts = volumeMounts
+				dindSts.Spec.Template.Spec.Containers[i] = container
+			}
+
+			volumeClaimTemplates := []corev1.PersistentVolumeClaim{}
+			for _, volumeClaimTemplate := range dindSts.Spec.VolumeClaimTemplates {
+				if volumeClaimTemplate.Name == types.DindMountName {
+					continue
+				}
+
+				volumeClaimTemplates = append(volumeClaimTemplates, volumeClaimTemplate)
+			}
+			dindSts.Spec.VolumeClaimTemplates = volumeClaimTemplates
+		default:
+			for i, container := range dindSts.Spec.Template.Spec.Containers {
+				if container.Name != types.DindContainerName {
+					continue
+				}
+
+				var exists bool
+				for _, volumeMount := range container.VolumeMounts {
+					if volumeMount.MountPath == types.DindMountPath {
+						exists = true
+						break
+					}
+				}
+
+				if exists {
+					break
+				}
+
+				container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+					Name:      types.DindMountName,
+					MountPath: types.DindMountPath,
+				})
+				dindSts.Spec.Template.Spec.Containers[i] = container
+			}
+
+			var dockerStorageExists bool
+			for _, volumeClaimTemplate := range dindSts.Spec.VolumeClaimTemplates {
+				if volumeClaimTemplate.Name == types.DindMountName {
+					dockerStorageExists = true
+					break
+				}
+			}
+
+			if !dockerStorageExists {
+				storageSize := fmt.Sprintf("%dGi", cluster.DindCfg.Storage.StorageSizeInGiB)
+				storageQuantity, err := resource.ParseQuantity(storageSize)
+				if err != nil {
+					return fmt.Errorf("failed to parse quantity %q: %s", storageSize, err)
+				}
+
+				dindSts.Spec.VolumeClaimTemplates = append(dindSts.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: types.DindMountName,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: util.GetStrPointer(cluster.DindCfg.Storage.StorageClass),
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: storageQuantity,
+							},
+						},
+					},
+				})
+			}
+		}
+	}
+
+	err = kclient.Update(ctx, dindSts)
+	if apierrors.IsInvalid(err) {
+		deleteOption := metav1.DeletePropagationForeground
+		err = kclient.Delete(ctx, dindSts, &client.DeleteOptions{
+			PropagationPolicy: &deleteOption,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete StatefulSet `dind`: %s", err)
+		}
+
+		newDindSts := &appsv1.StatefulSet{}
+		newDindSts.Name = dindSts.Name
+		newDindSts.Namespace = dindSts.Namespace
+		newDindSts.Labels = dindSts.Labels
+		newDindSts.Annotations = dindSts.Annotations
+		newDindSts.Spec = dindSts.Spec
+
+		return wait.PollImmediate(3*time.Second, 30*time.Second, func() (bool, error) {
+			err := kclient.Create(ctx, newDindSts)
+			if err == nil {
+				return true, nil
+			}
+
+			log.Warnf("Failed to create StatefulSet `dind`: %s", err)
+			return false, nil
+		})
+	}
+
+	return err
 }

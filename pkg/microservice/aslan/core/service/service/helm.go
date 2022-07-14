@@ -100,6 +100,7 @@ type helmServiceCreationArgs struct {
 	RequestID        string
 	CodehostID       int
 	Owner            string
+	Namespace        string
 	Repo             string
 	Branch           string
 	RepoLink         string
@@ -108,6 +109,7 @@ type helmServiceCreationArgs struct {
 	ValuePaths       []string
 	ValuesYaml       string
 	Variables        []*Variable
+	GiteePath        string
 	GerritRepoName   string
 	GerritBranchName string
 	GerritRemoteName string
@@ -212,6 +214,37 @@ func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
 	return nil
 }
 
+func fillServiceCreationInfo(serviceTemplate *models.Service) error {
+	if serviceTemplate.Source != setting.SourceFromChartTemplate {
+		return nil
+	}
+	creation, err := getCreateFromChartTemplate(serviceTemplate.CreateFrom)
+	if err != nil {
+		return fmt.Errorf("failed to get creation detail: %s", err)
+	}
+
+	if creation.YamlData == nil || creation.YamlData.Source != setting.SourceFromGitRepo {
+		return nil
+	}
+
+	bs, err := json.Marshal(creation.YamlData.SourceDetail)
+	if err != nil {
+		return err
+	}
+	cfr := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, cfr)
+	if err != nil {
+		return err
+	}
+	if cfr.GitRepoConfig == nil {
+		return nil
+	}
+	cfr.GitRepoConfig.Namespace = cfr.GitRepoConfig.GetNamespace()
+	creation.YamlData.SourceDetail = cfr
+	serviceTemplate.CreateFrom = creation
+	return nil
+}
+
 func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
@@ -239,6 +272,12 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 		// NOTE source template may be deleted, error should not block the following logic
 		log.Warnf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
 	}
+	err = fillServiceCreationInfo(serviceTemplate)
+	if err != nil {
+		// NOTE since the source of yaml can always be selected when reloading, error should not block the following logic
+		log.Warnf("failed to fill git namespace for yaml source : %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
 	helmServiceModule.Service = serviceTemplate
 	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
 	helmServiceModule.ServiceModules = serviceModules
@@ -390,22 +429,22 @@ func clearLocalChartFiles(projectName, serviceName string, revision int64, logge
 	}
 }
 
-func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	switch args.Source {
 	case LoadFromRepo, LoadFromPublicRepo:
-		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
+		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, force, logger)
 	case LoadFromChartTemplate:
-		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
-	case LoadFromGerrit:
-		return CreateOrUpdateHelmServiceFromGerrit(projectName, args, logger)
+		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, force, logger)
+	case LoadFromGerrit, setting.SourceFromGitee:
+		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
 	case LoadFromChartRepo:
-		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, logger)
+		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, force, logger)
 	default:
 		return nil, fmt.Errorf("invalid source")
 	}
 }
 
-func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	chartRepoArgs, ok := args.CreateFrom.(*CreateFromChartRepo)
 	if !ok {
 		return nil, e.ErrCreateTemplate.AddDesc("invalid argument")
@@ -483,7 +522,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 			CreateBy:        args.CreatedBy,
 			RequestID:       args.RequestID,
 			Source:          setting.SourceFromChartRepo,
-		},
+		}, force,
 		log,
 	)
 	if err != nil {
@@ -511,7 +550,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	}, nil
 }
 
-func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
 		return nil, fmt.Errorf("invalid argument")
@@ -522,10 +561,10 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return nil, err
 	}
 
-	return createOrUpdateHelmServiceFromChartTemplate(templateArgs, templateChartInfo, projectName, args, logger)
+	return createOrUpdateHelmServiceFromChartTemplate(templateArgs, templateChartInfo, projectName, args, force, logger)
 }
 
-func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTemplate, templateChartInfo *ChartTemplateData, projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTemplate, templateChartInfo *ChartTemplateData, projectName string, args *HelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 
 	// NOTE we may need a better way to handle service name with spaces
 	args.Name = strings.TrimSpace(args.Name)
@@ -616,7 +655,7 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 			ValuesSource:     args.ValuesData,
 			CreationDetail:   args.CreationDetail,
 			AutoSync:         args.AutoSync,
-		},
+		}, force,
 		logger,
 	)
 
@@ -656,7 +695,7 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *system
 	return ch.Type, ch, nil
 }
 
-func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	var (
 		filePaths []string
 		response  = &BulkHelmServiceCreationResponse{}
@@ -742,29 +781,53 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 				return
 			}
 
+			var repoLink string
+			if string(args.Source) == setting.SourceFromGitee {
+				codehostInfo, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
+				if err != nil {
+					finalErr = errors.Wrapf(err, "failed to get code host, id %d", createFromRepo.CodehostID)
+					return
+				}
+				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, createFromRepo.Owner, createFromRepo.Repo, "tree", createFromRepo.Branch, filePath)
+			}
+
+			helmServiceCreationArgs := &helmServiceCreationArgs{
+				ChartName:        serviceName,
+				ChartVersion:     chartVersion,
+				ServiceRevision:  rev,
+				MergedValues:     string(valuesYAML),
+				ServiceName:      serviceName,
+				FilePath:         filePath,
+				ProductName:      projectName,
+				CreateBy:         args.CreatedBy,
+				RequestID:        args.RequestID,
+				CodehostID:       createFromRepo.CodehostID,
+				Owner:            createFromRepo.Owner,
+				Namespace:        createFromRepo.Namespace,
+				Repo:             createFromRepo.Repo,
+				Branch:           createFromRepo.Branch,
+				Source:           string(args.Source),
+				RepoLink:         repoLink,
+				GiteePath:        currentFilePath,
+				GerritCodeHostID: createFromRepo.CodehostID,
+				GerritPath:       currentFilePath,
+				GerritRepoName:   createFromRepo.Repo,
+				GerritBranchName: createFromRepo.Branch,
+				GerritRemoteName: "origin",
+			}
+
+			if string(args.Source) == setting.SourceFromGerrit {
+				helmServiceCreationArgs.GerritCodeHostID = createFromRepo.CodehostID
+				helmServiceCreationArgs.GerritPath = currentFilePath
+				helmServiceCreationArgs.GerritRepoName = createFromRepo.Repo
+				helmServiceCreationArgs.GerritBranchName = createFromRepo.Branch
+				helmServiceCreationArgs.GerritRemoteName = "origin"
+			}
+
 			svc, err := createOrUpdateHelmService(
 				nil,
-				&helmServiceCreationArgs{
-					ChartName:        serviceName,
-					ChartVersion:     chartVersion,
-					ServiceRevision:  rev,
-					MergedValues:     string(valuesYAML),
-					ServiceName:      serviceName,
-					FilePath:         filePath,
-					ProductName:      projectName,
-					CreateBy:         args.CreatedBy,
-					RequestID:        args.RequestID,
-					CodehostID:       createFromRepo.CodehostID,
-					Owner:            createFromRepo.Owner,
-					Repo:             createFromRepo.Repo,
-					Branch:           createFromRepo.Branch,
-					Source:           string(args.Source),
-					GerritCodeHostID: createFromRepo.CodehostID,
-					GerritPath:       currentFilePath,
-					GerritRepoName:   createFromRepo.Repo,
-					GerritBranchName: createFromRepo.Branch,
-					GerritRemoteName: "origin",
-				},
+				helmServiceCreationArgs,
+				force,
 				log,
 			)
 			if err != nil {
@@ -788,7 +851,7 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
-func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	var err error
 	var repoLink string
 	repoArgs, ok := args.CreateFrom.(*CreateFromRepo)
@@ -844,7 +907,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 			log.Infof("Loading chart under path %s", filePath)
 
 			fsTree, err := fsservice.DownloadFilesFromSource(
-				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
+				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Namespace: repoArgs.Namespace, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
 				func(chartTree afero.Fs) (string, error) {
 					var err error
 					serviceName, chartVersion, err = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
@@ -891,7 +954,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 			}
 
 			if source != setting.SourceFromPublicRepo && codehostInfo != nil {
-				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Owner, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
+				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Namespace, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
 			}
 
 			svc, err := createOrUpdateHelmService(
@@ -908,11 +971,12 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					RequestID:       args.RequestID,
 					CodehostID:      repoArgs.CodehostID,
 					Owner:           repoArgs.Owner,
+					Namespace:       repoArgs.Namespace,
 					Repo:            repoArgs.Repo,
 					Branch:          repoArgs.Branch,
 					RepoLink:        repoLink,
 					Source:          source,
-				},
+				}, force,
 				log,
 			)
 			if err != nil {
@@ -936,16 +1000,16 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
-func CreateOrUpdateBulkHelmService(projectName string, args *BulkHelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateBulkHelmService(projectName string, args *BulkHelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	switch args.Source {
 	case LoadFromChartTemplate:
-		return CreateOrUpdateBulkHelmServiceFromTemplate(projectName, args, logger)
+		return CreateOrUpdateBulkHelmServiceFromTemplate(projectName, args, force, logger)
 	default:
 		return nil, fmt.Errorf("invalid source")
 	}
 }
 
-func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
 		return nil, fmt.Errorf("invalid argument")
@@ -977,7 +1041,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer wg.Done()
-			renderChart, svcInfo, err := handleSingleService(projectName, repoConfig, path, from, args, templateChartData, logger)
+			renderChart, svcInfo, err := handleSingleService(projectName, repoConfig, path, from, args, templateChartData, force, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
@@ -1019,11 +1083,12 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 }
 
 func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath string, args *BulkHelmServiceCreationArgs,
-	templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, *commonmodels.Service, error) {
+	templateChartData *ChartTemplateData, force bool, logger *zap.SugaredLogger) (*templatemodels.RenderChart, *commonmodels.Service, error) {
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
 		Repo:       repoConfig.Repo,
+		Namespace:  repoConfig.Namespace,
 		Path:       path,
 		Branch:     repoConfig.Branch,
 	})
@@ -1110,6 +1175,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			AutoSync:         args.AutoSync,
 			ValuesSource:     args.ValuesData,
 		},
+		force,
 		logger,
 	)
 	if err != nil {
@@ -1177,6 +1243,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 	case setting.SourceFromGitlab,
 		setting.SourceFromGithub,
 		setting.SourceFromGerrit,
+		setting.SourceFromGitee,
 		setting.SourceFromCodeHub:
 		return &models.CreateFromRepo{
 			GitRepoConfig: &templatemodels.GitRepoConfig{
@@ -1184,6 +1251,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 				Owner:      args.Owner,
 				Repo:       args.Repo,
 				Branch:     args.Branch,
+				Namespace:  args.Namespace,
 			},
 			LoadPath: args.FilePath,
 		}
@@ -1204,13 +1272,15 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			})
 		}
 		if args.ValuesSource != nil && args.ValuesSource.GitRepoConfig != nil {
-			yamlData.Source = args.ValuesSource.YamlSource
+			//yamlData.Source = args.ValuesSource.YamlSource
+			yamlData.Source = setting.SourceFromGitRepo
 			repoData := &models.CreateFromRepo{
 				GitRepoConfig: &templatemodels.GitRepoConfig{
 					CodehostID: args.ValuesSource.GitRepoConfig.CodehostID,
 					Owner:      args.ValuesSource.GitRepoConfig.Owner,
 					Repo:       args.ValuesSource.GitRepoConfig.Repo,
 					Branch:     args.ValuesSource.GitRepoConfig.Branch,
+					Namespace:  args.ValuesSource.GitRepoConfig.Namespace,
 				},
 			}
 			if len(args.ValuesSource.GitRepoConfig.ValuesPaths) > 0 {
@@ -1260,7 +1330,7 @@ func renderVariablesToYaml(valuesYaml string, productName, serviceName string, v
 	return valuesYaml, nil
 }
 
-func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*commonmodels.Service, error) {
+func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*commonmodels.Service, error) {
 	var (
 		chartName, chartVersion string
 		err                     error
@@ -1268,6 +1338,9 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	switch args.Source {
 	case string(LoadFromGerrit):
 		base := path.Join(config.S3StoragePath(), args.GerritRepoName)
+		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
+	case setting.SourceFromGitee:
+		base := path.Join(config.S3StoragePath(), args.Repo)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
 	default:
 		chartName, chartVersion, err = readChartYAML(fsTree, args.ServiceName, logger)
@@ -1302,6 +1375,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		Containers:    containerList,
 		CodehostID:    args.CodehostID,
 		RepoOwner:     args.Owner,
+		RepoNamespace: args.Namespace,
 		RepoName:      args.Repo,
 		BranchName:    args.Branch,
 		LoadPath:      args.FilePath,
@@ -1328,6 +1402,8 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		serviceObj.GerritRepoName = args.GerritRepoName
 		serviceObj.GerritBranchName = args.GerritBranchName
 		serviceObj.GerritRemoteName = args.GerritRemoteName
+	case setting.SourceFromGitee:
+		serviceObj.GiteePath = args.GiteePath
 	}
 
 	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
@@ -1344,6 +1420,9 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 
 	// update status of current service template to deleting
 	if currentSvcTmpl != nil {
+		if !force {
+			return nil, fmt.Errorf("service:%s already exists", args.ServiceName)
+		}
 		err = commonrepo.NewServiceColl().UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting)
 		if err != nil {
 			log.Errorf("Failed to set status of current service templates, serviceName: %s, err: %s", args.ServiceName, err)
@@ -1432,8 +1511,8 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	return fis, nil
 }
 
-// UpdateHelmService deprecated
-func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
+// EditHelmService deprecated
+func EditHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 	serviceMap := make(map[string]int64)
 	for _, helmServiceInfo := range args.HelmServiceInfos {
 
@@ -1544,7 +1623,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, createdBy string, log *zap.SugaredLogger) {
 	// 对比上个版本的renderset，新增一个版本
 	latestChartInfos := make([]*templatemodels.RenderChart, 0)
-	renderOpt := &commonrepo.RenderSetFindOption{Name: productName}
+	renderOpt := &commonrepo.RenderSetFindOption{Name: productName, ProductTmpl: productName, IsDefault: true}
 	if latestDefaultRenderSet, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
 		latestChartInfos = latestDefaultRenderSet.ChartInfos
 	}

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -31,7 +32,7 @@ import (
 
 type EvnListOption struct {
 	BasicFacility string
-	DeployType    string
+	DeployType    []string
 }
 
 func (c *Client) ListEnvs(log *zap.SugaredLogger, option *EvnListOption) ([]*service.ProductRevision, error) {
@@ -40,7 +41,7 @@ func (c *Client) ListEnvs(log *zap.SugaredLogger, option *EvnListOption) ([]*ser
 		resp = make([]*service.ProductRevision, 0)
 	)
 
-	url := fmt.Sprintf("%s/environment/revision/products?basicFacility=%s&deployType=%s", c.APIBase, option.BasicFacility, option.DeployType)
+	url := fmt.Sprintf("%s/environment/revision/products?basicFacility=%s&deployType=%s", c.APIBase, option.BasicFacility, strings.Join(option.DeployType, ","))
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("ListEnvs new http request error: %v", err)
@@ -59,6 +60,33 @@ func (c *Client) ListEnvs(log *zap.SugaredLogger, option *EvnListOption) ([]*ser
 		}
 	}
 	return resp, errors.WithMessage(err, "failed to list envs")
+}
+
+func (c *Client) ListEnvResources(productName, envName string, log *zap.SugaredLogger) ([]*service.EnvResource, error) {
+	var (
+		err  error
+		resp = make([]*service.EnvResource, 0)
+	)
+	url := fmt.Sprintf("%s/environment/envcfgs?autoSync=true&projectName=%s&envName=%s", c.APIBase, productName, envName)
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Errorf("ListEnvResources new http request error: %s", err)
+		return nil, err
+	}
+
+	var ret *http.Response
+	if ret, err = c.Conn.Do(request); err == nil {
+		defer func() { _ = ret.Body.Close() }()
+		var body []byte
+		body, err = ioutil.ReadAll(ret.Body)
+		if err == nil {
+			if err = json.Unmarshal(body, &resp); err == nil {
+				return resp, nil
+			}
+		}
+	}
+
+	return resp, err
 }
 
 func (c *Client) GetEnvService(productName, envName string, log *zap.SugaredLogger) (*service.ProductResp, error) {
@@ -182,6 +210,21 @@ func (c *Client) SyncEnvVariables(productName, envName string, log *zap.SugaredL
 		if err != nil {
 			return errors.WithMessage(err, "failed to sync product variables ")
 		}
+	}
+	return nil
+}
+
+func (c *Client) SyncEnvResource(productName, envName, resType, resName string, log *zap.SugaredLogger) error {
+	url := fmt.Sprintf("%s/environment/envcfgs/%s/%s/%s/sync?projectName=%s", c.APIBase, envName, resType, resName, productName)
+	request, err := http.NewRequest("PUT", url, nil)
+	if err != nil {
+		log.Errorf("SyncEnvResource new http request error: %v", err)
+		return err
+	}
+
+	var ret *http.Response
+	if ret, err = c.Conn.Do(request); err == nil {
+		defer func() { _ = ret.Body.Close() }()
 	}
 	return nil
 }

@@ -59,32 +59,30 @@ type gitlabPushEventMatcherForTesting struct {
 
 func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventPush) {
-			return false, nil
-		}
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
-			return false, nil
-		}
-
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
-		var changedFiles []string
-		for _, commit := range ev.Commits {
-			changedFiles = append(changedFiles, commit.Added...)
-			changedFiles = append(changedFiles, commit.Removed...)
-			changedFiles = append(changedFiles, commit.Modified...)
-		}
-
-		return MatchChanges(hookRepo, changedFiles), nil
+	if !checkRepoNamespaceMatch(hookRepo, ev.Project.PathWithNamespace) {
+		return false, nil
+	}
+	if !EventConfigured(hookRepo, config.HookEventPush) {
+		return false, nil
+	}
+	isRegular := hookRepo.IsRegular
+	if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+		return false, nil
 	}
 
-	return false, nil
+	if isRegular {
+		if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
+			return false, nil
+		}
+	}
+	hookRepo.Branch = getBranchFromRef(ev.Ref)
+	var changedFiles []string
+	for _, commit := range ev.Commits {
+		changedFiles = append(changedFiles, commit.Added...)
+		changedFiles = append(changedFiles, commit.Removed...)
+		changedFiles = append(changedFiles, commit.Modified...)
+	}
+	return MatchChanges(hookRepo, changedFiles), nil
 }
 
 func (gpem *gitlabPushEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.TestTaskArgs, requestID string) *commonmodels.TestTaskArgs {
@@ -105,25 +103,26 @@ type gitlabTagEventMatcherForTesting struct {
 
 func (gtem gitlabTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gtem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventTag) {
-			return false, nil
-		}
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
-			return false, nil
-		}
 
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = ev.Project.DefaultBranch
-		return true, nil
+	if !checkRepoNamespaceMatch(hookRepo, ev.Project.PathWithNamespace) {
+		return false, nil
 	}
 
-	return false, nil
+	if !EventConfigured(hookRepo, config.HookEventTag) {
+		return false, nil
+	}
+	isRegular := hookRepo.IsRegular
+	if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
+		return false, nil
+	}
+
+	if isRegular {
+		if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
+			return false, nil
+		}
+	}
+	hookRepo.Branch = ev.Project.DefaultBranch
+	return true, nil
 }
 
 func (gtem gitlabTagEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.TestTaskArgs, requestID string) *commonmodels.TestTaskArgs {
@@ -191,7 +190,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						// 发送本次commit的通知
 						if notification == nil {
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, log,
+								item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, false, log,
 							)
 						}
 					}
@@ -206,6 +205,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					args.Source = setting.SourceFromGitlab
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
+					args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 					args.RepoName = item.MainRepo.RepoName
 
 					// 3. create task with args
@@ -263,35 +263,36 @@ type gitlabMergeEventMatcherForTesting struct {
 func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gmem.event
 	// TODO: match codehost
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventPr) {
+	if !checkRepoNamespaceMatch(hookRepo, ev.ObjectAttributes.Target.PathWithNamespace) {
+		return false, nil
+	}
+
+	if !EventConfigured(hookRepo, config.HookEventPr) {
+		return false, nil
+	}
+
+	isRegular := hookRepo.IsRegular
+	if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
+		return false, nil
+	}
+
+	if isRegular {
+		if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
 			return false, nil
 		}
+	}
+	hookRepo.Branch = ev.ObjectAttributes.TargetBranch
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
-			return false, nil
+	if ev.ObjectAttributes.State == "opened" {
+		var changedFiles []string
+		changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+		if err != nil {
+			gmem.log.Warnf("failed to get changes of event %v", ev)
+			return false, err
 		}
+		gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
 
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
-
-		if ev.ObjectAttributes.State == "opened" {
-			var changedFiles []string
-			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
-			if err != nil {
-				gmem.log.Warnf("failed to get changes of event %v", ev)
-				return false, err
-			}
-			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
-
-			return MatchChanges(hookRepo, changedFiles), nil
-		}
-
+		return MatchChanges(hookRepo, changedFiles), nil
 	}
 	return false, nil
 }

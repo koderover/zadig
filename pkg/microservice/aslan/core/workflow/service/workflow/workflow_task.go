@@ -360,6 +360,9 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 	}
 
 	mb.Repos = mb.SafeRepos()
+	for _, repo := range mb.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
 
 	if mb.PreBuild != nil {
 		if len(mb.PreBuild.Installs) == 0 {
@@ -655,6 +658,11 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		env.RegistryID = reg.ID.Hex()
 	}
 	configPayload.RegistryID = env.RegistryID
+	err = SetCandidateRegistry(configPayload, log)
+	if err != nil {
+		log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
+		return nil, err
+	}
 
 	nextTaskID, err := generateNextTaskID(args.WorkflowName)
 	if err != nil {
@@ -741,7 +749,8 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if distribute.Target != nil {
 					serviceModule.ProductName = distribute.Target.ProductName
 				}
-				if reflect.DeepEqual(distribute.Target, serviceModule) {
+				// since more field is introduced into the serviceModuleTarget structure, we only use the field we need to determine if the target match
+				if serviceModule.ProductName == distribute.Target.ProductName && serviceModule.ServiceName == distribute.Target.ServiceName && serviceModule.ServiceModule == distribute.Target.ServiceModule {
 					distributeTasks, err = formatDistributeSubtasks(
 						serviceModule,
 						workflow.DistributeStage.Releases,
@@ -854,12 +863,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
 
-		err = SetCandidateRegistry(configPayload, log)
-		if err != nil {
-			log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
-			return nil, err
-		}
-
 		AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
 	}
 
@@ -867,6 +870,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	triggerBy := &commonmodels.TriggerBy{
 		CodehostID:     args.CodehostID,
 		RepoOwner:      args.RepoOwner,
+		RepoNamespace:  args.RepoNamespace,
 		RepoName:       args.RepoName,
 		Source:         args.Source,
 		MergeRequestID: args.MergeRequestID,
@@ -1043,6 +1047,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 							// openAPI only pass repoName, branch, pr
 							targetRepo.Source = buildRepo.Source
 							targetRepo.RepoOwner = buildRepo.RepoOwner
+							targetRepo.RepoNamespace = buildRepo.RepoNamespace
 							targetRepo.RemoteName = buildRepo.RemoteName
 							targetRepo.CodehostID = buildRepo.CodehostID
 							targetRepo.CheckoutPath = buildRepo.CheckoutPath
@@ -1414,10 +1419,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return nil, err
 	}
 	deployTask.ServiceName = envList[0]
-	deployTask.ContainerName = envList[1]
-	if !strings.Contains(envList[1], "_") {
-		deployTask.ContainerName = envList[1] + "_" + envList[0]
-	}
+	deployTask.ContainerName = envList[1] + "_" + envList[0]
 
 	switch env.Type {
 	case setting.K8SDeployType:
@@ -1670,6 +1672,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 				return nil, err
 			}
 			repo.EnableProxy = repoInfo.EnableProxy
+			repo.RepoNamespace = repo.GetRepoNamespace()
 		}
 
 		testTask := &taskmodels.Testing{
@@ -1815,6 +1818,12 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		for _, repo := range repos {
 			configPayload.RepoConfigs[repo.ID.Hex()] = repo
 		}
+	}
+
+	err = SetCandidateRegistry(configPayload, log)
+	if err != nil {
+		log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
+		return nil, err
 	}
 
 	configPayload.IgnoreCache = args.IgnoreCache
@@ -1984,13 +1993,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			log.Errorf("workflow_task ToSubTask err:%v", err)
 			return nil, e.ErrCreateTask.AddDesc(err.Error())
 		}
-
-		err = SetCandidateRegistry(configPayload, log)
-		if err != nil {
-			log.Errorf("workflow_task setCandidateRegistry configPayload:[%v] err:%v", configPayload, err)
-			return nil, err
-		}
-
 		AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
 	}
 
@@ -2076,6 +2078,10 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	for _, serviceConfig := range moduleBuild.Targets {
 		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
 			moduleBuild.Repos = serviceConfig.Repos
+			if moduleBuild.PreBuild == nil {
+				moduleBuild.PreBuild = &commonmodels.PreBuild{}
+			}
+			moduleBuild.PreBuild.Envs = commonservice.MergeBuildEnvs(moduleBuild.PreBuild.Envs, serviceConfig.Envs)
 			break
 		}
 	}
@@ -2229,6 +2235,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				return nil, err
 			}
 			repo.EnableProxy = repoInfo.EnableProxy
+			repo.RepoNamespace = repo.GetRepoNamespace()
+		}
+		if len(build.JobCtx.Builds) == 0 {
+			build.JobCtx.Builds = make([]*types.Repository, 0)
 		}
 
 		build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}
@@ -2277,7 +2287,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 
 		build.JobCtx.EnvVars = module.PreBuild.Envs
 
-		if len(module.PreBuild.Envs) == 0 {
+		if len(build.JobCtx.EnvVars) == 0 {
 			build.JobCtx.EnvVars = make([]*commonmodels.KeyVal, 0)
 		}
 
@@ -2490,7 +2500,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				}
-				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, taskOpt.ImageName, "image"))
+				t.JobCtx.Image = GetImage(reg, commonservice.ReleaseCandidate(t.JobCtx.Builds, taskOpt.Task.TaskID, taskOpt.Task.ProductName, t.ServiceName, taskOpt.EnvName, taskOpt.ImageName, "image"))
 				taskOpt.Task.TaskArgs.Deploy.Image = t.JobCtx.Image
 
 				if taskOpt.ServiceName != "" {
@@ -2511,7 +2521,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				// 二进制文件名称
 				// 编译任务使用 t.JobCtx.PackageFile
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.PackageFile 获取, 必须要有编译任务
-				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, taskOpt.ImageName, "tar"))
+				t.JobCtx.PackageFile = GetPackageFile(commonservice.ReleaseCandidate(t.JobCtx.Builds, taskOpt.Task.TaskID, taskOpt.Task.ProductName, t.ServiceName, taskOpt.EnvName, taskOpt.ImageName, "tar"))
 				taskOpt.Task.TaskArgs.Deploy.PackageFile = t.JobCtx.PackageFile
 
 				// 注入编译模块中用户定义环境变量
@@ -2694,17 +2704,11 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					}
 				}
 
-				err = SetCandidateRegistry(taskOpt.Task.ConfigPayload, log)
-				if err != nil {
-					return err
-				}
-
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
 				}
 			}
-
 		case config.TaskTestingV2:
 			t, err := base.ToTestingTask(subTask)
 			if err != nil {
@@ -2723,11 +2727,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					SetTriggerBuilds(t.JobCtx.Builds, taskOpt.Task.TaskArgs.Test.Builds, log)
 				} else {
 					setManunalBuilds(t.JobCtx.Builds, taskOpt.Task.TaskArgs.Test.Builds, log)
-				}
-
-				err = SetCandidateRegistry(taskOpt.Task.ConfigPayload, log)
-				if err != nil {
-					return err
 				}
 
 				//use log path

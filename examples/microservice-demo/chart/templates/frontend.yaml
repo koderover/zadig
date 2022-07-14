@@ -31,11 +31,8 @@ spec:
               containerPort: 80
           resources:
             limits:
-              cpu: 1
-              memory: 512Mi
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
       imagePullSecrets:
       - name: registry-secret
 ---

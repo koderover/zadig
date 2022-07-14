@@ -22,3 +22,5 @@ const (
 	GeneralEnv EnvType = "general"
 	ShareEnv   EnvType = "share"
 )
+
+const DebugImage = "koderover.tencentcloudcr.com/koderover-public/zadig-debug:v0.1.0"

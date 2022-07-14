@@ -37,6 +37,7 @@ type Notification struct {
 	BaseURI    string              `bson:"base_uri"                     json:"base_uri"`
 	IsPipeline bool                `bson:"is_pipeline"                  json:"is_pipeline"`
 	IsTest     bool                `bson:"is_test"                      json:"is_test"`
+	IsScanning bool                `bson:"is_scanning"                  json:"is_scanning"`
 	ErrInfo    string              `bson:"err_info"                     json:"err_info"`
 	PrTask     *PrTaskInfo         `bson:"pr_task_info,omitempty"       json:"pr_task_info,omitempty"`
 	Label      string              `bson:"label"                        json:"label"  `
@@ -56,6 +57,8 @@ type NotificationTask struct {
 	ProductName  string            `bson:"product_name"    json:"product_name"`
 	WorkflowName string            `bson:"workflow_name"   json:"workflow_name"`
 	PipelineName string            `bson:"pipeline_name"   json:"pipeline_name"`
+	ScanningName string            `bson:"scanning_name"   json:"scanningName"`
+	ScanningID   string            `bson:"scanning_id"     json:"scanning_id"`
 	TestName     string            `bson:"test_name"       json:"test_name"`
 	ID           int64             `bson:"id"              json:"id"`
 	Status       config.TaskStatus `bson:"status"          json:"status"`
@@ -122,6 +125,14 @@ func (n *Notification) CreateCommentBody() (comment string, err error) {
 		} else {
 			tmplSource =
 				"|触发的测试|状态|测试结果（成功数/总用例数量）| \n |---|---|---| \n {{range .Tasks}}|[{{.TestName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/test/detail/function/{{.TestName}}/{{.ID}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | {{range .TestReports}}{{.Name}}: {{.Successes}}/{{.Tests}} <br> {{end}} | \n {{end}}"
+		}
+	} else if n.IsScanning {
+		if len(n.Tasks) == 0 {
+			tmplSource = "触发的代码扫描：等待任务启动中"
+		} else {
+			tmplSource =
+				"|触发的代码扫描|状态| \n |---|---| \n {{range .Tasks}}|[{{.ScanningName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/scanner/detail/{{.ScanningName}}/task/{{.ID}}?id={{.ScanningID}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | \n {{end}}"
+
 		}
 	} else {
 		if len(n.Tasks) == 0 {

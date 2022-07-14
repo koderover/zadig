@@ -159,6 +159,7 @@ type WorkflowTaskArgs struct {
 	Source         string `bson:"source"           json:"source"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
+	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
 	Committer      string `bson:"committer,omitempty"        json:"committer,omitempty"`
 	//github check run

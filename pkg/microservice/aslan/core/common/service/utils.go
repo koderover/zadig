@@ -85,8 +85,8 @@ func GetGitlabAddress(URL string) (string, error) {
 	return fmt.Sprintf("%s://%s", uri.Scheme, uri.Host), nil
 }
 
-// GetOwnerRepoBranchPath 获取gitlab路径中的owner、repo、branch和path
-func GetOwnerRepoBranchPath(URL string) (string, string, string, string, string, string, error) {
+// parseOwnerRepoBranchPath parse owner、repo、branch and path from gitlab repo path
+func parseOwnerRepoBranchPath(URL string) (string, string, string, string, string, string, error) {
 	if !strings.Contains(URL, "https") && !strings.Contains(URL, "http") {
 		return "", "", "", "", "", "", fmt.Errorf("url is illegal:%s", URL)
 	}
@@ -115,4 +115,26 @@ func GetOwnerRepoBranchPath(URL string) (string, string, string, string, string,
 		return address, urlPathArray[3], urlPathArray[4], urlPathArray[6], URL[pathIndex:], pathType, nil
 	}
 	return address, urlPathArray[3], urlPathArray[4], "", "", pathType, nil
+}
+
+// fillServiceRepoInfo ensures the value of repo is set
+func fillServiceRepoInfo(svc *models.Service) error {
+	if svc.RepoOwner != "" && svc.RepoName != "" && svc.BranchName != "" && svc.LoadPath != "" {
+		svc.RepoNamespace = svc.GetRepoNamespace()
+		return nil
+	}
+	var err error
+	pathType := ""
+	_, svc.RepoOwner, svc.RepoNamespace, svc.BranchName, svc.LoadPath, pathType, err = parseOwnerRepoBranchPath(svc.SrcPath)
+	if err != nil {
+		return err
+	}
+
+	if svc.Source == setting.SourceFromGitlab {
+		svc.LoadFromDir = pathType == "tree"
+	} else if svc.Source == setting.SourceFromGithub {
+		svc.LoadFromDir = true
+	}
+	svc.RepoNamespace = svc.GetRepoNamespace()
+	return nil
 }

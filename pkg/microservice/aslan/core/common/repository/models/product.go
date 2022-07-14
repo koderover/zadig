@@ -19,6 +19,7 @@ package models
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 )
 
@@ -58,8 +59,25 @@ type Product struct {
 	IsForkedProduct bool `bson:"-" json:"-"`
 
 	// New Since v1.11.0.
-	ShareEnv       ProductShareEnv `bson:"share_env" json:"share_env"`
-	EnvConfigYamls []string        `bson:"env_config_yamls,omitempty"   json:"env_config_yamls,omitempty"`
+	ShareEnv ProductShareEnv `bson:"share_env" json:"share_env"`
+
+	// New Since v1.13.0.
+	EnvConfigs []*CreateUpdateCommonEnvCfgArgs `bson:"-"   json:"env_configs,omitempty"`
+}
+
+type CreateUpdateCommonEnvCfgArgs struct {
+	EnvName              string                        `json:"env_name"`
+	ProductName          string                        `json:"product_name"`
+	ServiceName          string                        `json:"service_name"`
+	Name                 string                        `json:"name"`
+	YamlData             string                        `json:"yaml_data"`
+	RestartAssociatedSvc bool                          `json:"restart_associated_svc"`
+	CommonEnvCfgType     config.CommonEnvCfgType       `json:"common_env_cfg_type"`
+	Services             []string                      `json:"services"`
+	GitRepoConfig        *templatemodels.GitRepoConfig `json:"git_repo_config"`
+	SourceDetail         *CreateFromRepo               `json:"-"`
+	AutoSync             bool                          `json:"auto_sync"`
+	LatestEnvResource    *EnvResource                  `json:"-"`
 }
 
 type RenderInfo struct {

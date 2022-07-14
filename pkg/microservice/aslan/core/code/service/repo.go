@@ -26,6 +26,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
 type RepoInfoList struct {
@@ -34,6 +36,7 @@ type RepoInfoList struct {
 
 type GitRepoInfo struct {
 	Owner         string                `json:"repo_owner"`
+	Namespace     string                `json:"repo_namespace"`
 	Repo          string                `json:"repo"`
 	CodehostID    int                   `json:"codehost_id"`
 	Source        string                `json:"source"`
@@ -50,13 +53,28 @@ type GitRepoInfo struct {
 	FilterRegexp string `json:"filter_regexp,omitempty"`
 }
 
+func (repo *GitRepoInfo) GetNamespace() string {
+	if repo.Namespace == "" {
+		return repo.Owner
+	}
+	return repo.Namespace
+}
+
 // ListRepoInfos ...
 func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
 	var wg sync.WaitGroup
 	var errList *multierror.Error
 
 	for _, info := range infos {
-		codehostClient, err := open.OpenClient(info.CodehostID, log)
+		ch, err := systemconfig.New().GetCodeHost(info.CodehostID)
+		if err != nil {
+			log.Errorf("get code host info err:%s", err)
+			return nil, err
+		}
+		if ch.Type == setting.SourceFromOther {
+			continue
+		}
+		codehostClient, err := open.OpenClient(ch, log)
 		if err != nil {
 			return nil, err
 		}
@@ -66,7 +84,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				wg.Done()
 			}()
 			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: info.Repo,
 			})
 			if err != nil {
@@ -86,9 +104,8 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			if info.Source == CodeHostCodeHub {
 				projectName = info.RepoUUID
 			}
-
 			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 				Key:         info.Key,
 			})
@@ -112,7 +129,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			}
 
 			info.Tags, err = codehostClient.ListTags(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 				Key:         info.Key,
 			})

@@ -80,10 +80,21 @@ func (c *CodehostColl) DeleteCodeHost() error {
 	return nil
 }
 
-func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
-
+func (c *CodehostColl) GetCodeHostByAlias(alias string) (*models.CodeHost, error) {
 	codehost := new(models.CodeHost)
-	query := bson.M{"id": ID, "deleted_at": 0}
+	query := bson.M{"alias": alias, "deleted_at": 0}
+	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
+		return nil, err
+	}
+	return codehost, nil
+}
+
+func (c *CodehostColl) GetCodeHostByID(ID int, ignoreDelete bool) (*models.CodeHost, error) {
+	codehost := new(models.CodeHost)
+	query := bson.M{"id": ID}
+	if !ignoreDelete {
+		query["deleted_at"] = 0
+	}
 	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
 		return nil, err
 	}
@@ -120,7 +131,6 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 
 func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
 	codeHosts := make([]*models.CodeHost, 0)
-
 	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		return nil, err
@@ -157,14 +167,19 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 		"username":       host.Username,
 		"password":       host.Password,
 		"enable_proxy":   host.EnableProxy,
+		"alias":          host.Alias,
 		"updated_at":     time.Now().Unix(),
 	}
 	if host.Type == setting.SourceFromGerrit {
 		modifyValue["access_token"] = host.AccessToken
-	} else if host.Type == setting.SourceFromGitee {
+	} else if host.Type == setting.SourceFromGitee || host.Type == setting.SourceFromGitlab {
 		modifyValue["access_token"] = host.AccessToken
 		modifyValue["refresh_token"] = host.RefreshToken
 		modifyValue["updated_at"] = host.UpdatedAt
+	} else if host.Type == setting.SourceFromOther {
+		modifyValue["auth_type"] = host.AuthType
+		modifyValue["ssh_key"] = host.SSHKey
+		modifyValue["private_access_token"] = host.PrivateAccessToken
 	}
 
 	change := bson.M{"$set": modifyValue}

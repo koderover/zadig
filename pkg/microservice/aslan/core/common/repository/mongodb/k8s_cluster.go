@@ -211,6 +211,7 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id stri
 			"production":      cluster.Production,
 			"advanced_config": cluster.AdvancedConfig,
 			"cache":           cluster.Cache,
+			"dind_cfg":        cluster.DindCfg,
 		}},
 	)
 
@@ -224,6 +225,19 @@ func (c *K8SClusterColl) UpdateStatus(cluster *models.K8SCluster) error {
 		}},
 	)
 
+	return err
+}
+
+func (c *K8SClusterColl) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) error {
+	clusterID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(context.TODO(),
+		bson.M{"_id": clusterID}, bson.M{"$set": bson.M{
+			"update_hubagent_error_msg": updateHubagentErrorMsg,
+		}},
+	)
 	return err
 }
 
@@ -263,4 +277,22 @@ func (c *K8SClusterColl) GetByToken(token string) (*models.K8SCluster, error) {
 	}
 
 	return c.Get(id)
+}
+
+func (c *K8SClusterColl) FindActiveClusters() ([]*models.K8SCluster, error) {
+	connectedClusters, err := c.FindConnectedClusters()
+	if err != nil {
+		return nil, err
+	}
+
+	activeClusters := []*models.K8SCluster{}
+	for _, cluster := range connectedClusters {
+		if cluster.Status != setting.Normal {
+			continue
+		}
+
+		activeClusters = append(activeClusters, cluster)
+	}
+
+	return activeClusters, nil
 }

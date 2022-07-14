@@ -6,16 +6,21 @@ ingressClass: kr-nginx
 Backend:
   replicaCount: 1
   image:
-    repository: ccr.ccs.tencentyun.com/koderover-public/backend
+    repository: koderover.tencentcloudcr.com/koderover-demo/backend
     tag: "latest"
 
 Frontend:
   replicaCount: 1
   image: 
-    repository: ccr.ccs.tencentyun.com/koderover-public/frontend
+    repository: koderover.tencentcloudcr.com/koderover-demo/frontend
     tag: "latest"
 
 domain: demo.domain.com
 port: 20219
+
+resources:
+  limits:
+    cpu: 50m
+    memory: 50Mi
 
 registrySecret: ""

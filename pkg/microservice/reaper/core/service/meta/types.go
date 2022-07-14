@@ -262,21 +262,25 @@ type Install struct {
 
 // Repo ...
 type Repo struct {
-	Source       string `yaml:"source"`
-	Address      string `yaml:"address"`
-	Owner        string `yaml:"owner"`
-	Name         string `yaml:"name"`
-	RemoteName   string `yaml:"remote_name"`
-	Branch       string `yaml:"branch"`
-	PR           int    `yaml:"pr"`
-	Tag          string `yaml:"tag"`
-	CheckoutPath string `yaml:"checkout_path"`
-	SubModules   bool   `yaml:"submodules"`
-	OauthToken   string `yaml:"oauthToken"`
-	User         string `yaml:"username"`
-	Password     string `yaml:"password"`
-	CheckoutRef  string `yaml:"checkout_ref"`
-	EnableProxy  bool   `yaml:"enable_proxy"`
+	Source             string         `yaml:"source"`
+	Address            string         `yaml:"address"`
+	Owner              string         `yaml:"owner"`
+	Name               string         `yaml:"name"`
+	Namespace          string         `yaml:"namespace"`
+	RemoteName         string         `yaml:"remote_name"`
+	Branch             string         `yaml:"branch"`
+	PR                 int            `yaml:"pr"`
+	Tag                string         `yaml:"tag"`
+	CheckoutPath       string         `yaml:"checkout_path"`
+	SubModules         bool           `yaml:"submodules"`
+	OauthToken         string         `yaml:"oauthToken"`
+	User               string         `yaml:"username"`
+	Password           string         `yaml:"password"`
+	CheckoutRef        string         `yaml:"checkout_ref"`
+	EnableProxy        bool           `yaml:"enable_proxy"`
+	AuthType           types.AuthType `yaml:"auth_type,omitempty"`
+	SSHKey             string         `yaml:"ssh_key,omitempty"`
+	PrivateAccessToken string         `yaml:"private_access_token,omitempty"`
 }
 
 // PRRef returns refs format
@@ -422,7 +426,7 @@ func (g *Git) HTTPSCloneURL(source, token, owner, name string) string {
 // e.g.
 //https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
 func (g *Git) OAuthCloneURL(source, token, address, owner, name, scheme string) string {
-	if strings.ToLower(source) == ProviderGitlab {
+	if strings.ToLower(source) == ProviderGitlab || strings.ToLower(source) == ProviderOther {
 		// address 需要传过来
 		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", scheme, OauthTokenPrefix, token, address, owner, name)
 	}

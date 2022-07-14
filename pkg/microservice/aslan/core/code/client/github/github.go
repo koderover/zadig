@@ -134,12 +134,17 @@ func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 }
 
 func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
-	repos, err := c.Client.ListRepositoriesForAuthenticatedUser(context.TODO(), nil)
+	repos, err := c.Client.ListRepositoriesForAuthenticatedUser(context.TODO(), opt.Namespace, nil)
 	if err != nil {
 		return nil, err
 	}
 	var res []*client.Project
 	for _, o := range repos {
+		// Note. when using gitHub api to filter repos, private repo will not be returned
+		// we need to filter the repos with query namespace when repo list is returned
+		if len(opt.Namespace) > 0 && o.GetOwner().GetLogin() != opt.Namespace {
+			continue
+		}
 		res = append(res, &client.Project{
 			ID:            int(o.GetID()),
 			Name:          o.GetName(),

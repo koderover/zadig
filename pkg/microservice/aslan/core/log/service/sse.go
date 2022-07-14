@@ -44,17 +44,18 @@ const (
 )
 
 type GetContainerOptions struct {
-	Namespace    string
-	PipelineName string
-	SubTask      string
-	TailLines    int64
-	TaskID       int64
-	PipelineType string
-	ServiceName  string
-	TestName     string
-	EnvName      string
-	ProductName  string
-	ClusterID    string
+	Namespace     string
+	PipelineName  string
+	SubTask       string
+	TailLines     int64
+	TaskID        int64
+	PipelineType  string
+	ServiceName   string
+	ServiceModule string
+	TestName      string
+	EnvName       string
+	ProductName   string
+	ClusterID     string
 }
 
 func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, log *zap.SugaredLogger) {
@@ -116,14 +117,14 @@ func containerLogStream(ctx context.Context, streamChan chan interface{}, namesp
 	}
 }
 
-func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
-	if options == nil {
-		return
+func parseServiceName(fullServiceName, serviceModule string) (string, string) {
+	// when service module is passed, use the passed value
+	// otherwise we fall back to the old logic
+	if len(serviceModule) > 0 {
+		return strings.TrimPrefix(fullServiceName, serviceModule+"_"), serviceModule
 	}
-	log.Debugf("Start to get task container log.")
-
-	var serviceName, serviceModule string
-	serviceNames := strings.Split(options.ServiceName, "_")
+	var serviceName string
+	serviceNames := strings.Split(fullServiceName, "_")
 	switch len(serviceNames) {
 	case 1:
 		serviceModule = serviceNames[0]
@@ -132,6 +133,16 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		serviceModule = serviceNames[0]
 		serviceName = serviceNames[1]
 	}
+	return serviceName, serviceModule
+}
+
+func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
+	if options == nil {
+		return
+	}
+	log.Debugf("Start to get task container log.")
+
+	serviceName, serviceModule := parseServiceName(options.ServiceName, options.ServiceModule)
 
 	// Cloud host scenario reads real-time logs from the environment, so pipelineName is empty.
 	if options.EnvName != "" && options.ProductName != "" && options.PipelineName == "" {
@@ -184,6 +195,16 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		options.SubTask = string(config.TaskBuild)
 	}
 	selector := getPipelineSelector(options)
+	waitAndGetLog(ctx, streamChan, selector, options, log)
+}
+
+func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
+	if options == nil {
+		return
+	}
+	log.Debugf("Start to get task container log.")
+
+	selector := getWorkflowSelector(options)
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
@@ -275,4 +296,18 @@ func getPipelineSelector(options *GetContainerOptions) labels.Selector {
 	}
 
 	return ret.AsSelector()
+}
+
+func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
+	retMap := map[string]string{
+		setting.JobLabelTaskKey: fmt.Sprintf("%s-%d", strings.ToLower(options.PipelineName), options.TaskID),
+		setting.JobLabelNameKey: strings.Replace(options.SubTask, "_", "-", -1),
+	}
+	// no need to add labels with empty value to a job
+	for k, v := range retMap {
+		if len(v) == 0 {
+			delete(retMap, k)
+		}
+	}
+	return labels.Set(retMap).AsSelector()
 }

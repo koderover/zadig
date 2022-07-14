@@ -17,6 +17,8 @@ limitations under the License.
 package webhook
 
 import (
+	"strconv"
+
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -25,7 +27,6 @@ import (
 	scanningservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
-	"strconv"
 )
 
 type gitEventMatcherForScanning interface {
@@ -84,7 +85,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
-					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, "webhook", log); err != nil {
+					if resp, err := scanningservice.CreateScanningTask(scanning.ID.Hex(), triggerRepoInfo, "", "webhook", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {
@@ -114,6 +115,10 @@ func (gpem githubPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 
 		if !EventConfigured(matchRepo, config.HookEventPush) {
+			return false, nil
+		}
+
+		if hookRepo.Branch != getBranchFromRef(*ev.Ref) {
 			return false, nil
 		}
 
@@ -175,6 +180,18 @@ type githubTagEventMatcherForScanning struct {
 }
 
 func (gtem githubTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
+		hookInfo := ConvertScanningHookToMainHookRepo(hookRepo)
+		if !EventConfigured(hookInfo, config.HookEventTag) {
+			return false, nil
+		}
+
+		hookRepo.Branch = *ev.Repo.DefaultBranch
+
+		return true, nil
+	}
+
 	return false, nil
 }
 

@@ -52,13 +52,15 @@ type Service struct {
 	GerritRemoteName string           `bson:"gerrit_remote_name,omitempty"   json:"gerrit_remote_name,omitempty"`
 	GerritPath       string           `bson:"gerrit_path,omitempty"          json:"gerrit_path,omitempty"`
 	GerritCodeHostID int              `bson:"gerrit_codeHost_id,omitempty"   json:"gerrit_codeHost_id,omitempty"`
-	BuildName        string           `bson:"build_name,omitempty"           json:"build_name,omitempty"`
+	GiteePath        string           `bson:"gitee_path,omitempty"           json:"gitee_path,omitempty"`
+	BuildName        string           `bson:"build_name"                     json:"build_name"`
 	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
 	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
 	ReleaseNaming    string           `bson:"release_naming"                 json:"release_naming"`
 	CodehostID       int              `bson:"codehost_id,omitempty"          json:"codehost_id,omitempty"`
 	RepoOwner        string           `bson:"repo_owner,omitempty"           json:"repo_owner,omitempty"`
+	RepoNamespace    string           `bson:"repo_namespace,omitempty"       json:"repo_namespace,omitempty"`
 	RepoName         string           `bson:"repo_name,omitempty"            json:"repo_name,omitempty"`
 	RepoUUID         string           `bson:"repo_uuid,omitempty"            json:"repo_uuid,omitempty"`
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
@@ -73,7 +75,7 @@ type Service struct {
 }
 
 type CreateFromRepo struct {
-	GitRepoConfig *templatemodels.GitRepoConfig `bson:"git_repo_config,omitempty"            json:"git_repo_config,omitempty"`
+	GitRepoConfig *templatemodels.GitRepoConfig `bson:"git_repo_config,omitempty"      json:"git_repo_config,omitempty"`
 	LoadPath      string                        `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 }
 
@@ -266,9 +268,16 @@ type PmHealthCheck struct {
 	CurrentUnhealthyNum int    `bson:"current_unhealthy_num,omitempty" json:"current_unhealthy_num,omitempty"`
 }
 
-func (s *Service) GetReleaseNaming() string {
-	if len(s.ReleaseNaming) > 0 {
-		return s.ReleaseNaming
+func (svc *Service) GetRepoNamespace() string {
+	if svc.RepoNamespace != "" {
+		return svc.RepoNamespace
+	}
+	return svc.RepoOwner
+}
+
+func (svc *Service) GetReleaseNaming() string {
+	if len(svc.ReleaseNaming) > 0 {
+		return svc.ReleaseNaming
 	}
 	return setting.ReleaseNamingPlaceholder
 }

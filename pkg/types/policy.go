@@ -23,3 +23,55 @@ const (
 	SystemScope  PolicyMetaScope = "system"
 	ProjectScope PolicyMetaScope = "project"
 )
+
+type Policy struct {
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	UpdateTime  int64   `json:"update_time"`
+	Rules       []*Rule `json:"rules"`
+}
+
+type Rule struct {
+	Verbs           []string         `json:"verbs"`
+	Resources       []string         `json:"resources"`
+	Kind            string           `json:"kind"`
+	MatchAttributes []MatchAttribute `json:"match_attributes"`
+}
+
+type MatchAttribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type PolicyMeta struct {
+	Resource    string      `json:"resource"`
+	Alias       string      `json:"alias"`
+	Description string      `json:"description"`
+	Rules       []*RuleMeta `json:"rules"`
+}
+
+type RuleMeta struct {
+	Action      string        `json:"action"`
+	Alias       string        `json:"alias"`
+	Description string        `json:"description"`
+	Rules       []*ActionRule `json:"rules"`
+}
+
+type ActionRule struct {
+	Method          string       `json:"method"`
+	Endpoint        string       `json:"endpoint"`
+	ResourceType    string       `json:"resourceType,omitempty"`
+	IDRegex         string       `json:"idRegex,omitempty"`
+	MatchAttributes []*Attribute `json:"matchAttributes,omitempty"`
+	Filter          bool         `json:"filter,omitempty"`
+}
+
+type Attribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type PolicyRule struct {
+	Methods  []string `json:"methods"`
+	Endpoint string   `json:"endpoint"`
+}

@@ -18,6 +18,7 @@ package models
 
 import (
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -35,6 +36,8 @@ type PrivateKey struct {
 	UpdateTime   int64                `bson:"update_time"            json:"update_time"`
 	UpdateBy     string               `bson:"update_by"              json:"update_by"`
 	Provider     int8                 `bson:"provider"               json:"provider"`
+	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
+	ProjectName  string               `bson:"project_name,omitempty" json:"project_name"`
 	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
 }
 

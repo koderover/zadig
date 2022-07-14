@@ -77,20 +77,28 @@ type WorkflowHook struct {
 }
 
 type MainHookRepo struct {
-	Name         string                 `bson:"name,omitempty"            json:"name,omitempty"`
-	Description  string                 `bson:"description,omitempty"     json:"description,omitempty"`
-	Source       string                 `bson:"source,omitempty"          json:"source,omitempty"`
-	RepoOwner    string                 `bson:"repo_owner"                json:"repo_owner"`
-	RepoName     string                 `bson:"repo_name"                 json:"repo_name"`
-	Branch       string                 `bson:"branch"                    json:"branch"`
-	Tag          string                 `bson:"tag"                       json:"tag"`
-	Committer    string                 `bson:"committer"                 json:"committer"`
-	MatchFolders []string               `bson:"match_folders"             json:"match_folders,omitempty"`
-	CodehostID   int                    `bson:"codehost_id"               json:"codehost_id"`
-	Events       []config.HookEventType `bson:"events"                    json:"events"`
-	Label        string                 `bson:"label"                     json:"label"`
-	Revision     string                 `bson:"revision"                  json:"revision"`
-	IsRegular    bool                   `bson:"is_regular"                json:"is_regular"`
+	Name          string                 `bson:"name,omitempty"            json:"name,omitempty"`
+	Description   string                 `bson:"description,omitempty"     json:"description,omitempty"`
+	Source        string                 `bson:"source,omitempty"          json:"source,omitempty"`
+	RepoOwner     string                 `bson:"repo_owner"                json:"repo_owner"`
+	RepoNamespace string                 `bson:"repo_namespace"            json:"repo_namespace"`
+	RepoName      string                 `bson:"repo_name"                 json:"repo_name"`
+	Branch        string                 `bson:"branch"                    json:"branch"`
+	Tag           string                 `bson:"tag"                       json:"tag"`
+	Committer     string                 `bson:"committer"                 json:"committer"`
+	MatchFolders  []string               `bson:"match_folders"             json:"match_folders,omitempty"`
+	CodehostID    int                    `bson:"codehost_id"               json:"codehost_id"`
+	Events        []config.HookEventType `bson:"events"                    json:"events"`
+	Label         string                 `bson:"label"                     json:"label"`
+	Revision      string                 `bson:"revision"                  json:"revision"`
+	IsRegular     bool                   `bson:"is_regular"                json:"is_regular"`
+}
+
+func (m *MainHookRepo) GetRepoNamespace() string {
+	if m.RepoNamespace != "" {
+		return m.RepoNamespace
+	}
+	return m.RepoOwner
 }
 
 func (m MainHookRepo) GetLabelValue() string {
@@ -176,6 +184,7 @@ type WorkflowTaskArgs struct {
 	Source         string `bson:"source"           json:"source"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
+	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
 	Committer      string `bson:"committer,omitempty"        json:"committer,omitempty"`
 	//github check run
@@ -187,6 +196,14 @@ type WorkflowTaskArgs struct {
 
 	Callback      *CallbackArgs   `bson:"callback"                    json:"callback"`
 	ReleaseImages []*ReleaseImage `bson:"release_images,omitempty"    json:"release_images,omitempty"`
+}
+
+type ScanningArgs struct {
+	ScanningName string `json:"scanning_name" bson:"scanning_name"`
+	ScanningID   string `json:"scanning_id"   bson:"scanning_id"`
+
+	// NotificationID is the id of scmnotify.Notification
+	NotificationID string `bson:"notification_id" json:"notification_id"`
 }
 
 type ReleaseImage struct {
@@ -207,6 +224,7 @@ type TestTaskArgs struct {
 	Source         string `bson:"source"           json:"source"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
+	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
 }
 

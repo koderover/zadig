@@ -19,13 +19,17 @@ spec:
     spec:
       containers:
         - name: $T-Service$
-          image: ccr.ccs.tencentyun.com/koderover-public/$T-Service$:latest
+          image: koderover.tencentcloudcr.com/koderover-demo/$T-Service$:latest
           imagePullPolicy: Always 
           command:
             - /workspace/$T-Service$
           ports:
             - protocol: TCP
               containerPort: {{.port}}
+          resources:
+            limits:
+              memory: {{.memoryLimit}}
+              cpu: {{.cpuLimit}}
 ---
 apiVersion: v1
 kind: Service

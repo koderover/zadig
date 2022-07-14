@@ -25,16 +25,13 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ccr.ccs.tencentyun.com/koderover-public/frontend:latest
+          image: koderover.tencentcloudcr.com/koderover-demo/frontend:latest
           imagePullPolicy: Always
           ports:
             - protocol: TCP
               containerPort: 80
           resources:
             limits:
-              cpu: 1
-              memory: 512Mi
-            requests:
               cpu: 100m
               memory: 100M
       imagePullSecrets:

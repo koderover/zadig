@@ -79,6 +79,35 @@ func GetBuildJobContainerLogsSSE(c *gin.Context) {
 	}, ctx.Logger)
 }
 
+func GetWorkflowJobContainerLogsSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	tails, err := strconv.ParseInt(c.Param("lines"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.WorkflowTaskV4ContainerLogStream(
+			ctx1, streamChan,
+			&logservice.GetContainerOptions{
+				Namespace:    config.Namespace(),
+				PipelineName: c.Param("workflowName"),
+				SubTask:      c.Param("jobName"),
+				TaskID:       taskID,
+				TailLines:    tails,
+			},
+			ctx.Logger)
+	}, ctx.Logger)
+}
+
 func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 
@@ -96,15 +125,16 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 
 	subTask := c.Query("subTask")
 	options := &logservice.GetContainerOptions{
-		Namespace:    config.Namespace(),
-		PipelineName: c.Param("pipelineName"),
-		SubTask:      subTask,
-		TailLines:    tails,
-		TaskID:       taskID,
-		ServiceName:  c.Param("serviceName"),
-		PipelineType: string(config.WorkflowType),
-		EnvName:      c.Query("envName"),
-		ProductName:  c.Query("projectName"),
+		Namespace:     config.Namespace(),
+		PipelineName:  c.Param("pipelineName"),
+		SubTask:       subTask,
+		TailLines:     tails,
+		TaskID:        taskID,
+		ServiceName:   c.Param("serviceName"),
+		ServiceModule: c.Query("serviceModule"),
+		PipelineType:  string(config.WorkflowType),
+		EnvName:       c.Query("envName"),
+		ProductName:   c.Query("projectName"),
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {

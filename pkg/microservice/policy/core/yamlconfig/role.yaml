@@ -1,0 +1,111 @@
+description: "we have 5 preset roles: you can change the role rules to update permission"
+preset_roles:
+  - name: admin
+    desc: 拥有系统中任何操作的权限
+    rules:
+      - verbs:
+          - '*'
+        resources:
+          - '*'
+  - name: contributor
+    rules:
+      - verbs:
+          - get_workflow
+          - run_workflow
+        resources:
+          - Workflow
+      - verbs:
+          - get_environment
+          - config_environment
+          - manage_environment
+          - delete_environment
+        resources:
+          - Environment
+      - verbs:
+          - get_service
+        resources:
+          - Service
+      - verbs:
+          - get_build
+        resources:
+          - Build
+      - verbs:
+          - get_test
+        resources:
+          - Test
+  - name: project-admin
+    rules:
+      - verbs:
+          - '*'
+        resources:
+          - '*'
+  - name: read-only
+    rules:
+      - verbs:
+          - get_scan
+        resources:
+          - Scan
+      - verbs:
+          - get_workflow
+        resources:
+          - Workflow
+      - verbs:
+          - get_environment
+        resources:
+          - Environment
+      - verbs:
+          - get_environment
+        resources:
+          - ProductionEnvironment
+      - verbs:
+          - get_service
+        resources:
+          - Service
+      - verbs:
+          - get_build
+        resources:
+          - Build
+      - verbs:
+          - get_test
+        resources:
+          - Test
+      - verbs:
+          - get_delivery
+        resources:
+          - Delivery
+  - name: read-project-only
+    rules:
+      - verbs:
+          - get_workflow
+        resources:
+          - Workflow
+        match_attributes:
+          - key: placeholder
+            value: placeholder
+      - verbs:
+          - get_environment
+        resources:
+          - Environment
+        match_attributes:
+          - key: placeholder
+            value: placeholder
+      - verbs:
+          - get_service
+        resources:
+          - Service
+      - verbs:
+          - get_build
+        resources:
+          - Build
+      - verbs:
+          - get_test
+        resources:
+          - Test
+      - verbs:
+          - get_delivery
+        resources:
+          - Delivery
+      - verbs:
+          - get_scan
+        resources:
+          - Scan

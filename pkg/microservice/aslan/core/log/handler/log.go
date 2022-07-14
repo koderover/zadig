@@ -60,6 +60,19 @@ func GetWorkflowBuildJobContainerLogs(c *gin.Context) {
 	ctx.Resp, ctx.Err = logservice.GetWorkflowBuildJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("type"), taskID, ctx.Logger)
 }
 
+func GetWorkflowV4JobContainerLogs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	// Use all lowercase job names to avoid subdomain errors
+	ctx.Resp, ctx.Err = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Param("jobName"), taskID, ctx.Logger)
+}
+
 func GetTestJobContainerLogs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

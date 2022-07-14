@@ -56,6 +56,11 @@ func V1110ToV1120() error {
 		return err
 	}
 
+	if err := supplementCodehostAlias(); err != nil {
+		log.Errorf("supplement codehost alias, err:%s", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -73,6 +78,11 @@ func V1120ToV1110() error {
 
 	if err := buildAddJenkinsIDRollBack(); err != nil {
 		log.Errorf("buildAddJenkinsIDRollBack err:%s", err)
+		return err
+	}
+
+	if err := supplementCodehostAliasRollBack(); err != nil {
+		log.Errorf("supplement codehost alias rollback, err:%s", err)
 		return err
 	}
 	return nil
@@ -324,6 +334,75 @@ func buildAddJenkinsIDRollBack() error {
 	}
 	if len(ms) > 0 {
 		_, err = internalmongodb.NewBuildColl().BulkWrite(context.TODO(), ms)
+	}
+	return err
+
+}
+func supplementCodehostAlias() error {
+	codeHosts, err := internalmongodb.NewCodehostColl().List()
+	if err != nil {
+		return fmt.Errorf("failed to list all codehosts ,err: %s", err)
+	}
+	var ms []mongo.WriteModel
+	for _, codehost := range codeHosts {
+		if codehost.Alias != "" {
+			continue
+		}
+		var alias string
+		switch codehost.Type {
+		case "gitlab":
+			alias = codehost.AccessKey[0:8]
+		case "github":
+			alias = codehost.Namespace
+		case "gerrit":
+			alias = codehost.Username
+		case "gitee":
+			alias = codehost.Namespace
+		}
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"id", codehost.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"alias", alias},
+					}},
+				}),
+		)
+	}
+
+	if len(ms) > 0 {
+		_, err = internalmongodb.NewCodehostColl().BulkWrite(context.TODO(), ms)
+	}
+	return err
+}
+
+func supplementCodehostAliasRollBack() error {
+	codeHosts, err := internalmongodb.NewCodehostColl().List()
+	if err != nil {
+		return fmt.Errorf("failed to list all codehosts ,err: %s", err)
+	}
+	var ms []mongo.WriteModel
+	for _, codehost := range codeHosts {
+		if codehost.Alias == "" {
+			continue
+		}
+		if codehost.Type == "other" {
+			continue
+		}
+
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"id", codehost.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"alias", ""},
+					}},
+				}),
+		)
+	}
+
+	if len(ms) > 0 {
+		_, err = internalmongodb.NewCodehostColl().BulkWrite(context.TODO(), ms)
 	}
 	return err
 }

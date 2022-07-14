@@ -51,7 +51,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		resource := labeldb.Resource{
 			Name:        env.EnvName,
 			ProjectName: env.ProductName,
-			Type:        string(config.ResourceTypeProduct),
+			Type:        string(config.ResourceTypeEnvironment),
 		}
 		resources = append(resources, resource)
 	}
@@ -74,7 +74,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 	}
 
 	for _, env := range envs {
-		resourceKey := commonConfig.BuildResourceKey(string(config.ResourceTypeProduct), env.ProductName, env.EnvName)
+		resourceKey := commonConfig.BuildResourceKey(string(config.ResourceTypeEnvironment), env.ProductName, env.EnvName)
 		resourceSpec := &resourceSpec{
 			ResourceID:  env.EnvName,
 			ProjectName: env.ProductName,

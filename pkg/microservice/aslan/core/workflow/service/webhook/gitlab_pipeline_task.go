@@ -46,7 +46,7 @@ func (pgpem *pipelineGitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHo
 	var (
 		changedFiles = make([]string, 0)
 	)
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+	if checkRepoNamespaceMatch(hookRepo, ev.Project.PathWithNamespace) {
 		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
 			for _, commit := range ev.Commits {
 				changedFiles = append(changedFiles, commit.Added...)
@@ -65,6 +65,7 @@ func (pgpem *pipelineGitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHo
 
 		eventRepo := &types.Repository{
 			RepoOwner:     hookRepo.RepoOwner,
+			RepoNamespace: hookRepo.GetRepoNamespace(),
 			RepoName:      hookRepo.RepoName,
 			Branch:        branch,
 			CommitID:      commitID,
@@ -107,7 +108,7 @@ func (pgmem *pipelineGitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainH
 		err          error
 		changedFiles = make([]string, 0)
 	)
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
+	if checkRepoNamespaceMatch(hookRepo, ev.ObjectAttributes.Target.PathWithNamespace) {
 		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
 			if ev.ObjectAttributes.State == "opened" {
 				changedFiles, err = pgmem.diffFunc(ev, hookRepo.CodehostID)
@@ -128,6 +129,7 @@ func (pgmem *pipelineGitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainH
 
 		eventRepo := &types.Repository{
 			RepoOwner:     hookRepo.RepoOwner,
+			RepoNamespace: hookRepo.GetRepoNamespace(),
 			RepoName:      hookRepo.RepoName,
 			PR:            ev.ObjectAttributes.IID,
 			Branch:        branch,
@@ -226,7 +228,7 @@ func TriggerPipelineByGitlabEvent(event interface{}, baseURI, requestID string, 
 					hookRepo.RepoOwner = taskargs.HookPayload.Owner
 					if notification == nil {
 						notification, _ = scmnotify.NewService().SendInitWebhookComment(
-							hookRepo, taskargs.Builds[0].PR, baseURI, true, false, log,
+							hookRepo, taskargs.Builds[0].PR, baseURI, true, false, false, log,
 						)
 					}
 				}

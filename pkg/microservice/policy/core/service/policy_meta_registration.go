@@ -26,33 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-type PolicyMeta struct {
-	Resource    string        `json:"resource"`
-	Alias       string        `json:"alias"`
-	Description string        `json:"description"`
-	Rules       []*PolicyRule `json:"rules"`
-}
-
-type PolicyRule struct {
-	Action      string        `json:"action"`
-	Alias       string        `json:"alias"`
-	Description string        `json:"description"`
-	Rules       []*ActionRule `json:"rules"`
-}
-
-type ActionRule struct {
-	Method          string      `json:"method"`
-	Endpoint        string      `json:"endpoint"`
-	ResourceType    string      `json:"resourceType,omitempty"`
-	IDRegex         string      `json:"idRegex,omitempty"`
-	MatchAttributes []attribute `json:"matchAttributes,omitempty"`
-}
-
-type attribute struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
 type PolicyDefinition struct {
 	Resource    string                  `json:"resource"`
 	Alias       string                  `json:"alias"`
@@ -66,7 +39,7 @@ type PolicyRuleDefinition struct {
 	Description string `json:"description"`
 }
 
-func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error {
+func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger) error {
 	obj := &models.PolicyMeta{
 		Resource:    p.Resource,
 		Alias:       p.Alias,
@@ -105,7 +78,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		return nil, err
 	}
 	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
-	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service")
+	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
 		if systemScopeSet.Has(v.Resource) {
@@ -117,8 +90,32 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 
 	switch scope {
 	case string(types.SystemScope):
+		for _, meta := range systemPolicyMetas {
+			if meta.Resource == "TestCenter" {
+				tmpRules := []*models.PolicyMetaRule{}
+				for _, rule := range meta.Rules {
+					if rule.Action == "create_test" {
+						continue
+					}
+					tmpRules = append(tmpRules, rule)
+				}
+
+				meta.Rules = tmpRules
+			}
+		}
 		filteredPolicyMetas = systemPolicyMetas
 	case string(types.ProjectScope):
+		tmp := []*models.PolicyMeta{}
+		for _, meta := range projectPolicyMetas {
+			if envType == setting.PMDeployType && (meta.Resource == "ProductionEnvironment" || meta.Resource == "Delivery") {
+				continue
+			}
+			if envType == setting.TrusteeshipDeployType && meta.Resource == "Delivery" {
+				continue
+			}
+			tmp = append(tmp, meta)
+		}
+		projectPolicyMetas = tmp
 		for i, meta := range projectPolicyMetas {
 			if meta.Resource == "Environment" || meta.Resource == "ProductionEnvironment" {
 				tmpRules := []*models.PolicyMetaRule{}

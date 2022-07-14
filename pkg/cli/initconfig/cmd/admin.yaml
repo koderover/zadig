@@ -1,8 +1,0 @@
-name: admin
-type: system
-desc: "拥有系统中任何操作的权限"
-rules:
-  - verbs:
-      - "*"
-    resources:
-      - "*"

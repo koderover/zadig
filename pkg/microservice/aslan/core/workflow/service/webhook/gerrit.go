@@ -32,6 +32,7 @@ import (
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
+	systemConfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -58,12 +59,7 @@ type gerritTypeEvent struct {
 }
 
 func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
-	baseURI := fmt.Sprintf(
-		"%s://%s",
-		req.Header.Get("X-Forwarded-Proto"),
-		req.Header.Get("X-Forwarded-Host"),
-	)
-
+	baseURI := systemConfig.SystemAddress()
 	gerritTypeEventObj := new(gerritTypeEvent)
 	if err := json.Unmarshal(payload, gerritTypeEventObj); err != nil {
 		log.Errorf("processGerritHook json.Unmarshal err : %v", err)
@@ -105,7 +101,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			errs = multierror.Append(errs, err)
 		}
 		newRepoName := fmt.Sprintf("%s-new", service.GerritRepoName)
-		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, newRepoName, service.GerritBranchName, service.GerritRemoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, newRepoName, service.GerritBranchName, service.GerritRemoteName)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent runGitCmds err:%v", err)
 			errs = multierror.Append(errs, err)
@@ -119,7 +115,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		oldBase, err := GetGerritWorkspaceBasePath(service.GerritRepoName)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-			err = command.RunGitCmds(detail, setting.GerritDefaultOwner, service.GerritRepoName, service.GerritBranchName, service.GerritRemoteName)
+			err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, service.GerritRepoName, service.GerritBranchName, service.GerritRemoteName)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}
@@ -289,26 +285,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		if err := setCurrentContainerImages(args); err != nil {
 			return err
 		}
-		//判断该服务组件是否存在，如果存在不让保存
-		//if args.Revision == 0 {
-		//	currentServiceContainerNames := make([]string, 0)
-		//	for _, container := range args.Containers {
-		//		currentServiceContainerNames = append(currentServiceContainerNames, container.Name)
-		//	}
-		//	if serviceTmpls, err := s.coll.ServiceTmpl.ListMaxRevisions(); err == nil {
-		//		for _, serviceTmpl := range serviceTmpls {
-		//			switch serviceTmpl.Type {
-		//			case template.K8SDeployType:
-		//				for _, container := range serviceTmpl.Containers {
-		//					target := container.Name
-		//					if utils.Contains(target, currentServiceContainerNames) {
-		//						return fmt.Errorf("服务组件不能重复,项目 [%s] 服务 [%s] 已存在同名的服务组件 [%s]", serviceTmpl.ProductName, serviceTmpl.ServiceName, target)
-		//					}
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
+
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 	}
 
@@ -325,7 +302,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 }
 
 func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogger) error {
-	_, err := service.CreateOrUpdateHelmServiceFromGerrit(svc.ProductName, &service.HelmServiceCreationArgs{
+	_, err := service.CreateOrUpdateHelmServiceFromRepo(svc.ProductName, &service.HelmServiceCreationArgs{
 		HelmLoadSource: service.HelmLoadSource{
 			Source: service.LoadFromGerrit,
 		},
@@ -333,11 +310,12 @@ func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogg
 		CreateFrom: &service.CreateFromRepo{
 			CodehostID: svc.CodehostID,
 			Owner:      svc.RepoOwner,
+			Namespace:  svc.GetRepoNamespace(),
 			Repo:       svc.RepoName,
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
 		},
-	}, log)
+	}, true, log)
 	return err
 }
 

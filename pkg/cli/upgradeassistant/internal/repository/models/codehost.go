@@ -17,12 +17,15 @@ limitations under the License.
 package models
 
 type CodeHost struct {
-	ID          int    `bson:"id"           json:"id"`
-	Type        string `bson:"type"         json:"type"`
-	Address     string `bson:"address"      json:"address"`
-	Namespace   string `bson:"namespace"    json:"namespace"`
-	AccessToken string `bson:"access_token" json:"accessToken"`
-	EnableProxy bool   `bson:"enable_proxy" json:"enable_proxy"`
+	ID          int    `bson:"id"                   json:"id"`
+	Type        string `bson:"type"                 json:"type"`
+	Address     string `bson:"address"              json:"address"`
+	Namespace   string `bson:"namespace"            json:"namespace"`
+	AccessToken string `bson:"access_token"         json:"accessToken"`
+	EnableProxy bool   `bson:"enable_proxy"         json:"enable_proxy"`
+	Alias       string `bson:"alias"                json:"alias"`
+	Username    string `bson:"username"             json:"username"`
+	AccessKey   string `bson:"application_id"       json:"application_id"`
 }
 
 func (CodeHost) TableName() string {

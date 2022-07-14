@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+  name: notification-service
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  selector:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+  name: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+     project: piggymetrics
+     tier: backend
+     app: notification-service
+  strategy: 
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:       
+        project: piggymetrics
+        tier: backend
+        app: notification-service
+    spec:
+      initContainers:
+        - name: init-skywalking-agent
+          image: koderover.tencentcloudcr.com/koderover-demo/skywalking-agent:8.8.0
+          command:
+            - 'sh'
+            - '-c'
+            - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+          volumeMounts:
+            - mountPath: /vmskywalking/agent
+              name: skywalking-agent
+      containers:
+      - env:
+        - name: JAVA_OPTS
+          value: "-javaagent:/opt/skywalking/agent/skywalking-agent.jar -Duser.timezone=GMT+8"
+        - name: SW_AGENT_NAME
+          value: "notification-service"
+        - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
+          value: "skywalking-oap.skywalking.svc.cluster.local:11800"
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_mongodb_password
+        - name: NOTIFICATION_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_service_password
+        - name: NOTIFICATION_EMAIL_HOST
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_host
+        - name: NOTIFICATION_EMAIL_PORT
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_port
+        - name: NOTIFICATION_EMAIL_USER
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_user
+        - name: NOTIFICATION_EMAIL_PASS
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_pass
+        envFrom:
+        - configMapRef:
+           name: special-config-env                 
+        ports:
+          - containerPort: 8000
+        image: koderover.tencentcloudcr.com/koderover-demo/piggymetrics-notification-service:v0.3.0 
+        name: notification-service
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1G
+          requests:
+            cpu: 500m
+            memory: 512M      
+        imagePullPolicy: Always
+        volumeMounts:
+          - mountPath: /opt/skywalking/agent
+            name: skywalking-agent
+      restartPolicy: Always
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}

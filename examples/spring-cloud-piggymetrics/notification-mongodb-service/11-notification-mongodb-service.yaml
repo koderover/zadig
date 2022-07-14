@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: notification-mongodb
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    targetPort: 27017
+  selector:
+    project: piggymetrics
+    tier: database
+    app: notification-mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: database
+    app: notification-mongodb
+  name: notification-mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+     project: piggymetrics
+     tier: database
+     app: notification-mongodb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:    
+        project: piggymetrics
+        tier: database
+        app: notification-mongodb
+    spec:
+      containers:
+      - env:
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_mongodb_password
+        ports:
+          - containerPort: 27017
+        image: koderover.tencentcloudcr.com/koderover-demo/piggymetrics-mongodb:v0.1.1
+        name: notification-mongodb
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1G
+          requests:
+            cpu: 100m
+            memory: 256M
+      restartPolicy: Always

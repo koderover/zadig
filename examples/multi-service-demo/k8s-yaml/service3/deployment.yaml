@@ -19,11 +19,15 @@ spec:
     spec:
       containers:
         - name: service3
-          image: ccr.ccs.tencentyun.com/koderover-public/service3:latest
+          image: koderover.tencentcloudcr.com/koderover-demo/service3:latest
           imagePullPolicy: Always 
           command:
             - /workspace/service3
           ports:
             - protocol: TCP
               containerPort: 20223
+          resources:
+            limits:
+              memory: 50Mi
+              cpu: 50m        
      

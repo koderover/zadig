@@ -95,8 +95,8 @@ type serviceInfo struct {
 	yamls []string
 }
 
-func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch string, args *LoadServiceReq, logger *zap.SugaredLogger) error {
-	logger.Infof("Loading service from %s with owner %s, repo %s, branch %s and path %s", ch.Type, owner, repo, branch, args.LoadPath)
+func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, repo, branch string, args *LoadServiceReq, force bool, logger *zap.SugaredLogger) error {
+	logger.Infof("Loading service from %s with owner %s, namespace %s, repo %s, branch %s and path %s", ch.Type, owner, namespace, repo, branch, args.LoadPath)
 
 	project, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
@@ -112,7 +112,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch
 
 	var services []serviceInfo
 	if !args.LoadFromDir {
-		yamls, err := loader.GetYAMLContents(owner, repo, args.LoadPath, branch, false, true)
+		yamls, err := loader.GetYAMLContents(namespace, repo, args.LoadPath, branch, false, true)
 		if err != nil {
 			logger.Errorf("Failed to get yamls under path %s, err: %s", args.LoadPath, err)
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -120,7 +120,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch
 
 		services = []serviceInfo{{path: args.LoadPath, isDir: false, yamls: yamls}}
 	} else {
-		treeNodes, err := loader.GetTree(owner, repo, args.LoadPath, branch)
+		treeNodes, err := loader.GetTree(namespace, repo, args.LoadPath, branch)
 		if err != nil {
 			logger.Errorf("Failed to get tree under path %s, err: %s", args.LoadPath, err)
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -133,7 +133,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch
 		if len(files) > 0 {
 			var yamls []string
 			for _, f := range files {
-				res, err := loader.GetYAMLContents(owner, repo, f.FullPath, branch, false, true)
+				res, err := loader.GetYAMLContents(namespace, repo, f.FullPath, branch, false, true)
 				if err != nil {
 					logger.Errorf("Failed to get yamls under path %s, err: %s", f.FullPath, err)
 					return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -144,7 +144,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch
 			services = []serviceInfo{{path: args.LoadPath, isDir: true, yamls: yamls}}
 		} else if len(folders) > 0 {
 			for _, f := range folders {
-				res, err := loader.GetYAMLContents(owner, repo, f.FullPath, branch, true, true)
+				res, err := loader.GetYAMLContents(namespace, repo, f.FullPath, branch, true, true)
 				if err != nil {
 					logger.Errorf("Failed to get yamls under path %s, err: %s", f.FullPath, err)
 					return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -165,7 +165,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch
 			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("A service with same name %s is already existing", serviceName))
 		}
 
-		commit, err := loader.GetLatestRepositoryCommit(owner, repo, info.path, branch)
+		commit, err := loader.GetLatestRepositoryCommit(namespace, repo, info.path, branch)
 		if err != nil {
 			logger.Errorf("Failed to get latest commit under path %s, error: %s", info.path, err)
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -176,24 +176,25 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch
 			pathType = "blob"
 		}
 		createSvcArgs := &models.Service{
-			CodehostID:  ch.ID,
-			RepoName:    repo,
-			RepoOwner:   owner,
-			BranchName:  branch,
-			LoadPath:    info.path,
-			LoadFromDir: info.isDir,
-			KubeYamls:   info.yamls,
-			SrcPath:     fmt.Sprintf("%s/%s/%s/%s/%s/%s", ch.Address, owner, repo, pathType, branch, info.path),
-			CreateBy:    username,
-			ServiceName: serviceName,
-			Type:        args.Type,
-			ProductName: args.ProductName,
-			Source:      ch.Type,
-			Yaml:        util.CombineManifests(info.yamls),
-			Commit:      &models.Commit{SHA: commit.SHA, Message: commit.Message},
-			Visibility:  args.Visibility,
+			CodehostID:    ch.ID,
+			RepoName:      repo,
+			RepoOwner:     owner,
+			RepoNamespace: namespace,
+			BranchName:    branch,
+			LoadPath:      info.path,
+			LoadFromDir:   info.isDir,
+			KubeYamls:     info.yamls,
+			SrcPath:       fmt.Sprintf("%s/%s/%s/%s/%s/%s", ch.Address, namespace, repo, pathType, branch, info.path),
+			CreateBy:      username,
+			ServiceName:   serviceName,
+			Type:          args.Type,
+			ProductName:   args.ProductName,
+			Source:        ch.Type,
+			Yaml:          util.CombineManifests(info.yamls),
+			Commit:        &models.Commit{SHA: commit.SHA, Message: commit.Message},
+			Visibility:    args.Visibility,
 		}
-		_, err = CreateServiceTemplate(username, createSvcArgs, logger)
+		_, err = CreateServiceTemplate(username, createSvcArgs, force, logger)
 		if err != nil {
 			logger.Errorf("Failed to create service template, err: %s", err)
 			_, messageMap := e.ErrorMessage(err)
@@ -241,7 +242,7 @@ func getLoader(ch *systemconfig.CodeHost) (yamlLoader, error) {
 	case setting.SourceFromGithub:
 		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
 	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+		return gitlabservice.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	default:
 		// should not have happened here
 		log.DPanicf("invalid source: %s", ch.Type)

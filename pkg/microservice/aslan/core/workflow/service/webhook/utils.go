@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/koderover/zadig/pkg/types"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,34 +47,42 @@ import (
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func syncContent(args *commonmodels.Service, logger *zap.SugaredLogger) error {
+func syncContentFromCodehub(args *commonmodels.Service, logger *zap.SugaredLogger) error {
 	address, _, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
 	if err != nil {
 		logger.Errorf("Failed to parse url %s, err: %s", args.SrcPath, err)
 		return fmt.Errorf("url parse failure, err: %s", err)
 	}
 
+	if len(args.LoadPath) > 0 {
+		path = args.LoadPath
+	}
+	if len(args.BranchName) > 0 {
+		branch = args.BranchName
+	}
+	if len(args.RepoName) > 0 {
+		repo = args.RepoName
+	}
+
 	var yamls []string
-	switch args.Source {
-	case setting.SourceFromCodeHub:
-		client, err := getCodehubClientByAddress(address)
-		if err != nil {
-			logger.Errorf("Failed to get codehub client, error: %s", err)
-			return err
-		}
-		repoUUID, err := client.GetRepoUUID(repo)
-		if err != nil {
-			logger.Errorf("Failed to get repoUUID, error: %s", err)
-			return err
-		}
-		yamls, err = client.GetYAMLContents(repoUUID, branch, path, pathType == "tree", true)
-		if err != nil {
-			logger.Errorf("Failed to get yamls, error: %s", err)
-			return err
-		}
+	client, err := getCodehubClientByAddress(address)
+	if err != nil {
+		logger.Errorf("Failed to get codehub client, error: %s", err)
+		return err
+	}
+	repoUUID, err := client.GetRepoUUID(repo)
+	if err != nil {
+		logger.Errorf("Failed to get repoUUID, error: %s", err)
+		return err
+	}
+	yamls, err = client.GetYAMLContents(repoUUID, branch, path, pathType == "tree", true)
+	if err != nil {
+		logger.Errorf("Failed to get yamls, error: %s", err)
+		return err
 	}
 
 	args.KubeYamls = yamls
@@ -93,11 +100,12 @@ func reloadServiceTmplFromGit(svc *commonmodels.Service, log *zap.SugaredLogger)
 		CreateFrom: &service.CreateFromRepo{
 			CodehostID: svc.CodehostID,
 			Owner:      svc.RepoOwner,
+			Namespace:  svc.GetRepoNamespace(),
 			Repo:       svc.RepoName,
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
 		},
-	}, log)
+	}, true, log)
 	return err
 }
 
@@ -136,7 +144,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 				return err
 			}
 		} else if args.Source == setting.SourceFromCodeHub {
-			err := syncContent(args, log)
+			err := syncContentFromCodehub(args, log)
 			if err != nil {
 				log.Errorf("Sync content from codehub failed, error: %v", err)
 				return err
@@ -212,6 +220,12 @@ func syncLatestCommit(service *commonmodels.Service) error {
 	if len(service.LoadPath) > 0 {
 		path = service.LoadPath
 	}
+	if len(service.GetRepoNamespace()) > 0 {
+		owner = service.GetRepoNamespace()
+	}
+	if len(service.RepoName) > 0 {
+		repo = service.RepoName
+	}
 
 	commit, err := GitlabGetLatestCommit(client, owner, repo, branch, path)
 	if err != nil {
@@ -275,7 +289,7 @@ func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(fmt.Sprintf("failed to get codehost:%d, err: %s", codehost, err))
 	}
-	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+	client, err := gitlabtool.NewClient(codehost.ID, codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -294,7 +308,7 @@ func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
-	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+	client, err := gitlabtool.NewClient(codehost.ID, codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -369,9 +383,10 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 		return nil
 	}
 
-	_, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
-	if err != nil {
-		return fmt.Errorf("url format failed")
+	var owner, repo, branch, path string = args.GetRepoNamespace(), args.RepoName, args.BranchName, args.LoadPath
+	var pathType = "tree"
+	if strings.Contains(args.SrcPath, "blob") {
+		pathType = "blob"
 	}
 
 	client, err := getGitlabClientByCodehostId(args.CodehostID)
@@ -402,21 +417,19 @@ func joinYamls(files []string) string {
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {
 	// 根据pipeline中的filepath获取文件内容
-	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(args.SrcPath)
-	if err != nil {
-		log.Errorf("GetOwnerRepoBranchPath failed, srcPath:%s, err:%v", args.SrcPath, err)
-		return errors.New("invalid url " + args.SrcPath)
-	}
+	var owner, repo, branch, path = args.GetRepoNamespace(), args.RepoName, args.BranchName, args.LoadPath
 
-	ch, err := systemconfig.GetCodeHostInfo(
-		&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
 	if err != nil {
-		log.Errorf("GetCodeHostInfo failed, srcPath:%s, err:%v", args.SrcPath, err)
+		log.Errorf("failed to getCodeHostInfo, srcPath:%s, err:%s", args.SrcPath, err)
 		return err
 	}
 
 	gc := githubtool.NewClient(&githubtool.Config{AccessToken: ch.AccessToken, Proxy: config.ProxyHTTPSAddr()})
 	fileContent, directoryContent, err := gc.GetContents(context.TODO(), owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	if err != nil {
+		return err
+	}
 	if fileContent != nil {
 		svcContent, _ := fileContent.GetContent()
 		splitYaml := SplitYaml(svcContent)
@@ -735,6 +748,10 @@ func getServiceSrcPath(service *commonmodels.Service) (string, error) {
 	}
 	_, _, _, _, p, _, err := GetOwnerRepoBranchPath(service.SrcPath)
 	return p, err
+}
+
+func checkRepoNamespaceMatch(hookRepo *commonmodels.MainHookRepo, pathWithNamespace string) bool {
+	return (hookRepo.GetRepoNamespace() + "/" + hookRepo.RepoName) == pathWithNamespace
 }
 
 // check if sub path is a part of parent path

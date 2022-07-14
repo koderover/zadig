@@ -1,0 +1,417 @@
+description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
+exemption_urls:
+  public:
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/patch
+      methods:
+        - POST
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/recover
+      methods:
+        - POST
+    - endpoint: api/v1/permission/project/?*
+      methods:
+        - GET
+    - endpoint: api/aslan/health
+      methods:
+        - GET
+    - endpoint: api/aslan/webhook
+      methods:
+        - POST
+    - endpoint: api/hub/connect
+      methods:
+        - GET
+    - endpoint: api/aslan/system/registry
+      methods:
+        - GET
+    - endpoint: api/aslan/testing/report
+      methods:
+        - GET
+    - endpoint: api/aslan/cluster/agent/?*/agent.yaml
+      methods:
+        - GET
+    - endpoint: api/podexec/health
+      methods:
+        - GET
+    - endpoint: api/v1/login
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/signup
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/retrieve
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/login-enabled
+      methods:
+        - GET
+        - POST
+    - endpoint: login/password
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/codehosts/?*/auth
+      methods:
+        - GET
+    - endpoint: api/v1/codehosts/callback
+      methods:
+        - GET
+    - endpoint: api/v1/callback
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+    - endpoint: dex/**
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+# endpoint = '' is p0 level
+    - endpoint: ''
+      methods:
+        - GET
+    - endpoint: signin
+      methods:
+        - GET
+    - endpoint: setup
+      methods:
+        - GET
+    - endpoint: static/**
+      methods:
+        - GET
+    - endpoint: v1/**
+      methods:
+        - GET
+    - endpoint: mobile/**
+      methods:
+        - GET
+    - endpoint: workflows/**
+      methods:
+        - GET
+    - endpoint: favicon.ico
+      methods:
+        - GET
+    - endpoint: api/directory/codehosts/callback
+      methods:
+        - GET
+    - endpoint: api/v1/features/?*
+      methods:
+        - GET
+    - endpoint: api/aslan/system/jenkins/exist
+      methods:
+        - GET
+    - endpoint: api/callback
+      methods:
+        - POST
+    - endpoint: api/aslan/environment/environments/?*/check/workloads/k8services
+      methods:
+        - GET
+    - endpoint: api/aslan/environment/environments/?*/check/sharenv/enable/ready
+      methods:
+        - GET
+    - endpoint: api/aslan/environment/environments/?*/check/sharenv/disable/ready
+      methods:
+        - GET
+    - endpoint: api/aslan/service/services/?*/environments/deployable
+      methods:
+        - GET
+  system_admin:
+    - endpoint: api/v1/features/?*
+      methods:
+        - PUT
+    - endpoint: api/aslan/project/products
+      methods:
+        - POST
+    - endpoint: api/aslan/system/cleanCache/cron
+      methods:
+        - POST
+    - endpoint: api/aslan/system/sonar/?*
+      methods:
+        - POST
+        - PUT
+        - DELETE
+    - endpoint: api/v1/picket/projects
+      methods:
+        - POST
+    - endpoint: api/aslan/cluster/clusters
+      methods:
+        - POST
+    - endpoint: api/aslan/cluster/agent/?*/upgrade
+      methods:
+        - GET
+    - endpoint: api/aslan/cluster/clusters/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/cluster/clusters/?*/disconnect
+      methods:
+        - PUT
+    - endpoint: api/aslan/cluster/clusters/?*/reconnect
+      methods:
+        - PUT
+    - endpoint: api/collaboration/collaborations
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/install
+      methods:
+        - POST
+        - PUT
+    - endpoint: api/aslan/system/install/delete
+      methods:
+        - PUT
+    - endpoint: api/aslan/system/proxyManage
+      methods:
+        - POST
+    - endpoint: api/aslan/system/proxyManage/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/registry/namespaces
+      methods:
+        - POST
+    - endpoint: api/aslan/system/registry/namespaces/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/s3storage
+      methods:
+        - POST
+    - endpoint: api/aslan/system/s3storage/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/githubApp
+      methods:
+        - POST
+    - endpoint: api/aslan/system/githubApp/?*
+      methods:
+        - DELETE
+    - endpoint: api/aslan/system/jenkins/integration
+      methods:
+        - POST
+    - endpoint: api/aslan/system/jenkins/integration/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/jenkins/integration/user/connection
+      methods:
+        - POST
+    - endpoint: api/aslan/system/basicImages
+      methods:
+        - POST
+    - endpoint: api/aslan/system/basicImages/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/helm
+      methods:
+        - POST
+    - endpoint: api/aslan/system/helm/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/privateKey
+      methods:
+        - POST
+    - endpoint: api/aslan/system/privateKey/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/announcement
+      methods:
+        - POST
+    - endpoint: api/aslan/system/announcement/update
+      methods:
+        - PUT
+    - endpoint: api/aslan/system/announcement/all
+      methods:
+        - GET
+    - endpoint: api/aslan/system/announcement/?*
+      methods:
+        - DELETE
+    - endpoint: api/aslan/system/operation
+      methods:
+        - GET
+        - POST
+    - endpoint: api/aslan/system/operation/?*
+      methods:
+        - PUT
+    - endpoint: api/aslan/system/proxy/config
+      methods:
+        - GET
+    - endpoint: api/v1/users/?*
+      methods:
+        - GET
+        - PUT
+        - PATCH
+    - endpoint: api/v1/picket/users/?*
+      methods:
+        - DELETE
+    - endpoint: api/v1/users
+      methods:
+        - POST
+    - endpoint: api/v1/public-roles
+      methods:
+        - POST
+    - endpoint: api/v1/public-roles/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/v1/system-roles
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/system-roles/?*
+      methods:
+        - DELETE
+    - endpoint: api/v1/public-policies
+      methods:
+        - POST
+    - endpoint: api/v1/public-policies/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/v1/system-policies
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/system-policies/?*
+      methods:
+        - DELETE
+    - endpoint: api/v1/system-rolebindings
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/system-rolebindings/?*
+      methods:
+        - DELETE
+    - endpoint: api/v1/system-policybindings
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/system-policybindings/?*
+      methods:
+        - DELETE
+    - endpoint: api/aslan/environment/envcfgs
+      methods:
+        - GET
+    - endpoint: api/aslan/environment/envcfgs/?*/sync
+      methods:
+        - PUT
+  project_admin:
+    - endpoint: api/aslan/project/products
+      methods:
+        - PUT
+    - endpoint: api/v1/picket/projects/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/project/products/?*
+      methods:
+        - DELETE
+    - endpoint: api/v1/users
+      methods:
+        - GET
+    - endpoint: api/v1/users/search
+      methods:
+        - POST
+    - endpoint: api/collaboration/collaborations
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+    - endpoint: api/v1/roles
+      methods:
+        - GET
+    - endpoint: api/v1/roles/?*
+      methods:
+        - GET
+    - endpoint: api/v1/roles
+      methods:
+        - POST
+    - endpoint: api/v1/roles/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/v1/roles/bulk-delete
+      methods:
+        - POST
+    - endpoint: api/v1/public-roles
+      methods:
+        - GET
+    - endpoint: api/v1/public-roles/?*
+      methods:
+        - GET
+    - endpoint: api/v1/policies
+      methods:
+        - GET
+    - endpoint: api/v1/policies/?*
+      methods:
+        - GET
+    - endpoint: api/v1/policies
+      methods:
+        - POST
+        - DELETE
+    - endpoint: api/v1/policies/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/v1/policies/bulk-delete
+      methods:
+        - POST
+    - endpoint: api/v1/public-policies
+      methods:
+        - GET
+    - endpoint: api/v1/public-policies/?*
+      methods:
+        - GET
+    - endpoint: api/v1/rolebindings
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/picket/rolebindings
+      methods:
+        - GET
+    - endpoint: api/v1/rolebindings/?*
+      methods:
+        - DELETE
+    - endpoint: api/v1/rolebindings/bulk-delete
+      methods:
+        - POST
+    - endpoint: api/v1/policybindings
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/picket/policybindings
+      methods:
+        - GET
+    - endpoint: api/v1/policybindings/?*
+      methods:
+        - DELETE
+    - endpoint: api/v1/policybindings/bulk-delete
+      methods:
+        - POST
+    - endpoint: api/aslan/project/pms/?*
+      methods:
+        - GET
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/project/pms/labels
+      methods:
+        - GET
+    - endpoint: api/aslan/project/pms/batch
+      methods:
+        - POST
+    - endpoint: api/aslan/project/pms
+      methods:
+        - GET
+        - POST

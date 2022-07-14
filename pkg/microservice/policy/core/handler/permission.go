@@ -24,13 +24,18 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func GetUserPermission(c *gin.Context) {
+func GetUserRules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
+	ctx.Resp, ctx.Err = service.GetUserRules(ctx.UserID, ctx.Logger)
+}
 
-	ctx.Resp, ctx.Err = service.GetPermission(projectName, c.Param("uid"), ctx.Logger)
+func GetUserRulesByProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetUserRulesByProject(ctx.UserID, c.Param("name"), ctx.Logger)
 }
 
 type GetUserResourcesPermissionReq struct {

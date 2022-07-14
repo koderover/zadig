@@ -71,3 +71,5 @@ The council will make a decision for the nomination. The candidate has to have d
 - [tbbrave](https://github.com/tbbrave)
 - [lxm](https://github.com/lxm)
 - [zxdvd](https://github.com/zxdvd)
+- [rovast](https://github.com/rovast)
+- [pokixing](https://github.com/pokixing)

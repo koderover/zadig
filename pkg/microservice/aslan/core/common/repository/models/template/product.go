@@ -97,10 +97,19 @@ type EnvRenderKV struct {
 }
 
 type GitRepoConfig struct {
-	CodehostID int    `bson:"codehost_id,omitempty" json:"codehost_id"`
-	Owner      string `bson:"owner,omitempty"       json:"owner"`
-	Repo       string `bson:"repo,omitempty"        json:"repo"`
-	Branch     string `bson:"branch,omitempty"      json:"branch"`
+	CodehostID  int      `bson:"codehost_id,omitempty"  json:"codehost_id"`
+	Owner       string   `bson:"owner,omitempty"        json:"owner"`
+	Repo        string   `bson:"repo,omitempty"         json:"repo"`
+	Branch      string   `bson:"branch,omitempty"       json:"branch"`
+	Namespace   string   `bson:"namespace,omitempty"    json:"namespace"` // records the actual namespace of repo, used to generate correct project name
+	ValuesPaths []string `bson:"values_paths,omitempty" json:"values_paths,omitempty"`
+}
+
+func (grc *GitRepoConfig) GetNamespace() string {
+	if len(grc.Namespace) > 0 {
+		return grc.Namespace
+	}
+	return grc.Owner
 }
 
 type CustomYaml struct {

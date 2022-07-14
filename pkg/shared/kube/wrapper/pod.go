@@ -89,14 +89,19 @@ func (w *pod) Ready() bool {
 // All conditions specified in readinessGates are True.
 // When a Pod's containers are Ready but at least one custom condition is missing or False, the kubelet sets the Pod's condition to ContainersReady.
 // https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-status
-func (w *pod) ContainersReady() bool {
+func (w *pod) ContainersReady() (bool, string) {
 	cs := w.Status.Conditions
+
 	for _, c := range cs {
 		if c.Type == corev1.ContainersReady {
-			return c.Status == corev1.ConditionTrue
+			if c.Status == corev1.ConditionTrue {
+				return true, ""
+			} else {
+				return false, c.Message
+			}
 		}
 	}
-	return false
+	return false, ""
 }
 
 func (w *pod) Containers() []string {
@@ -118,6 +123,7 @@ func (w *pod) ContainerNames() []string {
 }
 
 func (w *pod) Resource() *resource.Pod {
+	containersReady, containersMessage := w.ContainersReady()
 	p := &resource.Pod{
 		Name:              w.Name,
 		Status:            string(w.Status.Phase),
@@ -125,16 +131,31 @@ func (w *pod) Resource() *resource.Pod {
 		CreateTime:        w.CreationTimestamp.Unix(),
 		IP:                w.Status.PodIP,
 		Labels:            w.Labels,
+		PodReady:          w.Ready(),
+		ContainersReady:   containersReady,
+		ContainersMessage: containersMessage,
 		ContainerStatuses: []resource.Container{},
+		NodeName:          w.Spec.NodeName,
+		HostIP:            w.Status.HostIP,
 	}
 	if len(w.OwnerReferences) > 0 {
 		p.Kind = w.OwnerReferences[0].Kind
 	}
 
-	for _, container := range w.Status.ContainerStatuses {
+	containersStatus := []corev1.ContainerStatus{}
+	containersStatus = append(containersStatus, w.Status.ContainerStatuses...)
+	if CheckEphemeralContainerStatusFieldExist(&w.Status) {
+		for _, status := range w.Status.EphemeralContainerStatuses {
+			status.Ready = true
+			containersStatus = append(containersStatus, status)
+		}
+	}
+
+	for _, container := range containersStatus {
 		cs := resource.Container{
 			Name:         container.Name,
 			RestartCount: container.RestartCount,
+			Ready:        container.Ready,
 		}
 
 		if container.State.Running != nil {
@@ -170,7 +191,32 @@ func (w *pod) Resource() *resource.Pod {
 				break
 			}
 		}
+
+		if CheckEphemeralContainerFieldExist(&w.Spec) {
+			for _, specContainer := range w.Spec.EphemeralContainers {
+				if specContainer.Name == container.Name {
+					cs.Image = specContainer.Image
+					break
+				}
+			}
+		}
 		p.ContainerStatuses = append(p.ContainerStatuses, cs)
+	}
+
+	// Note: Seems that in K8s versions [v1.16, v1.22], EphemeralContainerStatuses exist but are empty while in K8s versions
+	// [v1.23, ], EphemeralContainerStatuses exist and are not empty.
+	if CheckEphemeralContainerStatusFieldExist(&w.Status) && len(w.Status.EphemeralContainerStatuses) == 0 &&
+		CheckEphemeralContainerFieldExist(&w.Spec) {
+		for _, container := range w.Spec.EphemeralContainers {
+			cs := resource.Container{
+				Name:         container.Name,
+				Image:        container.Image,
+				RestartCount: 0,
+				Status:       "running",
+				Ready:        true,
+			}
+			p.ContainerStatuses = append(p.ContainerStatuses, cs)
+		}
 	}
 
 	if w.DeletionTimestamp != nil {
@@ -184,6 +230,10 @@ func (w *pod) Resource() *resource.Pod {
 				break
 			}
 		}
+	}
+
+	if CheckEphemeralContainerFieldExist(&w.Spec) && len(w.Spec.EphemeralContainers) > 0 {
+		p.EnableDebugContainer = true
 	}
 
 	return p

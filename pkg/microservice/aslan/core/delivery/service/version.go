@@ -79,6 +79,7 @@ type CreateHelmDeliveryVersionOption struct {
 type ImageData struct {
 	ImageName string `json:"imageName"`
 	ImageTag  string `json:"imageTag"`
+	Selected  bool   `json:"selected"`
 }
 
 type CreateHelmDeliveryVersionChartData struct {
@@ -601,7 +602,9 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 
 	imageTagMap := make(map[string]string)
 	for _, it := range imageData {
-		imageTagMap[it.ImageName] = it.ImageTag
+		if it.Selected {
+			imageTagMap[it.ImageName] = it.ImageTag
+		}
 	}
 
 	retValuesYaml := string(valuesYaml)
@@ -630,18 +633,25 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			return nil, nil, err
 		}
 
+		imageName := commonservice.ExtractImageName(imageUrl)
+		imageTag := commonservice.ExtractImageTag(imageUrl)
+
+		customTag := ""
+		if ct, ok := imageTagMap[imageName]; ok {
+			customTag = ct
+		} else {
+			continue
+		}
+
+		if customTag == "" {
+			customTag = imageTag
+		}
+
 		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
 		}
 		registryUrl = strings.TrimSuffix(registryUrl, "/")
-
-		imageName := commonservice.ExtractImageName(imageUrl)
-		imageTag := commonservice.ExtractImageTag(imageUrl)
-		customTag := imageTag
-		if ct, ok := imageTagMap[imageName]; ok {
-			customTag = ct
-		}
 
 		registryID := ""
 		// used source registry
@@ -783,8 +793,10 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productInfo *commonmodels.Product) (map[string]*DeliveryChartData, error) {
 
 	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Revision: productInfo.Render.Revision,
-		Name:     productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+		Name:        productInfo.Render.Name,
+		EnvName:     productInfo.EnvName,
+		ProductTmpl: productInfo.ProductName,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find renderSet: %s, revision: %d", productInfo.Render.Name, productInfo.Render.Revision)

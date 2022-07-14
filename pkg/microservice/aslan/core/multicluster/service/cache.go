@@ -27,7 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type PVC struct {
@@ -35,7 +35,7 @@ type PVC struct {
 	StorageSizeInBytes int64  `json:"storage_size_in_bytes"`
 }
 
-func ListStorageClasses(ctx context.Context, clusterID string) ([]string, error) {
+func ListStorageClasses(ctx context.Context, clusterID string, scType types.StorageClassType) ([]string, error) {
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
@@ -55,11 +55,10 @@ func ListStorageClasses(ctx context.Context, clusterID string) ([]string, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list storageclasses: %s", err)
 	}
-	log.Infof("StorageClass Length: %d", len(scList.Items))
 
 	storageclasses := make([]string, 0, len(scList.Items))
 	for _, item := range scList.Items {
-		if !StorageProvisioner(item.Provisioner).IsNFS() {
+		if scType != types.StorageClassAll && !StorageProvisioner(item.Provisioner).IsNFS() {
 			continue
 		}
 
@@ -90,7 +89,6 @@ func ListPVCs(ctx context.Context, clusterID, namespace string) ([]PVC, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("PVC Length: %d", len(pvcList.Items))
 
 	pvcs := make([]PVC, 0, len(pvcList.Items))
 	for _, item := range pvcList.Items {

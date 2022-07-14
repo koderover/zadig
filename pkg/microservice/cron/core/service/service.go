@@ -21,6 +21,7 @@ import (
 
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type SvcRevision struct {
@@ -58,6 +59,20 @@ type ProductRevision struct {
 	// 可以自动更新产品, 展示用户更新前和更新后的服务组以及服务详细对比
 	ServiceRevisions []*SvcRevision `json:"services"`
 	IsPublic         bool           `json:"isPublic"`
+}
+
+type EnvResource struct {
+	ID             primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
+	Type           string             `bson:"type"                      json:"type"`
+	ProductName    string             `bson:"product_name"              json:"product_name"`
+	CreateTime     int64              `bson:"create_time"               json:"create_time"`
+	UpdateUserName string             `bson:"update_user_name"          json:"update_user_name"`
+	DeletedAt      int64              `bson:"deleted_at"                json:"deleted_at" `
+	Namespace      string             `bson:"namespace,omitempty"       json:"namespace,omitempty"`
+	EnvName        string             `bson:"env_name"                  json:"env_name"`
+	Name           string             `bson:"name"                      json:"name"`
+	YamlData       string             `bson:"yaml_data"                 json:"yaml_data"`
+	AutoSync       bool               `bson:"auto_sync"                 json:"auto_sync"`
 }
 
 type ProductResp struct {
@@ -120,6 +135,7 @@ type PrivateKeyHosts struct {
 	IP           string               `json:"ip"`
 	Port         int64                `json:"port"`
 	Status       setting.PMHostStatus `json:"status"`
+	Probe        *types.Probe         `json:"probe"`
 	UpdateStatus bool                 `json:"update_status"`
 }
 

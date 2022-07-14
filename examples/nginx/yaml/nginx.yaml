@@ -35,12 +35,16 @@ spec:
     spec:
       containers:
       - name: nginx-test
-        image: ccr.ccs.tencentyun.com/shuhe/nginx:stable
+        image: koderover.tencentcloudcr.com/koderover-demo/nginx
         ports:
         - containerPort: 80
         volumeMounts:
           - name: static-page
             mountPath: /usr/share/nginx/html
+        resources:
+          limits:
+            memory: 50Mi
+            cpu: 50m
       volumes:
         - name: static-page
           configMap:
