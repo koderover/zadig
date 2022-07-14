@@ -20,11 +20,12 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"go.uber.org/zap"
 )
 
 func DeleteWorkflowV4sByProjectName(projectName string, log *zap.SugaredLogger) error {

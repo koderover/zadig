@@ -19,9 +19,10 @@ package workflowcontroller
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
-	"go.uber.org/zap"
 )
 
 type CustomStageCtl struct {
