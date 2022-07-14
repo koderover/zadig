@@ -27,16 +27,16 @@ import (
 	"go.uber.org/zap"
 )
 
-func DeleteWorkflowV4s(productName string, log *zap.SugaredLogger) error {
-	workflowV4s, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{ProjectName: productName}, 0, 0)
+func DeleteWorkflowV4sByProjectName(projectName string, log *zap.SugaredLogger) error {
+	workflowV4s, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{ProjectName: projectName}, 0, 0)
 	if err != nil {
 		log.Errorf("WorkflowV4.List error: %s", err)
-		return fmt.Errorf("DeleteWorkflowV4s productName %s WorkflowV4.List error: %s", productName, err)
+		return fmt.Errorf("DeleteWorkflowV4s productName %s WorkflowV4.List error: %s", projectName, err)
 	}
 	errList := new(multierror.Error)
 	for _, workflowV4 := range workflowV4s {
 		if err = DeleteWorkflowV4(workflowV4.Name, log); err != nil {
-			errList = multierror.Append(errList, fmt.Errorf("productName %s workflowV4 delete %s error: %s", productName, workflowV4.Name, err))
+			errList = multierror.Append(errList, fmt.Errorf("productName %s workflowV4 delete %s error: %s", projectName, workflowV4.Name, err))
 		}
 	}
 	if err := errList.ErrorOrNil(); err != nil {
