@@ -20,39 +20,40 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 )
 
-type archiveCtl struct {
-	step        *commonmodels.StepTask
-	archiveSpec *step.StepArchiveSpec
-	log         *zap.SugaredLogger
+type shellCtl struct {
+	step      *commonmodels.StepTask
+	shellSpec *step.StepShellSpec
+	log       *zap.SugaredLogger
 }
 
-func NewArchiveCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*archiveCtl, error) {
+func NewShellCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*shellCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("marshal tool install spec error: %v", err)
+		return nil, fmt.Errorf("marshal shell spec error: %v", err)
 	}
-	archiveSpec := &step.StepArchiveSpec{}
-	if err := yaml.Unmarshal(yamlString, &archiveSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal git spec error: %v", err)
+	shellSpec := &step.StepShellSpec{}
+	if err := yaml.Unmarshal(yamlString, &shellSpec); err != nil {
+		return nil, fmt.Errorf("unmarshal shell spec error: %v", err)
 	}
-	return &archiveCtl{archiveSpec: archiveSpec, log: log, step: stepTask}, nil
+	return &shellCtl{shellSpec: shellSpec, log: log, step: stepTask}, nil
 }
 
-func (s *archiveCtl) PreRun(ctx context.Context) error {
+func (s *shellCtl) PreRun(ctx context.Context) error {
 	return nil
 }
 
-func (s *archiveCtl) Run(ctx context.Context) (config.Status, error) {
+func (s *shellCtl) Run(ctx context.Context) (config.Status, error) {
 	return config.StatusPassed, nil
 }
 
-func (s *archiveCtl) AfterRun(ctx context.Context) error {
+func (s *shellCtl) AfterRun(ctx context.Context) error {
 	return nil
 }

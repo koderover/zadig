@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflowcontroller"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types/dto"

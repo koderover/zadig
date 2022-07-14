@@ -20,12 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 )
 
 type dockerBuildCtl struct {
