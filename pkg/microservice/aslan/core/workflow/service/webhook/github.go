@@ -524,53 +524,6 @@ type AutoCancelOpt struct {
 	YamlHookPath   string
 }
 
-func getProductTargetMap(prod *commonmodels.Product, isYaml bool) map[string][]commonmodels.DeployEnv {
-	resp := make(map[string][]commonmodels.DeployEnv)
-	if prod.Source == setting.SourceFromExternal {
-		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
-		for _, service := range services {
-			for _, container := range service.Containers {
-				env := service.ServiceName + "/" + container.Name
-				deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
-				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
-				resp[target] = append(resp[target], deployEnv)
-			}
-		}
-		return resp
-	}
-	if isYaml {
-		return resp
-	}
-	for _, services := range prod.Services {
-		for _, serviceObj := range services {
-			switch serviceObj.Type {
-			case setting.K8SDeployType:
-				for _, container := range serviceObj.Containers {
-					env := serviceObj.ServiceName + "/" + container.Name
-					deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
-
-					target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, container.Name)
-
-					resp[target] = append(resp[target], deployEnv)
-				}
-			case setting.PMDeployType:
-				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
-				target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, serviceObj.ServiceName)
-				resp[target] = append(resp[target], deployEnv)
-			case setting.HelmDeployType:
-				for _, container := range serviceObj.Containers {
-					env := serviceObj.ServiceName + "/" + container.Name
-					deployEnv := commonmodels.DeployEnv{Type: setting.HelmDeployType, Env: env}
-
-					target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, container.Name)
-					resp[target] = append(resp[target], deployEnv)
-				}
-			}
-		}
-	}
-	return resp
-}
-
 func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.SugaredLogger) error {
 	changeFiles := make([]string, 0)
 	for _, commit := range pushEvent.Commits {
