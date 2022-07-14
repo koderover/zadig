@@ -89,7 +89,7 @@ type ServiceAndBuild struct {
 	Image         string              `bson:"-"                   yaml:"-"                json:"image"`
 	Package       string              `bson:"-"                   yaml:"-"                json:"package"`
 	KeyVals       []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	Repos         []*types.Repository `bson:"-"                   yaml:"-"                json:"repos"`
+	Repos         []*types.Repository `bson:"repos"               yaml:"-"                json:"repos"`
 }
 
 type ZadigDeployJobSpec struct {
