@@ -89,17 +89,17 @@ type ServiceAndBuild struct {
 	Image         string              `bson:"-"                   yaml:"-"                json:"image"`
 	Package       string              `bson:"-"                   yaml:"-"                json:"package"`
 	KeyVals       []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	Repos         []*types.Repository `bson:"-"                   yaml:"-"                json:"repos"`
+	Repos         []*types.Repository `bson:"repos"               yaml:"-"                json:"repos"`
 }
 
 type ZadigDeployJobSpec struct {
-	Env        string `bson:"env"       yaml:"env"     json:"env"`
-	DeployType string `bson:"-"         yaml:"-"       json:"deploy_type"`
+	Env        string `bson:"env"                 yaml:"env"     json:"env"`
+	DeployType string `bson:"deploy_type"         yaml:"-"       json:"deploy_type"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName          string             `bson:"job_name"             yaml:"job_name"        json:"job_name"`
-	ServiceAndImages []*ServiceAndImage `bson:"-"                    yaml:"-"               json:"service_and_images"`
+	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"-"               json:"service_and_images"`
 }
 
 type ServiceAndImage struct {
