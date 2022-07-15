@@ -52,7 +52,7 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 		excludeJenkins = true
 	}
 
-	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("projectName"), excludeJenkins, ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("encryptedKey"), c.Query("projectName"), excludeJenkins, ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {

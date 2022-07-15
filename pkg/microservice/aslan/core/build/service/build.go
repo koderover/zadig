@@ -118,7 +118,7 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	return resp, nil
 }
 
-func ListBuildModulesByServiceModule(productName string, excludeJenkins bool, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
+func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJenkins bool, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return nil, e.ErrListBuildModule.AddErr(err)
@@ -151,6 +151,9 @@ func ListBuildModulesByServiceModule(productName string, excludeJenkins bool, lo
 							build.PreBuild.Envs = target.Envs
 						}
 					}
+				}
+				if err := commonservice.EncryptKeyVals(encryptedKey, build.PreBuild.Envs, log); err != nil {
+					return serviceModuleAndBuildResp, err
 				}
 				resp = append(resp, &BuildResp{
 					ID:      build.ID.Hex(),
