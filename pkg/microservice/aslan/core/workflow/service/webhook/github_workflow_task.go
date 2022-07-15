@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -207,7 +208,10 @@ func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *comm
 		target.Build.Repos = append(target.Build.Repos, repo)
 		if len(target.Deploy) == 0 {
 			if targetMap == nil {
-				targetMap = getProductTargetMap(product, waf.IsYaml)
+				targetMap, _ = commonservice.GetProductTargetMap(product)
+			}
+			if waf.IsYaml {
+				targetMap = make(map[string][]commonmodels.DeployEnv)
 			}
 			serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", args.ProductTmplName, SplitSymbol, target.ServiceName, SplitSymbol, target.Name)
 			target.Deploy = targetMap[serviceModuleTarget]

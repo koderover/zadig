@@ -19,18 +19,24 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/util"
 )
+
+const SplitSymbol = "&"
 
 func FilterWorkloadsByEnv(exist []commonmodels.Workload, env string) []commonmodels.Workload {
 	result := make([]commonmodels.Workload, 0)
@@ -182,4 +188,77 @@ func GetProductEnvNamespace(envName, productName, namespace string) string {
 		return product.GetNamespace()
 	}
 	return product.Namespace
+}
+
+func GetProductTargetMap(prod *commonmodels.Product) (map[string][]commonmodels.DeployEnv, map[string]string) {
+	resp := make(map[string][]commonmodels.DeployEnv)
+	imageNameM := make(map[string]string)
+	if prod.Source == setting.SourceFromExternal {
+		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
+
+		currentServiceNames := sets.NewString()
+		for _, service := range services {
+			currentServiceNames.Insert(service.ServiceName)
+		}
+
+		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: prod.ProductName,
+			EnvName:     prod.EnvName,
+		})
+
+		externalServiceNames := sets.NewString()
+		for _, serviceInExternalEnv := range servicesInExternalEnv {
+			if !currentServiceNames.Has(serviceInExternalEnv.ServiceName) {
+				externalServiceNames.Insert(serviceInExternalEnv.ServiceName)
+			}
+		}
+
+		if len(externalServiceNames) > 0 {
+			newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, "", externalServiceNames.List()...)
+			for _, service := range newServices {
+				services = append(services, service)
+			}
+		}
+
+		for _, service := range services {
+			for _, container := range service.Containers {
+				env := service.ServiceName + "/" + container.Name
+				deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
+				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
+				resp[target] = append(resp[target], deployEnv)
+
+				imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
+			}
+		}
+		return resp, imageNameM
+	}
+	for _, services := range prod.Services {
+		for _, serviceObj := range services {
+			switch serviceObj.Type {
+			case setting.K8SDeployType:
+				for _, container := range serviceObj.Containers {
+					env := serviceObj.ServiceName + "/" + container.Name
+					deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
+					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
+					resp[target] = append(resp[target], deployEnv)
+
+					imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
+				}
+			case setting.PMDeployType:
+				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
+				target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, serviceObj.ServiceName}, SplitSymbol)
+				resp[target] = append(resp[target], deployEnv)
+			case setting.HelmDeployType:
+				for _, container := range serviceObj.Containers {
+					env := serviceObj.ServiceName + "/" + container.Name
+					deployEnv := commonmodels.DeployEnv{Type: setting.HelmDeployType, Env: env}
+					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
+					resp[target] = append(resp[target], deployEnv)
+
+					imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
+				}
+			}
+		}
+	}
+	return resp, imageNameM
 }
