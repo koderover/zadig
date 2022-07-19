@@ -468,6 +468,8 @@ metas:
             endpoint: api/aslan/workflow/v4
             filter: true
           - method: GET
+            endpoint: api/aslan/workflow/v4
+          - method: GET
             endpoint: /api/aslan/workflow/v4/name/?*
           - method: GET
             endpoint: /api/aslan/workflow/v4/preset/?*
