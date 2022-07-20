@@ -1,0 +1,14 @@
+---
+- hosts: servers
+  remote_user: ubuntu
+  tasks:
+    - name: "copy file to remote servers"
+      copy:
+        src: "{{ PKG_FILE }}"
+        dest: "/home/ubuntu/microservice-demo/{{ PKG_FILE }}"
+    - name: "unzip file"
+      shell:
+        chdir: /home/ubuntu/microservice-demo
+        cmd: tar -xvf /home/ubuntu/microservice-demo/{{ PKG_FILE }}
+    - name: "deploy backend service"
+      command: /home/ubuntu/microservice-demo/restart.sh /home/ubuntu/microservice-demo/{{ PKG_FILE }}
