@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -30,10 +28,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		build.GET("/:name", FindBuildModule)
 		build.GET("", ListBuildModules)
 		build.GET("/serviceModule", ListBuildModulesByServiceModule)
-		build.POST("", gin2.UpdateOperationLogStatus, CreateBuildModule)
-		build.PUT("", gin2.UpdateOperationLogStatus, UpdateBuildModule)
-		build.DELETE("", gin2.UpdateOperationLogStatus, DeleteBuildModule)
-		build.POST("/targets", gin2.UpdateOperationLogStatus, UpdateBuildTargets)
+		build.POST("", CreateBuildModule)
+		build.PUT("", UpdateBuildModule)
+		build.DELETE("", DeleteBuildModule)
+		build.POST("/targets", UpdateBuildTargets)
 	}
 
 	target := router.Group("targets")

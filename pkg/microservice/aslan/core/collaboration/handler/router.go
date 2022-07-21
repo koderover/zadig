@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	middleware "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -29,9 +27,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	collaborations := router.Group("collaborations")
 	{
 		collaborations.GET("", GetCollaborationMode)
-		collaborations.PUT("/:name", middleware.UpdateOperationLogStatus, UpdateCollaborationMode)
-		collaborations.POST("", middleware.UpdateOperationLogStatus, CreateCollaborationMode)
-		collaborations.DELETE("/:name", middleware.UpdateOperationLogStatus, DeleteCollaborationMode)
+		collaborations.PUT("/:name", UpdateCollaborationMode)
+		collaborations.POST("", CreateCollaborationMode)
+		collaborations.DELETE("/:name", DeleteCollaborationMode)
 		collaborations.GET("/cron/clean", CleanCIResources)
 		collaborations.GET("/new", GetCollaborationNew)
 		collaborations.POST("/sync", SyncCollaborationInstance)

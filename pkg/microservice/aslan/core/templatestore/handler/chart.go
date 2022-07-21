@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -71,6 +73,9 @@ func AddChartTemplate(c *gin.Context) {
 		return
 	}
 
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新建", "模板库-Chart", args.Name, string(bs), ctx.Logger)
+
 	ctx.Err = templateservice.AddChartTemplate(args.Name, args.DownloadFromSourceArgs, ctx.Logger)
 }
 
@@ -83,6 +88,9 @@ func UpdateChartTemplate(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-Chart", args.Name, string(bs), ctx.Logger)
 
 	ctx.Err = templateservice.UpdateChartTemplate(c.Param("name"), args.DownloadFromSourceArgs, ctx.Logger)
 }
@@ -104,12 +112,16 @@ func SyncChartTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板库-Chart", c.Param("name"), "", ctx.Logger)
+
 	ctx.Err = templateservice.SyncHelmTemplateReference(ctx.UserName, c.Param("name"), ctx.Logger)
 }
 
 func RemoveChartTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-Chart", c.Param("name"), "", ctx.Logger)
 
 	ctx.Err = templateservice.RemoveChartTemplate(c.Param("name"), ctx.Logger)
 }

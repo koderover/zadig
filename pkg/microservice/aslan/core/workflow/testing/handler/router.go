@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -46,11 +44,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	tester := router.Group("test")
 	{
-		tester.POST("", GetTestProductName, gin2.UpdateOperationLogStatus, CreateTestModule)
-		tester.PUT("", GetTestProductName, gin2.UpdateOperationLogStatus, UpdateTestModule)
+		tester.POST("", GetTestProductName, CreateTestModule)
+		tester.PUT("", GetTestProductName, UpdateTestModule)
 		tester.GET("", ListTestModules)
 		tester.GET("/:name", GetTestModule)
-		tester.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteTestModule)
+		tester.DELETE("/:name", DeleteTestModule)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -59,17 +57,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	scanner := router.Group("scanning")
 	{
 		// code scan config apis
-		scanner.POST("", GetScanningProductName, gin2.UpdateOperationLogStatus, CreateScanningModule)
-		scanner.PUT("/:id", GetScanningProductName, gin2.UpdateOperationLogStatus, UpdateScanningModule)
+		scanner.POST("", GetScanningProductName, CreateScanningModule)
+		scanner.PUT("/:id", GetScanningProductName, UpdateScanningModule)
 		scanner.GET("", ListScanningModule)
 		scanner.GET("/:id", GetScanningModule)
-		scanner.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteScanningModule)
+		scanner.DELETE("/:id", DeleteScanningModule)
 
 		// code scan tasks apis
-		scanner.POST("/:id/task", gin2.UpdateOperationLogStatus, CreateScanningTask)
+		scanner.POST("/:id/task", CreateScanningTask)
 		scanner.GET("/:id/task", ListScanningTask)
 		scanner.GET("/:id/task/:scan_id", GetScanningTask)
-		scanner.DELETE("/:id/task/:scan_id", gin2.UpdateOperationLogStatus, CancelScanningTask)
+		scanner.DELETE("/:id/task/:scan_id", CancelScanningTask)
 		scanner.GET("/:id/task/:scan_id/sse", GetScanningTaskSSE)
 	}
 
@@ -89,9 +87,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	testTask := router.Group("testtask")
 	{
-		testTask.POST("", gin2.UpdateOperationLogStatus, CreateTestTask)
-		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", gin2.UpdateOperationLogStatus, RestartTestTask)
-		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", gin2.UpdateOperationLogStatus, CancelTestTaskV2)
+		testTask.POST("", CreateTestTask)
+		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", RestartTestTask)
+		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", CancelTestTaskV2)
 	}
 
 	// ---------------------------------------------------------------------------------------

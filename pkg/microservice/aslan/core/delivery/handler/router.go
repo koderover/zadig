@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -45,8 +43,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
-		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, gin2.UpdateOperationLogStatus, DeleteDeliveryVersion)
-
+		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, DeleteDeliveryVersion)
 		deliveryRelease.POST("/helm", CreateHelmDeliveryVersion)
 		deliveryRelease.POST("/helm/global-variables", ApplyDeliveryGlobalVariables)
 		deliveryRelease.GET("/helm/charts", DownloadDeliveryChart)

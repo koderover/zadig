@@ -110,7 +110,7 @@ func UpdateMultiProducts(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "自动更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger)
 
 	force, _ := strconv.ParseBool(c.Query("force"))
 	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, c.Query("projectName"), ctx.RequestID, force, ctx.Logger)
@@ -262,7 +262,7 @@ func UpdateProduct(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境", envName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境变量", envName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -480,7 +480,13 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	if err = json.Unmarshal(data, arg); err != nil {
 		log.Errorf("UpdateHelmProductCharts json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新服务", "", string(data), ctx.Logger)
+
+	serviceName := make([]string, 0)
+	for _, cd := range arg.ChartValues {
+		serviceName = append(serviceName, cd.ServiceName)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(arg)
@@ -632,7 +638,7 @@ func DeleteProductServices(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境的服务", envName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger)
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectName, args.ServiceNames, ctx.Logger)
 }
 

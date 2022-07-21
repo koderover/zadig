@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -88,6 +89,11 @@ func LoadServiceTemplate(c *gin.Context) {
 	if namespace == "" {
 		namespace = repoOwner
 	}
+
+	// Note we can't get the service name from handler layer since it parsed from files on git repo
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", "", string(bs), ctx.Logger)
+
 	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, ctx.Logger)
 }
 
@@ -124,6 +130,11 @@ func SyncServiceTemplate(c *gin.Context) {
 	if namespace == "" {
 		namespace = repoOwner
 	}
+
+	// Note we can't get the service name from handler layer since it parsed from files on git repo
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", "", string(bs), ctx.Logger)
+
 	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, ctx.Logger)
 }
 

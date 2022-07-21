@@ -36,5 +36,7 @@ func PatchDebugContainer(c *gin.Context) {
 		debugImage = types.DebugImage
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "启动调试容器", "环境", envName, "", ctx.Logger)
+
 	ctx.Err = service.PatchDebugContainer(c, projectName, envName, podName, debugImage)
 }

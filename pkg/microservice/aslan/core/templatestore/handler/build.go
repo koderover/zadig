@@ -17,7 +17,7 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 
@@ -57,7 +57,10 @@ func AddBuildTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模板-构建", args.Name, fmt.Sprintf("%+v", args), ctx.Logger)
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模板-构建", args.Name, string(bs), ctx.Logger)
+
 	ctx.Err = templateservice.AddBuildTemplate(ctx.UserName, args, ctx.Logger)
 }
 
@@ -71,7 +74,9 @@ func UpdateBuildTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "编辑", "模板-构建", args.Name, fmt.Sprintf("%+v", args), ctx.Logger)
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-构建", args.Name, string(bs), ctx.Logger)
 
 	ctx.Err = templateservice.UpdateBuildTemplate(c.Param("id"), args, ctx.Logger)
 }
@@ -81,5 +86,6 @@ func RemoveBuildTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板-构建", c.Param("id"), "", ctx.Logger)
+
 	ctx.Err = templateservice.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }

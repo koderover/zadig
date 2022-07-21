@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -40,13 +38,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.GET("/:name", GetProductTemplate)
 		product.GET("/:name/services", GetProductTemplateServices)
 		product.GET("/:name/searching-rules", GetCustomMatchRules)
-		product.PUT("/:name/searching-rules", gin2.UpdateOperationLogStatus, CreateOrUpdateMatchRules)
-		product.POST("", gin2.UpdateOperationLogStatus, CreateProductTemplate)
-		product.PUT("/:name", gin2.UpdateOperationLogStatus, UpdateProductTemplate)
-		product.PUT("/:name/:status", gin2.UpdateOperationLogStatus, UpdateProductTmplStatus)
-		product.PATCH("/:name", gin2.UpdateOperationLogStatus, UpdateServiceOrchestration)
-		product.PUT("", gin2.UpdateOperationLogStatus, UpdateProject)
-		product.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteProductTemplate)
+		product.PUT("/:name/searching-rules", CreateOrUpdateMatchRules)
+		product.POST("", CreateProductTemplate)
+		product.PUT("/:name", UpdateProductTemplate)
+		product.PUT("/:name/:status", UpdateProductTmplStatus)
+		product.PATCH("/:name", UpdateServiceOrchestration)
+		product.PUT("", UpdateProject)
+		product.DELETE("/:name", DeleteProductTemplate)
 	}
 
 	openSource := router.Group("opensource")
@@ -70,9 +68,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pms.GET("", ListPMHosts)
 		pms.GET("/:id", GetPMHost)
 		pms.GET("/labels", ListLabels)
-		pms.POST("", gin2.UpdateOperationLogStatus, CreatePMHost)
-		pms.POST("/batch", gin2.UpdateOperationLogStatus, BatchCreatePMHost)
-		pms.PUT("/:id", gin2.UpdateOperationLogStatus, UpdatePMHost)
-		pms.DELETE("/:id", gin2.UpdateOperationLogStatus, DeletePMHost)
+		pms.POST("", CreatePMHost)
+		pms.POST("/batch", BatchCreatePMHost)
+		pms.PUT("/:id", UpdatePMHost)
+		pms.DELETE("/:id", DeletePMHost)
 	}
 }

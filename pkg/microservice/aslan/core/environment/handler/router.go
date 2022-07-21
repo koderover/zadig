@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -31,7 +29,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	configmaps := router.Group("configmaps")
 	{
 		configmaps.GET("/:envName", ListConfigMaps)
-		configmaps.POST("", gin2.UpdateOperationLogStatus, RollBackConfigMap)
+		configmaps.POST("", RollBackConfigMap)
 		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
 	}
 
@@ -52,9 +50,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
 		commonEnvCfgs.GET("", ListLatestEnvCfg)
 		commonEnvCfgs.PUT("/:envName/:type/:objectName/sync", SyncEnvResource)
-		commonEnvCfgs.PUT("/:envName", gin2.UpdateOperationLogStatus, UpdateCommonEnvCfg)
-		commonEnvCfgs.POST("/:envName", gin2.UpdateOperationLogStatus, CreateCommonEnvCfg)
-		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", gin2.UpdateOperationLogStatus, DeleteCommonEnvCfg)
+		commonEnvCfgs.PUT("/:envName", UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("/:envName", CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -88,8 +86,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	image := router.Group("image")
 	{
-		image.POST("/deployment/:envName", gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
-		image.POST("/statefulset/:envName", gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
+		image.POST("/deployment/:envName", UpdateDeploymentContainerImage)
+		image.POST("/statefulset/:envName", UpdateStatefulSetContainerImage)
 	}
 
 	// 查询环境创建时的服务和变量信息
@@ -105,7 +103,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/events", ListKubeEvents)
 
 		kube.POST("/pods", ListServicePods)
-		kube.DELETE("/:env/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
+		kube.DELETE("/:env/pods/:podName", DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
@@ -119,21 +117,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	environments := router.Group("environments")
 	{
 		environments.GET("", ListProducts)
-		environments.PUT("/:name", gin2.UpdateOperationLogStatus, UpdateProduct)
-		environments.PUT("/:name/registry", gin2.UpdateOperationLogStatus, UpdateProductRegistry)
-		environments.PUT("", gin2.UpdateOperationLogStatus, UpdateMultiProducts)
-		environments.POST("", gin2.UpdateOperationLogStatus, CreateProduct)
+		environments.PUT("/:name", UpdateProduct)
+		environments.PUT("", UpdateMultiProducts)
+		environments.POST("", CreateProduct)
 		environments.GET("/:name", GetProduct)
-		environments.PUT("/:name/envRecycle", gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
+		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
 		environments.POST("/:name/estimated-values", EstimatedValues)
-		environments.PUT("/:name/renderset", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
-		environments.PUT("/:name/helm/default-values", gin2.UpdateOperationLogStatus, UpdateHelmProductDefaultValues)
-		environments.PUT("/:name/helm/charts", gin2.UpdateOperationLogStatus, UpdateHelmProductCharts)
-		environments.PUT("/:name/syncVariables", gin2.UpdateOperationLogStatus, SyncHelmProductRenderset)
+		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
+		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		environments.PUT("/:name/helm/charts", UpdateHelmProductCharts)
+		environments.PUT("/:name/syncVariables", SyncHelmProductRenderset)
 		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
 		environments.GET("/:name/productInfo", GetProductInfo)
-		environments.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteProduct)
-		environments.PUT("/:name/services", gin2.UpdateOperationLogStatus, DeleteProductServices)
+		environments.DELETE("/:name", DeleteProduct)
+		environments.PUT("/:name/services", DeleteProductServices)
 		environments.GET("/:name/groups", ListGroups)
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
 
@@ -143,11 +140,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/helm/images", GetImageInfos)
 
 		environments.GET("/:name/services/:serviceName", GetService)
-		environments.PUT("/:name/services/:serviceName", gin2.UpdateOperationLogStatus, UpdateService)
-		environments.POST("/:name/services/:serviceName/restart", gin2.UpdateOperationLogStatus, RestartService)
-		environments.POST("/:name/services/:serviceName/restartNew", gin2.UpdateOperationLogStatus, RestartNewService)
-		environments.POST("/:name/services/:serviceName/scale", gin2.UpdateOperationLogStatus, ScaleService)
-		environments.POST("/:name/services/:serviceName/scaleNew", gin2.UpdateOperationLogStatus, ScaleNewService)
+		environments.PUT("/:name/services/:serviceName", UpdateService)
+		environments.POST("/:name/services/:serviceName/restart", RestartService)
+		environments.POST("/:name/services/:serviceName/restartNew", RestartNewService)
+		environments.POST("/:name/services/:serviceName/scale", ScaleService)
+		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)
 		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
 		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
