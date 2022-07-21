@@ -33,6 +33,7 @@ require (
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-co-op/gocron v1.13.0
+	github.com/go-git/go-git/v5 v5.4.2 // indirect
 	github.com/go-ldap/ldap/v3 v3.3.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/go-sql-driver/mysql v1.6.0

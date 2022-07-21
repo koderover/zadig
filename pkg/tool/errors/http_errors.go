@@ -703,4 +703,11 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	ErrListHelmReleases = NewHTTPError(6850, "获取release失败")
 	ErrGetHelmCharts    = NewHTTPError(6851, "获取chart信息失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// plugins releated Error Range: 6870 - 6879
+	//-----------------------------------------------------------------------------------------------
+	ErrListPluginRepo   = NewHTTPError(6870, "获取plugin仓库失败")
+	ErrUpsertPluginRepo = NewHTTPError(6871, "更新plugin仓库失败")
+	ErrDeletePluginRepo = NewHTTPError(6872, "删除plugin仓库失败")
 )

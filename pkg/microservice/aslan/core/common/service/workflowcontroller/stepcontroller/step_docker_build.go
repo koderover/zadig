@@ -47,6 +47,7 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 	if dockerBuildSpec.Proxy == nil {
 		dockerBuildSpec.Proxy = &step.Proxy{}
 	}
+	stepTask.Spec = dockerBuildSpec
 	return &dockerBuildCtl{dockerBuildSpec: dockerBuildSpec, log: log, step: stepTask}, nil
 }
 

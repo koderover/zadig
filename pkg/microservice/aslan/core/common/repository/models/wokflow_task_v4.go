@@ -60,15 +60,16 @@ type StageTask struct {
 }
 
 type JobTask struct {
-	Name       string        `bson:"name"           json:"name"`
-	JobType    string        `bson:"type"           json:"type"`
-	Status     config.Status `bson:"status"         json:"status"`
-	StartTime  int64         `bson:"start_time"     json:"start_time,omitempty"`
-	EndTime    int64         `bson:"end_time"       json:"end_time,omitempty"`
-	Error      string        `bson:"error"          json:"error"`
-	Properties JobProperties `bson:"properties"     json:"properties"`
-	Steps      []*StepTask   `bson:"steps"          json:"steps"`
-	Outputs    []*Output     `bson:"outputs"        json:"outputs"`
+	Name       string          `bson:"name"                json:"name"`
+	JobType    string          `bson:"type"                json:"type"`
+	Status     config.Status   `bson:"status"              json:"status"`
+	StartTime  int64           `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime    int64           `bson:"end_time"            json:"end_time,omitempty"`
+	Error      string          `bson:"error"               json:"error"`
+	Properties JobProperties   `bson:"properties"          json:"properties"`
+	Plugin     *PluginTemplate `bson:"plugin"              json:"plugin"`
+	Steps      []*StepTask     `bson:"steps"               json:"steps"`
+	Outputs    []*Output       `bson:"outputs"             json:"outputs"`
 }
 
 type StepTask struct {

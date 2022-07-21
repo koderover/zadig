@@ -19,6 +19,7 @@ package stepcontroller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -43,10 +44,16 @@ func NewShellCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*shel
 	if err := yaml.Unmarshal(yamlString, &shellSpec); err != nil {
 		return nil, fmt.Errorf("unmarshal shell spec error: %v", err)
 	}
+	stepTask.Spec = shellSpec
 	return &shellCtl{shellSpec: shellSpec, log: log, step: stepTask}, nil
 }
 
 func (s *shellCtl) PreRun(ctx context.Context) error {
+	if len(s.shellSpec.Scripts) > 0 {
+		return nil
+	}
+	s.shellSpec.Scripts = strings.Split(replaceWrapLine(s.shellSpec.Script), "\n")
+	s.step.Spec = s.shellSpec
 	return nil
 }
 

@@ -192,6 +192,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.POST("/approve", ApproveStage)
 	}
 
+	// ---------------------------------------------------------------------------------------
+	// plugin repo 接口
+	// ---------------------------------------------------------------------------------------
+	plugin := router.Group("plugin")
+	{
+		plugin.POST("/offical", UpdateOfficalPluginRepository)
+		plugin.GET("/template", ListPluginTemplates)
+	}
+
 	bundles := router.Group("bundle-resources")
 	{
 		bundles.GET("", GetBundleResources)

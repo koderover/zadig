@@ -47,21 +47,12 @@ func NewToolInstallCtl(stepTask *commonmodels.StepTask, jobPath *string, log *za
 	if err := yaml.Unmarshal(yamlString, &toolInstallSpec); err != nil {
 		return nil, fmt.Errorf("unmarshal tool spec error: %v", err)
 	}
+	stepTask.Spec = toolInstallSpec
 	return &toolInstallCtl{toolInstalldSpec: toolInstallSpec, jobPath: jobPath, log: log, step: stepTask}, nil
 }
 
 func (s *toolInstallCtl) PreRun(ctx context.Context) error {
-	install, err := buildInstallCtx(s.toolInstalldSpec.Name, s.toolInstalldSpec.Version)
-	if err != nil {
-		s.log.Error(err)
-	}
 	spec := &step.StepToolInstallSpec{
-		Name:     s.toolInstalldSpec.Name,
-		Version:  s.toolInstalldSpec.Version,
-		BinPath:  install.BinPath,
-		Download: install.DownloadPath,
-		Envs:     install.Envs,
-		Scripts:  strings.Split(replaceWrapLine(install.Scripts), "\n"),
 		S3Storage: &step.S3{
 			Ak:        config.S3StorageAK(),
 			Sk:        config.S3StorageSK(),
@@ -84,12 +75,27 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 		}
 	}
 
-	s.step.Spec = spec
-	if *s.jobPath != "" {
-		*s.jobPath = strings.Join([]string{*s.jobPath, install.BinPath}, ":")
-	} else {
-		*s.jobPath = install.BinPath
+	for _, tool := range s.toolInstalldSpec.Installs {
+		install, err := buildInstallCtx(tool.Name, tool.Version)
+		if err != nil {
+			s.log.Error(err)
+		}
+		spec.Installs = append(spec.Installs, &step.Tool{
+			Name:     tool.Name,
+			Version:  tool.Version,
+			BinPath:  install.BinPath,
+			Download: install.DownloadPath,
+			Envs:     install.Envs,
+			Scripts:  strings.Split(replaceWrapLine(install.Scripts), "\n"),
+		})
+		if *s.jobPath != "" {
+			*s.jobPath = strings.Join([]string{*s.jobPath, install.BinPath}, ":")
+		} else {
+			*s.jobPath = install.BinPath
+		}
 	}
+
+	s.step.Spec = spec
 	return nil
 }
 

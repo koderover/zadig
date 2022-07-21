@@ -35,9 +35,12 @@ func initJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 	switch job.JobType {
 	case config.JobZadigBuild:
 		resp = &BuildJob{job: job, workflow: workflow}
-
 	case config.JobZadigDeploy:
 		resp = &DeployJob{job: job, workflow: workflow}
+	case config.JobPlugin:
+		resp = &PluginJob{job: job, workflow: workflow}
+	case config.JobFreestyle:
+		resp = &FreeStyleJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}

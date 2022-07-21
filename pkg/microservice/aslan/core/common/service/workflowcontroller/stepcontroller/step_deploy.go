@@ -61,6 +61,7 @@ func NewDeployCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.Wor
 	if err := yaml.Unmarshal(yamlString, &deploySpec); err != nil {
 		return nil, fmt.Errorf("unmarshal deploy spec error: %v", err)
 	}
+	stepTask.Spec = deploySpec
 	return &deployCtl{deploySpec: deploySpec, workflowCtx: workflowCtx, log: log, step: stepTask}, nil
 }
 

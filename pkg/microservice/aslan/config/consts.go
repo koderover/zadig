@@ -173,6 +173,7 @@ const (
 	JobZadigBuild  JobType = "zadig-build"
 	JobZadigDeploy JobType = "zadig-deploy"
 	JobFreestyle   JobType = "freestyle"
+	JobPlugin      JobType = "plugin"
 )
 
 type ApproveOrReject string

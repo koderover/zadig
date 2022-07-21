@@ -265,9 +265,11 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			JobType:   job.JobType,
 		}
 		switch job.JobType {
+		case string(config.FreestyleType):
+			fallthrough
 		case string(config.JobZadigBuild):
 			spec := ZadigBuildJobSpec{}
-			for _, arg := range job.Properties.Args {
+			for _, arg := range job.Properties.Envs {
 				if arg.Key == "IMAGE" {
 					spec.Image = arg.Value
 					continue
@@ -319,6 +321,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				}
 			}
 			jobPreview.Spec = spec
+		case string(config.JobPlugin):
+			jobPreview.Spec = job.Plugin
 		default:
 			jobPreview.Spec = job.Steps
 		}

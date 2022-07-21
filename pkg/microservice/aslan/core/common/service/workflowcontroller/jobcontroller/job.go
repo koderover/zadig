@@ -18,8 +18,10 @@ package jobcontroller
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/util/rand"
 )
 
 type JobCtl interface {
@@ -88,6 +91,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 			job.Error = err.Error()
 		}
 		return
+	case string(config.JobPlugin):
+		jobCtl = NewPluginsJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
@@ -165,4 +170,19 @@ func saveFile(src io.Reader, localFile string) error {
 
 	_, err = io.Copy(out, src)
 	return err
+}
+
+func getJobName(workflowName string, taskID int64) string {
+	// max lenth of workflowName was 32, so job name was unique in one task.
+	base := strings.Replace(
+		strings.ToLower(
+			fmt.Sprintf(
+				"%s-%d-",
+				workflowName,
+				taskID,
+			),
+		),
+		"_", "-", -1,
+	)
+	return rand.GenerateName(base)
 }
