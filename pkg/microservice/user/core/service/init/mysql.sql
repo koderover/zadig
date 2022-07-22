@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS %s;
-use %s;
+CREATE DATABASE IF NOT EXISTS `%s`;
+use `%s`;
 CREATE TABLE IF NOT EXISTS `user_login`(
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `uid` varchar(64) NOT NULL DEFAULT '0' COMMENT '用户id',
