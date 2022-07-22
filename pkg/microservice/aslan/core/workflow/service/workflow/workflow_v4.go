@@ -27,6 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -103,11 +104,14 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	return nil
 }
 
-func FindWorkflowV4(name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return workflow, e.ErrFindWorkflow.AddErr(err)
+	}
+	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
+		return workflow, err
 	}
 	return workflow, err
 }
@@ -222,6 +226,27 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 			Status:       string(recentFailedTask.Status),
 		}
 	}
+}
+
+func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobZadigBuild {
+				spec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+				for _, build := range spec.ServiceAndBuilds {
+					if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
+						return e.ErrFindWorkflow.AddErr(err)
+					}
+				}
+				job.Spec = spec
+			}
+		}
+	}
+	return nil
 }
 
 func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {

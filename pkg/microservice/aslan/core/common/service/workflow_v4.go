@@ -22,8 +22,10 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -76,6 +78,27 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	}
 	if err := mongodb.NewCounterColl().Delete("WorkflowTaskV4:" + name); err != nil {
 		log.Errorf("Counter.Delete error: %s", err)
+	}
+	return nil
+}
+
+func EncryptKeyVals(encryptedKey string, kvs []*commonmodels.KeyVal, logger *zap.SugaredLogger) error {
+	if encryptedKey == "" {
+		return nil
+	}
+	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	if err != nil {
+		log.Errorf("EncypteKeyVals GetAesKeyFromEncryptedKey err:%v", err)
+		return err
+	}
+	for _, kv := range kvs {
+		if kv.IsCredential {
+			kv.Value, err = crypto.AesEncryptByKey(kv.Value, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("aes encrypt by key err:%v", err)
+				return err
+			}
+		}
 	}
 	return nil
 }

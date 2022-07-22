@@ -140,7 +140,7 @@ func DeleteWorkflowV4(c *gin.Context) {
 
 func FindWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
-	resp, err := workflow.FindWorkflowV4(c.Param("name"), ctx.Logger)
+	resp, err := workflow.FindWorkflowV4(c.Query("encryptedKey"), c.Param("name"), ctx.Logger)
 	if err != nil {
 		c.JSON(e.ErrorMessage(err))
 		c.Abort()
@@ -153,5 +153,5 @@ func GetWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.Logger)
 }
