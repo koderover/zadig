@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,9 @@ func CreateDockerfileTemplate(c *gin.Context) {
 		return
 	}
 
+	bs, _ := json.Marshal(req)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新建", "模板库-Dockerfile", req.Name, string(bs), ctx.Logger)
+
 	ctx.Err = templateservice.CreateDockerfileTemplate(req, ctx.Logger)
 }
 
@@ -64,6 +68,9 @@ func UpdateDockerfileTemplate(c *gin.Context) {
 		ctx.Err = errors.New("invalid dockerfile, please check")
 		return
 	}
+
+	bs, _ := json.Marshal(req)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-Dockerfile", req.Name, string(bs), ctx.Logger)
 
 	ctx.Err = templateservice.UpdateDockerfileTemplate(c.Param("id"), req, ctx.Logger)
 }
@@ -108,6 +115,8 @@ func GetDockerfileTemplateDetail(c *gin.Context) {
 func DeleteDockerfileTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-Dockerfile", c.Param("id"), "", ctx.Logger)
 
 	ctx.Err = templateservice.DeleteDockerfileTemplate(c.Param("id"), ctx.Logger)
 }

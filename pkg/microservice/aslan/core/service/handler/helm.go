@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -89,6 +91,9 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
+
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, false, ctx.Logger)
 }
 
@@ -109,6 +114,9 @@ func UpdateHelmService(c *gin.Context) {
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
+
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, true, ctx.Logger)
 }
 
@@ -128,6 +136,9 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 		return
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "新增", "项目管理-服务", "", string(bs), ctx.Logger)
 
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectName, args, false, ctx.Logger)
 }

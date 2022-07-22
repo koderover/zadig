@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -36,6 +38,9 @@ func CreateYamlTemplate(c *gin.Context) {
 		return
 	}
 
+	bs, _ := json.Marshal(req)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "创建", "模板-YAML", req.Name, string(bs), ctx.Logger)
+
 	ctx.Err = templateservice.CreateYamlTemplate(req, ctx.Logger)
 }
 
@@ -49,6 +54,9 @@ func UpdateYamlTemplate(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+
+	bs, _ := json.Marshal(req)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-YAML", req.Name, string(bs), ctx.Logger)
 
 	ctx.Err = templateservice.UpdateYamlTemplate(c.Param("id"), req, ctx.Logger)
 }
@@ -97,6 +105,8 @@ func DeleteYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板-YAML", c.Param("id"), "", ctx.Logger)
+
 	ctx.Err = templateservice.DeleteYamlTemplate(c.Param("id"), ctx.Logger)
 }
 
@@ -110,6 +120,8 @@ func GetYamlTemplateReference(c *gin.Context) {
 func SyncYamlTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板-YAML", c.Param("id"), "", ctx.Logger)
 
 	ctx.Err = templateservice.SyncYamlTemplateReference(ctx.UserName, c.Param("id"), ctx.Logger)
 }

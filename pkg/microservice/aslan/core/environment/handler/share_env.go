@@ -34,12 +34,16 @@ func EnableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "开启自测模式", "环境", c.Param("name"), "", ctx.Logger)
+
 	ctx.Err = service.EnableBaseEnv(c, c.Param("name"), c.Query("projectName"))
 }
 
 func DisableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "关闭自测模式", "环境", c.Param("name"), "", ctx.Logger)
 
 	ctx.Err = service.DisableBaseEnv(c, c.Param("name"), c.Query("projectName"))
 }

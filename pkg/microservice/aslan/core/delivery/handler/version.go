@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -175,13 +176,17 @@ func CreateHelmDeliveryVersion(c *gin.Context) {
 		return
 	}
 	args.CreateBy = ctx.UserName
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), ctx.Logger)
+
 	ctx.Err = deliveryservice.CreateHelmDeliveryVersion(args, ctx.Logger)
 }
 
 func DeleteDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "版本交付", c.Param("id"), "", ctx.Logger)
 
 	//params validate
 	ID := c.Param("id")

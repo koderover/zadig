@@ -45,7 +45,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName or objectName is invalid")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "环境-对象", fmt.Sprintf("环境名称:%s,%s名称:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger)
 
 	ctx.Err = service.DeleteCommonEnvCfg(envName, productName, objectName, config.CommonEnvCfgType(commonEnvCfgType), ctx.Logger)
 }
@@ -66,7 +66,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "环境-对象", fmt.Sprintf("环境名称:%s,%s:", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -94,7 +94,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", fmt.Sprintf("环境-%s", args.CommonEnvCfgType), fmt.Sprintf("环境名称:%s,%s名称:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {

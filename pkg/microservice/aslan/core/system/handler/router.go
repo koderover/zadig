@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -35,11 +33,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	install := router.Group("install")
 	{
-		install.POST("", gin2.UpdateOperationLogStatus, CreateInstall)
-		install.PUT("", gin2.UpdateOperationLogStatus, UpdateInstall)
+		install.POST("", CreateInstall)
+		install.PUT("", UpdateInstall)
 		install.GET("/:name/:version", GetInstall)
 		install.GET("", ListInstalls)
-		install.PUT("/delete", gin2.UpdateOperationLogStatus, DeleteInstall)
+		install.PUT("/delete", DeleteInstall)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -49,9 +47,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		proxyManage.GET("", ListProxies)
 		proxyManage.GET("/:id", GetProxy)
-		proxyManage.POST("", gin2.UpdateOperationLogStatus, CreateProxy)
-		proxyManage.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateProxy)
-		proxyManage.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteProxy)
+		proxyManage.POST("", CreateProxy)
+		proxyManage.PUT("/:id", UpdateProxy)
+		proxyManage.DELETE("/:id", DeleteProxy)
 
 		proxyManage.POST("/connectionTest", TestConnection)
 	}
@@ -63,10 +61,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		registry.GET("/namespaces/default", GetDefaultRegistryNamespace)
 		registry.GET("/namespaces/specific/:id", GetRegistryNamespace)
 		registry.GET("/namespaces", ListRegistryNamespaces)
-		registry.POST("/namespaces", gin2.UpdateOperationLogStatus, CreateRegistryNamespace)
-		registry.PUT("/namespaces/:id", gin2.UpdateOperationLogStatus, UpdateRegistryNamespace)
+		registry.POST("/namespaces", CreateRegistryNamespace)
+		registry.PUT("/namespaces/:id", UpdateRegistryNamespace)
 
-		registry.DELETE("/namespaces/:id", gin2.UpdateOperationLogStatus, DeleteRegistryNamespace)
+		registry.DELETE("/namespaces/:id", DeleteRegistryNamespace)
 		registry.GET("/release/repos", ListAllRepos)
 		registry.POST("/images", ListImages)
 		registry.GET("/images/repos/:name", ListRepoImages)
@@ -75,10 +73,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	s3storage := router.Group("s3storage")
 	{
 		s3storage.GET("", ListS3Storage)
-		s3storage.POST("", gin2.UpdateOperationLogStatus, CreateS3Storage)
+		s3storage.POST("", CreateS3Storage)
 		s3storage.GET("/:id", GetS3Storage)
-		s3storage.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateS3Storage)
-		s3storage.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteS3Storage)
+		s3storage.PUT("/:id", UpdateS3Storage)
+		s3storage.DELETE("/:id", DeleteS3Storage)
 		s3storage.POST("/:id/releases/search", ListTars)
 	}
 
@@ -146,9 +144,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		basicImages.GET("", ListBasicImages)
 		basicImages.GET("/:id", GetBasicImage)
-		basicImages.POST("", gin2.UpdateOperationLogStatus, CreateBasicImage)
-		basicImages.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateBasicImage)
-		basicImages.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteBasicImage)
+		basicImages.POST("", CreateBasicImage)
+		basicImages.PUT("/:id", UpdateBasicImage)
+		basicImages.DELETE("/:id", DeleteBasicImage)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -172,10 +170,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		privateKey.GET("/internal", ListPrivateKeysInternal)
 		privateKey.GET("/:id", GetPrivateKey)
 		privateKey.GET("/labels", ListLabels)
-		privateKey.POST("", gin2.UpdateOperationLogStatus, CreatePrivateKey)
-		privateKey.POST("/batch", gin2.UpdateOperationLogStatus, BatchCreatePrivateKey)
-		privateKey.PUT("/:id", gin2.UpdateOperationLogStatus, UpdatePrivateKey)
-		privateKey.DELETE("/:id", gin2.UpdateOperationLogStatus, DeletePrivateKey)
+		privateKey.POST("", CreatePrivateKey)
+		privateKey.POST("/batch", BatchCreatePrivateKey)
+		privateKey.PUT("/:id", UpdatePrivateKey)
+		privateKey.DELETE("/:id", DeletePrivateKey)
 	}
 
 	rsaKey := router.Group("rsaKey")
@@ -217,9 +215,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	externalLink := router.Group("externalLink")
 	{
 		externalLink.GET("", ListExternalLinks)
-		externalLink.POST("", gin2.UpdateOperationLogStatus, CreateExternalLink)
-		externalLink.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateExternalLink)
-		externalLink.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteExternalLink)
+		externalLink.POST("", CreateExternalLink)
+		externalLink.PUT("/:id", UpdateExternalLink)
+		externalLink.DELETE("/:id", DeleteExternalLink)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -227,11 +225,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	externalSystem := router.Group("external")
 	{
-		externalSystem.POST("", gin2.UpdateOperationLogStatus, CreateExternalSystem)
+		externalSystem.POST("", CreateExternalSystem)
 		externalSystem.GET("", ListExternalSystem)
 		externalSystem.GET("/:id", GetExternalSystemDetail)
-		externalSystem.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateExternalSystem)
-		externalSystem.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteExternalSystem)
+		externalSystem.PUT("/:id", UpdateExternalSystem)
+		externalSystem.DELETE("/:id", DeleteExternalSystem)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -239,11 +237,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	sonar := router.Group("sonar")
 	{
-		sonar.POST("/integration", gin2.UpdateOperationLogStatus, CreateSonarIntegration)
-		sonar.PUT("/integration/:id", gin2.UpdateOperationLogStatus, UpdateSonarIntegration)
+		sonar.POST("/integration", CreateSonarIntegration)
+		sonar.PUT("/integration/:id", UpdateSonarIntegration)
 		sonar.GET("/integration", ListSonarIntegration)
 		sonar.GET("/integration/:id", GetSonarIntegration)
-		sonar.DELETE("/integration/:id", gin2.UpdateOperationLogStatus, DeleteSonarIntegration)
+		sonar.DELETE("/integration/:id", DeleteSonarIntegration)
 		sonar.POST("/validate", ValidateSonarInformation)
 	}
 }
