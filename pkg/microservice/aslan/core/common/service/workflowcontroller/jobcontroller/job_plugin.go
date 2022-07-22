@@ -130,11 +130,11 @@ func (c *PluginJobCtl) Complete(ctx context.Context) {
 
 	// 清理用户取消和超时的任务
 	defer func() {
-		// go func() {
-		// 	if err := ensureDeleteJob(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
-		// 		c.logger.Error(err)
-		// 	}
-		// }()
+		go func() {
+			if err := ensureDeleteJob(c.job.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+				c.logger.Error(err)
+			}
+		}()
 	}()
 
 	// get job outputs info from pod terminate message.
