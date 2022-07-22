@@ -19,8 +19,12 @@ package job
 import (
 	"fmt"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
+	stepspec "github.com/koderover/zadig/pkg/types/step"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
 )
 
@@ -92,6 +96,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Properties: *j.spec.Properties,
 		Steps:      stepsToStepTasks(j.spec.Steps),
 	}
+	jobTask.Properties.Envs = getfreestyleJobVariables(jobTask.Steps, taskID, j.workflow.Project, j.workflow.Name)
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
@@ -106,4 +111,26 @@ func stepsToStepTasks(step []*commonmodels.Step) []*commonmodels.StepTask {
 		resp = append(resp, stepTask)
 	}
 	return resp
+}
+
+func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, project, workflowName string) []*commonmodels.KeyVal {
+	ret := []*commonmodels.KeyVal{}
+	repos := []*types.Repository{}
+	for _, step := range steps {
+		if step.StepType != config.StepGit {
+			continue
+		}
+		stepSpec := &stepspec.StepGitSpec{}
+		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+			log.Errorf("failed to convert step spec error: %v", err)
+			continue
+		}
+		repos = append(repos, stepSpec.Repos...)
+	}
+	ret = append(ret, getBuildsVariables(repos)...)
+
+	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
+	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
+	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
+	return ret
 }

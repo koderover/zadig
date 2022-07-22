@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -142,7 +141,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTask.Properties.CacheDirType = buildInfo.CacheDirType
 			jobTask.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTask.Properties.Envs = append(jobTask.Properties.Envs, getJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
+		jobTask.Properties.Envs = append(jobTask.Properties.Envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
 
 		if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == types.NFSMedium {
 			jobTask.Properties.CacheUserDir = renderEnv(jobTask.Properties.CacheUserDir, jobTask.Properties.Envs)
@@ -313,34 +312,9 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string) []*commonmodels.KeyVal {
+func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
-	for index, repo := range build.Repos {
-
-		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
-
-		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
-
-		repoIndex := fmt.Sprintf("REPO_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
-
-		if len(repo.Branch) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
-		}
-
-		if len(repo.Tag) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
-		}
-
-		if repo.PR > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
-		}
-
-		if len(repo.CommitID) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
-		}
-	}
+	ret = append(ret, getBuildsVariables(build.Repos)...)
 	reg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: dockerRegistryID})
 	if err != nil {
 		log.Errorf("find docker registry by ID %s error: %v", dockerRegistryID, err)
