@@ -402,6 +402,12 @@ func processChartFromSource(name string, args *fs.DownloadFromSourceArgs, logger
 		localBase := configbase.LocalChartTemplatePath(name)
 		s3Base := configbase.ObjectStorageChartTemplatePath(name)
 
+		err = os.RemoveAll(localBase)
+		if err != nil {
+			log.Errorf("failed to remove current template dir: %s, err: %s", localBase, err)
+			return
+		}
+
 		err1 := fs.SaveAndUploadFiles(tree, []string{name}, localBase, s3Base, logger)
 		if err1 != nil {
 			logger.Errorf("Failed to save files to disk, err: %s", err1)
@@ -464,6 +470,12 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 	wg.Start(func() {
 		logger.Debug("Start to save and upload chart")
 		localBase := configbase.LocalChartTemplatePath(name)
+
+		err = os.RemoveAll(path.Join(localBase, path.Base(args.Path)))
+		if err != nil {
+			log.Errorf("failed to remove current template dir: %s, err: %s", localBase, err)
+			return
+		}
 
 		err1 := fs.CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(args.Path)), "", currentChartPath, logger)
 		if err1 != nil {

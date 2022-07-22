@@ -69,6 +69,7 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 		spec.S3Storage.Ak = objectStorage.Ak
 		spec.S3Storage.Subfolder = objectStorage.Subfolder
 		spec.S3Storage.Bucket = objectStorage.Bucket
+		spec.S3Storage.Insecure = objectStorage.Insecure
 		spec.S3Storage.Protocol = "https"
 		if objectStorage.Insecure {
 			spec.S3Storage.Protocol = "http"

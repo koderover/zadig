@@ -23,13 +23,21 @@ import (
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
+// OperationLogStatus update status of operation if necessary
+func OperationLogStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer UpdateOperationLogStatus(c)
+		c.Next()
+	}
+}
+
 // 更新操作日志状态
 func UpdateOperationLogStatus(c *gin.Context) {
-	log := ginzap.WithContext(c).Sugar()
 	c.Next()
 	if c.GetString("operationLogID") == "" {
 		return
 	}
+	log := ginzap.WithContext(c).Sugar()
 	err := systemservice.UpdateOperation(c.GetString("operationLogID"), c.Writer.Status(), log)
 	if err != nil {
 		log.Errorf("UpdateOperation err:%v", err)

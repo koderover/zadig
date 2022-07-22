@@ -91,7 +91,7 @@ type ServiceAndImage struct {
 	Image         string `bson:"image"                  json:"image"`
 }
 
-func GetWorkflowv4Preset(workflowName string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
@@ -104,6 +104,9 @@ func GetWorkflowv4Preset(workflowName string, log *zap.SugaredLogger) (*commonmo
 				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 			}
 		}
+	}
+	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
+		return workflow, err
 	}
 	return workflow, nil
 }

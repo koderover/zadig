@@ -18,6 +18,8 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -55,5 +57,13 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
+	serviceNames := make([]string, 0)
+	for _, svc := range args.Services {
+		serviceNames = append(serviceNames, svc.Name)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", strings.Join(serviceNames, ",")), string(data), ctx.Logger)
+
 	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, false, ctx.Logger)
 }

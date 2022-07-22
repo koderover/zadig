@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -59,10 +57,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		pipeline.GET("", ListPipelines)
 		pipeline.GET("/:name", GetPipeline)
-		pipeline.POST("", GetPipelineProductName, gin2.UpdateOperationLogStatus, UpsertPipeline)
-		pipeline.POST("/old/:old/new/:new", GetProductNameByPipeline, gin2.UpdateOperationLogStatus, CopyPipeline)
-		pipeline.PUT("/rename/:old/:new", GetProductNameByPipeline, gin2.UpdateOperationLogStatus, RenamePipeline)
-		pipeline.DELETE("/:name", GetProductNameByPipeline, gin2.UpdateOperationLogStatus, DeletePipeline)
+		pipeline.POST("", GetPipelineProductName, UpsertPipeline)
+		pipeline.POST("/old/:old/new/:new", GetProductNameByPipeline, CopyPipeline)
+		pipeline.PUT("/rename/:old/:new", GetProductNameByPipeline, RenamePipeline)
+		pipeline.DELETE("/:name", GetProductNameByPipeline, DeletePipeline)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -79,11 +77,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	taskV2 := router.Group("v2/tasks")
 	{
-		taskV2.POST("", GetProductNameByPipelineTask, gin2.UpdateOperationLogStatus, CreatePipelineTask)
+		taskV2.POST("", GetProductNameByPipelineTask, CreatePipelineTask)
 		taskV2.GET("/max/:max/start/:start/pipelines/:name", ListPipelineTasksResult)
 		taskV2.GET("/id/:id/pipelines/:name", GetPipelineTask)
-		taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, gin2.UpdateOperationLogStatus, RestartPipelineTask)
-		taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, gin2.UpdateOperationLogStatus, CancelTaskV2)
+		taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, RestartPipelineTask)
+		taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, CancelTaskV2)
 		taskV2.GET("/pipelines/:name/products", ListPipelineUpdatableProductNames)
 		taskV2.GET("/file", GetPackageFile)
 		taskV2.GET("/workflow/:pipelineName/taskId/:taskId", GetArtifactFile)
@@ -94,8 +92,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	favorite := router.Group("favorite")
 	{
-		favorite.POST("", gin2.UpdateOperationLogStatus, CreateFavoritePipeline)
-		favorite.DELETE("/:productName/:name/:type", gin2.UpdateOperationLogStatus, DeleteFavoritePipeline)
+		favorite.POST("", CreateFavoritePipeline)
+		favorite.DELETE("/:productName/:name/:type", DeleteFavoritePipeline)
 		favorite.GET("", ListFavoritePipelines)
 	}
 
@@ -105,12 +103,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workflow := router.Group("workflow")
 	{
 		workflow.POST("/:productName/auto", AutoCreateWorkflow)
-		workflow.POST("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, CreateWorkflow)
-		workflow.PUT("/:workflowName", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
+		workflow.POST("", GetWorkflowProductName, CreateWorkflow)
+		workflow.PUT("/:workflowName", GetWorkflowProductName, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
 		workflow.GET("/testName/:testName", ListTestWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
-		workflow.DELETE("/:name", GetProductNameByWorkflow, gin2.UpdateOperationLogStatus, DeleteWorkflow)
+		workflow.DELETE("/:name", GetProductNameByWorkflow, DeleteWorkflow)
 		workflow.GET("/preset/:productName", PreSetWorkflow)
 
 		workflow.PUT("/old/:old/new/:new", CopyWorkflow)
@@ -124,13 +122,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		//todo 修改权限的uuid
 		workflowtask.GET("/targets/:productName/:namespace", GetWorkflowArgs)
 		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
-		workflowtask.POST("/:id", gin2.UpdateOperationLogStatus, CreateWorkflowTask)
-		workflowtask.PUT("/:id", gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
+		workflowtask.POST("/:id", CreateWorkflowTask)
+		workflowtask.PUT("/:id", CreateArtifactWorkflowTask)
 		workflowtask.GET("/max/:max/start/:start/pipelines/:name", ListWorkflowTasksResult)
 		workflowtask.GET("/filters/pipelines/:name", GetFiltersPipeline)
 		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)
-		workflowtask.POST("/id/:id/pipelines/:name/restart", gin2.UpdateOperationLogStatus, RestartWorkflowTask)
-		workflowtask.DELETE("/id/:id/pipelines/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV2)
+		workflowtask.POST("/id/:id/pipelines/:name/restart", RestartWorkflowTask)
+		workflowtask.DELETE("/id/:id/pipelines/:name", CancelWorkflowTaskV2)
 		workflowtask.GET("/callback/id/:id/name/:name", GetWorkflowTaskCallback)
 	}
 
@@ -144,10 +142,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	workflowV3 := router.Group("v3")
 	{
-		workflowV3.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowV3)
+		workflowV3.POST("", CreateWorkflowV3)
 		workflowV3.GET("", ListWorkflowsV3)
 		workflowV3.GET("/:id", GetWorkflowV3Detail)
-		workflowV3.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateWorkflowV3)
+		workflowV3.PUT("/:id", UpdateWorkflowV3)
 		workflowV3.DELETE("/:id", DeleteWorkflowV3)
 		workflowV3.GET("/:id/args", GetWorkflowV3Args)
 	}
@@ -157,9 +155,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	taskV3 := router.Group("v3/workflowtask")
 	{
-		taskV3.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowTaskV3)
-		taskV3.POST("/id/:id/name/:name/restart", gin2.UpdateOperationLogStatus, RestartWorkflowTaskV3)
-		taskV3.DELETE("/id/:id/name/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV3)
+		taskV3.POST("", CreateWorkflowTaskV3)
+		taskV3.POST("/id/:id/name/:name/restart", RestartWorkflowTaskV3)
+		taskV3.DELETE("/id/:id/name/:name", CancelWorkflowTaskV3)
 		taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
 		taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
 		taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
