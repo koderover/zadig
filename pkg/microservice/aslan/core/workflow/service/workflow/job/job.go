@@ -82,7 +82,7 @@ func jobNameFormat(jobName string) string {
 	return jobName
 }
 
-func getBuildsVariables(repos []*types.Repository) []*commonmodels.KeyVal {
+func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	for index, repo := range repos {
 

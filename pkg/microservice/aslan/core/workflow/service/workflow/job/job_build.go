@@ -314,7 +314,7 @@ func replaceWrapLine(script string) string {
 
 func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
-	ret = append(ret, getBuildsVariables(build.Repos)...)
+	ret = append(ret, getReposVariables(build.Repos)...)
 	reg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: dockerRegistryID})
 	if err != nil {
 		log.Errorf("find docker registry by ID %s error: %v", dockerRegistryID, err)
