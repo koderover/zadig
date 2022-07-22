@@ -36,10 +36,10 @@ const (
 )
 
 type RequestSpec struct {
-	CpuLimit    int `bson:"cpu_limit"                     json:"cpu_limit"`
-	MemoryLimit int `bson:"memory_limit"                  json:"memory_limit"`
-	CpuReq      int `bson:"cpu_req,omitempty"             json:"cpu_req,omitempty"`
-	MemoryReq   int `bson:"memory_req,omitempty"          json:"memory_req,omitempty"`
+	CpuLimit    int `bson:"cpu_limit"                     json:"cpu_limit"               yaml:"cpu_limit"`
+	MemoryLimit int `bson:"memory_limit"                  json:"memory_limit"            yaml:"memory_limit"`
+	CpuReq      int `bson:"cpu_req,omitempty"             json:"cpu_req,omitempty"       yaml:"cpu_req,omitempty"`
+	MemoryReq   int `bson:"memory_req,omitempty"          json:"memory_req,omitempty"    yaml:"memory_req,omitempty"`
 }
 
 var (
