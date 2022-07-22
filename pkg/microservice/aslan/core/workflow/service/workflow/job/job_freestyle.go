@@ -96,7 +96,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Properties: *j.spec.Properties,
 		Steps:      stepsToStepTasks(j.spec.Steps),
 	}
-	jobTask.Properties.Envs = getfreestyleJobVariables(jobTask.Steps, taskID, j.workflow.Project, j.workflow.Name)
+	jobTask.Properties.Envs = append(jobTask.Properties.Envs, getfreestyleJobVariables(jobTask.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
