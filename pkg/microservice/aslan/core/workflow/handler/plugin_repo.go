@@ -23,13 +23,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-func UpdateOfficalPluginRepository(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Err = workflow.UpdateOfficalPluginRepository(ctx.Logger)
-}
-
 func ListPluginTemplates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

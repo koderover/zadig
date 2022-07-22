@@ -197,7 +197,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	plugin := router.Group("plugin")
 	{
-		plugin.POST("/offical", UpdateOfficalPluginRepository)
 		plugin.GET("/template", ListPluginTemplates)
 	}
 

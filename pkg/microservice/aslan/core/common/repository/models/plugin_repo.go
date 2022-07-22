@@ -32,18 +32,21 @@ type PluginRepo struct {
 	CodehostID      int                `bson:"codehost_id"               json:"codehost_id"              yaml:"codehost_id"`
 	UpdateTime      int64              `bson:"update_time"               json:"update_time"              yaml:"update_time"`
 	PluginTemplates []*PluginTemplate  `bson:"plugin_templates"          json:"plugin_templates"         yaml:"plugin_templates"`
+	Status          string             `bson:"status"                    json:"status"                   yaml:"status"`
+	Error           string             `bson:"error"                     json:"error"                    yaml:"error"`
 }
 
 type PluginTemplate struct {
-	Name    string    `bson:"name"             json:"name"             yaml:"name"`
-	RepoURL string    `bson:"repo_url"         json:"repo_url"         yaml:"-"`
-	Version string    `bson:"version"          json:"version"          yaml:"version"`
-	Image   string    `bson:"image"            json:"image"            yaml:"image"`
-	Args    []string  `bson:"args"             json:"args"             yaml:"args"`
-	Cmds    []string  `bson:"cmds"             json:"cmds"             yaml:"cmds"`
-	Envs    []*Env    `bson:"envs"             json:"envs"             yaml:"envs"`
-	Inputs  []*Params `bson:"inputs"           json:"inputs"           yaml:"inputs"`
-	Outputs []*Params `bson:"outputs"          json:"outputs"          yaml:"outputs"`
+	Name      string    `bson:"name"             json:"name"             yaml:"name"`
+	IsOffical bool      `bson:"is_offical"       json:"is_offical"       yaml:"is_offical"`
+	RepoURL   string    `bson:"repo_url"         json:"repo_url"         yaml:"-"`
+	Version   string    `bson:"version"          json:"version"          yaml:"version"`
+	Image     string    `bson:"image"            json:"image"            yaml:"image"`
+	Args      []string  `bson:"args"             json:"args"             yaml:"args"`
+	Cmds      []string  `bson:"cmds"             json:"cmds"             yaml:"cmds"`
+	Envs      []*Env    `bson:"envs"             json:"envs"             yaml:"envs"`
+	Inputs    []*Params `bson:"inputs"           json:"inputs"           yaml:"inputs"`
+	Outputs   []*Params `bson:"outputs"          json:"outputs"          yaml:"outputs"`
 }
 
 type Env struct {

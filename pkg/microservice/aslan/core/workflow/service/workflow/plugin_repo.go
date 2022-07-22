@@ -17,13 +17,12 @@ limitations under the License.
 package workflow
 
 import (
+	"embed"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -34,55 +33,75 @@ import (
 )
 
 const (
-	OfficalRepoOwner = "dianqihanwangzi"
-	OfficalRepoName  = "zadig-plugins"
+	OfficalRepoOwner = "koderover"
+	OfficalRepoName  = "zadig"
 	OfficalRepoURL   = "https://github.com/" + OfficalRepoOwner + "/" + OfficalRepoName
 	OfficalBranch    = "main"
 )
 
-func UpsertPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) error {
+//go:embed plugins
+var officalPluginRepoFiles embed.FS
+
+func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) error {
+	args.IsOffical = false
 	args.PluginTemplates = []*commonmodels.PluginTemplate{}
-	// TODO: git clone and checkout the plugin
 	checkoutPath := fmt.Sprintf("/tmp/%s", uuid.New().String())
 	defer os.RemoveAll(checkoutPath)
-	if args.IsOffical {
-		args.RepoOwner = OfficalRepoOwner
-		args.RepoName = OfficalRepoName
-		args.Branch = OfficalBranch
-		args.RepoURL = OfficalRepoURL
-	}
-	if _, err := git.PlainClone(checkoutPath, false, &git.CloneOptions{
-		URL:           args.RepoURL,
-		Depth:         1,
-		ReferenceName: plumbing.NewBranchReferenceName(args.Branch),
-	}); err != nil {
-		log.Errorf("clone plugin repo error: %v", err)
-		return e.ErrUpsertPluginRepo.AddDesc(err.Error())
-	}
-
-	dirs, err := ioutil.ReadDir(checkoutPath)
+	// TODO: git clone and checkout the plugin
+	plugins, err := loadPluginRepoInfos(checkoutPath, args.IsOffical, os.ReadDir, os.ReadFile)
 	if err != nil {
-		log.Errorf("loop plugin repo error: %v", err)
-		return e.ErrUpsertPluginRepo.AddDesc(err.Error())
+		errMsg := fmt.Sprintf("load plugin from user user repo error: %s", err)
+		log.Error(errMsg)
+		return e.ErrUpsertPluginRepo.AddDesc(errMsg)
 	}
+	args.PluginTemplates = plugins
+	return commonrepo.NewPluginRepoColl().Upsert(args)
+}
 
+func UpdateOfficalPluginRepository(log *zap.SugaredLogger) {
+	officalPluginRepo := &commonmodels.PluginRepo{
+		RepoOwner: OfficalRepoOwner,
+		RepoName:  OfficalRepoName,
+		Branch:    OfficalBranch,
+		RepoURL:   OfficalRepoURL,
+		IsOffical: true,
+	}
+	plugins, err := loadPluginRepoInfos("plugins", officalPluginRepo.IsOffical, officalPluginRepoFiles.ReadDir, officalPluginRepoFiles.ReadFile)
+	if err != nil {
+		log.Errorf("load offical plugin repo error: %v", err)
+		return
+	}
+	officalPluginRepo.PluginTemplates = plugins
+	if err := commonrepo.NewPluginRepoColl().Upsert(officalPluginRepo); err != nil {
+		log.Errorf("update offical plugin repo error: %v", err)
+		return
+	}
+}
+
+type readDir func(name string) ([]fs.DirEntry, error)
+type readFile func(name string) ([]byte, error)
+
+func loadPluginRepoInfos(baseDir string, isOffical bool, readDir readDir, readFile readFile) ([]*commonmodels.PluginTemplate, error) {
+	resp := []*commonmodels.PluginTemplate{}
+	dirs, err := readDir(baseDir)
+	if err != nil {
+		return resp, fmt.Errorf("loop plugin repo error: %v", err)
+	}
 	for _, dir := range dirs {
 		if !dir.IsDir() {
 			continue
 		}
-		subDirs, err := ioutil.ReadDir(path.Join(checkoutPath, dir.Name()))
+		subDirs, err := readDir(path.Join(baseDir, dir.Name()))
 		if err != nil {
-			log.Errorf("loop plugin repo dirs error: %v", err)
-			return e.ErrUpsertPluginRepo.AddDesc(err.Error())
+			return resp, fmt.Errorf("loop plugin repo dirs error: %v", err)
 		}
 		for _, subDir := range subDirs {
 			if !subDir.IsDir() {
 				continue
 			}
-			files, err := ioutil.ReadDir(path.Join(checkoutPath, dir.Name(), subDir.Name()))
+			files, err := readDir(path.Join(baseDir, dir.Name(), subDir.Name()))
 			if err != nil {
-				log.Errorf("loop plugin repo sub dirs error: %v", err)
-				return e.ErrUpsertPluginRepo.AddDesc(err.Error())
+				return resp, fmt.Errorf("loop plugin repo sub dirs error: %v", err)
 			}
 			for _, file := range files {
 				if file.IsDir() {
@@ -91,31 +110,20 @@ func UpsertPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogge
 				if file.Name() != dir.Name()+".yaml" {
 					continue
 				}
-				yamlFile, err := os.Open(path.Join(checkoutPath, dir.Name(), subDir.Name(), file.Name()))
+				yamlFilebyte, err := readFile(path.Join(baseDir, dir.Name(), subDir.Name(), file.Name()))
 				if err != nil {
-					log.Errorf("load yaml files error: %v", err)
-					return e.ErrUpsertPluginRepo.AddDesc(err.Error())
-				}
-				defer yamlFile.Close()
-				content, err := ioutil.ReadAll(yamlFile)
-				if err != nil {
-					log.Errorf("read yaml files error: %v", err)
-					return e.ErrUpsertPluginRepo.AddDesc(err.Error())
+					return resp, fmt.Errorf("read yaml files error: %v", err)
 				}
 				pluginTemplate := &commonmodels.PluginTemplate{}
-				if err := yaml.Unmarshal(content, pluginTemplate); err != nil {
-					log.Errorf("unmarshal yaml files error: %v", err)
-					return e.ErrUpsertPluginRepo.AddDesc(err.Error())
+				if err := yaml.Unmarshal(yamlFilebyte, pluginTemplate); err != nil {
+					return resp, fmt.Errorf("unmarshal yaml files error: %v", err)
 				}
-				args.PluginTemplates = append(args.PluginTemplates, pluginTemplate)
+				pluginTemplate.IsOffical = isOffical
+				resp = append(resp, pluginTemplate)
 			}
 		}
 	}
-	return commonrepo.NewPluginRepoColl().Upsert(args)
-}
-
-func UpdateOfficalPluginRepository(log *zap.SugaredLogger) error {
-	return UpsertPluginRepository(&commonmodels.PluginRepo{IsOffical: true}, log)
+	return resp, nil
 }
 
 func ListPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo, error) {
