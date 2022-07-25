@@ -46,19 +46,22 @@ type User struct {
 	IdentityType string `json:"identityType"`
 }
 
-func CheckSignature(ifLoggedIn bool) error {
+func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
 	userNum, err := orm.CountUser(core.DB)
 	if err != nil {
 		return err
 	}
+	logger.Infof("userNum:%s", userNum)
 	vendorClient := plutusvendor.New()
 	err = vendorClient.Health()
 	if err != nil {
 		checkErr := vendorClient.CheckSignature(userNum)
 		if checkErr != nil && checkErr.Error() == "系统使用用户数量已达授权人数上限，请联系系统管理员" {
 			if ifLoggedIn {
+				logger.Infof("has logged")
 				return nil
 			}
+			logger.Error(checkErr)
 			return checkErr
 		}
 	}
@@ -92,7 +95,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
 		return nil, fmt.Errorf("check password error, error msg:%s", err)
 	}
-	err = CheckSignature(userLogin.LastLoginTime > 0)
+	err = CheckSignature(userLogin.LastLoginTime > 0, logger)
 	if err != nil {
 		return nil, err
 	}
