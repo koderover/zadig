@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 )
 
 type LoginArgs struct {
@@ -43,6 +44,25 @@ type User struct {
 	Name         string `json:"name"`
 	Account      string `json:"account"`
 	IdentityType string `json:"identityType"`
+}
+
+func CheckSignature(ifLoggedIn bool) error {
+	userNum, err := orm.CountUser(core.DB)
+	if err != nil {
+		return err
+	}
+	vendorClient := plutusvendor.New()
+	err = vendorClient.Health()
+	if err != nil {
+		checkErr := vendorClient.CheckSignature(userNum)
+		if checkErr != nil && checkErr.Error() == "系统使用用户数量已达授权人数上限，请联系系统管理员" {
+			if ifLoggedIn {
+				return nil
+			}
+			return checkErr
+		}
+	}
+	return nil
 }
 
 func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
@@ -72,6 +92,10 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
 		return nil, fmt.Errorf("check password error, error msg:%s", err)
 	}
+	err = CheckSignature(userLogin.LastLoginTime > 0)
+	if err != nil {
+		return nil, err
+	}
 	userLogin.LastLoginTime = time.Now().Unix()
 	err = orm.UpdateUserLogin(userLogin.UID, userLogin, core.DB)
 	if err != nil {
@@ -96,6 +120,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
+
 	return &User{
 		Uid:          user.UID,
 		Token:        token,
