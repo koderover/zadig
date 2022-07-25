@@ -112,7 +112,6 @@ func (c *PluginJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.logger.Infof("succeed to create job %s", c.jobName)
-
 }
 
 func (c *PluginJobCtl) Wait(ctx context.Context) {

@@ -544,7 +544,7 @@ func waitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName st
 
 		time.Sleep(time.Second)
 	}
-	// 等待job 运行结束
+	// wait for the job to end.
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
 	for {
 		select {

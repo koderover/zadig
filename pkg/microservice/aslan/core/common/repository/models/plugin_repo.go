@@ -24,6 +24,7 @@ type PluginRepo struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"             yaml:"source,omitempty"`
 	IsOffical       bool               `bson:"is_offical"                json:"is_offical"               yaml:"is_offical"`
 	RepoURL         string             `bson:"repo_url"                  json:"repo_url"                 yaml:"-"`
+	RepoNamespace   string             `bson:"repo_namespace"            json:"repo_namespace"           yaml:"repo_namespace"`
 	Source          string             `bson:"source,omitempty"          json:"source,omitempty"         yaml:"source,omitempty"`
 	RepoOwner       string             `bson:"repo_owner"                json:"repo_owner"               yaml:"repo_owner"`
 	RepoName        string             `bson:"repo_name"                 json:"repo_name"                yaml:"repo_name"`

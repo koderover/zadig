@@ -52,7 +52,9 @@ func (s *ToolInstallStep) Run(ctx context.Context) error {
 
 	for _, tool := range s.spec.Installs {
 		log.Infof("Installing %s %s.", tool.Name, tool.Version)
-		return s.runIntallationScripts(tool)
+		if err := s.runIntallationScripts(tool); err != nil {
+			return err
+		}
 	}
 
 	return nil
