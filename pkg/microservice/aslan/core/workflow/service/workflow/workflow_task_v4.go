@@ -144,12 +144,20 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		}
 		workflowTask.Stages = append(workflowTask.Stages, stageTask)
 		for _, job := range stage.Jobs {
+			// TODO: move this logic to job controller
 			if job.JobType == config.JobZadigBuild {
 				if err := setZadigBuildRepos(job, log); err != nil {
-					log.Errorf("set build info error: %v", err)
+					log.Errorf("zadig build job set build info error: %v", err)
 					return resp, e.ErrCreateTask.AddDesc(err.Error())
 				}
 			}
+			if job.JobType == config.JobFreestyle {
+				if err := setFreeStyleRepos(job, log); err != nil {
+					log.Errorf("freestyle job set build info error: %v", err)
+					return resp, e.ErrCreateTask.AddDesc(err.Error())
+				}
+			}
+
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
 				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
@@ -268,9 +276,11 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			JobType:   job.JobType,
 		}
 		switch job.JobType {
+		case string(config.FreestyleType):
+			fallthrough
 		case string(config.JobZadigBuild):
 			spec := ZadigBuildJobSpec{}
-			for _, arg := range job.Properties.Args {
+			for _, arg := range job.Properties.Envs {
 				if arg.Key == "IMAGE" {
 					spec.Image = arg.Value
 					continue
@@ -322,6 +332,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				}
 			}
 			jobPreview.Spec = spec
+		case string(config.JobPlugin):
+			jobPreview.Spec = job.Plugin
 		default:
 			jobPreview.Spec = job.Steps
 		}
@@ -339,6 +351,28 @@ func setZadigBuildRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error 
 		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
 			return err
 		}
+	}
+	job.Spec = spec
+	return nil
+}
+
+func setFreeStyleRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
+	spec := &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToi(job.Spec, spec); err != nil {
+		return err
+	}
+	for _, step := range spec.Steps {
+		if step.StepType != config.StepGit {
+			continue
+		}
+		stepSpec := &stepspec.StepGitSpec{}
+		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+			return err
+		}
+		if err := setManunalBuilds(stepSpec.Repos, stepSpec.Repos, logger); err != nil {
+			return err
+		}
+		step.Spec = stepSpec
 	}
 	job.Spec = spec
 	return nil

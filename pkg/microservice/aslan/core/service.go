@@ -124,6 +124,8 @@ func Start(ctx context.Context) {
 	systemservice.SetProxyConfig()
 
 	workflowservice.InitPipelineController()
+	// update offical plugins
+	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())
 	workflowcontroller.InitWorkflowController()
 	// 如果集群环境所属的项目不存在，则删除此集群环境
 	environmentservice.CleanProducts()
@@ -239,6 +241,7 @@ func initDatabase() {
 		commonrepo.NewWorkflowV4Coll(),
 		commonrepo.NewworkflowTaskv4Coll(),
 		commonrepo.NewWorkflowQueueColl(),
+		commonrepo.NewPluginRepoColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

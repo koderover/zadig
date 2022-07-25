@@ -14,9 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package step
+package handler
 
-type StepShellSpec struct {
-	Scripts []string `bson:"scripts"                              json:"scripts"                                 yaml:"scripts,omitempty"`
-	Script  string   `bson:"script"                               json:"script"                                  yaml:"script"`
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+)
+
+func ListPluginTemplates(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.ListPluginTemplates(ctx.Logger)
 }

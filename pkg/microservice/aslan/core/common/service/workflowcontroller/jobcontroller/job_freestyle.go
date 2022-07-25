@@ -35,7 +35,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/dockerhost"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/util/rand"
 )
 
 const (
@@ -65,21 +64,6 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 		paths:       &paths,
 		jobName:     getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID),
 	}
-}
-
-func getJobName(workflowName string, taskID int64) string {
-	// max lenth of workflowName was 32, so job name was unique in one task.
-	base := strings.Replace(
-		strings.ToLower(
-			fmt.Sprintf(
-				"%s-%d-",
-				workflowName,
-				taskID,
-			),
-		),
-		"_", "-", -1,
-	)
-	return rand.GenerateName(base)
 }
 
 func (c *FreestyleJobCtl) Run(ctx context.Context) {
@@ -173,7 +157,7 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 	// jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
 	//Resource request default value is LOW
-	job, err := buildJob(c.job.JobType, jobImage, c.jobName, c.job.Properties.ClusterID, c.job.Properties.Namespace, c.job.Properties.ResourceRequest, setting.DefaultRequestSpec, c.job, c.workflowCtx, nil)
+	job, err := buildJob(c.job.JobType, jobImage, c.jobName, c.job.Properties.ClusterID, c.job.Properties.Namespace, c.job.Properties.ResourceRequest, c.job.Properties.ResReqSpec, c.job, c.workflowCtx, nil)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
 		c.logger.Error(msg)
@@ -257,7 +241,7 @@ func (c *FreestyleJobCtl) Complete(ctx context.Context) {
 
 func BuildJobExcutorContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
 	var envVars, secretEnvVars []string
-	for _, env := range job.Properties.Args {
+	for _, env := range job.Properties.Envs {
 		if env.IsCredential {
 			secretEnvVars = append(secretEnvVars, strings.Join([]string{env.Key, env.Value}, "="))
 			continue

@@ -145,6 +145,117 @@ func getBaseImage(buildOS, imageFrom string) string {
 	return jobImage
 }
 
+func buildPlainJob(jobName string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
+	collectJobOutput := `OLD_IFS=$IFS
+export IFS=","
+files='%s'
+outputs='%s'
+file_arr=($files)
+output_arr=($outputs)
+IFS="$OLD_IFS"
+result="{"
+for i in ${!file_arr[@]};
+do
+	file_value=$(cat ${file_arr[$i]})
+	output_value=${output_arr[$i]}
+	result="$result\"$output_value\":\"$file_value\","
+done
+result=$(sed 's/,$/}/' <<< $result)
+echo $result > %s
+`
+	files := []string{}
+	outputs := []string{}
+	for _, output := range jobTask.Outputs {
+		outputFile := path.Join(job.JobOutputDir, output.Name)
+		files = append(files, outputFile)
+		outputs = append(outputs, output.Name)
+	}
+	collectJobOutputCommand := fmt.Sprintf(collectJobOutput, strings.Join(files, ","), strings.Join(outputs, ","), job.JobTerminationFile)
+
+	labels := getJobLabels(&JobLabel{
+		WorkflowName: workflowCtx.WorkflowName,
+		TaskID:       workflowCtx.TaskID,
+		JobType:      string(jobTask.JobType),
+		JobName:      jobTask.Name,
+	})
+
+	ImagePullSecrets := []corev1.LocalObjectReference{
+		{
+			Name: setting.DefaultImagePullSecret,
+		},
+	}
+	envs := []corev1.EnvVar{}
+	for _, env := range jobTask.Plugin.Envs {
+		envs = append(envs, corev1.EnvVar{Name: env.Name, Value: env.Value})
+	}
+
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   jobName,
+			Labels: labels,
+		},
+		Spec: batchv1.JobSpec{
+			Completions:  int32Ptr(1),
+			Parallelism:  int32Ptr(1),
+			BackoffLimit: int32Ptr(0),
+			// in case finished zombie job not cleaned up by zadig
+			TTLSecondsAfterFinished: int32Ptr(3600),
+			// in case zombie job never stop
+			ActiveDeadlineSeconds: int64Ptr(jobTask.Properties.Timeout*60 + 3600),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:    corev1.RestartPolicyNever,
+					ImagePullSecrets: ImagePullSecrets,
+					Containers: []corev1.Container{
+						{
+							ImagePullPolicy: corev1.PullAlways,
+							Name:            jobTask.Name,
+							Image:           jobTask.Plugin.Image,
+							Args:            jobTask.Plugin.Args,
+							Command:         jobTask.Plugin.Cmds,
+							Lifecycle: &corev1.Lifecycle{
+								PostStart: &corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p %s", job.JobOutputDir)},
+									},
+								},
+								PreStop: &corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"/bin/sh", "-c", collectJobOutputCommand},
+									},
+								},
+							},
+							Env: envs,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "zadig-context",
+									MountPath: ZadigContextDir,
+								},
+							},
+							Resources: getResourceRequirements(resReq, resReqSpec),
+
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePath:   job.JobTerminationFile,
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "zadig-context",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return job, nil
+}
+
 func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	// 	tailLogCommandTemplate := `tail -f %s &
 	// while [ -f %s ];
@@ -402,6 +513,66 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 
 func int32Ptr(i int32) *int32 { return &i }
 func int64Ptr(i int64) *int64 { return &i }
+
+func waitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
+	xl.Infof("wait job to start: %s/%s", namespace, jobName)
+	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
+	podTimeout := time.After(120 * time.Second)
+
+	xl.Infof("Timeout of preparing Pod: %s. Timeout of running task: %s.", 120*time.Second, time.Duration(taskTimeout)*time.Minute)
+
+	var started bool
+	for {
+		select {
+		case <-ctx.Done():
+			return config.StatusCancelled
+
+		case <-podTimeout:
+			return config.StatusTimeout
+		default:
+			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
+			if err != nil {
+				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
+			}
+			if job != nil {
+				started = job.Status.Active > 0
+			}
+		}
+		if started {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+	// wait for the job to end.
+	xl.Infof("wait job to end: %s %s", namespace, jobName)
+	for {
+		select {
+		case <-ctx.Done():
+			return config.StatusCancelled
+
+		case <-timeout:
+			return config.StatusTimeout
+
+		default:
+			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
+			if err != nil || !found {
+				xl.Errorf("failed to get pod with label job-name=%s %v", jobName, err)
+				return config.StatusFailed
+			}
+
+			if job.Status.Succeeded != 0 {
+				return config.StatusPassed
+			}
+			if job.Status.Failed != 0 {
+				return config.StatusFailed
+			}
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+
+}
 
 func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)

@@ -76,6 +76,7 @@ func NewHelmDeployCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels
 	if err := yaml.Unmarshal(yamlString, &helmDeploySpec); err != nil {
 		return nil, fmt.Errorf("unmarshal helm deploy spec error: %v", err)
 	}
+	stepTask.Spec = helmDeploySpec
 	return &helmDeployCtl{helmDeploySpec: helmDeploySpec, workflowCtx: workflowCtx, log: log, step: stepTask}, nil
 }
 

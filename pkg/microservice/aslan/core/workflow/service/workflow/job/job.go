@@ -18,10 +18,12 @@ package job
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type JobCtl interface {
@@ -35,9 +37,12 @@ func initJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 	switch job.JobType {
 	case config.JobZadigBuild:
 		resp = &BuildJob{job: job, workflow: workflow}
-
 	case config.JobZadigDeploy:
 		resp = &DeployJob{job: job, workflow: workflow}
+	case config.JobPlugin:
+		resp = &PluginJob{job: job, workflow: workflow}
+	case config.JobFreestyle:
+		resp = &FreeStyleJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}
@@ -75,4 +80,35 @@ func jobNameFormat(jobName string) string {
 	}
 	jobName = strings.Trim(jobName, "-")
 	return jobName
+}
+
+func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
+	ret := make([]*commonmodels.KeyVal, 0)
+	for index, repo := range repos {
+
+		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
+		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
+
+		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+
+		repoIndex := fmt.Sprintf("REPO_%d", index)
+		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
+
+		if len(repo.Branch) > 0 {
+			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
+		}
+
+		if len(repo.Tag) > 0 {
+			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
+		}
+
+		if repo.PR > 0 {
+			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
+		}
+
+		if len(repo.CommitID) > 0 {
+			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
+		}
+	}
+	return ret
 }

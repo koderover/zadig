@@ -43,16 +43,23 @@ func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []s
 
 func (s *ToolInstallStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Installing %s %s.", s.spec.Name, s.spec.Version)
+	log.Infof("Installing tools.")
 	defer func() {
-		log.Infof("Install %s %s ended. Duration: %.2f seconds.", s.spec.Name, s.spec.Version, time.Since(start).Seconds())
+		log.Infof("Install tools ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 
-	return s.runIntallationScripts()
+	for _, tool := range s.spec.Installs {
+		log.Infof("Installing %s %s.", tool.Name, tool.Version)
+		if err := s.runIntallationScripts(tool); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (s *ToolInstallStep) runIntallationScripts() error {
-	if s.spec == nil {
+func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
+	if tool == nil {
 		return nil
 	}
 	var (
@@ -65,16 +72,16 @@ func (s *ToolInstallStep) runIntallationScripts() error {
 	scripts = append(scripts, "set -ex")
 
 	// 获取用户指定环境变量
-	s.envs = append(s.envs, Environs(s.spec.Envs)...)
+	s.envs = append(s.envs, Environs(tool.Envs)...)
 
 	if openProxy {
 		scripts = append(scripts, proxyScript)
 	}
 
 	// 如果应用有配置下载路径
-	if s.spec.Download != "" {
-		s.spec.S3Storage.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, s.spec.Name, s.spec.Version)
-		filepath := strings.Split(s.spec.Download, "/")
+	if tool.Download != "" {
+		s.spec.S3Storage.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, tool.Name, tool.Version)
+		filepath := strings.Split(tool.Download, "/")
 		fileName := filepath[len(filepath)-1]
 		forcedPathStyle := true
 		if s.spec.S3Storage.Provider == setting.ProviderSourceAli {
@@ -93,7 +100,7 @@ func (s *ToolInstallStep) runIntallationScripts() error {
 
 			// 缓存不存在
 			if err != nil {
-				err := httpclient.Download(s.spec.Download, tmpPath)
+				err := httpclient.Download(tool.Download, tmpPath)
 				if err != nil {
 					return err
 				}
@@ -102,22 +109,22 @@ func (s *ToolInstallStep) runIntallationScripts() error {
 					tmpPath,
 					objectKey,
 				)
-				fmt.Printf("Package loaded from url: %s\n", s.spec.Download)
+				fmt.Printf("Package loaded from url: %s\n", tool.Download)
 			}
 		} else {
-			err := httpclient.Download(s.spec.Download, tmpPath)
+			err := httpclient.Download(tool.Download, tmpPath)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	for j, command := range s.spec.Scripts {
+	for j, command := range tool.Scripts {
 		realCommand := strings.ReplaceAll(command, config.FilepathParam, tmpPath)
-		s.spec.Scripts[j] = realCommand
+		tool.Scripts[j] = realCommand
 	}
 
-	scripts = append(scripts, s.spec.Scripts...)
+	scripts = append(scripts, tool.Scripts...)
 
 	if openProxy {
 		scripts = append(scripts, disProxyScript)

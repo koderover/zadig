@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -123,7 +122,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTask.Properties = commonmodels.JobProperties{
 			Timeout:         int64(buildInfo.Timeout),
 			ResourceRequest: buildInfo.PreBuild.ResReq,
-			Args:            renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
+			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
+			Envs:            renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
 			ClusterID:       buildInfo.PreBuild.ClusterID,
 			BuildOS:         buildInfo.PreBuild.BuildOS,
 			ImageFrom:       buildInfo.PreBuild.ImageFrom,
@@ -141,23 +141,28 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTask.Properties.CacheDirType = buildInfo.CacheDirType
 			jobTask.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTask.Properties.Args = append(jobTask.Properties.Args, getJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
+		jobTask.Properties.Envs = append(jobTask.Properties.Envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
 
 		if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == types.NFSMedium {
-			jobTask.Properties.CacheUserDir = renderEnv(jobTask.Properties.CacheUserDir, jobTask.Properties.Args)
-			jobTask.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTask.Properties.Cache.NFSProperties.Subpath, jobTask.Properties.Args)
+			jobTask.Properties.CacheUserDir = renderEnv(jobTask.Properties.CacheUserDir, jobTask.Properties.Envs)
+			jobTask.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTask.Properties.Cache.NFSProperties.Subpath, jobTask.Properties.Envs)
 		}
 
 		// init tools install step
+		tools := []*step.Tool{}
 		for _, tool := range buildInfo.PreBuild.Installs {
-			toolInstallStep := &commonmodels.StepTask{
-				Name:     fmt.Sprintf("%s-%s-%s", build.ServiceName, tool.Name, tool.Version),
-				JobName:  jobTask.Name,
-				StepType: config.StepTools,
-				Spec:     step.StepToolInstallSpec{Name: tool.Name, Version: tool.Version},
-			}
-			jobTask.Steps = append(jobTask.Steps, toolInstallStep)
+			tools = append(tools, &step.Tool{
+				Name:    tool.Name,
+				Version: tool.Version,
+			})
 		}
+		toolInstallStep := &commonmodels.StepTask{
+			Name:     fmt.Sprintf("%s-%s", build.ServiceName, "tool-install"),
+			JobName:  jobTask.Name,
+			StepType: config.StepTools,
+			Spec:     step.StepToolInstallSpec{Installs: tools},
+		}
+		jobTask.Steps = append(jobTask.Steps, toolInstallStep)
 		// init git clone step
 		gitStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-git",
@@ -211,14 +216,19 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		// init archive step
 		if buildInfo.PostBuild.FileArchive != nil && buildInfo.PostBuild.FileArchive.FileLocation != "" {
+			uploads := []*step.Upload{
+				{
+					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
+					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "archive"),
+				},
+			}
 			archiveStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-archive",
 				JobName:  jobTask.Name,
 				StepType: config.StepArchive,
 				Spec: step.StepArchiveSpec{
-					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "archive"),
-					S3:              modelS3toS3(defaultS3),
+					UploadDetail: uploads,
+					S3:           modelS3toS3(defaultS3),
 				},
 			}
 			jobTask.Steps = append(jobTask.Steps, archiveStep)
@@ -232,19 +242,24 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			s3 := modelS3toS3(modelS3)
 			s3.Subfolder = ""
-			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
-				archiveStep := &commonmodels.StepTask{
-					Name:     build.ServiceName + "-object-storage",
-					JobName:  jobTask.Name,
-					StepType: config.StepArchive,
-					Spec: step.StepArchiveSpec{
-						FilePath:        detail.FilePath,
-						DestinationPath: detail.DestinationPath,
-						S3:              s3,
-					},
-				}
-				jobTask.Steps = append(jobTask.Steps, archiveStep)
+			uploads := []*step.Upload{}
+			archiveStep := &commonmodels.StepTask{
+				Name:     build.ServiceName + "-object-storage",
+				JobName:  jobTask.Name,
+				StepType: config.StepArchive,
+				Spec: step.StepArchiveSpec{
+					UploadDetail:    uploads,
+					ObjectStorageID: buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID,
+					S3:              s3,
+				},
 			}
+			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
+				uploads = append(uploads, &step.Upload{
+					FilePath:        detail.FilePath,
+					DestinationPath: detail.DestinationPath,
+				})
+			}
+			jobTask.Steps = append(jobTask.Steps, archiveStep)
 		}
 
 		// init psot build shell step
@@ -297,34 +312,9 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string) []*commonmodels.KeyVal {
+func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
-	for index, repo := range build.Repos {
-
-		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
-
-		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
-
-		repoIndex := fmt.Sprintf("REPO_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
-
-		if len(repo.Branch) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
-		}
-
-		if len(repo.Tag) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
-		}
-
-		if repo.PR > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
-		}
-
-		if len(repo.CommitID) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
-		}
-	}
+	ret = append(ret, getReposVariables(build.Repos)...)
 	reg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: dockerRegistryID})
 	if err != nil {
 		log.Errorf("find docker registry by ID %s error: %v", dockerRegistryID, err)
