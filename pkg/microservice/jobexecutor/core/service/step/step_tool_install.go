@@ -43,9 +43,7 @@ func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []s
 
 func (s *ToolInstallStep) Run(ctx context.Context) error {
 	start := time.Now()
-	for _, tool := range s.spec.Installs {
-		log.Infof("Installing %s %s.", tool.Name, tool.Version)
-	}
+	log.Infof("Installing tools.")
 	defer func() {
 		log.Infof("Install tools ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
