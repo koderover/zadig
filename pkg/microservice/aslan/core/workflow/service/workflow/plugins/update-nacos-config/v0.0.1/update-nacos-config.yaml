@@ -1,0 +1,68 @@
+name: update-nacos-config
+version: "v0.0.1"
+descrption: "update nacos config"
+image: koderover.tencentcloudcr.com/koderover-public/update-nacos-config:v0.0.1-amd64
+
+envs:
+- name: CONTENT
+  value: $(CONTENT)
+- name: SERVER_IP
+  value: $(SERVER_IP)
+- name: SERVER_PORT
+  value: $(SERVER_PORT)
+- name: TENANT_ID
+  value: $(TENANT_ID)
+- name: DATA_ID
+  value: $(DATA_ID)
+- name: GROUP
+  value: $(GROUP)
+- name: TYPE
+  value: $(TYPE)
+- name: USER_NAME
+  value: $(USER_NAME)
+- name: PASSWORD
+  value: $(PASSWORD)
+- name: SCHEMA
+  value: $(SCHEMA)
+  
+inputs:
+- name: CONTENT
+  description: "config file content"
+  type: string
+  default: ""
+- name: SERVER_IP
+  description: "nacos server ip"
+  type: string
+  default: ""
+- name: SERVER_PORT
+  description: "nacos server port"
+  type: string
+  default: "0"
+- name: TENANT_ID
+  description: "nacos namespace id"
+  type: string
+  default: ""
+- name: DATA_ID
+  description: "nacos config data id"
+  type: string
+  default: ""
+- name: GROUP
+  description: "nacos config"
+  type: string
+  default: ""
+- name: TYPE
+  description: "nacos config type: properties/xml/json/text/html/yaml"
+  type: string
+  default: ""
+- name: USER_NAME
+  description: "nacos user name"
+  type: string
+  default: ""
+- name: PASSWORD
+  description: "nacos password"
+  type: string
+  default: ""
+- name: SCHEMA
+  description: "nacos server schema"
+  type: string
+  default: "http"

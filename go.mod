@@ -53,6 +53,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mittwald/go-helm-client v0.8.4
 	github.com/moby/buildkit v0.9.1
+	github.com/nacos-group/nacos-sdk-go v1.1.1 // indirect
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.16.4
