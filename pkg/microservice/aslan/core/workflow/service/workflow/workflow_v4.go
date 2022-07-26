@@ -110,10 +110,7 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
-	if err := encryptWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
-		return workflow, err
-	}
-	if err := mergeNewKeyValsWorkflowV4(workflow, logger); err != nil {
+	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
 	}
 	return workflow, err
@@ -231,7 +228,7 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	}
 }
 
-func mergeNewKeyValsWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.JobType == config.JobZadigBuild {
@@ -255,24 +252,6 @@ func mergeNewKeyValsWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.Su
 						}
 					}
 					build.KeyVals = commonservice.MergeBuildEnvs(kvs, build.KeyVals)
-				}
-				job.Spec = spec
-			}
-		}
-	}
-	return nil
-}
-
-func encryptWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if job.JobType == config.JobZadigBuild {
-				spec := &commonmodels.ZadigBuildJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				for _, build := range spec.ServiceAndBuilds {
 					if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
 						logger.Errorf(err.Error())
 						return e.ErrFindWorkflow.AddErr(err)

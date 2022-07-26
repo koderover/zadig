@@ -105,7 +105,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogg
 			}
 		}
 	}
-	if err := encryptWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
+	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
 	return workflow, nil
