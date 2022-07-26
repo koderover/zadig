@@ -257,8 +257,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		}
 	}
 
-	eventStart := time.Now().Unix()
-	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, kubeClient, istioClient, log)
+	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
 	return nil
 }
 
@@ -296,8 +295,6 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	eventStart := time.Now().Unix()
-
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
 	err := commonrepo.NewProductColl().Create(args)
@@ -306,7 +303,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, nil, nil, log)
+	go createGroups(args.EnvName, user, requestID, args, time.Now().Unix(), nil, nil, nil, nil, log)
 	return nil
 }
 
@@ -381,8 +378,6 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	eventStart := time.Now().Unix()
-	// 检查renderinfo是否为空，避免空指针
 	if args.Render == nil {
 		args.Render = &models.RenderInfo{ProductTmpl: args.ProductName}
 	}
@@ -425,7 +420,7 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, inf, kubeClient, istioClient, log)
+	go createGroups(args.EnvName, user, requestID, args, time.Now().Unix(), renderSet, inf, kubeClient, istioClient, log)
 	return nil
 }
 
