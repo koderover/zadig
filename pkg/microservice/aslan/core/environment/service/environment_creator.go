@@ -23,10 +23,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"k8s.io/client-go/informers"
-
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
