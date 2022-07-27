@@ -1,0 +1,44 @@
+name: dms-approval
+version: "v0.0.1"
+descrption: "create dms data correct order and wait approved"
+image: koderover.tencentcloudcr.com/koderover-public/dms-approval:v0.0.1-amd64
+
+envs:
+- name: AK
+  value: $(AK)
+- name: SK
+  value: $(SK)
+- name: DBS
+  value: $(DBS)
+- name: AFFECT_ROWS
+  value: $(AFFECT_ROWS)
+- name: EXEC_SQL
+  value: $(EXEC_SQL)
+- name: COMMENT
+  value: $(COMMENT)
+  
+inputs:
+- name: AK
+  description: "aliyun account AK"
+  type: string
+  default: ""
+- name: SK
+  description: "aliyun account AK"
+  type: string
+  default: ""
+- name: DBS
+  description: "databases to operate, separated by commas, eg: test@127.0.0.1:3306,test@127.0.0.1:3306"
+  type: string
+  default: ""
+- name: AFFECT_ROWS
+  description: "affect rows"
+  type: string
+  default: "0"
+- name: EXEC_SQL
+  description: "sql to exexute"
+  type: string
+  default: ""
+- name: COMMENT
+  description: "comment message"
+  type: string
+  default: ""

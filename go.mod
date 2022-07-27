@@ -5,16 +5,17 @@ go 1.16
 require (
 	gitee.com/openeuler/go-gitee v0.0.0-20220323055843-285220630cbc
 	github.com/27149chen/afero v1.6.2
-	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/RyanCarrier/dijkstra v1.1.0
+	github.com/alibabacloud-go/darabonba-openapi v0.1.18
+	github.com/alibabacloud-go/dms-enterprise-20181101 v1.37.0
+	github.com/alibabacloud-go/tea-utils v1.4.5
+	github.com/aliyun/credentials-go v1.2.3
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
 	github.com/antihax/optional v1.0.0
 	github.com/aws/aws-sdk-go v1.34.28
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bndr/gojenkins v1.1.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
-	github.com/bugsnag/bugsnag-go v2.1.0+incompatible // indirect
-	github.com/bugsnag/panicwrap v1.3.1 // indirect
 	github.com/buraksezer/consistent v0.9.0
 	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/cespare/xxhash v1.1.0
@@ -27,16 +28,12 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v20.10.11+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
-	github.com/dsnet/compress v0.0.1 // indirect
-	github.com/garyburd/redigo v1.6.2 // indirect
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-co-op/gocron v1.13.0
 	github.com/go-ldap/ldap/v3 v3.3.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github/v35 v35.3.0
@@ -49,13 +46,10 @@ require (
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/copier v0.3.5
 	github.com/jinzhu/now v1.1.2
-	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mittwald/go-helm-client v0.8.4
 	github.com/moby/buildkit v0.9.1
-	github.com/nacos-group/nacos-sdk-go v1.1.1 // indirect
+	github.com/nacos-group/nacos-sdk-go v1.1.1
 	github.com/nsqio/go-nsq v1.0.7
-	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -68,22 +62,17 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
-	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
 	github.com/stretchr/testify v1.7.1
 	github.com/swaggo/files v0.0.0-20190704085106-630677cd5c14
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.5.1
 	github.com/xanzy/go-gitlab v0.50.0
-	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
-	github.com/yvasiyarov/gorelic v0.0.7 // indirect
-	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	go.mongodb.org/mongo-driver v1.5.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/mholt/archiver.v3 v3.1.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -102,6 +91,24 @@ require (
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 	sigs.k8s.io/controller-runtime v0.10.1
 	sigs.k8s.io/yaml v1.3.0
+)
+
+require (
+	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
+	github.com/bugsnag/bugsnag-go v2.1.0+incompatible // indirect
+	github.com/bugsnag/panicwrap v1.3.1 // indirect
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
+	github.com/dsnet/compress v0.0.1 // indirect
+	github.com/garyburd/redigo v1.6.2 // indirect
+	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/nwaples/rardecode v1.0.0 // indirect
+	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
+	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
+	github.com/yvasiyarov/gorelic v0.0.7 // indirect
+	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 )
 
 replace (
