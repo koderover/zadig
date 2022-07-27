@@ -99,7 +99,7 @@ func ListWorkflowV4(c *gin.Context) {
 		ignoreWorkflow = true
 	}
 
-	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, workflowNames, ignoreWorkflow, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserID, workflowNames, ignoreWorkflow, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,
