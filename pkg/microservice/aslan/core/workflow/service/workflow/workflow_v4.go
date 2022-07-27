@@ -238,7 +238,22 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 					return e.ErrFindWorkflow.AddErr(err)
 				}
 				for _, build := range spec.ServiceAndBuilds {
+					buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+					if err != nil {
+						logger.Errorf(err.Error())
+						return e.ErrFindWorkflow.AddErr(err)
+					}
+					kvs := buildInfo.PreBuild.Envs
+					if buildInfo.TemplateID != "" {
+						for _, target := range buildInfo.Targets {
+							if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+								kvs = target.Envs
+							}
+						}
+					}
+					build.KeyVals = commonservice.MergeBuildEnvs(kvs, build.KeyVals)
 					if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
+						logger.Errorf(err.Error())
 						return e.ErrFindWorkflow.AddErr(err)
 					}
 				}
