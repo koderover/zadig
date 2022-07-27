@@ -45,6 +45,7 @@ func Serve(ctx context.Context) error {
 	}
 
 	http.HandleFunc("/ping", ping)
+	http.HandleFunc("/healthz", healthz)
 	server := &http.Server{Addr: ":25001", Handler: nil}
 
 	stopChan := make(chan struct{})
@@ -72,5 +73,9 @@ func Serve(ctx context.Context) error {
 }
 
 func ping(w http.ResponseWriter, r *http.Request) {
+	_, _ = w.Write([]byte("success"))
+}
+
+func healthz(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("success"))
 }
