@@ -79,7 +79,7 @@ func (s DockerBuildStep) dockerLogin() error {
 		cmd.Stdout = &out
 		cmd.Stderr = &out
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to login docker registry: %s:%s", err, string(out.Bytes()))
+			return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 		}
 
 		fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
