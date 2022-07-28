@@ -88,9 +88,6 @@ const (
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"
 	ReleaseImageTimeout = "RELEASE_IMAGE_TIMEOUT"
-	DefaultRegistryAddr = "DEFAULT_REG_ADDRESS"
-	DefaultRegistryAK   = "DEFAULT_REG_ACCESS_KEY"
-	DefaultRegistrySK   = "DEFAULT_REG_SECRET_KEY"
 
 	// reaper
 	Home          = "HOME"

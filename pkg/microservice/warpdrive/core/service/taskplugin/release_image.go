@@ -319,7 +319,7 @@ DistributeLoop:
 				}
 			}
 			if serviceInfo.WorkloadType == "" {
-				selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: distribute.DeployServiceName}.AsSelector()
+				selector = labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: distribute.DeployServiceName}.AsSelector()
 
 				var deployments []*appsv1.Deployment
 				deployments, err = getter.ListDeployments(distribute.DeployNamespace, selector, p.kubeClient)
