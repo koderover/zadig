@@ -154,8 +154,8 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		helmClient               helmclient.Client
 	)
 
-	p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %v namespace %s", p.Task.ProductName,
-		p.Task.ServiceName, containerNameSet.List(), p.Task.Namespace)
+	p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %v envName: %s namespace %s", p.Task.ProductName,
+		p.Task.ServiceName, containerNameSet.List(), p.Task.EnvName, p.Task.Namespace)
 
 	productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
 	if err != nil {
@@ -403,7 +403,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 func (p *HelmDeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
 	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
 	prod := &types.Product{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName), httpclient.SetQueryParam("ifPassFilter", "true"))
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +463,7 @@ func (p *HelmDeployTaskPlugin) downloadService(productName, serviceName, storage
 func (p *HelmDeployTaskPlugin) getRenderSet(ctx context.Context, name string, revision int64) (*types.RenderSet, error) {
 	url := fmt.Sprintf("/api/project/renders/render/%s/revision/%d", name, revision)
 	rs := &types.RenderSet{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(rs))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(rs), httpclient.SetQueryParam("ifPassFilter", "true"))
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +561,7 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 
 func (p *HelmDeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.RenderSet) error {
 	url := "/api/project/renders"
-	_, err := p.httpClient.Put(url, httpclient.SetBody(args))
+	_, err := p.httpClient.Put(url, httpclient.SetBody(args), httpclient.SetQueryParam("ifPassFilter", "true"))
 	return err
 }
 
