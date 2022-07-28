@@ -57,11 +57,12 @@ type Env struct {
 }
 
 type Params struct {
-	Name        string `bson:"name"             json:"name"             yaml:"name"`
-	Description string `bson:"description"      json:"description"      yaml:"description"`
-	ParamsType  string `bson:"type"             json:"type"             yaml:"type"`
-	Value       string `bson:"value"            json:"value"            yaml:"value,omitempty"`
-	Default     string `bson:"default"          json:"default"          yaml:"default"`
+	Name         string `bson:"name"             json:"name"             yaml:"name"`
+	Description  string `bson:"description"      json:"description"      yaml:"description"`
+	ParamsType   string `bson:"type"             json:"type"             yaml:"type"`
+	Value        string `bson:"value"            json:"value"            yaml:"value,omitempty"`
+	Default      string `bson:"default"          json:"default"          yaml:"default"`
+	IsCredential bool   `bson:"is_credential"    json:"is_credential"    yaml:"is_credential"`
 }
 
 func (PluginRepo) TableName() string {
