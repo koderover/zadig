@@ -36,7 +36,7 @@ inputs:
   default: "0"
 - name: EXEC_SQL
   description: "sql to exexute"
-  type: string
+  type: text
   default: ""
 - name: COMMENT
   description: "comment message"

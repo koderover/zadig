@@ -57,8 +57,9 @@ type Env struct {
 }
 
 type Params struct {
-	Name         string `bson:"name"             json:"name"             yaml:"name"`
-	Description  string `bson:"description"      json:"description"      yaml:"description"`
+	Name        string `bson:"name"             json:"name"             yaml:"name"`
+	Description string `bson:"description"      json:"description"      yaml:"description"`
+	// support string/text type
 	ParamsType   string `bson:"type"             json:"type"             yaml:"type"`
 	Value        string `bson:"value"            json:"value"            yaml:"value,omitempty"`
 	Default      string `bson:"default"          json:"default"          yaml:"default"`

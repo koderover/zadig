@@ -28,7 +28,7 @@ envs:
 inputs:
 - name: CONTENT
   description: "config file content"
-  type: string
+  type: text
   default: ""
 - name: SERVER_IP
   description: "nacos server ip"
