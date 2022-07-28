@@ -46,23 +46,33 @@ type User struct {
 	IdentityType string `json:"identityType"`
 }
 
+type CheckSignatureRes struct {
+	Code        int                    `json:"code"`
+	Description string                 `json:"description"`
+	Extra       map[string]interface{} `json:"extra"`
+	Message     string                 `json:"message"`
+	Type        string                 `json:"type"`
+}
+
 func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
 	userNum, err := orm.CountUser(core.DB)
 	if err != nil {
 		return err
 	}
-	logger.Infof("userNum:%s", userNum)
 	vendorClient := plutusvendor.New()
 	err = vendorClient.Health()
-	if err != nil {
-		checkErr := vendorClient.CheckSignature(userNum)
-		if checkErr != nil && checkErr.Error() == "系统使用用户数量已达授权人数上限，请联系系统管理员" {
-			if ifLoggedIn {
-				logger.Infof("has logged")
-				return nil
-			}
-			logger.Error(checkErr)
+	if err == nil {
+		res, checkErr := vendorClient.CheckSignature(userNum)
+		if checkErr != nil {
 			return checkErr
+		}
+		if res.Code == 6694 {
+			if ifLoggedIn {
+				return nil
+			} else {
+				return fmt.Errorf("系统使用用户数量已达授权人数上限，请联系系统管理员")
+			}
+
 		}
 	}
 	return nil

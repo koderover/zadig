@@ -18,12 +18,19 @@ package plutusvendor
 
 import (
 	"fmt"
+
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func (c *Client) CheckSignature(userNum int64) error {
+type CheckSignatrueResp struct {
+	Code int64 `json:"code"`
+}
+
+func (c *Client) CheckSignature(userNum int64) (*CheckSignatrueResp, error) {
 	url := fmt.Sprintf("/signature/check?user_num=%d", userNum)
-	_, err := c.Post(url)
-	return err
+	res := &CheckSignatrueResp{}
+	_, err := c.Post(url, httpclient.SetResult(res))
+	return res, err
 }
 
 func (c *Client) Health() error {
