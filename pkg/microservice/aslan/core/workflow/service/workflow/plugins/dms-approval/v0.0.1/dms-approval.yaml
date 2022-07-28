@@ -1,4 +1,4 @@
-name: dms-approval
+name: "DMS 数据变更工单"
 version: "v0.0.1"
 descrption: "create dms data correct order and wait approved"
 image: koderover.tencentcloudcr.com/koderover-public/dms-approval:v0.0.1-amd64

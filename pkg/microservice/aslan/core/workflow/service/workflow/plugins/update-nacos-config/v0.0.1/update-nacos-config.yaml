@@ -1,4 +1,4 @@
-name: update-nacos-config
+name: "Nacos 配置修改"
 version: "v0.0.1"
 descrption: "update nacos config"
 image: koderover.tencentcloudcr.com/koderover-public/update-nacos-config:v0.0.1-amd64
