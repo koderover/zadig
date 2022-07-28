@@ -50,10 +50,11 @@ func main() {
 	clientConfig := constant.ClientConfig{
 		TimeoutMs:           5000,
 		NotLoadCacheAtStart: true,
-		LogLevel:            "warn",
+		LogLevel:            "error",
 		Username:            userName,
 		Password:            password,
 		NamespaceId:         tenantID,
+		LogSampling:         &constant.ClientLogSamplingConfig{Thereafter: 100},
 	}
 
 	serverConfigs := []constant.ServerConfig{
@@ -73,6 +74,17 @@ func main() {
 		log.Errorf("create config client error: %s", err.Error())
 		os.Exit(1)
 	}
+	oldConfig, err := configClient.GetConfig(vo.ConfigParam{
+		DataId:  dataID,
+		Group:   group,
+		DatumId: tenantID,
+	})
+	if err != nil {
+		log.Errorf("get old config error: %s", err.Error())
+		os.Exit(1)
+	}
+	log.Infof("old config:\n %s", oldConfig)
+	log.Infof("new config:\n %s", content)
 
 	success, err := configClient.PublishConfig(vo.ConfigParam{
 		DataId:  dataID,

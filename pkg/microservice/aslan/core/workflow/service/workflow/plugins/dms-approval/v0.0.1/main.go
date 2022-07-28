@@ -126,6 +126,34 @@ func main() {
 	getOrderBaseInfoRequest := new(dms.GetOrderBaseInfoRequest)
 	getOrderBaseInfoRequest.SetOrderId(orderID)
 
+	time.Sleep(time.Second)
+	for {
+		passed, err := orderPreCheckpassed(orderID, client)
+		if err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
+		if passed {
+			log.Infof("precheck all passed, continue")
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	submitOrderRequest := new(dms.SubmitOrderApprovalRequest).SetOrderId(orderID)
+	submitOrderResponse, err := client.SubmitOrderApproval(submitOrderRequest)
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+	if !*submitOrderResponse.Body.Success {
+		log.Errorf("submit order approval failed")
+		os.Exit(1)
+	}
+
+	log.Infof("order submited, waiting for approve...")
+
+	approved := false
 	for {
 		orderInfoResponse, err := client.GetOrderBaseInfo(getOrderBaseInfoRequest)
 		if err != nil {
@@ -134,11 +162,15 @@ func main() {
 		}
 		status := *orderInfoResponse.Body.OrderBaseInfo.StatusCode
 		switch status {
+		case "approved":
+			if !approved {
+				log.Infof("order approved, waiting for execution...")
+				approved = true
+			}
+			fallthrough
 		case "new":
 			fallthrough
 		case "toaudit":
-			fallthrough
-		case "approved":
 			fallthrough
 		case "processing":
 			time.Sleep(time.Second)
@@ -150,6 +182,7 @@ func main() {
 			log.Error(errMsg)
 			os.Exit(1)
 		case "success":
+			log.Infof("order executed successfully")
 			return
 		default:
 			errMsg := fmt.Sprintf("unknown status: %s,order: %d", status, orderID)
@@ -157,6 +190,28 @@ func main() {
 			os.Exit(1)
 		}
 	}
+}
+
+func orderPreCheckpassed(orderID int64, client *dms.Client) (bool, error) {
+	preCheckRequest := new(dms.ListDataCorrectPreCheckSQLRequest).SetOrderId(orderID)
+	pageNum := 1
+	pageSize := 10
+	currentpageSize := 10
+	for currentpageSize >= pageSize {
+		preCheckRequest.SetPageNumber(int64(pageNum)).SetPageSize(int64(pageSize))
+		response, err := client.ListDataCorrectPreCheckSQL(preCheckRequest)
+		if err != nil {
+			return false, err
+		}
+		for _, preCheck := range response.Body.PreCheckSQLList {
+			if *preCheck.SqlReviewStatus != "PASS" {
+				return false, nil
+			}
+		}
+		currentpageSize = len(response.Body.PreCheckSQLList)
+		pageNum++
+	}
+	return true, nil
 }
 
 func searchDBs(dbConnector string, db *DB, client *dms.Client) (*dms.CreateDataCorrectOrderRequestParamDbItemList, error) {
