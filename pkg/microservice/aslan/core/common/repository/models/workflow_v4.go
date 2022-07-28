@@ -68,6 +68,7 @@ type User struct {
 type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
+	Skip    bool           `bson:"skip"           yaml:"skip"     json:"skip"`
 	Spec    interface{}    `bson:"spec"           yaml:"spec"     json:"spec"`
 }
 
