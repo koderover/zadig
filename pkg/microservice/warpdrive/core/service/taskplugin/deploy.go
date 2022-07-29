@@ -172,7 +172,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 	}
 	if serviceInfo.WorkloadType == "" {
-		selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
+		selector = labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
 
 		var deployments []*appsv1.Deployment
 		deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)

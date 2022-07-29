@@ -41,15 +41,3 @@ func ReleaseImageTimeout() string {
 func Home() string {
 	return viper.GetString(setting.Home)
 }
-
-func DefaultRegistryAddr() string {
-	return viper.GetString(setting.DefaultRegistryAddr)
-}
-
-func DefaultRegistryAK() string {
-	return viper.GetString(setting.DefaultRegistryAK)
-}
-
-func DefaultRegistrySK() string {
-	return viper.GetString(setting.DefaultRegistrySK)
-}

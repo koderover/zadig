@@ -268,7 +268,7 @@ func (z *zgctl) configLocalSyncthing(configDir string) (deviceID string, err err
 	cmd.Stderr = &errBuffer
 	err = cmd.Run()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s %s", err, errBuffer.String())
 	}
 
 	items := strings.Split(errBuffer.String(), "Device ID:")

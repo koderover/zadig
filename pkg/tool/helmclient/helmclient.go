@@ -626,12 +626,12 @@ func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string)
 	prog.Env = os.Environ()
 	buf := bytes.NewBuffer(nil)
 	prog.Stdout = buf
-	prog.Stderr = os.Stderr
+	prog.Stderr = buf
 	if err := prog.Run(); err != nil {
 		if eErr, ok := err.(*exec.ExitError); ok {
-			return fmt.Errorf("plugin exited with error: %s", string(eErr.Stderr))
+			return fmt.Errorf("plugin exited with error: %s %s", string(eErr.Stderr), buf.String())
 		}
-		return err
+		return fmt.Errorf("%s %s", err, buf.String())
 	}
 	return nil
 }
