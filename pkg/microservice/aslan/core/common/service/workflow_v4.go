@@ -102,3 +102,24 @@ func EncryptKeyVals(encryptedKey string, kvs []*commonmodels.KeyVal, logger *zap
 	}
 	return nil
 }
+
+func EncryptParams(encryptedKey string, params []*commonmodels.Params, logger *zap.SugaredLogger) error {
+	if encryptedKey == "" {
+		return nil
+	}
+	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	if err != nil {
+		log.Errorf("EncyptParams GetAesKeyFromEncryptedKey err:%v", err)
+		return err
+	}
+	for _, param := range params {
+		if param.IsCredential {
+			param.Value, err = crypto.AesEncryptByKey(param.Value, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("aes encrypt by key err:%v", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
