@@ -122,6 +122,10 @@ const (
 	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
 	ENVUserPort       = "USER_PORT"
 
+	// config
+	ENVMysqlDexDB = "MYSQL_DEX_DB"
+	FeatureFlag   = "feature-gates"
+
 	// initconfig
 	ENVAdminEmail    = "ADMIN_EMAIL"
 	ENVAdminPassword = "ADMIN_PASSWORD"
