@@ -434,7 +434,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	}
 
 	// Delete freestyle workflow
-	cl := configclient.New(configbase.ConfigServiceAddress())
+	cl := configclient.New(configbase.AslanServiceAddress())
 	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
 		collieClient := collie.New(config.CollieAPIAddress())
 		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {

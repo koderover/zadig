@@ -23,10 +23,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
+	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -41,6 +44,7 @@ import (
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -121,6 +125,9 @@ func Start(ctx context.Context) {
 	initService()
 	initDinD()
 
+	// old config service initialization, it didn't panic or stop if it fails, so I will just keep it that way.
+	InitializeConfigFeatureGates()
+
 	systemservice.SetProxyConfig()
 
 	workflowservice.InitPipelineController()
@@ -171,9 +178,19 @@ func initDinD() {
 }
 
 func initDatabase() {
+	err := gormtool.Open(configbase.MysqlUser(),
+		configbase.MysqlPassword(),
+		configbase.MysqlHost(),
+		config.MysqlDexDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlDexDB())
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	// mongodb initialization
 	mongotool.Init(ctx, config.MongoURI())
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
@@ -184,6 +201,7 @@ func initDatabase() {
 
 	var wg sync.WaitGroup
 	for _, r := range []indexer{
+		// aslan related db index
 		template.NewProductColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
@@ -249,6 +267,9 @@ func initDatabase() {
 		labelMongodb.NewLabelBindingColl(),
 		modeMongodb.NewCollaborationModeColl(),
 		modeMongodb.NewCollaborationInstanceColl(),
+
+		// config related db index
+		configmongodb.NewEmailHostColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
@@ -274,4 +295,21 @@ func initDatabase() {
 type indexer interface {
 	EnsureIndex(ctx context.Context) error
 	GetCollectionName() string
+}
+
+// InitializeConfigFeatureGates initialize feature gates for the old config service module.
+// Currently, the function of this part is unknown. But we will keep it just to make sure.
+func InitializeConfigFeatureGates() error {
+	flagFG, err := service.FlagToFeatureGates(config.Features())
+	if err != nil {
+		log.Errorf("FlagToFeatureGates err:%s", err)
+		return err
+	}
+	dbFG, err := service.DBToFeatureGates()
+	if err != nil {
+		log.Errorf("DBToFeatureGates err:%s", err)
+		return err
+	}
+	service.Features.MergeFeatureGates(flagFG, dbFG)
+	return nil
 }

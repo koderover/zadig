@@ -253,3 +253,11 @@ func ServiceAccountNameForUser(userID string) string {
 func DindImage() string {
 	return viper.GetString(setting.DindImage)
 }
+
+func MysqlDexDB() string {
+	return viper.GetString(setting.ENVMysqlDexDB)
+}
+
+func Features() string {
+	return viper.GetString(setting.FeatureFlag)
+}
