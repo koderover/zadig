@@ -335,6 +335,9 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		}
 		stageBuildJobNameMap := make(map[string]string)
 		for _, job := range stage.Jobs {
+			if job.Skip {
+				continue
+			}
 			if !stage.Parallel {
 				buildJobNameMap[job.Name] = string(job.JobType)
 			} else {
