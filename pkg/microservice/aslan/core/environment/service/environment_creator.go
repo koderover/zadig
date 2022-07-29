@@ -19,21 +19,31 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	"k8s.io/client-go/informers"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -142,10 +152,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
 
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
@@ -215,11 +221,22 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	// 设置产品render revision
-	args.Render.Revision = renderSet.Revision
-	// 记录服务当前对应render版本
-	setServiceRender(args)
+	// before create product, do install -dryRun to expose errors earlier
+	err = dryRunInstallRelease(args, renderSet, helmClient, log)
+	if err != nil {
+		log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, args.EnvName, err)
+		return e.ErrCreateEnv.AddErr(err)
+	}
 
+	dryRunClient := client.NewDryRunClient(kubeClient)
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
+	if err != nil {
+		log.Errorf("failed to dyrRun env resource [%s][P:%s], the error is: %s", args.EnvName, args.ProductName, err)
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	args.Render.Revision = renderSet.Revision
+	setServiceRender(args)
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
 	args.ClusterID = clusterID
@@ -232,24 +249,15 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	eventStart := time.Now().Unix()
-	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, false, kubeClient)
 	if err != nil {
-		log.Errorf("failed to create informer from clientset for clusterID: %s, the error is: %s", clusterID, err)
-		return nil
-	}
-
-	err = helmInitEnvConfigSet(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, inf, kubeClient)
-	if err != nil {
-		log.Errorf("failed to helmInitEnvConfigSet [%s][P:%s]: %s, the error is: %s", args.EnvName, args.ProductName, err)
-		if err := commonrepo.NewProductColl().UpdateStatus(args.EnvName, args.ProductName, setting.ProductStatusFailed); err != nil {
+		log.Errorf("failed to helmInitEnvConfigSet [%s][P:%s], the error is: %s", args.EnvName, args.ProductName, err)
+		if err := commonrepo.NewProductColl().UpdateStatusAndError(args.EnvName, args.ProductName, setting.ProductStatusFailed, err.Error()); err != nil {
 			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateStatus error: %s", args.EnvName, args.ProductName, err)
 		}
-		if err := commonrepo.NewProductColl().UpdateErrors(args.EnvName, args.ProductName, err.Error()); err != nil {
-			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateErrors error: %s", args.EnvName, args.ProductName, err)
-		}
 	}
-	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, kubeClient, istioClient, log)
+
+	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
 	return nil
 }
 
@@ -287,8 +295,6 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	eventStart := time.Now().Unix()
-
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
 	err := commonrepo.NewProductColl().Create(args)
@@ -297,7 +303,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, nil, nil, log)
+	go createGroups(args.EnvName, user, requestID, args, time.Now().Unix(), nil, nil, nil, nil, log)
 	return nil
 }
 
@@ -306,6 +312,19 @@ type DefaultProductCreator struct {
 
 func newDefaultProductCreator() *DefaultProductCreator {
 	return &DefaultProductCreator{}
+}
+
+func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, log *zap.SugaredLogger) error {
+	errList := &multierror.Error{}
+	for _, group := range args.Services {
+		for _, svc := range group {
+			_, err := upsertService(false, args, svc, nil, renderSet, informer, kubeClient, nil, log)
+			if err != nil {
+				errList = multierror.Append(errList, fmt.Errorf("failed to dryRun apply service: %s, err: %s", svc.ServiceName, err))
+			}
+		}
+	}
+	return errList.ErrorOrNil()
 }
 
 func (creator *DefaultProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
@@ -359,8 +378,6 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	eventStart := time.Now().Unix()
-	// 检查renderinfo是否为空，避免空指针
 	if args.Render == nil {
 		args.Render = &models.RenderInfo{ProductTmpl: args.ProductName}
 	}
@@ -378,11 +395,20 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 			log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
-		// 保存产品信息,并设置产品状态
-		// 设置产品render revsion
 		args.Render.Revision = renderSet.Revision
-		// 记录服务当前对应render版本
 		setServiceRender(args)
+	}
+
+	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early
+	dryRunClient := client.NewDryRunClient(kubeClient)
+	err = dryRunServices(args, renderSet, inf, dryRunClient, log)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
 	}
 
 	args.Status = setting.ProductStatusCreating
@@ -393,7 +419,93 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
-	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, inf, kubeClient, istioClient, log)
+
+	go createGroups(args.EnvName, user, requestID, args, time.Now().Unix(), renderSet, inf, kubeClient, istioClient, log)
 	return nil
+}
+
+func initEnvConfigSetAction(envName, namespace, productName, userName string, envResources []*models.CreateUpdateCommonEnvCfgArgs, dryRun bool, kubeClient client.Client) error {
+	errList := &multierror.Error{
+		ErrorFormat: func(es []error) string {
+			format := "创建环境配置"
+			if len(es) == 1 {
+				return fmt.Sprintf(format+" %s 失败:%s", envName, es[0])
+			}
+			points := make([]string, len(es))
+			for i, err := range es {
+				points[i] = fmt.Sprintf("* %s", err)
+			}
+			return fmt.Sprintf(format+" %s 失败:\n%s", envName, strings.Join(points, "\n"))
+		},
+	}
+
+	clusterLabels := getPredefinedClusterLabels(productName, "", envName)
+	delete(clusterLabels, "s-service")
+
+	for _, envResource := range envResources {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(envResource.YamlData))
+		if err != nil {
+			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %s", envResource.YamlData, err)
+			errList = multierror.Append(errList, err)
+			continue
+		}
+		switch u.GetKind() {
+		case setting.ConfigMap, setting.Ingress, setting.Secret, setting.PersistentVolumeClaim:
+			ls := kube.MergeLabels(clusterLabels, u.GetLabels())
+			u.SetNamespace(namespace)
+			u.SetLabels(ls)
+			_, err := ensureLabelAndNs(u, namespace, productName)
+			if err != nil {
+				errList = multierror.Append(errList, err)
+				continue
+			}
+
+			err = updater.CreateOrPatchUnstructuredNeverAnnotation(u, kubeClient)
+			if err != nil {
+				log.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
+				errList = multierror.Append(errList, err)
+				continue
+			}
+
+			if dryRun {
+				continue
+			}
+
+			u.SetManagedFields(nil)
+			yamlData, err := yaml.Marshal(u.UnstructuredContent())
+			if err != nil {
+				log.Errorf("Failed to initEnvConfigSet yaml.Marshal %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
+				errList = multierror.Append(errList, err)
+				continue
+			}
+			envResourceObj := &models.EnvResource{
+				ProductName:    productName,
+				UpdateUserName: userName,
+				EnvName:        envName,
+				Namespace:      namespace,
+				Name:           u.GetName(),
+				YamlData:       string(yamlData),
+				SourceDetail:   geneSourceDetail(envResource.GitRepoConfig),
+				AutoSync:       envResource.AutoSync,
+			}
+
+			switch u.GetKind() {
+			case setting.ConfigMap:
+				envResourceObj.Type = string(config.CommonEnvCfgTypeConfigMap)
+			case setting.Ingress:
+				envResourceObj.Type = string(config.CommonEnvCfgTypeIngress)
+			case setting.Secret:
+				envResourceObj.Type = string(config.CommonEnvCfgTypeSecret)
+			case setting.PersistentVolumeClaim:
+				envResourceObj.Type = string(config.CommonEnvCfgTypePvc)
+			}
+			if err := commonrepo.NewEnvResourceColl().Create(envResourceObj); err != nil {
+				errList = multierror.Append(errList, err)
+			}
+		default:
+			errList = multierror.Append(errList, fmt.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, "kind not support"))
+		}
+	}
+
+	return errList.ErrorOrNil()
 }

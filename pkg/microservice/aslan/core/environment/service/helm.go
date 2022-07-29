@@ -31,8 +31,6 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -44,8 +42,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	"github.com/koderover/zadig/pkg/tool/kube/serializer"
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -613,89 +609,4 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 		ret.ServiceImages = append(ret.ServiceImages, svcImage)
 	}
 	return ret, nil
-}
-
-func helmInitEnvConfigSet(envName, namespace, productName, userName string, envResources []*models.CreateUpdateCommonEnvCfgArgs, inf informers.SharedInformerFactory, kubeClient client.Client) error {
-	return initEnvConfigSetAction(envName, namespace, productName, userName, envResources, inf, kubeClient)
-}
-
-func initEnvConfigSetAction(envName, namespace, productName, userName string, envResources []*models.CreateUpdateCommonEnvCfgArgs, inf informers.SharedInformerFactory, kubeClient client.Client) error {
-	errList := &multierror.Error{
-		ErrorFormat: func(es []error) string {
-			format := "创建环境配置"
-			if len(es) == 1 {
-				return fmt.Sprintf(format+" %s 失败:%s", envName, es[0])
-			}
-			points := make([]string, len(es))
-			for i, err := range es {
-				points[i] = fmt.Sprintf("* %s", err)
-			}
-			return fmt.Sprintf(format+" %s 失败:\n%s", envName, strings.Join(points, "\n"))
-		},
-	}
-
-	clusterLabels := getPredefinedClusterLabels(productName, "", envName)
-	delete(clusterLabels, "s-service")
-
-	for _, envResource := range envResources {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(envResource.YamlData))
-		if err != nil {
-			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %s", envResource.YamlData, err)
-			errList = multierror.Append(errList, err)
-			continue
-		}
-		switch u.GetKind() {
-		case setting.ConfigMap, setting.Ingress, setting.Secret, setting.PersistentVolumeClaim:
-			ls := kube.MergeLabels(clusterLabels, u.GetLabels())
-			u.SetNamespace(namespace)
-			u.SetLabels(ls)
-			_, err := ensureLabelAndNs(u, namespace, productName)
-			if err != nil {
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-			err = updater.CreateOrPatchUnstructuredNeverAnnotation(u, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-			u.SetManagedFields(nil)
-			yamlData, err := yaml.Marshal(u.UnstructuredContent())
-			if err != nil {
-				log.Errorf("Failed to initEnvConfigSet yaml.Marshal %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-			envResourceObj := &models.EnvResource{
-				ProductName:    productName,
-				UpdateUserName: userName,
-				EnvName:        envName,
-				Namespace:      namespace,
-				Name:           u.GetName(),
-				YamlData:       string(yamlData),
-				SourceDetail:   geneSourceDetail(envResource.GitRepoConfig),
-				AutoSync:       envResource.AutoSync,
-			}
-
-			switch u.GetKind() {
-			case setting.ConfigMap:
-				envResourceObj.Type = string(config.CommonEnvCfgTypeConfigMap)
-			case setting.Ingress:
-				envResourceObj.Type = string(config.CommonEnvCfgTypeIngress)
-			case setting.Secret:
-				envResourceObj.Type = string(config.CommonEnvCfgTypeSecret)
-			case setting.PersistentVolumeClaim:
-				envResourceObj.Type = string(config.CommonEnvCfgTypePvc)
-			}
-			if err := commonrepo.NewEnvResourceColl().Create(envResourceObj); err != nil {
-				errList = multierror.Append(errList, err)
-			}
-		default:
-			errList = multierror.Append(errList, fmt.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, "kind not support"))
-		}
-	}
-
-	return errList.ErrorOrNil()
 }
