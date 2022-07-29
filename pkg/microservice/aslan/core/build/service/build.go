@@ -146,13 +146,15 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 				}
 				// get build env vars when it's a template build
 				if build.TemplateID != "" {
+					templateEnvs := []*commonmodels.KeyVal{}
 					buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 						ID: build.TemplateID,
 					})
+					// if template not found, envs are empty, but do not block user.
 					if err != nil {
-						errMsg := fmt.Sprintf("build job: %s, template not found", build.Name)
-						log.Error(errMsg)
-						return nil, e.ErrListBuildModule.AddDesc(errMsg)
+						log.Errorf("build job: %s, template not found", build.Name)
+					} else {
+						templateEnvs = buildTemplate.PreBuild.Envs
 					}
 
 					for _, target := range build.Targets {
@@ -160,7 +162,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 							build.PreBuild.Envs = target.Envs
 						}
 					}
-					build.PreBuild.Envs = commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs, build.PreBuild.Envs)
+					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs, build.PreBuild.Envs)
 				}
 				if err := commonservice.EncryptKeyVals(encryptedKey, build.PreBuild.Envs, log); err != nil {
 					return serviceModuleAndBuildResp, err
