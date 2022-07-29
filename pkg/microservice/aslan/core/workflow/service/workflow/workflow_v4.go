@@ -245,11 +245,21 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 					}
 					kvs := buildInfo.PreBuild.Envs
 					if buildInfo.TemplateID != "" {
+						buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+							ID: buildInfo.TemplateID,
+						})
+						if err != nil {
+							logger.Errorf(err.Error())
+							return e.ErrFindWorkflow.AddErr(err)
+						}
+
 						for _, target := range buildInfo.Targets {
 							if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
 								kvs = target.Envs
 							}
 						}
+						// if build template update any keyvals, merge it.
+						kvs = commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs, kvs)
 					}
 					build.KeyVals = commonservice.MergeBuildEnvs(kvs, build.KeyVals)
 					if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
