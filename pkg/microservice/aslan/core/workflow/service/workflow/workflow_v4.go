@@ -249,9 +249,9 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 							ID: buildInfo.TemplateID,
 						})
 						if err != nil {
-							logger.Errorf(err.Error())
-							// if can not find build template, skip this build.
-							continue
+							errMsg := fmt.Sprintf("build job: %s, template not found", buildInfo.Name)
+							logger.Error(errMsg)
+							return e.ErrFindWorkflow.AddDesc(errMsg)
 						}
 
 						for _, target := range buildInfo.Targets {

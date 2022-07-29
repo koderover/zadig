@@ -150,9 +150,9 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 						ID: build.TemplateID,
 					})
 					if err != nil {
-						log.Errorf("build %s, build template not found", build.Name)
-						// if can not find build template, this build was broken, skip this build.
-						continue
+						errMsg := fmt.Sprintf("build job: %s, template not found", build.Name)
+						log.Error(errMsg)
+						return nil, e.ErrListBuildModule.AddDesc(errMsg)
 					}
 
 					for _, target := range build.Targets {
