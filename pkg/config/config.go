@@ -142,15 +142,6 @@ func CollieServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func ConfigServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Config)
-}
-
-func ConfigServiceAddress() string {
-	s := ConfigServiceInfo()
-	return GetServiceAddress(s.Name, s.Port)
-}
-
 func WarpDriveServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.WarpDrive)
 }

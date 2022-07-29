@@ -39,6 +39,10 @@ import (
 	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
+	connectorHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/handler"
+	emailHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
+	featuresHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/handler"
+	jiraHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/handler"
 
 	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
 	_ "github.com/koderover/zadig/pkg/microservice/aslan/server/rest/doc"
@@ -72,6 +76,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 
 	router.GET("/api/kodespace/downloadUrl", commonhandler.GetToolDownloadURL)
 
+	// inject aslan related APIs
 	for name, r := range map[string]injector{
 		"/api/project":       new(projecthandler.Router),
 		"/api/code":          new(codehosthandler.Router),
@@ -92,6 +97,17 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/cache":         cachehandler.NewRouter(),
 	} {
 		r.Inject(router.Group(name))
+	}
+
+	// inject config related APIs
+	for _, r := range []injector{
+		new(connectorHandler.Router),
+		new(emailHandler.Router),
+		new(jiraHandler.Router),
+		new(codehosthandler.Router),
+		new(featuresHandler.Router),
+	} {
+		r.Inject(router.Group("/api/v1"))
 	}
 
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
