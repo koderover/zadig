@@ -250,7 +250,8 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						})
 						if err != nil {
 							logger.Errorf(err.Error())
-							return e.ErrFindWorkflow.AddErr(err)
+							// if can not find build template, skip this build.
+							continue
 						}
 
 						for _, target := range buildInfo.Targets {
