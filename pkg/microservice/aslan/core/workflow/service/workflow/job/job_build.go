@@ -65,7 +65,7 @@ func (j *BuildJob) SetPreset() error {
 		}
 		for _, target := range buildInfo.Targets {
 			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
-				build.Repos = buildInfo.Repos
+				build.Repos = mergeRepos(buildInfo.Repos, build.Repos)
 				build.KeyVals = renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs)
 				break
 			}
@@ -403,4 +403,25 @@ func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
 		return fmt.Sprintf("$%s", data)
 	}
 	return os.Expand(data, mapper)
+}
+
+func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Repository) []*types.Repository {
+	customRepoMap := make(map[string]*types.Repository)
+	for _, repo := range customRepos {
+		if repo.RepoNamespace == "" {
+			repo.RepoNamespace = repo.RepoOwner
+		}
+		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
+		customRepoMap[repoKey] = repo
+	}
+	retRepos := make([]*types.Repository, 0)
+	for _, repo := range templateRepos {
+		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
+		if cv, ok := customRepoMap[repoKey]; ok {
+			retRepos = append(retRepos, cv)
+		} else {
+			retRepos = append(retRepos, repo)
+		}
+	}
+	return retRepos
 }
