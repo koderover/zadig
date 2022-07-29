@@ -143,9 +143,6 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 			Approval: stage.Approval,
 		}
 		for _, job := range stage.Jobs {
-			if job.Skip {
-				continue
-			}
 			// TODO: move this logic to job controller
 			if job.JobType == config.JobZadigBuild {
 				if err := setZadigBuildRepos(job, log); err != nil {
