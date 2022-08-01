@@ -416,6 +416,9 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 	}
 	retRepos := make([]*types.Repository, 0)
 	for _, repo := range templateRepos {
+		if repo.RepoNamespace == "" {
+			repo.RepoNamespace = repo.RepoOwner
+		}
 		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
 		if cv, ok := customRepoMap[repoKey]; ok {
 			retRepos = append(retRepos, cv)
