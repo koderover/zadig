@@ -114,6 +114,7 @@ func (j *Job) getUserEnvs() []string {
 	}
 
 	j.Ctx.Paths = strings.Replace(j.Ctx.Paths, "$HOME", config.Home(), -1)
+	j.Ctx.Paths = strings.Join([]string{os.Getenv("PATH"), j.Ctx.Paths}, ":")
 	envs = append(envs, fmt.Sprintf("PATH=%s", j.Ctx.Paths))
 	envs = append(envs, fmt.Sprintf("DOCKER_HOST=%s", config.DockerHost()))
 	envs = append(envs, j.Ctx.Envs...)
