@@ -6,10 +6,6 @@ require (
 	gitee.com/openeuler/go-gitee v0.0.0-20220323055843-285220630cbc
 	github.com/27149chen/afero v1.6.2
 	github.com/RyanCarrier/dijkstra v1.1.0
-	github.com/alibabacloud-go/darabonba-openapi v0.1.18
-	github.com/alibabacloud-go/dms-enterprise-20181101 v1.37.0
-	github.com/alibabacloud-go/tea-utils v1.4.5
-	github.com/aliyun/credentials-go v1.2.3
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
 	github.com/antihax/optional v1.0.0
 	github.com/aws/aws-sdk-go v1.34.28
@@ -48,7 +44,6 @@ require (
 	github.com/jinzhu/now v1.1.2
 	github.com/mittwald/go-helm-client v0.8.4
 	github.com/moby/buildkit v0.9.1
-	github.com/nacos-group/nacos-sdk-go v1.1.1
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
@@ -101,9 +96,11 @@ require (
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/garyburd/redigo v1.6.2 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/nwaples/rardecode v1.0.0 // indirect
+	github.com/smartystreets/assertions v1.1.0 // indirect
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.7 // indirect
