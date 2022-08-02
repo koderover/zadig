@@ -23,12 +23,14 @@ import (
 	"os"
 	"path"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -42,20 +44,39 @@ const (
 //go:embed plugins
 var officalPluginRepoFiles embed.FS
 
-func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) error {
+func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) {
+	// clean args status
 	args.IsOffical = false
 	args.PluginTemplates = []*commonmodels.PluginTemplate{}
-	checkoutPath := fmt.Sprintf("/tmp/%s", uuid.New().String())
-	defer os.RemoveAll(checkoutPath)
-	// TODO: git clone and checkout the plugin
+	args.Error = ""
+
+	defer func() {
+		if err := commonrepo.NewPluginRepoColl().Upsert(args); err != nil {
+			log.Errorf("upsert plugin repo error: %v", err)
+		}
+	}()
+
+	codehost, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	if err != nil {
+		errMsg := fmt.Sprintf("get code host %d error: %v", args.CodehostID, err)
+		log.Error(errMsg)
+		args.Error = errMsg
+	}
+
+	checkoutPath := path.Join(config.S3StoragePath(), args.RepoName)
+	if err := command.RunGitCmds(codehost, args.RepoOwner, args.RepoNamespace, args.RepoName, args.Branch, "origin"); err != nil {
+		errMsg := fmt.Sprintf("run git cmds error: %v", err)
+		log.Error(errMsg)
+		args.Error = errMsg
+	}
+
 	plugins, err := loadPluginRepoInfos(checkoutPath, args.IsOffical, os.ReadDir, os.ReadFile)
 	if err != nil {
 		errMsg := fmt.Sprintf("load plugin from user user repo error: %s", err)
 		log.Error(errMsg)
-		return e.ErrUpsertPluginRepo.AddDesc(errMsg)
+		args.Error = errMsg
 	}
 	args.PluginTemplates = plugins
-	return commonrepo.NewPluginRepoColl().Upsert(args)
 }
 
 func UpdateOfficalPluginRepository(log *zap.SugaredLogger) {
