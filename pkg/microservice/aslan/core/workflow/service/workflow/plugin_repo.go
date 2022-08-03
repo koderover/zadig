@@ -148,10 +148,17 @@ func loadPluginRepoInfos(baseDir string, isOffical bool, readDir readDir, readFi
 }
 
 func ListPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo, error) {
-	resp, err := commonrepo.NewPluginRepoColl().List()
+	resp := []*commonmodels.PluginRepo{}
+	repos, err := commonrepo.NewPluginRepoColl().List()
 	if err != nil {
 		log.Errorf("list Plugin repos error: %v", err)
 		return resp, e.ErrListPluginRepo.AddDesc(err.Error())
+	}
+	for _, repo := range repos {
+		if repo.IsOffical {
+			continue
+		}
+		resp = append(resp, repo)
 	}
 	return resp, nil
 }

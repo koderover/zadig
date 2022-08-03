@@ -76,7 +76,8 @@ func (c *PluginRepoColl) Delete(id string) error {
 }
 
 func (c *PluginRepoColl) Upsert(pluginRepo *models.PluginRepo) error {
-	query := bson.M{"repo_owner": pluginRepo.RepoOwner, "repo_name": pluginRepo.RepoName, "branch": pluginRepo.Branch}
+	// for now, we support only one unoffical plugin repo.
+	query := bson.M{"is_offical": pluginRepo.IsOffical}
 	change := bson.M{"$set": pluginRepo}
 	pluginRepo.UpdateTime = time.Now().Unix()
 
