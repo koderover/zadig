@@ -97,12 +97,11 @@ const (
 	Collie               // 4
 	Cron                 // 5
 	HubServer            // 6
-	PodExec              // 7
-	SonarQube            // 9
-	WarpDrive            // 10
-	Minio                // 11
-	OPA                  // 12
-	Policy               // 13
+	SonarQube            // 7
+	WarpDrive            // 8
+	Minio                // 9
+	OPA                  // 10
+	Policy               // 11
 )
 
 type ServiceInfo struct {
@@ -134,10 +133,6 @@ var Services = map[int]*ServiceInfo{
 	HubServer: {
 		Name: "hub-server",
 		Port: 26000,
-	},
-	PodExec: {
-		Name: "podexec",
-		Port: 27000,
 	},
 	SonarQube: {
 		Name: "sonarqube",
