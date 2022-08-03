@@ -39,6 +39,7 @@ import (
 	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
+	podexecservice "github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	connectorHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/handler"
 	emailHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
 	featuresHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/handler"
@@ -115,6 +116,12 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		new(userHandler.Router),
 	} {
 		r.Inject(router.Group("/api/v1"))
+	}
+
+	// inject podexec service API(s)
+	podexec := router.Group("/api/podexec")
+	{
+		podexec.GET("/:productName/:namespace/:podName/:containerName/podExec/:envName", podexecservice.ServeWs)
 	}
 
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
