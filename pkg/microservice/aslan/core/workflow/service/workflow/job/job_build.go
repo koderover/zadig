@@ -119,13 +119,17 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
 			return resp, err
 		}
+		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
+		if err != nil {
+			return resp, err
+		}
 		jobTask.Properties = commonmodels.JobProperties{
 			Timeout:         int64(buildInfo.Timeout),
 			ResourceRequest: buildInfo.PreBuild.ResReq,
 			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
 			Envs:            renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
 			ClusterID:       buildInfo.PreBuild.ClusterID,
-			BuildOS:         buildInfo.PreBuild.BuildOS,
+			BuildOS:         basicImage.Value,
 			ImageFrom:       buildInfo.PreBuild.ImageFrom,
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
