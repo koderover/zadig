@@ -18,10 +18,13 @@ package core
 
 import (
 	"context"
+	"database/sql"
+	_ "embed"
 	"fmt"
 	"sync"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
@@ -45,6 +48,7 @@ import (
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
+	userCore "github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -128,6 +132,10 @@ func Start(ctx context.Context) {
 	// old config service initialization, it didn't panic or stop if it fails, so I will just keep it that way.
 	InitializeConfigFeatureGates()
 
+	// old user service initialization process cannot be skipped since the DB variable is in that package
+	// the db initialization process has been moved to the initDatabase function.
+	userCore.Start(context.TODO())
+
 	systemservice.SetProxyConfig()
 
 	workflowservice.InitPipelineController()
@@ -151,6 +159,7 @@ func Start(ctx context.Context) {
 
 func Stop(ctx context.Context) {
 	mongotool.Close(ctx)
+	gormtool.Close()
 }
 
 func initService() {
@@ -178,6 +187,8 @@ func initDinD() {
 }
 
 func initDatabase() {
+	InitializeUserDBAndTables()
+
 	err := gormtool.Open(configbase.MysqlUser(),
 		configbase.MysqlPassword(),
 		configbase.MysqlHost(),
@@ -185,6 +196,15 @@ func initDatabase() {
 	)
 	if err != nil {
 		log.Panicf("Failed to open database %s", config.MysqlDexDB())
+	}
+
+	err = gormtool.Open(configbase.MysqlUser(),
+		configbase.MysqlPassword(),
+		configbase.MysqlHost(),
+		config.MysqlUserDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlUserDB())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -312,4 +332,27 @@ func InitializeConfigFeatureGates() error {
 	}
 	service.Features.MergeFeatureGates(flagFG, dbFG)
 	return nil
+}
+
+//go:embed init/mysql.sql
+var mysql []byte
+
+func InitializeUserDBAndTables() {
+	if len(mysql) == 0 {
+		return
+	}
+	db, err := sql.Open("mysql", fmt.Sprintf(
+		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
+		configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
+	))
+	if err != nil {
+		log.Panic(err)
+	}
+	defer db.Close()
+	initSql := fmt.Sprintf(string(mysql), config.MysqlUserDB(), config.MysqlUserDB())
+	_, err = db.Exec(initSql)
+
+	if err != nil {
+		log.Panic(err)
+	}
 }

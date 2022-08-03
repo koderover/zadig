@@ -261,3 +261,7 @@ func MysqlDexDB() string {
 func Features() string {
 	return viper.GetString(setting.FeatureFlag)
 }
+
+func MysqlUserDB() string {
+	return viper.GetString(setting.ENVMysqlUserDB)
+}
