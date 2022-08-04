@@ -39,6 +39,9 @@ import (
 	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
+	evaluationhandler "github.com/koderover/zadig/pkg/microservice/picket/core/evaluation/handler"
+	filterhandler "github.com/koderover/zadig/pkg/microservice/picket/core/filter/handler"
+	publichandler "github.com/koderover/zadig/pkg/microservice/picket/core/public/handler"
 	podexecservice "github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	policyhandler "github.com/koderover/zadig/pkg/microservice/policy/core/handler"
 	configcodehostHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/handler"
@@ -131,6 +134,20 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		new(policyhandler.Router),
 	} {
 		r.Inject(router.Group("/api/v1"))
+	}
+
+	// inject picket APIs
+	for _, r := range []injector{
+		new(evaluationhandler.Router),
+		new(filterhandler.Router),
+	} {
+		r.Inject(router.Group("/api/v1/picket"))
+	}
+
+	for _, r := range []injector{
+		new(publichandler.Router),
+	} {
+		r.Inject(router.Group("/public-api/v1"))
 	}
 
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
