@@ -61,6 +61,7 @@ func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredL
 		errMsg := fmt.Sprintf("get code host %d error: %v", args.CodehostID, err)
 		log.Error(errMsg)
 		args.Error = errMsg
+		return
 	}
 
 	checkoutPath := path.Join(config.S3StoragePath(), args.RepoName)
@@ -68,6 +69,7 @@ func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredL
 		errMsg := fmt.Sprintf("run git cmds error: %v", err)
 		log.Error(errMsg)
 		args.Error = errMsg
+		return
 	}
 
 	plugins, err := loadPluginRepoInfos(checkoutPath, args.IsOffical, os.ReadDir, os.ReadFile)
@@ -75,6 +77,7 @@ func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredL
 		errMsg := fmt.Sprintf("load plugin from user user repo error: %s", err)
 		log.Error(errMsg)
 		args.Error = errMsg
+		return
 	}
 	args.PluginTemplates = plugins
 }
