@@ -165,7 +165,7 @@ func ListPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo,
 
 func DeletePluginRepo(id string, log *zap.SugaredLogger) error {
 	if err := commonrepo.NewPluginRepoColl().Delete(id); err != nil {
-		log.Errorf("list Plugin repos error: %v", err)
+		log.Errorf("delete Plugin repos error: %v", err)
 		return e.ErrListPluginRepo.AddDesc(err.Error())
 	}
 	return nil
