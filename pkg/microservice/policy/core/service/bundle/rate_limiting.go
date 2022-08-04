@@ -43,7 +43,9 @@ type controller struct {
 }
 
 // Run starts the controller and blocks until receiving signal from stopCh.
-func (c *controller) Run(stopCh <-chan struct{}) {
+// Since the merge of aslan and policy, the worker parameter has to be added.
+// It won't affect how the old logic works.
+func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	c.logger.Info("Starting bundle controller")
 	defer c.logger.Info("Shutting down bundle controller")
 
