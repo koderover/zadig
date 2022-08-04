@@ -28,7 +28,7 @@ type Client struct {
 }
 
 func NewDefault() *Client {
-	host := config.PolicyServiceAddress()
+	host := config.AslanServiceAddress()
 
 	c := httpclient.New(
 		httpclient.SetHostURL(host + "/api/v1"),
