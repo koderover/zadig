@@ -40,6 +40,8 @@ import (
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
 	podexecservice "github.com/koderover/zadig/pkg/microservice/podexec/core/service"
+	policyhandler "github.com/koderover/zadig/pkg/microservice/policy/core/handler"
+	configcodehostHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/handler"
 	connectorHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/handler"
 	emailHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
 	featuresHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/handler"
@@ -105,7 +107,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		new(connectorHandler.Router),
 		new(emailHandler.Router),
 		new(jiraHandler.Router),
-		new(codehosthandler.Router),
+		new(configcodehostHandler.Router),
 		new(featuresHandler.Router),
 	} {
 		r.Inject(router.Group("/api/v1"))
@@ -122,6 +124,13 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	podexec := router.Group("/api/podexec")
 	{
 		podexec.GET("/:productName/:namespace/:podName/:containerName/podExec/:envName", podexecservice.ServeWs)
+	}
+
+	// inject policy APIs
+	for _, r := range []injector{
+		new(policyhandler.Router),
+	} {
+		r.Inject(router.Group("/api/v1"))
 	}
 
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))

@@ -26,11 +26,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
-	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -44,21 +39,29 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	multiclusterservice "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
+	policyservice "github.com/koderover/zadig/pkg/microservice/aslan/core/policy/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
 	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
+	configservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
 	userCore "github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
 	"github.com/koderover/zadig/pkg/types"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	webhookController = iota
+	bundleController
 )
 
 type policyGetter interface {
@@ -72,9 +75,11 @@ type Controller interface {
 func StartControllers(stopCh <-chan struct{}) {
 	controllerWorkers := map[int]int{
 		webhookController: 1,
+		bundleController:  1,
 	}
 	controllers := map[int]Controller{
 		webhookController: webhook.NewWebhookController(),
+		bundleController:  policybundle.NewBundleController(),
 	}
 
 	var wg sync.WaitGroup
@@ -155,6 +160,10 @@ func Start(ctx context.Context) {
 	go multiclusterservice.ClusterApplyUpgradeAgent()
 
 	initRsaKey()
+
+	// policy initialization process
+	policybundle.GenerateOPABundle()
+	policyservice.MigratePolicyData()
 }
 
 func Stop(ctx context.Context) {
@@ -187,6 +196,7 @@ func initDinD() {
 }
 
 func initDatabase() {
+	// old user service initialization
 	InitializeUserDBAndTables()
 
 	err := gormtool.Open(configbase.MysqlUser(),
@@ -290,6 +300,11 @@ func initDatabase() {
 
 		// config related db index
 		configmongodb.NewEmailHostColl(),
+
+		// policy related db index
+		policydb.NewRoleColl(),
+		policydb.NewRoleBindingColl(),
+		policydb.NewPolicyMetaColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
@@ -320,17 +335,17 @@ type indexer interface {
 // InitializeConfigFeatureGates initialize feature gates for the old config service module.
 // Currently, the function of this part is unknown. But we will keep it just to make sure.
 func InitializeConfigFeatureGates() error {
-	flagFG, err := service.FlagToFeatureGates(config.Features())
+	flagFG, err := configservice.FlagToFeatureGates(config.Features())
 	if err != nil {
 		log.Errorf("FlagToFeatureGates err:%s", err)
 		return err
 	}
-	dbFG, err := service.DBToFeatureGates()
+	dbFG, err := configservice.DBToFeatureGates()
 	if err != nil {
 		log.Errorf("DBToFeatureGates err:%s", err)
 		return err
 	}
-	service.Features.MergeFeatureGates(flagFG, dbFG)
+	configservice.Features.MergeFeatureGates(flagFG, dbFG)
 	return nil
 }
 
