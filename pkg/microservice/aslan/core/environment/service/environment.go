@@ -204,6 +204,7 @@ type ReleaseInstallParam struct {
 	MergedValues string
 	RenderChart  *templatemodels.RenderChart
 	serviceObj   *commonmodels.Service
+	DryRun       bool
 }
 
 type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error
@@ -2591,7 +2592,7 @@ func createGroups(envName, user, requestID string, args *commonmodels.Product, e
 		}
 	}()
 
-	err = envHandleFunc(getProjectType(args.ProductName), log).initEnvConfigSet(envName, args.Namespace, args.ProductName, user, args.EnvConfigs, informer, kubeClient)
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, false, kubeClient)
 	if err != nil {
 		args.Status = setting.ProductStatusFailed
 		log.Errorf("initEnvConfigSet error :%s", err)
@@ -2747,11 +2748,13 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 				continue
 			}
 
-			err = EnsureUpdateZadigService(context.TODO(), env, u.GetName(), kubeClient, istioClient)
-			if err != nil {
-				log.Errorf("Failed to update Zadig service %s for env %s of product %s: %s", u.GetName(), env.EnvName, env.ProductName, err)
-				errList = multierror.Append(errList, err)
-				continue
+			if istioClient != nil {
+				err = EnsureUpdateZadigService(context.TODO(), env, u.GetName(), kubeClient, istioClient)
+				if err != nil {
+					log.Errorf("Failed to update Zadig service %s for env %s of product %s: %s", u.GetName(), env.EnvName, env.ProductName, err)
+					errList = multierror.Append(errList, err)
+					continue
+				}
 			}
 		case setting.Deployment, setting.StatefulSet:
 			// compatibility flag, We add a match label in spec.selector field pre 1.10.
@@ -3298,6 +3301,7 @@ func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
 		MaxHistory:    10,
+		DryRun:        param.DryRun,
 	}
 	if isRetry {
 		chartSpec.Replace = true
@@ -3305,9 +3309,11 @@ func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 
 	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
 	ctx := context.TODO()
-	err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
-	if err != nil {
-		return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
+	if !chartSpec.DryRun {
+		err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
+		if err != nil {
+			return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
+		}
 	}
 
 	helmClient, err = helmClient.Clone()
@@ -3323,9 +3329,11 @@ func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 			"failed to install or upgrade helm chart %s/%s",
 			namespace, serviceObj.ServiceName)
 	} else {
-		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
-		if err != nil {
-			err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
+		if !chartSpec.DryRun {
+			err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
+			if err != nil {
+				err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
+			}
 		}
 	}
 
@@ -3744,6 +3752,67 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey 
 	}
 
 	return yaml.Marshal(latestValuesMap)
+}
+
+func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, log *zap.SugaredLogger) error {
+	productName, _ := productResp.ProductName, productResp.EnvName
+	renderChartMap := make(map[string]*templatemodels.RenderChart)
+	for _, renderChart := range productResp.ChartInfos {
+		renderChartMap[renderChart.ServiceName] = renderChart
+	}
+
+	handler := func(serviceObj *commonmodels.Service, log *zap.SugaredLogger) (err error) {
+		param, errBuildParam := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
+		if errBuildParam != nil {
+			return errBuildParam
+		}
+		param.DryRun = true
+		err = installOrUpgradeHelmChartWithValues(param, false, helmClient)
+		return
+	}
+
+	errList := new(multierror.Error)
+	var errLock sync.Mutex
+	appendErr := func(err error) {
+		errLock.Lock()
+		defer errLock.Unlock()
+		errList = multierror.Append(errList, err)
+	}
+
+	var wg sync.WaitGroup
+	for _, groupServices := range productResp.Services {
+		serviceList := make([]*commonmodels.Service, 0)
+		for _, service := range groupServices {
+			if _, ok := renderChartMap[service.ServiceName]; !ok {
+				continue
+			}
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				Type:        service.Type,
+				Revision:    service.Revision,
+				ProductName: productName,
+			}
+			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				appendErr(fmt.Errorf("failed to find service %s, err %s", service.ServiceName, err.Error()))
+				continue
+			}
+			serviceList = append(serviceList, serviceObj)
+		}
+
+		for _, svc := range serviceList {
+			wg.Add(1)
+			go func(service *models.Service) {
+				defer wg.Done()
+				err := handler(service, log)
+				if err != nil {
+					appendErr(fmt.Errorf("failed to dryRun install chart for service: %s, err: %s", service.ServiceName, err))
+				}
+			}(svc)
+		}
+	}
+	wg.Wait()
+	return errList.ErrorOrNil()
 }
 
 func proceedHelmRelease(productName, envName string, productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, log *zap.SugaredLogger) error {

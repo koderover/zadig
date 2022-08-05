@@ -102,6 +102,7 @@ const (
 	Minio                // 9
 	OPA                  // 10
 	Policy               // 11
+	Vendor
 )
 
 type ServiceInfo struct {
@@ -154,4 +155,19 @@ var Services = map[int]*ServiceInfo{
 		Name: "policy",
 		Port: 80,
 	},
+<<<<<<< HEAD
+=======
+	Config: {
+		Name: "config",
+		Port: 80,
+	},
+	User: {
+		Name: "user",
+		Port: 80,
+	},
+	Vendor: {
+		Name: "plutus-vendor",
+		Port: 29000,
+	},
+>>>>>>> upstream/main
 }
