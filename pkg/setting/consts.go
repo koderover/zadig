@@ -659,3 +659,9 @@ const (
 	DefaultReleaseNaming     = "$Service$"
 	ReleaseNamingPlaceholder = "$Namespace$-$Service$"
 )
+
+// custom workflow constants for variables
+const (
+	FixedValueMark      = "<+fixed>"
+	RenderValueTemplate = "{{.%s}}"
+)

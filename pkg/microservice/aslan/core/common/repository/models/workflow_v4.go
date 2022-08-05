@@ -31,6 +31,7 @@ type WorkflowV4 struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"  yaml:"-"            json:"id"`
 	Name        string             `bson:"name"           yaml:"name"         json:"name"`
 	KeyVals     []*KeyVal          `bson:"key_vals"       yaml:"key_vals"     json:"key_vals"`
+	Params      []*Param           `bson:"params"         yaml:"params"       json:"params"`
 	Stages      []*WorkflowStage   `bson:"stages"         yaml:"stages"       json:"stages"`
 	Project     string             `bson:"project"        yaml:"project"      json:"project"`
 	Description string             `bson:"description"    yaml:"description"  json:"description"`
@@ -124,6 +125,7 @@ type JobProperties struct {
 	ImageID         string              `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
 	Namespace       string              `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs,omitempty"`
+	Params          []*Param            `bson:"params"                 yaml:"params"                json:"params"`
 	Paths           string              `bson:"-"                      json:"-"                     yaml:"-"`
 	LogFileName     string              `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
 	DockerHost      string              `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
@@ -143,6 +145,17 @@ type Step struct {
 type Output struct {
 	Name        string `bson:"name"           json:"name"             yaml:"name"`
 	Description string `bson:"description"    json:"description"      yaml:"description"`
+}
+
+type Param struct {
+	Name        string `bson:"name"             json:"name"             yaml:"name"`
+	Description string `bson:"description"      json:"description"      yaml:"description"`
+	// support string/text type
+	ParamsType   string   `bson:"type"                      json:"type"                        yaml:"type"`
+	Value        string   `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
+	ChoiceOption []string `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	Default      string   `bson:"default"                   json:"default"                     yaml:"default"`
+	IsCredential bool     `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 func IToiYaml(before interface{}, after interface{}) error {

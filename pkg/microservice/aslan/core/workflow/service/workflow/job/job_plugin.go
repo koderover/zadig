@@ -59,15 +59,18 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		JobType:    string(config.JobPlugin),
 		Properties: *j.spec.Properties,
 		Plugin:     j.spec.Plugin,
+		Outputs:    j.spec.Plugin.Outputs,
 	}
-	for _, output := range j.spec.Plugin.Outputs {
-		jobTask.Outputs = append(jobTask.Outputs, &commonmodels.Output{Name: output.Name, Description: output.Description})
+	renderedParams := []*commonmodels.Param{}
+	for _, param := range j.spec.Plugin.Inputs {
+		paramsKey := strings.Join([]string{"inputs", param.Name}, ".")
+		renderedParams = append(renderedParams, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
-	jobTask.Plugin = renderPlugin(jobTask.Plugin, j.spec.Plugin.Inputs)
+	jobTask.Plugin = renderPlugin(jobTask.Plugin, renderedParams)
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
-func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Params) *commonmodels.PluginTemplate {
+func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Param) *commonmodels.PluginTemplate {
 	for _, env := range plugin.Envs {
 		env.Value = renderString(env.Value, inputs)
 	}
@@ -78,11 +81,4 @@ func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Pa
 		plugin.Cmds[i] = renderString(cmd, inputs)
 	}
 	return plugin
-}
-
-func renderString(value string, inputs []*commonmodels.Params) string {
-	for _, input := range inputs {
-		value = strings.ReplaceAll(value, "$("+input.Name+")", input.Value)
-	}
-	return value
 }

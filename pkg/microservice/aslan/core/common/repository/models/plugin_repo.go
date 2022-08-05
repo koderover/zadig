@@ -47,23 +47,13 @@ type PluginTemplate struct {
 	Args        []string  `bson:"args"             json:"args"             yaml:"args"`
 	Cmds        []string  `bson:"cmds"             json:"cmds"             yaml:"cmds"`
 	Envs        []*Env    `bson:"envs"             json:"envs"             yaml:"envs"`
-	Inputs      []*Params `bson:"inputs"           json:"inputs"           yaml:"inputs"`
-	Outputs     []*Params `bson:"outputs"          json:"outputs"          yaml:"outputs"`
+	Inputs      []*Param  `bson:"inputs"           json:"inputs"           yaml:"inputs"`
+	Outputs     []*Output `bson:"outputs"          json:"outputs"          yaml:"outputs"`
 }
 
 type Env struct {
 	Name  string `bson:"name"             json:"name"             yaml:"name"`
 	Value string `bson:"value"            json:"value"            yaml:"value"`
-}
-
-type Params struct {
-	Name        string `bson:"name"             json:"name"             yaml:"name"`
-	Description string `bson:"description"      json:"description"      yaml:"description"`
-	// support string/text type
-	ParamsType   string `bson:"type"             json:"type"             yaml:"type"`
-	Value        string `bson:"value"            json:"value"            yaml:"value,omitempty"`
-	Default      string `bson:"default"          json:"default"          yaml:"default"`
-	IsCredential bool   `bson:"is_credential"    json:"is_credential"    yaml:"is_credential"`
 }
 
 func (PluginRepo) TableName() string {
