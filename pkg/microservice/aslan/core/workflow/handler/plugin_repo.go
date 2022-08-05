@@ -69,6 +69,5 @@ func UpsertUserPluginRepository(c *gin.Context) {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-
-	go workflow.UpsertUserPluginRepository(req, ctx.Logger)
+	ctx.Err = workflow.UpsertUserPluginRepository(req, ctx.Logger)
 }

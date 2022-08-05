@@ -44,11 +44,18 @@ const (
 //go:embed plugins
 var officalPluginRepoFiles embed.FS
 
-func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) {
+func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) error {
 	// clean args status
 	args.IsOffical = false
 	args.PluginTemplates = []*commonmodels.PluginTemplate{}
 	args.Error = ""
+
+	codehost, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	if err != nil {
+		errMsg := fmt.Sprintf("get code host %d error: %v", args.CodehostID, err)
+		log.Error(errMsg)
+		return fmt.Errorf(errMsg)
+	}
 
 	defer func() {
 		if err := commonrepo.NewPluginRepoColl().Upsert(args); err != nil {
@@ -56,20 +63,16 @@ func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredL
 		}
 	}()
 
-	codehost, err := systemconfig.New().GetCodeHost(args.CodehostID)
-	if err != nil {
-		errMsg := fmt.Sprintf("get code host %d error: %v", args.CodehostID, err)
-		log.Error(errMsg)
-		args.Error = errMsg
-		return
-	}
-
 	checkoutPath := path.Join(config.S3StoragePath(), args.RepoName)
+	if err := os.RemoveAll(checkoutPath); err != nil {
+		log.Warnf("Failed to remove checkout path, err:%s", err)
+	}
+	// in case of git clone take a long time, save error information.
 	if err := command.RunGitCmds(codehost, args.RepoOwner, args.RepoNamespace, args.RepoName, args.Branch, "origin"); err != nil {
 		errMsg := fmt.Sprintf("run git cmds error: %v", err)
 		log.Error(errMsg)
 		args.Error = errMsg
-		return
+		return fmt.Errorf(errMsg)
 	}
 
 	plugins, err := loadPluginRepoInfos(checkoutPath, args.IsOffical, os.ReadDir, os.ReadFile)
@@ -77,9 +80,10 @@ func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredL
 		errMsg := fmt.Sprintf("load plugin from user user repo error: %s", err)
 		log.Error(errMsg)
 		args.Error = errMsg
-		return
+		return fmt.Errorf(errMsg)
 	}
 	args.PluginTemplates = plugins
+	return nil
 }
 
 func UpdateOfficalPluginRepository(log *zap.SugaredLogger) {
