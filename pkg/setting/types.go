@@ -105,6 +105,7 @@ const (
 	Policy               // 13
 	Config               // 14
 	User                 // 15
+	Vendor
 )
 
 type ServiceInfo struct {
@@ -168,5 +169,9 @@ var Services = map[int]*ServiceInfo{
 	User: {
 		Name: "user",
 		Port: 80,
+	},
+	Vendor: {
+		Name: "plutus-vendor",
+		Port: 29000,
 	},
 }
