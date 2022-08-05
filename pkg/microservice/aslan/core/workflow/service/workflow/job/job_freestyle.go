@@ -22,9 +22,9 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
-	stepspec "github.com/koderover/zadig/pkg/types/step"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
 )
 
@@ -96,6 +96,11 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Properties: *j.spec.Properties,
 		Steps:      stepsToStepTasks(j.spec.Steps),
 	}
+	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTask.Properties.ImageID)
+	if err != nil {
+		return resp, err
+	}
+	jobTask.Properties.BuildOS = basicImage.Value
 	jobTask.Properties.Envs = append(jobTask.Properties.Envs, getfreestyleJobVariables(jobTask.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
 	return []*commonmodels.JobTask{jobTask}, nil
 }
@@ -120,7 +125,7 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 		if step.StepType != config.StepGit {
 			continue
 		}
-		stepSpec := &stepspec.StepGitSpec{}
+		stepSpec := &steptypes.StepGitSpec{}
 		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
 			log.Errorf("failed to convert step spec error: %v", err)
 			continue

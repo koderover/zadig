@@ -41,6 +41,7 @@ type BuildResp struct {
 	Name        string                              `json:"name"`
 	Targets     []*commonmodels.ServiceModuleTarget `json:"targets"`
 	KeyVals     []*commonmodels.KeyVal              `json:"key_vals"`
+	Repos       []*types.Repository                 `json:"repos"`
 	UpdateTime  int64                               `json:"update_time"`
 	UpdateBy    string                              `json:"update_by"`
 	Pipelines   []string                            `json:"pipelines"`
@@ -160,6 +161,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 					for _, target := range build.Targets {
 						if target.ServiceModule == container.Name && target.ServiceName == serviceTmpl.ServiceName {
 							build.PreBuild.Envs = target.Envs
+							build.Repos = target.Repos
 						}
 					}
 					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs, build.PreBuild.Envs)
@@ -171,6 +173,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 					ID:      build.ID.Hex(),
 					Name:    build.Name,
 					KeyVals: build.PreBuild.Envs,
+					Repos:   build.Repos,
 				})
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{

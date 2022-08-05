@@ -142,7 +142,6 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 			Parallel: stage.Parallel,
 			Approval: stage.Approval,
 		}
-		workflowTask.Stages = append(workflowTask.Stages, stageTask)
 		for _, job := range stage.Jobs {
 			// TODO: move this logic to job controller
 			if job.JobType == config.JobZadigBuild {
@@ -164,6 +163,9 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 				return resp, e.ErrCreateTask.AddDesc(err.Error())
 			}
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
+		}
+		if len(stageTask.Jobs) > 0 {
+			workflowTask.Stages = append(workflowTask.Stages, stageTask)
 		}
 	}
 

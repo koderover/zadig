@@ -14,28 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package policy
+package plutusvendor
 
 import (
-	"github.com/koderover/zadig/pkg/config"
+	"fmt"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-type Client struct {
-	*httpclient.Client
-
-	host string
+type CheckSignatrueResp struct {
+	Code int64 `json:"code"`
 }
 
-func New() *Client {
-	host := config.AslanServiceAddress()
+func (c *Client) CheckSignature(userNum int64) (*CheckSignatrueResp, error) {
+	url := fmt.Sprintf("/signature/check?user_num=%d", userNum)
+	res := &CheckSignatrueResp{}
+	_, err := c.Post(url, httpclient.SetResult(res))
+	return res, err
+}
 
-	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
-	)
-
-	return &Client{
-		Client: c,
-		host:   host,
-	}
+func (c *Client) Health() error {
+	url := "/health"
+	_, err := c.Get(url)
+	return err
 }

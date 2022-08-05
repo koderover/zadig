@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package policy
+package plutusvendor
 
 import (
 	"github.com/koderover/zadig/pkg/config"
@@ -28,10 +28,10 @@ type Client struct {
 }
 
 func New() *Client {
-	host := config.AslanServiceAddress()
+	host := config.VendorServiceAddress()
 
 	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
+		httpclient.SetHostURL(host + "/api/plutus"),
 	)
 
 	return &Client{

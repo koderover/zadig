@@ -159,12 +159,12 @@ func OPAServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func PolicyServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Policy)
+func VendorServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Vendor)
 }
 
-func PolicyServiceAddress() string {
-	s := PolicyServiceInfo()
+func VendorServiceAddress() string {
+	s := VendorServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
 }
 
