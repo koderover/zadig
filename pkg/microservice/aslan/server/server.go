@@ -41,7 +41,13 @@ func Serve(ctx context.Context) error {
 	log.Infof("App Aslan Started at %s", time.Now())
 
 	engine := rest.NewEngine()
-	server := &http.Server{Addr: ":25000", Handler: engine}
+	server := &http.Server{
+		Addr:         ":25000",
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 5 * 60,
+		Handler:      engine,
+	}
 
 	stopChan := make(chan struct{})
 	go func() {
