@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -58,12 +59,13 @@ import (
 )
 
 const (
-	BusyBoxImage       = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir    = "/zadig/"
-	ZadigLogFile       = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
-	JobExecutorFile    = "http://resource-server/jobexecutor"
-	ResourceServer     = "resource-server"
+	BusyBoxImage         = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir      = "/zadig/"
+	ZadigLogFile         = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile   = ZadigContextDir + "lifecycle"
+	JobExecutorFile      = "http://resource-server/jobexecutor"
+	ResourceServer       = "resource-server"
+	registrySecretSuffix = "-registry-secret"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
@@ -179,11 +181,11 @@ echo $result > %s
 		JobName:      jobTask.Name,
 	})
 
-	ImagePullSecrets := []corev1.LocalObjectReference{
-		{
-			Name: setting.DefaultImagePullSecret,
-		},
+	ImagePullSecrets, err := getImagePullSecrets(jobTask.Properties.Registries)
+	if err != nil {
+		return nil, err
 	}
+
 	envs := []corev1.EnvVar{}
 	for _, env := range jobTask.Plugin.Envs {
 		envs = append(envs, corev1.EnvVar{Name: env.Name, Value: env.Value})
@@ -285,23 +287,10 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		JobName:      jobTask.Name,
 	})
 
-	// 引用集成到系统中的私有镜像仓库的访问权限
-	ImagePullSecrets := []corev1.LocalObjectReference{
-		{
-			Name: setting.DefaultImagePullSecret,
-		},
+	ImagePullSecrets, err := getImagePullSecrets(jobTask.Properties.Registries)
+	if err != nil {
+		return nil, err
 	}
-	// for _, reg := range registries {
-	// 	secretName, err := genRegistrySecretName(reg)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("failed to generate registry secret name: %s", err)
-	// 	}
-
-	// 	secret := corev1.LocalObjectReference{
-	// 		Name: secretName,
-	// 	}
-	// 	ImagePullSecrets = append(ImagePullSecrets, secret)
-	// }
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -408,6 +397,26 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	// }
 
 	return job, nil
+}
+
+func getImagePullSecrets(registries []*commonmodels.RegistryNamespace) ([]corev1.LocalObjectReference, error) {
+	ImagePullSecrets := []corev1.LocalObjectReference{
+		{
+			Name: setting.DefaultImagePullSecret,
+		},
+	}
+	for _, reg := range registries {
+		secretName, err := genRegistrySecretName(reg)
+		if err != nil {
+			return ImagePullSecrets, fmt.Errorf("failed to generate registry secret name: %s", err)
+		}
+
+		secret := corev1.LocalObjectReference{
+			Name: secretName,
+		}
+		ImagePullSecrets = append(ImagePullSecrets, secret)
+	}
+	return ImagePullSecrets, nil
 }
 
 func getVolumeMounts(configMapMountDir string) []corev1.VolumeMount {
@@ -800,4 +809,46 @@ func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *r
 	})
 
 	return commontypes.JobStatus(stdout), success, err
+}
+
+func genRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
+	if reg.IsDefault {
+		return setting.DefaultImagePullSecret, nil
+	}
+
+	arr := strings.Split(reg.Namespace, "/")
+	namespaceInRegistry := arr[len(arr)-1]
+
+	// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+	if namespaceInRegistry == "" {
+		uriDecipher := strings.Split(reg.RegAddr, ".")
+		namespaceInRegistry = uriDecipher[0]
+	}
+
+	filteredName, err := formatRegistryName(namespaceInRegistry)
+	if err != nil {
+		return "", err
+	}
+
+	secretName := filteredName + registrySecretSuffix
+	if reg.RegType != "" {
+		secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
+	}
+
+	return secretName, nil
+}
+
+// Note: The name of a Secret object must be a valid DNS subdomain name:
+//   https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
+func formatRegistryName(namespaceInRegistry string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
+	if err != nil {
+		return "", err
+	}
+	processedName := reg.ReplaceAllString(namespaceInRegistry, "")
+	processedName = strings.ToLower(processedName)
+	if len(processedName) > 237 {
+		processedName = processedName[:237]
+	}
+	return processedName, nil
 }

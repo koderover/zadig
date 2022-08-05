@@ -123,6 +123,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, err
 		}
+		registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+		if err != nil {
+			return resp, err
+		}
 		jobTask.Properties = commonmodels.JobProperties{
 			Timeout:         int64(buildInfo.Timeout),
 			ResourceRequest: buildInfo.PreBuild.ResReq,
@@ -131,6 +135,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ClusterID:       buildInfo.PreBuild.ClusterID,
 			BuildOS:         basicImage.Value,
 			ImageFrom:       buildInfo.PreBuild.ImageFrom,
+			Registries:      registries,
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
 		if err != nil {

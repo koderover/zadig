@@ -21,6 +21,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type PluginJob struct {
@@ -48,6 +50,7 @@ func (j *PluginJob) SetPreset() error {
 }
 
 func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.PluginJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -60,6 +63,11 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Properties: *j.spec.Properties,
 		Plugin:     j.spec.Plugin,
 	}
+	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+	if err != nil {
+		return resp, err
+	}
+	jobTask.Properties.Registries = registries
 	for _, output := range j.spec.Plugin.Outputs {
 		jobTask.Outputs = append(jobTask.Outputs, &commonmodels.Output{Name: output.Name, Description: output.Description})
 	}

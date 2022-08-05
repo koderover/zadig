@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
@@ -84,6 +85,7 @@ func (j *FreeStyleJob) SetPreset() error {
 }
 
 func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.FreestyleJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -96,6 +98,11 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Properties: *j.spec.Properties,
 		Steps:      stepsToStepTasks(j.spec.Steps),
 	}
+	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+	if err != nil {
+		return resp, err
+	}
+	jobTask.Properties.Registries = registries
 	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTask.Properties.ImageID)
 	if err != nil {
 		return resp, err
