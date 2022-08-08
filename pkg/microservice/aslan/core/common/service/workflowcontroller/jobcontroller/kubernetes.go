@@ -59,13 +59,12 @@ import (
 )
 
 const (
-	BusyBoxImage         = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir      = "/zadig/"
-	ZadigLogFile         = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile   = ZadigContextDir + "lifecycle"
-	JobExecutorFile      = "http://resource-server/jobexecutor"
-	ResourceServer       = "resource-server"
-	registrySecretSuffix = "-registry-secret"
+	BusyBoxImage       = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir    = "/zadig/"
+	ZadigLogFile       = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
+	JobExecutorFile    = "http://resource-server/jobexecutor"
+	ResourceServer     = "resource-server"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
