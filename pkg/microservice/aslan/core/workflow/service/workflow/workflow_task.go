@@ -1766,6 +1766,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
+	serviceInfos := make([]*taskmodels.ServiceInfo, 0)
 	for _, artifact := range args.Artifact {
 		subTasks := make([]map[string]interface{}, 0)
 		// image artifact deploy
@@ -1883,6 +1884,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			Task:           task,
 			EnvName:        args.Namespace,
 			IsWorkflowTask: true,
+			ServiceInfos:   &serviceInfos,
 		}, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask task:[%v] err:%v", task, err)
 			if err, ok := err.(*ContainerNotFound); ok {
@@ -1903,6 +1905,16 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		for _, stask := range task.SubTasks {
 			AddSubtaskToStage(&stages, stask, artifact.Name+"_"+artifact.ServiceName)
 		}
+	}
+
+	// add extension to stage
+	if workflow.ExtensionStage != nil && workflow.ExtensionStage.Enabled {
+		extensionTask, err := addExtensionToSubTasks(workflow.ExtensionStage, serviceInfos)
+		if err != nil {
+			log.Errorf("add extension task error: %s", err)
+			return nil, e.ErrCreateTask.AddErr(err)
+		}
+		AddSubtaskToStage(&stages, extensionTask, string(config.TaskExtension))
 	}
 
 	testTask := &taskmodels.Task{
