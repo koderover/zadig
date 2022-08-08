@@ -17,17 +17,12 @@ limitations under the License.
 package handler
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
-
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func ListPluginTemplates(c *gin.Context) {
@@ -55,17 +50,8 @@ func UpsertUserPluginRepository(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &commonmodels.PluginRepo{}
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpsertUserPluginRepository err: %s", err)
-	}
-	if err = json.Unmarshal(data, req); err != nil {
-		log.Errorf("UpsertUserPluginRepository unmarshal json err: %s", err)
-	}
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.ShouldBindJSON(&req); err != nil {
+	req := new(commonmodels.PluginRepo)
+	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}

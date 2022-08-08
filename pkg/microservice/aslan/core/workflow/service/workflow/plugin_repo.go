@@ -155,19 +155,13 @@ func loadPluginRepoInfos(baseDir string, isOffical bool, readDir readDir, readFi
 }
 
 func ListUnofficalPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo, error) {
-	resp := []*commonmodels.PluginRepo{}
-	repos, err := commonrepo.NewPluginRepoColl().List()
+	offical := false
+	repos, err := commonrepo.NewPluginRepoColl().List(&offical)
 	if err != nil {
 		log.Errorf("list Plugin repos error: %v", err)
-		return resp, e.ErrListPluginRepo.AddDesc(err.Error())
+		return repos, e.ErrListPluginRepo.AddDesc(err.Error())
 	}
-	for _, repo := range repos {
-		if repo.IsOffical {
-			continue
-		}
-		resp = append(resp, repo)
-	}
-	return resp, nil
+	return repos, nil
 }
 
 func DeletePluginRepo(id string, log *zap.SugaredLogger) error {
@@ -180,7 +174,7 @@ func DeletePluginRepo(id string, log *zap.SugaredLogger) error {
 
 func ListPluginTemplates(log *zap.SugaredLogger) ([]*commonmodels.PluginTemplate, error) {
 	resp := []*commonmodels.PluginTemplate{}
-	repos, err := commonrepo.NewPluginRepoColl().List()
+	repos, err := commonrepo.NewPluginRepoColl().List(nil)
 	if err != nil {
 		log.Errorf("list plugin templates error: %v", err)
 		return resp, e.ErrListPluginRepo.AddDesc(err.Error())

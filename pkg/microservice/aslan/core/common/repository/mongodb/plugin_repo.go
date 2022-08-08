@@ -52,9 +52,12 @@ func (c *PluginRepoColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *PluginRepoColl) List() ([]*models.PluginRepo, error) {
+func (c *PluginRepoColl) List(offical *bool) ([]*models.PluginRepo, error) {
 	var res []*models.PluginRepo
 	query := bson.M{}
+	if offical != nil {
+		query["is_offical"] = *offical
+	}
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
 		return nil, err

@@ -198,7 +198,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		plugin.GET("/template", ListPluginTemplates)
 		plugin.POST("", UpsertUserPluginRepository)
 		plugin.GET("", ListUnofficalPluginRepositories)
-		plugin.DELETE(":id", DeletePluginRepo)
+		plugin.DELETE("/:id", DeletePluginRepo)
 	}
 
 	bundles := router.Group("bundle-resources")
