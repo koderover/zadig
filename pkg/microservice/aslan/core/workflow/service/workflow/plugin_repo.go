@@ -154,7 +154,7 @@ func loadPluginRepoInfos(baseDir string, isOffical bool, readDir readDir, readFi
 	return resp, nil
 }
 
-func ListPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo, error) {
+func ListUnofficalPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo, error) {
 	resp := []*commonmodels.PluginRepo{}
 	repos, err := commonrepo.NewPluginRepoColl().List()
 	if err != nil {

@@ -37,11 +37,11 @@ func ListPluginTemplates(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.ListPluginTemplates(ctx.Logger)
 }
 
-func ListPluginRepositories(c *gin.Context) {
+func ListUnofficalPluginRepositories(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListPluginRepositories(ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListUnofficalPluginRepositories(ctx.Logger)
 }
 
 func DeletePluginRepo(c *gin.Context) {
