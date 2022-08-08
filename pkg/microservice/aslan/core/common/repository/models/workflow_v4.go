@@ -114,23 +114,24 @@ type ServiceAndImage struct {
 }
 
 type JobProperties struct {
-	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
-	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`
-	ResourceRequest setting.Request     `bson:"res_req"                json:"res_req"               yaml:"res_req"`
-	ResReqSpec      setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"          yaml:"res_req_spec"`
-	ClusterID       string              `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	BuildOS         string              `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`
-	ImageFrom       string              `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
-	ImageID         string              `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
-	Namespace       string              `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs,omitempty"`
-	Paths           string              `bson:"-"                      json:"-"                     yaml:"-"`
-	LogFileName     string              `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
-	DockerHost      string              `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
-	Cache           types.Cache         `bson:"cache"                  json:"cache"                 yaml:"cache"`
-	CacheEnable     bool                `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
-	CacheDirType    types.CacheDirType  `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
-	CacheUserDir    string              `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
+	Timeout         int64                `bson:"timeout"                json:"timeout"               yaml:"timeout"`
+	Retry           int64                `bson:"retry"                  json:"retry"                 yaml:"retry"`
+	ResourceRequest setting.Request      `bson:"res_req"                json:"res_req"               yaml:"res_req"`
+	ResReqSpec      setting.RequestSpec  `bson:"res_req_spec"           json:"res_req_spec"          yaml:"res_req_spec"`
+	ClusterID       string               `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	BuildOS         string               `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`
+	ImageFrom       string               `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
+	ImageID         string               `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
+	Namespace       string               `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	Envs            []*KeyVal            `bson:"envs"                   json:"envs"                  yaml:"envs,omitempty"`
+	Paths           string               `bson:"-"                      json:"-"                     yaml:"-"`
+	LogFileName     string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
+	DockerHost      string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
+	Cache           types.Cache          `bson:"cache"                  json:"cache"                 yaml:"cache"`
+	Registries      []*RegistryNamespace `bson:"registries"             json:"registries"            yaml:"registries"`
+	CacheEnable     bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
+	CacheDirType    types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
+	CacheUserDir    string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
 }
 
 type Step struct {

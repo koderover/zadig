@@ -104,7 +104,7 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 	var secretName string
 	var err error
 	if !isDefault {
-		secretName, err = genRegistrySecretName(reg)
+		secretName, err = GenRegistrySecretName(reg)
 		if err != nil {
 			return fmt.Errorf("failed to generate registry secret name: %s", err)
 		}
@@ -134,7 +134,7 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 	return updater.UpdateOrCreateSecret(secret, kubeClient)
 }
 
-func genRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
+func GenRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
 	if reg.IsDefault {
 		return setting.DefaultImagePullSecret, nil
 	}
