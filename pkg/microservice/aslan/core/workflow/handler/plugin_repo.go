@@ -19,8 +19,10 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func ListPluginTemplates(c *gin.Context) {
@@ -28,4 +30,30 @@ func ListPluginTemplates(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = workflow.ListPluginTemplates(ctx.Logger)
+}
+
+func ListUnofficalPluginRepositories(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.ListUnofficalPluginRepositories(ctx.Logger)
+}
+
+func DeletePluginRepo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = workflow.DeletePluginRepo(c.Param("id"), ctx.Logger)
+}
+
+func UpsertUserPluginRepository(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(commonmodels.PluginRepo)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = workflow.UpsertUserPluginRepository(req, ctx.Logger)
 }

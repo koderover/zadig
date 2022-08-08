@@ -52,9 +52,12 @@ func (c *PluginRepoColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *PluginRepoColl) List() ([]*models.PluginRepo, error) {
+func (c *PluginRepoColl) List(offical *bool) ([]*models.PluginRepo, error) {
 	var res []*models.PluginRepo
 	query := bson.M{}
+	if offical != nil {
+		query["is_offical"] = *offical
+	}
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
 		return nil, err
@@ -76,7 +79,8 @@ func (c *PluginRepoColl) Delete(id string) error {
 }
 
 func (c *PluginRepoColl) Upsert(pluginRepo *models.PluginRepo) error {
-	query := bson.M{"repo_owner": pluginRepo.RepoOwner, "repo_name": pluginRepo.RepoName, "branch": pluginRepo.Branch}
+	// for now, we support only one unoffical plugin repo.
+	query := bson.M{"is_offical": pluginRepo.IsOffical}
 	change := bson.M{"$set": pluginRepo}
 	pluginRepo.UpdateTime = time.Now().Unix()
 
