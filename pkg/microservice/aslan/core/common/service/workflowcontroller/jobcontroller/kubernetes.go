@@ -24,7 +24,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -406,7 +406,7 @@ func getImagePullSecrets(registries []*commonmodels.RegistryNamespace) ([]corev1
 		},
 	}
 	for _, reg := range registries {
-		secretName, err := genRegistrySecretName(reg)
+		secretName, err := kube.GenRegistrySecretName(reg)
 		if err != nil {
 			return ImagePullSecrets, fmt.Errorf("failed to generate registry secret name: %s", err)
 		}
@@ -809,46 +809,4 @@ func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *r
 	})
 
 	return commontypes.JobStatus(stdout), success, err
-}
-
-func genRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
-	if reg.IsDefault {
-		return setting.DefaultImagePullSecret, nil
-	}
-
-	arr := strings.Split(reg.Namespace, "/")
-	namespaceInRegistry := arr[len(arr)-1]
-
-	// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
-	if namespaceInRegistry == "" {
-		uriDecipher := strings.Split(reg.RegAddr, ".")
-		namespaceInRegistry = uriDecipher[0]
-	}
-
-	filteredName, err := formatRegistryName(namespaceInRegistry)
-	if err != nil {
-		return "", err
-	}
-
-	secretName := filteredName + registrySecretSuffix
-	if reg.RegType != "" {
-		secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
-	}
-
-	return secretName, nil
-}
-
-// Note: The name of a Secret object must be a valid DNS subdomain name:
-//   https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
-func formatRegistryName(namespaceInRegistry string) (string, error) {
-	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
-	if err != nil {
-		return "", err
-	}
-	processedName := reg.ReplaceAllString(namespaceInRegistry, "")
-	processedName = strings.ToLower(processedName)
-	if len(processedName) > 237 {
-		processedName = processedName[:237]
-	}
-	return processedName, nil
 }
