@@ -75,10 +75,11 @@ type JobTaskPreview struct {
 }
 
 type ZadigBuildJobSpec struct {
-	Repos         []*types.Repository `bson:"repos"           json:"repos"`
-	Image         string              `bson:"image"           json:"image"`
-	ServiceName   string              `bson:"service_name"    json:"service_name"`
-	ServiceModule string              `bson:"service_module"  json:"service_module"`
+	Repos         []*types.Repository    `bson:"repos"           json:"repos"`
+	Image         string                 `bson:"image"           json:"image"`
+	ServiceName   string                 `bson:"service_name"    json:"service_name"`
+	ServiceModule string                 `bson:"service_module"  json:"service_module"`
+	Envs          []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
 }
 
 type ZadigDeployJobSpec struct {
@@ -308,6 +309,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					continue
 				}
 			}
+			spec.Envs = job.Properties.CustomEnvs
 			for _, step := range job.Steps {
 				if step.StepType == config.StepGit {
 					stepSpec := &stepspec.StepGitSpec{}
