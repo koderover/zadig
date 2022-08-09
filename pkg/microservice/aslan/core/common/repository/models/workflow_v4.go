@@ -104,8 +104,8 @@ type ZadigDeployJobSpec struct {
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
-	JobName          string             `bson:"job_name"             yaml:"job_name"        json:"job_name"`
-	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"-"               json:"service_and_images"`
+	JobName          string             `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
 }
 
 type ServiceAndImage struct {
