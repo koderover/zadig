@@ -21,6 +21,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type PluginJob struct {
@@ -48,6 +50,7 @@ func (j *PluginJob) SetPreset() error {
 }
 
 func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.PluginJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -61,12 +64,20 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Plugin:     j.spec.Plugin,
 		Outputs:    j.spec.Plugin.Outputs,
 	}
+	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+	if err != nil {
+		return resp, err
+	}
+	jobTask.Properties.Registries = registries
+
 	renderedParams := []*commonmodels.Param{}
 	for _, param := range j.spec.Plugin.Inputs {
 		paramsKey := strings.Join([]string{"inputs", param.Name}, ".")
 		renderedParams = append(renderedParams, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
 	jobTask.Plugin = renderPlugin(jobTask.Plugin, renderedParams)
+	
+	jobTask.Outputs = j.spec.Plugin.Outputs
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 

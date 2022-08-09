@@ -70,7 +70,8 @@ type BranchFilterInfo struct {
 	RepoName      string `bson:"repo_name"    json:"repo_name"`
 	RepoNamespace string `bson:"repo_namespace" json:"repo_namespace"`
 	// actual regular expression filter
-	FilterRegExp string `bson:"filter_regexp" json:"filter_regexp"`
+	FilterRegExp  string `bson:"filter_regexp"  json:"filter_regexp"`
+	DefaultBranch string `bson:"default_branch" json:"default_branch"`
 }
 
 func (bf *BranchFilterInfo) GetNamespace() string {

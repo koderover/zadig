@@ -14,25 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package plutusvendor
 
 import (
-	"context"
-	"log"
-	"os/signal"
-	"syscall"
+	"fmt"
 
-	"github.com/koderover/zadig/pkg/microservice/user/server"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		<-ctx.Done()
-		stop()
-	}()
+type CheckSignatrueResp struct {
+	Code int64 `json:"code"`
+}
 
-	if err := server.Serve(ctx); err != nil {
-		log.Fatal(err)
-	}
+func (c *Client) CheckSignature(userNum int64) (*CheckSignatrueResp, error) {
+	url := fmt.Sprintf("/signature/check?user_num=%d", userNum)
+	res := &CheckSignatrueResp{}
+	_, err := c.Post(url, httpclient.SetResult(res))
+	return res, err
+}
+
+func (c *Client) Health() error {
+	url := "/health"
+	_, err := c.Get(url)
+	return err
 }

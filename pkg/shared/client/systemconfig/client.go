@@ -28,7 +28,7 @@ type Client struct {
 }
 
 func New() *Client {
-	host := config.ConfigServiceAddress()
+	host := config.AslanServiceAddress()
 	c := httpclient.New(
 		httpclient.SetHostURL(host + "/api/v1"),
 	)

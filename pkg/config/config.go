@@ -142,15 +142,6 @@ func CollieServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func ConfigServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Config)
-}
-
-func ConfigServiceAddress() string {
-	s := ConfigServiceInfo()
-	return GetServiceAddress(s.Name, s.Port)
-}
-
 func WarpDriveServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.WarpDrive)
 }
@@ -168,21 +159,12 @@ func OPAServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func PolicyServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Policy)
+func VendorServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Vendor)
 }
 
-func PolicyServiceAddress() string {
-	s := PolicyServiceInfo()
-	return GetServiceAddress(s.Name, s.Port)
-}
-
-func UserServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.User)
-}
-
-func UserServiceAddress() string {
-	s := UserServiceInfo()
+func VendorServiceAddress() string {
+	s := VendorServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
 }
 

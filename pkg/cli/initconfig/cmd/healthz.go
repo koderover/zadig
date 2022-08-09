@@ -22,24 +22,13 @@ import (
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
-	"github.com/koderover/zadig/pkg/shared/client/user"
 )
 
 func Healthz() error {
-	if err := checkUserServiceHealth(); err != nil {
-		return fmt.Errorf("checkUserServiceHealth error:%s", err)
-	}
-	if err := checkPolicyServiceHealth(); err != nil {
-		return fmt.Errorf("checkPolicyServiceHealth error:%s", err)
-	}
 	if err := checkAslanServiceHealth(); err != nil {
 		return fmt.Errorf("checkPolicyServiceHealth error:%s", err)
 	}
 	return nil
-}
-
-func checkUserServiceHealth() error {
-	return user.New().Healthz()
 }
 
 func checkPolicyServiceHealth() error {

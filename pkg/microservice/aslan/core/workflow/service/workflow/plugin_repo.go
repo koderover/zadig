@@ -23,12 +23,14 @@ import (
 	"os"
 	"path"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -43,19 +45,45 @@ const (
 var officalPluginRepoFiles embed.FS
 
 func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) error {
+	// clean args status
 	args.IsOffical = false
 	args.PluginTemplates = []*commonmodels.PluginTemplate{}
-	checkoutPath := fmt.Sprintf("/tmp/%s", uuid.New().String())
-	defer os.RemoveAll(checkoutPath)
-	// TODO: git clone and checkout the plugin
+	args.Error = ""
+
+	codehost, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	if err != nil {
+		errMsg := fmt.Sprintf("get code host %d error: %v", args.CodehostID, err)
+		log.Error(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+
+	defer func() {
+		if err := commonrepo.NewPluginRepoColl().Upsert(args); err != nil {
+			log.Errorf("upsert plugin repo error: %v", err)
+		}
+	}()
+
+	checkoutPath := path.Join(config.S3StoragePath(), args.RepoName)
+	if err := os.RemoveAll(checkoutPath); err != nil {
+		log.Warnf("Failed to remove checkout path, err:%s", err)
+	}
+	// in case of git clone take a long time, save error information.
+	if err := command.RunGitCmds(codehost, args.RepoOwner, args.RepoNamespace, args.RepoName, args.Branch, "origin"); err != nil {
+		errMsg := fmt.Sprintf("run git cmds error: %v", err)
+		log.Error(errMsg)
+		args.Error = errMsg
+		return fmt.Errorf(errMsg)
+	}
+
 	plugins, err := loadPluginRepoInfos(checkoutPath, args.IsOffical, os.ReadDir, os.ReadFile)
 	if err != nil {
 		errMsg := fmt.Sprintf("load plugin from user user repo error: %s", err)
 		log.Error(errMsg)
-		return e.ErrUpsertPluginRepo.AddDesc(errMsg)
+		args.Error = errMsg
+		return fmt.Errorf(errMsg)
 	}
 	args.PluginTemplates = plugins
-	return commonrepo.NewPluginRepoColl().Upsert(args)
+	return nil
 }
 
 func UpdateOfficalPluginRepository(log *zap.SugaredLogger) {
@@ -126,18 +154,19 @@ func loadPluginRepoInfos(baseDir string, isOffical bool, readDir readDir, readFi
 	return resp, nil
 }
 
-func ListPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo, error) {
-	resp, err := commonrepo.NewPluginRepoColl().List()
+func ListUnofficalPluginRepositories(log *zap.SugaredLogger) ([]*commonmodels.PluginRepo, error) {
+	offical := false
+	repos, err := commonrepo.NewPluginRepoColl().List(&offical)
 	if err != nil {
 		log.Errorf("list Plugin repos error: %v", err)
-		return resp, e.ErrListPluginRepo.AddDesc(err.Error())
+		return repos, e.ErrListPluginRepo.AddDesc(err.Error())
 	}
-	return resp, nil
+	return repos, nil
 }
 
 func DeletePluginRepo(id string, log *zap.SugaredLogger) error {
 	if err := commonrepo.NewPluginRepoColl().Delete(id); err != nil {
-		log.Errorf("list Plugin repos error: %v", err)
+		log.Errorf("delete Plugin repos error: %v", err)
 		return e.ErrListPluginRepo.AddDesc(err.Error())
 	}
 	return nil
@@ -145,7 +174,7 @@ func DeletePluginRepo(id string, log *zap.SugaredLogger) error {
 
 func ListPluginTemplates(log *zap.SugaredLogger) ([]*commonmodels.PluginTemplate, error) {
 	resp := []*commonmodels.PluginTemplate{}
-	repos, err := commonrepo.NewPluginRepoColl().List()
+	repos, err := commonrepo.NewPluginRepoColl().List(nil)
 	if err != nil {
 		log.Errorf("list plugin templates error: %v", err)
 		return resp, e.ErrListPluginRepo.AddDesc(err.Error())

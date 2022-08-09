@@ -43,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -179,11 +180,11 @@ echo $result > %s
 		JobName:      jobTask.Name,
 	})
 
-	ImagePullSecrets := []corev1.LocalObjectReference{
-		{
-			Name: setting.DefaultImagePullSecret,
-		},
+	ImagePullSecrets, err := getImagePullSecrets(jobTask.Properties.Registries)
+	if err != nil {
+		return nil, err
 	}
+
 	envs := []corev1.EnvVar{}
 	for _, env := range jobTask.Plugin.Envs {
 		envs = append(envs, corev1.EnvVar{Name: env.Name, Value: env.Value})
@@ -285,23 +286,10 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		JobName:      jobTask.Name,
 	})
 
-	// 引用集成到系统中的私有镜像仓库的访问权限
-	ImagePullSecrets := []corev1.LocalObjectReference{
-		{
-			Name: setting.DefaultImagePullSecret,
-		},
+	ImagePullSecrets, err := getImagePullSecrets(jobTask.Properties.Registries)
+	if err != nil {
+		return nil, err
 	}
-	// for _, reg := range registries {
-	// 	secretName, err := genRegistrySecretName(reg)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("failed to generate registry secret name: %s", err)
-	// 	}
-
-	// 	secret := corev1.LocalObjectReference{
-	// 		Name: secretName,
-	// 	}
-	// 	ImagePullSecrets = append(ImagePullSecrets, secret)
-	// }
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -408,6 +396,26 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	// }
 
 	return job, nil
+}
+
+func getImagePullSecrets(registries []*commonmodels.RegistryNamespace) ([]corev1.LocalObjectReference, error) {
+	ImagePullSecrets := []corev1.LocalObjectReference{
+		{
+			Name: setting.DefaultImagePullSecret,
+		},
+	}
+	for _, reg := range registries {
+		secretName, err := kube.GenRegistrySecretName(reg)
+		if err != nil {
+			return ImagePullSecrets, fmt.Errorf("failed to generate registry secret name: %s", err)
+		}
+
+		secret := corev1.LocalObjectReference{
+			Name: secretName,
+		}
+		ImagePullSecrets = append(ImagePullSecrets, secret)
+	}
+	return ImagePullSecrets, nil
 }
 
 func getVolumeMounts(configMapMountDir string) []corev1.VolumeMount {

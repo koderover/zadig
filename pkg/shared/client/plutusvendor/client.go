@@ -14,25 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package plutusvendor
 
 import (
-	"context"
-	"log"
-	"os/signal"
-	"syscall"
-
-	"github.com/koderover/zadig/pkg/microservice/podexec/server"
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		<-ctx.Done()
-		stop()
-	}()
+type Client struct {
+	*httpclient.Client
 
-	if err := server.Serve(ctx); err != nil {
-		log.Fatal(err)
+	host string
+}
+
+func New() *Client {
+	host := config.VendorServiceAddress()
+
+	c := httpclient.New(
+		httpclient.SetHostURL(host + "/api/plutus"),
+	)
+
+	return &Client{
+		Client: c,
+		host:   host,
 	}
 }
