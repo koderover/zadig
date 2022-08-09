@@ -127,6 +127,15 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	}
 	resp.TaskID = nextTaskID
 
+	if err := jobctl.RemoveFixedValueMarks(workflow); err != nil {
+		log.Errorf("RemoveFixedValueMarks error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, user); err != nil {
+		log.Errorf("RenderGlobalVariables error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = user
 	workflowTask.TaskRevoker = user
