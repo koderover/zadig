@@ -39,6 +39,7 @@ type WorkflowV4 struct {
 	UpdatedBy   string             `bson:"updated_by"     yaml:"updated_by"   json:"updated_by"`
 	UpdateTime  int64              `bson:"update_time"    yaml:"update_time"  json:"update_time"`
 	MultiRun    bool               `bson:"multi_run"      yaml:"multi_run"    json:"multi_run"`
+	HookCtls    []*WorkflowV4Hook  `bson:"hook_ctl"       yaml:"-"     json:"hook_ctl"`
 }
 
 type WorkflowStage struct {
@@ -144,6 +145,15 @@ type Step struct {
 type Output struct {
 	Name        string `bson:"name"           json:"name"             yaml:"name"`
 	Description string `bson:"description"    json:"description"      yaml:"description"`
+}
+
+type WorkflowV4Hook struct {
+	Name                string        `bson:"name"                      json:"name"`
+	AutoCancel          bool          `bson:"auto_cancel"               json:"auto_cancel"`
+	CheckPatchSetChange bool          `bson:"check_patch_set_change"    json:"check_patch_set_change"`
+	Enabled             bool          `bson:"enabled"                   json:"enabled"`
+	MainRepo            *MainHookRepo `bson:"main_repo"                 json:"main_repo"`
+	WorkflowArg         *WorkflowV4   `bson:"workflow_arg"              json:"workflow_arg"`
 }
 
 func IToiYaml(before interface{}, after interface{}) error {

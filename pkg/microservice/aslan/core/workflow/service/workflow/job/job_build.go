@@ -75,6 +75,44 @@ func (j *BuildJob) SetPreset() error {
 	return nil
 }
 
+func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.ZadigBuildJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+		j.job.Spec = j.spec
+		argsSpec := &commonmodels.ZadigBuildJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
+		for _, build := range j.spec.ServiceAndBuilds {
+			for _, argsBuild := range argsSpec.ServiceAndBuilds {
+				if build.BuildName == argsBuild.BuildName && build.ServiceName == argsBuild.ServiceName && build.ServiceModule == argsBuild.ServiceModule {
+					build.Repos = mergeRepos(build.Repos, argsBuild.Repos)
+					build.KeyVals = renderKeyVals(build.KeyVals, argsBuild.KeyVals)
+					break
+				}
+			}
+		}
+		j.job.Spec = j.spec
+	}
+	return nil
+}
+
+func (j *BuildJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	for _, build := range j.spec.ServiceAndBuilds {
+		build.Repos = mergeRepos(build.Repos, []*types.Repository{webhookRepo})
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
@@ -432,6 +470,30 @@ func mergeRepoBranches(templateRepos []*types.Repository, customRepos []*types.R
 		if cv, ok := customRepoMap[repoKey]; ok {
 			repo.Branch = cv.Branch
 		}
+	}
+	return templateRepos
+}
+
+func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Repository) []*types.Repository {
+	customRepoMap := make(map[string]*types.Repository)
+	for _, repo := range customRepos {
+		if repo.RepoNamespace == "" {
+			repo.RepoNamespace = repo.RepoOwner
+		}
+		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
+		customRepoMap[repoKey] = repo
+	}
+	resp := []*types.Repository{}
+	for _, repo := range templateRepos {
+		if repo.RepoNamespace == "" {
+			repo.RepoNamespace = repo.RepoOwner
+		}
+		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
+		if cv, ok := customRepoMap[repoKey]; ok {
+			resp = append(resp, cv)
+			continue
+		}
+		resp = append(resp, repo)
 	}
 	return templateRepos
 }

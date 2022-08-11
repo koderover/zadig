@@ -345,6 +345,19 @@ func toHookSet(hooks interface{}) HookSet {
 				codeHostID: h.CodehostID,
 			})
 		}
+	case []*models.WorkflowV4Hook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:      h.MainRepo.Name,
+					owner:     h.MainRepo.RepoOwner,
+					namespace: h.MainRepo.GetRepoNamespace(),
+					repo:      h.MainRepo.RepoName,
+					source:    h.MainRepo.Source,
+				},
+				codeHostID: h.MainRepo.CodehostID,
+			})
+		}
 	}
 
 	return res

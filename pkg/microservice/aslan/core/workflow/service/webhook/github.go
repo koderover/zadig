@@ -512,6 +512,55 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 	return nil
 }
 
+func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
+	forwardedProto := req.Header.Get("X-Forwarded-Proto")
+	forwardedHost := req.Header.Get("X-Forwarded-Host")
+	baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
+
+	hookType := github.WebHookType(req)
+	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
+		return nil
+	}
+
+	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	if err != nil {
+		return err
+	}
+
+	event, err := github.ParseWebHook(github.WebHookType(req), payload)
+	if err != nil {
+		return err
+	}
+
+	deliveryID := github.DeliveryID(req)
+	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
+
+	switch et := event.(type) {
+	case *github.PullRequestEvent:
+		if *et.Action != "opened" && *et.Action != "synchronize" {
+			return nil
+		}
+		err = TriggerWorkflowV4ByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		if err != nil {
+			log.Errorf("prEventToPipelineTasks error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	case *github.PushEvent:
+		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		if err != nil {
+			log.Infof("pushEventToPipelineTasks error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	case *github.CreateEvent:
+		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		if err != nil {
+			log.Errorf("tagEventToPipelineTasks error: %s", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	}
+	return nil
+}
+
 type AutoCancelOpt struct {
 	MergeRequestID string
 	CommitID       string
