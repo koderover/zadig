@@ -89,17 +89,13 @@ func EnsureNamespaceLabels(namespace string, customLabels map[string]string, kub
 		Name: namespace,
 	}, nsObj)
 	if err != nil {
-		return nil
+		return err
 	}
 	if labels.SelectorFromValidatedSet(customLabels).Matches(labels.Set(nsObj.Labels)) {
 		return nil
 	}
 	nsObj.Labels = labels.Merge(nsObj.Labels, customLabels)
-	err = updater.UpdateNamespace(nsObj, kubeClient)
-	if err != nil {
-		log.Errorf("failed to patch namespace: %s, err: %s", nsObj, err)
-	}
-	return err
+	return updater.UpdateNamespace(nsObj, kubeClient)
 }
 
 func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Client) error {
