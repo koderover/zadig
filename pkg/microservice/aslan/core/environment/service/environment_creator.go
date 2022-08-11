@@ -271,7 +271,17 @@ func newExternalProductCreator() *ExternalProductCreator {
 func (creator *ExternalProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
 	args.Status = setting.ProductStatusUnstable
 	args.RecycleDay = config.DefaultRecycleDay()
-	err := commonrepo.NewProductColl().Create(args)
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
+	err = kube.EnsureNamespaceLabels(args.Namespace, map[string]string{setting.ProductLabel: args.ProductName}, kubeClient)
+	if err != nil {
+		log.Errorf("[%s][%s] create add namesapce label error: %v", args.EnvName, args.ProductName, err)
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+	err = commonrepo.NewProductColl().Create(args)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
