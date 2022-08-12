@@ -188,6 +188,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.DELETE("/workflow/:workflowName/task/:taskID", CancelWorkflowTaskV4)
 		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)
 		taskV4.POST("/approve", ApproveStage)
+		taskV4.GET("/webhook/preset", GetWebhookForWorkflowV4Preset)
+		taskV4.GET("/webhook", ListWebhookForWorkflowV4Preset)
+		taskV4.POST("/webhook/:workflowName", CreateWebhookForWorkflowV4)
+		taskV4.PUT("/webhook/:workflowName", UpdateWebhookForWorkflowV4)
+		taskV4.DELETE("/webhook/:workflowName/trigger/:triggerName", DeleteWebhookForWorkflowV4)
 	}
 
 	// ---------------------------------------------------------------------------------------
