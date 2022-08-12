@@ -35,6 +35,12 @@ type BuildPipeResp struct {
 	TotalBuildCount int       `bson:"total_build_count"      json:"total_build_count"`
 }
 
+type BuildItemResp struct {
+	ID              string `bson:"_id" json:"_id"`
+	TotalSuccess    int    `bson:"total_success"          json:"total_success"`
+	TotalBuildCount int    `bson:"total_build_count"      json:"total_build_count"`
+}
+
 type BuildItem struct {
 	Date            string `bson:"date"               json:"date"`
 	TotalSuccess    int    `bson:"total_success"      json:"total_success"`
@@ -185,7 +191,7 @@ func (c *BuildStatColl) GetBuildTotalAndSuccess() ([]*BuildItem, error) {
 }
 
 func (c *BuildStatColl) GetBuildStats(args *models.BuildStatOption) (*BuildItem, error) {
-	var result []*BuildPipeResp
+	var result []*BuildItemResp
 	var pipeline []bson.M
 	var resp []*BuildItem
 
