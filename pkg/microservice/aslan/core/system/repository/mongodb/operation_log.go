@@ -40,7 +40,7 @@ type OperationLogArgs struct {
 	Page         int    `json:"page"`
 	Scene        string `json:"scene"`
 	TargetID     string `json:"target_id"`
-	Content      string `json:"content"`
+	Detail       string `json:"detail"`
 }
 
 type OperationLogColl struct {
@@ -124,8 +124,8 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 	if args.TargetID != "" {
 		query["targets"] = bson.M{"$elemMatch": bson.M{"$eq": args.TargetID}}
 	}
-	if args.Content != "" {
-		query["name"] = bson.M{"$regex": args.Content}
+	if args.Detail != "" {
+		query["name"] = bson.M{"$regex": args.Detail}
 	}
 
 	opts := options.Find()

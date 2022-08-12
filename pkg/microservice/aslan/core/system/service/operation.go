@@ -34,7 +34,7 @@ type OperationLogArgs struct {
 	Page         int    `json:"page"`
 	Scene        string `json:"scene"`
 	TargetID     string `json:"target_id"`
-	Content      string `json:"content"`
+	Detail       string `json:"detail"`
 }
 
 func FindOperation(args *OperationLogArgs, log *zap.SugaredLogger) ([]*models.OperationLog, int, error) {
@@ -48,7 +48,7 @@ func FindOperation(args *OperationLogArgs, log *zap.SugaredLogger) ([]*models.Op
 		Page:         args.Page,
 		Scene:        args.Scene,
 		TargetID:     args.TargetID,
-		Content:      args.Content,
+		Detail:       args.Detail,
 	})
 	if err != nil {
 		log.Errorf("find operation log error: %v", err)

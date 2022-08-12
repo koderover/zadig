@@ -70,6 +70,7 @@ func GetOperationLogs(c *gin.Context) {
 		Status:       status,
 		PerPage:      pageSize,
 		Page:         page,
+		Detail:       c.Query("detail"),
 	}
 
 	logs, count, err := service.FindOperation(args, ctx.Logger)
