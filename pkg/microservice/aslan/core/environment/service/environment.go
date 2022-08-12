@@ -1156,6 +1156,7 @@ func CopyYamlProduct(user, requestID string, args *commonmodels.Product, log *za
 		for _, svc := range svcLists {
 			if baseSvc, ok := servicesInBaseNev[svc.ServiceName]; ok {
 				svc.Revision = baseSvc.Revision
+				svc.ProductName = baseSvc.ProductName
 			}
 		}
 	}
