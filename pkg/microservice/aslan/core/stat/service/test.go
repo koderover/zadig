@@ -51,55 +51,6 @@ func GetTestDashboard(startTime, endTime int64, log *zap.SugaredLogger) (*testDa
 	for _, test := range tests {
 		testNames.Insert(test.Name)
 	}
-	testTasks, err := commonrepo.NewTestTaskStatColl().ListTestTask()
-	if err != nil {
-		log.Errorf("Failed to list TestTaskStat err:%s", err)
-		return nil, err
-	}
-	for _, testTask := range testTasks {
-		if testNames.Has(testTask.Name) {
-			existTestTasks = append(existTestTasks, testTask)
-		}
-	}
-
-	for _, existTestTask := range existTestTasks {
-		totalCaseCount += existTestTask.TestCaseNum
-		totalSuccess += existTestTask.TotalSuccess
-		totalFailure += existTestTask.TotalFailure
-		totalDuration += existTestTask.TotalDuration
-	}
-	testDashboard.TotalCaseCount = totalCaseCount
-	testDashboard.TotalExecCount = totalSuccess + totalFailure
-	testDashboard.Success = totalSuccess
-	if testDashboard.TotalExecCount == 0 {
-		testDashboard.AverageDuration = 0
-		return testDashboard, nil
-	}
-	testDashboard.AverageDuration = totalDuration / int64(testDashboard.TotalExecCount)
-
-	return testDashboard, nil
-}
-
-func GetTestStat(startTime, endTime int64, log *zap.SugaredLogger) (*testDashboard, error) {
-	var (
-		testDashboard  = new(testDashboard)
-		existTestTasks = make([]*models.TestTaskStat, 0)
-		totalCaseCount = 0
-		totalSuccess   = 0
-		totalFailure   = 0
-		totalDuration  int64
-	)
-
-	tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
-	if err != nil {
-		log.Errorf("Failed to list testing err:%s", err)
-		return nil, err
-	}
-
-	testNames := sets.String{}
-	for _, test := range tests {
-		testNames.Insert(test.Name)
-	}
 	testTasks, err := commonrepo.NewTestTaskStatColl().GetTestTasks(startTime, endTime)
 	if err != nil {
 		log.Errorf("Failed to list TestTaskStat err:%s", err)
