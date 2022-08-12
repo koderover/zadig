@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -118,11 +119,11 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 
 // before workflowflow task was created, we need to remove the fixed mark from variables.
 func RemoveFixedValueMarks(workflow *commonmodels.WorkflowV4) error {
-	b, err := json.Marshal(workflow)
-	if err != nil {
-		return fmt.Errorf("marshal workflow error: %v", err)
-	}
-	replacedString := strings.ReplaceAll(string(b), setting.FixedValueMark, "")
+	bf := bytes.NewBuffer([]byte{})
+	jsonEncoder := json.NewEncoder(bf)
+	jsonEncoder.SetEscapeHTML(false)
+	jsonEncoder.Encode(workflow)
+	replacedString := strings.ReplaceAll(bf.String(), setting.FixedValueMark, "")
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
