@@ -111,6 +111,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 	}
 
+	operations := router.Group("operations")
+	{
+		operations.GET("", GetOperationLogs)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// 产品管理接口(环境)
 	// ---------------------------------------------------------------------------------------

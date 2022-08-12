@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/setting"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -34,7 +35,7 @@ func EnableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "开启自测模式", "环境", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "开启自测模式", "环境", c.Param("name"), "", ctx.Logger, c.Param("name"))
 
 	ctx.Err = service.EnableBaseEnv(c, c.Param("name"), c.Query("projectName"))
 }
@@ -43,7 +44,9 @@ func DisableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "关闭自测模式", "环境", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv,
+		"关闭自测模式", "环境", c.Param("name"),
+		"", ctx.Logger, c.Param("name"))
 
 	ctx.Err = service.DisableBaseEnv(c, c.Param("name"), c.Query("projectName"))
 }

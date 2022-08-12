@@ -397,6 +397,19 @@ const (
 	UpdateContainerImageEvent = "UpdateContainerImage"
 )
 
+// operation scenes
+const (
+	OperationSceneProject  = "project"
+	OperationSceneBuild    = "build"
+	OperationSceneWorkflow = "workflow"
+	OperationSceneEnv      = "environment"
+	OperationSceneService  = "service"
+	OperationSceneTest     = "test"
+	OperationSceneScanning = "scanning"
+	OperationSceneVersion  = "version"
+	OperationSceneSystem   = "system"
+)
+
 // Service Related
 const (
 	// PrivateVisibility ...

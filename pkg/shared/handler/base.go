@@ -157,6 +157,26 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 	c.Set("operationLogID", operationLogID.OperationLogID)
 }
 
+func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, requestBody string, logger *zap.SugaredLogger, targets ...string) {
+	req := &systemmodels.OperationLog{
+		Username:    username,
+		ProductName: productName,
+		Method:      method,
+		Function:    function,
+		Name:        detail,
+		RequestBody: requestBody,
+		Scene:       scene,
+		Targets:     targets,
+		Status:      0,
+		CreatedAt:   time.Now().Unix(),
+	}
+	operationLogID, err := systemservice.InsertOperation(req, logger)
+	if err != nil {
+		logger.Errorf("InsertOperation err:%v", err)
+	}
+	c.Set("operationLogID", operationLogID.OperationLogID)
+}
+
 // responseHelper recursively finds all nil slice in the given interface,
 // replacing them with empty slices.
 // Drawbacks of this function is listed below to avoid possible misuse.
