@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
@@ -247,6 +248,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
+	var hookPayload *commonmodels.HookPayload
 
 	for _, workflow := range workflows {
 		if workflow.HookCtls == nil {
@@ -270,6 +272,17 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 			if !matches {
 				continue
 			}
+			if ev, isPr := event.(*github.PullRequestEvent); isPr {
+				hookPayload = &commonmodels.HookPayload{
+					Owner:      *ev.Repo.Owner.Login,
+					Repo:       *ev.Repo.Name,
+					Branch:     *ev.PullRequest.Base.Ref,
+					Ref:        *ev.PullRequest.Head.SHA,
+					IsPr:       true,
+					CodehostID: item.MainRepo.CodehostID,
+					DeliveryID: deliveryID,
+				}
+			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
@@ -284,11 +297,18 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
 			}
+			workflow.HookPayload = hookPayload
 			if resp, err := workflowservice.CreateWorkflowTaskV4(setting.WebhookTaskCreator, workflow, log); err != nil {
 				errMsg := fmt.Sprintf("failed to create workflow task when receive push event due to %v ", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 			} else {
+				if workflow.HookPayload.IsPr {
+					// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
+					if err := scmnotify.NewService().CreateGitCheckForWorkflowV4(workflow, resp.TaskID, log); err != nil {
+						log.Warnf("Failed to create github check status for custom workflow %s, taskID: %d the error is: %s", workflow.Name, resp.TaskID, err)
+					}
+				}
 				log.Infof("succeed to create task %v", resp)
 			}
 		}

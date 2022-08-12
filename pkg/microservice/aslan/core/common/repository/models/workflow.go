@@ -360,6 +360,7 @@ type HookPayload struct {
 	IsPr       bool   `bson:"is_pr"          json:"is_pr,omitempty"`
 	CheckRunID int64  `bson:"check_run_id"   json:"check_run_id,omitempty"`
 	DeliveryID string `bson:"delivery_id"    json:"delivery_id,omitempty"`
+	CodehostID int    `bson:"codehost_id"    json:"codehost_id"`
 }
 
 type TargetArgs struct {

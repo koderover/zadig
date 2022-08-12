@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
@@ -291,6 +292,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
+	var notification *commonmodels.Notification
 
 	for _, workflow := range workflows {
 		if workflow.HookCtls == nil {
@@ -337,6 +339,13 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 			if !matches {
 				continue
 			}
+			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
+				if notification == nil {
+					notification, _ = scmnotify.NewService().SendInitWebhookComment(
+						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
+					)
+				}
+			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
@@ -350,6 +359,9 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
+			}
+			if notification != nil {
+				workflow.NotificationID = notification.ID.Hex()
 			}
 			if resp, err := workflowservice.CreateWorkflowTaskV4(setting.WebhookTaskCreator, workflow, log); err != nil {
 				errMsg := fmt.Sprintf("failed to create workflow task when receive push event due to %v ", err)
