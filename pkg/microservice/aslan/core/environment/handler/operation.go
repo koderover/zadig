@@ -19,14 +19,19 @@ package handler
 import (
 	"strconv"
 
-	"github.com/koderover/zadig/pkg/setting"
-
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
+
+type OperationLog struct {
+	Count int                    `json:"count"`
+	Logs  []*models.OperationLog `json:"logs"`
+}
 
 func GetOperationLogs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -67,7 +72,13 @@ func GetOperationLogs(c *gin.Context) {
 		Page:         page,
 	}
 
-	resp, _, err := service.FindOperation(args, ctx.Logger)
-	ctx.Resp = resp
-	ctx.Err = err
+	logs, count, err := service.FindOperation(args, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = &OperationLog{
+		Count: count,
+		Logs:  logs,
+	}
 }
