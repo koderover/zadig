@@ -77,3 +77,46 @@ func GetDeployDailyTotalAndSuccess(args *models.DeployStatOption, log *zap.Sugar
 
 	return dashboardDeploy, nil
 }
+
+func GetDeployStats(args *models.DeployStatOption, log *zap.SugaredLogger) (*dashboardDeploy, error) {
+	var (
+		dashboardDeploy       = new(dashboardDeploy)
+		dashboardDeployDailys = make([]*dashboardDeployDaily, 0)
+		failure               int
+		success               int
+	)
+
+	if deployItems, err := repo.NewDeployStatColl().GetDeployStats(&models.DeployStatOption{
+		StartDate: args.StartDate,
+		EndDate:   args.EndDate,
+	}); err == nil {
+		for _, deployItem := range deployItems {
+			success += deployItem.TotalSuccess
+			failure += deployItem.TotalFailure
+		}
+		dashboardDeploy.Total = success + failure
+		dashboardDeploy.Success = success
+	} else {
+		log.Errorf("Failed to getDeployTotalAndSuccess err:%s", err)
+		return nil, err
+	}
+
+	if deployDailyItems, err := repo.NewDeployStatColl().GetDeployDailyTotal(args); err == nil {
+		sort.SliceStable(deployDailyItems, func(i, j int) bool { return deployDailyItems[i].Date < deployDailyItems[j].Date })
+		for _, deployDailyItem := range deployDailyItems {
+			dashboardDeployDaily := new(dashboardDeployDaily)
+			dashboardDeployDaily.Date = deployDailyItem.Date
+			dashboardDeployDaily.Success = deployDailyItem.TotalSuccess
+			dashboardDeployDaily.Failure = deployDailyItem.TotalFailure
+			dashboardDeployDaily.Total = deployDailyItem.TotalFailure + deployDailyItem.TotalSuccess
+
+			dashboardDeployDailys = append(dashboardDeployDailys, dashboardDeployDaily)
+		}
+		dashboardDeploy.DashboardDeployDailys = dashboardDeployDailys
+	} else {
+		log.Errorf("Failed to getDeployDailyTotal err:%s", err)
+		return nil, err
+	}
+
+	return dashboardDeploy, nil
+}

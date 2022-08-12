@@ -181,6 +181,53 @@ func (c *DeployStatColl) GetDeployTotalAndSuccess() ([]*DeployTotalItem, error) 
 	return resp, nil
 }
 
+func (c *DeployStatColl) GetDeployStats(args *models.DeployStatOption) ([]*DeployTotalItem, error) {
+	var result []*DeployTotalPipeResp
+	var resp []*DeployTotalItem
+
+	filter := bson.M{}
+	if args.StartDate > 0 {
+		filter["create_time"] = bson.M{"$gte": args.StartDate, "$lte": args.EndDate}
+	}
+
+	pipeline := []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"product_name": "$product_name",
+				},
+				"total_deploy_success": bson.M{
+					"$sum": "$total_deploy_success",
+				},
+				"total_deploy_failure": bson.M{
+					"$sum": "$total_deploy_failure",
+				},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return nil, err
+	}
+	for _, res := range result {
+		deployItem := &DeployTotalItem{
+			ProductName:  res.ID.ProductName,
+			TotalSuccess: res.TotalSuccess,
+			TotalFailure: res.TotalFailure,
+		}
+		resp = append(resp, deployItem)
+	}
+
+	return resp, nil
+}
+
 func (c *DeployStatColl) ListDeployStat(option *models.DeployStatOption) ([]*models.DeployStat, error) {
 	ret := make([]*models.DeployStat, 0)
 	query := bson.M{}

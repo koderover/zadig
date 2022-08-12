@@ -65,9 +65,9 @@ type OpenAPIRouter struct{}
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	dashboard := router.Group("")
 	{
-		dashboard.GET("/overview", picketHandler.Overview)
+		dashboard.GET("/overview", GetOverviewStat)
 		dashboard.GET("/build", GetBuildStatForOpenAPI)
-		dashboard.GET("/deploy", picketHandler.Deploy)
+		dashboard.GET("/deploy", GetDeployStatsOpenAPI)
 		dashboard.GET("/test", picketHandler.Test)
 	}
 }
