@@ -18,6 +18,8 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
+	picketHandler "github.com/koderover/zadig/pkg/microservice/picket/core/filter/handler"
 )
 
 type Router struct{}
@@ -55,5 +57,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		quality.POST("/deployWeeklyMeasure", GetDeployWeeklyMeasure)
 		quality.POST("/deployTopFiveHigherMeasure", GetDeployTopFiveHigherMeasure)
 		quality.POST("/deployTopFiveFailureMeasure", GetDeployTopFiveFailureMeasure)
+	}
+}
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	dashboard := router.Group("dashboard")
+	{
+		dashboard.GET("/overview", picketHandler.Overview)
+		dashboard.GET("/build", picketHandler.Build)
+		dashboard.GET("/deploy", picketHandler.Deploy)
+		dashboard.GET("/test", picketHandler.Test)
 	}
 }
