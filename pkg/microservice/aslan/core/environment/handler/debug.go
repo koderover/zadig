@@ -18,9 +18,9 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/setting"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/types"
 )
