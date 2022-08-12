@@ -34,11 +34,10 @@ func GetTestDashboard(c *gin.Context) {
 }
 
 type DailyTestStat struct {
-	Date           string `json:"date"`
-	SuccessCount   int    `json:"success_count"`
-	TimoutCount    int    `json:"timeout_count"`
-	FailCount      int    `json:"failed_count"`
-	AverageRuntime int64  `json:"average_runtime"`
+	Date         string `json:"date"`
+	SuccessCount int    `json:"success_count"`
+	TimoutCount  int    `json:"timeout_count"`
+	FailCount    int    `json:"failed_count"`
 }
 
 type OpenAPITestStatResp struct {
