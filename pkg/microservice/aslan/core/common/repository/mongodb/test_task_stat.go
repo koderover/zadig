@@ -88,6 +88,25 @@ func (c *TestTaskStatColl) ListTestTask() ([]*models.TestTaskStat, error) {
 	return testTaskStats, nil
 }
 
+func (c *TestTaskStatColl) GetTestTasks(startTime, endTime int64) ([]*models.TestTaskStat, error) {
+	testTaskStats := make([]*models.TestTaskStat, 0)
+	filter := bson.M{}
+
+	if startTime > 0 {
+		filter["create_time"] = bson.M{"$gte": startTime, "$lte": endTime}
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &testTaskStats)
+	if err != nil {
+		return nil, err
+	}
+	return testTaskStats, nil
+}
+
 func (c *TestTaskStatColl) FindTestTaskStat(option *TestTaskStatOption) (*models.TestTaskStat, error) {
 	var err error
 	query := bson.M{"name": option.Name}

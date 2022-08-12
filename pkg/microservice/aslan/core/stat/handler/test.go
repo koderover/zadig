@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -27,5 +28,18 @@ func GetTestDashboard(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetTestDashboard(ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetTestDashboard(0, 0, ctx.Logger)
+}
+
+func GetTestStatOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getStatReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetTestDashboard(args.StartDate, args.EndDate, ctx.Logger)
 }
