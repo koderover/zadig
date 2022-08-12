@@ -85,7 +85,9 @@ func DeletePod(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Query("projectName")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s", c.Query("envName"), c.Param("podName")), "", ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv,
+		"重启", "环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s",
+			c.Query("envName"), c.Param("podName")), "", ctx.Logger, envName)
 	ctx.Err = service.DeletePod(envName, productName, podName, ctx.Logger)
 }
 

@@ -31,12 +31,16 @@ import (
 )
 
 type OperationLogArgs struct {
-	Username    string `json:"username"`
-	ProductName string `json:"product_name"`
-	Function    string `json:"function"`
-	Status      int    `json:"status"`
-	PerPage     int    `json:"per_page"`
-	Page        int    `json:"page"`
+	Username     string `json:"username"`
+	ProductName  string `json:"product_name"`
+	ExactProduct string `json:"exact_product"`
+	Function     string `json:"function"`
+	Status       int    `json:"status"`
+	PerPage      int    `json:"per_page"`
+	Page         int    `json:"page"`
+	Scene        string `json:"scene"`
+	TargetID     string `json:"target_id"`
+	Detail       string `json:"detail"`
 }
 
 type OperationLogColl struct {
@@ -102,6 +106,9 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 	if args.ProductName != "" {
 		query["product_name"] = bson.M{"$regex": args.ProductName}
 	}
+	if args.ExactProduct != "" {
+		query["product_name"] = args.ExactProduct
+	}
 	if args.Username != "" {
 		query["username"] = bson.M{"$regex": args.Username}
 	}
@@ -110,6 +117,15 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 	}
 	if args.Status != 0 {
 		query["status"] = args.Status
+	}
+	if args.Scene != "" {
+		query["scene"] = args.Scene
+	}
+	if args.TargetID != "" {
+		query["targets"] = bson.M{"$elemMatch": bson.M{"$eq": args.TargetID}}
+	}
+	if args.Detail != "" {
+		query["name"] = bson.M{"$regex": args.Detail}
 	}
 
 	opts := options.Find()

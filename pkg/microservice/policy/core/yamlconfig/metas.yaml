@@ -679,6 +679,8 @@ metas:
             endpoint: /api/aslan/service/workloads
           - method: GET
             endpoint: /api/aslan/project/products/?*/services
+          - method: GET
+            endpoint: /api/aslan/environment/operations
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/registry'
           - method: PUT
