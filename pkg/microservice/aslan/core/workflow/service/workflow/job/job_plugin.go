@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -76,20 +77,20 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		renderedParams = append(renderedParams, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
 	jobTask.Plugin = renderPlugin(jobTask.Plugin, renderedParams)
-	
+
 	jobTask.Outputs = j.spec.Plugin.Outputs
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
 func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Param) *commonmodels.PluginTemplate {
 	for _, env := range plugin.Envs {
-		env.Value = renderString(env.Value, inputs)
+		env.Value = renderString(env.Value, setting.RenderPluginValueTemplate, inputs)
 	}
 	for i, arg := range plugin.Args {
-		plugin.Args[i] = renderString(arg, inputs)
+		plugin.Args[i] = renderString(arg, setting.RenderPluginValueTemplate, inputs)
 	}
 	for i, cmd := range plugin.Cmds {
-		plugin.Cmds[i] = renderString(cmd, inputs)
+		plugin.Cmds[i] = renderString(cmd, setting.RenderPluginValueTemplate, inputs)
 	}
 	return plugin
 }

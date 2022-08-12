@@ -132,13 +132,13 @@ func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, crea
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	replacedString := renderString(string(b), getWorkflowDefaultParams(workflow, taskID, creator))
+	replacedString := renderString(string(b), setting.RenderValueTemplate, getWorkflowDefaultParams(workflow, taskID, creator))
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
-func renderString(value string, inputs []*commonmodels.Param) string {
+func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
-		value = strings.ReplaceAll(value, fmt.Sprintf(setting.RenderValueTemplate, input.Name), input.Value)
+		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
 	}
 	return value
 }

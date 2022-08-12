@@ -666,6 +666,7 @@ const (
 
 // custom workflow constants for variables
 const (
-	FixedValueMark      = "<+fixed>"
-	RenderValueTemplate = "{{.%s}}"
+	FixedValueMark            = "<+fixed>"
+	RenderValueTemplate       = "{{.%s}}"
+	RenderPluginValueTemplate = "$(%s)"
 )
