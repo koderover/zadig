@@ -186,6 +186,10 @@ func copyHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 	)
 }
 
+// CreateProduct creates new product
+// Query param `auto` determines if create in onBoarding progress
+// Query param `helm` determines if is helm project
+// Query param `scene` determines if the product is copied from some project
 func CreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -194,6 +198,7 @@ func CreateProduct(c *gin.Context) {
 		ctx.Resp = service.AutoCreateProduct(c.Query("projectName"), c.Query("envType"), ctx.RequestID, ctx.Logger)
 		return
 	}
+
 	if c.Query("helm") == "true" {
 		if c.Query("scene") == "copy" {
 			copyHelmProduct(c, ctx)
@@ -235,9 +240,11 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
-	ctx.Err = service.CreateProduct(
-		ctx.UserName, ctx.RequestID, args, ctx.Logger,
-	)
+	if c.Query("scene") == "copy" {
+		ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
+	} else {
+		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
+	}
 }
 
 type UpdateProductParams struct {

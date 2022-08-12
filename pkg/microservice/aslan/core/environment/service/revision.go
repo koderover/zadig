@@ -287,6 +287,8 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 				ServiceName: service.ServiceName,
 				Updatable:   true,
 				Deleted:     true,
+				Type:        service.Type,
+				Containers:  service.Containers,
 			}
 			serviceRevs = append(serviceRevs, serviceRev)
 		} else {
