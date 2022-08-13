@@ -199,6 +199,8 @@ var (
 	ErrUpdateResource = NewHTTPError(6095, "更新对象资源失败")
 	//ErrDeleteResource ...
 	ErrDeleteResource = NewHTTPError(6096, "删除对象资源失败")
+	//ErrGetPodFile
+	ErrGetPodFile = NewHTTPError(6097, "下载Pod文件失败")
 	// ErrLoginPm ...
 	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
 
