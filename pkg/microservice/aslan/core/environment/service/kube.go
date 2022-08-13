@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/podexec/core/service"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,9 +38,11 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
 
+	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -217,54 +217,10 @@ func DeletePod(envName, productName, podName string, log *zap.SugaredLogger) err
 	return nil
 }
 
-//func copyFromPod(namespace, podName, containerName, srcPath string, destPath string, kubeClient kubernetes.Interface) error {
-//	reader, outStream := io.Pipe()
-//	//todo some containers failed : tar: Refusing to write archive contents to terminal (missing -f option?) when execute `tar cf -` in container
-//	cmdArr := []string{"tar", "cf", "-", srcPath}
-//	req := kubeClient.CoreV1().RESTClient().
-//		Get().
-//		Namespace(namespace).
-//		Resource("pods").
-//		Name(podName).
-//		SubResource("exec").
-//		VersionedParams(&corev1.PodExecOptions{
-//			Container: containerName,
-//			Command:   cmdArr,
-//			Stdin:     true,
-//			Stdout:    true,
-//			Stderr:    true,
-//			TTY:       false,
-//		}, scheme.ParameterCodec)
-//
-//	exec, err := remotecommand.NewSPDYExecutor(restconfig, "POST", req.URL())
-//	if err != nil {
-//		log.Fatalf("error %s\n", err)
-//		return err
-//	}
-//	go func() {
-//		defer outStream.Close()
-//		err = exec.Stream(remotecommand.StreamOptions{
-//			Stdin:  os.Stdin,
-//			Stdout: outStream,
-//			Stderr: os.Stderr,
-//			Tty:    false,
-//		})
-//		cmdutil.CheckErr(err)
-//	}()
-//	prefix := getPrefix(srcPath)
-//	prefix = path.Clean(prefix)
-//	prefix = cpStripPathShortcuts(prefix)
-//	destPath = path.Join(destPath, path.Base(prefix))
-//	err = untarAll(reader, destPath, prefix)
-//	return err
-//}
-
 func getPrefix(file string) string {
-	// tar strips the leading '/' if it's there, so we will too
 	return strings.TrimLeft(file, "/")
 }
 
-// stripPathShortcuts removes any leading or trailing "../" from a given path
 func stripPathShortcuts(p string) string {
 	newPath := path.Clean(p)
 	trimmed := strings.TrimPrefix(newPath, "../")
@@ -348,8 +304,7 @@ func unTarAll(reader io.Reader, destDir, prefix string) error {
 	return nil
 }
 
-// ExecPod do pod exec
-func execPod(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, filePath, targetDir, namespace, podName, containerName string) (string, error) {
+func execPodCopy(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, filePath, targetDir, namespace, podName, containerName string) (string, error) {
 	req := kubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -394,7 +349,7 @@ func execPod(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, fi
 }
 
 func podFileTmpPath(envName, productName, podName, container string) string {
-	return filepath.Join("podfile", productName, envName, podName, container)
+	return filepath.Join(commonconfig.DataPath(), "podfile", productName, envName, podName, container)
 }
 
 func DownloadFile(envName, productName, podName, container, path string, log *zap.SugaredLogger) ([]byte, string, error) {
@@ -424,13 +379,13 @@ func DownloadFile(envName, productName, podName, container, path string, log *za
 		return nil, "", e.ErrGetPodFile.AddDesc(fmt.Sprintf("get kubecli err :%v", err))
 	}
 
-	localPath, err := execPod(kubeCli, cfg, []string{"tar", "cf", "-", path}, path, podFileTmpPath(envName, productName, podName, container), product.Namespace, podName, container)
+	localPath, err := execPodCopy(kubeCli, cfg, []string{"tar", "cf", "-", path}, path, podFileTmpPath(envName, productName, podName, container), product.Namespace, podName, container)
 	if err != nil {
 		return nil, "", e.ErrGetPodFile.AddErr(err)
 	}
 
 	fileBytes, err := os.ReadFile(localPath)
-	return fileBytes, localPath, nil
+	return fileBytes, localPath, err
 }
 
 // getServiceFromObjectMetaList returns a set of services which are modified since last update.
