@@ -343,7 +343,7 @@ func execPodCopy(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string
 	prefix := getPrefix(filePath)
 	prefix = path.Clean(prefix)
 	prefix = stripPathShortcuts(prefix)
-	destPath := path.Join("./", targetDir, path.Base(prefix))
+	destPath := path.Join(targetDir, path.Base(prefix))
 	err = unTarAll(reader, destPath, prefix)
 	return destPath, err
 }
