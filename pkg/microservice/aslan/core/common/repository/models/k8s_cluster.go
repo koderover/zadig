@@ -29,7 +29,6 @@ type K8SCluster struct {
 	Name                   string                   `json:"name"                      bson:"name"`
 	Tags                   []string                 `json:"tags"                      bson:"tags"`
 	Description            string                   `json:"description"               bson:"description"`
-	Namespace              string                   `json:"namespace"                 bson:"namespace"`
 	Info                   *K8SClusterInfo          `json:"info,omitempty"            bson:"info,omitempty"`
 	AdvancedConfig         *AdvancedConfig          `json:"advanced_config,omitempty" bson:"advanced_config,omitempty"`
 	Status                 setting.K8SClusterStatus `json:"status"                    bson:"status"`
@@ -46,6 +45,13 @@ type K8SCluster struct {
 	LastConnectionTime     int64                    `json:"last_connection_time"      bson:"last_connection_time"`
 	UpdateHubagentErrorMsg string                   `json:"update_hubagent_error_msg" bson:"update_hubagent_error_msg"`
 	DindCfg                *DindCfg                 `json:"dind_cfg"                  bson:"dind_cfg"`
+
+	// new field in 1.14, intended to enable kubeconfig for cluster management
+	Type   string `json:"type"` // either agent or kubeconfig supported
+	Config string `json:"config"`
+
+	// Deprecated field, it should be deleted in version 1.15 since no more namespace settings is used
+	Namespace string `json:"namespace"                 bson:"namespace"`
 }
 
 type K8SClusterResp struct {
