@@ -155,6 +155,7 @@ type WorkflowV4Hook struct {
 	CheckPatchSetChange bool          `bson:"check_patch_set_change"    json:"check_patch_set_change"`
 	Enabled             bool          `bson:"enabled"                   json:"enabled"`
 	MainRepo            *MainHookRepo `bson:"main_repo"                 json:"main_repo"`
+	Description         string        `bson:"description,omitempty"     json:"description,omitempty"`
 	WorkflowArg         *WorkflowV4   `bson:"workflow_arg"              json:"workflow_arg"`
 }
 
