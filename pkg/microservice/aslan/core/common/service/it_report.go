@@ -56,7 +56,7 @@ func GetLocalTestSuite(pipelineName, serviceName, testType string, taskID int64,
 		testJobName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
 			config.TestType, pipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)), "_", "-", -1)
 	}
-	//resultPath := path.Join(s.KubeConfig.NFS.Path, pipelineName, "dist", fmt.Sprintf("%d", taskID))
+	//resultPath := path.Join(s.Config.NFS.Path, pipelineName, "dist", fmt.Sprintf("%d", taskID))
 	//resultPath := path.Join(pipelineName, "dist", fmt.Sprintf("%d", taskID))
 	//testResultFile := path.Join(resultPath, testJobName)
 

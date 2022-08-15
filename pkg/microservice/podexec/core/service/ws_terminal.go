@@ -231,7 +231,7 @@ func NewKubeOutClusterClient(clusterID string) (kubernetes.Interface, *rest.Conf
 			return nil, nil, fmt.Errorf("cluster is not connected %s, err:%v", clusterID, err)
 		}
 		cfg := &api.Config{
-			Kind:       "KubeConfig",
+			Kind:       "Config",
 			APIVersion: "v1",
 			Clusters: map[string]*api.Cluster{
 				"hubserver": {
