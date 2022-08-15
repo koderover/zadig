@@ -86,6 +86,7 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	inputWorkflow.UpdatedBy = user
 	inputWorkflow.UpdateTime = time.Now().Unix()
 	inputWorkflow.ID = workflow.ID
+	inputWorkflow.HookCtls = workflow.HookCtls
 
 	for _, stage := range inputWorkflow.Stages {
 		for _, job := range stage.Jobs {
