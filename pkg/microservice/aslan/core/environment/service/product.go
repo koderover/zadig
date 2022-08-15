@@ -216,11 +216,16 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 		}
 		prod.RegistryID = reg.ID.Hex()
 	}
-	resp := buildProductResp(prod.EnvName, prod, log)
+	cluster, err := commonrepo.NewK8SClusterColl().Get(prod.ClusterID)
+	if err != nil {
+		log.Errorf("failed to get cluster information , error is: %s", err)
+		return nil, err
+	}
+	resp := buildProductResp(prod.EnvName, prod, cluster, log)
 	return resp, nil
 }
 
-func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) *ProductResp {
+func buildProductResp(envName string, prod *commonmodels.Product, clusterInfo *commonmodels.K8SCluster, log *zap.SugaredLogger) *ProductResp {
 	prodResp := &ProductResp{
 		ID:              prod.ID.Hex(),
 		ProductName:     prod.ProductName,
@@ -261,7 +266,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		prodResp.ClusterName = cluster.Name
 		prodResp.IsLocal = cluster.Local
 
-		if !prodResp.IsLocal && !clusterService.ClusterConnected(prod.ClusterID) {
+		if !prodResp.IsLocal && !clusterService.ClusterConnected(prod.ClusterID) && clusterInfo.Type != setting.KubeConfigClusterType {
 			prodResp.Status = setting.ClusterDisconnected
 			prodResp.Error = "集群未连接"
 			return prodResp
