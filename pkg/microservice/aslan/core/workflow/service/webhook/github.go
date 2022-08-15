@@ -571,6 +571,7 @@ type AutoCancelOpt struct {
 	IsYaml         bool
 	AutoCancel     bool
 	YamlHookPath   string
+	WorkflowName   string
 }
 
 func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.SugaredLogger) error {

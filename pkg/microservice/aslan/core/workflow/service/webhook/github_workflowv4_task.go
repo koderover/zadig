@@ -19,6 +19,7 @@ package webhook
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
@@ -272,15 +273,35 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 			if !matches {
 				continue
 			}
+
+			var mergeRequestID, commitID string
 			if ev, isPr := event.(*github.PullRequestEvent); isPr {
+				mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
+				commitID = *ev.PullRequest.Head.SHA
+				autoCancelOpt := &AutoCancelOpt{
+					MergeRequestID: mergeRequestID,
+					CommitID:       commitID,
+					TaskType:       config.WorkflowType,
+					MainRepo:       item.MainRepo,
+					AutoCancel:     item.AutoCancel,
+					WorkflowName:   workflow.Name,
+				}
+				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
+				if err != nil {
+					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
+					mErr = multierror.Append(mErr, err)
+				}
+
 				hookPayload = &commonmodels.HookPayload{
-					Owner:      *ev.Repo.Owner.Login,
-					Repo:       *ev.Repo.Name,
-					Branch:     *ev.PullRequest.Base.Ref,
-					Ref:        *ev.PullRequest.Head.SHA,
-					IsPr:       true,
-					CodehostID: item.MainRepo.CodehostID,
-					DeliveryID: deliveryID,
+					Owner:          *ev.Repo.Owner.Login,
+					Repo:           *ev.Repo.Name,
+					Branch:         *ev.PullRequest.Base.Ref,
+					Ref:            *ev.PullRequest.Head.SHA,
+					IsPr:           true,
+					CodehostID:     item.MainRepo.CodehostID,
+					DeliveryID:     deliveryID,
+					MergeRequestID: mergeRequestID,
+					CommitID:       commitID,
 				}
 			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)

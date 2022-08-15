@@ -19,6 +19,7 @@ package webhook
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
@@ -293,6 +294,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
 	var notification *commonmodels.Notification
+	var hookPayload *commonmodels.HookPayload
 
 	for _, workflow := range workflows {
 		if workflow.HookCtls == nil {
@@ -339,13 +341,6 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 			if !matches {
 				continue
 			}
-			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
-				if notification == nil {
-					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
-					)
-				}
-			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
@@ -353,6 +348,41 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
+			}
+			var mergeRequestID, commitID string
+			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
+
+				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
+				commitID = ev.ObjectAttributes.LastCommit.ID
+				autoCancelOpt := &AutoCancelOpt{
+					MergeRequestID: mergeRequestID,
+					CommitID:       commitID,
+					TaskType:       config.WorkflowType,
+					MainRepo:       item.MainRepo,
+					AutoCancel:     item.AutoCancel,
+					WorkflowName:   workflow.Name,
+				}
+				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
+				if err != nil {
+					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
+					mErr = multierror.Append(mErr, err)
+				}
+
+				hookPayload = &commonmodels.HookPayload{
+					Owner:          eventRepo.RepoOwner,
+					Repo:           eventRepo.RepoName,
+					Branch:         eventRepo.Branch,
+					IsPr:           true,
+					MergeRequestID: mergeRequestID,
+					CommitID:       commitID,
+					CodehostID:     eventRepo.CodehostID,
+				}
+
+				if notification == nil {
+					notification, _ = scmnotify.NewService().SendInitWebhookComment(
+						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
+					)
+				}
 			}
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
@@ -363,6 +393,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 			if notification != nil {
 				workflow.NotificationID = notification.ID.Hex()
 			}
+			workflow.HookPayload = hookPayload
 			if resp, err := workflowservice.CreateWorkflowTaskV4(setting.WebhookTaskCreator, workflow, log); err != nil {
 				errMsg := fmt.Sprintf("failed to create workflow task when receive push event due to %v ", err)
 				log.Error(errMsg)
