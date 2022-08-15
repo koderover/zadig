@@ -19,6 +19,7 @@ package client
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/config"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -26,11 +27,12 @@ import (
 
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	aslanClient "github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
 func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
-	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
