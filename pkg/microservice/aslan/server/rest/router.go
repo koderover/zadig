@@ -125,7 +125,6 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	}
 
 	// inject podexec service API(s)
-	// TODO move to aslan
 	podexec := router.Group("/api/podexec")
 	{
 		podexec.GET("/:productName/:namespace/:podName/:containerName/podExec/:envName", podexecservice.ServeWs)
