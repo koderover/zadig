@@ -18,14 +18,18 @@ package multicluster
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -45,6 +49,16 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 	return clusterService.GetKubeClient(clusterID)
 }
 
+func GetKubeClientFromKubeConfig(clusterID, kubeConfig string) (client.Client, error) {
+	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
+	if err != nil {
+		log.Errorf("failed to get kubeconfig from file, error: %s", err)
+		return nil, err
+	}
+
+	return krkubeclient.GetKubeClientFromRestConfig(cfg)
+}
+
 func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
 	if clusterID == "" {
 		return krkubeclient.NewClientSet()
@@ -58,6 +72,16 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 	return clusterService.GetClientGoKubeClient(clusterID)
 }
 
+func GetKubeClientSetFromKubeConfig(clusterID, kubeConfig string) (*kubernetes.Clientset, error) {
+	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
+	if err != nil {
+		log.Errorf("failed to get kubeconfig from file, error: %s", err)
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(cfg)
+}
+
 func GetDynamicKubeclient(hubServerAddr, clusterID string) (dynamic.Interface, error) {
 	if clusterID == "" {
 		return krkubeclient.NewDynamicClient()
@@ -69,6 +93,16 @@ func GetDynamicKubeclient(hubServerAddr, clusterID string) (dynamic.Interface, e
 	}
 
 	return clusterService.GetDynamicKubeClient(clusterID)
+}
+
+func GetDynamicKubeclientFromKubeConfig(clusterID, kubeConfig string) (dynamic.Interface, error) {
+	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
+	if err != nil {
+		log.Errorf("failed to get kubeconfig from file, error: %s", err)
+		return nil, err
+	}
+
+	return dynamic.NewForConfig(cfg)
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
@@ -92,6 +126,25 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 	return krkubeclient.RESTConfigFromAPIConfig(generateAPIConfig(clusterID, hubServerAddr))
 }
 
+func GetRestConfigFromKubeConfig(clusterID, kubeConfig string) (*rest.Config, error) {
+	// since we cannot build a config directly from a text kubeconfig, we write it into a temporary file
+	file, err := ioutil.TempFile("/", clusterID)
+	if err != nil {
+		log.Errorf("failed to create temporary file for kubeconfig, error: %s", err)
+		return nil, err
+	}
+	defer os.Remove(file.Name())
+
+	kubeConfigByte := []byte(kubeConfig)
+	err = os.WriteFile(file.Name(), kubeConfigByte, 0777)
+	if err != nil {
+		log.Errorf("failed to write temporary file for kubeconfig, error: %s", err)
+		return nil, err
+	}
+
+	return clientcmd.BuildConfigFromFlags("", file.Name())
+}
+
 // GetClientset returns a client to interact with APIServer which implements kubernetes.Interface
 func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error) {
 	if clusterID == "" {
@@ -104,6 +157,21 @@ func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error)
 	}
 
 	return clusterService.GetClientset(clusterID)
+}
+
+func GetClientSetFromKubeConfig(clusterID, kubeConfig string) (kubernetes.Interface, error) {
+	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
+	if err != nil {
+		log.Errorf("failed to get kubeconfig from file, error: %s", err)
+		return nil, err
+	}
+
+	cl, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return cl, nil
 }
 
 type Agent struct {
