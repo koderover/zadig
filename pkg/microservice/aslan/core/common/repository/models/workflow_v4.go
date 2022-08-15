@@ -31,6 +31,7 @@ type WorkflowV4 struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"  yaml:"-"            json:"id"`
 	Name        string             `bson:"name"           yaml:"name"         json:"name"`
 	KeyVals     []*KeyVal          `bson:"key_vals"       yaml:"key_vals"     json:"key_vals"`
+	Params      []*Param           `bson:"params"         yaml:"params"       json:"params"`
 	Stages      []*WorkflowStage   `bson:"stages"         yaml:"stages"       json:"stages"`
 	Project     string             `bson:"project"        yaml:"project"      json:"project"`
 	Description string             `bson:"description"    yaml:"description"  json:"description"`
@@ -103,8 +104,8 @@ type ZadigDeployJobSpec struct {
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
-	JobName          string             `bson:"job_name"             yaml:"job_name"        json:"job_name"`
-	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"-"               json:"service_and_images"`
+	JobName          string             `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
 }
 
 type ServiceAndImage struct {
@@ -114,24 +115,27 @@ type ServiceAndImage struct {
 }
 
 type JobProperties struct {
-	Timeout         int64                `bson:"timeout"                json:"timeout"               yaml:"timeout"`
-	Retry           int64                `bson:"retry"                  json:"retry"                 yaml:"retry"`
-	ResourceRequest setting.Request      `bson:"res_req"                json:"res_req"               yaml:"res_req"`
-	ResReqSpec      setting.RequestSpec  `bson:"res_req_spec"           json:"res_req_spec"          yaml:"res_req_spec"`
-	ClusterID       string               `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	BuildOS         string               `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`
-	ImageFrom       string               `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
-	ImageID         string               `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
-	Namespace       string               `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	Envs            []*KeyVal            `bson:"envs"                   json:"envs"                  yaml:"envs,omitempty"`
-	Paths           string               `bson:"-"                      json:"-"                     yaml:"-"`
-	LogFileName     string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
-	DockerHost      string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
-	Cache           types.Cache          `bson:"cache"                  json:"cache"                 yaml:"cache"`
-	Registries      []*RegistryNamespace `bson:"registries"             json:"registries"            yaml:"registries"`
-	CacheEnable     bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
-	CacheDirType    types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
-	CacheUserDir    string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
+	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
+	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`
+	ResourceRequest setting.Request     `bson:"res_req"                json:"res_req"               yaml:"res_req"`
+	ResReqSpec      setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"          yaml:"res_req_spec"`
+	ClusterID       string              `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	BuildOS         string              `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`
+	ImageFrom       string              `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
+	ImageID         string              `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
+	Namespace       string              `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs,omitempty"`
+	// log user-defined variables, shows in workflow task detail.
+	CustomEnvs   []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
+	Params       []*Param             `bson:"params"               	 json:"params"                yaml:"params"`
+	Paths        string               `bson:"-"                      json:"-"                     yaml:"-"`
+	LogFileName  string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
+	DockerHost   string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
+	Registries   []*RegistryNamespace `bson:"registries"             json:"registries"            yaml:"registries"`
+	Cache        types.Cache          `bson:"cache"                  json:"cache"                 yaml:"cache"`
+	CacheEnable  bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
+	CacheDirType types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
+	CacheUserDir string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
 }
 
 type Step struct {
@@ -144,6 +148,17 @@ type Step struct {
 type Output struct {
 	Name        string `bson:"name"           json:"name"             yaml:"name"`
 	Description string `bson:"description"    json:"description"      yaml:"description"`
+}
+
+type Param struct {
+	Name        string `bson:"name"             json:"name"             yaml:"name"`
+	Description string `bson:"description"      json:"description"      yaml:"description"`
+	// support string/text type
+	ParamsType   string   `bson:"type"                      json:"type"                        yaml:"type"`
+	Value        string   `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
+	ChoiceOption []string `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	Default      string   `bson:"default"                   json:"default"                     yaml:"default"`
+	IsCredential bool     `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 func IToiYaml(before interface{}, after interface{}) error {

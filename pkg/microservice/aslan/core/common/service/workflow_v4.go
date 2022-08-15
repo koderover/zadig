@@ -103,7 +103,7 @@ func EncryptKeyVals(encryptedKey string, kvs []*commonmodels.KeyVal, logger *zap
 	return nil
 }
 
-func EncryptParams(encryptedKey string, params []*commonmodels.Params, logger *zap.SugaredLogger) error {
+func EncryptParams(encryptedKey string, params []*commonmodels.Param, logger *zap.SugaredLogger) error {
 	if encryptedKey == "" {
 		return nil
 	}

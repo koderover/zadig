@@ -19,10 +19,8 @@ package stepcontroller
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -39,23 +37,6 @@ type StepCtl interface {
 }
 
 func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
-	// inject global context into step spec.
-	workflowCtx.GlobalContextEach(func(k, v string) bool {
-		for _, step := range steps {
-			yamlString, err := yaml.Marshal(step.Spec)
-			if err != nil {
-				logger.Errorf("marshal step spec error: %v", err)
-				return false
-			}
-			replacedString := strings.ReplaceAll(string(yamlString), fmt.Sprintf("$(%s)", k), v)
-			if err := yaml.Unmarshal([]byte(replacedString), &step.Spec); err != nil {
-				logger.Errorf("unmarshal step spec error: %v", err)
-				return false
-			}
-		}
-		return true
-	})
-
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
 		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, logger)

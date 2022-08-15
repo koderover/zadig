@@ -17,12 +17,16 @@ limitations under the License.
 package job
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -111,4 +115,44 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 		}
 	}
 	return ret
+}
+
+// before workflowflow task was created, we need to remove the fixed mark from variables.
+func RemoveFixedValueMarks(workflow *commonmodels.WorkflowV4) error {
+	bf := bytes.NewBuffer([]byte{})
+	jsonEncoder := json.NewEncoder(bf)
+	jsonEncoder.SetEscapeHTML(false)
+	jsonEncoder.Encode(workflow)
+	replacedString := strings.ReplaceAll(bf.String(), setting.FixedValueMark, "")
+	return json.Unmarshal([]byte(replacedString), &workflow)
+}
+
+func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, creator string) error {
+	b, err := json.Marshal(workflow)
+	if err != nil {
+		return fmt.Errorf("marshal workflow error: %v", err)
+	}
+	replacedString := renderString(string(b), setting.RenderValueTemplate, getWorkflowDefaultParams(workflow, taskID, creator))
+	return json.Unmarshal([]byte(replacedString), &workflow)
+}
+
+func renderString(value, template string, inputs []*commonmodels.Param) string {
+	for _, input := range inputs {
+		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
+	}
+	return value
+}
+
+func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, creator string) []*commonmodels.Param {
+	resp := []*commonmodels.Param{}
+	resp = append(resp, &commonmodels.Param{Name: "project", Value: workflow.Project, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: workflow.Name, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
+	for _, param := range workflow.Params {
+		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
+		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
+	}
+	return resp
 }

@@ -131,7 +131,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Timeout:         int64(buildInfo.Timeout),
 			ResourceRequest: buildInfo.PreBuild.ResReq,
 			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
-			Envs:            renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
+			CustomEnvs:      renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
 			ClusterID:       buildInfo.PreBuild.ClusterID,
 			BuildOS:         basicImage.Value,
 			ImageFrom:       buildInfo.PreBuild.ImageFrom,
@@ -150,7 +150,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTask.Properties.CacheDirType = buildInfo.CacheDirType
 			jobTask.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTask.Properties.Envs = append(jobTask.Properties.Envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
+		jobTask.Properties.Envs = append(jobTask.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
 
 		if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == types.NFSMedium {
 			jobTask.Properties.CacheUserDir = renderEnv(jobTask.Properties.CacheUserDir, jobTask.Properties.Envs)

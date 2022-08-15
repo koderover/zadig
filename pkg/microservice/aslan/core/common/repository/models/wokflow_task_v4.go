@@ -26,6 +26,7 @@ type WorkflowTask struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
 	TaskID        int64              `bson:"task_id"                   json:"task_id"`
 	WorkflowName  string             `bson:"workflow_name"             json:"workflow_name"`
+	Params        []*Param           `bson:"params"                    json:"params"`
 	WorkflowArgs  *WorkflowV4        `bson:"workflow_args"             json:"workflow_args"`
 	KeyVals       []*KeyVal          `bson:"key_vals"                  json:"key_vals"`
 	GlobalContext map[string]string  `bson:"global_context"            json:"global_context"`
