@@ -74,8 +74,8 @@ type K8SCluster struct {
 	DindCfg                *commonmodels.DindCfg    `json:"dind_cfg"`
 
 	// new field in 1.14, intended to enable kubeconfig for cluster management
-	Type   string `json:"type"` // either agent or kubeconfig supported
-	Config string `json:"config"`
+	Type       string `json:"type"` // either agent or kubeconfig supported
+	KubeConfig string `json:"config"`
 }
 
 type AdvancedConfig struct {
@@ -164,13 +164,13 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			LastConnectionTime:     c.LastConnectionTime,
 			UpdateHubagentErrorMsg: c.UpdateHubagentErrorMsg,
 			DindCfg:                c.DindCfg,
-			Config:                 c.Config,
+			KubeConfig:             c.KubeConfig,
 			Type:                   c.Type,
 		}
 
 		// compatibility for the data before 1.14, since type is a new field since 1.14
 		if clusterItem.Type == "" {
-			clusterItem.Type = "agent"
+			clusterItem.Type = setting.AgentClusterType
 		}
 
 		res = append(res, clusterItem)
@@ -268,7 +268,7 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		Cache:          args.Cache,
 		DindCfg:        args.DindCfg,
 		Type:           args.Type,
-		Config:         args.Config,
+		KubeConfig:     args.KubeConfig,
 	}
 
 	return s.CreateCluster(cluster, args.ID, logger)
@@ -386,7 +386,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		Cache:          args.Cache,
 		DindCfg:        args.DindCfg,
 		Type:           args.Type,
-		Config:         args.Config,
+		KubeConfig:     args.KubeConfig,
 	}
 
 	cluster, err = s.UpdateCluster(id, cluster, logger)

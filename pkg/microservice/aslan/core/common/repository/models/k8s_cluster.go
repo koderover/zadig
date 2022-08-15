@@ -47,8 +47,8 @@ type K8SCluster struct {
 	DindCfg                *DindCfg                 `json:"dind_cfg"                  bson:"dind_cfg"`
 
 	// new field in 1.14, intended to enable kubeconfig for cluster management
-	Type   string `json:"type"` // either agent or kubeconfig supported
-	Config string `json:"config"`
+	Type       string `json:"type"` // either agent or kubeconfig supported
+	KubeConfig string `json:"config"`
 
 	// Deprecated field, it should be deleted in version 1.15 since no more namespace settings is used
 	Namespace string `json:"namespace"                 bson:"namespace"`

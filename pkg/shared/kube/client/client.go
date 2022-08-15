@@ -17,57 +17,130 @@ limitations under the License.
 package client
 
 import (
+	"fmt"
+
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
-func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
-	if clusterID == setting.LocalClusterID {
-		clusterID = ""
+func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
+	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	if err != nil {
+		return nil, err
 	}
 
-	return multicluster.GetKubeClient(hubServerAddr, clusterID)
+	switch cluster.Type {
+	case setting.AgentClusterType:
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+
+		return multicluster.GetKubeClient(hubserverAddr, clusterID)
+	case setting.KubeConfigClusterType:
+		return multicluster.GetKubeClientFromKubeConfig(clusterID, cluster.KubeConfig)
+	default:
+		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+	}
 }
 
 func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
-	if clusterID == setting.LocalClusterID {
-		clusterID = ""
+	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	if err != nil {
+		return nil, err
 	}
+	switch cluster.Type {
+	case setting.AgentClusterType:
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
 
-	return multicluster.GetKubeClientSet(hubServerAddr, clusterID)
+		return multicluster.GetKubeClientSet(hubServerAddr, clusterID)
+	case setting.KubeConfigClusterType:
+		return multicluster.GetKubeClientSetFromKubeConfig(clusterID, cluster.KubeConfig)
+	default:
+		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+	}
 }
 
 func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, error) {
-	if clusterID == setting.LocalClusterID {
-		clusterID = ""
+	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	if err != nil {
+		return nil, err
 	}
+	switch cluster.Type {
+	case setting.AgentClusterType:
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
 
-	return multicluster.GetDynamicKubeclient(hubserverAddr, clusterID)
+		return multicluster.GetDynamicKubeclient(hubserverAddr, clusterID)
+	case setting.KubeConfigClusterType:
+		return multicluster.GetDynamicKubeclientFromKubeConfig(clusterID, cluster.KubeConfig)
+	default:
+		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+	}
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
-	if clusterID == setting.LocalClusterID {
-		clusterID = ""
+	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	if err != nil {
+		return nil, err
 	}
-	return multicluster.GetKubeAPIReader(hubServerAddr, clusterID)
+
+	switch cluster.Type {
+	case setting.AgentClusterType:
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+		return multicluster.GetKubeAPIReader(hubServerAddr, clusterID)
+	case setting.KubeConfigClusterType:
+		return multicluster.GetKubeClientFromKubeConfig(clusterID, cluster.KubeConfig)
+	default:
+		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+	}
 }
 
 func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
-	if clusterID == setting.LocalClusterID {
-		clusterID = ""
+	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	if err != nil {
+		return nil, err
 	}
-	return multicluster.GetRESTConfig(hubServerAddr, clusterID)
+
+	switch cluster.Type {
+	case setting.AgentClusterType:
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+		return multicluster.GetRESTConfig(hubServerAddr, clusterID)
+	case setting.KubeConfigClusterType:
+		return multicluster.GetRestConfigFromKubeConfig(clusterID, cluster.KubeConfig)
+	default:
+		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+	}
 }
 
 func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error) {
-	if clusterID == setting.LocalClusterID {
-		clusterID = ""
+	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	if err != nil {
+		return nil, err
 	}
 
-	return multicluster.GetClientset(hubServerAddr, clusterID)
+	switch cluster.Type {
+	case setting.AgentClusterType:
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+
+		return multicluster.GetClientset(hubServerAddr, clusterID)
+	case setting.KubeConfigClusterType:
+		return multicluster.GetClientSetFromKubeConfig(clusterID, cluster.KubeConfig)
+	default:
+		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+	}
 }

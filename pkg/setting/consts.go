@@ -640,7 +640,13 @@ const (
 	ResetImagePolicyTestFailed         ResetImagePolicyType = "testFailed"
 )
 
-const LocalClusterID = "0123456789abcdef12345678"
+// Cluster Management constants
+const (
+	AgentClusterType      = "agent"
+	KubeConfigClusterType = "kubeconfig"
+
+	LocalClusterID = "0123456789abcdef12345678"
+)
 
 const DefaultLoginLocal = "local"
 
