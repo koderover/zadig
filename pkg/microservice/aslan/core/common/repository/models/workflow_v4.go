@@ -127,7 +127,7 @@ type JobProperties struct {
 	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs,omitempty"`
 	// log user-defined variables, shows in workflow task detail.
 	CustomEnvs   []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
-	Params       []*Param             `bson:"params"                 yaml:"params"                json:"params"`
+	Params       []*Param             `bson:"params"               	 json:"params"                yaml:"params"`
 	Paths        string               `bson:"-"                      json:"-"                     yaml:"-"`
 	LogFileName  string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
 	DockerHost   string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
