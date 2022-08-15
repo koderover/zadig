@@ -98,7 +98,35 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 	return nil
 }
 
+func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
+	resp := []*types.Repository{}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobZadigBuild {
+				jobCtl := &BuildJob{job: job, workflow: workflow}
+				buildRepos, err := jobCtl.GetRepos()
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, buildRepos...)
+			}
+			if job.JobType == config.JobZadigBuild {
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				freeStyleRepos, err := jobCtl.GetRepos()
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, freeStyleRepos...)
+			}
+		}
+	}
+	return resp, nil
+}
+
 func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
+	if workflowArgs == nil {
+		return nil
+	}
 	argsMap := make(map[string]*commonmodels.Job)
 	for _, stage := range workflowArgs.Stages {
 		for _, job := range stage.Jobs {

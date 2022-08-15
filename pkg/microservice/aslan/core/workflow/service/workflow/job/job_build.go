@@ -75,6 +75,31 @@ func (j *BuildJob) SetPreset() error {
 	return nil
 }
 
+func (j *BuildJob) GetRepos() ([]*types.Repository, error) {
+	resp := []*types.Repository{}
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+
+	for _, build := range j.spec.ServiceAndBuilds {
+		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+		if err != nil {
+			continue
+		}
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+			continue
+		}
+		for _, target := range buildInfo.Targets {
+			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+				resp = mergeRepoBranches(buildInfo.Repos, build.Repos)
+				break
+			}
+		}
+	}
+	return resp, nil
+}
+
 func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.ZadigBuildJobSpec{}

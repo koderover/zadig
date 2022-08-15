@@ -154,13 +154,14 @@ type Output struct {
 }
 
 type WorkflowV4Hook struct {
-	Name                string        `bson:"name"                      json:"name"`
-	AutoCancel          bool          `bson:"auto_cancel"               json:"auto_cancel"`
-	CheckPatchSetChange bool          `bson:"check_patch_set_change"    json:"check_patch_set_change"`
-	Enabled             bool          `bson:"enabled"                   json:"enabled"`
-	MainRepo            *MainHookRepo `bson:"main_repo"                 json:"main_repo"`
-	Description         string        `bson:"description,omitempty"     json:"description,omitempty"`
-	WorkflowArg         *WorkflowV4   `bson:"workflow_arg"              json:"workflow_arg"`
+	Name                string              `bson:"name"                      json:"name"`
+	AutoCancel          bool                `bson:"auto_cancel"               json:"auto_cancel"`
+	CheckPatchSetChange bool                `bson:"check_patch_set_change"    json:"check_patch_set_change"`
+	Enabled             bool                `bson:"enabled"                   json:"enabled"`
+	MainRepo            *MainHookRepo       `bson:"main_repo"                 json:"main_repo"`
+	Description         string              `bson:"description,omitempty"     json:"description,omitempty"`
+	Repos               []*types.Repository `bson:"-"                         json:"repos,omitempty"`
+	WorkflowArg         *WorkflowV4         `bson:"workflow_arg"              json:"workflow_arg"`
 }
 
 type Param struct {

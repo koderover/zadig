@@ -479,7 +479,7 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 		return nil, e.ErrGetWebhook.AddErr(err)
 	}
 	var workflowArg *commonmodels.WorkflowV4
-	var workflowHook *commonmodels.WorkflowV4Hook
+	workflowHook := &commonmodels.WorkflowV4Hook{}
 	for _, hook := range workflow.HookCtls {
 		if hook.Name == triggerName {
 			workflowArg = hook.WorkflowArg
@@ -492,6 +492,13 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 		log.Error(errMsg)
 		return nil, e.ErrGetWebhook.AddDesc(errMsg)
 	}
+	repos, err := job.GetRepos(workflow)
+	if err != nil {
+		errMsg := fmt.Sprintf("get workflow webhook repos error: %v", err)
+		log.Error(errMsg)
+		return nil, e.ErrGetWebhook.AddDesc(errMsg)
+	}
+	workflowHook.Repos = repos
 	workflowHook.WorkflowArg = workflow
 	workflowHook.WorkflowArg.HookCtls = nil
 	return workflowHook, nil

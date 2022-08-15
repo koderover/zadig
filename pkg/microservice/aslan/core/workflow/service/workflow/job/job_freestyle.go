@@ -84,6 +84,25 @@ func (j *FreeStyleJob) SetPreset() error {
 	return nil
 }
 
+func (j *FreeStyleJob) GetRepos() ([]*types.Repository, error) {
+	resp := []*types.Repository{}
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+	for _, step := range j.spec.Steps {
+		if step.StepType != config.StepGit {
+			continue
+		}
+		stepSpec := &steptypes.StepGitSpec{}
+		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+			return resp, err
+		}
+		resp = append(resp, stepSpec.Repos...)
+	}
+	return resp, nil
+}
+
 func (j *FreeStyleJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.FreestyleJobSpec{}
