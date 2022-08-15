@@ -27,6 +27,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
@@ -72,8 +73,24 @@ func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log 
 			log.Errorf("updateServiceTemplateByGerritEvent err : %v", err)
 		}
 	}
+	var wg sync.WaitGroup
+	var errorList = &multierror.Error{}
 
-	return TriggerWorkflowByGerritEvent(gerritTypeEventObj, payload, req.RequestURI, baseURI, req.Header.Get("X-Forwarded-Host"), requestID, log)
+	go func() {
+		defer wg.Done()
+		if err := TriggerWorkflowByGerritEvent(gerritTypeEventObj, payload, req.RequestURI, baseURI, req.Header.Get("X-Forwarded-Host"), requestID, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := TriggerWorkflowV4ByGerritEvent(gerritTypeEventObj, payload, req.RequestURI, baseURI, req.Header.Get("X-Forwarded-Host"), requestID, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
+	}()
+	wg.Wait()
+	return errorList.ErrorOrNil()
 }
 
 func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) error {
