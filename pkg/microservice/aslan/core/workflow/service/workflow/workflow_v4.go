@@ -414,7 +414,7 @@ func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		return e.ErrCreateWebhook.AddDesc(errMsg)
 	}
 	workflow.HookCtls = append(workflow.HookCtls, input)
-	if _, err := commonrepo.NewWorkflowV4Coll().Create(workflow); err != nil {
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
 		errMsg := fmt.Sprintf("failed to create webhook for workflow %s, the error is: %v", workflowName, err)
 		log.Error(errMsg)
 		return e.ErrCreateWebhook.AddDesc(errMsg)
@@ -454,7 +454,7 @@ func UpdateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		return e.ErrUpdateWebhook.AddDesc(errMsg)
 	}
 	workflow.HookCtls = updatedHooks
-	if _, err := commonrepo.NewWorkflowV4Coll().Create(workflow); err != nil {
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
 		errMsg := fmt.Sprintf("failed to update webhook for workflow %s, the error is: %v", workflowName, err)
 		log.Error(errMsg)
 		return e.ErrUpdateWebhook.AddDesc(errMsg)
@@ -523,7 +523,7 @@ func DeleteWebhookForWorkflowV4(workflowName, triggerName string, logger *zap.Su
 		return e.ErrDeleteWebhook.AddDesc(errMsg)
 	}
 	workflow.HookCtls = updatedHooks
-	if _, err := commonrepo.NewWorkflowV4Coll().Create(workflow); err != nil {
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
 		errMsg := fmt.Sprintf("failed to delete webhook for workflow %s, the error is: %v", workflowName, err)
 		log.Error(errMsg)
 		return e.ErrDeleteWebhook.AddDesc(errMsg)
