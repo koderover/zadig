@@ -25,6 +25,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -150,6 +151,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 			s.coll.Delete(cluster.ID.Hex())
 			return nil, err
 		}
+		cluster.Status = setting.Normal
 	}
 
 	return cluster, nil
@@ -189,6 +191,8 @@ func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogge
 	if err != nil {
 		return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
 	}
+
+	err = RemoveClusterResources(config.HubServerAddress(), id)
 
 	err = s.coll.Delete(id)
 	if err != nil {
@@ -565,6 +569,41 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 	_, err = clientset.CoreV1().Services("koderover-agent").Create(context.TODO(), dindService, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create dind service to initialize cluster, err: %s", err)
+	}
+
+	return nil
+}
+
+// RemoveClusterResources Removes all the resources in the koderover-agent namespace along with the namespace itself
+func RemoveClusterResources(hubserverAddr, clusterID string) error {
+	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
+	if err != nil {
+		return err
+	}
+
+	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete dind service, err: %s", err)
+	}
+
+	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete dind service, err: %s", err)
+	}
+
+	err = clientset.AppsV1().Deployments("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete resource-server deployment, err: %s", err)
+	}
+
+	err = clientset.AppsV1().StatefulSets("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete dind statefulset, err: %s", err)
+	}
+
+	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), "koderover-agent", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete koderover-agent ns, err: %s", err)
 	}
 
 	return nil
