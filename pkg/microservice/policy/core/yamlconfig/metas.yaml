@@ -731,6 +731,8 @@ metas:
             endpoint: '/api/podexec/?*/?*/?*/?*/podExec/:name'
           - method: POST
             endpoint: '/api/aslan/environment/kube/:name/pods/?*/debugcontainer'
+          - method: GET
+            endpoint: '/api/aslan/environment/kube/pods/?*/file'
       - action: ssh_pm
         alias: 主机登录
         description: ''

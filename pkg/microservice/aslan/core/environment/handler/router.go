@@ -109,6 +109,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/nodes", ListNodes)
 
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
+
+		kube.GET("/pods/:podName/file", DownloadFileFromPod)
 	}
 
 	operations := router.Group("operations")
