@@ -42,15 +42,19 @@ import (
 
 var registrySecretSuffix = "-registry-secret"
 
-func CreateNamespace(namespace string, enableShare bool, kubeClient client.Client) error {
-	labels := map[string]string{
+func CreateNamespace(namespace string, customLabels map[string]string, enableShare bool, kubeClient client.Client) error {
+	nsLabels := map[string]string{
 		setting.EnvCreatedBy: setting.EnvCreator,
 	}
 	if enableShare {
-		labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
+		nsLabels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
 	}
 
-	err := updater.CreateNamespaceByName(namespace, labels, kubeClient)
+	if customLabels == nil {
+		customLabels = map[string]string{}
+	}
+	mergedLabels := labels.Merge(customLabels, nsLabels)
+	err := updater.CreateNamespaceByName(namespace, mergedLabels, kubeClient)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return err
 	}
@@ -73,10 +77,25 @@ func CreateNamespace(namespace string, enableShare bool, kubeClient client.Clien
 	}
 
 	if nsObj.Status.Phase == corev1.NamespaceTerminating {
-		return fmt.Errorf("namespace `%s` is in terminating state, please wait for a whilie and try again.", namespace)
+		return fmt.Errorf("namespace `%s` is in terminating state, please wait for a whilie and try again", namespace)
 	}
 
 	return nil
+}
+
+func EnsureNamespaceLabels(namespace string, customLabels map[string]string, kubeClient client.Client) error {
+	nsObj := &corev1.Namespace{}
+	err := kubeClient.Get(context.TODO(), client.ObjectKey{
+		Name: namespace,
+	}, nsObj)
+	if err != nil {
+		return err
+	}
+	if labels.SelectorFromValidatedSet(customLabels).Matches(labels.Set(nsObj.Labels)) {
+		return nil
+	}
+	nsObj.Labels = labels.Merge(nsObj.Labels, customLabels)
+	return updater.UpdateNamespace(nsObj, kubeClient)
 }
 
 func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Client) error {

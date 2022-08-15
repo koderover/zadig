@@ -708,7 +708,7 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
-	err = ensureKubeEnv(exitedProd.Namespace, registryID, false, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, registryID, map[string]string{setting.ProductLabel: productName}, false, kubeClient, log)
 
 	if err != nil {
 		log.Errorf("UpdateProductRegistry ensureKubeEnv by envName:%s,error: %v", envName, err)
@@ -769,7 +769,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	}
 
 	if project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
-		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, exitedProd.ShareEnv.Enable, kubeClient, log)
+		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, map[string]string{setting.ProductLabel: project.ProductName}, exitedProd.ShareEnv.Enable, kubeClient, log)
 
 		if err != nil {
 			log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
@@ -1136,6 +1136,33 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 	return nil
 }
 
+// CopyYamlProduct copy product from source product
+func CopyYamlProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
+	if len(args.BaseEnvName) == 0 {
+		return e.ErrCreateEnv.AddDesc("base environment name can't be nil")
+	}
+	baseProject, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.BaseEnvName,
+	})
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to find base environment: %s, err: %s", args.EnvName, err))
+	}
+
+	// use service revision defined in base environment
+	servicesInBaseNev := baseProject.GetServiceMap()
+
+	for _, svcLists := range args.Services {
+		for _, svc := range svcLists {
+			if baseSvc, ok := servicesInBaseNev[svc.ServiceName]; ok {
+				svc.Revision = baseSvc.Revision
+				svc.ProductName = baseSvc.ProductName
+			}
+		}
+	}
+	return CreateProduct(user, requestID, args, log)
+}
+
 // CreateProduct create a new product with its dependent stacks
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
@@ -1152,14 +1179,6 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelm
 		}
 		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
 	}
-	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	templateServiceMap := make(map[string]*commonmodels.Service)
-	for _, svc := range serviceTmpls {
-		templateServiceMap[svc.ServiceName] = svc
-	}
 
 	// fill all chart infos from product renderset
 	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
@@ -1168,7 +1187,33 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelm
 	}
 
 	for _, arg := range args {
-		err := copySingleHelmProduct(templateProduct, productName, requestID, userName, arg, templateServiceMap, log)
+		baseProduct, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    productName,
+			EnvName: arg.BaseEnvName,
+		})
+		if err != nil {
+			errList = multierror.Append(errList, fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName))
+			continue
+		}
+		templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(baseProduct)
+		templateServiceMap := make(map[string]*commonmodels.Service)
+		for _, svc := range templateSvcs {
+			templateServiceMap[svc.ServiceName] = svc
+		}
+
+		//services deployed in base product may be different with services in template product
+		//use services in base product when copying product instead of services in template product
+		svcGroups := make([][]string, 0)
+		for _, svcList := range baseProduct.Services {
+			svcs := make([]string, 0)
+			for _, svc := range svcList {
+				svcs = append(svcs, svc.ServiceName)
+			}
+			svcGroups = append(svcGroups, svcs)
+		}
+		templateProduct.Services = svcGroups
+
+		err = copySingleHelmProduct(templateProduct, baseProduct, requestID, userName, arg, templateServiceMap, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
@@ -1176,15 +1221,7 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelm
 	return errList.ErrorOrNil()
 }
 
-func copySingleHelmProduct(templateProduct *templatemodels.Product, productName, requestID, userName string, arg *CreateHelmProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: arg.BaseEnvName,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName)
-	}
-
+func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo *commonmodels.Product, requestID, userName string, arg *CreateHelmProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
 	sourceRendersetName := productInfo.Namespace
 	productInfo.ID = primitive.NilObjectID
 	productInfo.Revision = 1
@@ -1571,7 +1608,7 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, false, kubeClient, log)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
 func UpdateHelmProductCharts(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
@@ -1801,7 +1838,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, false, kubeClient, log)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs []*templatemodels.RenderChart, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
@@ -3172,7 +3209,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, args.RegistryID, args.ShareEnv.Enable, kubeClient, log)
+		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, args.ShareEnv.Enable, kubeClient, log)
 	}
 	return nil
 }
@@ -3221,8 +3258,8 @@ func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
 		})
 }
 
-func ensureKubeEnv(namespace, registryId string, enableShare bool, kubeClient client.Client, log *zap.SugaredLogger) error {
-	err := kube.CreateNamespace(namespace, enableShare, kubeClient)
+func ensureKubeEnv(namespace, registryId string, customLabels map[string]string, enableShare bool, kubeClient client.Client, log *zap.SugaredLogger) error {
+	err := kube.CreateNamespace(namespace, customLabels, enableShare, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateNamspace.AddDesc(err.Error())

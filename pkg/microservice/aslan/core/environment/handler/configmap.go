@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -55,7 +56,7 @@ func RollBackConfigMap(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("RollBackConfigMap json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "回滚", "环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "回滚", "环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), ctx.Logger, args.EnvName)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {

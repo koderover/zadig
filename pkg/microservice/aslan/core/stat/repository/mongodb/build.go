@@ -35,6 +35,12 @@ type BuildPipeResp struct {
 	TotalBuildCount int       `bson:"total_build_count"      json:"total_build_count"`
 }
 
+type BuildItemResp struct {
+	ID              string `bson:"_id" json:"_id"`
+	TotalSuccess    int    `bson:"total_success"          json:"total_success"`
+	TotalBuildCount int    `bson:"total_build_count"      json:"total_build_count"`
+}
+
 type BuildItem struct {
 	Date            string `bson:"date"               json:"date"`
 	TotalSuccess    int    `bson:"total_success"      json:"total_success"`
@@ -182,6 +188,51 @@ func (c *BuildStatColl) GetBuildTotalAndSuccess() ([]*BuildItem, error) {
 	}
 
 	return resp, nil
+}
+
+func (c *BuildStatColl) GetBuildStats(args *models.BuildStatOption) (*BuildItem, error) {
+	var result []*BuildItemResp
+	var pipeline []bson.M
+	var resp []*BuildItem
+
+	filter := bson.M{}
+	if args.StartDate > 0 {
+		filter["create_time"] = bson.M{"$gte": args.StartDate, "$lte": args.EndDate}
+	}
+
+	pipeline = []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$group": bson.M{
+				"_id": "null",
+				"total_success": bson.M{
+					"$sum": "$total_success",
+				},
+				"total_build_count": bson.M{
+					"$sum": "$total_build_count",
+				},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return nil, err
+	}
+	for _, res := range result {
+		buildItem := &BuildItem{
+			TotalSuccess:    res.TotalSuccess,
+			TotalBuildCount: res.TotalBuildCount,
+		}
+		resp = append(resp, buildItem)
+	}
+
+	return resp[0], nil
 }
 
 func (c *BuildStatColl) GetBuildDailyTotal(args *models.BuildStatOption) ([]*BuildDailyItem, error) {

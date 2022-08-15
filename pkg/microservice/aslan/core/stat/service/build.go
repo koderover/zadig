@@ -75,3 +75,38 @@ func GetBuildTotalAndSuccess(args *models.BuildStatOption, log *zap.SugaredLogge
 	}
 	return dashboardBuild, nil
 }
+
+func GetBuildStats(args *models.BuildStatOption, log *zap.SugaredLogger) (*dashboardBuild, error) {
+	var (
+		dashboardBuild       = new(dashboardBuild)
+		dashboardBuildDailys = make([]*dashboardBuildDaily, 0)
+	)
+	if buildItem, err := repo.NewBuildStatColl().GetBuildStats(&models.BuildStatOption{
+		StartDate: args.StartDate,
+		EndDate:   args.EndDate,
+	}); err == nil {
+		dashboardBuild.Success = buildItem.TotalSuccess
+		dashboardBuild.Total = buildItem.TotalBuildCount
+	} else {
+		log.Errorf("Failed to getBuildTotalAndSuccess err:%s", err)
+		return nil, err
+	}
+
+	if buildDailyItems, err := repo.NewBuildStatColl().GetBuildDailyTotal(args); err == nil {
+		sort.SliceStable(buildDailyItems, func(i, j int) bool { return buildDailyItems[i].Date < buildDailyItems[j].Date })
+		for _, buildDailyItem := range buildDailyItems {
+			dashboardBuildDaily := new(dashboardBuildDaily)
+			dashboardBuildDaily.Date = buildDailyItem.Date
+			dashboardBuildDaily.Success = buildDailyItem.TotalSuccess
+			dashboardBuildDaily.Failure = buildDailyItem.TotalFailure
+			dashboardBuildDaily.Total = buildDailyItem.TotalBuildCount
+
+			dashboardBuildDailys = append(dashboardBuildDailys, dashboardBuildDaily)
+		}
+		dashboardBuild.DashboardBuildDailys = dashboardBuildDailys
+	} else {
+		log.Errorf("Failed to getDeployDailyTotal err:%s", err)
+		return nil, err
+	}
+	return dashboardBuild, nil
+}

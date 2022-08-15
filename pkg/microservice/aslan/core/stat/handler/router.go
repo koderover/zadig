@@ -57,3 +57,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		quality.POST("/deployTopFiveFailureMeasure", GetDeployTopFiveFailureMeasure)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	dashboard := router.Group("")
+	{
+		dashboard.GET("/overview", GetOverviewStat)
+		dashboard.GET("/build", GetBuildStatForOpenAPI)
+		dashboard.GET("/deploy", GetDeployStatsOpenAPI)
+		dashboard.GET("/test", GetTestStatOpenAPI)
+	}
+}

@@ -144,9 +144,9 @@ func (c *PluginJobCtl) Complete(ctx context.Context) {
 		c.job.Error = err.Error()
 	}
 
-	// write jobs output info to globalcontext so other job can use like this $(jobName.outputName)
+	// write jobs output info to globalcontext so other job can use like this $(workflow.jobName.outputName)
 	for _, output := range outputs {
-		c.workflowCtx.GlobalContextSet(strings.Join([]string{c.job.Name, output.Name}, "."), output.Value)
+		c.workflowCtx.GlobalContextSet(strings.Join([]string{"workflow", c.job.Name, output.Name}, "."), output.Value)
 	}
 
 	if err := saveContainerLog(c.job, c.workflowCtx.WorkflowName, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {

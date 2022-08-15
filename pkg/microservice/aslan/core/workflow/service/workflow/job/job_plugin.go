@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -79,35 +80,34 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		JobType:    string(config.JobPlugin),
 		Properties: *j.spec.Properties,
 		Plugin:     j.spec.Plugin,
+		Outputs:    j.spec.Plugin.Outputs,
 	}
 	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
 	if err != nil {
 		return resp, err
 	}
 	jobTask.Properties.Registries = registries
-	for _, output := range j.spec.Plugin.Outputs {
-		jobTask.Outputs = append(jobTask.Outputs, &commonmodels.Output{Name: output.Name, Description: output.Description})
+
+	renderedParams := []*commonmodels.Param{}
+	for _, param := range j.spec.Plugin.Inputs {
+		paramsKey := strings.Join([]string{"inputs", param.Name}, ".")
+		renderedParams = append(renderedParams, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
-	jobTask.Plugin = renderPlugin(jobTask.Plugin, j.spec.Plugin.Inputs)
+	jobTask.Plugin = renderPlugin(jobTask.Plugin, renderedParams)
+
+	jobTask.Outputs = j.spec.Plugin.Outputs
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
-func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Params) *commonmodels.PluginTemplate {
+func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Param) *commonmodels.PluginTemplate {
 	for _, env := range plugin.Envs {
-		env.Value = renderString(env.Value, inputs)
+		env.Value = renderString(env.Value, setting.RenderPluginValueTemplate, inputs)
 	}
 	for i, arg := range plugin.Args {
-		plugin.Args[i] = renderString(arg, inputs)
+		plugin.Args[i] = renderString(arg, setting.RenderPluginValueTemplate, inputs)
 	}
 	for i, cmd := range plugin.Cmds {
-		plugin.Cmds[i] = renderString(cmd, inputs)
+		plugin.Cmds[i] = renderString(cmd, setting.RenderPluginValueTemplate, inputs)
 	}
 	return plugin
-}
-
-func renderString(value string, inputs []*commonmodels.Params) string {
-	for _, input := range inputs {
-		value = strings.ReplaceAll(value, "$("+input.Name+")", input.Value)
-	}
-	return value
 }

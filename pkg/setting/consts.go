@@ -397,6 +397,19 @@ const (
 	UpdateContainerImageEvent = "UpdateContainerImage"
 )
 
+// operation scenes
+const (
+	OperationSceneProject  = "project"
+	OperationSceneBuild    = "build"
+	OperationSceneWorkflow = "workflow"
+	OperationSceneEnv      = "environment"
+	OperationSceneService  = "service"
+	OperationSceneTest     = "test"
+	OperationSceneScanning = "scanning"
+	OperationSceneVersion  = "version"
+	OperationSceneSystem   = "system"
+)
+
 // Service Related
 const (
 	// PrivateVisibility ...
@@ -662,4 +675,11 @@ const ArtifactResultOut = "artifactResultOut.tar.gz"
 const (
 	DefaultReleaseNaming     = "$Service$"
 	ReleaseNamingPlaceholder = "$Namespace$-$Service$"
+)
+
+// custom workflow constants for variables
+const (
+	FixedValueMark            = "<+fixed>"
+	RenderValueTemplate       = "{{.%s}}"
+	RenderPluginValueTemplate = "$(%s)"
 )

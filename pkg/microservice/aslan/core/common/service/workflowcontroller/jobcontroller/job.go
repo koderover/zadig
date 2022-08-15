@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -41,6 +42,13 @@ type JobCtl interface {
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	// render global variables for every job.
+	workflowCtx.GlobalContextEach(func(k, v string) bool {
+		b, _ := json.Marshal(job)
+		replacedString := strings.ReplaceAll(string(b), fmt.Sprintf(setting.RenderValueTemplate, k), v)
+		json.Unmarshal([]byte(replacedString), &job)
+		return true
+	})
 	job.Status = config.StatusRunning
 	job.StartTime = time.Now().Unix()
 	ack()

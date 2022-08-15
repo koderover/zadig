@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -45,7 +46,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName or objectName is invalid")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, productName, setting.OperationSceneEnv, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger, envName)
 
 	ctx.Err = service.DeleteCommonEnvCfg(envName, productName, objectName, config.CommonEnvCfgType(commonEnvCfgType), ctx.Logger)
 }
@@ -66,7 +67,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger, c.Param("envName"))
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -94,7 +95,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, c.Param("envName"))
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {

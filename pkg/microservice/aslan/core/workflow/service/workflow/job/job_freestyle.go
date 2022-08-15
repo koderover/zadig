@@ -169,6 +169,8 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	jobTask.Properties.BuildOS = basicImage.Value
+	// save user defined variables.
+	jobTask.Properties.CustomEnvs = jobTask.Properties.Envs
 	jobTask.Properties.Envs = append(jobTask.Properties.Envs, getfreestyleJobVariables(jobTask.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
 	return []*commonmodels.JobTask{jobTask}, nil
 }

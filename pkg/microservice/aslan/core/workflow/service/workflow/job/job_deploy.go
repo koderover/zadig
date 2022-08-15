@@ -58,20 +58,6 @@ func (j *DeployJob) SetPreset() error {
 		j.spec.DeployType = project.ProductFeature.DeployType
 	}
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(j.workflow.Project)
-	if err != nil {
-		return err
-	}
-
-	if j.spec.Source != config.SourceRuntime {
-		return nil
-	}
-
-	for _, service := range services {
-		for _, container := range service.Containers {
-			j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{ServiceName: service.ServiceName, ServiceModule: container.Name})
-		}
-	}
 	j.job.Spec = j.spec
 	return nil
 }
