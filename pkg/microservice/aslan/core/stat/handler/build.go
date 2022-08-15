@@ -45,3 +45,19 @@ func GetBuildStat(c *gin.Context) {
 		EndDate:   args.EndDate,
 	}, ctx.Logger)
 }
+
+func GetBuildStatForOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(GetBuildStatArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetBuildStats(&models.BuildStatOption{
+		StartDate: args.StartDate,
+		EndDate:   args.EndDate,
+	}, ctx.Logger)
+}

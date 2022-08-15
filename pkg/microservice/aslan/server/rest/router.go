@@ -77,6 +77,12 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		public.POST("/callback", commonhandler.HandleCallback)
 	}
 
+	for name, r := range map[string]injector{
+		"/openapi/statistics": new(stathandler.OpenAPIRouter),
+	} {
+		r.Inject(router.Group(name))
+	}
+
 	// no auth required
 	router.GET("/api/hub/connect", multiclusterhandler.ClusterConnectFromAgent)
 

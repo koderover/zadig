@@ -90,3 +90,22 @@ func GetTestTrendMeasure(c *gin.Context) {
 	}
 	ctx.Resp, ctx.Err = service.GetTestTrendMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
+
+//func GetTestTrendOpenAPI(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	//params validate
+//	args := new(getStatReq)
+//	if err := c.BindJSON(args); err != nil {
+//		ctx.Err = e.ErrInvalidParam.AddErr(err)
+//		return
+//	}
+//
+//	resp, err := service.GetTestTrendMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+//	if err != nil {
+//		ctx.Err = err
+//		return
+//	}
+//
+//}
