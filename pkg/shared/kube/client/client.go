@@ -25,7 +25,6 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	aslanClient "github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
@@ -52,7 +51,7 @@ func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
 }
 
 func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
-	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +70,7 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 }
 
 func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, error) {
-	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +89,7 @@ func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, e
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
-	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +108,7 @@ func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 }
 
 func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
-	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +127,7 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 }
 
 func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error) {
-	cluster, err := commonrepo.NewK8SClusterColl().Get(clusterID)
+	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
