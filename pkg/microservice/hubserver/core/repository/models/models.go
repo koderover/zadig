@@ -17,9 +17,8 @@ limitations under the License.
 package models
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/koderover/zadig/pkg/microservice/hubserver/config"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type K8SClusterInfo struct {
@@ -30,11 +29,10 @@ type K8SClusterInfo struct {
 }
 
 type K8SCluster struct {
-	ID                 primitive.ObjectID      `json:"id"                        bson:"_id"`
+	ID                 primitive.ObjectID      `json:"id,omitempty"              bson:"_id,omitempty"`
 	Name               string                  `json:"name"                      bson:"name"`
 	Tags               []string                `json:"tags"                      bson:"tags"`
 	Description        string                  `json:"description"               bson:"description"`
-	Namespace          string                  `json:"namespace"                 bson:"namespace"`
 	Info               *K8SClusterInfo         `json:"info,omitempty"            bson:"info,omitempty"`
 	Status             config.K8SClusterStatus `json:"status"                    bson:"status"`
 	Error              string                  `json:"error"                     bson:"error"`
@@ -46,6 +44,13 @@ type K8SCluster struct {
 	Token              string                  `json:"token"                     bson:"-"`
 	Local              bool                    `json:"local"                     bson:"local"`
 	LastConnectionTime int64                   `json:"last_connection_time"      bson:"last_connection_time"`
+
+	// new field in 1.14, intended to enable kubeconfig for cluster management
+	Type       string `json:"type"           bson:"type"` // either agent or kubeconfig supported
+	KubeConfig string `json:"kube_config"    bson:"kube_config"`
+
+	// Deprecated field, it should be deleted in version 1.15 since no more namespace settings is used
+	Namespace string `json:"namespace"                 bson:"namespace"`
 }
 
 func (K8SCluster) TableName() string {

@@ -259,6 +259,9 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 				}
 
 				for _, cluster := range clusterInfos {
+					if cluster.Type == setting.KubeConfigClusterType {
+						continue
+					}
 					statusChanged := false
 					if _, ok := clusters.Load(cluster.ID.Hex()); ok && server.HasSession(cluster.ID.Hex()) {
 						if cluster.Status != config.Normal {
