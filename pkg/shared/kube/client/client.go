@@ -36,7 +36,7 @@ func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
 	}
 
 	switch cluster.Type {
-	case setting.AgentClusterType:
+	case setting.AgentClusterType, "":
 		if clusterID == setting.LocalClusterID {
 			clusterID = ""
 		}
@@ -55,7 +55,7 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 		return nil, err
 	}
 	switch cluster.Type {
-	case setting.AgentClusterType:
+	case setting.AgentClusterType, "":
 		if clusterID == setting.LocalClusterID {
 			clusterID = ""
 		}
@@ -74,7 +74,7 @@ func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, e
 		return nil, err
 	}
 	switch cluster.Type {
-	case setting.AgentClusterType:
+	case setting.AgentClusterType, "":
 		if clusterID == setting.LocalClusterID {
 			clusterID = ""
 		}
@@ -94,7 +94,7 @@ func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 	}
 
 	switch cluster.Type {
-	case setting.AgentClusterType:
+	case setting.AgentClusterType, "":
 		if clusterID == setting.LocalClusterID {
 			clusterID = ""
 		}
@@ -113,7 +113,7 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 	}
 
 	switch cluster.Type {
-	case setting.AgentClusterType:
+	case setting.AgentClusterType, "":
 		if clusterID == setting.LocalClusterID {
 			clusterID = ""
 		}
@@ -132,7 +132,7 @@ func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error)
 	}
 
 	switch cluster.Type {
-	case setting.AgentClusterType:
+	case setting.AgentClusterType, "":
 		if clusterID == setting.LocalClusterID {
 			clusterID = ""
 		}
