@@ -58,14 +58,16 @@ func (j *BuildJob) SetPreset() error {
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 		if err != nil {
-			return err
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
+			continue
 		}
 		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
-			return err
+			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+			continue
 		}
 		for _, target := range buildInfo.Targets {
 			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
-				build.Repos = mergeRepoBranches(buildInfo.Repos, build.Repos)
+				build.Repos = mergeRepos(buildInfo.Repos, build.Repos)
 				build.KeyVals = renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs)
 				break
 			}
@@ -85,14 +87,16 @@ func (j *BuildJob) GetRepos() ([]*types.Repository, error) {
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 		if err != nil {
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
 			continue
 		}
 		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
 			continue
 		}
 		for _, target := range buildInfo.Targets {
 			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
-				resp = mergeRepoBranches(buildInfo.Repos, build.Repos)
+				resp = mergeRepos(buildInfo.Repos, build.Repos)
 				break
 			}
 		}
@@ -477,28 +481,6 @@ func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
 	return os.Expand(data, mapper)
 }
 
-func mergeRepoBranches(templateRepos []*types.Repository, customRepos []*types.Repository) []*types.Repository {
-	customRepoMap := make(map[string]*types.Repository)
-	for _, repo := range customRepos {
-		if repo.RepoNamespace == "" {
-			repo.RepoNamespace = repo.RepoOwner
-		}
-		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
-		customRepoMap[repoKey] = repo
-	}
-	for _, repo := range templateRepos {
-		if repo.RepoNamespace == "" {
-			repo.RepoNamespace = repo.RepoOwner
-		}
-		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
-		// user can only set default branch in custom workflow.
-		if cv, ok := customRepoMap[repoKey]; ok {
-			repo.Branch = cv.Branch
-		}
-	}
-	return templateRepos
-}
-
 func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Repository) []*types.Repository {
 	customRepoMap := make(map[string]*types.Repository)
 	for _, repo := range customRepos {
@@ -508,17 +490,17 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
 		customRepoMap[repoKey] = repo
 	}
-	resp := []*types.Repository{}
 	for _, repo := range templateRepos {
 		if repo.RepoNamespace == "" {
 			repo.RepoNamespace = repo.RepoOwner
 		}
-		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
+		repoKey := strings.Join([]string{repo.Source, repo.GetRepoNamespace(), repo.RepoName}, "/")
+		// user can only set default branch in custom workflow.
 		if cv, ok := customRepoMap[repoKey]; ok {
-			resp = append(resp, cv)
-			continue
+			repo.Branch = cv.Branch
+			repo.Tag = cv.Tag
+			repo.PR = cv.PR
 		}
-		resp = append(resp, repo)
 	}
 	return templateRepos
 }

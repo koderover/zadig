@@ -80,10 +80,12 @@ func (gpem *giteePushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Mai
 
 func (gpem *giteePushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
 	return &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		RepoOwner:     hookRepo.RepoOwner,
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -136,6 +138,7 @@ func (gmem *giteeMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		PR:            gmem.event.PullRequest.Number,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -180,12 +183,13 @@ func (gtem *giteeTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodel
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Source:        hookRepo.Source,
 	}
 }
 
 func createGiteeEventMatcherForWorkflowV4(
 	event interface{}, diffSrv giteePullRequestDiffFunc, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger,
-) gitEventMatcherForWorkflowV4 {
+) giteeEventMatcherForWorkflowV4 {
 	switch evt := event.(type) {
 	case *gitee.PushEvent:
 		return &giteePushEventMatcherForWorkflowV4{
@@ -251,13 +255,6 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
-				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
-				log.Error(errMsg)
-				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
-				continue
-			}
-
 			var mergeRequestID, commitID string
 			if ev, isPr := event.(*gitee.PullRequestEvent); isPr {
 				mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
@@ -298,6 +295,12 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 			}
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+				log.Error(errMsg)
+				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
+				continue
+			}
+			if err := job.MergeWebhookRepo(workflow, eventRepo); err != nil {
+				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue

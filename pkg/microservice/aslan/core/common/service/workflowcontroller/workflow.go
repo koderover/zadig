@@ -76,8 +76,8 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(t, logger); err != nil {
 		log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
 	}
-	if err = scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(t, logger); err != nil {
-		log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
+	if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(t.WorkflowArgs, t.TaskID, t.Status, logger); err != nil {
+		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
 	}
 
 	q := ConvertTaskToQueue(t)

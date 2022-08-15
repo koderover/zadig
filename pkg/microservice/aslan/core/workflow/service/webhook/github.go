@@ -546,13 +546,13 @@ func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, reques
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	case *github.PushEvent:
-		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		err = TriggerWorkflowV4ByGithubEvent(et, baseURI, deliveryID, requestID, log)
 		if err != nil {
 			log.Infof("pushEventToPipelineTasks error: %v", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	case *github.CreateEvent:
-		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		err = TriggerWorkflowV4ByGithubEvent(et, baseURI, deliveryID, requestID, log)
 		if err != nil {
 			log.Errorf("tagEventToPipelineTasks error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)

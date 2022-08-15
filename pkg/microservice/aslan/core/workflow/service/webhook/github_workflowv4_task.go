@@ -87,6 +87,7 @@ func (gpem *githubPushEventMatcheForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		Branch:        hookRepo.Branch,
 		CommitID:      *gpem.event.HeadCommit.ID,
 		CommitMessage: *gpem.event.HeadCommit.Message,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -144,6 +145,7 @@ func (gmem *githubMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		PR:            *gmem.event.PullRequest.Number,
 		CommitID:      *gmem.event.PullRequest.Head.SHA,
 		CommitMessage: *gmem.event.PullRequest.Title,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -188,6 +190,7 @@ func (gtem *githubTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -306,14 +309,14 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
-				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
+			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
+				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
 			}
-			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
-				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+			if err := job.MergeWebhookRepo(workflow, eventRepo); err != nil {
+				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue

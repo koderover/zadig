@@ -106,6 +106,7 @@ func (gmem *gitlabMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		PR:            gmem.event.ObjectAttributes.IID,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -217,6 +218,7 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -276,6 +278,7 @@ func (gpem *gitlabTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -343,12 +346,6 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
-				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
-				log.Error(errMsg)
-				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
-				continue
-			}
 			var mergeRequestID, commitID string
 			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
 
@@ -386,6 +383,12 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 			}
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+				log.Error(errMsg)
+				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
+				continue
+			}
+			if err := job.MergeWebhookRepo(workflow, eventRepo); err != nil {
+				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue

@@ -76,6 +76,7 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) GetHookRepo(hookRepo *
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -113,6 +114,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcherForWorkflowV4) GetHookRepo(hookRep
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		PR:            gpcem.Event.Change.Number,
+		Source:        hookRepo.Source,
 	}
 }
 
@@ -199,12 +201,6 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
-				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
-				log.Error(errMsg)
-				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
-				continue
-			}
 
 			var mergeRequestID, commitID string
 			if m, ok := matcher.(*gerritPatchsetCreatedEventMatcherForWorkflowV4); ok {
@@ -254,6 +250,12 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			}
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+				log.Error(errMsg)
+				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
+				continue
+			}
+			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
+				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
 				continue

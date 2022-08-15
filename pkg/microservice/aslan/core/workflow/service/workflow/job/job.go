@@ -87,7 +87,7 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 					return err
 				}
 			}
-			if job.JobType == config.JobZadigBuild {
+			if job.JobType == config.JobFreestyle {
 				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
 				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
 					return err
@@ -110,7 +110,7 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 				}
 				resp = append(resp, buildRepos...)
 			}
-			if job.JobType == config.JobZadigBuild {
+			if job.JobType == config.JobFreestyle {
 				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
 				freeStyleRepos, err := jobCtl.GetRepos()
 				if err != nil {
