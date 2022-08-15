@@ -112,8 +112,10 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		return nil, e.ErrCreateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
 
-	if cluster.Type == setting.AgentClusterType {
-		cluster.Status = setting.Pending
+	cluster.Status = setting.Pending
+	if cluster.Type == setting.KubeConfigClusterType {
+		// since we will always be able to connect with direct connection
+		cluster.Status = setting.Normal
 	}
 	if id == setting.LocalClusterID {
 		cluster.Status = setting.Normal
