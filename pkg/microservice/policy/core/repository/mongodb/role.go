@@ -39,7 +39,7 @@ type RoleColl struct {
 func NewRoleColl() *RoleColl {
 	name := models.Role{}.TableName()
 	return &RoleColl{
-		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Collection: mongotool.Database(config.PolicyDatabase()).Collection(name),
 		coll:       name,
 	}
 }

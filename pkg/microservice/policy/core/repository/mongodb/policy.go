@@ -39,7 +39,7 @@ type PolicyColl struct {
 func NewPolicyColl() *PolicyColl {
 	name := models.Policy{}.TableName()
 	return &PolicyColl{
-		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Collection: mongotool.Database(config.PolicyDatabase()).Collection(name),
 		coll:       name,
 	}
 }
