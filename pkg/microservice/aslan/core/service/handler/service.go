@@ -222,10 +222,10 @@ func UpdateWorkloads(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateK8sWorkloads c.GetRawData() err : %v", err)
+		log.Errorf("UpdateWorkloads c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateK8sWorkloads json.Unmarshal err : %v", err)
+		log.Errorf("UpdateWorkloads json.Unmarshal err : %v", err)
 	}
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
