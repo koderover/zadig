@@ -361,7 +361,10 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 	for i, originKV := range origin {
 		for _, inputKV := range input {
 			if originKV.Key == inputKV.Key {
+				// always use origin credential config.
+				isCredential := originKV.IsCredential
 				origin[i] = inputKV
+				origin[i].IsCredential = isCredential
 			}
 		}
 	}
