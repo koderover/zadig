@@ -27,23 +27,24 @@ import (
 )
 
 type Notification struct {
-	ID         primitive.ObjectID  `bson:"_id,omitempty"                json:"id,omitempty"`
-	CodehostID int                 `bson:"codehost_id"                  json:"codehost_id"`
-	Tasks      []*NotificationTask `bson:"tasks,omitempty"              json:"tasks,omitempty"`
-	PrID       int                 `bson:"pr_id"                        json:"pr_id"`
-	CommentID  string              `bson:"comment_id"                   json:"comment_id"`
-	ProjectID  string              `bson:"project_id"                   json:"project_id"`
-	Created    int64               `bson:"create"                       json:"create"`
-	BaseURI    string              `bson:"base_uri"                     json:"base_uri"`
-	IsPipeline bool                `bson:"is_pipeline"                  json:"is_pipeline"`
-	IsTest     bool                `bson:"is_test"                      json:"is_test"`
-	IsScanning bool                `bson:"is_scanning"                  json:"is_scanning"`
-	ErrInfo    string              `bson:"err_info"                     json:"err_info"`
-	PrTask     *PrTaskInfo         `bson:"pr_task_info,omitempty"       json:"pr_task_info,omitempty"`
-	Label      string              `bson:"label"                        json:"label"  `
-	Revision   string              `bson:"revision"                     json:"revision"`
-	RepoOwner  string              `bson:"repo_owner"                   json:"repo_owner"`
-	RepoName   string              `bson:"repo_name"                    json:"repo_name"`
+	ID           primitive.ObjectID  `bson:"_id,omitempty"                json:"id,omitempty"`
+	CodehostID   int                 `bson:"codehost_id"                  json:"codehost_id"`
+	Tasks        []*NotificationTask `bson:"tasks,omitempty"              json:"tasks,omitempty"`
+	PrID         int                 `bson:"pr_id"                        json:"pr_id"`
+	CommentID    string              `bson:"comment_id"                   json:"comment_id"`
+	ProjectID    string              `bson:"project_id"                   json:"project_id"`
+	Created      int64               `bson:"create"                       json:"create"`
+	BaseURI      string              `bson:"base_uri"                     json:"base_uri"`
+	IsPipeline   bool                `bson:"is_pipeline"                  json:"is_pipeline"`
+	IsTest       bool                `bson:"is_test"                      json:"is_test"`
+	IsScanning   bool                `bson:"is_scanning"                  json:"is_scanning"`
+	IsWorkflowV4 bool                `bson:"is_workflowv4"                json:"is_workflowv4"`
+	ErrInfo      string              `bson:"err_info"                     json:"err_info"`
+	PrTask       *PrTaskInfo         `bson:"pr_task_info,omitempty"       json:"pr_task_info,omitempty"`
+	Label        string              `bson:"label"                        json:"label"  `
+	Revision     string              `bson:"revision"                     json:"revision"`
+	RepoOwner    string              `bson:"repo_owner"                   json:"repo_owner"`
+	RepoName     string              `bson:"repo_name"                    json:"repo_name"`
 }
 
 type PrTaskInfo struct {
@@ -133,6 +134,13 @@ func (n *Notification) CreateCommentBody() (comment string, err error) {
 			tmplSource =
 				"|触发的代码扫描|状态| \n |---|---| \n {{range .Tasks}}|[{{.ScanningName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/scanner/detail/{{.ScanningName}}/task/{{.ID}}?id={{.ScanningID}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | \n {{end}}"
 
+		}
+	} else if n.IsWorkflowV4 {
+		if len(n.Tasks) == 0 {
+			tmplSource = "触发的工作流：等待任务启动中"
+		} else {
+			tmplSource =
+				"|触发的工作流|状态| \n |---|---| \n {{range .Tasks}}|[{{.WorkflowName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/pipelines/custom/{{.WorkflowName}}/{{.ID}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | \n {{end}}"
 		}
 	} else {
 		if len(n.Tasks) == 0 {

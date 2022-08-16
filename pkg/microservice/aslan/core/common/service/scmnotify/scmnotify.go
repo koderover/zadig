@@ -54,20 +54,21 @@ func NewService() *Service {
 }
 
 func (s *Service) SendInitWebhookComment(
-	mainRepo *models.MainHookRepo, prID int, baseURI string, isPipeline, isTest, isScanning bool, logger *zap.SugaredLogger,
+	mainRepo *models.MainHookRepo, prID int, baseURI string, isPipeline, isTest, isScanning, isWorkflowV4 bool, logger *zap.SugaredLogger,
 ) (*models.Notification, error) {
 	notification := &models.Notification{
-		CodehostID: mainRepo.CodehostID,
-		PrID:       prID,
-		ProjectID:  strings.TrimLeft(mainRepo.GetRepoNamespace()+"/"+mainRepo.RepoName, "/"),
-		BaseURI:    baseURI,
-		IsPipeline: isPipeline,
-		IsTest:     isTest,
-		IsScanning: isScanning,
-		Label:      mainRepo.GetLabelValue(),
-		Revision:   mainRepo.Revision,
-		RepoOwner:  mainRepo.RepoOwner,
-		RepoName:   mainRepo.RepoName,
+		CodehostID:   mainRepo.CodehostID,
+		PrID:         prID,
+		ProjectID:    strings.TrimLeft(mainRepo.GetRepoNamespace()+"/"+mainRepo.RepoName, "/"),
+		BaseURI:      baseURI,
+		IsPipeline:   isPipeline,
+		IsTest:       isTest,
+		IsScanning:   isScanning,
+		IsWorkflowV4: isWorkflowV4,
+		Label:        mainRepo.GetLabelValue(),
+		Revision:     mainRepo.Revision,
+		RepoOwner:    mainRepo.RepoOwner,
+		RepoName:     mainRepo.RepoName,
 	}
 
 	if err := s.Client.Comment(notification); err != nil {

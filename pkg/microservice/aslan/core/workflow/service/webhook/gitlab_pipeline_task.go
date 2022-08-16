@@ -228,7 +228,7 @@ func TriggerPipelineByGitlabEvent(event interface{}, baseURI, requestID string, 
 					hookRepo.RepoOwner = taskargs.HookPayload.Owner
 					if notification == nil {
 						notification, _ = scmnotify.NewService().SendInitWebhookComment(
-							hookRepo, taskargs.Builds[0].PR, baseURI, true, false, false, log,
+							hookRepo, taskargs.Builds[0].PR, baseURI, true, false, false, false, log,
 						)
 					}
 				}
