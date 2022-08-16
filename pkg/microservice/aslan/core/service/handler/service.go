@@ -219,7 +219,19 @@ func UpdateWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := new(svcservice.UpdateWorkloadsArgs)
-	err := c.ShouldBindJSON(args)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateWorkloads c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateWorkloads json.Unmarshal err : %v", err)
+	}
+
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "配置", "环境", c.Query("env"), string(data), ctx.Logger, c.Query("env"))
+
+	err = c.ShouldBindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return
@@ -246,7 +258,19 @@ func CreateK8sWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := new(svcservice.K8sWorkloadsArgs)
-	err := c.BindJSON(args)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateK8sWorkloads c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateK8sWorkloads json.Unmarshal err : %v", err)
+	}
+
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
+
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
 		return
