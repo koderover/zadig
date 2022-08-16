@@ -190,7 +190,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						// 发送本次commit的通知
 						if notification == nil {
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, false, log,
+								item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, false, false, log,
 							)
 						}
 					}

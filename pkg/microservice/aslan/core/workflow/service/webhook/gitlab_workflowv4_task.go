@@ -377,7 +377,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 
 				if notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
+						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, false, true, log,
 					)
 				}
 			}

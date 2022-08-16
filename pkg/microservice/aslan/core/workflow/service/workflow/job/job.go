@@ -124,14 +124,13 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 }
 
 func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
-	if workflowArgs == nil {
-		return nil
-	}
 	argsMap := make(map[string]*commonmodels.Job)
-	for _, stage := range workflowArgs.Stages {
-		for _, job := range stage.Jobs {
-			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
-			argsMap[jobKey] = job
+	if workflowArgs != nil {
+		for _, stage := range workflowArgs.Stages {
+			for _, job := range stage.Jobs {
+				jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
+				argsMap[jobKey] = job
+			}
 		}
 	}
 	for _, stage := range workflow.Stages {
