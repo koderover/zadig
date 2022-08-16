@@ -31,6 +31,13 @@ import (
 )
 
 func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
+	if clusterID == setting.LocalClusterID || clusterID == "" {
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+
+		return multicluster.GetKubeClient(hubserverAddr, clusterID)
+	}
 	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
@@ -38,10 +45,6 @@ func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
 
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
-		if clusterID == setting.LocalClusterID {
-			clusterID = ""
-		}
-
 		return multicluster.GetKubeClient(hubserverAddr, clusterID)
 	case setting.KubeConfigClusterType:
 		return multicluster.GetKubeClientFromKubeConfig(clusterID, cluster.KubeConfig)
@@ -51,16 +54,19 @@ func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
 }
 
 func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
+	if clusterID == setting.LocalClusterID || clusterID == "" {
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+
+		return multicluster.GetKubeClientSet(hubServerAddr, clusterID)
+	}
 	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
-		if clusterID == setting.LocalClusterID {
-			clusterID = ""
-		}
-
 		return multicluster.GetKubeClientSet(hubServerAddr, clusterID)
 	case setting.KubeConfigClusterType:
 		return multicluster.GetKubeClientSetFromKubeConfig(clusterID, cluster.KubeConfig)
@@ -70,16 +76,19 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 }
 
 func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, error) {
+	if clusterID == setting.LocalClusterID || clusterID == "" {
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+
+		return multicluster.GetDynamicKubeclient(hubserverAddr, clusterID)
+	}
 	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
 	}
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
-		if clusterID == setting.LocalClusterID {
-			clusterID = ""
-		}
-
 		return multicluster.GetDynamicKubeclient(hubserverAddr, clusterID)
 	case setting.KubeConfigClusterType:
 		return multicluster.GetDynamicKubeclientFromKubeConfig(clusterID, cluster.KubeConfig)
@@ -89,6 +98,12 @@ func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, e
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
+	if clusterID == setting.LocalClusterID || clusterID == "" {
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+		return multicluster.GetKubeAPIReader(hubServerAddr, clusterID)
+	}
 	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
@@ -96,9 +111,6 @@ func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
-		if clusterID == setting.LocalClusterID {
-			clusterID = ""
-		}
 		return multicluster.GetKubeAPIReader(hubServerAddr, clusterID)
 	case setting.KubeConfigClusterType:
 		return multicluster.GetKubeClientFromKubeConfig(clusterID, cluster.KubeConfig)
@@ -108,6 +120,12 @@ func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 }
 
 func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
+	if clusterID == setting.LocalClusterID || clusterID == "" {
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+		return multicluster.GetRESTConfig(hubServerAddr, clusterID)
+	}
 	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
@@ -115,9 +133,6 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
-		if clusterID == setting.LocalClusterID {
-			clusterID = ""
-		}
 		return multicluster.GetRESTConfig(hubServerAddr, clusterID)
 	case setting.KubeConfigClusterType:
 		return multicluster.GetRestConfigFromKubeConfig(clusterID, cluster.KubeConfig)
@@ -127,6 +142,12 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 }
 
 func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error) {
+	if clusterID == setting.LocalClusterID || clusterID == "" {
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+		return multicluster.GetClientset(hubServerAddr, clusterID)
+	}
 	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
 	if err != nil {
 		return nil, err
@@ -134,10 +155,6 @@ func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error)
 
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
-		if clusterID == setting.LocalClusterID {
-			clusterID = ""
-		}
-
 		return multicluster.GetClientset(hubServerAddr, clusterID)
 	case setting.KubeConfigClusterType:
 		return multicluster.GetClientSetFromKubeConfig(clusterID, cluster.KubeConfig)
