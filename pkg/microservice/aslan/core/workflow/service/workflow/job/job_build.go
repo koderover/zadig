@@ -96,7 +96,7 @@ func (j *BuildJob) GetRepos() ([]*types.Repository, error) {
 		}
 		for _, target := range buildInfo.Targets {
 			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
-				resp = mergeRepos(buildInfo.Repos, build.Repos)
+				resp = append(resp, mergeRepos(buildInfo.Repos, build.Repos)...)
 				break
 			}
 		}
