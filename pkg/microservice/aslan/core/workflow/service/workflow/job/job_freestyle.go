@@ -84,6 +84,86 @@ func (j *FreeStyleJob) SetPreset() error {
 	return nil
 }
 
+func (j *FreeStyleJob) GetRepos() ([]*types.Repository, error) {
+	resp := []*types.Repository{}
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+	for _, step := range j.spec.Steps {
+		if step.StepType != config.StepGit {
+			continue
+		}
+		stepSpec := &steptypes.StepGitSpec{}
+		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+			return resp, err
+		}
+		resp = append(resp, stepSpec.Repos...)
+	}
+	return resp, nil
+}
+
+func (j *FreeStyleJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.FreestyleJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+		j.job.Spec = j.spec
+		argsSpec := &commonmodels.FreestyleJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+		j.spec.Properties.Envs = renderKeyVals(j.spec.Properties.Envs, argsSpec.Properties.Envs)
+
+		for _, step := range j.spec.Steps {
+			if step.StepType != config.StepGit {
+				continue
+			}
+			for _, stepArgs := range argsSpec.Steps {
+				if stepArgs.StepType != config.StepGit {
+					continue
+				}
+				if stepArgs.Name != step.Name {
+					continue
+				}
+				stepSpec := &steptypes.StepGitSpec{}
+				if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+					return err
+				}
+				stepArgsSpec := &steptypes.StepGitSpec{}
+				if err := commonmodels.IToi(stepArgs.Spec, stepArgsSpec); err != nil {
+					return err
+				}
+				stepSpec.Repos = mergeRepos(stepSpec.Repos, stepArgsSpec.Repos)
+				step.Spec = stepSpec
+				break
+			}
+		}
+		j.job.Spec = j.spec
+	}
+	return nil
+}
+
+func (j *FreeStyleJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	for _, step := range j.spec.Steps {
+		if step.StepType != config.StepGit {
+			continue
+		}
+		stepSpec := &steptypes.StepGitSpec{}
+		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+			return err
+		}
+		stepSpec.Repos = mergeRepos(stepSpec.Repos, []*types.Repository{webhookRepo})
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}

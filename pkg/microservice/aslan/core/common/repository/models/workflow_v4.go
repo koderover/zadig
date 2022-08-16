@@ -28,18 +28,21 @@ import (
 )
 
 type WorkflowV4 struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"  yaml:"-"            json:"id"`
-	Name        string             `bson:"name"           yaml:"name"         json:"name"`
-	KeyVals     []*KeyVal          `bson:"key_vals"       yaml:"key_vals"     json:"key_vals"`
-	Params      []*Param           `bson:"params"         yaml:"params"       json:"params"`
-	Stages      []*WorkflowStage   `bson:"stages"         yaml:"stages"       json:"stages"`
-	Project     string             `bson:"project"        yaml:"project"      json:"project"`
-	Description string             `bson:"description"    yaml:"description"  json:"description"`
-	CreatedBy   string             `bson:"created_by"     yaml:"created_by"   json:"created_by"`
-	CreateTime  int64              `bson:"create_time"    yaml:"create_time"  json:"create_time"`
-	UpdatedBy   string             `bson:"updated_by"     yaml:"updated_by"   json:"updated_by"`
-	UpdateTime  int64              `bson:"update_time"    yaml:"update_time"  json:"update_time"`
-	MultiRun    bool               `bson:"multi_run"      yaml:"multi_run"    json:"multi_run"`
+	ID             primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"            json:"id"`
+	Name           string             `bson:"name"                yaml:"name"         json:"name"`
+	KeyVals        []*KeyVal          `bson:"key_vals"            yaml:"key_vals"     json:"key_vals"`
+	Params         []*Param           `bson:"params"              yaml:"params"       json:"params"`
+	Stages         []*WorkflowStage   `bson:"stages"              yaml:"stages"       json:"stages"`
+	Project        string             `bson:"project"             yaml:"project"      json:"project"`
+	Description    string             `bson:"description"         yaml:"description"  json:"description"`
+	CreatedBy      string             `bson:"created_by"          yaml:"created_by"   json:"created_by"`
+	CreateTime     int64              `bson:"create_time"         yaml:"create_time"  json:"create_time"`
+	UpdatedBy      string             `bson:"updated_by"          yaml:"updated_by"   json:"updated_by"`
+	UpdateTime     int64              `bson:"update_time"         yaml:"update_time"  json:"update_time"`
+	MultiRun       bool               `bson:"multi_run"           yaml:"multi_run"    json:"multi_run"`
+	HookCtls       []*WorkflowV4Hook  `bson:"hook_ctl"            yaml:"-"            json:"hook_ctl"`
+	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
+	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
 }
 
 type WorkflowStage struct {
@@ -148,6 +151,17 @@ type Step struct {
 type Output struct {
 	Name        string `bson:"name"           json:"name"             yaml:"name"`
 	Description string `bson:"description"    json:"description"      yaml:"description"`
+}
+
+type WorkflowV4Hook struct {
+	Name                string              `bson:"name"                      json:"name"`
+	AutoCancel          bool                `bson:"auto_cancel"               json:"auto_cancel"`
+	CheckPatchSetChange bool                `bson:"check_patch_set_change"    json:"check_patch_set_change"`
+	Enabled             bool                `bson:"enabled"                   json:"enabled"`
+	MainRepo            *MainHookRepo       `bson:"main_repo"                 json:"main_repo"`
+	Description         string              `bson:"description,omitempty"     json:"description,omitempty"`
+	Repos               []*types.Repository `bson:"-"                         json:"repos,omitempty"`
+	WorkflowArg         *WorkflowV4         `bson:"workflow_arg"              json:"workflow_arg"`
 }
 
 type Param struct {

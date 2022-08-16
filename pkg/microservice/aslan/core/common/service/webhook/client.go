@@ -22,12 +22,13 @@ import (
 )
 
 const (
-	WorkflowPrefix = "workflow-"
-	PipelinePrefix = "pipeline-"
-	ColliePrefix   = "collie-"
-	ServicePrefix  = "service-"
-	TestingPrefix  = "testing-"
-	ScannerPrefix  = "scanning-"
+	WorkflowPrefix   = "workflow-"
+	WorkflowV4Prefix = "workflowv4-"
+	PipelinePrefix   = "pipeline-"
+	ColliePrefix     = "collie-"
+	ServicePrefix    = "service-"
+	TestingPrefix    = "testing-"
+	ScannerPrefix    = "scanning-"
 
 	taskTimeoutSecond = 10
 )

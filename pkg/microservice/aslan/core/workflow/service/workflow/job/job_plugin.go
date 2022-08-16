@@ -50,6 +50,23 @@ func (j *PluginJob) SetPreset() error {
 	return nil
 }
 
+func (j *PluginJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.PluginJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+		j.job.Spec = j.spec
+		argsSpec := &commonmodels.PluginJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+		j.spec.Plugin.Inputs = argsSpec.Plugin.Inputs
+		j.job.Spec = j.spec
+	}
+	return nil
+}
+
 func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}

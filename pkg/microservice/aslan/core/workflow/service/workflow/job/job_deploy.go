@@ -62,6 +62,24 @@ func (j *DeployJob) SetPreset() error {
 	return nil
 }
 
+func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.ZadigDeployJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+		j.job.Spec = j.spec
+		argsSpec := &commonmodels.ZadigDeployJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+		j.spec.Env = argsSpec.Env
+		j.spec.ServiceAndImages = argsSpec.ServiceAndImages
+		j.job.Spec = j.spec
+	}
+	return nil
+}
+
 func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 

@@ -40,7 +40,9 @@ const (
 	CIStatusFailure   CIStatus = "failure"
 	CIStatusNeutral   CIStatus = "neutral"
 	CIStatusCancelled CIStatus = "cancelled"
+	CIStatusRejected  CIStatus = "rejected"
 	CIStatusTimeout   CIStatus = "timed_out"
+	CIStatusError     CIStatus = "error"
 )
 
 type GitCheck struct {
@@ -85,6 +87,9 @@ func GetTaskLink(baseURI, productName, pipelineName string, pipelineType config.
 func UIType(pipelineType config.PipelineType) string {
 	if pipelineType == config.SingleType {
 		return "single"
+	}
+	if pipelineType == config.WorkflowTypeV4 {
+		return "custom"
 	}
 	return "multi"
 }

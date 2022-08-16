@@ -28,6 +28,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 var cancelChannelMap sync.Map
@@ -68,6 +70,14 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(t.ID.Hex(), t); err != nil {
 		logger.Errorf("[%s] update task: %s:%d error: %v", userName, workflowName, taskID, err)
 		return err
+	}
+
+	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
+	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(t, logger); err != nil {
+		log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
+	}
+	if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(t.WorkflowArgs, t.TaskID, t.Status, logger); err != nil {
+		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
 	}
 
 	q := ConvertTaskToQueue(t)
@@ -170,7 +180,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 		return
 	}
 	// 如果当前状态已经通过或者失败, 不处理新接受到的ACK
-	if taskInColl.Status == config.StatusPassed || taskInColl.Status == config.StatusFailed || taskInColl.Status == config.StatusTimeout {
+	if taskInColl.Status == config.StatusPassed || taskInColl.Status == config.StatusFailed || taskInColl.Status == config.StatusTimeout || taskInColl.Status == config.StatusReject {
 		c.logger.Infof("%s:%d:%s task already done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, taskInColl.Status)
 		return
 	}
@@ -191,7 +201,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
 	}
 
-	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled {
+	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || taskInColl.Status == config.StatusReject {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
 		q := ConvertTaskToQueue(c.workflowTask)
 		if err := Remove(q); err != nil {
@@ -204,6 +214,13 @@ func (c *workflowCtl) updateWorkflowTask() {
 		}
 		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(c.workflowTask.WorkflowName, result.Retention.MaxItems, result.Retention.MaxDays); err != nil {
 			c.logger.Errorf("ArchiveHistoryWorkflowTask error: %v", err)
+		}
+		// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
+		if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {
+			log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
+		}
+		if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(c.workflowTask.WorkflowArgs, c.workflowTask.TaskID, c.workflowTask.Status, c.logger); err != nil {
+			log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
 	}
 

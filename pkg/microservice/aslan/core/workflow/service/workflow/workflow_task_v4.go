@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
@@ -186,11 +187,20 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	}
 
 	workflowTask.WorkflowArgs = workflow
+	workflowTask.Status = config.StatusCreated
 
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
+	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
+	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(workflowTask, log); err != nil {
+		log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", workflowTask.WorkflowName, workflowTask.TaskID, err)
+	}
+	if err := scmnotify.NewService().UpdateGitCheckForWorkflowV4(workflowTask.WorkflowArgs, workflowTask.TaskID, log); err != nil {
+		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", workflowTask.WorkflowName, workflowTask.TaskID, err)
+	}
+
 	return resp, nil
 }
 

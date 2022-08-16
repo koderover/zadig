@@ -99,6 +99,15 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
+
+		//workflowv4 webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowV4ByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	case *gitee.PullRequestEvent:
 		if event.Action != "open" && event.Action != "update" {
 			return fmt.Errorf("action %s is skipped", event.Action)
@@ -125,6 +134,14 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
+		//workflowv4 webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowV4ByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	case *gitee.TagPushEvent:
 		// build webhook
 		wg.Add(1)
@@ -140,6 +157,14 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		go func() {
 			defer wg.Done()
 			if err = TriggerTestByGiteeEvent(event, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+		//workflowv4 webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowV4ByGiteeEvent(event, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()

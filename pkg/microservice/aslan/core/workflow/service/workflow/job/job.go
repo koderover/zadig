@@ -34,9 +34,10 @@ type JobCtl interface {
 	Instantiate() error
 	SetPreset() error
 	ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
+	MergeArgs(args *commonmodels.Job) error
 }
 
-func initJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCtl, error) {
+func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCtl, error) {
 	var resp JobCtl
 	switch job.JobType {
 	case config.JobZadigBuild:
@@ -54,7 +55,7 @@ func initJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 }
 
 func Instantiate(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	ctl, err := initJobCtl(job, workflow)
+	ctl, err := InitJobCtl(job, workflow)
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func Instantiate(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error
 }
 
 func SetPreset(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	jobCtl, err := initJobCtl(job, workflow)
+	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
 		return err
 	}
@@ -70,11 +71,91 @@ func SetPreset(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 }
 
 func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int64) ([]*commonmodels.JobTask, error) {
-	jobCtl, err := initJobCtl(job, workflow)
+	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
 		return []*commonmodels.JobTask{}, err
 	}
 	return jobCtl.ToJobs(taskID)
+}
+
+func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository) error {
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobZadigBuild {
+				jobCtl := &BuildJob{job: job, workflow: workflow}
+				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
+					return err
+				}
+			}
+			if job.JobType == config.JobFreestyle {
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
+	resp := []*types.Repository{}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobZadigBuild {
+				jobCtl := &BuildJob{job: job, workflow: workflow}
+				buildRepos, err := jobCtl.GetRepos()
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, buildRepos...)
+			}
+			if job.JobType == config.JobFreestyle {
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				freeStyleRepos, err := jobCtl.GetRepos()
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, freeStyleRepos...)
+			}
+		}
+	}
+	return resp, nil
+}
+
+func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
+	if workflowArgs == nil {
+		return nil
+	}
+	argsMap := make(map[string]*commonmodels.Job)
+	for _, stage := range workflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
+			argsMap[jobKey] = job
+		}
+	}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			jobCtl, err := InitJobCtl(job, workflow)
+			if err != nil {
+				return err
+			}
+			if err := jobCtl.SetPreset(); err != nil {
+				return err
+			}
+			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
+			if jobArgs, ok := argsMap[jobKey]; ok {
+				jobCtl, err := InitJobCtl(job, workflow)
+				if err != nil {
+					return err
+				}
+				if err := jobCtl.MergeArgs(jobArgs); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // use service name and service module hash to generate job name

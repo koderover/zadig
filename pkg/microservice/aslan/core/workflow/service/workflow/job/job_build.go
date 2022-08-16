@@ -58,18 +58,85 @@ func (j *BuildJob) SetPreset() error {
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 		if err != nil {
-			return err
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
+			continue
 		}
 		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
-			return err
+			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+			continue
 		}
 		for _, target := range buildInfo.Targets {
 			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
-				build.Repos = mergeRepoBranches(buildInfo.Repos, build.Repos)
+				build.Repos = mergeRepos(buildInfo.Repos, build.Repos)
 				build.KeyVals = renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs)
 				break
 			}
 		}
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BuildJob) GetRepos() ([]*types.Repository, error) {
+	resp := []*types.Repository{}
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+
+	for _, build := range j.spec.ServiceAndBuilds {
+		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+		if err != nil {
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
+			continue
+		}
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+			continue
+		}
+		for _, target := range buildInfo.Targets {
+			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+				resp = append(resp, mergeRepos(buildInfo.Repos, build.Repos)...)
+				break
+			}
+		}
+	}
+	return resp, nil
+}
+
+func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.ZadigBuildJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+		j.job.Spec = j.spec
+		argsSpec := &commonmodels.ZadigBuildJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
+		for _, build := range j.spec.ServiceAndBuilds {
+			for _, argsBuild := range argsSpec.ServiceAndBuilds {
+				if build.BuildName == argsBuild.BuildName && build.ServiceName == argsBuild.ServiceName && build.ServiceModule == argsBuild.ServiceModule {
+					build.Repos = mergeRepos(build.Repos, argsBuild.Repos)
+					build.KeyVals = renderKeyVals(build.KeyVals, argsBuild.KeyVals)
+					break
+				}
+			}
+		}
+		j.job.Spec = j.spec
+	}
+	return nil
+}
+
+func (j *BuildJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	for _, build := range j.spec.ServiceAndBuilds {
+		build.Repos = mergeRepos(build.Repos, []*types.Repository{webhookRepo})
 	}
 	j.job.Spec = j.spec
 	return nil
@@ -414,7 +481,7 @@ func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
 	return os.Expand(data, mapper)
 }
 
-func mergeRepoBranches(templateRepos []*types.Repository, customRepos []*types.Repository) []*types.Repository {
+func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Repository) []*types.Repository {
 	customRepoMap := make(map[string]*types.Repository)
 	for _, repo := range customRepos {
 		if repo.RepoNamespace == "" {
@@ -427,10 +494,12 @@ func mergeRepoBranches(templateRepos []*types.Repository, customRepos []*types.R
 		if repo.RepoNamespace == "" {
 			repo.RepoNamespace = repo.RepoOwner
 		}
-		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
+		repoKey := strings.Join([]string{repo.Source, repo.GetRepoNamespace(), repo.RepoName}, "/")
 		// user can only set default branch in custom workflow.
 		if cv, ok := customRepoMap[repoKey]; ok {
 			repo.Branch = cv.Branch
+			repo.Tag = cv.Tag
+			repo.PR = cv.PR
 		}
 	}
 	return templateRepos
