@@ -224,6 +224,10 @@ func MongoDatabase() string {
 	return viper.GetString(setting.ENVAslanDBName)
 }
 
+func PolicyDatabase() string {
+	return MongoDatabase() + "_policy"
+}
+
 func MysqlUser() string {
 	return viper.GetString(setting.ENVMysqlUser)
 }
