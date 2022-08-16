@@ -67,7 +67,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						if notification == nil {
 							mainRepo := ConvertScanningHookToMainHookRepo(item)
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								mainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, log,
+								mainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, false, log,
 							)
 						}
 					}

@@ -234,7 +234,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 					mainRepo.RepoOwner = ""
 					mainRepo.Revision = m.Event.PatchSet.Revision
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						mainRepo, m.Event.Change.Number, baseURI, false, false, false, log,
+						mainRepo, m.Event.Change.Number, baseURI, false, false, false, true, log,
 					)
 				}
 

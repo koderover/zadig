@@ -127,7 +127,7 @@ type JobProperties struct {
 	ImageFrom       string              `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
 	ImageID         string              `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
 	Namespace       string              `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs,omitempty"`
+	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs"`
 	// log user-defined variables, shows in workflow task detail.
 	CustomEnvs   []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
 	Params       []*Param             `bson:"params"               	 json:"params"                yaml:"params"`
