@@ -272,7 +272,9 @@ func (gtem githubTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		}
 	}
 	hookRepo.Tag = getTagFromRef(*ev.Ref)
-	hookRepo.Committer = *ev.Sender.Name
+	if ev.Sender.Name != nil {
+		hookRepo.Committer = *ev.Sender.Name
+	}
 
 	return true, nil
 }
