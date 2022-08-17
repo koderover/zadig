@@ -211,19 +211,22 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		}
 
 		repoInfo := &types.Repository{
-			Source:        rep.Type,
-			RepoOwner:     arg.RepoOwner,
-			RepoName:      arg.RepoName,
-			Branch:        arg.Branch,
-			PR:            arg.PR,
-			CodehostID:    arg.CodehostID,
-			OauthToken:    rep.AccessToken,
-			Address:       rep.Address,
-			Username:      rep.Username,
-			Password:      rep.Password,
-			EnableProxy:   rep.EnableProxy,
-			RepoNamespace: arg.RepoNamespace,
-			Tag:           arg.Tag,
+			Source:             rep.Type,
+			RepoOwner:          arg.RepoOwner,
+			RepoName:           arg.RepoName,
+			Branch:             arg.Branch,
+			PR:                 arg.PR,
+			CodehostID:         arg.CodehostID,
+			OauthToken:         rep.AccessToken,
+			Address:            rep.Address,
+			Username:           rep.Username,
+			Password:           rep.Password,
+			EnableProxy:        rep.EnableProxy,
+			RepoNamespace:      arg.RepoNamespace,
+			Tag:                arg.Tag,
+			AuthType:           rep.AuthType,
+			SSHKey:             rep.SSHKey,
+			PrivateAccessToken: rep.PrivateAccessToken,
 		}
 
 		for _, repo := range scanningInfo.Repos {

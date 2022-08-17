@@ -19,11 +19,12 @@ package taskplugin
 import (
 	"context"
 	"fmt"
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"math"
 	"strings"
 	"time"
+
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -115,20 +116,23 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	// Since only one repository is supported per scanning, we just hard code it
 	repo := &task.Repository{
-		Source:       p.Task.Repos[0].Source,
-		RepoOwner:    p.Task.Repos[0].RepoOwner,
-		RepoName:     p.Task.Repos[0].RepoName,
-		Branch:       p.Task.Repos[0].Branch,
-		PR:           p.Task.Repos[0].PR,
-		Tag:          p.Task.Repos[0].Tag,
-		OauthToken:   p.Task.Repos[0].OauthToken,
-		Address:      p.Task.Repos[0].Address,
-		Username:     p.Task.Repos[0].Username,
-		Password:     p.Task.Repos[0].Password,
-		EnableProxy:  p.Task.Repos[0].EnableProxy,
-		RemoteName:   p.Task.Repos[0].RemoteName,
-		SubModules:   p.Task.Repos[0].SubModules,
-		CheckoutPath: p.Task.Repos[0].CheckoutPath,
+		Source:             p.Task.Repos[0].Source,
+		RepoOwner:          p.Task.Repos[0].RepoOwner,
+		RepoName:           p.Task.Repos[0].RepoName,
+		Branch:             p.Task.Repos[0].Branch,
+		PR:                 p.Task.Repos[0].PR,
+		Tag:                p.Task.Repos[0].Tag,
+		OauthToken:         p.Task.Repos[0].OauthToken,
+		Address:            p.Task.Repos[0].Address,
+		Username:           p.Task.Repos[0].Username,
+		Password:           p.Task.Repos[0].Password,
+		EnableProxy:        p.Task.Repos[0].EnableProxy,
+		RemoteName:         p.Task.Repos[0].RemoteName,
+		SubModules:         p.Task.Repos[0].SubModules,
+		CheckoutPath:       p.Task.Repos[0].CheckoutPath,
+		AuthType:           p.Task.Repos[0].AuthType,
+		SSHKey:             p.Task.Repos[0].SSHKey,
+		PrivateAccessToken: p.Task.Repos[0].PrivateAccessToken,
 	}
 	if repo.RemoteName == "" {
 		repo.RemoteName = "origin"
