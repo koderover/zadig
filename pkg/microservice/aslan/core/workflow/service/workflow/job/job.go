@@ -218,7 +218,8 @@ func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, crea
 
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
-		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
+		inputValue := strings.ReplaceAll(input.Value, "\n", "\\n")
+		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value
 }
