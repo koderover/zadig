@@ -489,6 +489,7 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 			Labels: dindLabelMap,
 		},
 		Spec: appsv1.StatefulSetSpec{
+			ServiceName: "dind",
 			Selector: &metav1.LabelSelector{
 				MatchLabels: dindLabelMap,
 			},
