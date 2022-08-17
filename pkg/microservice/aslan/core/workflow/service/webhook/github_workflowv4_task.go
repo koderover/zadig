@@ -177,7 +177,9 @@ func (gtem githubTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Main
 		}
 	}
 	hookRepo.Tag = getTagFromRef(*ev.Ref)
-	hookRepo.Committer = *ev.Sender.Name
+	if ev.Sender.Name != nil {
+		hookRepo.Committer = *ev.Sender.Name
+	}
 
 	return true, nil
 }
@@ -193,24 +195,6 @@ func (gtem *githubTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		Source:        hookRepo.Source,
 	}
 }
-
-// func (gtem githubTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
-// 	factory := &workflowArgsFactory{
-// 		workflow: gtem.workflow,
-// 		reqID:    requestID,
-// 	}
-
-// 	factory.Update(product, args, &types.Repository{
-// 		CodehostID:    hookRepo.CodehostID,
-// 		RepoName:      hookRepo.RepoName,
-// 		RepoOwner:     hookRepo.RepoOwner,
-// 		RepoNamespace: hookRepo.GetRepoNamespace(),
-// 		Branch:        hookRepo.Branch,
-// 		Tag:           hookRepo.Tag,
-// 	})
-
-// 	return args
-// }
 
 func createGithubEventMatcherForWorkflowV4(
 	event interface{}, diffSrv githubPullRequestDiffFunc, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger,
@@ -252,7 +236,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
-	var hookPayload *commonmodels.HookPayload
+	hookPayload := &commonmodels.HookPayload{}
 
 	for _, workflow := range workflows {
 		if workflow.HookCtls == nil {
