@@ -1189,7 +1189,7 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelm
 	for _, arg := range args {
 		baseProduct, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 			Name:    productName,
-			EnvName: arg.BaseEnvName,
+			EnvName: arg.BaseName,
 		})
 		if err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName))
