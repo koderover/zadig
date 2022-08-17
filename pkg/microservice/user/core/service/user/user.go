@@ -561,7 +561,11 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 		logger.Error("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
 		return nil, err
 	}
-	err = login.CheckSignature(userLogin.LastLoginTime > 0, logger)
+	ifLoggedIn := false
+	if userLogin != nil && userLogin.LastLoginTime > 0 {
+		ifLoggedIn = true
+	}
+	err = login.CheckSignature(ifLoggedIn, logger)
 	if err != nil {
 		return nil, err
 	}
