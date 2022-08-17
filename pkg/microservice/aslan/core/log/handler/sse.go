@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	logservice "github.com/koderover/zadig/pkg/microservice/aslan/core/log/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util/ginzap"
@@ -299,6 +300,20 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 		return
 	}
 
+	scanning, err := commonrepo.NewScanningColl().GetByID(id)
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to find scan info, err: %s", err)
+		return
+	}
+	clusterId := ""
+	namespace := config.Namespace()
+	if scanning.AdvancedSetting != nil {
+		clusterId = scanning.AdvancedSetting.ClusterID
+	}
+	if clusterId != "" && clusterId != setting.LocalClusterID {
+		namespace = setting.AttachedClusterNamespace
+	}
+
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
@@ -313,13 +328,14 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	resp, err := service.GetScanningModuleByID(id, ctx.Logger)
 	scanningName := fmt.Sprintf("%s-%s-%s", resp.Name, id, "scanning-job")
 	options := &logservice.GetContainerOptions{
-		Namespace:    config.Namespace(),
+		Namespace:    namespace,
 		PipelineName: scanningName,
 		SubTask:      string(config.TaskScanning),
 		TailLines:    tails,
 		TaskID:       taskID,
 		PipelineType: string(config.ScanningType),
 		ServiceName:  resp.Name,
+		ClusterID:    clusterId,
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
