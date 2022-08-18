@@ -1,68 +1,38 @@
 name: "Mysql 修改"
 version: "v0.0.1"
 description: "update mysql"
-image: koderover.tencentcloudcr.com/koderover-public/update-nacos-config:v0.0.1-amd64
-
-envs:
-  - name: CONTENT
-    value: $(inputs.CONTENT)
-  - name: SERVER_IP
-    value: $(inputs.SERVER_IP)
-  - name: SERVER_PORT
-    value: $(inputs.SERVER_PORT)
-  - name: TENANT_ID
-    value: $(inputs.TENANT_ID)
-  - name: DATA_ID
-    value: $(inputs.DATA_ID)
-  - name: GROUP
-    value: $(inputs.GROUP)
-  - name: TYPE
-    value: $(inputs.TYPE)
-  - name: USER_NAME
-    value: $(inputs.USER_NAME)
-  - name: PASSWORD
-    value: $(inputs.PASSWORD)
-  - name: SCHEMA
-    value: $(inputs.SCHEMA)
+image: koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1-amd64
 
 inputs:
-  - name: CONTENT
-    description: "config file content"
-    type: text
-    default: ""
-  - name: SERVER_IP
-    description: "nacos server ip"
+  - name: mysql_host
+    description: "mysql host"
     type: string
     default: ""
-  - name: SERVER_PORT
-    description: "nacos server port"
-    type: string
-    default: "0"
-  - name: TENANT_ID
-    description: "nacos namespace id"
+  - name: mysql_port
+    description: "mysql port"
     type: string
     default: ""
-  - name: DATA_ID
-    description: "nacos config data id"
+  - name: username
+    description: "mysql username"
     type: string
     default: ""
-  - name: GROUP
-    description: "nacos config"
+  - name: password
+    description: "mysql password"
     type: string
     default: ""
-  - name: TYPE
-    description: "nacos config type: properties/xml/json/text/html/yaml"
-    type: string
+  - name: query
+    description: "query to be used"
+    type : text
     default: ""
-  - name: USER_NAME
-    description: "nacos user name"
-    type: string
-    default: ""
+
+envs:
+  - name: MYSQL_HOST
+    value: $(inputs.mysql_host)
+  - name: MYSQL_PORT
+    value: $(inputs.mysql_port)
+  - name: USERNAME
+    value: $(inputs.username)
   - name: PASSWORD
-    description: "nacos password"
-    type: string
-    default: ""
-  - name: SCHEMA
-    description: "nacos server schema"
-    type: string
-    default: "http"
+    value: $(inputs.password)
+  - name: QUERY
+    value: $(inputs.query)
