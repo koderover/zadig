@@ -123,6 +123,13 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		return resp, err
 	}
 	workflowTask := &commonmodels.WorkflowTask{}
+	// save workflow original workflow task args.
+	originTaskArgs := &commonmodels.WorkflowV4{}
+	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
+		log.Errorf("save original workflow args error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+	workflowTask.OriginWorkflowArgs = originTaskArgs
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
 	if err != nil {
 		log.Errorf("Counter.GetNextSeq error: %v", err)
@@ -210,7 +217,7 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return nil, e.ErrGetTask.AddErr(err)
 	}
-	return task.WorkflowArgs, nil
+	return task.OriginWorkflowArgs, nil
 }
 
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
