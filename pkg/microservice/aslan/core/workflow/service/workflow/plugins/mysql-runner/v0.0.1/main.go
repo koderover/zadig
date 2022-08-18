@@ -40,7 +40,7 @@ func main() {
 	err := ioutil.WriteFile("/script.sql", []byte(query), 0777)
 	if err != nil {
 		log.Errorf("failed to write script into /script.sql, error: %s", err)
-		return
+		os.Exit(1)
 	}
 
 	// run mysql command
@@ -53,7 +53,7 @@ func main() {
 	err = cmd.Run()
 	if err != nil {
 		log.Errorf("failed to execute /script.sql, error: %s", err)
-		return
+		os.Exit(1)
 	}
 
 	log.Infof("Mysql script execution complete")
