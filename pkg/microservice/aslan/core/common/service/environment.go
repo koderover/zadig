@@ -550,7 +550,20 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 		ProductName:      prod.ProductName,
 		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
 	}
+	resp := make([]*models.Service, 0)
 	for _, productSvc := range serviceMap {
+		if productSvc.ProductName != "" && productSvc.ProductName != prod.ProductName {
+			tmplSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+				ProductName: productSvc.ProductName,
+				ServiceName: productSvc.ServiceName,
+				Revision:    productSvc.Revision,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to find service: %s of product: %s, err: %s", productSvc.ServiceName, productSvc.ProductName, err)
+			}
+			resp = append(resp, tmplSvc)
+			continue
+		}
 		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
 			ServiceName: productSvc.ServiceName,
 			Revision:    productSvc.Revision,
@@ -560,7 +573,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
 	}
-	return templateServices, err
+	return append(resp, templateServices...), nil
 }
 
 // GetReleaseNameToServiceNameMap generates mapping relationship: releaseName=>serviceName

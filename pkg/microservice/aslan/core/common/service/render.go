@@ -372,6 +372,28 @@ func UpdateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return nil
 }
 
+func ListRenderKeysByTemplateSvc(serviceTmpls []*models.Service, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
+	renderSvcMap := make(map[string][]string)
+	resp := make([]*templatemodels.RenderKV, 0)
+	for _, serviceTmpl := range serviceTmpls {
+		findRenderAlias(serviceTmpl.ServiceName, serviceTmpl.Yaml, renderSvcMap)
+	}
+
+	for key, val := range renderSvcMap {
+		rk := &templatemodels.RenderKV{
+			Alias:    key,
+			Services: val,
+		}
+		rk.SetKeys()
+		rk.RemoveDupServices()
+
+		resp = append(resp, rk)
+	}
+
+	sort.SliceStable(resp, func(i, j int) bool { return resp[i].Key < resp[j].Key })
+	return resp, nil
+}
+
 func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
 	renderSvcMap := make(map[string][]string)
 	resp := make([]*templatemodels.RenderKV, 0)
