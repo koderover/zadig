@@ -352,7 +352,7 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		SkipCRDs:    false,
 		UpgradeCRDs: true,
 		Timeout:     time.Second * time.Duration(timeOut),
-		Wait:        true,
+		Wait:        !s.helmDeploySpec.SkipCheckRunStatus,
 		Replace:     true,
 		MaxHistory:  10,
 	}
