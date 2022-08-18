@@ -1,6 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -24,15 +29,32 @@ func main() {
 	viper.AutomaticEnv()
 
 	mysqlHost := viper.GetString(MysqlHost)
-	mysqlPort := viper.GetInt(MysqlPort)
+	mysqlPort := viper.GetString(MysqlPort)
 	username := viper.GetString(Username)
 	password := viper.GetString(Password)
 	query := viper.GetString(Query)
 
-	log.Infof("mysql host is: %s", mysqlHost)
-	log.Infof("mysql port is: %s", mysqlPort)
-	log.Infof("mysql username is: %s", username)
-	log.Infof("mysql password is: %s", password)
-	log.Infof("query is: %s", query)
+	log.Infof("executing mysql query on host: %s, port: %s", mysqlHost, mysqlPort)
 
+	// write the query into a sql file
+	err := ioutil.WriteFile("/script.sql", []byte(query), 0777)
+	if err != nil {
+		log.Errorf("failed to write script into /script.sql, error: %s", err)
+		return
+	}
+
+	// run mysql command
+	mysqlCommand := fmt.Sprintf("mysql -h %s -P %s -u %s -p%s < /scrpt.sql")
+	args := []string{"c", mysqlCommand}
+	cmd := exec.Command("sh", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stdout
+
+	err = cmd.Run()
+	if err != nil {
+		log.Errorf("failed to execute /script.sql, error: %s", err)
+		return
+	}
+
+	log.Infof("Mysql script execution complete")
 }
