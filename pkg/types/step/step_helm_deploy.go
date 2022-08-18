@@ -17,14 +17,15 @@ limitations under the License.
 package step
 
 type StepHelmDeploySpec struct {
-	Env              string                   `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName      string                   `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	ServiceType      string                   `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	ImageAndModules  []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
-	ClusterID        string                   `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	ReleaseName      string                   `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
-	Timeout          int                      `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	Env                string                   `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string                   `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType        string                   `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ImageAndModules    []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
+	ClusterID          string                   `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	ReleaseName        string                   `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
+	Timeout            int                      `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 }
 
 type ImageAndServiceModule struct {

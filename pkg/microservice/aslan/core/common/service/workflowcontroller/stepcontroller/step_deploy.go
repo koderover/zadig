@@ -73,6 +73,9 @@ func (s *deployCtl) Run(ctx context.Context) (config.Status, error) {
 	if err := s.run(ctx); err != nil {
 		return config.StatusFailed, err
 	}
+	if s.deploySpec.SkipCheckRunStatus {
+		return config.StatusPassed, nil
+	}
 	return s.wait(ctx)
 }
 
