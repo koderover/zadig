@@ -141,6 +141,8 @@ metas:
         alias: 编辑
         description: ''
         rules:
+          - method: GET
+            endpoint: /api/aslan/template/charts
           - method: POST
             endpoint: /api/aslan/service/helm/?*
           - method: PUT
