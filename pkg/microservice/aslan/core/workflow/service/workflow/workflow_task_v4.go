@@ -127,7 +127,7 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	originTaskArgs := &commonmodels.WorkflowV4{}
 	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
 		log.Errorf("save original workflow args error: %v", err)
-		return resp, e.ErrGetCounter.AddDesc(err.Error())
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 	workflowTask.OriginWorkflowArgs = originTaskArgs
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
