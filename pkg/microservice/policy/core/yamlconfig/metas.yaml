@@ -480,6 +480,10 @@ metas:
           - method: GET
             endpoint: /api/aslan/workflow/v4/workflowtask/clone/workflow/?*/task/?*
           - method: GET
+            endpoint: /api/aslan/workflow/v4/webhook/preset
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/webhook
+          - method: GET
             endpoint: /api/aslan/logs/log/v4/workflow/?*/tasks/?*/jobs/?*
           - method: GET
             endpoint: /api/aslan/logs/sse/v4/workflow/?*/tasks/?*/jobs/?*
@@ -503,6 +507,12 @@ metas:
             endpoint: /api/aslan/workflow/v4/?*
           - method: POST
             endpoint: /api/aslan/workflow/v4/lint
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/webhook/?*
+          - method: PUT
+            endpoint: /api/aslan/workflow/v4/webhook/?*
+          - method: DELETE
+            endpoint: /api/aslan/workflow/v4/webhook/?*/trigger/?*
       - action: create_workflow
         alias: 新建
         description: ''
