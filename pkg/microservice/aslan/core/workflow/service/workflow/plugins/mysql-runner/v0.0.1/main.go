@@ -44,8 +44,8 @@ func main() {
 	}
 
 	// run mysql command
-	mysqlCommand := fmt.Sprintf("mysql -h %s -P %s -u %s -p%s < /scrpt.sql")
-	args := []string{"c", mysqlCommand}
+	mysqlCommand := fmt.Sprintf("mysql -h %s -P %s -u %s -p%s < /script.sql", mysqlHost, mysqlPort, username, password)
+	args := []string{"-c", mysqlCommand}
 	cmd := exec.Command("sh", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
