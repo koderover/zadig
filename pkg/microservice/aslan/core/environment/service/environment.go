@@ -288,18 +288,54 @@ func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) e
 		renderName := product.Namespace
 		var revision int64
 		// if the environment is backtracking, render.name will be different with product.Namespace
-		if product.Render != nil && product.Render.Name != renderName {
-			renderName = product.Render.Name
+		if product.Render != nil {
 			revision = product.Render.Revision
+			if product.Render.Name != renderName {
+				renderName = product.Render.Name
+			} else {
+				for _, productSvc := range product.GetServiceMap() {
+					if productSvc.Render != nil {
+						revision = productSvc.Render.Revision
+						break
+					}
+				}
+			}
 		}
+
 		renderSet, err := commonservice.GetRenderSet(renderName, revision, false, product.EnvName, log)
 		if err != nil {
 			log.Errorf("Failed to find render set, productName: %s, namespace: %s,  err: %s", product.ProductName, product.Namespace, err)
 			return e.ErrGetRenderSet.AddDesc(err.Error())
 		}
-		product.Vars = renderSet.KVs[:]
-	}
 
+		product.Vars = renderSet.KVs[:]
+
+		// Note. the service property of kv pair stored in DB is not accuracy
+		// from v1.14.0 we should fetch related service data real-time
+		if len(product.Vars) == 0 {
+			return nil
+		}
+
+		templateSvcsOfProduct, err := commonservice.GetProductUsedTemplateSvcs(product)
+		if err != nil {
+			log.Errorf("failed to get service templates applied in product, err: %s", err)
+			return nil
+		}
+
+		renderKvs, err := commonservice.ListRenderKeysByTemplateSvc(templateSvcsOfProduct, log)
+		if err != nil {
+			log.Errorf("failed to get render kvs in product, err: %s", err)
+			return nil
+		}
+
+		relatedSvcs := make(map[string][]string)
+		for _, key := range renderKvs {
+			relatedSvcs[key.Key] = key.Services
+		}
+		for _, varInfo := range product.Vars {
+			varInfo.Services = relatedSvcs[varInfo.Key]
+		}
+	}
 	return nil
 }
 
@@ -2479,7 +2515,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	for _, v := range rs.KVs {
 		var updatedServices []string
 		for _, service := range v.Services {
-			if util.InStringArray(service, serviceNames) {
+			if !util.InStringArray(service, serviceNames) {
 				updatedServices = append(updatedServices, service)
 			}
 		}
