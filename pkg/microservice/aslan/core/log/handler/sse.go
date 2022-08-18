@@ -300,20 +300,6 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 		return
 	}
 
-	scanning, err := commonrepo.NewScanningColl().GetByID(id)
-	if err != nil {
-		ctx.Err = fmt.Errorf("failed to find scan info, err: %s", err)
-		return
-	}
-	clusterId := ""
-	namespace := config.Namespace()
-	if scanning.AdvancedSetting != nil {
-		clusterId = scanning.AdvancedSetting.ClusterID
-	}
-	if clusterId != "" && clusterId != setting.LocalClusterID {
-		namespace = setting.AttachedClusterNamespace
-	}
-
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
@@ -326,6 +312,16 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	}
 
 	resp, err := service.GetScanningModuleByID(id, ctx.Logger)
+
+	clusterId := ""
+	namespace := config.Namespace()
+	if resp.AdvancedSetting != nil {
+		clusterId = resp.AdvancedSetting.ClusterID
+	}
+	if clusterId != "" && clusterId != setting.LocalClusterID {
+		namespace = setting.AttachedClusterNamespace
+	}
+
 	scanningName := fmt.Sprintf("%s-%s-%s", resp.Name, id, "scanning-job")
 	options := &logservice.GetContainerOptions{
 		Namespace:    namespace,
