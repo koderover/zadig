@@ -340,7 +340,14 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 			bf.RepoNamespace = bf.GetNamespace()
 		}
 	}
-
+	for _, test := range resp.TestStage.Tests {
+		testModule, err := commonrepo.NewTestingColl().Find(test.Name, "")
+		if err != nil {
+			log.Errorf("test module: %s not found", test.Name)
+			continue
+		}
+		test.Project = testModule.ProductName
+	}
 	return resp, nil
 }
 
