@@ -84,8 +84,9 @@ type ZadigBuildJobSpec struct {
 }
 
 type ZadigDeployJobSpec struct {
-	Env              string             `bson:"env"                          json:"env"`
-	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+	Env                string             `bson:"env"                          json:"env"`
+	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
 }
 
 type ServiceAndImage struct {

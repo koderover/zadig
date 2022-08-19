@@ -158,12 +158,13 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepDeploy,
 				Spec: step.StepDeploySpec{
-					Env:           j.spec.Env,
-					ServiceName:   deploy.ServiceName,
-					ServiceType:   setting.K8SDeployType,
-					ServiceModule: deploy.ServiceModule,
-					ClusterID:     product.ClusterID,
-					Image:         deploy.Image,
+					Env:                j.spec.Env,
+					SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+					ServiceName:        deploy.ServiceName,
+					ServiceType:        setting.K8SDeployType,
+					ServiceModule:      deploy.ServiceModule,
+					ClusterID:          product.ClusterID,
+					Image:              deploy.Image,
 				},
 			}
 			jobTask.Steps = append(jobTask.Steps, deployStep)
@@ -201,11 +202,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				StepType: config.StepHelmDeploy,
 			}
 			helmDeploySpec := step.StepHelmDeploySpec{
-				Env:         j.spec.Env,
-				ServiceName: serviceName,
-				ServiceType: setting.HelmDeployType,
-				ClusterID:   product.ClusterID,
-				ReleaseName: releaseName,
+				Env:                j.spec.Env,
+				ServiceName:        serviceName,
+				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+				ServiceType:        setting.HelmDeployType,
+				ClusterID:          product.ClusterID,
+				ReleaseName:        releaseName,
 			}
 			for _, deploy := range deploys {
 				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
