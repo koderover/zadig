@@ -132,6 +132,7 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 				argsMap[jobKey] = job
 			}
 		}
+		workflow.Params = renderParams(workflowArgs.Params, workflow.Params)
 	}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -244,4 +245,18 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
 	return resp
+}
+
+func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
+	for i, originParam := range origin {
+		for _, inputParam := range input {
+			if originParam.Name == inputParam.Name {
+				// always use origin credential config.
+				isCredential := originParam.IsCredential
+				origin[i] = inputParam
+				origin[i].IsCredential = isCredential
+			}
+		}
+	}
+	return origin
 }
