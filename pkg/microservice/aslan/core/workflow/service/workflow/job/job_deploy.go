@@ -128,6 +128,8 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
+		// clear service and image list to prevent old data from remaining
+		j.spec.ServiceAndImages = []*commonmodels.ServiceAndImage{}
 		for _, stage := range j.workflow.Stages {
 			for _, job := range stage.Jobs {
 				if job.JobType != config.JobZadigBuild || job.Name != j.spec.JobName {
