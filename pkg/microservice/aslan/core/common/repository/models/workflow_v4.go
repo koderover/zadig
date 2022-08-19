@@ -72,7 +72,9 @@ type User struct {
 type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
-	Spec    interface{}    `bson:"spec"           yaml:"spec"     json:"spec"`
+	// only for webhook workflow args to skip some tasks.
+	Skipped bool        `bson:"skipped"        yaml:"skipped"  json:"skipped"`
+	Spec    interface{} `bson:"spec"           yaml:"spec"     json:"spec"`
 }
 
 type PluginJobSpec struct {
