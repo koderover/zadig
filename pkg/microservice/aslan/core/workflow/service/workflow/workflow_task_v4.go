@@ -344,6 +344,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					stepSpec := &stepspec.StepDeploySpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Env = stepSpec.Env
+					// for step in build-in deploy jobs, SkipCheckRunStatus are the same.
+					spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
 					spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
 						ServiceName:   stepSpec.ServiceName,
 						ServiceModule: stepSpec.ServiceModule,
@@ -355,6 +357,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					stepSpec := &stepspec.StepHelmDeploySpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Env = stepSpec.Env
+					// for step in build-in deploy jobs, SkipCheckRunStatus are the same.
+					spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
 					for _, imageAndmodule := range stepSpec.ImageAndModules {
 						spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
 							ServiceName:   stepSpec.ServiceName,
