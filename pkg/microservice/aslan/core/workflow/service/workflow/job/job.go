@@ -144,6 +144,7 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 			}
 			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
 			if jobArgs, ok := argsMap[jobKey]; ok {
+				job.Skipped = jobArgs.Skipped
 				jobCtl, err := InitJobCtl(job, workflow)
 				if err != nil {
 					return err
