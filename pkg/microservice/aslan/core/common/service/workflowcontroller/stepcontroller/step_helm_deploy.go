@@ -377,7 +377,7 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 	}
 	if err != nil {
-		return nil
+		return err
 	}
 
 	//替换环境变量中的chartInfos
