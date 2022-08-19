@@ -74,7 +74,10 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		j.spec.Env = argsSpec.Env
-		j.spec.ServiceAndImages = argsSpec.ServiceAndImages
+		if j.spec.Source == config.SourceRuntime {
+			j.spec.ServiceAndImages = argsSpec.ServiceAndImages
+		}
+
 		j.job.Spec = j.spec
 	}
 	return nil
