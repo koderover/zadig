@@ -17,14 +17,15 @@ limitations under the License.
 package step
 
 type StepDeploySpec struct {
-	Env              string     `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName      string     `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	ServiceType      string     `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	ServiceModule    string     `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
-	Image            string     `bson:"image"                            json:"image"                               yaml:"image"`
-	ClusterID        string     `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	Timeout          int        `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources []Resource `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	Env                string     `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string     `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType        string     `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	ServiceModule      string     `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
+	SkipCheckRunStatus bool       `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	Image              string     `bson:"image"                            json:"image"                               yaml:"image"`
+	ClusterID          string     `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int        `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 }
 
 type Resource struct {

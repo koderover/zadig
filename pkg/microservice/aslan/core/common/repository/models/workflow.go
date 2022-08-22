@@ -267,8 +267,9 @@ type TestStage struct {
 
 // TestExecArgs ...
 type TestExecArgs struct {
-	Name string    `bson:"test_name"             json:"test_name"`
-	Envs []*KeyVal `bson:"envs"           json:"envs"`
+	Name    string    `bson:"test_name"             json:"test_name"`
+	Envs    []*KeyVal `bson:"envs"                  json:"envs"`
+	Project string    `bson:"project"               json:"project"`
 }
 
 type SecurityStage struct {

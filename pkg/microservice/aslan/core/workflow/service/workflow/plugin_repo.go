@@ -182,6 +182,9 @@ func ListPluginTemplates(log *zap.SugaredLogger) ([]*commonmodels.PluginTemplate
 	for _, repo := range repos {
 		for _, template := range repo.PluginTemplates {
 			template.RepoURL = fmt.Sprintf("%s/%s", repo.RepoOwner, repo.RepoName)
+			for _, input := range template.Inputs {
+				input.Value = input.Default
+			}
 			resp = append(resp, template)
 		}
 	}

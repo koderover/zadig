@@ -120,7 +120,7 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 			for _, argsBuild := range argsSpec.ServiceAndBuilds {
 				if build.BuildName == argsBuild.BuildName && build.ServiceName == argsBuild.ServiceName && build.ServiceModule == argsBuild.ServiceModule {
 					build.Repos = mergeRepos(build.Repos, argsBuild.Repos)
-					build.KeyVals = renderKeyVals(build.KeyVals, argsBuild.KeyVals)
+					build.KeyVals = renderKeyVals(argsBuild.KeyVals, build.KeyVals)
 					break
 				}
 			}

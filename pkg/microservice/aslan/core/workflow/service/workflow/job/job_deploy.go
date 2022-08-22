@@ -74,7 +74,10 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		j.spec.Env = argsSpec.Env
-		j.spec.ServiceAndImages = argsSpec.ServiceAndImages
+		if j.spec.Source == config.SourceRuntime {
+			j.spec.ServiceAndImages = argsSpec.ServiceAndImages
+		}
+
 		j.job.Spec = j.spec
 	}
 	return nil
@@ -125,6 +128,8 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
+		// clear service and image list to prevent old data from remaining
+		j.spec.ServiceAndImages = []*commonmodels.ServiceAndImage{}
 		for _, stage := range j.workflow.Stages {
 			for _, job := range stage.Jobs {
 				if job.JobType != config.JobZadigBuild || job.Name != j.spec.JobName {
@@ -158,12 +163,13 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepDeploy,
 				Spec: step.StepDeploySpec{
-					Env:           j.spec.Env,
-					ServiceName:   deploy.ServiceName,
-					ServiceType:   setting.K8SDeployType,
-					ServiceModule: deploy.ServiceModule,
-					ClusterID:     product.ClusterID,
-					Image:         deploy.Image,
+					Env:                j.spec.Env,
+					SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+					ServiceName:        deploy.ServiceName,
+					ServiceType:        setting.K8SDeployType,
+					ServiceModule:      deploy.ServiceModule,
+					ClusterID:          product.ClusterID,
+					Image:              deploy.Image,
 				},
 			}
 			jobTask.Steps = append(jobTask.Steps, deployStep)
@@ -201,11 +207,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				StepType: config.StepHelmDeploy,
 			}
 			helmDeploySpec := step.StepHelmDeploySpec{
-				Env:         j.spec.Env,
-				ServiceName: serviceName,
-				ServiceType: setting.HelmDeployType,
-				ClusterID:   product.ClusterID,
-				ReleaseName: releaseName,
+				Env:                j.spec.Env,
+				ServiceName:        serviceName,
+				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+				ServiceType:        setting.HelmDeployType,
+				ClusterID:          product.ClusterID,
+				ReleaseName:        releaseName,
 			}
 			for _, deploy := range deploys {
 				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {

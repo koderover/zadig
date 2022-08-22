@@ -132,6 +132,7 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 				argsMap[jobKey] = job
 			}
 		}
+		workflow.Params = renderParams(workflowArgs.Params, workflow.Params)
 	}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -144,6 +145,7 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 			}
 			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
 			if jobArgs, ok := argsMap[jobKey]; ok {
+				job.Skipped = jobArgs.Skipped
 				jobCtl, err := InitJobCtl(job, workflow)
 				if err != nil {
 					return err
@@ -212,13 +214,21 @@ func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, crea
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	replacedString := renderString(string(b), setting.RenderValueTemplate, getWorkflowDefaultParams(workflow, taskID, creator))
+	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, getWorkflowDefaultParams(workflow, taskID, creator))
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
+	}
+	return value
+}
+
+func renderMultiLineString(value, template string, inputs []*commonmodels.Param) string {
+	for _, input := range inputs {
+		inputValue := strings.ReplaceAll(input.Value, "\n", "\\n")
+		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value
 }
@@ -235,4 +245,18 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
 	return resp
+}
+
+func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
+	for i, originParam := range origin {
+		for _, inputParam := range input {
+			if originParam.Name == inputParam.Name {
+				// always use origin credential config.
+				isCredential := originParam.IsCredential
+				origin[i] = inputParam
+				origin[i].IsCredential = isCredential
+			}
+		}
+	}
+	return origin
 }

@@ -43,8 +43,8 @@ func Serve(ctx context.Context) error {
 	engine := rest.NewEngine()
 	server := &http.Server{
 		Addr:         ":25000",
-		WriteTimeout: time.Second * 15,
-		ReadTimeout:  time.Second * 15,
+		WriteTimeout: time.Second * 3600,
+		ReadTimeout:  time.Second * 3600,
 		IdleTimeout:  time.Second * 5 * 60,
 		Handler:      engine,
 	}

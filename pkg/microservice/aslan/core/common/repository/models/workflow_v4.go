@@ -72,7 +72,9 @@ type User struct {
 type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
-	Spec    interface{}    `bson:"spec"           yaml:"spec"     json:"spec"`
+	// only for webhook workflow args to skip some tasks.
+	Skipped bool        `bson:"skipped"        yaml:"skipped"  json:"skipped"`
+	Spec    interface{} `bson:"spec"           yaml:"spec"     json:"spec"`
 }
 
 type PluginJobSpec struct {
@@ -102,8 +104,9 @@ type ServiceAndBuild struct {
 }
 
 type ZadigDeployJobSpec struct {
-	Env        string `bson:"env"                 yaml:"env"     json:"env"`
-	DeployType string `bson:"deploy_type"         yaml:"-"       json:"deploy_type"`
+	Env                string `bson:"env"                      yaml:"env"                         json:"env"`
+	DeployType         string `bson:"deploy_type"              yaml:"-"                           json:"deploy_type"`
+	SkipCheckRunStatus bool   `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务

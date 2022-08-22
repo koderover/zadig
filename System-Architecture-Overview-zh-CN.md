@@ -8,19 +8,15 @@
 
 用户入口：
 - zadig-portal：Zadig 前端组件
-- kodespace：Zadig 开发者命令行工具
 - Zadig Toolkit：vscode 开发者插件
 
 API 网关：
 - [Gloo Edge](https://github.com/solo-io/gloo)：Zadig 的 API 网关组件
 - [OPA](https://github.com/open-policy-agent/opa)：认证和授权组件
 - [Dex](https://github.com/dexidp/dex)：Zadig 的身份认证服务，用于连接其他第三方认证系统，比如 AD / LDAP / OAuth2 / GitHub / ..
-- User：用户管理，Token 生成
 
 Zadig 核心业务：
-- Picket：数据聚合服务
 - Aslan：项目 / 环境 / 服务 / 工作流 / 构建配置 / 系统配置等系统功能
-- Policy：OPA 数据源，策略注册中心
 - Config：系统配置
 - Workflow Runner：
   - warpdrive：工作流引擎，负责 reaper、predator 实例的创建销毁等管理操作

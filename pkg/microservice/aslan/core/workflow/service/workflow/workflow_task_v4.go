@@ -84,8 +84,9 @@ type ZadigBuildJobSpec struct {
 }
 
 type ZadigDeployJobSpec struct {
-	Env              string             `bson:"env"                          json:"env"`
-	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+	Env                string             `bson:"env"                          json:"env"`
+	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
 }
 
 type ServiceAndImage struct {
@@ -123,6 +124,13 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		return resp, err
 	}
 	workflowTask := &commonmodels.WorkflowTask{}
+	// save workflow original workflow task args.
+	originTaskArgs := &commonmodels.WorkflowV4{}
+	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
+		log.Errorf("save original workflow args error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+	workflowTask.OriginWorkflowArgs = originTaskArgs
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
 	if err != nil {
 		log.Errorf("Counter.GetNextSeq error: %v", err)
@@ -156,6 +164,9 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 			Approval: stage.Approval,
 		}
 		for _, job := range stage.Jobs {
+			if job.Skipped {
+				continue
+			}
 			// TODO: move this logic to job controller
 			if job.JobType == config.JobZadigBuild {
 				if err := setZadigBuildRepos(job, log); err != nil {
@@ -210,7 +221,7 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return nil, e.ErrGetTask.AddErr(err)
 	}
-	return task.WorkflowArgs, nil
+	return task.OriginWorkflowArgs, nil
 }
 
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
@@ -336,6 +347,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					stepSpec := &stepspec.StepDeploySpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Env = stepSpec.Env
+					// for step in build-in deploy jobs, SkipCheckRunStatus are the same.
+					spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
 					spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
 						ServiceName:   stepSpec.ServiceName,
 						ServiceModule: stepSpec.ServiceModule,
@@ -347,6 +360,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					stepSpec := &stepspec.StepHelmDeploySpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Env = stepSpec.Env
+					// for step in build-in deploy jobs, SkipCheckRunStatus are the same.
+					spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
 					for _, imageAndmodule := range stepSpec.ImageAndModules {
 						spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
 							ServiceName:   stepSpec.ServiceName,
