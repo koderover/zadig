@@ -1,0 +1,38 @@
+name: "MySQL 数据库变更"
+version: "v0.0.1"
+description: "针对 MySQL 数据库执行 SQL 变量"
+image: koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1-amd64
+
+inputs:
+  - name: mysql_host
+    description: "mysql host"
+    type: string
+    default: ""
+  - name: mysql_port
+    description: "mysql port"
+    type: string
+    default: ""
+  - name: username
+    description: "mysql username"
+    type: string
+    default: ""
+  - name: password
+    description: "mysql password"
+    type: string
+    default: ""
+  - name: query
+    description: "query to be used"
+    type : text
+    default: ""
+
+envs:
+  - name: MYSQL_HOST
+    value: $(inputs.mysql_host)
+  - name: MYSQL_PORT
+    value: $(inputs.mysql_port)
+  - name: USERNAME
+    value: $(inputs.username)
+  - name: PASSWORD
+    value: $(inputs.password)
+  - name: QUERY
+    value: $(inputs.query)

@@ -24,6 +24,8 @@ type OperationLog struct {
 	ProductName string             `bson:"product_name"                json:"product_name"`
 	Method      string             `bson:"method"                      json:"method"`
 	Function    string             `bson:"function"                    json:"function"`
+	Scene       string             `bson:"scene"                       json:"scene"`
+	Targets     []string           `bson:"targets"                     json:"targets"`
 	Name        string             `bson:"name"                        json:"name"`
 	RequestBody string             `bson:"request_body"                json:"request_body"`
 	Status      int                `bson:"status"                      json:"status"`

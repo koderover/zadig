@@ -61,6 +61,7 @@ func NewDeployCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.Wor
 	if err := yaml.Unmarshal(yamlString, &deploySpec); err != nil {
 		return nil, fmt.Errorf("unmarshal deploy spec error: %v", err)
 	}
+	stepTask.Spec = deploySpec
 	return &deployCtl{deploySpec: deploySpec, workflowCtx: workflowCtx, log: log, step: stepTask}, nil
 }
 
@@ -71,6 +72,9 @@ func (s *deployCtl) PreRun(ctx context.Context) error {
 func (s *deployCtl) Run(ctx context.Context) (config.Status, error) {
 	if err := s.run(ctx); err != nil {
 		return config.StatusFailed, err
+	}
+	if s.deploySpec.SkipCheckRunStatus {
+		return config.StatusPassed, nil
 	}
 	return s.wait(ctx)
 }

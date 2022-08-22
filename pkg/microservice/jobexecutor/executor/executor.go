@@ -55,7 +55,7 @@ func Execute(ctx context.Context) error {
 
 	start := time.Now()
 
-	excutor := "job-excutor"
+	excutor := "job-executor"
 	var err error
 	defer func() {
 		// os.Remove(ZadigLifeCycleFile)

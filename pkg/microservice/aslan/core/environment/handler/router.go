@@ -109,6 +109,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/nodes", ListNodes)
 
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
+
+		kube.GET("/pods/:podName/file", DownloadFileFromPod)
+	}
+
+	operations := router.Group("operations")
+	{
+		operations.GET("", GetOperationLogs)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -118,6 +125,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		environments.GET("", ListProducts)
 		environments.PUT("/:name", UpdateProduct)
+		environments.PUT("/:name/registry", UpdateProductRegistry)
 		environments.PUT("", UpdateMultiProducts)
 		environments.POST("", CreateProduct)
 		environments.GET("/:name", GetProduct)

@@ -212,6 +212,8 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id stri
 			"advanced_config": cluster.AdvancedConfig,
 			"cache":           cluster.Cache,
 			"dind_cfg":        cluster.DindCfg,
+			"kube_config":     cluster.KubeConfig,
+			"type":            cluster.Type,
 		}},
 	)
 

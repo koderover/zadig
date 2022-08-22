@@ -267,8 +267,9 @@ type TestStage struct {
 
 // TestExecArgs ...
 type TestExecArgs struct {
-	Name string    `bson:"test_name"             json:"test_name"`
-	Envs []*KeyVal `bson:"envs"           json:"envs"`
+	Name    string    `bson:"test_name"             json:"test_name"`
+	Envs    []*KeyVal `bson:"envs"                  json:"envs"`
+	Project string    `bson:"project"               json:"project"`
 }
 
 type SecurityStage struct {
@@ -353,13 +354,16 @@ type TestArgs struct {
 }
 
 type HookPayload struct {
-	Owner      string `bson:"owner"          json:"owner,omitempty"`
-	Repo       string `bson:"repo"           json:"repo,omitempty"`
-	Branch     string `bson:"branch"         json:"branch,omitempty"`
-	Ref        string `bson:"ref"            json:"ref,omitempty"`
-	IsPr       bool   `bson:"is_pr"          json:"is_pr,omitempty"`
-	CheckRunID int64  `bson:"check_run_id"   json:"check_run_id,omitempty"`
-	DeliveryID string `bson:"delivery_id"    json:"delivery_id,omitempty"`
+	Owner          string `bson:"owner"            json:"owner,omitempty"`
+	Repo           string `bson:"repo"             json:"repo,omitempty"`
+	Branch         string `bson:"branch"           json:"branch,omitempty"`
+	Ref            string `bson:"ref"              json:"ref,omitempty"`
+	IsPr           bool   `bson:"is_pr"            json:"is_pr,omitempty"`
+	CheckRunID     int64  `bson:"check_run_id"     json:"check_run_id,omitempty"`
+	MergeRequestID string `bson:"merge_request_id" json:"merge_request_id,omitempty"`
+	CommitID       string `bson:"commit_id"        json:"commit_id,omitempty"`
+	DeliveryID     string `bson:"delivery_id"      json:"delivery_id,omitempty"`
+	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 }
 
 type TargetArgs struct {

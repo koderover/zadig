@@ -86,6 +86,8 @@ const (
 	ServiceType PipelineType = "service"
 	// WorkflowTypeV3
 	WorkflowTypeV3 PipelineType = "workflow_v3"
+	// WorkflowTypeV4
+	WorkflowTypeV4 PipelineType = "workflow_v4"
 	// ArtifactPackageType package artifact
 	ArtifactType PipelineType = "artifact"
 	// ScanningType is the type for scanning
@@ -173,6 +175,7 @@ const (
 	JobZadigBuild  JobType = "zadig-build"
 	JobZadigDeploy JobType = "zadig-deploy"
 	JobFreestyle   JobType = "freestyle"
+	JobPlugin      JobType = "plugin"
 )
 
 type ApproveOrReject string

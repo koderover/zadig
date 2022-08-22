@@ -50,3 +50,8 @@ type UserCountByType struct {
 	IdentityType string `gorm:"default:'unknown'" json:"identity_type" gorm:"identity_type"`
 	Count        int64  `json:"count" gorm:"count"`
 }
+
+type UserStatistics struct {
+	UserByType []*UserCountByType `json:"user_info"`
+	ActiveUser int64              `json:"active_user"`
+}

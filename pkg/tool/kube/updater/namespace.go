@@ -46,3 +46,7 @@ func CreateNamespaceByName(ns string, labels map[string]string, cl client.Client
 	}
 	return CreateNamespace(n, cl)
 }
+
+func UpdateNamespace(ns *corev1.Namespace, cl client.Client) error {
+	return updateObject(ns, cl)
+}

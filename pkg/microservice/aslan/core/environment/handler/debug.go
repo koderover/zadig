@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -36,7 +37,7 @@ func PatchDebugContainer(c *gin.Context) {
 		debugImage = types.DebugImage
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "启动调试容器", "环境", envName, "", ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "启动调试容器", "环境", envName, "", ctx.Logger, envName)
 
 	ctx.Err = service.PatchDebugContainer(c, projectName, envName, podName, debugImage)
 }

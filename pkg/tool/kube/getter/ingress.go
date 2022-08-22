@@ -143,8 +143,20 @@ func ListIngressesFormat(namespace string, cl client.Client, lessThan122 bool) (
 	return res, err
 }
 
-func GetIngressYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
+func GetIngressYaml(ns string, name string, cl client.Client, lessThan122 bool) ([]byte, bool, error) {
 	gvk := schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Kind:    "Ingress",
+		Version: "v1",
+	}
+	bs, exist, err := GetResourceYamlInCache(ns, name, gvk, cl)
+	if !lessThan122 {
+		return bs, exist, err
+	}
+	if exist && err == nil {
+		return bs, exist, err
+	}
+	gvk = schema.GroupVersionKind{
 		Group:   "extensions",
 		Kind:    "Ingress",
 		Version: "v1beta1",

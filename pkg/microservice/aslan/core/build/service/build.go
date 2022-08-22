@@ -41,6 +41,7 @@ type BuildResp struct {
 	Name        string                              `json:"name"`
 	Targets     []*commonmodels.ServiceModuleTarget `json:"targets"`
 	KeyVals     []*commonmodels.KeyVal              `json:"key_vals"`
+	Repos       []*types.Repository                 `json:"repos"`
 	UpdateTime  int64                               `json:"update_time"`
 	UpdateBy    string                              `json:"update_by"`
 	Pipelines   []string                            `json:"pipelines"`
@@ -146,11 +147,24 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 				}
 				// get build env vars when it's a template build
 				if build.TemplateID != "" {
+					templateEnvs := []*commonmodels.KeyVal{}
+					buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+						ID: build.TemplateID,
+					})
+					// if template not found, envs are empty, but do not block user.
+					if err != nil {
+						log.Errorf("build job: %s, template not found", build.Name)
+					} else {
+						templateEnvs = buildTemplate.PreBuild.Envs
+					}
+
 					for _, target := range build.Targets {
 						if target.ServiceModule == container.Name && target.ServiceName == serviceTmpl.ServiceName {
 							build.PreBuild.Envs = target.Envs
+							build.Repos = target.Repos
 						}
 					}
+					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs, build.PreBuild.Envs)
 				}
 				if err := commonservice.EncryptKeyVals(encryptedKey, build.PreBuild.Envs, log); err != nil {
 					return serviceModuleAndBuildResp, err
@@ -159,6 +173,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 					ID:      build.ID.Hex(),
 					Name:    build.Name,
 					KeyVals: build.PreBuild.Envs,
+					Repos:   build.Repos,
 				})
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{

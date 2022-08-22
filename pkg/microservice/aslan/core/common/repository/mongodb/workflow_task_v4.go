@@ -142,6 +142,25 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	return resp, count, nil
 }
 
+func (c *WorkflowTaskv4Coll) FindTodoTasksByWorkflowName(workflowName string) ([]*models.WorkflowTask, error) {
+	ret := make([]*models.WorkflowTask, 0)
+	query := bson.M{"status": bson.M{"$in": []string{"waiting", "queued", "created", "running", "blocked"}}}
+	query["workflow_name"] = workflowName
+	query["is_deleted"] = false
+	query["is_archived"] = false
+
+	opt := options.Find()
+	opt.SetSort(bson.D{{"create_time", 1}})
+
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &ret)
+
+	return ret, err
+}
+
 func (c *WorkflowTaskv4Coll) InCompletedTasks() ([]*models.WorkflowTask, error) {
 	ret := make([]*models.WorkflowTask, 0)
 	query := bson.M{"status": bson.M{"$in": []string{"created", "running"}}}

@@ -99,7 +99,7 @@ func ListWorkflowV4(c *gin.Context) {
 		ignoreWorkflow = true
 	}
 
-	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserName, workflowNames, ignoreWorkflow, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserID, workflowNames, ignoreWorkflow, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,
@@ -154,4 +154,49 @@ func GetWorkflowV4Preset(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.Logger)
+}
+
+func GetWebhookForWorkflowV4Preset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), ctx.Logger)
+}
+
+func ListWebhookForWorkflowV4Preset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.ListWebhookForWorkflowV4(c.Query("workflowName"), ctx.Logger)
+}
+
+func CreateWebhookForWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(commonmodels.WorkflowV4Hook)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = workflow.CreateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+}
+
+func UpdateWebhookForWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(commonmodels.WorkflowV4Hook)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = workflow.UpdateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+}
+
+func DeleteWebhookForWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = workflow.DeleteWebhookForWorkflowV4(c.Param("workflowName"), c.Param("triggerName"), ctx.Logger)
 }

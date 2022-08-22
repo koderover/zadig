@@ -149,6 +149,14 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowV4ByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	}
 
 	if mergeEvent != nil {
@@ -186,6 +194,14 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowV4ByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	}
 
 	if tagEvent != nil {
@@ -211,6 +227,14 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			if err = TriggerScanningByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowV4ByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()

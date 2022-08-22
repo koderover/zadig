@@ -37,6 +37,7 @@ type Product struct {
 	Revision     int64                         `bson:"revision"                  json:"revision"`
 	Enabled      bool                          `bson:"enabled"                   json:"enabled"`
 	EnvName      string                        `bson:"env_name"                  json:"env_name"`
+	BaseEnvName  string                        `bson:"-"                         json:"base_env_name"`
 	UpdateBy     string                        `bson:"update_by"                 json:"update_by"`
 	Auth         []*ProductAuth                `bson:"auth"                      json:"auth"`
 	Visibility   string                        `bson:"-"                         json:"visibility"`

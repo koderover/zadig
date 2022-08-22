@@ -261,7 +261,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		prodResp.ClusterName = cluster.Name
 		prodResp.IsLocal = cluster.Local
 
-		if !prodResp.IsLocal && !clusterService.ClusterConnected(prod.ClusterID) {
+		if !prodResp.IsLocal && !clusterService.ClusterConnected(prod.ClusterID) && cluster.Type != setting.KubeConfigClusterType {
 			prodResp.Status = setting.ClusterDisconnected
 			prodResp.Error = "集群未连接"
 			return prodResp

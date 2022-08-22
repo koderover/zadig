@@ -88,9 +88,6 @@ const (
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"
 	ReleaseImageTimeout = "RELEASE_IMAGE_TIMEOUT"
-	DefaultRegistryAddr = "DEFAULT_REG_ADDRESS"
-	DefaultRegistryAK   = "DEFAULT_REG_ACCESS_KEY"
-	DefaultRegistrySK   = "DEFAULT_REG_SECRET_KEY"
 
 	// reaper
 	Home          = "HOME"
@@ -121,6 +118,10 @@ const (
 	ENVScopes         = "SCOPES"
 	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
 	ENVUserPort       = "USER_PORT"
+
+	// config
+	ENVMysqlDexDB = "MYSQL_DEX_DB"
+	FeatureFlag   = "feature-gates"
 
 	// initconfig
 	ENVAdminEmail    = "ADMIN_EMAIL"
@@ -396,6 +397,19 @@ const (
 	UpdateContainerImageEvent = "UpdateContainerImage"
 )
 
+// operation scenes
+const (
+	OperationSceneProject  = "project"
+	OperationSceneBuild    = "build"
+	OperationSceneWorkflow = "workflow"
+	OperationSceneEnv      = "environment"
+	OperationSceneService  = "service"
+	OperationSceneTest     = "test"
+	OperationSceneScanning = "scanning"
+	OperationSceneVersion  = "version"
+	OperationSceneSystem   = "system"
+)
+
 // Service Related
 const (
 	// PrivateVisibility ...
@@ -626,7 +640,13 @@ const (
 	ResetImagePolicyTestFailed         ResetImagePolicyType = "testFailed"
 )
 
-const LocalClusterID = "0123456789abcdef12345678"
+// Cluster Management constants
+const (
+	AgentClusterType      = "agent"
+	KubeConfigClusterType = "kubeconfig"
+
+	LocalClusterID = "0123456789abcdef12345678"
+)
 
 const DefaultLoginLocal = "local"
 
@@ -661,4 +681,11 @@ const ArtifactResultOut = "artifactResultOut.tar.gz"
 const (
 	DefaultReleaseNaming     = "$Service$"
 	ReleaseNamingPlaceholder = "$Namespace$-$Service$"
+)
+
+// custom workflow constants for variables
+const (
+	FixedValueMark            = "<+fixed>"
+	RenderValueTemplate       = "{{.%s}}"
+	RenderPluginValueTemplate = "$(%s)"
 )

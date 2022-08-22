@@ -18,6 +18,8 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 
@@ -85,7 +87,9 @@ func DeletePod(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Query("projectName")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s", c.Query("envName"), c.Param("podName")), "", ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv,
+		"重启", "环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s",
+			c.Query("envName"), c.Param("podName")), "", ctx.Logger, envName)
 	ctx.Err = service.DeletePod(envName, productName, podName, ctx.Logger)
 }
 
@@ -105,4 +109,33 @@ func ListNodes(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.ListAvailableNodes(c.Query("clusterId"), ctx.Logger)
+}
+
+func DownloadFileFromPod(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Query("envName")
+	productName := c.Query("projectName")
+	podName := c.Param("podName")
+	filePath := c.Query("path")
+	container := c.Query("container")
+
+	if len(container) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("container can't be nil")
+		return
+	}
+	if len(filePath) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("file path can't be nil")
+		return
+	}
+
+	fileBytes, path, err := service.DownloadFile(envName, productName, podName, container, filePath, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	fileName := filepath.Base(path)
+	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
+	c.Data(http.StatusOK, "application/octet-stream", fileBytes)
 }

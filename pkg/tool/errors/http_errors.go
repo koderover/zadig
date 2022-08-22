@@ -199,6 +199,8 @@ var (
 	ErrUpdateResource = NewHTTPError(6095, "更新对象资源失败")
 	//ErrDeleteResource ...
 	ErrDeleteResource = NewHTTPError(6096, "删除对象资源失败")
+	//ErrGetPodFile
+	ErrGetPodFile = NewHTTPError(6097, "下载Pod文件失败")
 	// ErrLoginPm ...
 	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
 
@@ -703,4 +705,20 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	ErrListHelmReleases = NewHTTPError(6850, "获取release失败")
 	ErrGetHelmCharts    = NewHTTPError(6851, "获取chart信息失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// plugins releated Error Range: 6870 - 6879
+	//-----------------------------------------------------------------------------------------------
+	ErrListPluginRepo   = NewHTTPError(6870, "获取plugin仓库失败")
+	ErrUpsertPluginRepo = NewHTTPError(6871, "更新plugin仓库失败")
+	ErrDeletePluginRepo = NewHTTPError(6872, "删除plugin仓库失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// webhook releated Error Range: 6880 - 6889
+	//-----------------------------------------------------------------------------------------------
+	ErrGetWebhook    = NewHTTPError(6880, "获取webhook详情失败")
+	ErrListWebhook   = NewHTTPError(6881, "列出webhook失败")
+	ErrCreateWebhook = NewHTTPError(6882, "创建webhook失败")
+	ErrUpdateWebhook = NewHTTPError(6883, "更新webhook失败")
+	ErrDeleteWebhook = NewHTTPError(6884, "删除webhook失败")
 )

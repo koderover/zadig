@@ -49,6 +49,7 @@ func NewGitCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*gitCtl
 	if gitSpec.Proxy == nil {
 		gitSpec.Proxy = &step.Proxy{}
 	}
+	stepTask.Spec = gitSpec
 	return &gitCtl{gitSpec: gitSpec, log: log, step: stepTask}, nil
 }
 

@@ -18,15 +18,16 @@ package core
 
 import (
 	"context"
+	"database/sql"
+	_ "embed"
 	"fmt"
 	"sync"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	commonconfig "github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -38,19 +39,29 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	multiclusterservice "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
+	policyservice "github.com/koderover/zadig/pkg/microservice/aslan/core/policy/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
+	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
+	configservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
+	userCore "github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
 	"github.com/koderover/zadig/pkg/types"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	webhookController = iota
+	bundleController
 )
 
 type policyGetter interface {
@@ -64,9 +75,11 @@ type Controller interface {
 func StartControllers(stopCh <-chan struct{}) {
 	controllerWorkers := map[int]int{
 		webhookController: 1,
+		bundleController:  1,
 	}
 	controllers := map[int]Controller{
 		webhookController: webhook.NewWebhookController(),
+		bundleController:  policybundle.NewBundleController(),
 	}
 
 	var wg sync.WaitGroup
@@ -121,9 +134,18 @@ func Start(ctx context.Context) {
 	initService()
 	initDinD()
 
+	// old config service initialization, it didn't panic or stop if it fails, so I will just keep it that way.
+	InitializeConfigFeatureGates()
+
+	// old user service initialization process cannot be skipped since the DB variable is in that package
+	// the db initialization process has been moved to the initDatabase function.
+	userCore.Start(context.TODO())
+
 	systemservice.SetProxyConfig()
 
 	workflowservice.InitPipelineController()
+	// update offical plugins
+	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())
 	workflowcontroller.InitWorkflowController()
 	// 如果集群环境所属的项目不存在，则删除此集群环境
 	environmentservice.CleanProducts()
@@ -138,10 +160,15 @@ func Start(ctx context.Context) {
 	go multiclusterservice.ClusterApplyUpgradeAgent()
 
 	initRsaKey()
+
+	// policy initialization process
+	policybundle.GenerateOPABundle()
+	policyservice.MigratePolicyData()
 }
 
 func Stop(ctx context.Context) {
 	mongotool.Close(ctx)
+	gormtool.Close()
 }
 
 func initService() {
@@ -169,9 +196,31 @@ func initDinD() {
 }
 
 func initDatabase() {
+	// old user service initialization
+	InitializeUserDBAndTables()
+
+	err := gormtool.Open(configbase.MysqlUser(),
+		configbase.MysqlPassword(),
+		configbase.MysqlHost(),
+		config.MysqlDexDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlDexDB())
+	}
+
+	err = gormtool.Open(configbase.MysqlUser(),
+		configbase.MysqlPassword(),
+		configbase.MysqlHost(),
+		config.MysqlUserDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlUserDB())
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	// mongodb initialization
 	mongotool.Init(ctx, config.MongoURI())
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
@@ -182,6 +231,7 @@ func initDatabase() {
 
 	var wg sync.WaitGroup
 	for _, r := range []indexer{
+		// aslan related db index
 		template.NewProductColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
@@ -239,6 +289,7 @@ func initDatabase() {
 		commonrepo.NewWorkflowV4Coll(),
 		commonrepo.NewworkflowTaskv4Coll(),
 		commonrepo.NewWorkflowQueueColl(),
+		commonrepo.NewPluginRepoColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
@@ -246,6 +297,14 @@ func initDatabase() {
 		labelMongodb.NewLabelBindingColl(),
 		modeMongodb.NewCollaborationModeColl(),
 		modeMongodb.NewCollaborationInstanceColl(),
+
+		// config related db index
+		configmongodb.NewEmailHostColl(),
+
+		// policy related db index
+		policydb.NewRoleColl(),
+		policydb.NewRoleBindingColl(),
+		policydb.NewPolicyMetaColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
@@ -271,4 +330,44 @@ func initDatabase() {
 type indexer interface {
 	EnsureIndex(ctx context.Context) error
 	GetCollectionName() string
+}
+
+// InitializeConfigFeatureGates initialize feature gates for the old config service module.
+// Currently, the function of this part is unknown. But we will keep it just to make sure.
+func InitializeConfigFeatureGates() error {
+	flagFG, err := configservice.FlagToFeatureGates(config.Features())
+	if err != nil {
+		log.Errorf("FlagToFeatureGates err:%s", err)
+		return err
+	}
+	dbFG, err := configservice.DBToFeatureGates()
+	if err != nil {
+		log.Errorf("DBToFeatureGates err:%s", err)
+		return err
+	}
+	configservice.Features.MergeFeatureGates(flagFG, dbFG)
+	return nil
+}
+
+//go:embed init/mysql.sql
+var mysql []byte
+
+func InitializeUserDBAndTables() {
+	if len(mysql) == 0 {
+		return
+	}
+	db, err := sql.Open("mysql", fmt.Sprintf(
+		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
+		configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
+	))
+	if err != nil {
+		log.Panic(err)
+	}
+	defer db.Close()
+	initSql := fmt.Sprintf(string(mysql), config.MysqlUserDB(), config.MysqlUserDB())
+	_, err = db.Exec(initSql)
+
+	if err != nil {
+		log.Panic(err)
+	}
 }

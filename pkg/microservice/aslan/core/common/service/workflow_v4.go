@@ -24,6 +24,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -68,6 +69,10 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 		logger.Errorf("Failed to delete WorkflowV4: %s, the error is: %v", name, err)
 		return e.ErrDeleteWorkflow.AddErr(err)
 	}
+	err = ProcessWebhook(nil, workflow.HookCtls, webhook.WorkflowV4Prefix+workflow.Name, logger)
+	if err != nil {
+		log.Errorf("Failed to process webhook, err: %s", err)
+	}
 	if err := mongodb.NewWorkflowV4Coll().DeleteByID(workflow.ID.Hex()); err != nil {
 		logger.Errorf("Failed to delete WorkflowV4: %s, the error is: %v", name, err)
 		return e.ErrDeleteWorkflow.AddErr(err)
@@ -94,6 +99,27 @@ func EncryptKeyVals(encryptedKey string, kvs []*commonmodels.KeyVal, logger *zap
 	for _, kv := range kvs {
 		if kv.IsCredential {
 			kv.Value, err = crypto.AesEncryptByKey(kv.Value, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("aes encrypt by key err:%v", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func EncryptParams(encryptedKey string, params []*commonmodels.Param, logger *zap.SugaredLogger) error {
+	if encryptedKey == "" {
+		return nil
+	}
+	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	if err != nil {
+		log.Errorf("EncyptParams GetAesKeyFromEncryptedKey err:%v", err)
+		return err
+	}
+	for _, param := range params {
+		if param.IsCredential {
+			param.Value, err = crypto.AesEncryptByKey(param.Value, aesKey.PlainText)
 			if err != nil {
 				log.Errorf("aes encrypt by key err:%v", err)
 				return err

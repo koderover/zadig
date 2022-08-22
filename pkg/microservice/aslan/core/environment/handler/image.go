@@ -48,11 +48,11 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(
-		c, ctx.UserName, args.ProductName,
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger)
+		string(data), ctx.Logger, args.EnvName)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -79,11 +79,11 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 		log.Errorf("UpdateDeploymentContainerImage json.Unmarshal err : %v", err)
 	}
 
-	internalhandler.InsertOperationLog(
-		c, ctx.UserName, args.ProductName,
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger)
+		string(data), ctx.Logger, args.EnvName)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 

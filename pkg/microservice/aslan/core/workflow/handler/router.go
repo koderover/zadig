@@ -175,6 +175,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.PUT("/:name", UpdateWorkflowV4)
 		workflowV4.DELETE("/:name", DeleteWorkflowV4)
 		workflowV4.GET("/preset/:name", GetWorkflowV4Preset)
+		workflowV4.GET("/webhook/preset", GetWebhookForWorkflowV4Preset)
+		workflowV4.GET("/webhook", ListWebhookForWorkflowV4Preset)
+		workflowV4.POST("/webhook/:workflowName", CreateWebhookForWorkflowV4)
+		workflowV4.PUT("/webhook/:workflowName", UpdateWebhookForWorkflowV4)
+		workflowV4.DELETE("/webhook/:workflowName/trigger/:triggerName", DeleteWebhookForWorkflowV4)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -188,6 +193,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.DELETE("/workflow/:workflowName/task/:taskID", CancelWorkflowTaskV4)
 		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)
 		taskV4.POST("/approve", ApproveStage)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// plugin repo 接口
+	// ---------------------------------------------------------------------------------------
+	plugin := router.Group("plugin")
+	{
+		plugin.GET("/template", ListPluginTemplates)
+		plugin.POST("", UpsertUserPluginRepository)
+		plugin.GET("", ListUnofficalPluginRepositories)
+		plugin.DELETE("/:id", DeletePluginRepo)
 	}
 
 	bundles := router.Group("bundle-resources")

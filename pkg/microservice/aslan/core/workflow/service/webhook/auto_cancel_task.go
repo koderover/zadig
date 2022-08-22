@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -134,5 +135,45 @@ func AutoCancelTestTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *zap.
 		}
 	}
 
+	return nil
+}
+
+func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error {
+	if autoCancelOpt == nil || autoCancelOpt.MergeRequestID == "" || autoCancelOpt.CommitID == "" {
+		return nil
+	}
+	if !autoCancelOpt.AutoCancel {
+		return nil
+	}
+
+	tasks, err := commonrepo.NewworkflowTaskv4Coll().FindTodoTasksByWorkflowName(autoCancelOpt.WorkflowName)
+	if err != nil {
+		log.Errorf("find [InCompletedWorkflowV4Tasks] error: %v", err)
+		return err
+	}
+
+	for _, task := range tasks {
+		if task.TaskCreator != setting.WebhookTaskCreator ||
+			task.WorkflowArgs.HookPayload == nil {
+			continue
+		}
+
+		// not the same pr of the same repo, skip
+		if autoCancelOpt.MainRepo.CodehostID != task.WorkflowArgs.HookPayload.CodehostID ||
+			autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
+			autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||
+			autoCancelOpt.MergeRequestID != task.WorkflowArgs.HookPayload.MergeRequestID {
+			continue
+		}
+
+		// for tasks under the same pr, if the commitID is the same, it means that this commit has triggered multiple tasks of the same type, which cannot be canceled each other and need to be skipped
+		if task.WorkflowArgs.HookPayload.CommitID == autoCancelOpt.CommitID {
+			continue
+		}
+		if err = workflowcontroller.CancelWorkflowTask(task.TaskCreator, task.WorkflowName, task.TaskID, log); err != nil {
+			log.Errorf("CancelRunningWorkflowV4Task failed,task.TaskCreator:%s, task.WorkflowName:%s, task.TaskID:%d, error: %v", task.TaskCreator, task.WorkflowName, task.TaskID, err)
+		}
+		break
+	}
 	return nil
 }

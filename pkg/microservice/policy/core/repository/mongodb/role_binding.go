@@ -43,7 +43,7 @@ type RoleBindingColl struct {
 func NewRoleBindingColl() *RoleBindingColl {
 	name := models.RoleBinding{}.TableName()
 	return &RoleBindingColl{
-		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Collection: mongotool.Database(config.PolicyDatabase()).Collection(name),
 		coll:       name,
 	}
 }

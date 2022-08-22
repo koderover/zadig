@@ -198,7 +198,7 @@ func (r *Reaper) BeforeExec() error {
 				cmd.Stdout = &out
 				cmd.Stderr = &out
 				if err := cmd.Run(); err != nil {
-					return fmt.Errorf("failed to login docker registry: %s", err)
+					return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 				}
 
 				log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())

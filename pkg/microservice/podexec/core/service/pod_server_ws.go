@@ -17,37 +17,33 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 
-	"github.com/gorilla/mux"
-
+	"github.com/gin-gonic/gin"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func ServeWs(w http.ResponseWriter, r *http.Request) {
-	// 获取路径中的参数
-	pathParams := mux.Vars(r)
-	namespace := pathParams["namespace"]
-	podName := pathParams["podName"]
-	containerName := pathParams["containerName"]
-	// 获取query中的参数
-	queryList := r.URL.Query()
-	clusterID := queryList.Get("clusterId")
+func ServeWs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	namespace := c.Param("namespace")
+	podName := c.Param("podName")
+	containerName := c.Param("containerName")
+	clusterID := c.Query("clusterId")
 
 	if namespace == "" || podName == "" || containerName == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(&EndpointResponse{ResultCode: http.StatusBadRequest, ErrorMsg: "namespace,podName,containerName can't be empty,please check!"})
+		ctx.Err = e.ErrInvalidParam.AddDesc("namespace,podName,containerName can't be empty,please check!")
 		return
 	}
 	log.Infof("exec containerName: %s, pod: %s, namespace: %s", containerName, podName, namespace)
 
-	pty, err := NewTerminalSession(w, r, nil)
+	pty, err := NewTerminalSession(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Errorf("get pty failed: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(&EndpointResponse{ResultCode: http.StatusInternalServerError, ErrorMsg: fmt.Sprintf("get pty failed: %v", err)})
+		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("get pty failed: %v", err))
 		return
 	}
 	defer func() {
@@ -62,8 +58,7 @@ func ServeWs(w http.ResponseWriter, r *http.Request) {
 		_, _ = pty.Write([]byte(msg))
 		pty.Done()
 
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(&EndpointResponse{ResultCode: http.StatusInternalServerError, ErrorMsg: fmt.Sprintf("get kubecli err :%v", err)})
+		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("get kubecli err :%v", err))
 		return
 	}
 
@@ -74,8 +69,7 @@ func ServeWs(w http.ResponseWriter, r *http.Request) {
 		_, _ = pty.Write([]byte(msg))
 		pty.Done()
 
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(&EndpointResponse{ResultCode: http.StatusBadRequest, ErrorMsg: fmt.Sprintf("Validate pod error! err: %v", err)})
+		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("Validate pod error! err: %v", err))
 		return
 	}
 
@@ -86,7 +80,7 @@ func ServeWs(w http.ResponseWriter, r *http.Request) {
 		_, _ = pty.Write([]byte(msg))
 		pty.Done()
 
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(&EndpointResponse{ResultCode: http.StatusInternalServerError, ErrorMsg: fmt.Sprintf("Exec to pod error! err: %v", err)})
+		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
+		return
 	}
 }

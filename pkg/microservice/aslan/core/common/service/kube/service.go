@@ -18,13 +18,20 @@ package kube
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -106,6 +113,10 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	}
 
 	cluster.Status = setting.Pending
+	if cluster.Type == setting.KubeConfigClusterType {
+		// since we will always be able to connect with direct connection
+		cluster.Status = setting.Normal
+	}
 	if id == setting.LocalClusterID {
 		cluster.Status = setting.Normal
 		cluster.Local = true
@@ -137,6 +148,16 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		return nil, err
 	}
 	cluster.Token = token
+
+	if cluster.Type == setting.KubeConfigClusterType {
+		err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
+		if err != nil {
+			s.coll.Delete(cluster.ID.Hex())
+			return nil, err
+		}
+		cluster.Status = setting.Normal
+	}
+
 	return cluster, nil
 }
 
@@ -174,6 +195,8 @@ func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogge
 	if err != nil {
 		return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
 	}
+
+	err = RemoveClusterResources(config.HubServerAddress(), id)
 
 	err = s.coll.Delete(id)
 	if err != nil {
@@ -354,6 +377,241 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 	}
 
 	return
+}
+
+// InitializeExternalCluster initialized the resources in the cluster for zadig to run correctly.
+// if the cluster is of type kubeconfig, we need to create following resource:
+// Namespace: koderover-agent
+// Deployment: resource-server
+// Service:    resource-server, dind
+// StatefulSet: dind
+func InitializeExternalCluster(hubserverAddr, clusterID string) error {
+	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
+	if err != nil {
+		return err
+	}
+
+	// if no namespace named "koderover-agent" exists, we create one
+	if _, err := clientset.CoreV1().Namespaces().Get(context.TODO(), "koderover-agent", metav1.GetOptions{}); err != nil {
+		namespaceSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			Name: "koderover-agent",
+		}}
+
+		_, err := clientset.CoreV1().Namespaces().Create(context.TODO(), namespaceSpec, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to create namespace \"koderover-agent\" in the new cluster, error: %s", err)
+		}
+	}
+
+	resourceServerLabelMap := map[string]string{
+		"app.kubernetes.io/component": "resource-server",
+		"app.kubernetes.io/name":      "zadig",
+	}
+
+	// Then we create the resource-server deployment
+	resourceServerDeploymentSpec := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "resource-server",
+			Labels: resourceServerLabelMap,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: resourceServerLabelMap,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: resourceServerLabelMap,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						corev1.Container{
+							Name:  "resource-server",
+							Image: config.ResourceServerImage(),
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(500) + setting.CpuUintM),
+									corev1.ResourceMemory: resource.MustParse(strconv.Itoa(500) + setting.MemoryUintMi),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(100) + setting.CpuUintM),
+									corev1.ResourceMemory: resource.MustParse(strconv.Itoa(100) + setting.MemoryUintMi),
+								},
+							},
+							ImagePullPolicy: "Always",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = clientset.AppsV1().Deployments("koderover-agent").Create(context.TODO(), resourceServerDeploymentSpec, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create resource server deployment to initialize cluster, err: %s", err)
+	}
+
+	// Resource-server service
+	resourceServerService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "resource-server",
+			Labels: resourceServerLabelMap,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Protocol:   "TCP",
+					Port:       80,
+					TargetPort: intstr.FromInt(80),
+				},
+			},
+			Selector: resourceServerLabelMap,
+			Type:     "ClusterIP",
+		},
+	}
+
+	_, err = clientset.CoreV1().Services("koderover-agent").Create(context.TODO(), resourceServerService, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create resource server service to initialize cluster, err: %s", err)
+	}
+
+	dindLabelMap := map[string]string{
+		"app.kubernetes.io/component": "dind",
+		"app.kubernetes.io/name":      "zadig",
+	}
+
+	privileged := true
+
+	// Dind Stateful Set
+	dindSts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "dind",
+			Labels: dindLabelMap,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			ServiceName: "dind",
+			Selector: &metav1.LabelSelector{
+				MatchLabels: dindLabelMap,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: dindLabelMap,
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: &corev1.PodAntiAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										TopologyKey: "kubernetes.io/hostname",
+									},
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						corev1.Container{
+							Name:  "dind",
+							Image: config.DindImage(),
+							Ports: []corev1.ContainerPort{
+								{
+									Protocol:      "TCP",
+									ContainerPort: 2375,
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "DOCKER_TLS_CERTDIR",
+									Value: "",
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(2)),
+									corev1.ResourceMemory: resource.MustParse(strconv.Itoa(2) + setting.MemoryUintGi),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(100) + setting.CpuUintM),
+									corev1.ResourceMemory: resource.MustParse(strconv.Itoa(128) + setting.MemoryUintMi),
+								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &privileged,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = clientset.AppsV1().StatefulSets("koderover-agent").Create(context.TODO(), dindSts, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create dind sts to initialize cluster, err: %s", err)
+	}
+
+	// dind service
+	dindService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "dind",
+			Labels: dindLabelMap,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "dind",
+					Protocol:   "TCP",
+					Port:       2375,
+					TargetPort: intstr.FromInt(2375),
+				},
+			},
+			ClusterIP: "None",
+			Selector:  dindLabelMap,
+		},
+	}
+
+	_, err = clientset.CoreV1().Services("koderover-agent").Create(context.TODO(), dindService, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create dind service to initialize cluster, err: %s", err)
+	}
+
+	return nil
+}
+
+// RemoveClusterResources Removes all the resources in the koderover-agent namespace along with the namespace itself
+func RemoveClusterResources(hubserverAddr, clusterID string) error {
+	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
+	if err != nil {
+		return err
+	}
+
+	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete dind service, err: %s", err)
+	}
+
+	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete dind service, err: %s", err)
+	}
+
+	err = clientset.AppsV1().Deployments("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete resource-server deployment, err: %s", err)
+	}
+
+	err = clientset.AppsV1().StatefulSets("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete dind statefulset, err: %s", err)
+	}
+
+	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), "koderover-agent", metav1.DeleteOptions{})
+	if err != nil {
+		log.Errorf("failed to delete koderover-agent ns, err: %s", err)
+	}
+
+	return nil
 }
 
 type TemplateSchema struct {

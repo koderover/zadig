@@ -36,10 +36,10 @@ const (
 )
 
 type RequestSpec struct {
-	CpuLimit    int `bson:"cpu_limit"                     json:"cpu_limit"`
-	MemoryLimit int `bson:"memory_limit"                  json:"memory_limit"`
-	CpuReq      int `bson:"cpu_req,omitempty"             json:"cpu_req,omitempty"`
-	MemoryReq   int `bson:"memory_req,omitempty"          json:"memory_req,omitempty"`
+	CpuLimit    int `bson:"cpu_limit"                     json:"cpu_limit"               yaml:"cpu_limit"`
+	MemoryLimit int `bson:"memory_limit"                  json:"memory_limit"            yaml:"memory_limit"`
+	CpuReq      int `bson:"cpu_req,omitempty"             json:"cpu_req,omitempty"       yaml:"cpu_req,omitempty"`
+	MemoryReq   int `bson:"memory_req,omitempty"          json:"memory_req,omitempty"    yaml:"memory_req,omitempty"`
 }
 
 var (
@@ -97,14 +97,11 @@ const (
 	Collie               // 4
 	Cron                 // 5
 	HubServer            // 6
-	PodExec              // 7
-	SonarQube            // 9
-	WarpDrive            // 10
-	Minio                // 11
-	OPA                  // 12
-	Policy               // 13
-	Config               // 14
-	User                 // 15
+	SonarQube            // 7
+	WarpDrive            // 8
+	Minio                // 9
+	OPA                  // 10
+	Policy               // 11
 	Vendor
 )
 
@@ -138,10 +135,6 @@ var Services = map[int]*ServiceInfo{
 		Name: "hub-server",
 		Port: 26000,
 	},
-	PodExec: {
-		Name: "podexec",
-		Port: 27000,
-	},
 	SonarQube: {
 		Name: "sonarqube",
 		Port: 80,
@@ -160,14 +153,6 @@ var Services = map[int]*ServiceInfo{
 	},
 	Policy: {
 		Name: "policy",
-		Port: 80,
-	},
-	Config: {
-		Name: "config",
-		Port: 80,
-	},
-	User: {
-		Name: "user",
 		Port: 80,
 	},
 	Vendor: {
