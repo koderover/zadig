@@ -39,6 +39,13 @@ func ListHelmRepos(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListHelmRepos(encryptedKey, ctx.Logger)
 }
 
+func ListHelmReposPublic(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = commonservice.ListHelmReposPublic()
+}
+
 func CreateHelmRepo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
