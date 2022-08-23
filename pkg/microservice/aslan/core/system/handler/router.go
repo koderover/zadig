@@ -155,6 +155,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	integration := router.Group("helm")
 	{
 		integration.GET("", ListHelmRepos)
+		integration.GET("/public", ListHelmReposPublic)
 		integration.POST("", CreateHelmRepo)
 		integration.PUT("/:id", UpdateHelmRepo)
 		integration.DELETE("/:id", DeleteHelmRepo)

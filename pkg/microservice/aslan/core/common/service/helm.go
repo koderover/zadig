@@ -58,6 +58,10 @@ func ListHelmRepos(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels
 	return helmRepos, nil
 }
 
+func ListHelmReposPublic() ([]*commonmodels.HelmRepo, error) {
+	return commonrepo.NewHelmRepoColl().List()
+}
+
 func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 	ok, err := fsutil.DirExists(base)
 	if err != nil {
