@@ -162,7 +162,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
-		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceName, "", build.ServiceModule, "image")
+		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "image")
 
 		if len(registry.Namespace) > 0 {
 			build.Image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
@@ -173,7 +173,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		build.Image = strings.TrimPrefix(build.Image, "http://")
 		build.Image = strings.TrimPrefix(build.Image, "https://")
 
-		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceName, "", build.ServiceModule, "tar"))
+		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "tar"))
 
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
