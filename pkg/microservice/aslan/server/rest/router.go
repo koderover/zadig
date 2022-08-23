@@ -84,7 +84,6 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		r.Inject(router.Group(name))
 	}
 
-	router.GET("/api/helmrepo", commonhandler.ListHelmRepo)
 	// no auth required
 	router.GET("/api/hub/connect", multiclusterhandler.ClusterConnectFromAgent)
 
