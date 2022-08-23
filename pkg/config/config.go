@@ -168,15 +168,6 @@ func VendorServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func VendorServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Vendor)
-}
-
-func VendorServiceAddress() string {
-	s := VendorServiceInfo()
-	return GetServiceAddress(s.Name, s.Port)
-}
-
 func GetServiceAddress(name string, port int32) string {
 	return fmt.Sprintf("http://%s:%d", name, port)
 }
