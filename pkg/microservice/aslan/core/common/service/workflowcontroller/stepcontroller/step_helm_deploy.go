@@ -41,8 +41,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	configbase "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -357,7 +357,7 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		Replace:     true,
 		MaxHistory:  10,
 	}
-
+	s.log.Infof("start to upgrade helm chart, release name: %s, chart name: %s, version: %s", chartSpec.ReleaseName, chartSpec.ChartName, chartSpec.Version)
 	done := make(chan bool)
 	go func(chan bool) {
 		if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec); err != nil {
