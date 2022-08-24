@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -356,7 +357,7 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		Replace:     true,
 		MaxHistory:  10,
 	}
-
+	s.log.Infof("start to upgrade helm chart, release name: %s, chart name: %s, version: %s", chartSpec.ReleaseName, chartSpec.ChartName, chartSpec.Version)
 	done := make(chan bool)
 	go func(chan bool) {
 		if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec); err != nil {
@@ -420,7 +421,7 @@ func (s *helmDeployCtl) downloadService(productName, serviceName, storageURI str
 		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
 	}
 	tarball := fmt.Sprintf("%s.tar.gz", fileName)
-	localBase := config.LocalServicePath(productName, serviceName)
+	localBase := configbase.LocalWorkflowServicePath(productName, serviceName)
 	tarFilePath := filepath.Join(localBase, tarball)
 
 	exists, err := fsutil.FileExists(tarFilePath)
