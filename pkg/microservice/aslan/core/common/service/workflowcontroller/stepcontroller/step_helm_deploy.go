@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	configbase "github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -420,7 +421,7 @@ func (s *helmDeployCtl) downloadService(productName, serviceName, storageURI str
 		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
 	}
 	tarball := fmt.Sprintf("%s.tar.gz", fileName)
-	localBase := config.LocalWorkflowServicePath(productName, serviceName)
+	localBase := configbase.LocalWorkflowServicePath(productName, serviceName)
 	tarFilePath := filepath.Join(localBase, tarball)
 
 	exists, err := fsutil.FileExists(tarFilePath)

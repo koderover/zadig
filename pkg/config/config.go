@@ -207,12 +207,12 @@ func LocalServicePath(project, service string) string {
 	return filepath.Join(DataPath(), project, service)
 }
 
-func LocalServicePathWithRevision(project, service, revision string) string {
-	return filepath.Join(DataPath(), project, service, revision)
+func LocalWorkflowServicePath(project, service string) string {
+	return filepath.Join(WorkflowDataPath(), project, service)
 }
 
-func LocalWorkflowServicePathWithRevision(project, service, revision string) string {
-	return filepath.Join(WorkflowDataPath(), project, service, revision)
+func LocalServicePathWithRevision(project, service, revision string) string {
+	return filepath.Join(DataPath(), project, service, revision)
 }
 
 func LocalTemplatePath(name, kind string) string {
