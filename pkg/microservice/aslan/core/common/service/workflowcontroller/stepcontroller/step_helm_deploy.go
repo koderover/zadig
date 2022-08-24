@@ -420,7 +420,7 @@ func (s *helmDeployCtl) downloadService(productName, serviceName, storageURI str
 		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
 	}
 	tarball := fmt.Sprintf("%s.tar.gz", fileName)
-	localBase := config.LocalServicePath(productName, serviceName)
+	localBase := config.LocalWorkflowServicePath(productName, serviceName)
 	tarFilePath := filepath.Join(localBase, tarball)
 
 	exists, err := fsutil.FileExists(tarFilePath)

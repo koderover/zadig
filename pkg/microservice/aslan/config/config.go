@@ -234,6 +234,10 @@ func LocalServicePath(project, service string) string {
 	return configbase.LocalServicePathWithRevision(project, service, "latest")
 }
 
+func LocalWorkflowServicePath(project, service string) string {
+	return configbase.LocalWorkflowServicePathWithRevision(project, service, "latest")
+}
+
 func LocalServicePathWithRevision(project, service string, revision int64) string {
 	return configbase.LocalServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
 }

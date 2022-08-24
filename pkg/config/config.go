@@ -183,6 +183,9 @@ func MinioServiceName() string {
 func DataPath() string {
 	return "/app/data"
 }
+func WorkflowDataPath() string {
+	return "/workflow/data"
+}
 
 func ObjectStorageServicePath(project, service string) string {
 	return filepath.Join(project, "service", service)
@@ -206,6 +209,10 @@ func LocalServicePath(project, service string) string {
 
 func LocalServicePathWithRevision(project, service, revision string) string {
 	return filepath.Join(DataPath(), project, service, revision)
+}
+
+func LocalWorkflowServicePathWithRevision(project, service, revision string) string {
+	return filepath.Join(WorkflowDataPath(), project, service, revision)
 }
 
 func LocalTemplatePath(name, kind string) string {
