@@ -127,7 +127,8 @@ func SyncYamlTemplateReference(c *gin.Context) {
 }
 
 type getYamlTemplateVariablesReq struct {
-	Content string `json:"content"`
+	Content      string `json:"content"`
+	VariableYaml string `json:"variable_yaml"`
 }
 
 func GetYamlTemplateVariables(c *gin.Context) {
@@ -141,4 +142,17 @@ func GetYamlTemplateVariables(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = templateservice.GetYamlVariables(req.Content, ctx.Logger)
+}
+
+func ValidateTemplateVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &getYamlTemplateVariablesReq{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml, ctx.Logger)
 }

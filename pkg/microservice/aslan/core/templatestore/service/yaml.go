@@ -17,11 +17,16 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
+	gotemplate "text/template"
+
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -185,4 +190,29 @@ func GetSystemDefaultVariables() []*models.ChartVariable {
 func getParameterKey(parameter string) string {
 	a := strings.TrimPrefix(parameter, "{{.")
 	return strings.TrimSuffix(a, "}}")
+}
+
+func ValidateVariable(content, variable string, logger *zap.SugaredLogger) error {
+	if len(content) == 0 || len(variable) == 0 {
+		return nil
+	}
+	valuesMap := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(variable), &valuesMap); err != nil {
+		return fmt.Errorf("failed to unmarshal yaml: %s", err)
+	}
+
+	tmpl, err := gotemplate.New("").Parse(content)
+	if err != nil {
+		return fmt.Errorf("failed to build template, err: %s", err)
+	}
+
+	for k := range DefaultSystemVariable {
+		valuesMap[k] = k
+	}
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, valuesMap)
+	if err != nil {
+		return fmt.Errorf("failed to execute")
+	}
+	return nil
 }
