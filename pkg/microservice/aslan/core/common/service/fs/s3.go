@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"github.com/otiai10/copy"
 )
 
 func ArchiveAndUploadFilesToSpecifiedS3(fileTree fs.FS, names []string, s3Base, s3Id string, logger *zap.SugaredLogger) error {
@@ -187,10 +188,11 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 		return err
 	}
 
-	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
+	if err := copy.Copy(path.Join(base, chartTemplate.Path), path.Join(localBase, path.Base(chartTemplate.Path))); err != nil {
 		logger.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}
+
 	return nil
 }
 
@@ -215,7 +217,7 @@ func DownloadAndCopyFilesFromGitee(name, localBase string, logger *zap.SugaredLo
 		return err
 	}
 
-	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
+	if err := copy.Copy(path.Join(base, chartTemplate.Path), path.Join(localBase, path.Base(chartTemplate.Path))); err != nil {
 		logger.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}

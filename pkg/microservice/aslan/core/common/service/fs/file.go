@@ -88,31 +88,21 @@ func SaveAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base string
 }
 
 // CopyAndUploadFiles copy a tree of files to other dir, at the same time, archives them and uploads to object storage.
-func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath string, logger *zap.SugaredLogger) error {
-	var wg wait.Group
-	var err error
+func CopyAndUploadFiles(names []string, localBase, s3Base, zipPath, currentChartPath string, logger *zap.SugaredLogger) error {
+	err := copy.Copy(currentChartPath, localBase)
+	if err != nil {
+		logger.Errorf("failed to copy chart info, err %s", err)
+		return err
+	}
 
-	wg.Start(func() {
-		copyErr := copy.Copy(currentChartPath, localBase)
-		if copyErr != nil {
-			logger.Errorf("failed to copy chart info, err %s", copyErr)
-			err = copyErr
-		}
-	})
-
-	wg.Start(func() {
-		fileTree := os.DirFS(currentChartPath)
-		if s3Base == "" {
-			return
-		}
-		err2 := ArchiveAndUploadFilesToS3(fileTree, names, s3Base, logger)
-		if err2 != nil {
-			logger.Errorf("Failed to upload files to s3, err: %s", err2)
-			err = err2
-		}
-	})
-
-	wg.Wait()
+	if s3Base == "" {
+		return nil
+	}
+	fileTree := os.DirFS(zipPath)
+	err = ArchiveAndUploadFilesToS3(fileTree, names, s3Base, logger)
+	if err != nil {
+		logger.Errorf("Failed to upload files to s3, err: %s", err)
+	}
 	return err
 }
 
