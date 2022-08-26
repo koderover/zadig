@@ -77,6 +77,23 @@ type Job struct {
 	Spec    interface{} `bson:"spec"           yaml:"spec"     json:"spec"`
 }
 
+type CustomDeployJobSpec struct {
+	Namespace          string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	ClusterID          string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	SkipCheckRunStatus bool   `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
+	// support two sources, runtime/fixed.
+	Source string `bson:"source"                 json:"source"                yaml:"source"`
+	// unit is minutes.
+	Timeout int64            `bson:"timeout"                json:"timeout"               yaml:"timeout"`
+	Targets []*DeployTargets `bson:"targets"                json:"targets"               yaml:"targets"`
+}
+
+type DeployTargets struct {
+	// workload_type/workload_name/container_name.
+	Target string `bson:"target"           json:"target"            yaml:"target"`
+	Image  string `bson:"image,omitempty"  json:"image,omitempty"   yaml:"image,omitempty"`
+}
+
 type PluginJobSpec struct {
 	Properties *JobProperties  `bson:"properties"               yaml:"properties"              json:"properties"`
 	Plugin     *PluginTemplate `bson:"plugin"                   yaml:"plugin"                  json:"plugin"`
