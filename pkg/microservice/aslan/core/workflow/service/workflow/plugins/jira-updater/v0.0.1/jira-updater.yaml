@@ -1,0 +1,38 @@
+name: "JIRA Issue 状态变更"
+version: "v0.0.1"
+description: "将 JIRA issue 从一个状态变更到另一个状态"
+image: koderover.tencentcloudcr.com/koderover-public/jira-updater:v0.0.1-amd64
+
+inputs:
+  - name: jira_address
+    description: "jira address"
+    type: string
+    default: ""
+  - name: username
+    description: "jira system username"
+    type: string
+    default: ""
+  - name: password
+    description: "jira system password"
+    type: string
+    default: ""
+  - name: issue_id
+    description: "jira issue to be updated"
+    type: string
+    default: ""
+  - name: target_status
+    description: "jira issue target status"
+    type: string
+    default: ""
+
+envs:
+  - name: JIRA_ADDRESS
+    value: $(inputs.jira_address)
+  - name: USERNAME
+    value: $(inputs.username)
+  - name: PASSWORD
+    value: $(inputs.password)
+  - name: ISSUE_ID
+    value: $(inputs.issue_id)
+  - name: TARGET_STATUS
+    value: $(inputs.target_status)
