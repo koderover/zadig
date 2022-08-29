@@ -692,5 +692,5 @@ const (
 
 const (
 	// normal project names are not allowed to contain special characters, so we have a special project name to distinguish the enterprise workflow
-	EnterpriseProject = "<ENTERPRISE_PROJECT>"
+	EnterpriseProject = "DEPLOY_CENTER"
 )
