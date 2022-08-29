@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -33,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
-	"github.com/otiai10/copy"
 )
 
 func ArchiveAndUploadFilesToSpecifiedS3(fileTree fs.FS, names []string, s3Base, s3Id string, logger *zap.SugaredLogger) error {
