@@ -22,11 +22,10 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
 	gotemplate "text/template"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -41,17 +40,11 @@ var DefaultSystemVariable = map[string]string{
 }
 
 func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	vars := make([]*models.Variable, 0)
-	for _, variable := range template.Variable {
-		vars = append(vars, &models.Variable{
-			Key:   variable.Key,
-			Value: variable.Value,
-		})
-	}
 	err := commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
-		Name:      template.Name,
-		Content:   template.Content,
-		Variables: vars,
+		Name:         template.Name,
+		Content:      template.Content,
+		VariableYaml: template.VariableYaml,
+		Variables:    nil,
 	})
 	if err != nil {
 		logger.Errorf("create dockerfile template error: %s", err)
@@ -60,19 +53,13 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 }
 
 func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	vars := make([]*models.Variable, 0)
-	for _, variable := range template.Variable {
-		vars = append(vars, &models.Variable{
-			Key:   variable.Key,
-			Value: variable.Value,
-		})
-	}
 	err := commonrepo.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
-			Name:      template.Name,
-			Content:   template.Content,
-			Variables: vars,
+			Name:         template.Name,
+			Content:      template.Content,
+			Variables:    nil,
+			VariableYaml: template.VariableYaml,
 		},
 	)
 	if err != nil {
@@ -115,7 +102,8 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 	resp.Name = yamlTemplate.Name
 	resp.Content = yamlTemplate.Content
 	resp.Variables = variables
-	return resp, nil
+	resp.VariableYaml, err = template.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
+	return resp, err
 }
 
 func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
@@ -192,7 +180,7 @@ func getParameterKey(parameter string) string {
 	return strings.TrimSuffix(a, "}}")
 }
 
-func ValidateVariable(content, variable string, logger *zap.SugaredLogger) error {
+func ValidateVariable(content, variable string) error {
 	if len(content) == 0 || len(variable) == 0 {
 		return nil
 	}
@@ -212,7 +200,7 @@ func ValidateVariable(content, variable string, logger *zap.SugaredLogger) error
 	buf := bytes.NewBufferString("")
 	err = tmpl.Execute(buf, valuesMap)
 	if err != nil {
-		return fmt.Errorf("failed to execute")
+		return fmt.Errorf("template validate err: %s", err)
 	}
 	return nil
 }

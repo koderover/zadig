@@ -580,6 +580,11 @@ const (
 	TemplateVariableServiceDescription = "服务名称"
 )
 
+const (
+	RawTemplateVariableProduct = "T-Project"
+	RawTemplateVariableService = "T-Service"
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"

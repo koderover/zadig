@@ -22,6 +22,10 @@ import (
 	"fmt"
 	"strings"
 
+	template2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+
+	"gopkg.in/yaml.v3"
+
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -29,17 +33,19 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type LoadServiceFromYamlTemplateReq struct {
-	ServiceName string      `json:"service_name"`
-	ProjectName string      `json:"project_name"`
-	TemplateID  string      `json:"template_id"`
-	AutoSync    bool        `json:"auto_sync"`
-	Variables   []*Variable `json:"variables"`
+	ServiceName  string      `json:"service_name"`
+	ProjectName  string      `json:"project_name"`
+	TemplateID   string      `json:"template_id"`
+	AutoSync     bool        `json:"auto_sync"`
+	Variables    []*Variable `json:"variables"`
+	VariableYaml string      `json:"variable_yaml"`
 }
 
-func geneCreateFromDetail(templateId string, variables []*Variable) *commonmodels.CreateFromYamlTemplate {
+func geneCreateFromDetail(templateId string, variables []*Variable, variableYaml string) *commonmodels.CreateFromYamlTemplate {
 	vs := make([]*commonmodels.Variable, 0, len(variables))
 	for _, kv := range variables {
 		vs = append(vs, &commonmodels.Variable{
@@ -48,8 +54,9 @@ func geneCreateFromDetail(templateId string, variables []*Variable) *commonmodel
 		})
 	}
 	return &commonmodels.CreateFromYamlTemplate{
-		TemplateID: templateId,
-		Variables:  vs,
+		TemplateID:   templateId,
+		Variables:    vs,
+		VariableYaml: variableYaml,
 	}
 }
 
@@ -60,7 +67,10 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
 		return err
 	}
-	renderedYaml := renderYamlFromTemplate(template.Content, projectName, serviceName, variables)
+	renderedYaml, err := renderYamlFromTemplate(template.Content, projectName, serviceName, variables, req.VariableYaml)
+	if err != nil {
+		return err
+	}
 	service := &commonmodels.Service{
 		ServiceName: serviceName,
 		Type:        setting.K8SDeployType,
@@ -70,7 +80,7 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		Visibility:  setting.PrivateVisibility,
 		TemplateID:  templateID,
 		AutoSync:    autoSync,
-		CreateFrom:  geneCreateFromDetail(templateID, variables),
+		CreateFrom:  geneCreateFromDetail(templateID, variables, req.VariableYaml),
 	}
 	_, err = CreateServiceTemplate(username, service, force, logger)
 	if err != nil {
@@ -100,7 +110,10 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
 		return err
 	}
-	renderedYaml := renderYamlFromTemplate(template.Content, projectName, serviceName, variables)
+	renderedYaml, err := renderYamlFromTemplate(template.Content, projectName, serviceName, variables, req.VariableYaml)
+	if err != nil {
+		return err
+	}
 	svc := &commonmodels.Service{
 		ServiceName: serviceName,
 		Type:        setting.K8SDeployType,
@@ -110,7 +123,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 		Visibility:  setting.PrivateVisibility,
 		TemplateID:  templateID,
 		AutoSync:    autoSync,
-		CreateFrom:  geneCreateFromDetail(templateID, variables),
+		CreateFrom:  geneCreateFromDetail(templateID, variables, req.VariableYaml),
 	}
 	_, err = CreateServiceTemplate(username, svc, true, logger)
 	if err != nil {
@@ -119,13 +132,45 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 	return err
 }
 
-func renderYamlFromTemplate(yaml, productName, serviceName string, variables []*Variable) string {
-	for _, variable := range variables {
-		yaml = strings.ReplaceAll(yaml, buildVariable(variable.Key), variable.Value)
+func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger *zap.SugaredLogger) (string, error) {
+	yamlTemplate, err := commonrepo.NewYamlTemplateColl().GetById(req.TemplateID)
+	if err != nil {
+		return "", fmt.Errorf("failed to preview service, err: %s", err)
 	}
-	yaml = strings.ReplaceAll(yaml, setting.TemplateVariableProduct, productName)
-	yaml = strings.ReplaceAll(yaml, setting.TemplateVariableService, serviceName)
-	return yaml
+
+	templateVariableYaml, err := template2.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
+	if err != nil {
+		return "", fmt.Errorf("failed to get variable yaml from yaml template")
+	}
+
+	mergedYaml, err := yamlutil.Merge([][]byte{[]byte(templateVariableYaml), []byte(req.VariableYaml)})
+	if err != nil {
+		return "", fmt.Errorf("failed to preview service yaml, err: %s", err)
+	}
+
+	return renderYamlFromTemplate(yamlTemplate.Content, req.ProjectName, req.ServiceName, nil, string(mergedYaml))
+}
+
+func renderYamlFromTemplate(originYaml, productName, serviceName string, variables []*Variable, variableYaml string) (string, error) {
+	for _, variable := range variables {
+		originYaml = strings.ReplaceAll(originYaml, buildVariable(variable.Key), variable.Value)
+	}
+
+	systemVariableMap := make(map[string]interface{})
+	systemVariableMap[setting.RawTemplateVariableProduct] = productName
+	systemVariableMap[setting.TemplateVariableService] = serviceName
+	systemVar, _ := yaml.Marshal(systemVariableMap)
+
+	mergedYaml, err := yamlutil.Merge([][]byte{[]byte(originYaml), []byte(variableYaml), systemVar})
+	if err != nil {
+		return originYaml, fmt.Errorf("failed to apply template variable, err: %s", err)
+	}
+	originYaml = string(mergedYaml)
+
+	// replace system variables
+	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
+	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
+	return originYaml, nil
 }
 
 func buildVariable(key string) string {
@@ -234,7 +279,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 	return nil
 }
 
-func buildYamlTemplateVariables(service *commonmodels.Service, template *commonmodels.YamlTemplate) ([]*Variable, error) {
+func buildYamlTemplateVariables(service *commonmodels.Service, template *commonmodels.YamlTemplate) ([]*Variable, string, error) {
 	variables := make([]*Variable, 0)
 	variableMap := make(map[string]*Variable)
 	for _, v := range template.Variables {
@@ -246,25 +291,47 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 		variables = append(variables, kv)
 	}
 
+	templateVariable, err := template2.GetTemplateVariableYaml(template.Variables, template.VariableYaml)
+	if err != nil {
+		return nil, "", err
+	}
+
 	creation := &commonmodels.CreateFromYamlTemplate{}
 	vbs := make([]*commonmodels.Variable, 0)
 	if service.CreateFrom != nil {
 		bs, err := json.Marshal(service.CreateFrom)
 		if err != nil {
 			log.Errorf("failed to marshal creation data: %s", err)
-			return variables, err
+			return variables, "", err
 		}
 
 		err = json.Unmarshal(bs, creation)
 		if err != nil {
 			log.Errorf("failed to unmarshal creation data: %s", err)
-			return variables, err
+			return variables, "", err
 		}
 		for _, kv := range creation.Variables {
 			if tkv, ok := variableMap[kv.Key]; ok {
 				tkv.Value = kv.Value
 			}
 		}
+
+		serviceVariable, err := template2.GetTemplateVariableYaml(creation.Variables, creation.VariableYaml)
+		if err != nil {
+			return nil, "", err
+		}
+		creation.VariableYaml = serviceVariable
+
+		mergedVariables, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(templateVariable), []byte(serviceVariable)})
+		if err != nil {
+			return nil, "", err
+		}
+
+		bs, err = yaml.Marshal(mergedVariables)
+		if err != nil {
+			return nil, "", err
+		}
+		templateVariable = string(bs)
 	} else {
 		creation.TemplateID = template.ID.Hex()
 	}
@@ -278,7 +345,7 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 	creation.Variables = vbs
 	service.CreateFrom = creation
 
-	return variables, nil
+	return variables, templateVariable, nil
 }
 
 func buildChartTemplateVariables(service *commonmodels.Service, template *commonmodels.Chart) ([]*Variable, string, error) {
@@ -330,12 +397,15 @@ func buildChartTemplateVariables(service *commonmodels.Service, template *common
 
 func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
 	//extract variables from current service
-	variables, err := buildYamlTemplateVariables(service, template)
+	variables, variableYaml, err := buildYamlTemplateVariables(service, template)
 	if err != nil {
 		return err
 	}
 
-	renderedYaml := renderYamlFromTemplate(template.Content, projectName, service.ServiceName, variables)
+	renderedYaml, err := renderYamlFromTemplate(template.Content, projectName, service.ServiceName, variables, variableYaml)
+	if err != nil {
+		return err
+	}
 	svc := &commonmodels.Service{
 		ServiceName: service.ServiceName,
 		Type:        setting.K8SDeployType,

@@ -154,5 +154,5 @@ func ValidateTemplateVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml, ctx.Logger)
+	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml)
 }
