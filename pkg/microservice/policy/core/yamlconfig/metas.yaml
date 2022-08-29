@@ -485,10 +485,6 @@ metas:
             endpoint: /api/aslan/workflow/v4/webhook/preset
           - method: GET
             endpoint: /api/aslan/workflow/v4/webhook
-          - method: GET
-            endpoint: /api/aslan/logs/log/v4/workflow/?*/tasks/?*/jobs/?*
-          - method: GET
-            endpoint: /api/aslan/logs/sse/v4/workflow/?*/tasks/?*/jobs/?*
       - action: edit_workflow
         alias: 编辑
         description: ''
