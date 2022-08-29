@@ -17,10 +17,12 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	gotemplate "text/template"
 
 	template2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 
@@ -152,20 +154,31 @@ func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger 
 }
 
 func renderYamlFromTemplate(originYaml, productName, serviceName string, variables []*Variable, variableYaml string) (string, error) {
-	for _, variable := range variables {
-		originYaml = strings.ReplaceAll(originYaml, buildVariable(variable.Key), variable.Value)
-	}
-
 	systemVariableMap := make(map[string]interface{})
 	systemVariableMap[setting.RawTemplateVariableProduct] = productName
-	systemVariableMap[setting.TemplateVariableService] = serviceName
-	systemVar, _ := yaml.Marshal(systemVariableMap)
+	systemVariableMap[setting.RawTemplateVariableService] = serviceName
+	systemVar, err := yaml.Marshal(systemVariableMap)
+	if err != nil {
+		log.Errorf("failed to generate system variable yaml, err: %s", err)
+		return originYaml, fmt.Errorf("failed to generate system variable yaml, err: %s", err)
+	}
 
-	mergedYaml, err := yamlutil.Merge([][]byte{[]byte(originYaml), []byte(variableYaml), systemVar})
+	tmpl, err := gotemplate.New(serviceName).Parse(originYaml)
+	if err != nil {
+		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
+	}
+
+	mergedYaml, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(variableYaml), systemVar})
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to apply template variable, err: %s", err)
 	}
-	originYaml = string(mergedYaml)
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, mergedYaml)
+	if err != nil {
+		return originYaml, fmt.Errorf("template validate err: %s", err)
+	}
+
+	originYaml = buf.String()
 
 	// replace system variables
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
