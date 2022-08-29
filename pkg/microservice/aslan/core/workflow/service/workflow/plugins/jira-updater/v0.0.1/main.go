@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"os"
 
 	jira "github.com/andygrunwald/go-jira"
 	"github.com/spf13/viper"
@@ -41,16 +41,16 @@ func main() {
 
 	jiraclient, err := jira.NewClient(tp.Client(), addr)
 	if err != nil {
-		fmt.Printf("failed to create JIRA client, error: %s\n", err)
-		return
+		log.Infof("failed to create JIRA client, error: %s\n", err)
+		os.Exit(1)
 	}
 
 	var transitionID string
 
 	possibleTransitions, _, err := jiraclient.Issue.GetTransitions(issueID)
 	if err != nil {
-		fmt.Printf("failed to get possible transitions, err: %s\n", err)
-		return
+		log.Infof("failed to get possible transitions, err: %s\n", err)
+		os.Exit(1)
 	}
 
 	for _, possibleTransition := range possibleTransitions {
@@ -61,14 +61,14 @@ func main() {
 	}
 
 	if transitionID == "" {
-		fmt.Printf("no transition of name %s found, check if the target status exist\n", status)
-		return
+		log.Infof("no transition of name %s found, check if the target status exist\n", status)
+		os.Exit(1)
 	}
 
 	_, err = jiraclient.Issue.DoTransition(issueID, transitionID)
 	if err != nil {
-		fmt.Printf("failed to do change status, err: %s\n", err)
-		return
+		log.Infof("failed to do change status, err: %s\n", err)
+		os.Exit(1)
 	}
 
 	log.Infof("Jira status update complete")
