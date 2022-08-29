@@ -385,7 +385,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			jobPreview.Spec = spec
 		case string(config.JobPlugin):
 			jobPreview.Spec = job.Plugin
-		case string(config.JobCustomBuild):
+		case string(config.JobCustomDeploy):
 			spec := CustomDeployJobSpec{}
 			for _, step := range job.Steps {
 				if step.StepType != config.StepCustomDeploy {

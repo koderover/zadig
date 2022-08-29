@@ -139,3 +139,17 @@ func DownloadFileFromPod(c *gin.Context) {
 	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Data(http.StatusOK, "application/octet-stream", fileBytes)
 }
+
+func ListNamespace(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListNamespace(c.Param("clusterID"), ctx.Logger)
+}
+
+func ListCustomWorkload(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListCustomWorkload(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+}

@@ -80,10 +80,11 @@ type Job struct {
 type CustomDeployJobSpec struct {
 	Namespace          string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	ClusterID          string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	DockerRegistryID   string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	SkipCheckRunStatus bool   `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
 	// support two sources, runtime/fixed.
 	Source string `bson:"source"                 json:"source"                yaml:"source"`
-	// unit is minutes.
+	// unit is second.
 	Timeout int64            `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Targets []*DeployTargets `bson:"targets"                json:"targets"               yaml:"targets"`
 }

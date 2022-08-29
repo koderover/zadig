@@ -90,7 +90,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	switch job.JobType {
 	case string(config.JobZadigDeploy):
 		fallthrough
-	case string(config.JobCustomBuild):
+	case string(config.JobCustomDeploy):
 		fallthrough
 	case string(config.JobDeploy):
 		// do deploy inside aslan instead of jobexecutor.

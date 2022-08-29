@@ -85,7 +85,7 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		containerName := t[2]
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + workloadType + "-" + workloadName + "-" + containerName),
-			JobType: string(config.JobCustomBuild),
+			JobType: string(config.JobCustomDeploy),
 		}
 		deployStep := &commonmodels.StepTask{
 			Name:     workloadType + "-" + workloadName + "-" + containerName,
