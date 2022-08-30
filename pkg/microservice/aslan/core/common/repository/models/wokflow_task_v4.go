@@ -62,16 +62,74 @@ type StageTask struct {
 }
 
 type JobTask struct {
-	Name       string          `bson:"name"                json:"name"`
-	JobType    string          `bson:"type"                json:"type"`
-	Status     config.Status   `bson:"status"              json:"status"`
-	StartTime  int64           `bson:"start_time"          json:"start_time,omitempty"`
-	EndTime    int64           `bson:"end_time"            json:"end_time,omitempty"`
-	Error      string          `bson:"error"               json:"error"`
-	Properties JobProperties   `bson:"properties"          json:"properties"`
-	Plugin     *PluginTemplate `bson:"plugin"              json:"plugin"`
-	Steps      []*StepTask     `bson:"steps"               json:"steps"`
-	Outputs    []*Output       `bson:"outputs"             json:"outputs"`
+	Name      string        `bson:"name"                json:"name"`
+	JobType   string        `bson:"type"                json:"type"`
+	Status    config.Status `bson:"status"              json:"status"`
+	StartTime int64         `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime   int64         `bson:"end_time"            json:"end_time,omitempty"`
+	Error     string        `bson:"error"               json:"error"`
+	Timeout   int64         `bson:"timeout"             json:"timeout"`
+	Retry     int64         `bson:"retry"               json:"retry"`
+	Spec      interface{}   `bson:"spec"                json:"spec"`
+	Outputs   []*Output     `bson:"outputs"             json:"outputs"`
+}
+
+type JobTaskCustomDeploySpec struct {
+	Namespace          string     `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	ClusterID          string     `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Timeout            int64      `bson:"timeout"                json:"timeout"               yaml:"timeout"`
+	WorkloadType       string     `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
+	WorkloadName       string     `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
+	ContainerName      string     `bson:"container_name"         json:"container_name"        yaml:"container_name"`
+	Image              string     `bson:"image"                  json:"image"                 yaml:"image"`
+	SkipCheckRunStatus bool       `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
+	ReplaceResources   []Resource `bson:"replace_resources"      json:"replace_resources"     yaml:"replace_resources"`
+}
+
+type JobTaskDeploySpec struct {
+	Env                string     `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string     `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType        string     `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	ServiceModule      string     `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
+	SkipCheckRunStatus bool       `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	Image              string     `bson:"image"                            json:"image"                               yaml:"image"`
+	ClusterID          string     `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int        `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+}
+
+type Resource struct {
+	Name      string `bson:"name"                              json:"name"                                 yaml:"name"`
+	Kind      string `bson:"kind"                              json:"kind"                                 yaml:"kind"`
+	Container string `bson:"container"                         json:"container"                            yaml:"container"`
+	Origin    string `bson:"origin"                            json:"origin"                               yaml:"origin"`
+}
+
+type JobTaskHelmDeploySpec struct {
+	Env                string                   `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string                   `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType        string                   `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ImageAndModules    []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
+	ClusterID          string                   `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	ReleaseName        string                   `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
+	Timeout            int                      `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+}
+
+type ImageAndServiceModule struct {
+	ServiceModule string `bson:"service_module"                     json:"service_module"                        yaml:"service_module"`
+	Image         string `bson:"image"                              json:"image"                                 yaml:"image"`
+}
+
+type JobTaskBuildSpec struct {
+	Properties JobProperties `bson:"properties"          json:"properties"        yaml:"properties"`
+	Steps      []*StepTask   `bson:"steps"               json:"steps"             yaml:"steps"`
+}
+
+type JobTaskPluginSpec struct {
+	Properties JobProperties   `bson:"properties"          json:"properties"        yaml:"properties"`
+	Plugin     *PluginTemplate `bson:"plugin"              json:"plugin"            yaml:"plugin"`
 }
 
 type StepTask struct {

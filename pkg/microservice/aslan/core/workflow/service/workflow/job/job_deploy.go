@@ -24,7 +24,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -154,25 +153,20 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			if err := checkServiceExsistsInEnv(productServiceMap, deploy.ServiceName, j.spec.Env); err != nil {
 				return resp, err
 			}
+			jobTaskSpec := &commonmodels.JobTaskDeploySpec{
+				Env:                j.spec.Env,
+				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+				ServiceName:        deploy.ServiceName,
+				ServiceType:        setting.K8SDeployType,
+				ServiceModule:      deploy.ServiceModule,
+				ClusterID:          product.ClusterID,
+				Image:              deploy.Image,
+			}
 			jobTask := &commonmodels.JobTask{
 				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + "-" + j.job.Name),
 				JobType: string(config.JobZadigDeploy),
+				Spec:    jobTaskSpec,
 			}
-			deployStep := &commonmodels.StepTask{
-				Name:     deploy.ServiceName + "-deploy",
-				JobName:  jobTask.Name,
-				StepType: config.StepDeploy,
-				Spec: step.StepDeploySpec{
-					Env:                j.spec.Env,
-					SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
-					ServiceName:        deploy.ServiceName,
-					ServiceType:        setting.K8SDeployType,
-					ServiceModule:      deploy.ServiceModule,
-					ClusterID:          product.ClusterID,
-					Image:              deploy.Image,
-				},
-			}
-			jobTask.Steps = append(jobTask.Steps, deployStep)
 			resp = append(resp, jobTask)
 		}
 	}
@@ -197,16 +191,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), product.ProductName, product.Namespace, product.EnvName, serviceName)
 
-			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
-				JobType: string(config.JobZadigDeploy),
-			}
-			deployStep := &commonmodels.StepTask{
-				Name:     serviceName + "-deploy",
-				JobName:  jobTask.Name,
-				StepType: config.StepHelmDeploy,
-			}
-			helmDeploySpec := step.StepHelmDeploySpec{
+			jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{
 				Env:                j.spec.Env,
 				ServiceName:        serviceName,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
@@ -218,14 +203,16 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
 					return resp, err
 				}
-				helmDeploySpec.ImageAndModules = append(helmDeploySpec.ImageAndModules, &step.ImageAndServiceModule{
+				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
 					ServiceModule: deploy.ServiceModule,
 					Image:         deploy.Image,
 				})
 			}
-			deployStep.Spec = helmDeploySpec
-
-			jobTask.Steps = append(jobTask.Steps, deployStep)
+			jobTask := &commonmodels.JobTask{
+				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
+				JobType: string(config.JobZadigHelmDeploy),
+				Spec:    jobTaskSpec,
+			}
 			resp = append(resp, jobTask)
 		}
 	}

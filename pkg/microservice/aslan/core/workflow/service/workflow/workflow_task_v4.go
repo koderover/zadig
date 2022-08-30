@@ -326,7 +326,11 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			fallthrough
 		case string(config.JobZadigBuild):
 			spec := ZadigBuildJobSpec{}
-			for _, arg := range job.Properties.Envs {
+			taskJobSpec := &commonmodels.JobTaskBuildSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			for _, arg := range taskJobSpec.Properties.Envs {
 				if arg.Key == "IMAGE" {
 					spec.Image = arg.Value
 					continue
@@ -340,8 +344,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					continue
 				}
 			}
-			spec.Envs = job.Properties.CustomEnvs
-			for _, step := range job.Steps {
+			spec.Envs = taskJobSpec.Properties.CustomEnvs
+			for _, step := range taskJobSpec.Steps {
 				if step.StepType == config.StepGit {
 					stepSpec := &stepspec.StepGitSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
@@ -352,62 +356,58 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			jobPreview.Spec = spec
 		case string(config.JobZadigDeploy):
 			spec := ZadigDeployJobSpec{}
-			for _, step := range job.Steps {
-				if step.StepType == config.StepDeploy {
-					stepSpec := &stepspec.StepDeploySpec{}
-					commonmodels.IToi(step.Spec, &stepSpec)
-					spec.Env = stepSpec.Env
-					// for step in build-in deploy jobs, SkipCheckRunStatus are the same.
-					spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
-					spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
-						ServiceName:   stepSpec.ServiceName,
-						ServiceModule: stepSpec.ServiceModule,
-						Image:         stepSpec.Image,
-					})
-					continue
-				}
-				if step.StepType == config.StepHelmDeploy {
-					stepSpec := &stepspec.StepHelmDeploySpec{}
-					commonmodels.IToi(step.Spec, &stepSpec)
-					spec.Env = stepSpec.Env
-					// for step in build-in deploy jobs, SkipCheckRunStatus are the same.
-					spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
-					for _, imageAndmodule := range stepSpec.ImageAndModules {
-						spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
-							ServiceName:   stepSpec.ServiceName,
-							ServiceModule: imageAndmodule.ServiceModule,
-							Image:         imageAndmodule.Image,
-						})
-					}
-					continue
-				}
+			taskJobSpec := &commonmodels.JobTaskDeploySpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+				ServiceName:   taskJobSpec.ServiceName,
+				ServiceModule: taskJobSpec.ServiceModule,
+				Image:         taskJobSpec.Image,
+			})
+			jobPreview.Spec = spec
+		case string(config.JobZadigHelmDeploy):
+			jobPreview.JobType = string(config.JobZadigDeploy)
+			spec := ZadigDeployJobSpec{}
+			taskJobSpec := &commonmodels.JobTaskHelmDeploySpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			for _, imageAndmodule := range taskJobSpec.ImageAndModules {
+				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+					ServiceName:   taskJobSpec.ServiceName,
+					ServiceModule: imageAndmodule.ServiceModule,
+					Image:         imageAndmodule.Image,
+				})
 			}
 			jobPreview.Spec = spec
 		case string(config.JobPlugin):
-			jobPreview.Spec = job.Plugin
+			taskJobSpec := &commonmodels.JobTaskPluginSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			jobPreview.Spec = taskJobSpec.Plugin
 		case string(config.JobCustomDeploy):
 			spec := CustomDeployJobSpec{}
-			for _, step := range job.Steps {
-				if step.StepType != config.StepCustomDeploy {
-					continue
-				}
-				stepSpec := &stepspec.StepCustomDeploySpec{}
-				commonmodels.IToi(step.Spec, &stepSpec)
-				spec.Image = stepSpec.Image
-				spec.Namespace = stepSpec.Namespace
-				spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
-				spec.Target = strings.Join([]string{stepSpec.WorkloadType, stepSpec.WorkloadType, stepSpec.ContainerName}, "/")
-				cluster, err := commonrepo.NewK8SClusterColl().Get(stepSpec.ClusterID)
-				if err != nil {
-					log.Errorf("cluster id: %s not found", stepSpec.ClusterID)
-				} else {
-					spec.ClusterName = cluster.Name
-				}
+			taskJobSpec := &commonmodels.JobTaskCustomDeploySpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
+			}
+			spec.Image = taskJobSpec.Image
+			spec.Namespace = taskJobSpec.Namespace
+			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			spec.Target = strings.Join([]string{taskJobSpec.WorkloadType, taskJobSpec.WorkloadName, taskJobSpec.ContainerName}, "/")
+			cluster, err := commonrepo.NewK8SClusterColl().Get(taskJobSpec.ClusterID)
+			if err != nil {
+				log.Errorf("cluster id: %s not found", taskJobSpec.ClusterID)
+			} else {
+				spec.ClusterName = cluster.Name
 			}
 			jobPreview.Spec = spec
 		default:
-			jobPreview.Spec = job.Steps
+			jobPreview.Spec = job.Spec
 		}
 		resp = append(resp, jobPreview)
 	}

@@ -82,10 +82,6 @@ func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
 	return nil
 }
 
-func (s *dockerBuildCtl) Run(ctx context.Context) (config.Status, error) {
-	return config.StatusPassed, nil
-}
-
 func (s *dockerBuildCtl) AfterRun(ctx context.Context) error {
 	return nil
 }

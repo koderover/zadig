@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/types/step"
 )
@@ -55,10 +54,6 @@ func (s *shellCtl) PreRun(ctx context.Context) error {
 	s.shellSpec.Scripts = strings.Split(replaceWrapLine(s.shellSpec.Script), "\n")
 	s.step.Spec = s.shellSpec
 	return nil
-}
-
-func (s *shellCtl) Run(ctx context.Context) (config.Status, error) {
-	return config.StatusPassed, nil
 }
 
 func (s *shellCtl) AfterRun(ctx context.Context) error {
