@@ -84,7 +84,7 @@ type CustomDeployJobSpec struct {
 	SkipCheckRunStatus bool   `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
 	// support two sources, runtime/fixed.
 	Source string `bson:"source"                 json:"source"                yaml:"source"`
-	// unit is second.
+	// unit is minute.
 	Timeout int64            `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Targets []*DeployTargets `bson:"targets"                json:"targets"               yaml:"targets"`
 }

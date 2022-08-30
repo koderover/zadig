@@ -94,7 +94,7 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			Spec: step.StepCustomDeploySpec{
 				Namespace:          j.spec.Namespace,
 				ClusterID:          j.spec.ClusterID,
-				Timeout:            j.spec.Timeout,
+				Timeout:            j.spec.Timeout * 60,
 				WorkloadType:       workloadType,
 				WorkloadName:       workloadName,
 				ContainerName:      containerName,
