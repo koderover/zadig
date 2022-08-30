@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -187,10 +188,11 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 		return err
 	}
 
-	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
+	if err := copy.Copy(path.Join(base, chartTemplate.Path), path.Join(localBase, path.Base(chartTemplate.Path))); err != nil {
 		logger.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}
+
 	return nil
 }
 
@@ -215,7 +217,7 @@ func DownloadAndCopyFilesFromGitee(name, localBase string, logger *zap.SugaredLo
 		return err
 	}
 
-	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
+	if err := copy.Copy(path.Join(base, chartTemplate.Path), path.Join(localBase, path.Base(chartTemplate.Path))); err != nil {
 		logger.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}
