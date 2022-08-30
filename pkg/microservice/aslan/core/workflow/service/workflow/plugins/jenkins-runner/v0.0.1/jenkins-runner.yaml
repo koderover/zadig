@@ -1,0 +1,38 @@
+name: "执行 Jenkins Job"
+version: "v0.0.1"
+description: "使用参数化变量触发 Jenkins Job 并获取对应的日志"
+image: koderover.tencentcloudcr.com/koderover-public/jenkins-runner:v0.0.1-amd64
+
+inputs:
+  - name: jenkins_address
+    description: "jenkins address"
+    type: string
+    default: ""
+  - name: username
+    description: "jenkins system username"
+    type: string
+    default: ""
+  - name: password
+    description: "jenkins system password"
+    type: string
+    default: ""
+  - name: pipeline_name
+    description: "jenkins pipeline name"
+    type: string
+    default: ""
+  - name: parameters
+    description: "pipeline parameters, separated by new line"
+    type: text
+    default: ""
+
+envs:
+  - name: JENKINS_ADDRESS
+    value: $(inputs.jenkins_address)
+  - name: USERNAME
+    value: $(inputs.username)
+  - name: PASSWORD
+    value: $(inputs.password)
+  - name: PIPELINE_NAME
+    value: $(inputs.pipeline_name)
+  - name: PARAMETERS
+    value: $(inputs.parameters)
