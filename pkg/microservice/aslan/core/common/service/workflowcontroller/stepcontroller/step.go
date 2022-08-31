@@ -106,6 +106,8 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 		stepCtl, err = NewDeployCtl(step, workflowCtx, logger)
 	case config.StepHelmDeploy:
 		stepCtl, err = NewHelmDeployCtl(step, workflowCtx, logger)
+	case config.StepCustomDeploy:
+		stepCtl, err = NewCustomDeployCtl(step, workflowCtx, logger)
 	default:
 		logger.Errorf("unknown step type: %s", step.StepType)
 		return stepCtl, fmt.Errorf("unknown step type: %s", step.StepType)

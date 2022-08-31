@@ -81,7 +81,10 @@ func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(a
 	}
 	if rootName != "" {
 		// rename the root path of the chart to the service name
-		f, _ := fs.ReadDir(afero.NewIOFS(chartTree), "")
+		f, err := fs.ReadDir(afero.NewIOFS(chartTree), "")
+		if err != nil {
+			return nil, err
+		}
 		if len(f) == 1 {
 			if err = chartTree.Rename(f[0].Name(), rootName); err != nil {
 				log.Errorf("Failed to rename dir name from %s to %s, err: %s", f[0].Name(), rootName, err)
