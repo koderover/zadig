@@ -396,7 +396,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				spec.Image = stepSpec.Image
 				spec.Namespace = stepSpec.Namespace
 				spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
-				spec.Target = strings.Join([]string{stepSpec.WorkloadType, stepSpec.WorkloadType, stepSpec.ContainerName}, "/")
+				spec.Target = strings.Join([]string{stepSpec.WorkloadType, stepSpec.WorkloadName, stepSpec.ContainerName}, "/")
 				cluster, err := commonrepo.NewK8SClusterColl().Get(stepSpec.ClusterID)
 				if err != nil {
 					log.Errorf("cluster id: %s not found", stepSpec.ClusterID)
