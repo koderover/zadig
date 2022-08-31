@@ -659,6 +659,7 @@ const UpdateEnvTimeout = 60 * 5 * time.Second
 // list namespace type
 const (
 	ListNamespaceTypeCreate = "create"
+	ListNamespaceTypeALL    = "all"
 )
 
 const (
