@@ -349,7 +349,7 @@ func toHookSet(hooks interface{}) HookSet {
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
-					name:      h.MainRepo.Name,
+					name:      h.Name,
 					owner:     h.MainRepo.RepoOwner,
 					namespace: h.MainRepo.GetRepoNamespace(),
 					repo:      h.MainRepo.RepoName,
