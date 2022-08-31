@@ -152,7 +152,8 @@ func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow b
 
 	workflow := []*Workflow{}
 
-	if !ignoreWorkflow {
+	// distribute center only surpport custom workflow.
+	if !ignoreWorkflow && projectName != setting.EnterpriseProject {
 		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
 		if err != nil {
 			return resp, err
@@ -323,7 +324,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 	}
 
 	project := &template.Product{}
-	// for deploy center workflow, it doesn't belongs to any project, so we use a specical project name to distinguish it. 
+	// for deploy center workflow, it doesn't belongs to any project, so we use a specical project name to distinguish it.
 	if workflow.Project != setting.EnterpriseProject {
 		project, err = templaterepo.NewProductColl().Find(workflow.Project)
 		if err != nil {
