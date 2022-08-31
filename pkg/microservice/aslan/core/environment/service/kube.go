@@ -148,20 +148,27 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 		}
 		filterK8sNamespaces.Insert(nsList...)
 	}
-	for _, namespace := range namespaces {
+
+	filter := func(namespace *corev1.Namespace) bool {
+		if listType == setting.ListNamespaceTypeALL {
+			return true
+		}
 		if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
 			if value == setting.EnvCreator {
-				continue
+				return false
 			}
 		}
-
 		if filterK8sNamespaces.Has(namespace.Name) {
-			continue
+			return false
 		}
-
-		resp = append(resp, wrapper.Namespace(namespace).Resource())
+		return true
 	}
 
+	for _, namespace := range namespaces {
+		if filter(namespace) {
+			resp = append(resp, wrapper.Namespace(namespace).Resource())
+		}
+	}
 	return resp, nil
 }
 
