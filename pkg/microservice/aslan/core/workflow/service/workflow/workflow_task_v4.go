@@ -18,6 +18,7 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -28,6 +29,7 @@ import (
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	stepspec "github.com/koderover/zadig/pkg/types/step"
 	"go.uber.org/zap"
@@ -87,6 +89,14 @@ type ZadigDeployJobSpec struct {
 	Env                string             `bson:"env"                          json:"env"`
 	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
 	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+}
+
+type CustomDeployJobSpec struct {
+	Image              string `bson:"image"                        json:"image"`
+	Target             string `bson:"target"                       json:"target"`
+	ClusterName        string `bson:"cluster_name"                 json:"cluster_name"`
+	Namespace          string `bson:"namespace"                    json:"namespace"`
+	SkipCheckRunStatus bool   `bson:"skip_check_run_status"        json:"skip_check_run_status"`
 }
 
 type ServiceAndImage struct {
@@ -375,6 +385,27 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			jobPreview.Spec = spec
 		case string(config.JobPlugin):
 			jobPreview.Spec = job.Plugin
+		case string(config.JobCustomDeploy):
+			spec := CustomDeployJobSpec{}
+			for _, step := range job.Steps {
+				if step.StepType != config.StepCustomDeploy {
+					continue
+				}
+				stepSpec := &stepspec.StepCustomDeploySpec{}
+				commonmodels.IToi(step.Spec, &stepSpec)
+				spec.Image = stepSpec.Image
+				spec.Namespace = stepSpec.Namespace
+				spec.SkipCheckRunStatus = stepSpec.SkipCheckRunStatus
+				spec.Target = strings.Join([]string{stepSpec.WorkloadType, stepSpec.WorkloadName, stepSpec.ContainerName}, "/")
+				cluster, err := commonrepo.NewK8SClusterColl().Get(stepSpec.ClusterID)
+				if err != nil {
+					log.Errorf("cluster id: %s not found", stepSpec.ClusterID)
+				} else {
+					spec.ClusterName = cluster.Name
+				}
+				continue
+			}
+			jobPreview.Spec = spec
 		default:
 			jobPreview.Spec = job.Steps
 		}

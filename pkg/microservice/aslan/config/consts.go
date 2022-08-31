@@ -160,6 +160,7 @@ const (
 	StepDockerBuild       StepType = "docker_build"
 	StepDeploy            StepType = "deploy"
 	StepHelmDeploy        StepType = "helm_deploy"
+	StepCustomDeploy      StepType = "custom_deploy"
 	StepImageDistribute   StepType = "image_distribute"
 	StepArchive           StepType = "archive"
 	StepArchiveDistribute StepType = "archive_distribute"
@@ -170,12 +171,13 @@ const (
 type JobType string
 
 const (
-	JobBuild       JobType = "build"
-	JobDeploy      JobType = "deploy"
-	JobZadigBuild  JobType = "zadig-build"
-	JobZadigDeploy JobType = "zadig-deploy"
-	JobFreestyle   JobType = "freestyle"
-	JobPlugin      JobType = "plugin"
+	JobBuild        JobType = "build"
+	JobDeploy       JobType = "deploy"
+	JobZadigBuild   JobType = "zadig-build"
+	JobCustomDeploy JobType = "custom-deploy"
+	JobZadigDeploy  JobType = "zadig-deploy"
+	JobFreestyle    JobType = "freestyle"
+	JobPlugin       JobType = "plugin"
 )
 
 type ApproveOrReject string
