@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"regexp"
-	"strings"
 	gotemplate "text/template"
 
 	"go.uber.org/zap"
@@ -63,7 +61,15 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 		},
 	)
 	if err != nil {
-		logger.Errorf("update dockerfile template error: %s", err)
+		logger.Errorf("update yaml template error: %s", err)
+	}
+	return err
+}
+
+func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
+	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml)
+	if err != nil {
+		logger.Errorf("update yaml template variable error: %s", err)
 	}
 	return err
 }
@@ -142,27 +148,6 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template
 	return ret, nil
 }
 
-func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*models.ChartVariable, error) {
-	resp := make([]*models.ChartVariable, 0)
-	regex, err := regexp.Compile(setting.RegExpParameter)
-	if err != nil {
-		logger.Errorf("Cannot get regexp from the expression: %s, the error is: %s", setting.RegExpParameter, err)
-		return []*models.ChartVariable{}, err
-	}
-	params := regex.FindAllString(s, -1)
-	keyMap := make(map[string]int)
-	for _, param := range params {
-		key := getParameterKey(param)
-		if keyMap[key] == 0 {
-			resp = append(resp, &models.ChartVariable{
-				Key: key,
-			})
-			keyMap[key] = 1
-		}
-	}
-	return resp, nil
-}
-
 func GetSystemDefaultVariables() []*models.ChartVariable {
 	resp := make([]*models.ChartVariable, 0)
 	for key, description := range DefaultSystemVariable {
@@ -174,15 +159,13 @@ func GetSystemDefaultVariables() []*models.ChartVariable {
 	return resp
 }
 
-// getParameter
-func getParameterKey(parameter string) string {
-	a := strings.TrimPrefix(parameter, "{{.")
-	return strings.TrimSuffix(a, "}}")
-}
-
 func ValidateVariable(content, variable string) error {
 	if len(content) == 0 || len(variable) == 0 {
 		return nil
+	}
+	variable, _, err := template.SafeMergeVariableYaml(variable)
+	if err != nil {
+		return err
 	}
 	valuesMap := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(variable), &valuesMap); err != nil {

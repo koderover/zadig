@@ -24,15 +24,13 @@ import (
 	"strings"
 	gotemplate "text/template"
 
-	template2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
-
-	"gopkg.in/yaml.v3"
-
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -140,40 +138,39 @@ func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger 
 		return "", fmt.Errorf("failed to preview service, err: %s", err)
 	}
 
-	templateVariableYaml, err := template2.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
+	templateVariableYaml, err := commomtemplate.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
 	if err != nil {
 		return "", fmt.Errorf("failed to get variable yaml from yaml template")
 	}
-
-	mergedYaml, err := yamlutil.Merge([][]byte{[]byte(templateVariableYaml), []byte(req.VariableYaml)})
-	if err != nil {
-		return "", fmt.Errorf("failed to preview service yaml, err: %s", err)
-	}
-
-	return renderYamlFromTemplate(yamlTemplate.Content, req.ProjectName, req.ServiceName, nil, string(mergedYaml))
+	return renderYamlFromTemplate(yamlTemplate.Content, req.ProjectName, req.ServiceName, nil, templateVariableYaml, req.VariableYaml)
 }
 
-func renderYamlFromTemplate(originYaml, productName, serviceName string, variables []*Variable, variableYaml string) (string, error) {
-	systemVariableMap := make(map[string]interface{})
-	systemVariableMap[setting.RawTemplateVariableProduct] = productName
-	systemVariableMap[setting.RawTemplateVariableService] = serviceName
-	systemVar, err := yaml.Marshal(systemVariableMap)
-	if err != nil {
-		log.Errorf("failed to generate system variable yaml, err: %s", err)
-		return originYaml, fmt.Errorf("failed to generate system variable yaml, err: %s", err)
-	}
+func renderYamlFromTemplate(originYaml, productName, serviceName string, variables []*Variable, variableYamls ...string) (string, error) {
 
 	tmpl, err := gotemplate.New(serviceName).Parse(originYaml)
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
 	}
 
-	mergedYaml, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(variableYaml), systemVar})
+	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(variableYamls...)
 	if err != nil {
-		return originYaml, fmt.Errorf("failed to apply template variable, err: %s", err)
+		return originYaml, err
 	}
+
+	for _, variable := range variables {
+		variableYaml = strings.ReplaceAll(variableYaml, buildVariable(variable.Key), variable.Value)
+	}
+	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
+	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
+
+	variableMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
+	if err != nil {
+		return originYaml, fmt.Errorf("failed to unmarshal variable yaml, err: %s", err)
+	}
+
 	buf := bytes.NewBufferString("")
-	err = tmpl.Execute(buf, mergedYaml)
+	err = tmpl.Execute(buf, variableMap)
 	if err != nil {
 		return originYaml, fmt.Errorf("template validate err: %s", err)
 	}
@@ -183,6 +180,12 @@ func renderYamlFromTemplate(originYaml, productName, serviceName string, variabl
 	// replace system variables
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
+
+	log.Infof("######### the kv to replace for gotemplate is %v", replacedKv)
+	for rk, rv := range replacedKv {
+		originYaml = strings.ReplaceAll(originYaml, rk, rv)
+	}
+
 	return originYaml, nil
 }
 
@@ -304,7 +307,7 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 		variables = append(variables, kv)
 	}
 
-	templateVariable, err := template2.GetTemplateVariableYaml(template.Variables, template.VariableYaml)
+	templateVariable, err := commomtemplate.GetTemplateVariableYaml(template.Variables, template.VariableYaml)
 	if err != nil {
 		return nil, "", err
 	}
@@ -329,7 +332,7 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 			}
 		}
 
-		serviceVariable, err := template2.GetTemplateVariableYaml(creation.Variables, creation.VariableYaml)
+		serviceVariable, err := commomtemplate.GetTemplateVariableYaml(creation.Variables, creation.VariableYaml)
 		if err != nil {
 			return nil, "", err
 		}
