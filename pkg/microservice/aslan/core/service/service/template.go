@@ -181,7 +181,6 @@ func renderYamlFromTemplate(originYaml, productName, serviceName string, variabl
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
 
-	log.Infof("######### the kv to replace for gotemplate is %v", replacedKv)
 	for rk, rv := range replacedKv {
 		originYaml = strings.ReplaceAll(originYaml, rk, rv)
 	}
