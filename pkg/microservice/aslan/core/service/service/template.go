@@ -33,7 +33,6 @@ import (
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type LoadServiceFromYamlTemplateReq struct {
@@ -335,18 +334,11 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 		if err != nil {
 			return nil, "", err
 		}
-		creation.VariableYaml = serviceVariable
-
-		mergedVariables, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(templateVariable), []byte(serviceVariable)})
-		if err != nil {
-			return nil, "", err
+		templateVariable, kvs, err := commomtemplate.SafeMergeVariableYaml(templateVariable, serviceVariable)
+		for k, v := range kvs {
+			templateVariable = strings.ReplaceAll(templateVariable, k, v)
 		}
-
-		bs, err = yaml.Marshal(mergedVariables)
-		if err != nil {
-			return nil, "", err
-		}
-		templateVariable = string(bs)
+		creation.VariableYaml = templateVariable
 	} else {
 		creation.TemplateID = template.ID.Hex()
 	}
