@@ -19,10 +19,11 @@ package models
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type YamlTemplate struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name      string             `bson:"name"          json:"name"`
-	Content   string             `bson:"content"       json:"content"`
-	Variables []*Variable        `bson:"variables"     json:"variables"`
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name         string             `bson:"name"          json:"name"`
+	Content      string             `bson:"content"       json:"content"`
+	Variables    []*Variable        `bson:"variables"     json:"variables"`
+	VariableYaml string             `bson:"variable_yaml" json:"variable_yaml"`
 }
 
 type Variable struct {
