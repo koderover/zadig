@@ -334,7 +334,8 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 		if err != nil {
 			return nil, "", err
 		}
-		templateVariable, kvs, err := commomtemplate.SafeMergeVariableYaml(templateVariable, serviceVariable)
+		kvs := make(map[string]string)
+		templateVariable, kvs, err = commomtemplate.SafeMergeVariableYaml(templateVariable, serviceVariable)
 		for k, v := range kvs {
 			templateVariable = strings.ReplaceAll(templateVariable, k, v)
 		}
