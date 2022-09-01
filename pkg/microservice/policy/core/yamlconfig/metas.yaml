@@ -380,6 +380,8 @@ metas:
           - method: PUT
             endpoint: /api/aslan/template/yaml/?*
           - method: PUT
+            endpoint: /api/aslan/template/yaml/?*/variable
+          - method: PUT
             endpoint: /api/aslan/template/charts/?*
           - method: POST
             endpoint: api/aslan/template/charts/?*/reference
@@ -391,6 +393,8 @@ metas:
             endpoint: /api/aslan/template/dockerfile/?*
           - method: PUT
             endpoint: /api/aslan/template/build/?*
+          - method: POST
+            endpoint: /api/aslan/template/yaml/validateVariable
       - action: delete_template
         alias: 删除
         description: 删除

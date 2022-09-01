@@ -91,5 +91,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		template.POST("/load", LoadServiceFromYamlTemplate)
 		template.POST("/reload", ReloadServiceFromYamlTemplate)
+		template.POST("/preview", PreviewServiceYamlFromYamlTemplate)
 	}
 }

@@ -83,6 +83,20 @@ func (c *YamlTemplateColl) Update(idString string, obj *models.YamlTemplate) err
 	return err
 }
 
+func (c *YamlTemplateColl) UpdateVariable(idString string, variable string) error {
+	id, err := primitive.ObjectIDFromHex(idString)
+	if err != nil {
+		return fmt.Errorf("invalid id")
+	}
+	filter := bson.M{"_id": id}
+	update := bson.M{"$set": bson.M{
+		"variable_yaml": variable,
+	}}
+
+	_, err = c.UpdateOne(context.TODO(), filter, update)
+	return err
+}
+
 func (c *YamlTemplateColl) List(pageNum, pageSize int) ([]*models.YamlTemplate, int, error) {
 	resp := make([]*models.YamlTemplate, 0)
 	query := bson.M{}

@@ -61,6 +61,7 @@ type ServiceOption struct {
 	SystemVariable   []*Variable                `json:"system_variable"`
 	CustomVariable   []*templatemodels.RenderKV `json:"custom_variable"`
 	TemplateVariable []*Variable                `json:"template_variable"`
+	VariableYaml     string                     `json:"variable_yaml"`
 	Yaml             string                     `json:"yaml"`
 	Service          *commonmodels.Service      `json:"service,omitempty"`
 }
@@ -191,22 +192,22 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, l
 	return serviceOption, err
 }
 
-func GetTemplateVariables(args *commonmodels.Service) []*Variable {
+func GetTemplateVariables(args *commonmodels.Service) ([]*Variable, string) {
 	if args.TemplateID == "" {
-		return nil
+		return nil, ""
 	}
 	templateInfo, err := commonrepo.NewYamlTemplateColl().GetById(args.TemplateID)
 	if err != nil {
 		log.Errorf("failed to find template with id: %s for service: %s, err: %s", args.TemplateID, args.ServiceName, err)
-		return nil
+		return nil, ""
 	}
 
-	variables, err := buildYamlTemplateVariables(args, templateInfo)
+	variables, variableYaml, err := buildYamlTemplateVariables(args, templateInfo)
 	if err != nil {
 		log.Errorf("failed to extract template variables for service: %s, err: %s", args.ServiceName, err)
-		return nil
+		return nil, ""
 	}
-	return variables
+	return variables, variableYaml
 }
 
 func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -244,7 +245,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Key:   "$EnvName$",
 			Value: ""},
 	}
-	serviceOption.TemplateVariable = GetTemplateVariables(args)
+	serviceOption.TemplateVariable, serviceOption.VariableYaml = GetTemplateVariables(args)
 	renderKVs, err := commonservice.ListServicesRenderKeys([]*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}, log)
 	if err != nil {
 		log.Errorf("ListServicesRenderKeys %s error: %v", args.ServiceName, err)
