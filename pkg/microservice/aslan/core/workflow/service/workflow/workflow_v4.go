@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -151,7 +152,8 @@ func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow b
 
 	workflow := []*Workflow{}
 
-	if !ignoreWorkflow {
+	// distribute center only surpport custom workflow.
+	if !ignoreWorkflow && projectName != setting.EnterpriseProject {
 		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
 		if err != nil {
 			return resp, err
@@ -320,10 +322,15 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		logger.Errorf(err.Error())
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
-	project, err := templaterepo.NewProductColl().Find(workflow.Project)
-	if err != nil {
-		logger.Errorf("Failed to get project %s, error: %v", workflow.Project, err)
-		return e.ErrUpsertWorkflow.AddErr(err)
+
+	project := &template.Product{}
+	// for deploy center workflow, it doesn't belongs to any project, so we use a specical project name to distinguish it.
+	if workflow.Project != setting.EnterpriseProject {
+		project, err = templaterepo.NewProductColl().Find(workflow.Project)
+		if err != nil {
+			logger.Errorf("Failed to get project %s, error: %v", workflow.Project, err)
+			return e.ErrUpsertWorkflow.AddErr(err)
+		}
 	}
 
 	if project.ProductFeature != nil {

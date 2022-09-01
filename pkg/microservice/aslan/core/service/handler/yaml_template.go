@@ -58,3 +58,16 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 
 	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req, ctx.Logger)
 }
+
+func PreviewServiceYamlFromYamlTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(svcservice.LoadServiceFromYamlTemplateReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+	req.ProjectName = c.Query("projectName")
+	ctx.Resp, ctx.Err = svcservice.PreviewServiceFromYamlTemplate(req, ctx.Logger)
+}

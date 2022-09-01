@@ -659,6 +659,7 @@ const UpdateEnvTimeout = 60 * 5 * time.Second
 // list namespace type
 const (
 	ListNamespaceTypeCreate = "create"
+	ListNamespaceTypeALL    = "all"
 )
 
 const (
@@ -688,4 +689,9 @@ const (
 	FixedValueMark            = "<+fixed>"
 	RenderValueTemplate       = "{{.%s}}"
 	RenderPluginValueTemplate = "$(%s)"
+)
+
+const (
+	// normal project names are not allowed to contain special characters, so we have a special project name to distinguish the enterprise workflow
+	EnterpriseProject = "DEPLOY_CENTER"
 )

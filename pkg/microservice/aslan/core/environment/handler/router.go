@@ -111,6 +111,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 
 		kube.GET("/pods/:podName/file", DownloadFileFromPod)
+		kube.GET("/namespace/cluster/:clusterID", ListNamespace)
+		kube.GET("/custom_workload/cluster/:clusterID/namespace/:namespace", ListCustomWorkload)
 	}
 
 	operations := router.Group("operations")

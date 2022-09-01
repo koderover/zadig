@@ -148,20 +148,27 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 		}
 		filterK8sNamespaces.Insert(nsList...)
 	}
-	for _, namespace := range namespaces {
+
+	filter := func(namespace *corev1.Namespace) bool {
+		if listType == setting.ListNamespaceTypeALL {
+			return true
+		}
 		if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
 			if value == setting.EnvCreator {
-				continue
+				return false
 			}
 		}
-
 		if filterK8sNamespaces.Has(namespace.Name) {
-			continue
+			return false
 		}
-
-		resp = append(resp, wrapper.Namespace(namespace).Resource())
+		return true
 	}
 
+	for _, namespace := range namespaces {
+		if filter(namespace) {
+			resp = append(resp, wrapper.Namespace(namespace).Resource())
+		}
+	}
 	return resp, nil
 }
 
@@ -475,4 +482,61 @@ func nodeLabel(node *corev1.Node) []string {
 		labels = append(labels, fmt.Sprintf("%s:%s", key, value))
 	}
 	return labels
+}
+
+func ListNamespace(clusterID string, log *zap.SugaredLogger) ([]string, error) {
+	resp := make([]string, 0)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
+		return resp, err
+	}
+	namespaces, err := getter.ListNamespaces(kubeClient)
+	if err != nil {
+		log.Errorf("ListNamespaces err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, namespace := range namespaces {
+		resp = append(resp, namespace.Name)
+	}
+	return resp, nil
+}
+
+func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
+	resp := make([]string, 0)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListCustomWorkload clusterID:%s err:%v", clusterID, err)
+		return resp, err
+	}
+	deployments, err := getter.ListDeployments(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDeployments err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, deployment := range deployments {
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			resp = append(resp, strings.Join([]string{setting.Deployment, deployment.Name, container.Name}, "/"))
+		}
+	}
+	statefulsets, err := getter.ListStatefulSets(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListStatefulSets err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, statefulset := range statefulsets {
+		for _, container := range statefulset.Spec.Template.Spec.Containers {
+			resp = append(resp, strings.Join([]string{setting.StatefulSet, statefulset.Name, container.Name}, "/"))
+		}
+	}
+	return resp, nil
 }

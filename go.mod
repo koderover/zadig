@@ -8,6 +8,7 @@ require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
+	github.com/andygrunwald/go-jira v1.16.0
 	github.com/antihax/optional v1.0.0
 	github.com/aws/aws-sdk-go v1.34.28
 	github.com/blang/semver/v4 v4.0.0
@@ -65,7 +66,6 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.5
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.2.1
-	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
 	github.com/stretchr/testify v1.7.1

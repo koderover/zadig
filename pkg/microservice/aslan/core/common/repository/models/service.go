@@ -98,8 +98,9 @@ type CreateFromChartRepo struct {
 }
 
 type CreateFromYamlTemplate struct {
-	TemplateID string      `bson:"template_id"   json:"template_id"`
-	Variables  []*Variable `bson:"variables"     json:"variables"`
+	TemplateID   string      `bson:"template_id"   json:"template_id"`
+	Variables    []*Variable `bson:"variables"     json:"variables"`
+	VariableYaml string      `bson:"variable_yaml" json:"variable_yaml"`
 }
 
 type GUIConfig struct {
