@@ -203,6 +203,29 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 		return
 	}
 	log.Debugf("Start to get task container log.")
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(options.PipelineName, options.TaskID)
+	if err != nil {
+		log.Errorf("Failed to find workflow %s taskID %s: %v", options.PipelineName, options.TaskID, err)
+		return
+	}
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != options.SubTask {
+				continue
+			}
+			options.ClusterID = job.Properties.ClusterID
+			if options.ClusterID == "" {
+				options.ClusterID = setting.LocalClusterID
+			}
+			switch options.ClusterID {
+			case setting.LocalClusterID:
+				options.Namespace = config.Namespace()
+			default:
+				options.Namespace = setting.AttachedClusterNamespace
+			}
+			break
+		}
+	}
 
 	selector := getWorkflowSelector(options)
 	waitAndGetLog(ctx, streamChan, selector, options, log)
