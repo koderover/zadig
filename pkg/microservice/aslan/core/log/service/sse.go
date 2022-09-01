@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -213,7 +214,29 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 			if job.Name != options.SubTask {
 				continue
 			}
-			options.ClusterID = job.Properties.ClusterID
+			switch job.JobType {
+			case string(config.JobZadigBuild):
+				fallthrough
+			case string(config.JobFreestyle):
+				fallthrough
+			case string(config.JobBuild):
+				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+					log.Errorf("Failed to parse job spec: %v", err)
+					return
+				}
+				options.ClusterID = jobSpec.Properties.ClusterID
+			case string(config.JobPlugin):
+				jobSpec := &commonmodels.JobTaskPluginSpec{}
+				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+					log.Errorf("Failed to parse job spec: %v", err)
+					return
+				}
+				options.ClusterID = jobSpec.Properties.ClusterID
+			default:
+				log.Errorf("get real-time log error, unsupported job type %s", job.JobType)
+				return
+			}
 			if options.ClusterID == "" {
 				options.ClusterID = setting.LocalClusterID
 			}
