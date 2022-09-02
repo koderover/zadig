@@ -360,6 +360,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}
+			spec.Env = taskJobSpec.Env
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
 				ServiceName:   taskJobSpec.ServiceName,
@@ -370,10 +371,12 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 		case string(config.JobZadigHelmDeploy):
 			jobPreview.JobType = string(config.JobZadigDeploy)
 			spec := ZadigDeployJobSpec{}
+			job.JobType = string(config.JobZadigDeploy)
 			taskJobSpec := &commonmodels.JobTaskHelmDeploySpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}
+			spec.Env = taskJobSpec.Env
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			for _, imageAndmodule := range taskJobSpec.ImageAndModules {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
