@@ -74,6 +74,20 @@ func GetFileContent(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.GetFileContent(c.Param("serviceName"), c.Param("productName"), param, ctx.Logger)
 }
 
+func UpdateFileContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	param := new(svcservice.HelmChartEditInfo)
+	err := c.ShouldBind(param)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = svcservice.EditFileContent(c.Param("serviceName"), c.Query("projectName"), ctx.UserName, ctx.RequestID, param, ctx.Logger)
+}
+
 func CreateOrUpdateHelmService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -141,19 +155,4 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "新增", "项目管理-服务", "", string(bs), ctx.Logger)
 
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectName, args, false, ctx.Logger)
-}
-
-func EditHelmService(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(svcservice.HelmServiceArgs)
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmServiceArgs json args")
-		return
-	}
-	args.CreateBy = ctx.UserName
-	args.ProductName = c.Param("productName")
-
-	ctx.Err = svcservice.EditHelmService(args, ctx.Logger)
 }
