@@ -26,6 +26,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
@@ -52,8 +54,12 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 }
 
 func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
+	logger := log.SugaredLogger()
 	if s.dockerBuildSpec.DockerRegistry != nil && s.dockerBuildSpec.DockerRegistry.DockerRegistryID != "" {
-		reg, _ := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{ID: s.dockerBuildSpec.DockerRegistry.DockerRegistryID})
+		reg, _, err := commonservice.FindRegistryById(s.dockerBuildSpec.DockerRegistry.DockerRegistryID, true, logger)
+		if err != nil {
+			log.Errorf("find registry error: %v", err)
+		}
 		s.dockerBuildSpec.DockerRegistry.UserName = reg.AccessKey
 		s.dockerBuildSpec.DockerRegistry.Password = reg.SecretKey
 		s.dockerBuildSpec.DockerRegistry.Namespace = reg.Namespace
