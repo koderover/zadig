@@ -26,8 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
@@ -54,25 +52,6 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 }
 
 func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
-	logger := log.SugaredLogger()
-	if s.dockerBuildSpec.DockerRegistry != nil && s.dockerBuildSpec.DockerRegistry.DockerRegistryID != "" {
-		reg, _, err := commonservice.FindRegistryById(s.dockerBuildSpec.DockerRegistry.DockerRegistryID, true, logger)
-		if err != nil {
-			log.Errorf("find registry error: %v", err)
-		}
-		s.dockerBuildSpec.DockerRegistry.UserName = reg.AccessKey
-		s.dockerBuildSpec.DockerRegistry.Password = reg.SecretKey
-		s.dockerBuildSpec.DockerRegistry.Namespace = reg.Namespace
-		s.dockerBuildSpec.DockerRegistry.Host = reg.RegAddr
-	} else {
-		s.dockerBuildSpec.DockerRegistry = &step.DockerRegistry{
-			UserName:  config.RegistryAccessKey(),
-			Password:  config.RegistrySecretKey(),
-			Namespace: config.RegistryNamespace(),
-			Host:      config.RegistryAddress(),
-		}
-	}
-
 	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
 	if len(proxies) != 0 {
 		s.dockerBuildSpec.Proxy.Address = proxies[0].Address
