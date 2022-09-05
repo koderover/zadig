@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
+	"go.uber.org/zap"
 )
 
 type BuildJob struct {
@@ -217,7 +218,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTask.Properties.CacheDirType = buildInfo.CacheDirType
 			jobTask.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTask.Properties.Envs = append(jobTask.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID)...)
+		jobTask.Properties.Envs = append(jobTask.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.spec.DockerRegistryID, logger)...)
 
 		if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == types.NFSMedium {
 			jobTask.Properties.CacheUserDir = renderEnv(jobTask.Properties.CacheUserDir, jobTask.Properties.Envs)
@@ -391,10 +392,10 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string) []*commonmodels.KeyVal {
+func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, dockerRegistryID string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	ret = append(ret, getReposVariables(build.Repos)...)
-	reg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: dockerRegistryID})
+	reg, _, err := commonservice.FindRegistryById(dockerRegistryID, true, log)
 	if err != nil {
 		log.Errorf("find docker registry by ID %s error: %v", dockerRegistryID, err)
 	}
