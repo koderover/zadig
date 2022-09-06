@@ -135,8 +135,8 @@ metas:
             endpoint: /api/aslan/service/services/?*/pm
           - method: GET
             endpoint: /api/aslan/template/yaml
-          - method: GET
-            endpoint: /api/aslan/service/helm/?*/?*/fileContent
+          - method: PUT
+            endpoint: /api/aslan/service/helm/?*/file
       - action: edit_service
         alias: 编辑
         description: ''
