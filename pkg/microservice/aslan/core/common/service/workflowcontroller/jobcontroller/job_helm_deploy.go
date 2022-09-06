@@ -452,7 +452,6 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.job.Status = config.StatusPassed
-	return
 }
 
 func (c *HelmDeployJobCtl) timeout() int {

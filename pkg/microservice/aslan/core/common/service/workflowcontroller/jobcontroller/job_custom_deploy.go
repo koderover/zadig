@@ -63,6 +63,7 @@ func (c *CustomDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 	if c.jobTaskSpec.SkipCheckRunStatus {
+		c.job.Status = config.StatusPassed
 		return
 	}
 	c.wait(ctx)
