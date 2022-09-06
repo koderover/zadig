@@ -705,7 +705,7 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	ErrListHelmReleases = NewHTTPError(6850, "获取release失败")
 	ErrGetHelmCharts    = NewHTTPError(6851, "获取chart信息失败")
-	ErrEditHelmCharts   = NewHTTPError(6851, "更新chart信息失败")
+	ErrEditHelmCharts   = NewHTTPError(6852, "更新chart信息失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// plugins releated Error Range: 6870 - 6879
