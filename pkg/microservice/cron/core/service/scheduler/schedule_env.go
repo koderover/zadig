@@ -88,7 +88,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				}
 
 				for _, healthCheck := range svc.HealthChecks {
-					key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" +
+					key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" +
 						env.EnvName + "-" + envStatus.HostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
 					taskMap[key] = true
 					if _, ok := c.lastServiceSchedulers[key]; ok && reflect.DeepEqual(serviceRevision, c.lastServiceSchedulers[key]) {
@@ -390,7 +390,7 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 			if serviceRevision.Type != setting.PMDeployType {
 				continue
 			}
-			key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" +
+			key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" +
 				env.EnvName
 			for scheduleKey := range c.Schedulers {
 				if strings.Contains(scheduleKey, key) {
@@ -436,11 +436,12 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 
 	for key, deleteSvcRevisions := range deleteSvcRevisionsMap {
 		envName := strings.Split(key, "-")[1]
+		productName := strings.Split(key, "-")[0]
 		for _, deleteSvcRevision := range deleteSvcRevisions {
 			if deleteSvcRevision.Type != setting.PMDeployType {
 				continue
 			}
-			key := "service-" + deleteSvcRevision.ServiceName + "-" + setting.PMDeployType + "-" +
+			key := "service-" + deleteSvcRevision.ServiceName + "-" + productName + "-" + setting.PMDeployType + "-" +
 				envName
 			for scheduleKey := range c.Schedulers {
 				if strings.Contains(scheduleKey, key) {
@@ -478,7 +479,8 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 			continue
 		}
 		envName := strings.Split(key, "-")[1]
-		key := "service-" + oldRevisionService.ServiceName + "-" + setting.PMDeployType + "-" +
+		productName := strings.Split(key, "-")[0]
+		key := "service-" + oldRevisionService.ServiceName + "-" + productName + "-" + setting.PMDeployType + "-" +
 			envName
 		for scheduleKey := range c.Schedulers {
 			if strings.Contains(scheduleKey, key) {

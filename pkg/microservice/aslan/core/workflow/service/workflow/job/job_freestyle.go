@@ -199,12 +199,35 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func stepsToStepTasks(step []*commonmodels.Step) []*commonmodels.StepTask {
+	logger := log.SugaredLogger()
 	resp := []*commonmodels.StepTask{}
 	for _, step := range step {
 		stepTask := &commonmodels.StepTask{
 			Name:     step.Name,
 			StepType: step.StepType,
 			Spec:     step.Spec,
+		}
+		if stepTask.StepType == config.StepDockerBuild {
+			stepTaskSpec := &steptypes.StepDockerBuildSpec{}
+			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
+				continue
+			}
+			registryID := ""
+			if stepTaskSpec.DockerRegistry != nil {
+				registryID = stepTaskSpec.DockerRegistry.DockerRegistryID
+			}
+			registry, _, err := commonservice.FindRegistryById(registryID, true, logger)
+			if err != nil {
+				logger.Errorf("FindRegistryById error: %v", err)
+			}
+			stepTaskSpec.DockerRegistry = &steptypes.DockerRegistry{
+				DockerRegistryID: registryID,
+				Host:             registry.RegAddr,
+				UserName:         registry.AccessKey,
+				Password:         registry.SecretKey,
+				Namespace:        registry.Namespace,
+			}
+			stepTask.Spec = stepTaskSpec
 		}
 		resp = append(resp, stepTask)
 	}

@@ -261,6 +261,7 @@ const (
 	// SourceFromPublicRepo The configuration source is publicRepo
 	SourceFromPublicRepo = "publicRepo"
 	SourceFromChartRepo  = "chartRepo"
+	SourceFromCustomEdit = "customEdit"
 
 	// SourceFromGUI The configuration source is gui
 	SourceFromGUI = "gui"
