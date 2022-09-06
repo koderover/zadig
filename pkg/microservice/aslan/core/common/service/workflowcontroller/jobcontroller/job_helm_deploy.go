@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package stepcontroller
+package jobcontroller
 
 import (
 	"context"
@@ -28,7 +28,6 @@ import (
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -39,7 +38,7 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -58,80 +57,73 @@ var (
 	imageParseRegex = regexp.MustCompile(imageUrlParseRegexString)
 )
 
-type helmDeployCtl struct {
-	step           *commonmodels.StepTask
-	helmDeploySpec *step.StepHelmDeploySpec
-	workflowCtx    *commonmodels.WorkflowTaskCtx
-	namespace      string
-	log            *zap.SugaredLogger
-	kubeClient     client.Client
-	restConfig     *rest.Config
+type HelmDeployJobCtl struct {
+	job         *commonmodels.JobTask
+	namespace   string
+	workflowCtx *commonmodels.WorkflowTaskCtx
+	logger      *zap.SugaredLogger
+	kubeClient  crClient.Client
+	restConfig  *rest.Config
+	jobTaskSpec *commonmodels.JobTaskHelmDeploySpec
+	ack         func()
 }
 
-func NewHelmDeployCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, log *zap.SugaredLogger) (*helmDeployCtl, error) {
-	yamlString, err := yaml.Marshal(stepTask.Spec)
-	if err != nil {
-		return nil, fmt.Errorf("marshal helm deploy spec error: %v", err)
+func NewHelmDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *HelmDeployJobCtl {
+	jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{}
+	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+		logger.Error(err)
 	}
-	helmDeploySpec := &step.StepHelmDeploySpec{}
-	if err := yaml.Unmarshal(yamlString, &helmDeploySpec); err != nil {
-		return nil, fmt.Errorf("unmarshal helm deploy spec error: %v", err)
+	return &HelmDeployJobCtl{
+		job:         job,
+		workflowCtx: workflowCtx,
+		logger:      logger,
+		ack:         ack,
+		jobTaskSpec: jobTaskSpec,
 	}
-	stepTask.Spec = helmDeploySpec
-	return &helmDeployCtl{helmDeploySpec: helmDeploySpec, workflowCtx: workflowCtx, log: log, step: stepTask}, nil
 }
 
-func (s *helmDeployCtl) PreRun(ctx context.Context) error {
-	return nil
-}
-
-func (s *helmDeployCtl) Run(ctx context.Context) (config.Status, error) {
-	if err := s.run(ctx); err != nil {
-		return config.StatusFailed, err
-	}
-	return config.StatusPassed, nil
-}
-
-func (s *helmDeployCtl) AfterRun(ctx context.Context) error {
-	return nil
-}
-
-func (s *helmDeployCtl) run(ctx context.Context) error {
-	var (
-		err error
-	)
-
+func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    s.workflowCtx.ProjectName,
-		EnvName: s.helmDeploySpec.Env,
+		Name:    c.workflowCtx.ProjectName,
+		EnvName: c.jobTaskSpec.Env,
 	})
 	if err != nil {
-		return err
+		msg := fmt.Sprintf("find project %s error: %v", c.workflowCtx.ProjectName, err)
+		c.logger.Error(msg)
+		c.job.Status = config.StatusFailed
+		c.job.Error = msg
+		return
 	}
-	s.namespace = env.Namespace
-	s.helmDeploySpec.ClusterID = env.ClusterID
+	c.namespace = env.Namespace
+	c.jobTaskSpec.ClusterID = env.ClusterID
 
-	if s.helmDeploySpec.ClusterID != "" {
-		s.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), s.helmDeploySpec.ClusterID)
+	if c.jobTaskSpec.ClusterID != "" {
+		c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 		if err != nil {
-			err = errors.WithMessage(err, "can't get k8s rest config")
-			return err
+			msg := fmt.Sprintf("can't get k8s rest config: %v", err)
+			c.logger.Error(msg)
+			c.job.Status = config.StatusFailed
+			c.job.Error = msg
+			return
 		}
 
-		s.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), s.helmDeploySpec.ClusterID)
+		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 		if err != nil {
-			err = errors.WithMessage(err, "can't init k8s client")
-			return err
+			msg := fmt.Sprintf("can't init k8s client: %v", err)
+			c.logger.Error(msg)
+			c.job.Status = config.StatusFailed
+			c.job.Error = msg
+			return
 		}
 	} else {
-		s.kubeClient = krkubeclient.Client()
-		s.restConfig = krkubeclient.RESTConfig()
+		c.kubeClient = krkubeclient.Client()
+		c.restConfig = krkubeclient.RESTConfig()
 	}
 
 	// all involved containers
 	containerNameSet := sets.NewString()
-	for _, svcAndContainer := range s.helmDeploySpec.ImageAndModules {
-		singleContainerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+s.helmDeploySpec.ServiceName)
+	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
+		singleContainerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+c.jobTaskSpec.ServiceName)
 		containerNameSet.Insert(singleContainerName)
 	}
 
@@ -148,16 +140,19 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		helmClient               helmclient.Client
 	)
 
-	s.log.Infof("start helm deploy, productName %s serviceName %s containerName %v namespace %s", s.workflowCtx.ProjectName,
-		s.helmDeploySpec.ServiceName, containerNameSet.List(), s.namespace)
+	c.logger.Infof("start helm deploy, productName %s serviceName %s containerName %v namespace %s", c.workflowCtx.ProjectName,
+		c.jobTaskSpec.ServiceName, containerNameSet.List(), c.namespace)
 
-	productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: s.workflowCtx.ProjectName, EnvName: s.helmDeploySpec.Env})
+	productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: c.workflowCtx.ProjectName, EnvName: c.jobTaskSpec.Env})
 	if err != nil {
 		err = errors.WithMessagef(
 			err,
 			"failed to get product %s/%s",
-			s.namespace, s.helmDeploySpec.ServiceName)
-		return err
+			c.namespace, c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	renderInfo, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision})
@@ -166,13 +161,16 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 			err,
 			"failed to get getRenderSet %s/%d",
 			productInfo.Render.Name, productInfo.Render.Revision)
-		return err
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	serviceRevisionInProduct := int64(0)
 	involvedImagePaths := make(map[string]*commonmodels.ImagePathSpec)
 	for _, service := range productInfo.GetServiceMap() {
-		if service.ServiceName != s.helmDeploySpec.ServiceName {
+		if service.ServiceName != c.jobTaskSpec.ServiceName {
 			continue
 		}
 		serviceRevisionInProduct = service.Revision
@@ -182,7 +180,10 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 			}
 			if container.ImagePath == nil {
 				err = errors.WithMessagef(err, "image path of %s/%s is nil", service.ServiceName, container.Name)
-				return err
+				c.logger.Error(err)
+				c.job.Status = config.StatusFailed
+				c.job.Error = err.Error()
+				return
 			}
 			involvedImagePaths[container.Name] = container.ImagePath
 		}
@@ -190,12 +191,15 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 	}
 
 	if len(involvedImagePaths) == 0 {
-		err = errors.Errorf("failed to find containers from service %s", s.helmDeploySpec.ServiceName)
-		return err
+		err = errors.Errorf("failed to find containers from service %s", c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	for _, chartInfo := range renderInfo.ChartInfos {
-		if chartInfo.ServiceName == s.helmDeploySpec.ServiceName {
+		if chartInfo.ServiceName == c.jobTaskSpec.ServiceName {
 			renderChart = chartInfo
 			break
 		}
@@ -203,33 +207,45 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 
 	if renderChart == nil {
 		err = errors.Errorf("failed to update container image in %s/%s,chart not found",
-			s.namespace, s.helmDeploySpec.ServiceName)
-		return err
+			c.namespace, c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	defaultS3, err := s3.FindDefaultS3()
 	if err != nil {
-		return err
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	defaultURL, err := defaultS3.GetEncryptedURL()
 	if err != nil {
-		return err
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	// use revision of service currently applied in environment instead of the latest revision
-	path, errDownload := s.downloadService(s.workflowCtx.ProjectName, s.helmDeploySpec.ServiceName, defaultURL, serviceRevisionInProduct)
+	path, errDownload := c.downloadService(c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, defaultURL, serviceRevisionInProduct)
 	if errDownload != nil {
-		s.log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-			serviceRevisionInProduct, s.helmDeploySpec.ServiceName)
-		path, errDownload = s.downloadService(s.workflowCtx.ProjectName, s.helmDeploySpec.ServiceName,
+		c.logger.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+			serviceRevisionInProduct, c.jobTaskSpec.ServiceName)
+		path, errDownload = c.downloadService(c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName,
 			defaultURL, 0)
 		if errDownload != nil {
 			err = errors.WithMessagef(
 				errDownload,
 				"failed to download service %s/%s",
-				s.namespace, s.helmDeploySpec.ServiceName)
-			return err
+				c.namespace, c.jobTaskSpec.ServiceName)
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			return
 		}
 	}
 
@@ -240,14 +256,17 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 			"failed to get relative path %s",
 			servicePath,
 		)
-		return err
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	serviceValuesYaml := renderChart.ValuesYaml
 	replaceValuesMap = make(map[string]interface{})
 
-	for _, svcAndContainer := range s.helmDeploySpec.ImageAndModules {
-		containerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+s.helmDeploySpec.ServiceName)
+	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
+		containerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+c.jobTaskSpec.ServiceName)
 		if imagePath, ok := involvedImagePaths[containerName]; ok {
 			validMatchData := getValidMatchData(imagePath)
 			singleReplaceValuesMap, errAssign := assignImageData(svcAndContainer.Image, validMatchData)
@@ -255,8 +274,11 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 				err = errors.WithMessagef(
 					errAssign,
 					"failed to pase image uri %s/%s",
-					s.namespace, s.helmDeploySpec.ServiceName)
-				return err
+					c.namespace, c.jobTaskSpec.ServiceName)
+				c.logger.Error(err)
+				c.job.Status = config.StatusFailed
+				c.job.Error = err.Error()
+				return
 			}
 			for k, v := range singleReplaceValuesMap {
 				replaceValuesMap[k] = v
@@ -270,13 +292,19 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		err = errors.WithMessagef(
 			err,
 			"failed to replace image uri %s/%s",
-			s.namespace, s.helmDeploySpec.ServiceName)
-		return err
+			c.namespace, c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 	if replacedValuesYaml == "" {
 		err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
-			s.namespace, s.helmDeploySpec.ServiceName)
-		return err
+			c.namespace, c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	// merge override values and kvs into service's yaml
@@ -287,7 +315,10 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 			"failed to merge override values %s",
 			renderChart.OverrideValues,
 		)
-		return err
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	// replace image into final merged values.yaml
@@ -296,33 +327,42 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		err = errors.WithMessagef(
 			err,
 			"failed to replace image uri into helm values %s/%s",
-			s.namespace, s.helmDeploySpec.ServiceName)
-		return nil
+			c.namespace, c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 	if replacedMergedValuesYaml == "" {
 		err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
-			s.namespace, s.helmDeploySpec.ServiceName)
-		return err
+			c.namespace, c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
-	s.log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
+	c.logger.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
 
-	helmClient, err = helmtool.NewClientFromNamespace(s.helmDeploySpec.ClusterID, s.namespace)
+	helmClient, err = helmtool.NewClientFromNamespace(c.jobTaskSpec.ClusterID, c.namespace)
 	if err != nil {
 		err = errors.WithMessagef(
 			err,
 			"failed to create helm client %s/%s",
-			s.namespace, s.helmDeploySpec.ServiceName)
-		return err
+			c.namespace, c.jobTaskSpec.ServiceName)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
-	releaseName := s.helmDeploySpec.ReleaseName
+	releaseName := c.jobTaskSpec.ReleaseName
 
 	ensureUpgrade := func() error {
 		hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
 		if errHistory != nil {
 			// list history should not block deploy operation, error will be logged instead of returned
-			s.log.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
+			c.logger.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
 			return nil
 		}
 		if len(hrs) == 0 {
@@ -339,32 +379,35 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 
 	err = ensureUpgrade()
 	if err != nil {
-		return err
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
-	timeOut := s.timeout()
+	timeOut := c.timeout()
 	chartSpec := helmclient.ChartSpec{
 		ReleaseName: releaseName,
 		ChartName:   chartPath,
-		Namespace:   s.namespace,
+		Namespace:   c.namespace,
 		ReuseValues: true,
 		Version:     renderChart.ChartVersion,
 		ValuesYaml:  replacedMergedValuesYaml,
 		SkipCRDs:    false,
 		UpgradeCRDs: true,
 		Timeout:     time.Second * time.Duration(timeOut),
-		Wait:        !s.helmDeploySpec.SkipCheckRunStatus,
+		Wait:        !c.jobTaskSpec.SkipCheckRunStatus,
 		Replace:     true,
 		MaxHistory:  10,
 	}
-	s.log.Infof("start to upgrade helm chart, release name: %s, chart name: %s, version: %s", chartSpec.ReleaseName, chartSpec.ChartName, chartSpec.Version)
+	c.logger.Infof("start to upgrade helm chart, release name: %s, chart name: %s, version: %s", chartSpec.ReleaseName, chartSpec.ChartName, chartSpec.Version)
 	done := make(chan bool)
 	go func(chan bool) {
 		if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
-				s.namespace, s.helmDeploySpec.ServiceName)
+				c.namespace, c.jobTaskSpec.ServiceName)
 			done <- false
 		} else {
 			done <- true
@@ -378,12 +421,15 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 	}
 	if err != nil {
-		return err
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
 
 	//替换环境变量中的chartInfos
 	for _, chartInfo := range renderInfo.ChartInfos {
-		if chartInfo.ServiceName == s.helmDeploySpec.ServiceName {
+		if chartInfo.ServiceName == c.jobTaskSpec.ServiceName {
 			chartInfo.ValuesYaml = replacedValuesYaml
 			break
 		}
@@ -399,22 +445,25 @@ func (s *helmDeployCtl) run(ctx context.Context) error {
 		err = errors.WithMessagef(
 			err,
 			"failed to update renderset info %s/%s, renderset %s",
-			s.namespace, s.helmDeploySpec.ServiceName, renderInfo.Name)
-		return err
+			c.namespace, c.jobTaskSpec.ServiceName, renderInfo.Name)
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		return
 	}
-	return nil
+	c.job.Status = config.StatusPassed
 }
 
-func (s *helmDeployCtl) timeout() int {
-	if s.helmDeploySpec.Timeout == 0 {
-		s.helmDeploySpec.Timeout = setting.DeployTimeout
+func (c *HelmDeployJobCtl) timeout() int {
+	if c.jobTaskSpec.Timeout == 0 {
+		c.jobTaskSpec.Timeout = setting.DeployTimeout
 	}
-	return s.helmDeploySpec.Timeout
+	return c.jobTaskSpec.Timeout
 }
 
 // download chart info of specific version, use the latest version if fails
-func (s *helmDeployCtl) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
-	logger := s.log
+func (c *HelmDeployJobCtl) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
+	logger := c.logger
 
 	fileName := serviceName
 	if revision > 0 {
@@ -444,7 +493,7 @@ func (s *helmDeployCtl) downloadService(productName, serviceName, storageURI str
 	}
 	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
-		s.log.Errorf("failed to create s3 client, err: %s", err)
+		c.logger.Errorf("failed to create s3 client, err: %s", err)
 		return "", err
 	}
 	if err = s3Client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {

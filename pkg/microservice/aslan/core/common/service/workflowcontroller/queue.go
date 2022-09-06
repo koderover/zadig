@@ -295,7 +295,7 @@ func cleanStages(stages []*commonmodels.StageTask) []*commonmodels.StageTask {
 	json.Unmarshal(data, &resp)
 	for _, stage := range resp {
 		for _, job := range stage.Jobs {
-			job.Steps = nil
+			job.Spec = nil
 		}
 	}
 	return resp

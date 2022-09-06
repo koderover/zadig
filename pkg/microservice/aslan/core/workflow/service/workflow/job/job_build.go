@@ -176,10 +176,6 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "tar"))
 
-		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
-			JobType: string(config.JobZadigBuild),
-		}
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 		if err != nil {
 			return resp, err
@@ -195,7 +191,14 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, err
 		}
-		jobTask.Properties = commonmodels.JobProperties{
+		jobTaskSpec := &commonmodels.JobTaskBuildSpec{}
+		jobTask := &commonmodels.JobTask{
+			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			JobType: string(config.JobZadigBuild),
+			Spec:    jobTaskSpec,
+			Timeout: int64(buildInfo.Timeout),
+		}
+		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(buildInfo.Timeout),
 			ResourceRequest: buildInfo.PreBuild.ResReq,
 			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
@@ -211,18 +214,18 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		if clusterInfo.Cache.MediumType == "" {
-			jobTask.Properties.CacheEnable = false
+			jobTaskSpec.Properties.CacheEnable = false
 		} else {
-			jobTask.Properties.Cache = clusterInfo.Cache
-			jobTask.Properties.CacheEnable = buildInfo.CacheEnable
-			jobTask.Properties.CacheDirType = buildInfo.CacheDirType
-			jobTask.Properties.CacheUserDir = buildInfo.CacheUserDir
+			jobTaskSpec.Properties.Cache = clusterInfo.Cache
+			jobTaskSpec.Properties.CacheEnable = buildInfo.CacheEnable
+			jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
+			jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTask.Properties.Envs = append(jobTask.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, registry, logger)...)
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, registry, logger)...)
 
-		if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == types.NFSMedium {
-			jobTask.Properties.CacheUserDir = renderEnv(jobTask.Properties.CacheUserDir, jobTask.Properties.Envs)
-			jobTask.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTask.Properties.Cache.NFSProperties.Subpath, jobTask.Properties.Envs)
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+			jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
 		}
 
 		// init tools install step
@@ -239,7 +242,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StepType: config.StepTools,
 			Spec:     step.StepToolInstallSpec{Installs: tools},
 		}
-		jobTask.Steps = append(jobTask.Steps, toolInstallStep)
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
 		gitStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-git",
@@ -247,7 +250,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StepType: config.StepGit,
 			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos)},
 		}
-		jobTask.Steps = append(jobTask.Steps, gitStep)
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
@@ -260,7 +263,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Scripts: scripts,
 			},
 		}
-		jobTask.Steps = append(jobTask.Steps, shellStep)
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 
 		// init docker build step
 		if buildInfo.PostBuild.DockerBuild != nil {
@@ -292,7 +295,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					},
 				},
 			}
-			jobTask.Steps = append(jobTask.Steps, dockerBuildStep)
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, dockerBuildStep)
 		}
 
 		// init archive step
@@ -312,7 +315,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					S3:           modelS3toS3(defaultS3),
 				},
 			}
-			jobTask.Steps = append(jobTask.Steps, archiveStep)
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 		}
 
 		// init object storage step
@@ -340,7 +343,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					DestinationPath: detail.DestinationPath,
 				})
 			}
-			jobTask.Steps = append(jobTask.Steps, archiveStep)
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 		}
 
 		// init psot build shell step
@@ -354,7 +357,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					Scripts: scripts,
 				},
 			}
-			jobTask.Steps = append(jobTask.Steps, shellStep)
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 		}
 		resp = append(resp, jobTask)
 	}

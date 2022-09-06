@@ -100,10 +100,6 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 	return nil
 }
 
-func (s *toolInstallCtl) Run(ctx context.Context) (config.Status, error) {
-	return config.StatusPassed, nil
-}
-
 func (s *toolInstallCtl) AfterRun(ctx context.Context) error {
 	return nil
 }

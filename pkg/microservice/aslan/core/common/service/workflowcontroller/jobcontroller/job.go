@@ -30,15 +30,12 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util/rand"
 )
 
 type JobCtl interface {
 	Run(ctx context.Context)
-	Wait(ctx context.Context)
-	Complete(ctx context.Context)
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
@@ -52,36 +49,9 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	job.Status = config.StatusRunning
 	job.StartTime = time.Now().Unix()
 	ack()
-	// set default timeout
-	if job.Properties.Timeout <= 0 {
-		job.Properties.Timeout = 600
-	}
-	// set default resource
-	if job.Properties.ResourceRequest == setting.Request("") {
-		job.Properties.ResourceRequest = setting.MinRequest
-	}
-	// set default resource
-	if job.Properties.ClusterID == "" {
-		job.Properties.ClusterID = setting.LocalClusterID
-	}
-	// init step configration.
-	if err := stepcontroller.PrepareSteps(ctx, workflowCtx, &job.Properties.Paths, job.Steps, logger); err != nil {
-		logger.Error(err)
-		job.Error = err.Error()
-		job.Status = config.StatusFailed
-		job.EndTime = time.Now().Unix()
-		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
-		ack()
-		return
-	}
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
-		if err := stepcontroller.SummarizeSteps(ctx, workflowCtx, &job.Properties.Paths, job.Steps, logger); err != nil {
-			logger.Error(err)
-			job.Error = err.Error()
-			job.Status = config.StatusFailed
-		}
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
@@ -89,18 +59,11 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	var jobCtl JobCtl
 	switch job.JobType {
 	case string(config.JobZadigDeploy):
-		fallthrough
+		jobCtl = NewDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobZadigHelmDeploy):
+		jobCtl = NewHelmDeployJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobCustomDeploy):
-		fallthrough
-	case string(config.JobDeploy):
-		// do deploy inside aslan instead of jobexecutor.
-		status, err := stepcontroller.RunSteps(ctx, workflowCtx, &job.Properties.Paths, job.Steps, logger)
-		job.Status = status
-		if err != nil {
-			logger.Error(err)
-			job.Error = err.Error()
-		}
-		return
+		jobCtl = NewCustomDeployJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobPlugin):
 		jobCtl = NewPluginsJobCtl(job, workflowCtx, ack, logger)
 	default:
@@ -108,8 +71,6 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	}
 
 	jobCtl.Run(ctx)
-	jobCtl.Wait(ctx)
-	jobCtl.Complete(ctx)
 }
 
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {

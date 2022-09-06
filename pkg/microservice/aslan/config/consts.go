@@ -171,13 +171,14 @@ const (
 type JobType string
 
 const (
-	JobBuild        JobType = "build"
-	JobDeploy       JobType = "deploy"
-	JobZadigBuild   JobType = "zadig-build"
-	JobCustomDeploy JobType = "custom-deploy"
-	JobZadigDeploy  JobType = "zadig-deploy"
-	JobFreestyle    JobType = "freestyle"
-	JobPlugin       JobType = "plugin"
+	JobBuild           JobType = "build"
+	JobDeploy          JobType = "deploy"
+	JobZadigBuild      JobType = "zadig-build"
+	JobCustomDeploy    JobType = "custom-deploy"
+	JobZadigDeploy     JobType = "zadig-deploy"
+	JobZadigHelmDeploy JobType = "zadig-helm-deploy"
+	JobFreestyle       JobType = "freestyle"
+	JobPlugin          JobType = "plugin"
 )
 
 type ApproveOrReject string

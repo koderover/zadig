@@ -172,25 +172,29 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	j.job.Spec = j.spec
-	jobTask := &commonmodels.JobTask{
-		Name:       j.job.Name,
-		JobType:    string(config.JobFreestyle),
+	jobTaskSpec := &commonmodels.JobTaskBuildSpec{
 		Properties: *j.spec.Properties,
 		Steps:      stepsToStepTasks(j.spec.Steps),
+	}
+	jobTask := &commonmodels.JobTask{
+		Name:    j.job.Name,
+		JobType: string(config.JobFreestyle),
+		Spec:    jobTaskSpec,
+		Timeout: j.spec.Properties.Timeout,
 	}
 	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
 	if err != nil {
 		return resp, err
 	}
-	jobTask.Properties.Registries = registries
-	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTask.Properties.ImageID)
+	jobTaskSpec.Properties.Registries = registries
+	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTaskSpec.Properties.ImageID)
 	if err != nil {
 		return resp, err
 	}
-	jobTask.Properties.BuildOS = basicImage.Value
+	jobTaskSpec.Properties.BuildOS = basicImage.Value
 	// save user defined variables.
-	jobTask.Properties.CustomEnvs = jobTask.Properties.Envs
-	jobTask.Properties.Envs = append(jobTask.Properties.Envs, getfreestyleJobVariables(jobTask.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
+	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
