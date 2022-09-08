@@ -1403,6 +1403,8 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 	productResp.Services = allServices
 
+	log.Infof("######### setting status to %v for product: %s:%s", setting.ProductStatusUpdating, productName, envName)
+
 	// set status to updating
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
@@ -3555,6 +3557,7 @@ func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, 
 func updateProductGroup(username, productName, envName string, productResp *commonmodels.Product,
 	overrideCharts []*commonservice.RenderChartArg, deletedSvcRevision map[string]int64, log *zap.SugaredLogger) error {
 
+	log.Infof("#########  start updateProductGroup for env: %s:%s", productName, envName)
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -3572,6 +3575,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc("对比环境中的value.yaml和系统默认的value.yaml失败")
 	}
+	log.Infof("######## the new renderset info is: %s, revision: %d", renderSet.Name, renderSet.Revision)
 
 	productResp.ChartInfos = renderSet.ChartInfos
 	svcNameSet := sets.NewString()
@@ -3586,6 +3590,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 		return svcNameSet.Has(svc.ServiceName)
 	}
 
+	log.Infof("########## update product info, and service need to be updated are: %v", svcNameSet.List())
 	productResp.Render.Revision = renderSet.Revision
 	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
 		log.Errorf("Failed to update env, err: %s", err)
@@ -3893,6 +3898,8 @@ func proceedHelmRelease(productName, envName string, productResp *commonmodels.P
 	for _, renderChart := range productResp.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
+
+	log.Infof("######### start proceedHelmRelease, chartMap: %+v", renderChartMap)
 
 	prodServiceMap := productResp.GetServiceMap()
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) (err error) {
