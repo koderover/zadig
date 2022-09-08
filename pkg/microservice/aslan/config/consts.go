@@ -171,14 +171,18 @@ const (
 type JobType string
 
 const (
-	JobBuild           JobType = "build"
-	JobDeploy          JobType = "deploy"
-	JobZadigBuild      JobType = "zadig-build"
-	JobCustomDeploy    JobType = "custom-deploy"
-	JobZadigDeploy     JobType = "zadig-deploy"
-	JobZadigHelmDeploy JobType = "zadig-helm-deploy"
-	JobFreestyle       JobType = "freestyle"
-	JobPlugin          JobType = "plugin"
+	JobBuild            JobType = "build"
+	JobDeploy           JobType = "deploy"
+	JobZadigBuild       JobType = "zadig-build"
+	JobCustomDeploy     JobType = "custom-deploy"
+	JobZadigDeploy      JobType = "zadig-deploy"
+	JobZadigHelmDeploy  JobType = "zadig-helm-deploy"
+	JobFreestyle        JobType = "freestyle"
+	JobPlugin           JobType = "plugin"
+	JobBlueGreenDeploy  JobType = "blue-green-deploy"
+	JobBlueGreenRelease JobType = "blue-green-release"
+	JobCaneryDeploy     JobType = "canary-deploy"
+	JobCanaryRelease    JobType = "canary-release"
 )
 
 type ApproveOrReject string
