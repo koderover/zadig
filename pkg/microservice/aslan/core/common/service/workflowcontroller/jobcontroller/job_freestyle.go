@@ -74,6 +74,8 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 	}
 }
 
+func (c *FreestyleJobCtl) Clean(ctx context.Context) {}
+
 func (c *FreestyleJobCtl) Run(ctx context.Context) {
 	if err := c.prepare(ctx); err != nil {
 		return

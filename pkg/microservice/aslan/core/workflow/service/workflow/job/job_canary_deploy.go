@@ -107,11 +107,12 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			continue
 		}
 		deployment := deployments[0]
-		target.DeployName = deployment.Name
+		target.WorkloadName = deployment.Name
+		target.WorkloadType = setting.Deployment
 		canaryReplica := math.Ceil(float64(*deployment.Spec.Replicas) * (float64(target.CanaryPercentage) / 100))
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
-			JobType: string(config.JobCaneryDeploy),
+			JobType: string(config.JobCanaryDeploy),
 			Spec: &commonmodels.JobTaskCanaryDeploySpec{
 				Namespace:        j.spec.Namespace,
 				ClusterID:        j.spec.ClusterID,

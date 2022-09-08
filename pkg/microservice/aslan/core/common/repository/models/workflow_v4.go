@@ -177,7 +177,8 @@ type CanaryTarget struct {
 	CanaryPercentage int    `bson:"canary_percentage"      json:"canary_percentage"     yaml:"canary_percentage"`
 	// unit is minute.
 	DeployTimeout int64  `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
-	DeployName    string `bson:"deploy_name"            json:"deploy_name"           yaml:"deploy_name"`
+	WorkloadName  string `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
+	WorkloadType  string `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
 }
 
 type JobProperties struct {

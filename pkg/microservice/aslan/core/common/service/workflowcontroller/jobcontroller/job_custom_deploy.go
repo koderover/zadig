@@ -58,6 +58,8 @@ func NewCustomDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.
 	}
 }
 
+func (c *CustomDeployJobCtl) Clean(ctx context.Context) {}
+
 func (c *CustomDeployJobCtl) Run(ctx context.Context) {
 	if err := c.run(ctx); err != nil {
 		return

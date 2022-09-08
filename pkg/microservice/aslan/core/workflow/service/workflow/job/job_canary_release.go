@@ -17,6 +17,9 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
@@ -56,6 +59,38 @@ func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 		return resp, err
 	}
 
+	var releaseJobSpec *commonmodels.CanaryDeployJobSpec
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobCanaryRelease || job.Name != j.spec.FromJob {
+				continue
+			}
+			if err := commonmodels.IToi(job.Spec, releaseJobSpec); err != nil {
+				return resp, err
+			}
+			break
+		}
+	}
+	if releaseJobSpec == nil {
+		return resp, fmt.Errorf("no canary release job: %s found, please check workflow configuration", j.spec.FromJob)
+	}
+	for _, target := range releaseJobSpec.Targets {
+		task := &commonmodels.JobTask{
+			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
+			JobType: string(config.JobCanaryRelease),
+			Spec: &commonmodels.JobTaskCanaryReleaseSpec{
+				Namespace:      releaseJobSpec.Namespace,
+				ClusterID:      releaseJobSpec.ClusterID,
+				ReleaseTimeout: j.spec.ReleaseTimeout,
+				K8sServiceName: target.K8sServiceName,
+				WorkloadType:   target.WorkloadType,
+				WorkloadName:   target.WorkloadName,
+				ContainerName:  target.ContainerName,
+				Image:          target.Image,
+			},
+		}
+		resp = append(resp, task)
+	}
 	j.job.Spec = j.spec
 	return resp, nil
 }

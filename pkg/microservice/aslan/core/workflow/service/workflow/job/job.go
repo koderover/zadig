@@ -54,7 +54,7 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &BlueGreenDeployJob{job: job, workflow: workflow}
 	case config.JobBlueGreenRelease:
 		resp = &BlueGreenReleaseJob{job: job, workflow: workflow}
-	case config.JobCaneryDeploy:
+	case config.JobCanaryDeploy:
 		resp = &CanaryDeployJob{job: job, workflow: workflow}
 	case config.JobCanaryRelease:
 		resp = &CanaryReleaseJob{job: job, workflow: workflow}

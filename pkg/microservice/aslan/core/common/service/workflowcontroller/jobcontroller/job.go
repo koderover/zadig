@@ -36,6 +36,29 @@ import (
 
 type JobCtl interface {
 	Run(ctx context.Context)
+	// do some clean stuff when workflow finished, like collect reports or clean up resources.
+	Clean(ctx context.Context)
+}
+
+func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
+	var jobCtl JobCtl
+	switch job.JobType {
+	case string(config.JobZadigDeploy):
+		jobCtl = NewDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobZadigHelmDeploy):
+		jobCtl = NewHelmDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobCustomDeploy):
+		jobCtl = NewCustomDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobPlugin):
+		jobCtl = NewPluginsJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobCanaryDeploy):
+		jobCtl = NewCanaryDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobCanaryRelease):
+		jobCtl = NewCanaryReleaseJobCtl(job, workflowCtx, ack, logger)
+	default:
+		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
+	}
+	return jobCtl
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
@@ -56,19 +79,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
 	}()
-	var jobCtl JobCtl
-	switch job.JobType {
-	case string(config.JobZadigDeploy):
-		jobCtl = NewDeployJobCtl(job, workflowCtx, ack, logger)
-	case string(config.JobZadigHelmDeploy):
-		jobCtl = NewHelmDeployJobCtl(job, workflowCtx, ack, logger)
-	case string(config.JobCustomDeploy):
-		jobCtl = NewCustomDeployJobCtl(job, workflowCtx, ack, logger)
-	case string(config.JobPlugin):
-		jobCtl = NewPluginsJobCtl(job, workflowCtx, ack, logger)
-	default:
-		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
-	}
+	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 
 	jobCtl.Run(ctx)
 }
@@ -76,6 +87,15 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
 	jobPool := NewPool(ctx, jobs, workflowCtx, concurrency, logger, ack)
 	jobPool.Run()
+}
+
+func CleanWorkflowJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+			jobCtl.Clean(ctx)
+		}
+	}
 }
 
 // Pool is a worker group that runs a number of tasks at a

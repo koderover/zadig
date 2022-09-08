@@ -59,6 +59,18 @@ func NewCanaryReleaseJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels
 	}
 }
 
+func (c *CanaryReleaseJobCtl) Clean(ctx context.Context) {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		c.logger.Errorf("can't init k8s client: %v", err)
+	}
+
+	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
+	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, canarydeploymentName, kubeClient); err != nil {
+		c.logger.Errorf("delete canary deployment %s error: %v", canarydeploymentName, err)
+	}
+}
+
 func (c *CanaryReleaseJobCtl) Run(ctx context.Context) {
 	if err := c.run(ctx); err != nil {
 		return

@@ -181,7 +181,7 @@ const (
 	JobPlugin           JobType = "plugin"
 	JobBlueGreenDeploy  JobType = "blue-green-deploy"
 	JobBlueGreenRelease JobType = "blue-green-release"
-	JobCaneryDeploy     JobType = "canary-deploy"
+	JobCanaryDeploy     JobType = "canary-deploy"
 	JobCanaryRelease    JobType = "canary-release"
 )
 

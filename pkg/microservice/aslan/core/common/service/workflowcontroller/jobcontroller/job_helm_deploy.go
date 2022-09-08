@@ -82,6 +82,8 @@ func NewHelmDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wo
 	}
 }
 
+func (c *HelmDeployJobCtl) Clean(ctx context.Context) {}
+
 func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,

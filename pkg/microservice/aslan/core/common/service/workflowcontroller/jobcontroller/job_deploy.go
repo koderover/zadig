@@ -65,6 +65,8 @@ func NewDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workfl
 	}
 }
 
+func (c *DeployJobCtl) Clean(ctx context.Context) {}
+
 func (c *DeployJobCtl) Run(ctx context.Context) {
 	if err := c.run(ctx); err != nil {
 		return
