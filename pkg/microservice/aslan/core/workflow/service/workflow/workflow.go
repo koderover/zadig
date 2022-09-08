@@ -346,7 +346,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 			bf.RepoNamespace = bf.GetNamespace()
 		}
 	}
-	if resp.ArtifactStage.Enabled {
+	if resp.ArtifactStage != nil && resp.ArtifactStage.Enabled {
 		// make a map of current target modules
 		artifactMap := map[string]*commonmodels.ArtifactModule{}
 
