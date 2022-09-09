@@ -142,7 +142,7 @@ func (p *JenkinsPlugin) afterExec(ctx context.Context, jenkinsClient *gojenkins.
 		}
 	}
 	if buildID == 0 {
-		msg := "timeout waiting for jenkins job creation"
+		msg := "timeout waiting for jenkins job running"
 		log.Error(msg)
 		return errors.New(msg)
 	}
