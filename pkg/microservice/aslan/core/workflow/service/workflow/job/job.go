@@ -50,13 +50,13 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &FreeStyleJob{job: job, workflow: workflow}
 	case config.JobCustomDeploy:
 		resp = &CustomDeployJob{job: job, workflow: workflow}
-	case config.JobBlueGreenDeploy:
+	case config.JobK8sBlueGreenDeploy:
 		resp = &BlueGreenDeployJob{job: job, workflow: workflow}
-	case config.JobBlueGreenRelease:
+	case config.JobK8sBlueGreenRelease:
 		resp = &BlueGreenReleaseJob{job: job, workflow: workflow}
-	case config.JobCanaryDeploy:
+	case config.JobK8sCanaryDeploy:
 		resp = &CanaryDeployJob{job: job, workflow: workflow}
-	case config.JobCanaryRelease:
+	case config.JobK8sCanaryRelease:
 		resp = &CanaryReleaseJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
