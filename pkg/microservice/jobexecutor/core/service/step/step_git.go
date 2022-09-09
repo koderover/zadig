@@ -228,8 +228,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	}
 	if repo.Source == types.ProviderGitlab {
 		u, _ := url.Parse(repo.Address)
+		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, owner, repo.RepoName, u.Scheme)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, host, owner, repo.RepoName, u.Scheme)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGerrit {
@@ -243,9 +244,10 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		})
 	} else if repo.Source == types.ProviderCodehub {
 		u, _ := url.Parse(repo.Address)
+		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 		user := url.QueryEscape(repo.Username)
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, owner, repo.RepoName)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, host, owner, repo.RepoName)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGitee {
@@ -273,8 +275,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			if err != nil {
 				log.Errorf("failed to parse url,err:%s", err)
 			} else {
+				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &c.Command{
-					Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, u.Host, repo.RepoOwner, repo.RepoName, u.Scheme)),
+					Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.RepoOwner, repo.RepoName, u.Scheme)),
 					DisableTrace: true,
 				})
 			}
