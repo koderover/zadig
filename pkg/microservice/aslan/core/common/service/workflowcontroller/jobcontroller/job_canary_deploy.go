@@ -120,6 +120,7 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 	deployment.Name = deployment.Name + CanaryDeploymentSuffix
 	c.jobTaskSpec.CanaryWorkloadName = deployment.Name
 	deployment.Spec.Replicas = int32Ptr(int32(c.jobTaskSpec.CanaryReplica))
+	deployment.ObjectMeta.ResourceVersion = ""
 	for i := range deployment.Spec.Template.Spec.Containers {
 		if deployment.Spec.Template.Spec.Containers[i].Name == c.jobTaskSpec.ContainerName {
 			deployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
