@@ -127,7 +127,7 @@ func (p *JenkinsPlugin) afterExec(ctx context.Context, jenkinsClient *gojenkins.
 	}
 
 	var buildID int64
-	// 最多等待120秒
+	// wait up to 120 seconds
 	for i := 0; i < 120; i++ {
 		buildID = task.Raw.Executable.Number
 		if buildID > 0 {
