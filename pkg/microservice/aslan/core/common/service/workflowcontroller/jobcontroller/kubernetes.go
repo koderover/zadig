@@ -146,7 +146,7 @@ func getBaseImage(buildOS, imageFrom string) string {
 	return jobImage
 }
 
-func buildPlainJob(jobName string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
+func buildPlainJob(jobName string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskPluginSpec, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
 	collectJobOutput := `OLD_IFS=$IFS
 export IFS=","
 files='%s'
@@ -180,13 +180,13 @@ echo $result > %s
 		JobName:      jobTask.Name,
 	})
 
-	ImagePullSecrets, err := getImagePullSecrets(jobTask.Properties.Registries)
+	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
 	if err != nil {
 		return nil, err
 	}
 
 	envs := []corev1.EnvVar{}
-	for _, env := range jobTask.Plugin.Envs {
+	for _, env := range jobTaskSpec.Plugin.Envs {
 		envs = append(envs, corev1.EnvVar{Name: env.Name, Value: env.Value})
 	}
 
@@ -202,7 +202,7 @@ echo $result > %s
 			// in case finished zombie job not cleaned up by zadig
 			TTLSecondsAfterFinished: int32Ptr(3600),
 			// in case zombie job never stop
-			ActiveDeadlineSeconds: int64Ptr(jobTask.Properties.Timeout*60 + 3600),
+			ActiveDeadlineSeconds: int64Ptr(jobTaskSpec.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -214,9 +214,9 @@ echo $result > %s
 						{
 							ImagePullPolicy: corev1.PullAlways,
 							Name:            jobTask.Name,
-							Image:           jobTask.Plugin.Image,
-							Args:            jobTask.Plugin.Args,
-							Command:         jobTask.Plugin.Cmds,
+							Image:           jobTaskSpec.Plugin.Image,
+							Args:            jobTaskSpec.Plugin.Args,
+							Command:         jobTaskSpec.Plugin.Cmds,
 							Lifecycle: &corev1.Lifecycle{
 								PostStart: &corev1.Handler{
 									Exec: &corev1.ExecAction{
@@ -257,7 +257,7 @@ echo $result > %s
 	return job, nil
 }
 
-func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskBuildSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	// 	tailLogCommandTemplate := `tail -f %s &
 	// while [ -f %s ];
 	// do
@@ -286,7 +286,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		JobName:      jobTask.Name,
 	})
 
-	ImagePullSecrets, err := getImagePullSecrets(jobTask.Properties.Registries)
+	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			// in case finished zombie job not cleaned up by zadig
 			TTLSecondsAfterFinished: int32Ptr(3600),
 			// in case zombie job never stop
-			ActiveDeadlineSeconds: int64Ptr(jobTask.Properties.Timeout*60 + 3600),
+			ActiveDeadlineSeconds: int64Ptr(jobTaskSpec.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -343,7 +343,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 								// 连接对应wd上的dockerdeamon
 								{
 									Name:  "DOCKER_HOST",
-									Value: jobTask.Properties.DockerHost,
+									Value: jobTaskSpec.Properties.DockerHost,
 								},
 							},
 							VolumeMounts: getVolumeMounts(workflowCtx.ConfigMapMountDir),
@@ -368,26 +368,26 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		},
 	}
 
-	if jobTask.Properties.CacheEnable && jobTask.Properties.Cache.MediumType == commontypes.NFSMedium {
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
 		volumeName := "build-cache"
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
 			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: jobTask.Properties.Cache.NFSProperties.PVC,
+					ClaimName: jobTaskSpec.Properties.Cache.NFSProperties.PVC,
 				},
 			},
 		})
 
-		mountPath := jobTask.Properties.CacheUserDir
-		if jobTask.Properties.CacheDirType == commontypes.WorkspaceCacheDir {
+		mountPath := jobTaskSpec.Properties.CacheUserDir
+		if jobTaskSpec.Properties.CacheDirType == commontypes.WorkspaceCacheDir {
 			mountPath = workflowCtx.Workspace
 		}
 
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
 			MountPath: mountPath,
-			SubPath:   jobTask.Properties.Cache.NFSProperties.Subpath,
+			SubPath:   jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
 		})
 	}
 
@@ -717,9 +717,9 @@ func getJobOutput(namespace, containerName string, jobLabel *JobLabel, kubeClien
 	return resp, nil
 }
 
-func saveContainerLog(job *commonmodels.JobTask, workflowName string, taskID int64, jobLabel *JobLabel, kubeClient crClient.Client) error {
+func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID int64, jobLabel *JobLabel, kubeClient crClient.Client) error {
 	selector := labels.Set(getJobLabels(jobLabel)).AsSelector()
-	pods, err := getter.ListPods(job.Properties.Namespace, selector, kubeClient)
+	pods, err := getter.ListPods(namespace, selector, kubeClient)
 	if err != nil {
 		return err
 	}
@@ -738,13 +738,13 @@ func saveContainerLog(job *commonmodels.JobTask, workflowName string, taskID int
 		return pods[i].CreationTimestamp.Before(&pods[j].CreationTimestamp)
 	})
 
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), job.Properties.ClusterID)
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("saveContainerLog, get client set error: %s", err)
 		return err
 	}
 
-	if err := containerlog.GetContainerLogs(job.Properties.Namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, clientSet); err != nil {
+	if err := containerlog.GetContainerLogs(namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, clientSet); err != nil {
 		return fmt.Errorf("failed to get container logs: %s", err)
 	}
 
@@ -772,7 +772,7 @@ func saveContainerLog(job *commonmodels.JobTask, workflowName string, taskID int
 			if err != nil {
 				return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
 			}
-			fileName := strings.Replace(strings.ToLower(job.Name), "_", "-", -1)
+			fileName := strings.Replace(strings.ToLower(jobName), "_", "-", -1)
 			objectKey := GetObjectPath(store.Subfolder, fileName+".log")
 			if err = s3client.Upload(
 				store.Bucket,

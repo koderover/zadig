@@ -75,25 +75,28 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	j.job.Spec = j.spec
-	jobTask := &commonmodels.JobTask{
-		Name:       j.job.Name,
-		JobType:    string(config.JobPlugin),
+	jobTaskSpec := &commonmodels.JobTaskPluginSpec{
 		Properties: *j.spec.Properties,
 		Plugin:     j.spec.Plugin,
-		Outputs:    j.spec.Plugin.Outputs,
+	}
+	jobTask := &commonmodels.JobTask{
+		Name:    j.job.Name,
+		JobType: string(config.JobPlugin),
+		Spec:    jobTaskSpec,
+		Outputs: j.spec.Plugin.Outputs,
 	}
 	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
 	if err != nil {
 		return resp, err
 	}
-	jobTask.Properties.Registries = registries
+	jobTaskSpec.Properties.Registries = registries
 
 	renderedParams := []*commonmodels.Param{}
 	for _, param := range j.spec.Plugin.Inputs {
 		paramsKey := strings.Join([]string{"inputs", param.Name}, ".")
 		renderedParams = append(renderedParams, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
-	jobTask.Plugin = renderPlugin(jobTask.Plugin, renderedParams)
+	jobTaskSpec.Plugin = renderPlugin(jobTaskSpec.Plugin, renderedParams)
 
 	jobTask.Outputs = j.spec.Plugin.Outputs
 	return []*commonmodels.JobTask{jobTask}, nil

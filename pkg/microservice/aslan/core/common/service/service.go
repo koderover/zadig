@@ -486,7 +486,8 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 
 func needProcessWebhook(source string) bool {
 	if source == setting.ServiceSourceTemplate || source == setting.SourceFromZadig || source == setting.SourceFromGerrit ||
-		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate || source == setting.SourceFromChartRepo {
+		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate ||
+		source == setting.SourceFromChartRepo || source == setting.SourceFromCustomEdit {
 		return false
 	}
 	return true

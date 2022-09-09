@@ -22,7 +22,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type CustomDeployJob struct {
@@ -83,26 +82,21 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		workloadType := t[0]
 		workloadName := t[1]
 		containerName := t[2]
+		jobTaskSpec := &commonmodels.JobTaskCustomDeploySpec{
+			Namespace:          j.spec.Namespace,
+			ClusterID:          j.spec.ClusterID,
+			Timeout:            j.spec.Timeout,
+			WorkloadType:       workloadType,
+			WorkloadName:       workloadName,
+			ContainerName:      containerName,
+			Image:              target.Image,
+			SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+		}
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + workloadType + "-" + workloadName + "-" + containerName),
 			JobType: string(config.JobCustomDeploy),
+			Spec:    jobTaskSpec,
 		}
-		deployStep := &commonmodels.StepTask{
-			Name:     workloadType + "-" + workloadName + "-" + containerName,
-			JobName:  jobTask.Name,
-			StepType: config.StepCustomDeploy,
-			Spec: step.StepCustomDeploySpec{
-				Namespace:          j.spec.Namespace,
-				ClusterID:          j.spec.ClusterID,
-				Timeout:            j.spec.Timeout * 60,
-				WorkloadType:       workloadType,
-				WorkloadName:       workloadName,
-				ContainerName:      containerName,
-				Image:              target.Image,
-				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
-			},
-		}
-		jobTask.Steps = append(jobTask.Steps, deployStep)
 		resp = append(resp, jobTask)
 	}
 	j.job.Spec = j.spec

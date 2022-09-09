@@ -29,9 +29,6 @@ import (
 type StepCtl interface {
 	// get required info from aslan before job run.
 	PreRun(ctx context.Context) error
-	// run specific step, now only use for deploy job (freestyle job merge step together)
-	Run(ctx context.Context) (config.Status, error)
-
 	// collect required info after job run.(like test report)
 	AfterRun(ctx context.Context) error
 }
@@ -51,24 +48,6 @@ func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx
 		}
 	}
 	return nil
-}
-
-func RunSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) (config.Status, error) {
-	stepCtls := []StepCtl{}
-	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, logger)
-		if err != nil {
-			return config.StatusFailed, err
-		}
-		stepCtls = append(stepCtls, stepCtl)
-	}
-	for _, stepCtl := range stepCtls {
-		status, err := stepCtl.Run(ctx)
-		if err != nil || status != config.StatusPassed {
-			return status, err
-		}
-	}
-	return config.StatusPassed, nil
 }
 
 func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
@@ -102,12 +81,6 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 		stepCtl, err = NewToolInstallCtl(step, jobPath, logger)
 	case config.StepArchive:
 		stepCtl, err = NewArchiveCtl(step, logger)
-	case config.StepDeploy:
-		stepCtl, err = NewDeployCtl(step, workflowCtx, logger)
-	case config.StepHelmDeploy:
-		stepCtl, err = NewHelmDeployCtl(step, workflowCtx, logger)
-	case config.StepCustomDeploy:
-		stepCtl, err = NewCustomDeployCtl(step, workflowCtx, logger)
 	default:
 		logger.Errorf("unknown step type: %s", step.StepType)
 		return stepCtl, fmt.Errorf("unknown step type: %s", step.StepType)

@@ -63,16 +63,8 @@ type HelmService struct {
 	Services     [][]string              `json:"services"`
 }
 
-type HelmServiceArgs struct {
-	ProductName      string             `json:"product_name"`
-	CreateBy         string             `json:"create_by"`
-	HelmServiceInfos []*HelmServiceInfo `json:"helm_service_infos"`
-}
-
-type HelmServiceInfo struct {
-	ServiceName string `json:"service_name"`
+type HelmChartEditInfo struct {
 	FilePath    string `json:"file_path"`
-	FileName    string `json:"file_name"`
 	FileContent string `json:"file_content"`
 }
 
@@ -327,6 +319,121 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	}
 
 	return string(fileContent), nil
+}
+
+func EditFileContent(serviceName, productName, createdBy, requestID string, param *HelmChartEditInfo, logger *zap.SugaredLogger) error {
+	if len(param.FilePath) == 0 {
+		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("file path can't be nil"))
+	}
+	if param.FilePath != setting.ValuesYaml {
+		return e.ErrEditHelmCharts.AddDesc(fmt.Sprintf("only values.yaml can be edited"))
+	}
+
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: productName,
+		ServiceName: serviceName,
+	})
+	if err != nil {
+		return e.ErrEditHelmCharts.AddDesc(err.Error())
+	}
+
+	if svc.Source != setting.SourceFromChartTemplate && svc.Source != setting.SourceFromCustomEdit {
+		return e.ErrEditHelmCharts.AddDesc(fmt.Sprintf("can't edit file"))
+	}
+
+	// preload current chart
+	base := config.LocalServicePath(productName, serviceName)
+	err = commonservice.PreLoadServiceManifests(base, svc)
+	if err != nil {
+		return e.ErrEditHelmCharts.AddErr(err)
+	}
+
+	// check content equals
+	file := filepath.Join(base, serviceName, param.FilePath)
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to read file: %s, err: %s", file, err))
+	}
+	if string(content) == param.FileContent {
+		return nil
+	}
+
+	if err = os.WriteFile(file, []byte(param.FileContent), 0644); err != nil {
+		logger.Errorf("Failed to write file, err: %s", err)
+		return e.ErrEditHelmCharts.AddErr(err)
+	}
+
+	var rev int64
+	rev, err = getNextServiceRevision(productName, serviceName)
+	if err != nil {
+		logger.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
+		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to get service next revision for service %s, err: %s", serviceName, err))
+	}
+
+	err = copyChartRevision(productName, serviceName, rev)
+	if err != nil {
+		logger.Errorf("Failed to copy file %s, err: %s", serviceName, err)
+		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to copy file for service %s, err: %s", serviceName, err))
+	}
+
+	// clear files from both s3 and local when error occurred in next stages
+	defer func() {
+		if err != nil {
+			clearChartFiles(productName, serviceName, rev, logger)
+		}
+	}()
+
+	fsTree := os.DirFS(config.LocalServicePath(productName, serviceName))
+
+	// read values.yaml
+	valuesYAML, errRead := readValuesYAML(fsTree, serviceName, logger)
+	if errRead != nil {
+		err = errRead
+		return e.ErrEditHelmCharts.AddErr(err)
+	}
+
+	serviceS3Base := config.ObjectStorageServicePath(productName, serviceName)
+	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, serviceS3Base, logger); err != nil {
+		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to upload files for service %s in project %s, err: %s", serviceName, productName, err))
+	}
+
+	svc, err = createOrUpdateHelmService(
+		fsTree,
+		&helmServiceCreationArgs{
+			ChartName:       svc.HelmChart.Name,
+			ChartVersion:    svc.HelmChart.Version,
+			ServiceRevision: rev,
+			MergedValues:    string(valuesYAML),
+			ServiceName:     svc.ServiceName,
+			FilePath:        base,
+			ProductName:     productName,
+			CreateBy:        createdBy,
+			RequestID:       requestID,
+			Source:          setting.SourceFromCustomEdit,
+			ValuesSource:    &commonservice.ValuesDataArgs{},
+			CreationDetail:  svc.CreateFrom,
+			AutoSync:        svc.AutoSync,
+		}, true,
+		logger,
+	)
+
+	if err != nil {
+		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to create service %s in project %s, error: %s", serviceName, productName, err))
+	}
+
+	compareHelmVariable([]*templatemodels.RenderChart{
+		{
+			ServiceName:  svc.ServiceName,
+			ChartVersion: svc.HelmChart.Version,
+			ValuesYaml:   svc.HelmChart.ValuesYaml,
+		},
+	}, productName, createdBy, logger)
+
+	err = service.AutoDeployHelmServiceToEnvs(createdBy, requestID, productName, []*models.Service{svc}, logger)
+	if err != nil {
+		return e.ErrEditHelmCharts.AddErr(err)
+	}
+	return nil
 }
 
 func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*ChartTemplateData, error) {
@@ -1509,114 +1616,6 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 		fis = append(fis, fi)
 	}
 	return fis, nil
-}
-
-// EditHelmService deprecated
-func EditHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
-	serviceMap := make(map[string]int64)
-	for _, helmServiceInfo := range args.HelmServiceInfos {
-
-		opt := &commonrepo.ServiceFindOption{
-			ProductName: args.ProductName,
-			ServiceName: helmServiceInfo.ServiceName,
-			Type:        setting.HelmDeployType,
-		}
-		preServiceTmpl, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			return e.ErrUpdateTemplate.AddDesc(err.Error())
-		}
-
-		base := config.LocalServicePath(args.ProductName, helmServiceInfo.ServiceName)
-		if err = commonservice.PreLoadServiceManifests(base, preServiceTmpl); err != nil {
-			return e.ErrUpdateTemplate.AddDesc(err.Error())
-		}
-
-		filePath := filepath.Join(base, helmServiceInfo.ServiceName, helmServiceInfo.FilePath, helmServiceInfo.FileName)
-		if err = os.WriteFile(filePath, []byte(helmServiceInfo.FileContent), 0644); err != nil {
-			log.Errorf("Failed to write file %s, err: %s", filePath, err)
-			return e.ErrUpdateTemplate.AddDesc(err.Error())
-		}
-
-		// TODO：use yaml compare instead of just comparing the characters
-		// TODO service variables
-		if helmServiceInfo.FileName == setting.ValuesYaml && preServiceTmpl.HelmChart.ValuesYaml != helmServiceInfo.FileContent {
-			var valuesMap map[string]interface{}
-			if err = yaml.Unmarshal([]byte(helmServiceInfo.FileContent), &valuesMap); err != nil {
-				return e.ErrCreateTemplate.AddDesc("values.yaml解析失败")
-			}
-
-			containerList, err := commonservice.ParseImagesForProductService(valuesMap, preServiceTmpl.ServiceName, preServiceTmpl.ProductName)
-			if err != nil {
-				return e.ErrUpdateTemplate.AddErr(errors.Wrapf(err, "failed to parse images from yaml"))
-			}
-
-			preServiceTmpl.Containers = containerList
-			preServiceTmpl.HelmChart.ValuesYaml = helmServiceInfo.FileContent
-
-			//修改helm renderset
-			renderOpt := &commonrepo.RenderSetFindOption{Name: args.ProductName}
-			if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
-				for _, chartInfo := range rs.ChartInfos {
-					if chartInfo.ServiceName == helmServiceInfo.ServiceName {
-						chartInfo.ValuesYaml = helmServiceInfo.FileContent
-						break
-					}
-				}
-				if err = commonrepo.NewRenderSetColl().Update(rs); err != nil {
-					log.Errorf("[renderset.update] err:%v", err)
-				}
-			}
-		} else if helmServiceInfo.FileName == setting.ChartYaml {
-			chart := new(Chart)
-			if err = yaml.Unmarshal([]byte(helmServiceInfo.FileContent), chart); err != nil {
-				return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("解析%s失败", setting.ChartYaml))
-			}
-			if preServiceTmpl.HelmChart.Version != chart.Version {
-				preServiceTmpl.HelmChart.Version = chart.Version
-
-				//修改helm renderset
-				renderOpt := &commonrepo.RenderSetFindOption{Name: args.ProductName}
-				if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
-					for _, chartInfo := range rs.ChartInfos {
-						if chartInfo.ServiceName == helmServiceInfo.ServiceName {
-							chartInfo.ChartVersion = chart.Version
-							break
-						}
-					}
-					if err = commonrepo.NewRenderSetColl().Update(rs); err != nil {
-						log.Errorf("[renderset.update] err:%v", err)
-					}
-				}
-			}
-		}
-
-		preServiceTmpl.CreateBy = args.CreateBy
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, helmServiceInfo.ServiceName, preServiceTmpl.ProductName)
-		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
-		if err != nil {
-			return fmt.Errorf("get next helm service revision error: %v", err)
-		}
-
-		serviceMap[helmServiceInfo.ServiceName] = rev
-		preServiceTmpl.Revision = rev
-		if err := commonrepo.NewServiceColl().Delete(helmServiceInfo.ServiceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, preServiceTmpl.Revision); err != nil {
-			log.Errorf("helmService.update delete %s error: %v", helmServiceInfo.ServiceName, err)
-		}
-
-		if err := commonrepo.NewServiceColl().Create(preServiceTmpl); err != nil {
-			log.Errorf("helmService.update serviceName:%s error:%v", helmServiceInfo.ServiceName, err)
-			return e.ErrUpdateTemplate.AddDesc(err.Error())
-		}
-	}
-
-	for serviceName, rev := range serviceMap {
-		s3Base := config.ObjectStorageServicePath(args.ProductName, serviceName)
-		if err := fsservice.ArchiveAndUploadFilesToS3(os.DirFS(config.LocalServicePath(args.ProductName, serviceName)), []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, s3Base, log); err != nil {
-			return e.ErrUpdateTemplate.AddDesc(err.Error())
-		}
-	}
-
-	return nil
 }
 
 // compareHelmVariable 比较helm变量是否有改动，是否需要添加新的renderSet

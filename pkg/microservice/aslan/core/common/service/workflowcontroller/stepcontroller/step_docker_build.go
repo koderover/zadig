@@ -23,7 +23,6 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -52,21 +51,6 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 }
 
 func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
-	if s.dockerBuildSpec.DockerRegistry != nil && s.dockerBuildSpec.DockerRegistry.DockerRegistryID != "" {
-		reg, _ := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{ID: s.dockerBuildSpec.DockerRegistry.DockerRegistryID})
-		s.dockerBuildSpec.DockerRegistry.UserName = reg.AccessKey
-		s.dockerBuildSpec.DockerRegistry.Password = reg.SecretKey
-		s.dockerBuildSpec.DockerRegistry.Namespace = reg.Namespace
-		s.dockerBuildSpec.DockerRegistry.Host = reg.RegAddr
-	} else {
-		s.dockerBuildSpec.DockerRegistry = &step.DockerRegistry{
-			UserName:  config.RegistryAccessKey(),
-			Password:  config.RegistrySecretKey(),
-			Namespace: config.RegistryNamespace(),
-			Host:      config.RegistryAddress(),
-		}
-	}
-
 	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
 	if len(proxies) != 0 {
 		s.dockerBuildSpec.Proxy.Address = proxies[0].Address
@@ -80,10 +64,6 @@ func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
 	}
 	s.step.Spec = s.dockerBuildSpec
 	return nil
-}
-
-func (s *dockerBuildCtl) Run(ctx context.Context) (config.Status, error) {
-	return config.StatusPassed, nil
 }
 
 func (s *dockerBuildCtl) AfterRun(ctx context.Context) error {

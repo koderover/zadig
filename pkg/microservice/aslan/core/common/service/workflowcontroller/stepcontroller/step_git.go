@@ -23,7 +23,6 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -85,10 +84,6 @@ func (s *gitCtl) PreRun(ctx context.Context) error {
 	}
 	s.step.Spec = s.gitSpec
 	return nil
-}
-
-func (s *gitCtl) Run(ctx context.Context) (config.Status, error) {
-	return config.StatusPassed, nil
 }
 
 func (s *gitCtl) AfterRun(ctx context.Context) error {

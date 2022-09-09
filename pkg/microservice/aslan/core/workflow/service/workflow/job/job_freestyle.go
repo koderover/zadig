@@ -172,35 +172,62 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	j.job.Spec = j.spec
-	jobTask := &commonmodels.JobTask{
-		Name:       j.job.Name,
-		JobType:    string(config.JobFreestyle),
+	jobTaskSpec := &commonmodels.JobTaskBuildSpec{
 		Properties: *j.spec.Properties,
 		Steps:      stepsToStepTasks(j.spec.Steps),
+	}
+	jobTask := &commonmodels.JobTask{
+		Name:    j.job.Name,
+		JobType: string(config.JobFreestyle),
+		Spec:    jobTaskSpec,
+		Timeout: j.spec.Properties.Timeout,
 	}
 	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
 	if err != nil {
 		return resp, err
 	}
-	jobTask.Properties.Registries = registries
-	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTask.Properties.ImageID)
+	jobTaskSpec.Properties.Registries = registries
+	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTaskSpec.Properties.ImageID)
 	if err != nil {
 		return resp, err
 	}
-	jobTask.Properties.BuildOS = basicImage.Value
+	jobTaskSpec.Properties.BuildOS = basicImage.Value
 	// save user defined variables.
-	jobTask.Properties.CustomEnvs = jobTask.Properties.Envs
-	jobTask.Properties.Envs = append(jobTask.Properties.Envs, getfreestyleJobVariables(jobTask.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
+	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
 func stepsToStepTasks(step []*commonmodels.Step) []*commonmodels.StepTask {
+	logger := log.SugaredLogger()
 	resp := []*commonmodels.StepTask{}
 	for _, step := range step {
 		stepTask := &commonmodels.StepTask{
 			Name:     step.Name,
 			StepType: step.StepType,
 			Spec:     step.Spec,
+		}
+		if stepTask.StepType == config.StepDockerBuild {
+			stepTaskSpec := &steptypes.StepDockerBuildSpec{}
+			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
+				continue
+			}
+			registryID := ""
+			if stepTaskSpec.DockerRegistry != nil {
+				registryID = stepTaskSpec.DockerRegistry.DockerRegistryID
+			}
+			registry, _, err := commonservice.FindRegistryById(registryID, true, logger)
+			if err != nil {
+				logger.Errorf("FindRegistryById error: %v", err)
+			}
+			stepTaskSpec.DockerRegistry = &steptypes.DockerRegistry{
+				DockerRegistryID: registryID,
+				Host:             registry.RegAddr,
+				UserName:         registry.AccessKey,
+				Password:         registry.SecretKey,
+				Namespace:        registry.Namespace,
+			}
+			stepTask.Spec = stepTaskSpec
 		}
 		resp = append(resp, stepTask)
 	}
