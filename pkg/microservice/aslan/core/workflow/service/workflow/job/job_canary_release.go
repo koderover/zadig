@@ -62,7 +62,7 @@ func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 	var releaseJobSpec *commonmodels.CanaryDeployJobSpec
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.JobType != config.JobK8sCanaryRelease || job.Name != j.spec.FromJob {
+			if job.JobType != config.JobK8sCanaryDeploy || job.Name != j.spec.FromJob {
 				continue
 			}
 			if err := commonmodels.IToi(job.Spec, releaseJobSpec); err != nil {
