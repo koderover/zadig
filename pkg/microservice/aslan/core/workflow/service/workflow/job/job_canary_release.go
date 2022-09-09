@@ -59,28 +59,30 @@ func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 		return resp, err
 	}
 
-	var releaseJobSpec *commonmodels.CanaryDeployJobSpec
+	deployJobSpec := &commonmodels.CanaryDeployJobSpec{}
+	found := false
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.JobType != config.JobK8sCanaryDeploy || job.Name != j.spec.FromJob {
 				continue
 			}
-			if err := commonmodels.IToi(job.Spec, releaseJobSpec); err != nil {
+			if err := commonmodels.IToi(job.Spec, deployJobSpec); err != nil {
 				return resp, err
 			}
+			found = true
 			break
 		}
 	}
-	if releaseJobSpec == nil {
+	if !found {
 		return resp, fmt.Errorf("no canary release job: %s found, please check workflow configuration", j.spec.FromJob)
 	}
-	for _, target := range releaseJobSpec.Targets {
+	for _, target := range deployJobSpec.Targets {
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
 			JobType: string(config.JobK8sCanaryRelease),
 			Spec: &commonmodels.JobTaskCanaryReleaseSpec{
-				Namespace:      releaseJobSpec.Namespace,
-				ClusterID:      releaseJobSpec.ClusterID,
+				Namespace:      deployJobSpec.Namespace,
+				ClusterID:      deployJobSpec.ClusterID,
 				ReleaseTimeout: j.spec.ReleaseTimeout,
 				K8sServiceName: target.K8sServiceName,
 				WorkloadType:   target.WorkloadType,
