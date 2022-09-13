@@ -106,20 +106,22 @@ type ServiceAndImage struct {
 }
 
 type K8sCanaryDeployJobSpec struct {
-	Image          string `bson:"image"                        json:"image"`
-	K8sServiceName string `bson:"k8s_service_name"             json:"k8s_service_name"`
-	ClusterName    string `bson:"cluster_name"                 json:"cluster_name"`
-	Namespace      string `bson:"namespace"                    json:"namespace"`
-	ContainerName  string `bson:"container_name"               json:"container_name"`
-	CanaryReplica  int    `bson:"canary_replica"               json:"canary_replica"`
+	Image          string               `bson:"image"                        json:"image"`
+	K8sServiceName string               `bson:"k8s_service_name"             json:"k8s_service_name"`
+	ClusterName    string               `bson:"cluster_name"                 json:"cluster_name"`
+	Namespace      string               `bson:"namespace"                    json:"namespace"`
+	ContainerName  string               `bson:"container_name"               json:"container_name"`
+	CanaryReplica  int                  `bson:"canary_replica"               json:"canary_replica"`
+	Events         *commonmodels.Events `bson:"events"                       json:"events"`
 }
 
 type K8sCanaryReleaseJobSpec struct {
-	Image          string `bson:"image"                        json:"image"`
-	K8sServiceName string `bson:"k8s_service_name"             json:"k8s_service_name"`
-	ClusterName    string `bson:"cluster_name"                 json:"cluster_name"`
-	Namespace      string `bson:"namespace"                    json:"namespace"`
-	ContainerName  string `bson:"container_name"               json:"container_name"`
+	Image          string               `bson:"image"                        json:"image"`
+	K8sServiceName string               `bson:"k8s_service_name"             json:"k8s_service_name"`
+	ClusterName    string               `bson:"cluster_name"                 json:"cluster_name"`
+	Namespace      string               `bson:"namespace"                    json:"namespace"`
+	ContainerName  string               `bson:"container_name"               json:"container_name"`
+	Events         *commonmodels.Events `bson:"events"                       json:"events"`
 }
 
 func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
@@ -437,6 +439,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				Namespace:      taskJobSpec.Namespace,
 				ContainerName:  taskJobSpec.ContainerName,
 				CanaryReplica:  taskJobSpec.CanaryReplica,
+				Events:         taskJobSpec.Events,
 			}
 			cluster, err := commonrepo.NewK8SClusterColl().Get(taskJobSpec.ClusterID)
 			if err != nil {
@@ -455,6 +458,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				K8sServiceName: taskJobSpec.K8sServiceName,
 				Namespace:      taskJobSpec.Namespace,
 				ContainerName:  taskJobSpec.ContainerName,
+				Events:         taskJobSpec.Events,
 			}
 			cluster, err := commonrepo.NewK8SClusterColl().Get(taskJobSpec.ClusterID)
 			if err != nil {
