@@ -139,6 +139,7 @@ func transformStagetask(stageTask []*models.StageTask) ([]*commonmodels.StageTas
 						jobSpec := &commonmodels.JobTaskDeploySpec{
 							Env:                stepSpec.Env,
 							ServiceName:        stepSpec.ServiceName,
+							ServiceModule:      stepSpec.ServiceModule,
 							ServiceType:        setting.K8SDeployType,
 							SkipCheckRunStatus: stepSpec.SkipCheckRunStatus,
 							Image:              stepSpec.Image,
