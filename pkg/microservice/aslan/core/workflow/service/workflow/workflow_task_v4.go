@@ -105,6 +105,23 @@ type ServiceAndImage struct {
 	Image         string `bson:"image"                  json:"image"`
 }
 
+type K8sCanaryDeployJobSpec struct {
+	Image          string `bson:"image"                        json:"image"`
+	K8sServiceName string `bson:"k8s_service_name"             json:"k8s_service_name"`
+	ClusterName    string `bson:"cluster_name"                 json:"cluster_name"`
+	Namespace      string `bson:"namespace"                    json:"namespace"`
+	ContainerName  string `bson:"container_name"               json:"container_name"`
+	CanaryReplica  int    `bson:"canary_replica"               json:"canary_replica"`
+}
+
+type K8sCanaryReleaseJobSpec struct {
+	Image          string `bson:"image"                        json:"image"`
+	K8sServiceName string `bson:"k8s_service_name"             json:"k8s_service_name"`
+	ClusterName    string `bson:"cluster_name"                 json:"cluster_name"`
+	Namespace      string `bson:"namespace"                    json:"namespace"`
+	ContainerName  string `bson:"container_name"               json:"container_name"`
+}
+
 func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
@@ -409,6 +426,43 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				spec.ClusterName = cluster.Name
 			}
 			jobPreview.Spec = spec
+		case string(config.JobK8sCanaryDeploy):
+			taskJobSpec := &commonmodels.JobTaskCanaryDeploySpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			sepc := K8sCanaryDeployJobSpec{
+				Image:          taskJobSpec.Image,
+				K8sServiceName: taskJobSpec.K8sServiceName,
+				Namespace:      taskJobSpec.Namespace,
+				ContainerName:  taskJobSpec.ContainerName,
+				CanaryReplica:  taskJobSpec.CanaryReplica,
+			}
+			cluster, err := commonrepo.NewK8SClusterColl().Get(taskJobSpec.ClusterID)
+			if err != nil {
+				log.Errorf("cluster id: %s not found", taskJobSpec.ClusterID)
+			} else {
+				sepc.ClusterName = cluster.Name
+			}
+			jobPreview.Spec = sepc
+		case string(config.JobK8sCanaryRelease):
+			taskJobSpec := &commonmodels.JobTaskCanaryReleaseSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			sepc := K8sCanaryReleaseJobSpec{
+				Image:          taskJobSpec.Image,
+				K8sServiceName: taskJobSpec.K8sServiceName,
+				Namespace:      taskJobSpec.Namespace,
+				ContainerName:  taskJobSpec.ContainerName,
+			}
+			cluster, err := commonrepo.NewK8SClusterColl().Get(taskJobSpec.ClusterID)
+			if err != nil {
+				log.Errorf("cluster id: %s not found", taskJobSpec.ClusterID)
+			} else {
+				sepc.ClusterName = cluster.Name
+			}
+			jobPreview.Spec = sepc
 		default:
 			jobPreview.Spec = job.Spec
 		}
