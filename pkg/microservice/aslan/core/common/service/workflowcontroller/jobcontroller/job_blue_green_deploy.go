@@ -54,7 +54,9 @@ package jobcontroller
 // 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 // 		logger.Error(err)
 // 	}
+// if jobTaskSpec.Events==nil{
 // 	jobTaskSpec.Events = &commonmodels.Events{}
+// }
 // 	job.Spec = jobTaskSpec
 // 	return &BlueGreenDeployJobCtl{
 // 		job:         job,
