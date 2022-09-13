@@ -19,6 +19,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -126,8 +127,8 @@ func (p *JenkinsPlugin) afterExec(ctx context.Context, jenkinsClient *gojenkins.
 	}
 
 	var buildID int64
-	// 最多等待30秒
-	for i := 0; i < 30; i++ {
+	// wait up to 120 seconds
+	for i := 0; i < 120; i++ {
 		buildID = task.Raw.Executable.Number
 		if buildID > 0 {
 			break
@@ -139,6 +140,11 @@ func (p *JenkinsPlugin) afterExec(ctx context.Context, jenkinsClient *gojenkins.
 			log.Errorf("get jenkins queue poll task err:%v", err)
 			return err
 		}
+	}
+	if buildID == 0 {
+		msg := "timeout waiting for jenkins job running"
+		log.Error(msg)
+		return errors.New(msg)
 	}
 	log.Infof("Jenkins buildUrl: %s%d", task.Raw.Task.URL, buildID)
 	log.Infof("Jenkins buildNumber: %d", buildID)
