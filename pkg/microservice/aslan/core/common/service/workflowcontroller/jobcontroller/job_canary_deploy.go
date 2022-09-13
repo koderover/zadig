@@ -54,6 +54,7 @@ func NewCanaryDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
+	jobTaskSpec.Events = &commonmodels.Events{}
 	job.Spec = jobTaskSpec
 	return &CanaryDeployJobCtl{
 		job:         job,
