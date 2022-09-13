@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -47,10 +48,29 @@ func (c *WorkflowTaskV4Coll) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *WorkflowTaskV4Coll) ListAll() ([]*models.WorkflowTask, error) {
+func (c *WorkflowTaskV4Coll) List() ([]*models.WorkflowTask, error) {
 	query := bson.M{}
 
 	var resp []*models.WorkflowTask
+	ctx := context.Background()
+	opts := options.Find()
+	cursor, err := c.Collection.Find(ctx, query, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *WorkflowTaskV4Coll) ListNew() ([]*commonmodels.WorkflowTask, error) {
+	query := bson.M{}
+
+	var resp []*commonmodels.WorkflowTask
 	ctx := context.Background()
 	opts := options.Find()
 	cursor, err := c.Collection.Find(ctx, query, opts)

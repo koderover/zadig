@@ -34,7 +34,7 @@ import (
 
 func init() {
 	upgradepath.RegisterHandler("1.14.0", "1.15.0", V1140ToV1150)
-	upgradepath.RegisterHandler("1.15.0", "1.14.0", V1120ToV1110)
+	upgradepath.RegisterHandler("1.15.0", "1.14.0", V1150ToV1140)
 }
 
 func V1140ToV1150() error {
@@ -47,11 +47,16 @@ func V1140ToV1150() error {
 }
 
 func V1150ToV1140() error {
+	// roll back workflow_task_v4
+	if err := workflowV4JobRollback(); err != nil {
+		log.Errorf("workflowV4JobRollback err:%s", err)
+		return err
+	}
 	return nil
 }
 
 func workflowV4JobRefactor() error {
-	workflowtaskCol, err := internalmongodb.NewWorkflowTaskV4Coll().ListAll()
+	workflowtaskCol, err := internalmongodb.NewWorkflowTaskV4Coll().List()
 	if err != nil {
 		return fmt.Errorf("failed to list all data in `zadig.workflow_task_v4`,err: %s", err)
 	}
@@ -84,6 +89,40 @@ func workflowV4JobRefactor() error {
 	return err
 }
 
+func workflowV4JobRollback() error {
+	workflowtaskCol, err := internalmongodb.NewWorkflowTaskV4Coll().ListNew()
+	if err != nil {
+		return fmt.Errorf("failed to list all data in `zadig.workflow_task_v4`,err: %s", err)
+	}
+
+	if len(workflowtaskCol) == 0 {
+		return nil
+	}
+
+	var ms []mongo.WriteModel
+	for _, workflowTask := range workflowtaskCol {
+		rollBackStageTask, err := rollBackStagetask(workflowTask.Stages)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", workflowTask.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"stages", rollBackStageTask},
+					}},
+				}),
+		)
+	}
+	if len(ms) > 0 {
+		_, err = internalmongodb.NewWorkflowTaskV4Coll().BulkWrite(context.TODO(), ms)
+	}
+
+	return err
+}
+
 func transformStagetask(stageTask []*models.StageTask) ([]*commonmodels.StageTask, error) {
 	resp := []*commonmodels.StageTask{}
 	for _, originStage := range stageTask {
@@ -99,7 +138,6 @@ func transformStagetask(stageTask []*models.StageTask) ([]*commonmodels.StageTas
 				StartTime: originJob.StartTime,
 				EndTime:   originJob.EndTime,
 				Error:     originJob.Error,
-				Timeout:   originJob.EndTime,
 				Outputs:   originJob.Outputs,
 			}
 			switch originJob.JobType {
@@ -189,6 +227,135 @@ func transformStagetask(stageTask []*models.StageTask) ([]*commonmodels.StageTas
 			newJobs = append(newJobs, newJob)
 		}
 		newStage := commonmodels.StageTask{
+			Name:      originStage.Name,
+			Status:    originStage.Status,
+			StartTime: originStage.StartTime,
+			EndTime:   originStage.EndTime,
+			Parallel:  originStage.Parallel,
+			Approval:  originStage.Approval,
+			Error:     originStage.Error,
+			Jobs:      newJobs,
+		}
+		resp = append(resp, &newStage)
+	}
+	return resp, nil
+}
+
+func rollBackStagetask(stageTask []*commonmodels.StageTask) ([]*models.StageTask, error) {
+	resp := []*models.StageTask{}
+	for _, originStage := range stageTask {
+		newJobs := []*models.JobTask{}
+		for _, originJob := range originStage.Jobs {
+			if originJob.Spec == nil {
+				return resp, fmt.Errorf("not a illegal job input")
+			}
+			newJob := &models.JobTask{
+				Name:      originJob.Name,
+				JobType:   originJob.JobType,
+				Status:    originJob.Status,
+				StartTime: originJob.StartTime,
+				EndTime:   originJob.EndTime,
+				Error:     originJob.Error,
+				Outputs:   originJob.Outputs,
+			}
+			switch originJob.JobType {
+			case string(config.JobZadigBuild):
+				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
+					return resp, fmt.Errorf("unmashal job spec error: %v", err)
+				}
+				newJob.Steps = jobSpec.Steps
+				newJob.Properties = jobSpec.Properties
+
+			case string(config.JobZadigDeploy):
+				stepTask := &commonmodels.StepTask{
+					Name:     originJob.Name,
+					StepType: config.StepDeploy,
+				}
+				jobSpec := &commonmodels.JobTaskDeploySpec{}
+				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
+					return resp, fmt.Errorf("unmashal job spec error: %v", err)
+				}
+				stepSpec := &models.StepDeploySpec{
+					Env:                jobSpec.Env,
+					ServiceName:        jobSpec.ServiceName,
+					ServiceType:        setting.K8SDeployType,
+					ServiceModule:      jobSpec.ServiceModule,
+					SkipCheckRunStatus: jobSpec.SkipCheckRunStatus,
+					ClusterID:          jobSpec.ClusterID,
+					Timeout:            jobSpec.Timeout,
+					Image:              jobSpec.Image,
+					ReplaceResources:   jobSpec.ReplaceResources,
+				}
+				stepTask.Spec = stepSpec
+				newJob.Steps = []*commonmodels.StepTask{stepTask}
+
+			case string(config.JobZadigHelmDeploy):
+				newJob.JobType = string(config.JobZadigDeploy)
+				stepTask := &commonmodels.StepTask{
+					Name:     originJob.Name,
+					StepType: config.StepHelmDeploy,
+				}
+				jobSpec := &commonmodels.JobTaskHelmDeploySpec{}
+				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
+					return resp, fmt.Errorf("unmashal job spec error: %v", err)
+				}
+				stepSpec := &models.StepHelmDeploySpec{
+					Env:                jobSpec.Env,
+					ServiceName:        jobSpec.ServiceName,
+					ServiceType:        setting.HelmDeployType,
+					SkipCheckRunStatus: jobSpec.SkipCheckRunStatus,
+					ImageAndModules:    jobSpec.ImageAndModules,
+					ClusterID:          jobSpec.ClusterID,
+					ReleaseName:        jobSpec.ReleaseName,
+					Timeout:            jobSpec.Timeout,
+					ReplaceResources:   jobSpec.ReplaceResources,
+				}
+				stepTask.Spec = stepSpec
+				newJob.Steps = []*commonmodels.StepTask{stepTask}
+
+			case string(config.JobPlugin):
+				jobSpec := &commonmodels.JobTaskPluginSpec{}
+				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
+					return resp, fmt.Errorf("unmashal job spec error: %v", err)
+				}
+				newJob.Properties = jobSpec.Properties
+				newJob.Plugin = jobSpec.Plugin
+
+			case string(config.JobFreestyle):
+				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
+					return resp, fmt.Errorf("unmashal job spec error: %v", err)
+				}
+				newJob.Steps = jobSpec.Steps
+				newJob.Properties = jobSpec.Properties
+
+			case string(config.JobCustomDeploy):
+				stepTask := &commonmodels.StepTask{
+					Name:     originJob.Name,
+					StepType: config.StepCustomDeploy,
+				}
+				jobSpec := &commonmodels.JobTaskCustomDeploySpec{}
+				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
+					return resp, fmt.Errorf("unmashal job spec error: %v", err)
+				}
+				stepSpec := &models.StepCustomDeploySpec{
+					Namespace:          jobSpec.Namespace,
+					ClusterID:          jobSpec.ClusterID,
+					Timeout:            jobSpec.Timeout,
+					WorkloadType:       jobSpec.WorkloadType,
+					WorkloadName:       jobSpec.WorkloadName,
+					ContainerName:      jobSpec.ContainerName,
+					SkipCheckRunStatus: jobSpec.SkipCheckRunStatus,
+					Image:              jobSpec.Image,
+					ReplaceResources:   jobSpec.ReplaceResources,
+				}
+				stepTask.Spec = stepSpec
+				newJob.Steps = []*commonmodels.StepTask{stepTask}
+			}
+			newJobs = append(newJobs, newJob)
+		}
+		newStage := models.StageTask{
 			Name:      originStage.Name,
 			Status:    originStage.Status,
 			StartTime: originStage.StartTime,
