@@ -146,6 +146,7 @@ type JobTaskBlueGreenDeploySpec struct {
 	ContainerName  string  `bson:"container_name"         json:"container_name"        yaml:"container_name"`
 	Version        string  `bson:"version"                json:"version"               yaml:"version"`
 	Image          string  `bson:"image"                  json:"image"                 yaml:"image"`
+	FirstDeploy    bool    `bson:"first_deploy"           json:"first_deploy"          yaml:"first_deploy"`
 	Events         *Events `bson:"events"                 json:"events"                yaml:"events"`
 }
 
