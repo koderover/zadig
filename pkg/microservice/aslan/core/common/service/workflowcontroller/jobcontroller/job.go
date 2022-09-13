@@ -85,6 +85,15 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 }
 
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
+	if concurrency == 1 {
+		for _, job := range jobs {
+			runJob(ctx, job, workflowCtx, logger, ack)
+			if jobStatusFailed(job.Status) {
+				return
+			}
+		}
+		return
+	}
 	jobPool := NewPool(ctx, jobs, workflowCtx, concurrency, logger, ack)
 	jobPool.Run()
 }
@@ -176,4 +185,11 @@ func getJobName(workflowName string, taskID int64) string {
 		"_", "-", -1,
 	)
 	return rand.GenerateName(base)
+}
+
+func jobStatusFailed(status config.Status) bool {
+	if status == config.StatusCancelled || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusReject {
+		return true
+	}
+	return false
 }
