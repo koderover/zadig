@@ -22,14 +22,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-type ParameterSettingType string
-
-const (
-	StringType   ParameterSettingType = "string"
-	ChoiceType   ParameterSettingType = "choice"
-	ExternalType ParameterSettingType = "external"
-)
-
 type WorkflowTask struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
 	TaskID       int64              `bson:"task_id"                   json:"task_id"`
@@ -140,11 +132,11 @@ type Env struct {
 }
 
 type KeyVal struct {
-	Key          string               `bson:"key"                       json:"key"                         yaml:"key"`
-	Value        string               `bson:"value"                     json:"value"                       yaml:"value"`
-	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
-	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
-	IsCredential bool                 `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+	Key          string                            `bson:"key"                       json:"key"                         yaml:"key"`
+	Value        string                            `bson:"value"                     json:"value"                       yaml:"value"`
+	Type         commonmodels.ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
+	ChoiceOption []string                          `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	IsCredential bool                              `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 type StepDeploySpec struct {
