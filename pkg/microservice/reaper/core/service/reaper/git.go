@@ -201,8 +201,9 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	}
 	if repo.Source == meta.ProviderGitlab {
 		u, _ := url.Parse(repo.Address)
+		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, owner, repo.Name, u.Scheme)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.OauthToken, host, owner, repo.Name, u.Scheme)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == meta.ProviderGerrit {
@@ -216,9 +217,10 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		})
 	} else if repo.Source == meta.ProviderCodehub {
 		u, _ := url.Parse(repo.Address)
+		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 		user := url.QueryEscape(repo.User)
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, owner, repo.Name)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, host, owner, repo.Name)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == meta.ProviderGitee {
@@ -246,8 +248,9 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 			if err != nil {
 				log.Errorf("failed to parse url,err:%s", err)
 			} else {
+				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &c.Command{
-					Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.PrivateAccessToken, u.Host, repo.Owner, repo.Name, u.Scheme)),
+					Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.Owner, repo.Name, u.Scheme)),
 					DisableTrace: true,
 				})
 			}
