@@ -65,6 +65,7 @@ type JobTask struct {
 	Properties commonmodels.JobProperties   `bson:"properties"          json:"properties"`
 	Plugin     *commonmodels.PluginTemplate `bson:"plugin"              json:"plugin"`
 	Steps      []*commonmodels.StepTask     `bson:"steps"               json:"steps"`
+	Spec       interface{}                  `bson:"spec"          json:"spec"`
 	Outputs    []*commonmodels.Output       `bson:"outputs"             json:"outputs"`
 }
 
