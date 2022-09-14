@@ -139,25 +139,29 @@ type JobTaskBlueGreenDeploySpec struct {
 	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	// unit is minute.
-	DeployTimeout  int64   `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
-	K8sServiceName string  `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
-	WorkloadType   string  `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
-	WorkloadName   string  `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
-	ContainerName  string  `bson:"container_name"         json:"container_name"        yaml:"container_name"`
-	Version        string  `bson:"version"                json:"version"               yaml:"version"`
-	Image          string  `bson:"image"                  json:"image"                 yaml:"image"`
-	FirstDeploy    bool    `bson:"first_deploy"           json:"first_deploy"          yaml:"first_deploy"`
-	Events         *Events `bson:"events"                 json:"events"                yaml:"events"`
+	DeployTimeout      int64   `bson:"deploy_timeout"              json:"deploy_timeout"             yaml:"deploy_timeout"`
+	K8sServiceName     string  `bson:"k8s_service_name"            json:"k8s_service_name"           yaml:"k8s_service_name"`
+	BlueK8sServiceName string  `bson:"blue_k8s_service_name"       json:"blue_k8s_service_name"      yaml:"blue_k8s_service_name"`
+	WorkloadType       string  `bson:"workload_type"               json:"workload_type"              yaml:"workload_type"`
+	WorkloadName       string  `bson:"workload_name"               json:"workload_name"              yaml:"workload_name"`
+	BlueWorkloadName   string  `bson:"blue_workload_name"          json:"blue_workload_name"         yaml:"blue_workload_name"`
+	ContainerName      string  `bson:"container_name"              json:"container_name"             yaml:"container_name"`
+	Version            string  `bson:"version"                     json:"version"                    yaml:"version"`
+	Image              string  `bson:"image"                       json:"image"                      yaml:"image"`
+	FirstDeploy        bool    `bson:"first_deploy"                json:"first_deploy"               yaml:"first_deploy"`
+	Events             *Events `bson:"events"                      json:"events"                     yaml:"events"`
 }
 
 type JobTaskBlueGreenReleaseSpec struct {
-	ClusterID      string  `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	Namespace      string  `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	K8sServiceName string  `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
-	WorkloadType   string  `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
-	WorkloadName   string  `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
-	Version        string  `bson:"version"                json:"version"               yaml:"version"`
-	Events         *Events `bson:"events"                 json:"events"                yaml:"events"`
+	ClusterID          string  `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace          string  `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	K8sServiceName     string  `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
+	BlueK8sServiceName string  `bson:"blue_k8s_service_name"  json:"blue_k8s_service_name" yaml:"blue_k8s_service_name"`
+	WorkloadType       string  `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
+	WorkloadName       string  `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
+	BlueWorkloadName   string  `bson:"blue_workload_name"     json:"blue_workload_name"    yaml:"blue_workload_name"`
+	Version            string  `bson:"version"                json:"version"               yaml:"version"`
+	Events             *Events `bson:"events"                 json:"events"                yaml:"events"`
 }
 
 type JobTaskCanaryDeploySpec struct {

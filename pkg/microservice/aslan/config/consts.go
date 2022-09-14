@@ -291,3 +291,9 @@ const (
 	CommonEnvCfgTypeSecret    CommonEnvCfgType = "Secret"
 	CommonEnvCfgTypePvc       CommonEnvCfgType = "PVC"
 )
+
+const (
+	BlueGreenVerionLabelName = "zadig-blue-green-version"
+	BlueServiceNameSuffix    = "-zadig-blue"
+	OriginVersion            = "origin"
+)

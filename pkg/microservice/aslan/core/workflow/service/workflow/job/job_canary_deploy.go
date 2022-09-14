@@ -23,7 +23,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"k8s.io/apimachinery/pkg/labels"
@@ -78,14 +77,13 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
-	kubeClient := krkubeclient.Client()
-	if j.spec.ClusterID != "" {
-		kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
-		if err != nil {
-			logger.Errorf("Failed to get kube client, err: %v", err)
-			return resp, err
-		}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	if err != nil {
+		logger.Errorf("Failed to get kube client, err: %v", err)
+		return resp, err
 	}
+
 	for _, target := range j.spec.Targets {
 		service, exist, err := getter.GetService(j.spec.Namespace, target.K8sServiceName, kubeClient)
 		if err != nil || !exist {
