@@ -53,7 +53,7 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	// if the projectKey does not meet the requirements, we simply return an error
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.Err = err
 		return
 	}
 
