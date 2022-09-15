@@ -55,6 +55,10 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewCanaryDeployJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobK8sCanaryRelease):
 		jobCtl = NewCanaryReleaseJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sBlueGreenDeploy):
+		jobCtl = NewBlueGreenDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sBlueGreenRelease):
+		jobCtl = NewBlueGreenReleaseJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

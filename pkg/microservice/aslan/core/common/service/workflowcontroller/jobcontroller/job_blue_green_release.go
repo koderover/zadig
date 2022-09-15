@@ -30,7 +30,6 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/pkg/errors"
 )
 
 type BlueGreenReleaseJobCtl struct {
@@ -104,7 +103,7 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 	}
 }
 
-func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) error {
+func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 	var err error
 	if c.jobTaskSpec.ClusterID != "" {
 		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
@@ -114,7 +113,7 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) error {
 			c.job.Status = config.StatusFailed
 			c.job.Error = msg
 			c.jobTaskSpec.Events.Error(msg)
-			return errors.New(msg)
+			return
 		}
 	} else {
 		c.kubeClient = krkubeclient.Client()
@@ -126,7 +125,7 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) error {
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return
 	}
 	service.Spec.Selector[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
 	if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
@@ -135,7 +134,7 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) error {
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return
 	}
 	c.jobTaskSpec.Events.Info("point service to new deployment success")
 	c.ack()
@@ -152,8 +151,7 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) error {
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue green deployment succeed, now service point to deployemt: %s" + c.jobTaskSpec.BlueWorkloadName))
-	return nil
 }
