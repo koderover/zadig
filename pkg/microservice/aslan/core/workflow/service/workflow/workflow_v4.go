@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -544,4 +545,41 @@ func DeleteWebhookForWorkflowV4(workflowName, triggerName string, logger *zap.Su
 		return e.ErrDeleteWebhook.AddDesc(errMsg)
 	}
 	return nil
+}
+
+func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.SugaredLogger) error {
+	var workflows []commonrepo.WorkflowV4
+
+	for _, item := range args.Items {
+		workflows = append(workflows, commonrepo.WorkflowV4{
+			ProjectName: item.ProjectName,
+			Name:        item.Old,
+		})
+	}
+	oldWorkflows, err := commonrepo.NewWorkflowV4Coll().ListByWorkflows(commonrepo.ListWorkflowV4Opt{
+		Workflows: workflows,
+	})
+	if err != nil {
+		log.Error(err)
+		return e.ErrGetPipeline.AddErr(err)
+	}
+	workflowMap := make(map[string]*commonmodels.WorkflowV4)
+	for _, workflow := range oldWorkflows {
+		workflowMap[workflow.Project+"-"+workflow.Name] = workflow
+	}
+	var newWorkflows []*commonmodels.WorkflowV4
+	for _, workflow := range args.Items {
+		if item, ok := workflowMap[workflow.ProjectName+"-"+workflow.Old]; ok {
+			newItem := *item
+			newItem.UpdatedBy = username
+			newItem.Name = workflow.New
+			newItem.BaseName = workflow.BaseName
+			newItem.ID = primitive.NewObjectID()
+
+			newWorkflows = append(newWorkflows, &newItem)
+		} else {
+			return fmt.Errorf("workflow:%s not exist", item.Project+"-"+item.Name)
+		}
+	}
+	return commonrepo.NewWorkflowV4Coll().BulkCreate(newWorkflows)
 }

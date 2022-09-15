@@ -48,6 +48,7 @@ type ProductCMItem struct {
 }
 
 type WorkflowCMItem struct {
+	Type              string                   `bson:"type" json:"type"`
 	Name              string                   `bson:"name" json:"name"`
 	CollaborationType config.CollaborationType `bson:"collaboration_type" json:"collaboration_type"`
 	Verbs             []string                 `bson:"verbs" json:"verbs"`

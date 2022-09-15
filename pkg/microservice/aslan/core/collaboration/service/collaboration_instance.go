@@ -89,6 +89,7 @@ type Workflow struct {
 	CollaborationMode string                   `json:"collaboration_mode"`
 	Name              string                   `json:"name"`
 	Description       string                   `json:"description"`
+	Type              string                   `json:"type"`
 }
 
 type Product struct {
@@ -110,8 +111,9 @@ type GetCollaborationNewResp struct {
 }
 
 type GetCollaborationDeleteResp struct {
-	Workflows []string
-	Products  []string
+	CommonWorkflows []string
+	Workflows       []string
+	Products        []string
 }
 
 func getUpdateWorkflowDiff(cmwMap map[string]models.WorkflowCMItem, ciwMap map[string]models.WorkflowCIItem) (
@@ -218,6 +220,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 			BaseName:          workflow.Name,
 			Verbs:             workflow.Verbs,
 			CollaborationType: workflow.CollaborationType,
+			Type:              workflow.Type,
 		})
 	}
 	var products []models.ProductCIItem
@@ -892,6 +895,13 @@ func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projec
 			return err
 		}
 	}
+	for _, workflow := range deleteResp.CommonWorkflows {
+		err := commonservice.DeleteWorkflowV4(workflow, log)
+		if err != nil && err != mongo.ErrNoDocuments {
+			log.Errorf("delete workflow err:%v", err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -905,18 +915,38 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 		return nil
 	}
 	var newWorkflows []workflowservice.WorkflowCopyItem
+	var newCommonWorkflows []workflowservice.WorkflowCopyItem
 	for _, workflow := range newResp.Workflow {
 		if workflow.CollaborationType == config.CollaborationNew {
-			newWorkflows = append(newWorkflows, workflowservice.WorkflowCopyItem{
-				ProjectName: projectName,
-				Old:         workflow.BaseName,
-				New:         workflow.Name,
-				BaseName:    workflow.BaseName,
-			})
+			if workflow.Type == "common" {
+				newCommonWorkflows = append(newCommonWorkflows, workflowservice.WorkflowCopyItem{
+					ProjectName: projectName,
+					Old:         workflow.BaseName,
+					New:         workflow.Name,
+					BaseName:    workflow.BaseName,
+				})
+			} else {
+				newWorkflows = append(newWorkflows, workflowservice.WorkflowCopyItem{
+					ProjectName: projectName,
+					Old:         workflow.BaseName,
+					New:         workflow.Name,
+					BaseName:    workflow.BaseName,
+				})
+			}
+
 		}
 	}
 	if len(newWorkflows) > 0 {
 		err = workflowservice.BulkCopyWorkflow(workflowservice.BulkCopyWorkflowArgs{
+			Items: newWorkflows,
+		}, userName, logger)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(newCommonWorkflows) > 0 {
+		err = workflowservice.BulkCopyWorkflowV4(workflowservice.BulkCopyWorkflowArgs{
 			Items: newWorkflows,
 		}, userName, logger)
 		if err != nil {
@@ -1009,6 +1039,7 @@ func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectN
 func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollaborationDeleteResp {
 	productSet := sets.String{}
 	workflowSet := sets.String{}
+	commonWorkflowSet := sets.String{}
 	for _, item := range updateResp.Delete {
 		for _, product := range item.Products {
 			if product.CollaborationType == config.CollaborationNew {
@@ -1017,14 +1048,22 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		}
 		for _, workflow := range item.Workflows {
 			if workflow.CollaborationType == config.CollaborationNew {
-				workflowSet.Insert(workflow.Name)
+				if workflow.Type == "common" {
+					commonWorkflowSet.Insert(workflow.Name)
+				} else {
+					workflowSet.Insert(workflow.Name)
+				}
 			}
 		}
 	}
 	for _, item := range updateResp.Update {
 		for _, deleteWorkflow := range item.DeleteSpec.Workflows {
 			if deleteWorkflow.CollaborationType == config.CollaborationNew {
-				workflowSet.Insert(deleteWorkflow.Name)
+				if deleteWorkflow.Type == "common" {
+					commonWorkflowSet.Insert(deleteWorkflow.Name)
+				} else {
+					workflowSet.Insert(deleteWorkflow.Name)
+				}
 			}
 		}
 		for _, deleteProduct := range item.DeleteSpec.Products {
@@ -1035,7 +1074,12 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationNew &&
 				workflow.New.CollaborationType == config.CollaborationShare {
-				workflowSet.Insert(workflow.Old.Name)
+				if workflow.Old.Type == "common" {
+					commonWorkflowSet.Insert(workflow.Old.Name)
+				} else {
+					workflowSet.Insert(workflow.Old.Name)
+				}
+
 			}
 		}
 		for _, product := range item.UpdateSpec.Products {
@@ -1046,8 +1090,9 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		}
 	}
 	return &GetCollaborationDeleteResp{
-		Workflows: workflowSet.List(),
-		Products:  productSet.List(),
+		CommonWorkflows: commonWorkflowSet.List(),
+		Workflows:       workflowSet.List(),
+		Products:        productSet.List(),
 	}
 }
 
@@ -1067,6 +1112,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				BaseName:          workflow.Name,
 				CollaborationMode: mode.Name,
 				Name:              name,
+				Type:              workflow.Type,
 			})
 		}
 		for _, product := range mode.Products {
