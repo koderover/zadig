@@ -297,3 +297,24 @@ const (
 	BlueServiceNameSuffix    = "-zadig-blue"
 	OriginVersion            = "origin"
 )
+
+type ProjectType string
+
+const (
+	ProjectTypeHelm   = "helm"
+	ProjectTypeYaml   = "yaml"
+	ProjectTypeVM     = "vm"
+	ProjectTypeLoaded = "loaded"
+)
+
+type RegistryProvider string
+
+const (
+	RegistryProviderACR       = "acr"
+	RegistryProviderSWR       = "swr"
+	RegistryProviderTCR       = "tcr"
+	RegistryProviderHarbor    = "harbor"
+	RegistryProviderDockerhub = "dockerhub"
+	RegistryProviderECR       = "ecr"
+	RegistryProviderNative    = "native"
+)

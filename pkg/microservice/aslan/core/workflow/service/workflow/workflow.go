@@ -285,9 +285,16 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 		}
 		resp.Schedules = &schedule
 	}
+
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
+	if err != nil {
+		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
+	}
+
 	if resp.BuildStage.Enabled {
 		// make a map of current target modules
-		buildMap := map[string]bool{}
+		buildMap := map[string]*commonmodels.BuildModule{}
 
 		moList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
 		if err != nil {
@@ -295,22 +302,18 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 		}
 		for _, build := range resp.BuildStage.Modules {
 			key := fmt.Sprintf("%s-%s-%s", build.Target.ProductName, build.Target.ServiceName, build.Target.ServiceModule)
-			buildMap[key] = true
+			buildMap[key] = build
 			if build.Target.BuildName == "" {
 				build.Target.BuildName = findBuildName(key, moList)
 			}
 		}
 
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
-		if err != nil {
-			log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
-			return resp, e.ErrListTemplate.AddDesc(err.Error())
-		}
-
+		buildModules := []*commonmodels.BuildModule{}
 		for _, serviceTmpl := range services {
 			switch serviceTmpl.Type {
 			case setting.PMDeployType:
 				// PM service does not have such logic
+				buildModules = resp.BuildStage.Modules
 				break
 
 			case setting.K8SDeployType, setting.HelmDeployType:
@@ -318,8 +321,8 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 					key := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, container.Name)
 					// if no target info is found for this container, meaning that this is a new service for that workflow
 					// then we need to add it to the response
-					if _, ok := buildMap[key]; !ok {
-						resp.BuildStage.Modules = append(resp.BuildStage.Modules, &commonmodels.BuildModule{
+					if mod, ok := buildMap[key]; !ok {
+						buildModules = append(buildModules, &commonmodels.BuildModule{
 							HideServiceModule: false,
 							BuildModuleVer:    "stable",
 							Target: &commonmodels.ServiceModuleTarget{
@@ -329,10 +332,13 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 								BuildName:     findBuildName(key, moList),
 							},
 						})
+					} else {
+						buildModules = append(buildModules, mod)
 					}
 				}
 			}
 		}
+		resp.BuildStage.Modules = buildModules
 	}
 
 	for _, module := range resp.BuildStage.Modules {
@@ -340,6 +346,46 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 			bf.RepoNamespace = bf.GetNamespace()
 		}
 	}
+	if resp.ArtifactStage != nil && resp.ArtifactStage.Enabled {
+		// make a map of current target modules
+		artifactMap := map[string]*commonmodels.ArtifactModule{}
+
+		for _, artifact := range resp.ArtifactStage.Modules {
+			key := fmt.Sprintf("%s-%s-%s", artifact.Target.ProductName, artifact.Target.ServiceName, artifact.Target.ServiceModule)
+			artifactMap[key] = artifact
+		}
+
+		artifactModules := []*commonmodels.ArtifactModule{}
+		for _, serviceTmpl := range services {
+			switch serviceTmpl.Type {
+			case setting.PMDeployType:
+				// PM service does not have such logic
+				artifactModules = resp.ArtifactStage.Modules
+				break
+
+			case setting.K8SDeployType, setting.HelmDeployType:
+				for _, container := range serviceTmpl.Containers {
+					key := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, container.Name)
+					// if no target info is found for this container, meaning that this is a new service for that workflow
+					// then we need to add it to the response
+					if mod, ok := artifactMap[key]; !ok {
+						artifactModules = append(artifactModules, &commonmodels.ArtifactModule{
+							HideServiceModule: false,
+							Target: &commonmodels.ServiceModuleTarget{
+								ProductName:   serviceTmpl.ProductName,
+								ServiceName:   serviceTmpl.ServiceName,
+								ServiceModule: container.Name,
+							},
+						})
+					} else {
+						artifactModules = append(artifactModules, mod)
+					}
+				}
+			}
+		}
+		resp.ArtifactStage.Modules = artifactModules
+	}
+
 	for _, test := range resp.TestStage.Tests {
 		testModule, err := commonrepo.NewTestingColl().Find(test.Name, "")
 		if err != nil {
