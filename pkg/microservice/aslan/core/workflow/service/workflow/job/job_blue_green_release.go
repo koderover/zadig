@@ -91,6 +91,8 @@ func (j *BlueGreenReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, err
 				WorkloadType:       target.WorkloadType,
 				WorkloadName:       target.WorkloadName,
 				BlueWorkloadName:   target.BlueWorkloadName,
+				Image:              target.Image,
+				ContainerName:      target.ContainerName,
 				Version:            target.Version,
 			},
 		}

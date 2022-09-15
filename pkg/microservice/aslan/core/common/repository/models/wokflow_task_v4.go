@@ -161,6 +161,8 @@ type JobTaskBlueGreenReleaseSpec struct {
 	WorkloadName       string  `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
 	BlueWorkloadName   string  `bson:"blue_workload_name"     json:"blue_workload_name"    yaml:"blue_workload_name"`
 	Version            string  `bson:"version"                json:"version"               yaml:"version"`
+	Image              string  `bson:"image"                  json:"image"                 yaml:"image"`
+	ContainerName      string  `bson:"container_name"         json:"container_name"        yaml:"container_name"`
 	Events             *Events `bson:"events"                 json:"events"                yaml:"events"`
 }
 
