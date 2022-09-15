@@ -59,8 +59,11 @@ func (req OpenAPICreateRegistryReq) Validate() error {
 		return errors.New("address cannot be empty")
 	}
 
-	if req.Provider == "" {
-		return errors.New("provider cannot be empty")
+	switch req.Provider {
+	case config.RegistryProviderECR, config.RegistryProviderDockerhub, config.RegistryProviderACR, config.RegistryProviderHarbor, config.RegistryProviderNative, config.RegistryProviderSWR, config.RegistryProviderTCR:
+		break
+	default:
+		return errors.New("unsupported registry provider")
 	}
 
 	// only ECR can ignore namespace since it is in the address
