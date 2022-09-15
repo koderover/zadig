@@ -245,3 +245,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sonar.POST("/validate", ValidateSonarInformation)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	reg := router.Group("registry")
+	{
+		reg.POST("", OpenAPICreateRegistry)
+	}
+}
