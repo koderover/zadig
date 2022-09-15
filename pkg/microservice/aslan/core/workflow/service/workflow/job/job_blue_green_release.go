@@ -77,6 +77,9 @@ func (j *BlueGreenReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, err
 		return resp, fmt.Errorf("no blue-green release job: %s found, please check workflow configuration", j.spec.FromJob)
 	}
 	for _, target := range deployJobSpec.Targets {
+		if target.WorkloadName == "" {
+			continue
+		}
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
 			JobType: string(config.JobK8sBlueGreenRelease),

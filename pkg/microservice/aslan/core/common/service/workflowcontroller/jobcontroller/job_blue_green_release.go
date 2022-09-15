@@ -73,13 +73,14 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 	if err := updater.DeleteService(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueK8sServiceName, kubeClient); err != nil {
 		c.logger.Errorf("delete blue service error: %v", err)
 	}
-	// if service point to new deployment means blue green release succeed.
-	if service.Spec.Selector[config.BlueGreenVerionLabelName] == c.jobTaskSpec.Version {
+	//
+	// service point to new deployment means blue green release succeed.
+	if label, exist := service.Spec.Selector[config.BlueGreenVerionLabelName]; !exist || label == c.jobTaskSpec.Version {
 		return
 	}
 	// clear intermediate state resources
 	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueWorkloadName, kubeClient); err != nil {
-		c.logger.Errorf("delete old service error: %v", err)
+		c.logger.Errorf("delete old deployment error: %v", err)
 	}
 	// if it was the first time blue-green deployment, clean the origin labels.
 	if service.Spec.Selector[config.BlueGreenVerionLabelName] == config.OriginVersion {
@@ -88,15 +89,19 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 			c.logger.Errorf("delete origin label for service error: %v", err)
 			return
 		}
+		service.Spec.Selector[config.BlueGreenVerionLabelName] = config.OriginVersion
 		selector := labels.Set(service.Spec.Selector).AsSelector()
-		pods, err := getter.ListPods(c.jobTaskSpec.Namespace, selector, c.kubeClient)
+		pods, err := getter.ListPods(c.jobTaskSpec.Namespace, selector, kubeClient)
 		if err != nil {
 			c.logger.Errorf("list pods error: %v", err)
 			return
 		}
 		for _, pod := range pods {
-			deleteLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s","value":"%s" }]`, config.BlueGreenVerionLabelName, config.OriginVersion)
-			if err := updater.PatchPod(c.jobTaskSpec.Namespace, pod.Name, []byte(deleteLabelPatch), c.kubeClient); err != nil {
+			if pod.ObjectMeta.Labels[config.BlueGreenVerionLabelName] != config.OriginVersion {
+				continue
+			}
+			deleteLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVerionLabelName)
+			if err := updater.PatchPod(c.jobTaskSpec.Namespace, pod.Name, []byte(deleteLabelPatch), kubeClient); err != nil {
 				c.logger.Errorf("patch pod error: %v", err)
 			}
 		}
@@ -129,29 +134,30 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 	}
 	service.Spec.Selector[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
 	if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("point service to new deployment failed: %v", err)
+		msg := fmt.Sprintf("point service: %s to deployment: %s failed: %v", c.jobTaskSpec.K8sServiceName, c.jobTaskSpec.BlueWorkloadName, err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		c.jobTaskSpec.Events.Error(msg)
 		return
 	}
-	c.jobTaskSpec.Events.Info("point service to new deployment success")
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("point service: %s to deployment: %s success", c.jobTaskSpec.K8sServiceName, c.jobTaskSpec.BlueWorkloadName))
 	c.ack()
 	blueServiceName := c.jobTaskSpec.BlueK8sServiceName
 	if err := updater.DeleteService(c.jobTaskSpec.Namespace, blueServiceName, c.kubeClient); err != nil {
 		// delete failed, but we don't care
-		msg := fmt.Sprintf("delete blue service failed: %v", err)
+		msg := fmt.Sprintf("delete blue service: %s failed: %v", blueServiceName, err)
 		c.jobTaskSpec.Events.Error(msg)
 		c.ack()
 	}
 	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("delete old deployment failed: %v", err)
+		msg := fmt.Sprintf("delete old deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		c.jobTaskSpec.Events.Error(msg)
 		return
 	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue green deployment succeed, now service point to deployemt: %s" + c.jobTaskSpec.BlueWorkloadName))
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue green deployment succeed, now service point to deployemt: %s", c.jobTaskSpec.BlueWorkloadName))
+	c.job.Status = config.StatusPassed
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -85,32 +86,30 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, err
 	}
 
-	reg, err := regexp.Compile("v[0-9]{10}$")
-	if err != nil {
-		logger.Errorf("Failed to compile regex, err: %v", err)
-		return resp, err
-	}
-
 	for _, target := range j.spec.Targets {
 		service, exist, err := getter.GetService(j.spec.Namespace, target.K8sServiceName, kubeClient)
 		if err != nil || !exist {
-			logger.Errorf("Failed to get service, err: %v", err)
-			continue
+			msg := fmt.Sprintf("Failed to get service, err: %v", err)
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		delete(service.Spec.Selector, config.BlueGreenVerionLabelName)
 		selector := labels.Set(service.Spec.Selector).AsSelector()
 		deployments, err := getter.ListDeployments(j.spec.Namespace, selector, kubeClient)
 		if err != nil {
-			logger.Errorf("list deployments error: %v", err)
-			continue
+			msg := fmt.Sprintf("list deployments error: %v", err)
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		if len(deployments) == 0 {
-			logger.Error("no deployment found")
-			continue
+			msg := "no deployment found"
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		if len(deployments) > 1 {
-			logger.Error("more than one deployment found")
-			continue
+			msg := "more than one deployment found"
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		deployment := deployments[0]
 
@@ -119,7 +118,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		target.WorkloadName = deployment.Name
 		target.WorkloadType = setting.Deployment
 		target.BlueK8sServiceName = target.K8sServiceName + config.BlueServiceNameSuffix
-		target.BlueWorkloadName = reg.ReplaceAllString(deployment.Name, version)
+		target.BlueWorkloadName = getBlueWorkloadName(deployment.Name, version)
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
 			JobType: string(config.JobK8sBlueGreenDeploy),
@@ -143,4 +142,13 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	j.job.Spec = j.spec
 	return resp, nil
+}
+
+func getBlueWorkloadName(name, version string) string {
+	reg, _ := regexp.Compile("v[0-9]{10}$")
+	blueWorkfloadName := reg.ReplaceAllString(name, version)
+	if blueWorkfloadName == name {
+		blueWorkfloadName = name + "-" + version
+	}
+	return blueWorkfloadName
 }

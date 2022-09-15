@@ -17,6 +17,8 @@ limitations under the License.
 package job
 
 import (
+	"errors"
+	"fmt"
 	"math"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -87,22 +89,31 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	for _, target := range j.spec.Targets {
 		service, exist, err := getter.GetService(j.spec.Namespace, target.K8sServiceName, kubeClient)
 		if err != nil || !exist {
-			logger.Errorf("Failed to get service, err: %v", err)
-			continue
+			msg := fmt.Sprintf("Failed to get service, err: %v", err)
+			logger.Error(msg)
+			return resp, errors.New(msg)
+		}
+		if service.Spec.ClusterIP == "None" {
+			msg := fmt.Sprintf("service :%s was a headless service, which canry deployment do not suppoort", err)
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		selector := labels.Set(service.Spec.Selector).AsSelector()
 		deployments, err := getter.ListDeployments(j.spec.Namespace, selector, kubeClient)
 		if err != nil {
-			logger.Errorf("list deployments error: %v", err)
-			continue
+			msg := fmt.Sprintf("list deployments error: %v", err)
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		if len(deployments) == 0 {
-			logger.Error("no deployment found")
-			continue
+			msg := "no deployment found"
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		if len(deployments) > 1 {
-			logger.Error("more than one deployment found")
-			continue
+			msg := "more than one deployment found"
+			logger.Error(msg)
+			return resp, errors.New(msg)
 		}
 		deployment := deployments[0]
 		target.WorkloadName = deployment.Name
