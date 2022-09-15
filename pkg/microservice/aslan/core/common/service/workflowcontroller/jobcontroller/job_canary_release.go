@@ -105,18 +105,18 @@ func (c *CanaryReleaseJobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
-	msg := fmt.Sprintf("canary deployment %s deleted", canarydeploymentName)
+	msg := fmt.Sprintf("canary deployment: %s deleted", canarydeploymentName)
 	c.jobTaskSpec.Events.Info(msg)
 	c.ack()
 	if err := updater.UpdateDeploymentImage(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.ContainerName, c.jobTaskSpec.Image, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("update deployment %s image error: %v", c.jobTaskSpec.WorkloadName, err)
+		msg := fmt.Sprintf("update deployment: %s image error: %v", c.jobTaskSpec.WorkloadName, err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
-	msg = fmt.Sprintf("updating deployment %s image", c.jobTaskSpec.WorkloadName)
+	msg = fmt.Sprintf("updating deployment: %s image", c.jobTaskSpec.WorkloadName)
 	c.jobTaskSpec.Events.Info(msg)
 	c.ack()
 	return nil
@@ -132,7 +132,7 @@ func (c *CanaryReleaseJobCtl) wait(ctx context.Context) {
 
 		case <-timeout:
 			c.job.Status = config.StatusTimeout
-			msg := fmt.Sprintf("timeout waiting for the deployment %s to run", c.jobTaskSpec.WorkloadName)
+			msg := fmt.Sprintf("timeout waiting for the deployment: %s to run", c.jobTaskSpec.WorkloadName)
 			c.jobTaskSpec.Events.Info(msg)
 			return
 
@@ -149,7 +149,7 @@ func (c *CanaryReleaseJobCtl) wait(ctx context.Context) {
 			} else {
 				if wrapper.Deployment(d).Ready() {
 					c.job.Status = config.StatusPassed
-					msg := fmt.Sprintf("deployment %s image updateed successfully", c.jobTaskSpec.WorkloadName)
+					msg := fmt.Sprintf("deployment: %s image updateed successfully", c.jobTaskSpec.WorkloadName)
 					c.jobTaskSpec.Events.Info(msg)
 					return
 				}

@@ -54,7 +54,7 @@ func NewCanaryDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
-	if jobTaskSpec.Events==nil{
+	if jobTaskSpec.Events == nil {
 		jobTaskSpec.Events = &commonmodels.Events{}
 	}
 	job.Spec = jobTaskSpec
@@ -94,7 +94,7 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 
 	_, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, c.kubeClient)
 	if err != nil || !exist {
-		msg := fmt.Sprintf("service not found: %v", err)
+		msg := fmt.Sprintf("service: %s not found: %v", c.jobTaskSpec.K8sServiceName, err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
@@ -104,7 +104,7 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 
 	deployment, exist, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 	if err != nil || !exist {
-		msg := fmt.Sprintf("deployment not found: %v", err)
+		msg := fmt.Sprintf("deployment: %s not found: %v", c.jobTaskSpec.WorkloadName, err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
@@ -131,14 +131,14 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 		}
 	}
 	if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("create canary deployment failed: %v", err)
+		msg := fmt.Sprintf("create canary deployment: %s failed: %v", c.jobTaskSpec.CanaryWorkloadName, err)
 		c.logger.Error(msg)
 		c.job.Status = config.StatusFailed
 		c.job.Error = msg
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
-	msg := fmt.Sprintf("canary deployment %s created", deployment.Name)
+	msg := fmt.Sprintf("canary deployment: %s created", deployment.Name)
 	c.jobTaskSpec.Events.Info(msg)
 	c.ack()
 	return nil
@@ -154,7 +154,7 @@ func (c *CanaryDeployJobCtl) wait(ctx context.Context) {
 
 		case <-timeout:
 			c.job.Status = config.StatusTimeout
-			msg := fmt.Sprintf("timeout waiting for the canary deployment %s to run", c.jobTaskSpec.CanaryWorkloadName)
+			msg := fmt.Sprintf("timeout waiting for the canary deployment: %s to run", c.jobTaskSpec.CanaryWorkloadName)
 			c.jobTaskSpec.Events.Info(msg)
 			return
 
@@ -171,7 +171,7 @@ func (c *CanaryDeployJobCtl) wait(ctx context.Context) {
 			} else {
 				if wrapper.Deployment(d).Ready() {
 					c.job.Status = config.StatusPassed
-					msg := fmt.Sprintf("canary deployment %s create successfully", c.jobTaskSpec.CanaryWorkloadName)
+					msg := fmt.Sprintf("canary deployment: %s create successfully", c.jobTaskSpec.CanaryWorkloadName)
 					c.jobTaskSpec.Events.Info(msg)
 					return
 				}
