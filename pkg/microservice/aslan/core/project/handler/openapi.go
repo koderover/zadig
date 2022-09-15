@@ -20,11 +20,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"regexp"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
-	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -53,9 +51,9 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	// input validation for OpenAPI
 
 	// if the projectKey does not meet the requirements, we simply return an error
-	match, err := regexp.MatchString(setting.ProjectKeyRegEx, args.ProjectKey)
-	if err != nil || !match {
-		ctx.Err = e.ErrInternalError.AddErr(err).AddDesc(`project key should match regex: ^[a-z-\\d]+$`)
+	err = args.Validate()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 

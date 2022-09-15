@@ -16,7 +16,13 @@ limitations under the License.
 
 package service
 
-import "github.com/koderover/zadig/pkg/microservice/aslan/config"
+import (
+	"errors"
+	"regexp"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
+)
 
 type OpenAPICreateProductReq struct {
 	ProjectName string             `json:"project_name"`
@@ -24,4 +30,20 @@ type OpenAPICreateProductReq struct {
 	IsPublic    bool               `json:"is_public"`
 	Description string             `json:"description"`
 	ProjectType config.ProjectType `json:"project_type"`
+}
+
+func (req OpenAPICreateProductReq) Validate() error {
+	match, err := regexp.MatchString(setting.ProjectKeyRegEx, req.ProjectKey)
+	if err != nil || !match {
+		return errors.New(`project key should match regex: ^[a-z-\\d]+$`)
+	}
+
+	switch req.ProjectType {
+	case config.ProjectTypeLoaded, config.ProjectTypeYaml, config.ProjectTypeHelm, config.ProjectTypeVM:
+		break
+	default:
+		return errors.New("unsupported project type")
+	}
+
+	return nil
 }
