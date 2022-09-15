@@ -18,7 +18,7 @@ package job
 
 import (
 	"fmt"
-	"strings"
+	"regexp"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -85,6 +85,12 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, err
 	}
 
+	reg, err := regexp.Compile("v[0-9]{10}$")
+	if err != nil {
+		logger.Errorf("Failed to compile regex, err: %v", err)
+		return resp, err
+	}
+
 	for _, target := range j.spec.Targets {
 		service, exist, err := getter.GetService(j.spec.Namespace, target.K8sServiceName, kubeClient)
 		if err != nil || !exist {
@@ -113,7 +119,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		target.WorkloadName = deployment.Name
 		target.WorkloadType = setting.Deployment
 		target.BlueK8sServiceName = target.K8sServiceName + config.BlueServiceNameSuffix
-		target.BlueWorkloadName = strings.Join([]string{deployment.Name, version}, "-")
+		target.BlueWorkloadName = reg.ReplaceAllString(deployment.Name, version)
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
 			JobType: string(config.JobK8sBlueGreenDeploy),
