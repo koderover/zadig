@@ -40,7 +40,7 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, "openAPI("+ctx.UserName+")", args.ProjectName, "新增", "项目管理-项目", args.ProjectName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "新增", "项目管理-项目", args.ProjectName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
