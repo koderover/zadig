@@ -33,6 +33,10 @@ type OpenAPICreateProductReq struct {
 }
 
 func (req OpenAPICreateProductReq) Validate() error {
+	if req.ProjectName == "" {
+		return errors.New("project_name cannot be empty")
+	}
+
 	match, err := regexp.MatchString(setting.ProjectKeyRegEx, req.ProjectKey)
 	if err != nil || !match {
 		return errors.New(`project key should match regex: ^[a-z-\\d]+$`)
