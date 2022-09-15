@@ -49,8 +49,6 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	}
 
 	// input validation for OpenAPI
-
-	// if the projectKey does not meet the requirements, we simply return an error
 	err = args.Validate()
 	if err != nil {
 		ctx.Err = err
