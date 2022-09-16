@@ -234,7 +234,7 @@ func (j *DeployJob) LintJob() error {
 		return err
 	}
 	j.job.Spec = j.spec
-	if j.spec.Source == config.SourceFromJob {
+	if j.spec.Source != config.SourceFromJob {
 		return nil
 	}
 	jobRankMap := getJobRankMap(j.workflow.Stages)
@@ -244,4 +244,3 @@ func (j *DeployJob) LintJob() error {
 	}
 	return nil
 }
-
