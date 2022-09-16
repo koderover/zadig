@@ -189,6 +189,12 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 	c.ack()
 	blueDeployment := deployment.DeepCopy()
 	blueDeployment.Name = c.jobTaskSpec.BlueWorkloadName
+	for i, container := range blueDeployment.Spec.Template.Spec.Containers {
+		if container.Name != c.jobTaskSpec.ContainerName {
+			continue
+		}
+		blueDeployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
+	}
 	blueDeployment.Labels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
 	blueDeployment.Spec.Selector.MatchLabels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
 	blueDeployment.Spec.Template.Labels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
