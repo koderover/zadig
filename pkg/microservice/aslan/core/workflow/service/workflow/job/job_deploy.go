@@ -227,3 +227,21 @@ func checkServiceExsistsInEnv(serviceMap map[string]*commonmodels.ProductService
 	}
 	return nil
 }
+
+func (j *DeployJob) LintJob() error {
+	j.spec = &commonmodels.ZadigDeployJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	if j.spec.Source == config.SourceFromJob {
+		return nil
+	}
+	jobRankMap := getJobRankMap(j.workflow.Stages)
+	buildJobRank, ok := jobRankMap[j.spec.JobName]
+	if !ok || buildJobRank >= jobRankMap[j.job.Name] {
+		return fmt.Errorf("can not quote job %s in job %s", j.spec.JobName, j.job.Name)
+	}
+	return nil
+}
+

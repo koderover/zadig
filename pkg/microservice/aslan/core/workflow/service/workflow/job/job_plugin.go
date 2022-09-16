@@ -114,3 +114,7 @@ func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Pa
 	}
 	return plugin
 }
+
+func (j *PluginJob) LintJob() error {
+	return nil
+}

@@ -142,3 +142,37 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	j.job.Spec = j.spec
 	return resp, nil
 }
+
+func (j *CanaryDeployJob) LintJob() error {
+	j.spec = &commonmodels.CanaryDeployJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	quoteJobs := []*commonmodels.Job{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobK8sCanaryRelease {
+				continue
+			}
+			releaseJobSpec := &commonmodels.CanaryReleaseJobSpec{}
+			if err := commonmodels.IToiYaml(job.Spec, releaseJobSpec); err != nil {
+				return err
+			}
+			if releaseJobSpec.FromJob == j.job.Name {
+				quoteJobs = append(quoteJobs, job)
+			}
+		}
+	}
+	if len(quoteJobs) == 0 {
+		return fmt.Errorf("no canary release job quote canary deploy job %s", j.job.Name)
+	}
+	if len(quoteJobs) > 1 {
+		return fmt.Errorf("more than one canary release job quote canary deploy job %s", j.job.Name)
+	}
+	jobRankmap := getJobRankMap(j.workflow.Stages)
+	if jobRankmap[j.job.Name] >= jobRankmap[quoteJobs[0].Name] {
+		return fmt.Errorf("canary release job %s should run before canary deploy job %s", quoteJobs[0].Name, j.job.Name)
+	}
+	return nil
+}

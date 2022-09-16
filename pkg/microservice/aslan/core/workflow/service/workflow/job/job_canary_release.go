@@ -99,3 +99,17 @@ func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 	j.job.Spec = j.spec
 	return resp, nil
 }
+
+func (j *CanaryReleaseJob) LintJob() error {
+	j.spec = &commonmodels.CanaryReleaseJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	jobRankMap := getJobRankMap(j.workflow.Stages)
+	buildJobRank, ok := jobRankMap[j.spec.FromJob]
+	if !ok || buildJobRank >= jobRankMap[j.job.Name] {
+		return fmt.Errorf("can not quote job %s in job %s", j.spec.FromJob, j.job.Name)
+	}
+	return nil
+}

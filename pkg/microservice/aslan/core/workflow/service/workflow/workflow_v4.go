@@ -341,8 +341,6 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 	}
 	stageNameMap := make(map[string]bool)
 	jobNameMap := make(map[string]string)
-	// deploy job can not qoute a build job which runs after it.
-	buildJobNameMap := make(map[string]string)
 
 	reg, err := regexp.Compile(JobNameRegx)
 	if err != nil {
@@ -354,15 +352,9 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 			stageNameMap[stage.Name] = true
 		} else {
 			logger.Errorf("duplicated stage name: %s", stage.Name)
-			return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated job name: %s", stage.Name))
+			return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated stage name: %s", stage.Name))
 		}
-		stageBuildJobNameMap := make(map[string]string)
 		for _, job := range stage.Jobs {
-			if !stage.Parallel {
-				buildJobNameMap[job.Name] = string(job.JobType)
-			} else {
-				stageBuildJobNameMap[job.Name] = string(job.JobType)
-			}
 			if match := reg.MatchString(job.Name); !match {
 				logger.Errorf("job name [%s] did not match %s", job.Name, JobNameRegx)
 				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, JobNameRegx))
@@ -373,26 +365,10 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 				logger.Errorf("duplicated job name: %s", job.Name)
 				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated job name: %s", job.Name))
 			}
-
-			if job.JobType == config.JobZadigDeploy {
-				spec := &commonmodels.ZadigDeployJobSpec{}
-				if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
-					logger.Errorf("decode job spec error: %v", err)
-					return e.ErrUpsertWorkflow.AddErr(err)
-				}
-				if spec.Source != config.SourceFromJob {
-					continue
-				}
-				jobType, ok := buildJobNameMap[spec.JobName]
-				if !ok || jobType != string(config.JobZadigBuild) {
-					errMsg := fmt.Sprintf("can not quote job %s in job %s", spec.JobName, job.Name)
-					logger.Error(errMsg)
-					return e.ErrUpsertWorkflow.AddDesc(errMsg)
-				}
+			if err := jobctl.LintJob(job, workflow); err != nil {
+				logger.Errorf("lint job %s failed: %v", job.Name, err)
+				return e.ErrUpsertWorkflow.AddErr(err)
 			}
-		}
-		for k, v := range stageBuildJobNameMap {
-			buildJobNameMap[k] = v
 		}
 	}
 	return nil

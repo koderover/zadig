@@ -102,3 +102,17 @@ func (j *BlueGreenReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, err
 	j.job.Spec = j.spec
 	return resp, nil
 }
+
+func (j *BlueGreenReleaseJob) LintJob() error {
+	j.spec = &commonmodels.BlueGreenReleaseJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	jobRankMap := getJobRankMap(j.workflow.Stages)
+	buildJobRank, ok := jobRankMap[j.spec.FromJob]
+	if !ok || buildJobRank >= jobRankMap[j.job.Name] {
+		return fmt.Errorf("can not quote job %s in job %s", j.spec.FromJob, j.job.Name)
+	}
+	return nil
+}

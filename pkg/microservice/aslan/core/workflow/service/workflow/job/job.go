@@ -35,6 +35,7 @@ type JobCtl interface {
 	SetPreset() error
 	ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 	MergeArgs(args *commonmodels.Job) error
+	LintJob() error
 }
 
 func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCtl, error) {
@@ -86,6 +87,14 @@ func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int
 		return []*commonmodels.JobTask{}, err
 	}
 	return jobCtl.ToJobs(taskID)
+}
+
+func LintJob(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
+	jobCtl, err := InitJobCtl(job, workflow)
+	if err != nil {
+		return err
+	}
+	return jobCtl.LintJob()
 }
 
 func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository) error {
@@ -269,4 +278,19 @@ func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
 		}
 	}
 	return origin
+}
+
+func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
+	resp := make(map[string]int, 0)
+	index := 0
+	for _, stage := range stages {
+		for _, job := range stage.Jobs {
+			if !stage.Parallel {
+				index++
+			}
+			resp[job.Name] = index
+		}
+		index++
+	}
+	return resp
 }

@@ -144,6 +144,40 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	return resp, nil
 }
 
+func (j *BlueGreenDeployJob) LintJob() error {
+	j.spec = &commonmodels.BlueGreenDeployJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	quoteJobs := []*commonmodels.Job{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobK8sBlueGreenRelease {
+				continue
+			}
+			releaseJobSpec := &commonmodels.BlueGreenReleaseJobSpec{}
+			if err := commonmodels.IToiYaml(job.Spec, releaseJobSpec); err != nil {
+				return err
+			}
+			if releaseJobSpec.FromJob == j.job.Name {
+				quoteJobs = append(quoteJobs, job)
+			}
+		}
+	}
+	if len(quoteJobs) == 0 {
+		return fmt.Errorf("no blue-green release job quote blue-green deploy job %s", j.job.Name)
+	}
+	if len(quoteJobs) > 1 {
+		return fmt.Errorf("more than one blue-green release job quote blue-green deploy job %s", j.job.Name)
+	}
+	jobRankmap := getJobRankMap(j.workflow.Stages)
+	if jobRankmap[j.job.Name] >= jobRankmap[quoteJobs[0].Name] {
+		return fmt.Errorf("blue-green release job %s should run before blue-green deploy job %s", quoteJobs[0].Name, j.job.Name)
+	}
+	return nil
+}
+
 func getBlueWorkloadName(name, version string) string {
 	reg, _ := regexp.Compile("v[0-9]{10}$")
 	blueWorkfloadName := reg.ReplaceAllString(name, version)
