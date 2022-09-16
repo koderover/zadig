@@ -72,8 +72,8 @@ func (c *Client) ListChangedFiles(event *gitlab.MergeEvent) ([]string, error) {
 	return files, nil
 }
 
-func (c *Client) CreateCommitDiscussion(owner, repo, commitHash, comment string) error {
-	args := &gitlab.CreateCommitDiscussionOptions{Body: &comment}
-	_, err := wrap(c.Discussions.CreateCommitDiscussion(generateProjectName(owner, repo), commitHash, args))
-	return err
-}
+//func (c *Client) CreateCommitDiscussion(owner, repo, commitHash, comment string) error {
+//	args := &gitlab.CreateCommitDiscussionOptions{Body: &comment}
+//	_, err := wrap(c.Discussions.CreateCommitDiscussion(generateProjectName(owner, repo), commitHash, args))
+//	return err
+//}

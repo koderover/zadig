@@ -229,16 +229,16 @@ func (c *Client) SetReview(projectName string, changeID int, m, label, score, re
 
 // CompareTwoPatchset 如果两个Patchset更新的内容相同，返回true，不相同则返回false
 func (c *Client) CompareTwoPatchset(changeID, newPatchSetID, oldPatchSetID string) (bool, error) {
-	newPatchSetChangeFiles, _, err := c.cli.Changes.ListFiles(changeID, newPatchSetID)
+	newPatchSetChangeFiles, _, err := c.cli.Changes.ListFiles(changeID, newPatchSetID, nil)
 	if err != nil || newPatchSetChangeFiles == nil {
 		return false, err
 	}
-	oldPatchSetChangeFiles, _, err := c.cli.Changes.ListFiles(changeID, oldPatchSetID)
+	oldPatchSetChangeFiles, _, err := c.cli.Changes.ListFiles(changeID, oldPatchSetID, nil)
 	if err != nil || oldPatchSetChangeFiles == nil {
 		return false, err
 	}
-	newChangeFiles := *newPatchSetChangeFiles
-	oldChangeFiles := *oldPatchSetChangeFiles
+	newChangeFiles := newPatchSetChangeFiles
+	oldChangeFiles := oldPatchSetChangeFiles
 	if len(newChangeFiles) != len(oldChangeFiles) {
 		return false, nil
 	}

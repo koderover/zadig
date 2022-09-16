@@ -24,7 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"gopkg.in/mholt/archiver.v3"
+	"github.com/mholt/archiver"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"

@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -41,7 +41,7 @@ func DefaultErrorWriter(rw http.ResponseWriter, req *http.Request, code int, err
 	rw.WriteHeader(code)
 	_, errWrite := rw.Write([]byte(err.Error()))
 	if errWrite != nil {
-		logrus.Warnf("Failed to write error: %s", errWrite)
+		log.Warnf("Failed to write error: %s", errWrite)
 	}
 }
 
@@ -81,7 +81,7 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logrus.Infof("Handling backend connection request [%s]", clientKey)
+	log.Infof("Handling backend connection request [%s]", clientKey)
 
 	upgrader := websocket.Upgrader{
 		HandshakeTimeout: 5 * time.Second,
@@ -102,7 +102,7 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	code, err := session.Serve(req.Context())
 	if err != nil {
 		// Hijacked so we can't write to the client
-		logrus.Infof("error in remotedialer server [%d]: %v", code, err)
+		log.Infof("error in remotedialer server [%d]: %v", code, err)
 	}
 }
 

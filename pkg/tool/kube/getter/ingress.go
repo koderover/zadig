@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/pkg/apis/extensions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -113,34 +112,6 @@ func ListIngresses(namespace string, cl client.Client, lessThan122 bool) (*unstr
 		return u, err
 	}
 	return u, err
-}
-
-func ListIngressesFormat(namespace string, cl client.Client, lessThan122 bool) ([]*extensions.Ingress, error) {
-	l := &extensions.IngressList{}
-	gvk := schema.GroupVersionKind{
-		Group:   "extensions",
-		Kind:    "Ingress",
-		Version: "v1beta1",
-	}
-	if !lessThan122 {
-		gvk = schema.GroupVersionKind{
-			Group:   "networking.k8s.io",
-			Kind:    "Ingress",
-			Version: "v1",
-		}
-	}
-	u := &unstructured.UnstructuredList{}
-	u.SetGroupVersionKind(gvk)
-
-	err := ListResourceInCache(namespace, labels.Everything(), nil, u, cl)
-	if err != nil {
-		return nil, err
-	}
-	var res []*extensions.Ingress
-	for i := range l.Items {
-		res = append(res, &l.Items[i])
-	}
-	return res, err
 }
 
 func GetIngressYaml(ns string, name string, cl client.Client, lessThan122 bool) ([]byte, bool, error) {
