@@ -19,14 +19,16 @@ package handler
 import (
 	"bytes"
 	"io/ioutil"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v3"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"gopkg.in/yaml.v3"
 )
 
 type listWorkflowV4Query struct {
@@ -95,11 +97,20 @@ func ListWorkflowV4(c *gin.Context) {
 	}
 	ignoreWorkflow := false
 	workflowNames, found := internalhandler.GetResourcesInHeader(c)
-	if found && len(workflowNames) == 0 {
+
+	ctx.Logger.Infof("workflowNames:%s found:%v", workflowNames, found)
+	var workflowV4Names, names []string
+	for _, name := range workflowNames {
+		if strings.HasPrefix(name, "common##") {
+			workflowV4Names = append(workflowV4Names, strings.Split(name, "##")[1])
+		} else {
+			names = append(names, name)
+		}
+	}
+	if found && len(names) == 0 {
 		ignoreWorkflow = true
 	}
-
-	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserID, workflowNames, ignoreWorkflow, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserID, names, workflowV4Names, ignoreWorkflow, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,

@@ -89,7 +89,7 @@ type Workflow struct {
 	CollaborationMode string                   `json:"collaboration_mode"`
 	Name              string                   `json:"name"`
 	Description       string                   `json:"description"`
-	Type              string                   `json:"type"`
+	WorkflowType      string                   `json:"workflow_type"`
 }
 
 type Product struct {
@@ -220,7 +220,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 			BaseName:          workflow.Name,
 			Verbs:             workflow.Verbs,
 			CollaborationType: workflow.CollaborationType,
-			Type:              workflow.Type,
+			WorkflowType:      workflow.WorkflowType,
 		})
 	}
 	var products []models.ProductCIItem
@@ -389,17 +389,31 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 		policyName := buildPolicyName(projectName, mode.Name, identityType, userName)
 
 		for _, workflow := range mode.Workflows {
-			rules = append(rules, &types.Rule{
-				Verbs:     workflow.Verbs,
-				Kind:      "resource",
-				Resources: []string{string(config2.ResourceTypeWorkflow)},
-				MatchAttributes: []types.MatchAttribute{
-					{
-						Key:   "policy",
-						Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name),
+			if workflow.WorkflowType == "common_workflow" {
+				rules = append(rules, &types.Rule{
+					Verbs:     workflow.Verbs,
+					Kind:      "resource",
+					Resources: []string{string(config2.ResourceTypeWorkflow)},
+					MatchAttributes: []types.MatchAttribute{
+						{
+							Key:   "policy",
+							Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.Name),
+						},
 					},
-				},
-			})
+				})
+			} else {
+				rules = append(rules, &types.Rule{
+					Verbs:     workflow.Verbs,
+					Kind:      "resource",
+					Resources: []string{string(config2.ResourceTypeWorkflow)},
+					MatchAttributes: []types.MatchAttribute{
+						{
+							Key:   "policy",
+							Value: buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name),
+						},
+					},
+				})
+			}
 		}
 		for _, product := range mode.Products {
 			rules = append(rules, &types.Rule{
@@ -448,17 +462,31 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 	for _, instance := range updateResp.UpdateInstance {
 		var rules []*types.Rule
 		for _, workflow := range instance.Workflows {
-			rules = append(rules, &types.Rule{
-				Verbs:     workflow.Verbs,
-				Kind:      "resource",
-				Resources: []string{string(config2.ResourceTypeWorkflow)},
-				MatchAttributes: []types.MatchAttribute{
-					{
-						Key:   "policy",
-						Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.BaseName),
+			if workflow.WorkflowType == "common_workflow" {
+				rules = append(rules, &types.Rule{
+					Verbs:     workflow.Verbs,
+					Kind:      "resource",
+					Resources: []string{string(config2.ResourceTypeWorkflow)},
+					MatchAttributes: []types.MatchAttribute{
+						{
+							Key:   "policy",
+							Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.BaseName),
+						},
 					},
-				},
-			})
+				})
+			} else {
+				rules = append(rules, &types.Rule{
+					Verbs:     workflow.Verbs,
+					Kind:      "resource",
+					Resources: []string{string(config2.ResourceTypeWorkflow)},
+					MatchAttributes: []types.MatchAttribute{
+						{
+							Key:   "policy",
+							Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.BaseName),
+						},
+					},
+				})
+			}
 		}
 		for _, product := range instance.Products {
 			rules = append(rules, &types.Rule{
@@ -520,13 +548,23 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	var deleteBindings []*mongodb2.LabelBinding
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
-			labels = append(labels, mongodb2.Label{
-				Key: "policy",
-				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
-					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type:        setting.ResourceTypeSystem,
-				ProjectName: projectName,
-			})
+			if workflow.WorkflowType == "common_workflow" {
+				labels = append(labels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, mode.Name, identityType, userName,
+						string(config2.ResourceTypeCommonWorkflow), workflow.Name),
+					Type:        setting.ResourceTypeSystem,
+					ProjectName: projectName,
+				})
+			} else {
+				labels = append(labels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, mode.Name, identityType, userName,
+						string(config2.ResourceTypeWorkflow), workflow.Name),
+					Type:        setting.ResourceTypeSystem,
+					ProjectName: projectName,
+				})
+			}
 		}
 		for _, product := range mode.Products {
 			labels = append(labels, mongodb2.Label{
@@ -540,13 +578,23 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	}
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
-			labels = append(labels, mongodb2.Label{
-				Key: "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type:        setting.ResourceTypeSystem,
-				ProjectName: projectName,
-			})
+			if workflow.WorkflowType == "common_workflow" {
+				labels = append(labels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
+						string(config2.ResourceTypeCommonWorkflow), workflow.Name),
+					Type:        setting.ResourceTypeSystem,
+					ProjectName: projectName,
+				})
+			} else {
+				labels = append(labels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
+						string(config2.ResourceTypeWorkflow), workflow.Name),
+					Type:        setting.ResourceTypeSystem,
+					ProjectName: projectName,
+				})
+			}
 		}
 		for _, product := range item.NewSpec.Products {
 			labels = append(labels, mongodb2.Label{
@@ -558,13 +606,23 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 		for _, workflow := range item.DeleteSpec.Workflows {
-			deleteLabels = append(deleteLabels, mongodb2.Label{
-				Key: "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeWorkflow), workflow.BaseName),
-				Type:        setting.ResourceTypeSystem,
-				ProjectName: projectName,
-			})
+			if workflow.WorkflowType == "common_workflow" {
+				deleteLabels = append(deleteLabels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
+						string(config2.ResourceTypeCommonWorkflow), workflow.BaseName),
+					Type:        setting.ResourceTypeSystem,
+					ProjectName: projectName,
+				})
+			} else {
+				deleteLabels = append(deleteLabels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
+						string(config2.ResourceTypeWorkflow), workflow.BaseName),
+					Type:        setting.ResourceTypeSystem,
+					ProjectName: projectName,
+				})
+			}
 		}
 		for _, product := range item.DeleteSpec.Products {
 			deleteLabels = append(deleteLabels, mongodb2.Label{
@@ -579,12 +637,21 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	}
 	for _, instance := range updateResp.Delete {
 		for _, workflow := range instance.Workflows {
-			deleteLabels = append(deleteLabels, mongodb2.Label{
-				Key: "policy",
-				Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
-					string(config2.ResourceTypeWorkflow), workflow.BaseName),
-				Type: setting.ResourceTypeSystem,
-			})
+			if workflow.WorkflowType == "common_workflow" {
+				deleteLabels = append(deleteLabels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
+						string(config2.ResourceTypeCommonWorkflow), workflow.BaseName),
+					Type: setting.ResourceTypeSystem,
+				})
+			} else {
+				deleteLabels = append(deleteLabels, mongodb2.Label{
+					Key: "policy",
+					Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
+						string(config2.ResourceTypeWorkflow), workflow.BaseName),
+					Type: setting.ResourceTypeSystem,
+				})
+			}
 		}
 		for _, product := range instance.Products {
 			deleteLabels = append(deleteLabels, mongodb2.Label{
@@ -630,11 +697,19 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.UpdateSpec.Workflows {
-			labels = append(labels, mongodb2.Label{
-				Key:   "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name),
-				Type:  setting.ResourceTypeSystem,
-			})
+			if workflow.New.WorkflowType == "common_workflow" {
+				labels = append(labels, mongodb2.Label{
+					Key:   "policy",
+					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.New.Name),
+					Type:  setting.ResourceTypeSystem,
+				})
+			} else {
+				labels = append(labels, mongodb2.Label{
+					Key:   "policy",
+					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name),
+					Type:  setting.ResourceTypeSystem,
+				})
+			}
 		}
 		for _, product := range item.UpdateSpec.Products {
 			labels = append(labels, mongodb2.Label{
@@ -668,7 +743,12 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
-			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
+			var labelValue string
+			if workflow.WorkflowType == "common_workflow" {
+				labelValue = buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.Name)
+			} else {
+				labelValue = buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
+			}
 			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
@@ -677,14 +757,25 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, mode.Name, identityType, userName)
 			}
-			newBindings = append(newBindings, &mongodb2.LabelBinding{
-				LabelID: labelId,
-				Resource: mongodb2.Resource{
-					Name:        name,
-					ProjectName: projectName,
-					Type:        string(config2.ResourceTypeWorkflow),
-				},
-			})
+			if workflow.WorkflowType == "common_workflow" {
+				newBindings = append(newBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        name,
+						ProjectName: projectName,
+						Type:        string(config2.ResourceTypeCommonWorkflow),
+					},
+				})
+			} else {
+				newBindings = append(newBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        name,
+						ProjectName: projectName,
+						Type:        string(config2.ResourceTypeWorkflow),
+					},
+				})
+			}
 		}
 		for _, product := range mode.Products {
 			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name)
@@ -708,7 +799,12 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	}
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
-			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
+			var labelValue string
+			if workflow.WorkflowType == "common_workflow" {
+				labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.Name)
+			} else {
+				labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
+			}
 			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
@@ -717,14 +813,25 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
 			}
-			newBindings = append(newBindings, &mongodb2.LabelBinding{
-				LabelID: labelId,
-				Resource: mongodb2.Resource{
-					Name:        name,
-					Type:        string(config2.ResourceTypeWorkflow),
-					ProjectName: projectName,
-				},
-			})
+			if workflow.WorkflowType == "common_workflow" {
+				newBindings = append(newBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        name,
+						Type:        string(config2.ResourceTypeCommonWorkflow),
+						ProjectName: projectName,
+					},
+				})
+			} else {
+				newBindings = append(newBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        name,
+						Type:        string(config2.ResourceTypeWorkflow),
+						ProjectName: projectName,
+					},
+				})
+			}
 		}
 		for _, product := range item.NewSpec.Products {
 			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeEnvironment), product.Name)
@@ -747,50 +854,104 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
+				var labelValue string
+				if workflow.New.WorkflowType == "common_workflow" {
+					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.New.Name)
+				} else {
+					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
+				}
 				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
 				}
-				newBindings = append(newBindings, &mongodb2.LabelBinding{
-					LabelID: labelId,
-					Resource: mongodb2.Resource{
-						Name:        buildName(workflow.New.Name, item.CollaborationMode, identityType, userName),
-						Type:        string(config2.ResourceTypeWorkflow),
-						ProjectName: projectName,
-					},
-				})
-				deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
-					LabelID: labelId,
-					Resource: mongodb2.Resource{
-						Name:        workflow.Old.BaseName,
-						Type:        string(config2.ResourceTypeWorkflow),
-						ProjectName: projectName,
-					},
-				})
+				if workflow.New.WorkflowType == "common_workflow" {
+					newBindings = append(newBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        buildName(workflow.New.Name, item.CollaborationMode, identityType, userName),
+							Type:        string(config2.ResourceTypeCommonWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				} else {
+					newBindings = append(newBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        buildName(workflow.New.Name, item.CollaborationMode, identityType, userName),
+							Type:        string(config2.ResourceTypeWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				}
+				if workflow.Old.WorkflowType == "common_workflow" {
+					deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        workflow.Old.BaseName,
+							Type:        string(config2.ResourceTypeCommonWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				} else {
+					deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        workflow.Old.BaseName,
+							Type:        string(config2.ResourceTypeWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				}
 			}
 			if workflow.Old.CollaborationType == config.CollaborationNew && workflow.New.CollaborationType == config.CollaborationShare {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
+				var labelValue string
+				if workflow.New.WorkflowType == "common_workflow" {
+					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.New.Name)
+				} else {
+					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
+				}
 				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
 				}
-				newBindings = append(newBindings, &mongodb2.LabelBinding{
-					LabelID: labelId,
-					Resource: mongodb2.Resource{
-						Name:        workflow.New.Name,
-						Type:        string(config2.ResourceTypeWorkflow),
-						ProjectName: projectName,
-					},
-				})
-				deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
-					LabelID: labelId,
-					Resource: mongodb2.Resource{
-						Name:        workflow.Old.Name,
-						Type:        string(config2.ResourceTypeWorkflow),
-						ProjectName: projectName,
-					},
-				})
+				if workflow.New.WorkflowType == "common_workflow" {
+					newBindings = append(newBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        workflow.New.Name,
+							Type:        string(config2.ResourceTypeCommonWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				} else {
+					newBindings = append(newBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        workflow.New.Name,
+							Type:        string(config2.ResourceTypeWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				}
+				if workflow.Old.WorkflowType == "common_workflow" {
+					deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        workflow.Old.Name,
+							Type:        string(config2.ResourceTypeCommonWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				} else {
+					deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
+						LabelID: labelId,
+						Resource: mongodb2.Resource{
+							Name:        workflow.Old.Name,
+							Type:        string(config2.ResourceTypeWorkflow),
+							ProjectName: projectName,
+						},
+					})
+				}
 			}
 		}
 		for _, product := range item.UpdateSpec.Products {
@@ -918,7 +1079,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	var newCommonWorkflows []workflowservice.WorkflowCopyItem
 	for _, workflow := range newResp.Workflow {
 		if workflow.CollaborationType == config.CollaborationNew {
-			if workflow.Type == "common" {
+			if workflow.WorkflowType == "common_workflow" {
 				newCommonWorkflows = append(newCommonWorkflows, workflowservice.WorkflowCopyItem{
 					ProjectName: projectName,
 					Old:         workflow.BaseName,
@@ -946,8 +1107,9 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	}
 
 	if len(newCommonWorkflows) > 0 {
+		logger.Infof("start bulkcopyworkflowv4:%s", newWorkflows)
 		err = workflowservice.BulkCopyWorkflowV4(workflowservice.BulkCopyWorkflowArgs{
-			Items: newWorkflows,
+			Items: newCommonWorkflows,
 		}, userName, logger)
 		if err != nil {
 			return err
@@ -1048,7 +1210,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		}
 		for _, workflow := range item.Workflows {
 			if workflow.CollaborationType == config.CollaborationNew {
-				if workflow.Type == "common" {
+				if workflow.WorkflowType == "common_workflow" {
 					commonWorkflowSet.Insert(workflow.Name)
 				} else {
 					workflowSet.Insert(workflow.Name)
@@ -1059,7 +1221,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 	for _, item := range updateResp.Update {
 		for _, deleteWorkflow := range item.DeleteSpec.Workflows {
 			if deleteWorkflow.CollaborationType == config.CollaborationNew {
-				if deleteWorkflow.Type == "common" {
+				if deleteWorkflow.WorkflowType == "common_workflow" {
 					commonWorkflowSet.Insert(deleteWorkflow.Name)
 				} else {
 					workflowSet.Insert(deleteWorkflow.Name)
@@ -1074,7 +1236,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationNew &&
 				workflow.New.CollaborationType == config.CollaborationShare {
-				if workflow.Old.Type == "common" {
+				if workflow.Old.WorkflowType == "common_workflow" {
 					commonWorkflowSet.Insert(workflow.Old.Name)
 				} else {
 					workflowSet.Insert(workflow.Old.Name)
@@ -1112,7 +1274,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				BaseName:          workflow.Name,
 				CollaborationMode: mode.Name,
 				Name:              name,
-				Type:              workflow.Type,
+				WorkflowType:      workflow.WorkflowType,
 			})
 		}
 		for _, product := range mode.Products {

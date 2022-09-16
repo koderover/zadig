@@ -141,10 +141,11 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
+func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreWorkflow bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
 	workflowV4List, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
 		ProjectName: projectName,
+		Names:       v4Names,
 	}, 0, 0)
 	if err != nil {
 		logger.Errorf("Failed to list workflow v4, the error is: %s", err)

@@ -40,6 +40,7 @@ type WorkflowV4Coll struct {
 
 type ListWorkflowV4Option struct {
 	ProjectName string
+	Names       []string
 }
 
 func NewWorkflowV4Coll() *WorkflowV4Coll {
@@ -56,10 +57,12 @@ func (c *WorkflowV4Coll) GetCollectionName() string {
 
 func (c *WorkflowV4Coll) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
-		Keys:    bson.M{"project": 1},
-		Options: options.Index().SetUnique(false),
+		Keys: bson.D{
+			bson.E{Key: "project", Value: 1},
+			bson.E{Key: "name", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
 	}
-
 	_, err := c.Indexes().CreateOne(ctx, mod)
 
 	return err
@@ -137,6 +140,9 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 	query := bson.M{}
 	if opt.ProjectName != "" {
 		query["project"] = opt.ProjectName
+	}
+	if len(opt.Names) > 0 {
+		query["name"] = bson.M{"$in": opt.Names}
 	}
 
 	count, err := c.CountDocuments(context.TODO(), query)
