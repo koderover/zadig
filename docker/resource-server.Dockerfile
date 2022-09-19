@@ -1,4 +1,4 @@
-#nginx.Dockerfile
+FROM nginx
 
 WORKDIR /app
 

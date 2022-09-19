@@ -1,4 +1,4 @@
-#ubuntu-xenial.Dockerfile
+FROM koderover.tencentcloudcr.com/koderover-public/build-base:xenial-amd64
 
 # install docker client
 RUN curl -fsSL "http://resources.koderover.com/docker-cli-v19.03.2.tar.gz" -o docker.tgz &&\

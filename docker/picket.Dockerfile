@@ -6,3 +6,10 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo Asia/Shanghai  > /etc/timezone && \
     apk del tzdata
+
+
+WORKDIR /app
+
+ADD docker/dist/picket .
+
+ENTRYPOINT ["/app/picket"]
