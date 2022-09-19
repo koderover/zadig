@@ -16,6 +16,13 @@ limitations under the License.
 
 package service
 
+import (
+	"errors"
+	"net/url"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+)
+
 type ExternalSystemDetail struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
@@ -32,4 +39,47 @@ type SonarIntegration struct {
 	ID            string `json:"id"`
 	ServerAddress string `json:"server_address"`
 	Token         string `json:"token"`
+}
+
+type OpenAPICreateRegistryReq struct {
+	Address   string                  `json:"address"`
+	Provider  config.RegistryProvider `json:"provider"`
+	Namespace string                  `json:"namespace"`
+	IsDefault bool                    `json:"is_default"`
+	AccessKey string                  `json:"access_key"`
+	SecretKey string                  `json:"secret_key"`
+	EnableTLS bool                    `json:"enable_tls"`
+	// Optional field below
+	Region  string `json:"region"`
+	TLSCert string `json:"tls_cert"`
+}
+
+func (req OpenAPICreateRegistryReq) Validate() error {
+	if req.Address == "" {
+		return errors.New("address cannot be empty")
+	}
+
+	switch req.Provider {
+	case config.RegistryProviderECR, config.RegistryProviderDockerhub, config.RegistryProviderACR, config.RegistryProviderHarbor, config.RegistryProviderNative, config.RegistryProviderSWR, config.RegistryProviderTCR:
+		break
+	default:
+		return errors.New("unsupported registry provider")
+	}
+
+	// only ECR can ignore namespace since it is in the address
+	if req.Namespace == "" && req.Provider != config.RegistryProviderECR {
+		return errors.New("namespace cannot be empty")
+	}
+
+	if req.Provider == config.RegistryProviderECR && req.Region == "" {
+		return errors.New("region is a required field for ECR provider")
+	}
+
+	// address needs to be a validate url
+	_, err := url.ParseRequestURI(req.Address)
+	if err != nil {
+		return errors.New("address needs to be a valid URL")
+	}
+
+	return nil
 }

@@ -74,3 +74,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pms.DELETE("/:id", DeletePMHost)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	product := router.Group("project")
+	{
+		product.POST("", OpenAPICreateProductTemplate)
+	}
+}
