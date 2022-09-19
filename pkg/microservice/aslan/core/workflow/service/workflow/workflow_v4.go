@@ -31,6 +31,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
@@ -171,6 +172,10 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 		workflowList = append(workflowList, wV4.Name)
 	}
 	resp = append(resp, workflow...)
+	workflowCMMap, err := collaboration.GetWorkflowCMMap([]string{projectName}, logger)
+	if err != nil {
+		return nil, err
+	}
 	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList})
 	if err != nil {
 		return resp, err
@@ -181,6 +186,12 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 		for _, stage := range workflowModel.Stages {
 			stages = append(stages, stage.Name)
 		}
+		var baseRefs []string
+		if cmSet, ok := workflowCMMap[collaboration.BuildWorkflowCMMapKey(workflowModel.Project, workflowModel.Name)]; ok {
+			for _, cm := range cmSet.List() {
+				baseRefs = append(baseRefs, cm)
+			}
+		}
 		workflow := &Workflow{
 			Name:          workflowModel.Name,
 			ProjectName:   workflowModel.Project,
@@ -190,6 +201,8 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 			UpdateBy:      workflowModel.UpdatedBy,
 			WorkflowType:  "common_workflow",
 			Description:   workflowModel.Description,
+			BaseRefs:      baseRefs,
+			BaseName:      workflowModel.BaseName,
 		}
 		getRecentTaskV4Info(workflow, tasks)
 
