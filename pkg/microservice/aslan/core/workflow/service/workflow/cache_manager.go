@@ -20,7 +20,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"gopkg.in/mholt/archiver.v3"
+	"github.com/mholt/archiver"
 )
 
 // GoCacheManager is deprecated
