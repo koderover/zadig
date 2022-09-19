@@ -108,6 +108,14 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name != c.jobTaskSpec.ContainerName {
+			continue
+		}
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("the original image is: %s", container.Image))
+		c.ack()
+		break
+	}
 	// if label not exist, we think this was the first time to deploy, so we need to add the label
 	if previousLabel, ok := deployment.ObjectMeta.Labels[config.BlueGreenVerionLabelName]; !ok {
 		c.jobTaskSpec.FirstDeploy = true

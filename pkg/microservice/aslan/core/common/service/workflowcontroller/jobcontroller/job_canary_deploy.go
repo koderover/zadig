@@ -112,6 +112,15 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name != c.jobTaskSpec.ContainerName {
+			continue
+		}
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("the original image is: %s", container.Image))
+		c.ack()
+		break
+	}
+
 	if strings.HasSuffix(deployment.Name, CanaryDeploymentSuffix) {
 		msg := "canary deployment already exists"
 		c.logger.Error(msg)
