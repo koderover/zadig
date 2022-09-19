@@ -230,7 +230,7 @@ func checkServiceExsistsInEnv(serviceMap map[string]*commonmodels.ProductService
 
 func (j *DeployJob) LintJob() error {
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec

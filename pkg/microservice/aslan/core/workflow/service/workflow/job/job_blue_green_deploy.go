@@ -146,7 +146,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 func (j *BlueGreenDeployJob) LintJob() error {
 	j.spec = &commonmodels.BlueGreenDeployJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
