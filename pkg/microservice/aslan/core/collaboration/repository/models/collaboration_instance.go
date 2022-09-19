@@ -45,6 +45,7 @@ type ProductCIItem struct {
 }
 
 type WorkflowCIItem struct {
+	WorkflowType      string                   `bson:"workflow_type" json:"workflow_type"`
 	Name              string                   `bson:"name"               json:"name"`
 	BaseName          string                   `bson:"base_name"          json:"base_name"`
 	CollaborationType config.CollaborationType `bson:"collaboration_type" json:"collaboration_type"`

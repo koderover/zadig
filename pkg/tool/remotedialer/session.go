@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Session struct {
@@ -102,9 +102,9 @@ func (s *Session) startPings(rootCtx context.Context) {
 			case <-t.C:
 				s.conn.Lock()
 				if err := s.conn.conn.WriteControl(websocket.PingMessage, []byte(""), time.Now().Add(PingWaitDuration)); err != nil {
-					logrus.WithError(err).Error("Error writing ping")
+					log.Errorf("Error writing ping, err: %s", err)
 				}
-				logrus.Debug("Wrote ping")
+				log.Debug("Wrote ping")
 				s.conn.Unlock()
 			}
 		}
@@ -148,7 +148,7 @@ func (s *Session) serveMessage(ctx context.Context, reader io.Reader) error {
 	}
 
 	if PrintTunnelData {
-		logrus.Debug("REQUEST ", message)
+		log.Debug("REQUEST ", message)
 	}
 
 	if message.messageType == Connect {
@@ -219,7 +219,7 @@ func (s *Session) addRemoteClient(address string) error {
 	keys[sessionKey] = true
 
 	if PrintTunnelData {
-		logrus.Debugf("ADD REMOTE CLIENT %s, SESSION %d", address, s.sessionKey)
+		log.Debugf("ADD REMOTE CLIENT %s, SESSION %d", address, s.sessionKey)
 	}
 
 	return nil
@@ -238,7 +238,7 @@ func (s *Session) removeRemoteClient(address string) error {
 	}
 
 	if PrintTunnelData {
-		logrus.Debugf("REMOVE REMOTE CLIENT %s, SESSION %d", address, s.sessionKey)
+		log.Debugf("REMOVE REMOTE CLIENT %s, SESSION %d", address, s.sessionKey)
 	}
 
 	return nil
@@ -249,7 +249,7 @@ func (s *Session) closeConnection(connID int64, err error) {
 	conn := s.conns[connID]
 	delete(s.conns, connID)
 	if PrintTunnelData {
-		logrus.Debugf("CONNECTIONS %d %d", s.sessionKey, len(s.conns))
+		log.Debugf("CONNECTIONS %d %d", s.sessionKey, len(s.conns))
 	}
 	s.Unlock()
 
@@ -264,7 +264,7 @@ func (s *Session) clientConnect(ctx context.Context, message *message) {
 	s.Lock()
 	s.conns[message.connID] = conn
 	if PrintTunnelData {
-		logrus.Debugf("CONNECTIONS %d %d", s.sessionKey, len(s.conns))
+		log.Debugf("CONNECTIONS %d %d", s.sessionKey, len(s.conns))
 	}
 	s.Unlock()
 
@@ -314,7 +314,7 @@ func (s *Session) serverConnect(deadline time.Time, proto, address string) (net.
 	s.Lock()
 	s.conns[connID] = conn
 	if PrintTunnelData {
-		logrus.Debugf("CONNECTIONS %d %d", s.sessionKey, len(s.conns))
+		log.Debugf("CONNECTIONS %d %d", s.sessionKey, len(s.conns))
 	}
 	s.Unlock()
 
@@ -329,7 +329,7 @@ func (s *Session) serverConnect(deadline time.Time, proto, address string) (net.
 
 func (s *Session) writeMessage(deadline time.Time, message *message) (int, error) {
 	if PrintTunnelData {
-		logrus.Debug("WRITE ", message)
+		log.Debug("WRITE ", message)
 	}
 	return message.WriteTo(deadline, s.conn)
 }

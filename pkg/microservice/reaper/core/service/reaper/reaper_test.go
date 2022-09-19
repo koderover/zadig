@@ -24,8 +24,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mholt/archiver"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/mholt/archiver.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	_ "github.com/koderover/zadig/pkg/util/testing"

@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -30,6 +31,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
@@ -140,14 +142,19 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
+func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreWorkflow, ignoreWorkflowV4 bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
-	workflowV4List, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
-		ProjectName: projectName,
-	}, 0, 0)
-	if err != nil {
-		logger.Errorf("Failed to list workflow v4, the error is: %s", err)
-		return resp, err
+	var err error
+	workflowV4List := []*commonmodels.WorkflowV4{}
+	if !ignoreWorkflowV4 {
+		workflowV4List, _, err = commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
+			ProjectName: projectName,
+			Names:       v4Names,
+		}, 0, 0)
+		if err != nil {
+			logger.Errorf("Failed to list workflow v4, the error is: %s", err)
+			return resp, err
+		}
 	}
 
 	workflow := []*Workflow{}
@@ -165,6 +172,10 @@ func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow b
 		workflowList = append(workflowList, wV4.Name)
 	}
 	resp = append(resp, workflow...)
+	workflowCMMap, err := collaboration.GetWorkflowCMMap([]string{projectName}, logger)
+	if err != nil {
+		return nil, err
+	}
 	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList})
 	if err != nil {
 		return resp, err
@@ -175,6 +186,12 @@ func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow b
 		for _, stage := range workflowModel.Stages {
 			stages = append(stages, stage.Name)
 		}
+		var baseRefs []string
+		if cmSet, ok := workflowCMMap[collaboration.BuildWorkflowCMMapKey(workflowModel.Project, workflowModel.Name)]; ok {
+			for _, cm := range cmSet.List() {
+				baseRefs = append(baseRefs, cm)
+			}
+		}
 		workflow := &Workflow{
 			Name:          workflowModel.Name,
 			ProjectName:   workflowModel.Project,
@@ -184,6 +201,8 @@ func ListWorkflowV4(projectName, userID string, names []string, ignoreWorkflow b
 			UpdateBy:      workflowModel.UpdatedBy,
 			WorkflowType:  "common_workflow",
 			Description:   workflowModel.Description,
+			BaseRefs:      baseRefs,
+			BaseName:      workflowModel.BaseName,
 		}
 		getRecentTaskV4Info(workflow, tasks)
 
@@ -520,4 +539,41 @@ func DeleteWebhookForWorkflowV4(workflowName, triggerName string, logger *zap.Su
 		return e.ErrDeleteWebhook.AddDesc(errMsg)
 	}
 	return nil
+}
+
+func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.SugaredLogger) error {
+	var workflows []commonrepo.WorkflowV4
+
+	for _, item := range args.Items {
+		workflows = append(workflows, commonrepo.WorkflowV4{
+			ProjectName: item.ProjectName,
+			Name:        item.Old,
+		})
+	}
+	oldWorkflows, err := commonrepo.NewWorkflowV4Coll().ListByWorkflows(commonrepo.ListWorkflowV4Opt{
+		Workflows: workflows,
+	})
+	if err != nil {
+		log.Error(err)
+		return e.ErrGetPipeline.AddErr(err)
+	}
+	workflowMap := make(map[string]*commonmodels.WorkflowV4)
+	for _, workflow := range oldWorkflows {
+		workflowMap[workflow.Project+"-"+workflow.Name] = workflow
+	}
+	var newWorkflows []*commonmodels.WorkflowV4
+	for _, workflow := range args.Items {
+		if item, ok := workflowMap[workflow.ProjectName+"-"+workflow.Old]; ok {
+			newItem := *item
+			newItem.UpdatedBy = username
+			newItem.Name = workflow.New
+			newItem.BaseName = workflow.BaseName
+			newItem.ID = primitive.NewObjectID()
+
+			newWorkflows = append(newWorkflows, &newItem)
+		} else {
+			return fmt.Errorf("workflow:%s not exist", item.Project+"-"+item.Name)
+		}
+	}
+	return commonrepo.NewWorkflowV4Coll().BulkCreate(newWorkflows)
 }

@@ -204,7 +204,7 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 	modifier := auth.NewAuthorizer(c.cm, tokenHandler, basicHandler)
 	tr := transport.NewTransport(c.tr, modifier)
 
-	repo, err = client.NewRepository(c.ctx, repoNameRef, c.endpointURL.String(), tr)
+	repo, err = client.NewRepository(repoNameRef, c.endpointURL.String(), tr)
 	if err != nil {
 		return
 	}

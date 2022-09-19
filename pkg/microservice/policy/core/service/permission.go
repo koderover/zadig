@@ -135,8 +135,12 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 	workflowVerbMap := make(map[string][]string)
 	for labelKey, resources := range resp.Resources {
 		for _, resource := range resources {
-			if verbs, ok := labelVerbMap[resource.Type+":"+labelKey]; ok {
-				if resource.Type == string(config.ResourceTypeEnvironment) {
+			resourceType := resource.Type
+			if resource.Type == "CommonWorkflow" {
+				resourceType = "Workflow"
+			}
+			if verbs, ok := labelVerbMap[resourceType+":"+labelKey]; ok {
+				if resourceType == string(config.ResourceTypeEnvironment) {
 					if resourceVerbs, rOK := environmentVerbMap[resource.Name]; rOK {
 						verbSet := sets.NewString(resourceVerbs...)
 						verbSet.Insert(verbs...)
@@ -145,7 +149,7 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 						environmentVerbMap[resource.Name] = verbs
 					}
 				}
-				if resource.Type == string(config.ResourceTypeWorkflow) {
+				if resourceType == string(config.ResourceTypeWorkflow) {
 					if resourceVerbs, rOK := workflowVerbMap[resource.Name]; rOK {
 						verbSet := sets.NewString(resourceVerbs...)
 						verbSet.Insert(verbs...)

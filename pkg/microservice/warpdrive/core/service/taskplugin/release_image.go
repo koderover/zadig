@@ -705,7 +705,7 @@ DistributeLoop:
 
 			done := make(chan bool)
 			go func(chan bool) {
-				if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec); err != nil {
+				if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec, nil); err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to upgrade helm chart %s/%s",
