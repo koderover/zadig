@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -39,6 +40,7 @@ type WorkflowV4Coll struct {
 
 type ListWorkflowV4Option struct {
 	ProjectName string
+	Names       []string
 }
 
 func NewWorkflowV4Coll() *WorkflowV4Coll {
@@ -55,12 +57,65 @@ func (c *WorkflowV4Coll) GetCollectionName() string {
 
 func (c *WorkflowV4Coll) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
-		Keys:    bson.M{"project": 1},
-		Options: options.Index().SetUnique(false),
+		Keys: bson.D{
+			bson.E{Key: "project", Value: 1},
+			bson.E{Key: "name", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
 	}
-
 	_, err := c.Indexes().CreateOne(ctx, mod)
 
+	return err
+}
+
+type WorkflowV4 struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"projectName"`
+}
+
+type ListWorkflowV4Opt struct {
+	Workflows []WorkflowV4
+}
+
+func (c *WorkflowV4Coll) ListByWorkflows(opt ListWorkflowV4Opt) ([]*models.WorkflowV4, error) {
+	var res []*models.WorkflowV4
+
+	if len(opt.Workflows) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, workflow := range opt.Workflows {
+		condition = append(condition, bson.M{
+			"name":    workflow.Name,
+			"project": workflow.ProjectName,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *WorkflowV4Coll) BulkCreate(args []*models.WorkflowV4) error {
+	if len(args) == 0 {
+		return nil
+	}
+	var ois []interface{}
+	for _, arg := range args {
+		arg.CreateTime = time.Now().Unix()
+		arg.UpdateTime = time.Now().Unix()
+		ois = append(ois, arg)
+	}
+
+	_, err := c.InsertMany(context.TODO(), ois)
 	return err
 }
 
@@ -85,6 +140,9 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 	query := bson.M{}
 	if opt.ProjectName != "" {
 		query["project"] = opt.ProjectName
+	}
+	if len(opt.Names) > 0 {
+		query["name"] = bson.M{"$in": opt.Names}
 	}
 
 	count, err := c.CountDocuments(context.TODO(), query)

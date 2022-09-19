@@ -43,6 +43,7 @@ type WorkflowV4 struct {
 	HookCtls       []*WorkflowV4Hook  `bson:"hook_ctl"            yaml:"-"            json:"hook_ctl"`
 	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
 	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
+	BaseName       string             `bson:"base_name"           yaml:"-"            json:"base_name"`
 }
 
 type WorkflowStage struct {

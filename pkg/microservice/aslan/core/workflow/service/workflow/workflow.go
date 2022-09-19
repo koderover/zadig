@@ -837,7 +837,8 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 
 			newWorkflows = append(newWorkflows, &newItem)
 		} else {
-			return fmt.Errorf("workflow:%s not exist", item.ProductTmplName+"-"+item.Name)
+			log.Errorf("workflow:%s not exist", workflow.ProjectName+"-"+workflow.Old)
+			return fmt.Errorf("workflow:%s not exist", workflow.ProjectName+"-"+workflow.Old)
 		}
 	}
 	return commonrepo.NewWorkflowColl().BulkCreate(newWorkflows)
