@@ -96,6 +96,7 @@ func ListWorkflowV4(c *gin.Context) {
 		return
 	}
 	ignoreWorkflow := false
+	ignoreWorkflowV4 := false
 	workflowNames, found := internalhandler.GetResourcesInHeader(c)
 
 	ctx.Logger.Infof("workflowNames:%s found:%v", workflowNames, found)
@@ -110,7 +111,10 @@ func ListWorkflowV4(c *gin.Context) {
 	if found && len(names) == 0 {
 		ignoreWorkflow = true
 	}
-	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserID, names, workflowV4Names, ignoreWorkflow, ctx.Logger)
+	if found && len(workflowV4Names) == 0 {
+		ignoreWorkflowV4 = true
+	}
+	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserID, names, workflowV4Names, ignoreWorkflow, ignoreWorkflowV4, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,
