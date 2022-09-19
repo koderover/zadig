@@ -102,7 +102,7 @@ func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 
 func (j *CanaryReleaseJob) LintJob() error {
 	j.spec = &commonmodels.CanaryReleaseJobSpec{}
-	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
