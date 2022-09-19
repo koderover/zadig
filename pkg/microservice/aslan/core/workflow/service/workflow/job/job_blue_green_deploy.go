@@ -149,7 +149,6 @@ func (j *BlueGreenDeployJob) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.job.Spec = j.spec
 	quoteJobs := []*commonmodels.Job{}
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
