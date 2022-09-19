@@ -153,7 +153,7 @@ type BlueGreenTarget struct {
 	K8sServiceName     string `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
 	BlueK8sServiceName string `bson:"blue_k8s_service_name"  json:"blue_k8s_service_name" yaml:"-"`
 	ContainerName      string `bson:"container_name"         json:"container_name"        yaml:"container_name"`
-	Image              string `bson:"image"                  json:"image"                 yaml:"-"`
+	Image              string `bson:"image"                  json:"image"                 yaml:"image"`
 	// unit is minute.
 	DeployTimeout    int64  `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
 	WorkloadName     string `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
@@ -178,7 +178,7 @@ type CanaryReleaseJobSpec struct {
 type CanaryTarget struct {
 	K8sServiceName   string `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
 	ContainerName    string `bson:"container_name"         json:"container_name"        yaml:"container_name"`
-	Image            string `bson:"image"                  json:"image"                 yaml:"-"`
+	Image            string `bson:"image"                  json:"image"                 yaml:"image"`
 	CanaryPercentage int    `bson:"canary_percentage"      json:"canary_percentage"     yaml:"canary_percentage"`
 	// unit is minute.
 	DeployTimeout int64  `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
