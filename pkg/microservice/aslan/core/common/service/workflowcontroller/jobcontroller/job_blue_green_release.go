@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -63,6 +62,7 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		c.logger.Errorf("can't init k8s client: %v", err)
+		return
 	}
 	service, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, kubeClient)
 	if err != nil || !exist {
@@ -110,39 +110,27 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 
 func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 	var err error
-	if c.jobTaskSpec.ClusterID != "" {
-		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
-		if err != nil {
-			msg := fmt.Sprintf("can't init k8s client: %v", err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
-			c.jobTaskSpec.Events.Error(msg)
-			return
-		}
-	} else {
-		c.kubeClient = krkubeclient.Client()
+	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s client: %v", err)
+		c.error(msg)
+		return
 	}
+
 	service, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("get service %s failed, err: %v", c.jobTaskSpec.K8sServiceName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
+		c.error(msg)
 		return
 	}
 	service.Spec.Selector[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
 	if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("point service: %s to deployment: %s failed: %v", c.jobTaskSpec.K8sServiceName, c.jobTaskSpec.BlueWorkloadName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
+		c.error(msg)
 		return
 	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("point service: %s to deployment: %s success", c.jobTaskSpec.K8sServiceName, c.jobTaskSpec.BlueWorkloadName))
-	c.ack()
+	c.info(fmt.Sprintf("point service: %s to deployment: %s success", c.jobTaskSpec.K8sServiceName, c.jobTaskSpec.BlueWorkloadName))
+
 	blueServiceName := c.jobTaskSpec.BlueK8sServiceName
 	if err := updater.DeleteService(c.jobTaskSpec.Namespace, blueServiceName, c.kubeClient); err != nil {
 		// delete failed, but we don't care
@@ -152,12 +140,22 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 	}
 	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete old deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
+		c.error(msg)
 		return
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue green deployment succeed, now service point to deployemt: %s", c.jobTaskSpec.BlueWorkloadName))
 	c.job.Status = config.StatusPassed
+}
+
+func (c *BlueGreenReleaseJobCtl) error(msg string) {
+	c.logger.Error(msg)
+	c.job.Status = config.StatusFailed
+	c.job.Error = msg
+	c.jobTaskSpec.Events.Error(msg)
+}
+
+func (c *BlueGreenReleaseJobCtl) info(msg string) {
+	c.logger.Info(msg)
+	c.jobTaskSpec.Events.Info(msg)
+	c.ack()
 }

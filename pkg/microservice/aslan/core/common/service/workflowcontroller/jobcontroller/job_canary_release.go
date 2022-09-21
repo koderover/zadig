@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/pkg/errors"
@@ -66,6 +65,7 @@ func (c *CanaryReleaseJobCtl) Clean(ctx context.Context) {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		c.logger.Errorf("can't init k8s client: %v", err)
+		return
 	}
 
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
@@ -83,42 +83,25 @@ func (c *CanaryReleaseJobCtl) Run(ctx context.Context) {
 
 func (c *CanaryReleaseJobCtl) run(ctx context.Context) error {
 	var err error
-	if c.jobTaskSpec.ClusterID != "" {
-		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
-		if err != nil {
-			msg := fmt.Sprintf("can't init k8s client: %v", err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
-			c.jobTaskSpec.Events.Error(msg)
-			return errors.New(msg)
-		}
-	} else {
-		c.kubeClient = krkubeclient.Client()
+	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s client: %v", err)
+		return c.error(msg)
 	}
+
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
 	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, canarydeploymentName, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete canary deployment %s error: %v", canarydeploymentName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	msg := fmt.Sprintf("canary deployment: %s deleted", canarydeploymentName)
-	c.jobTaskSpec.Events.Info(msg)
-	c.ack()
+	c.info(msg)
 	if err := updater.UpdateDeploymentImage(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.ContainerName, c.jobTaskSpec.Image, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("update deployment: %s image error: %v", c.jobTaskSpec.WorkloadName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	msg = fmt.Sprintf("updating deployment: %s image", c.jobTaskSpec.WorkloadName)
-	c.jobTaskSpec.Events.Info(msg)
-	c.ack()
+	c.info(msg)
 	return nil
 }
 
@@ -165,4 +148,18 @@ func (c *CanaryReleaseJobCtl) timeout() int64 {
 		c.jobTaskSpec.ReleaseTimeout = c.jobTaskSpec.ReleaseTimeout * 60
 	}
 	return c.jobTaskSpec.ReleaseTimeout
+}
+
+func (c *CanaryReleaseJobCtl) error(msg string) error {
+	c.logger.Error(msg)
+	c.job.Status = config.StatusFailed
+	c.job.Error = msg
+	c.jobTaskSpec.Events.Error(msg)
+	return errors.New(msg)
+}
+
+func (c *CanaryReleaseJobCtl) info(msg string) {
+	c.logger.Info(msg)
+	c.jobTaskSpec.Events.Info(msg)
+	c.ack()
 }

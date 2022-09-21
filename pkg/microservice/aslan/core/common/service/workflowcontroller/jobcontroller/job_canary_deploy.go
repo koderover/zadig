@@ -31,7 +31,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -78,56 +77,35 @@ func (c *CanaryDeployJobCtl) Run(ctx context.Context) {
 
 func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 	var err error
-	if c.jobTaskSpec.ClusterID != "" {
-		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
-		if err != nil {
-			msg := fmt.Sprintf("can't init k8s client: %v", err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
-			c.jobTaskSpec.Events.Error(msg)
-			return errors.New(msg)
-		}
-	} else {
-		c.kubeClient = krkubeclient.Client()
+	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s client: %v", err)
+		return c.error(msg)
 	}
 
 	_, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("service: %s not found: %v", c.jobTaskSpec.K8sServiceName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return c.error(msg)
 	}
 
 	deployment, exist, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("deployment: %s not found: %v", c.jobTaskSpec.WorkloadName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return c.error(msg)
 	}
 
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name != c.jobTaskSpec.ContainerName {
 			continue
 		}
-		c.jobTaskSpec.Events.Info(fmt.Sprintf("the original image is: %s", container.Image))
-		c.ack()
+		c.info(fmt.Sprintf("the original image is: %s", container.Image))
 		break
 	}
 
 	if strings.HasSuffix(deployment.Name, CanaryDeploymentSuffix) {
 		msg := "canary deployment already exists"
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	deployment.Name = deployment.Name + CanaryDeploymentSuffix
 	c.jobTaskSpec.CanaryWorkloadName = deployment.Name
@@ -141,15 +119,10 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 	}
 	if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("create canary deployment: %s failed: %v", c.jobTaskSpec.CanaryWorkloadName, err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	msg := fmt.Sprintf("canary deployment: %s created", deployment.Name)
-	c.jobTaskSpec.Events.Info(msg)
-	c.ack()
+	c.info(msg)
 	return nil
 }
 
@@ -196,4 +169,18 @@ func (c *CanaryDeployJobCtl) timeout() int64 {
 		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
 	}
 	return c.jobTaskSpec.DeployTimeout
+}
+
+func (c *CanaryDeployJobCtl) error(msg string) error {
+	c.logger.Error(msg)
+	c.job.Status = config.StatusFailed
+	c.job.Error = msg
+	c.jobTaskSpec.Events.Error(msg)
+	return errors.New(msg)
+}
+
+func (c *CanaryDeployJobCtl) info(msg string) {
+	c.logger.Info(msg)
+	c.jobTaskSpec.Events.Info(msg)
+	c.ack()
 }
