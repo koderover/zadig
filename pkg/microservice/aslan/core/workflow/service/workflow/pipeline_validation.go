@@ -303,6 +303,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
+	build.Address = codeHostInfo.Address
 	if codeHostInfo.Type == systemconfig.GitLabProvider || codeHostInfo.Type == systemconfig.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
