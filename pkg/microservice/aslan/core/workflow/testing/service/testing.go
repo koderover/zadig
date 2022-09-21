@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -146,9 +147,11 @@ type TestingOpt struct {
 	AvgDuration float64                    `bson:"-"                      json:"avg_duration,omitempty"`
 	Workflows   []*commonmodels.Workflow   `bson:"-"                      json:"workflows,omitempty"`
 	Schedules   *commonmodels.ScheduleCtrl `bson:"-"                      json:"schedules,omitempty"`
+	Repos       []*types.Repository        `bson:"repos"                  json:"repos"`
+	Envs        []*commonmodels.KeyVal     `bson:"envs"                   json:"envs"`
 }
 
-func ListTestingOpt(productName, testType string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
+func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
 	allTestings := make([]*commonmodels.Testing, 0)
 	if testType == "" {
 		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: testType})
@@ -158,9 +161,9 @@ func ListTestingOpt(productName, testType string, log *zap.SugaredLogger) ([]*Te
 		}
 		allTestings = append(allTestings, testings...)
 	} else {
-		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{ProductName: productName, TestType: testType})
+		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{ProductNames: productNames, TestType: testType})
 		if err != nil {
-			log.Errorf("[Testing.List] %s error: %v", productName, err)
+			log.Errorf("[Testing.List] error: %v", err)
 			return nil, e.ErrListTestModule.AddErr(err)
 		}
 		for _, testing := range testings {
@@ -199,6 +202,8 @@ func ListTestingOpt(productName, testType string, log *zap.SugaredLogger) ([]*Te
 			AvgDuration: t.AvgDuration,
 			Workflows:   t.Workflows,
 			Schedules:   t.Schedules,
+			Repos:       t.Repos,
+			Envs:        t.PreTest.Envs,
 		})
 	}
 

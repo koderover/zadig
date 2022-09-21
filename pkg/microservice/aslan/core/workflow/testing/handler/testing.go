@@ -99,8 +99,12 @@ func UpdateTestModule(c *gin.Context) {
 func ListTestModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.ListTestingOpt(c.Query("projectName"), c.Query("testType"), ctx.Logger)
+	projects := c.QueryArray("projects")
+	projectName := c.Query("projectName")
+	if len(projects) == 0 {
+		projects = []string{projectName}
+	}
+	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
 }
 
 func GetTestModule(c *gin.Context) {
