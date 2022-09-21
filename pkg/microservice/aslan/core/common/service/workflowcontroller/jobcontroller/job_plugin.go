@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
@@ -103,10 +102,7 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 
 		crClient, clientset, restConfig, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
 		if err != nil {
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
-			c.job.EndTime = time.Now().Unix()
-			return err
+			return c.error(err.Error())
 		}
 		c.kubeclient = crClient
 		c.clientset = clientset
@@ -122,27 +118,18 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 	job, err := buildPlainJob(c.jobName, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		return errors.New(msg)
+		return c.error(msg)
 	}
 
 	job.Namespace = c.jobTaskSpec.Properties.Namespace
 
 	if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("delete job error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	if err := updater.CreateJob(job, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	c.logger.Infof("succeed to create job %s", c.jobName)
 	return nil
@@ -188,4 +175,11 @@ func (c *PluginJobCtl) complete(ctx context.Context) {
 		c.job.Error = err.Error()
 		return
 	}
+}
+
+func (c *PluginJobCtl) error(msg string) error {
+	c.logger.Error(msg)
+	c.job.Status = config.StatusFailed
+	c.job.Error = msg
+	return errors.New(msg)
 }

@@ -77,10 +77,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 		if err != nil {
 			msg := fmt.Sprintf("can't init k8s client: %v", err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
-			return errors.New(msg)
+			return c.error(msg)
 		}
 	} else {
 		c.kubeClient = krkubeclient.Client()
@@ -91,10 +88,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 	case setting.Deployment:
 		deployment, _, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 		if err != nil {
-			c.logger.Error(err)
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
-			return err
+			return c.error(err.Error())
 		}
 		for _, container := range deployment.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.ContainerName {
@@ -122,10 +116,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 	case setting.StatefulSet:
 		statefulSet, _, err := getter.GetStatefulSet(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 		if err != nil {
-			c.logger.Error(err)
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
-			return err
+			return c.error(err.Error())
 		}
 		for _, container := range statefulSet.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.ContainerName {
@@ -135,10 +126,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 						err,
 						"failed to update container image in %s/statefulset/%s/%s",
 						statefulSet.Namespace, statefulSet.Name, container.Name)
-					c.logger.Error(err)
-					c.job.Status = config.StatusFailed
-					c.job.Error = err.Error()
-					return err
+					return c.error(err.Error())
 				}
 				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
 					Kind:      setting.StatefulSet,
@@ -152,17 +140,11 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		}
 	default:
 		msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	if !replaced {
 		msg := fmt.Sprintf("workload type: %s,name: %s, container %s is not found in namespace %s", c.jobTaskSpec.WorkloadType, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.ContainerName, c.jobTaskSpec.Namespace)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	c.job.Spec = c.jobTaskSpec
 	return nil
@@ -221,9 +203,7 @@ func (c *CustomDeployJobCtl) wait(ctx context.Context) {
 				}
 			default:
 				msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
-				c.logger.Error(msg)
-				c.job.Status = config.StatusFailed
-				c.job.Error = msg
+				c.error(msg)
 				return
 			}
 			if ready {
@@ -241,4 +221,11 @@ func (c *CustomDeployJobCtl) timeout() int64 {
 		c.jobTaskSpec.Timeout = c.jobTaskSpec.Timeout * 60
 	}
 	return c.jobTaskSpec.Timeout
+}
+
+func (c *CustomDeployJobCtl) error(msg string) error {
+	c.logger.Error(msg)
+	c.job.Status = config.StatusFailed
+	c.job.Error = msg
+	return errors.New(msg)
 }

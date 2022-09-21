@@ -34,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/pkg/errors"
@@ -89,35 +88,21 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	})
 	if err != nil {
 		msg := fmt.Sprintf("find project error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	c.namespace = env.Namespace
 	c.jobTaskSpec.ClusterID = env.ClusterID
 
-	if c.jobTaskSpec.ClusterID != "" {
-		c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
-		if err != nil {
-			msg := fmt.Sprintf("can't get k8s rest config: %v", err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
-			return errors.New(msg)
-		}
+	c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		msg := fmt.Sprintf("can't get k8s rest config: %v", err)
+		return c.error(msg)
+	}
 
-		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
-		if err != nil {
-			msg := fmt.Sprintf("can't init k8s client: %v", err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
-			return errors.New(msg)
-		}
-	} else {
-		c.kubeClient = krkubeclient.Client()
-		c.restConfig = krkubeclient.RESTConfig()
+	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s client: %v", err)
+		return c.error(msg)
 	}
 
 	// get servcie info
@@ -142,10 +127,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			})
 		if err != nil {
 			msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
-			return errors.New(msg)
+			return c.error(msg)
 		}
 	}
 
@@ -155,19 +137,13 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		var deployments []*appsv1.Deployment
 		deployments, err = getter.ListDeployments(env.Namespace, selector, c.kubeClient)
 		if err != nil {
-			c.logger.Error(err)
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
-			return err
+			return c.error(err.Error())
 		}
 
 		var statefulSets []*appsv1.StatefulSet
 		statefulSets, err = getter.ListStatefulSets(env.Namespace, selector, c.kubeClient)
 		if err != nil {
-			c.logger.Error(err)
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
-			return err
+			return c.error(err.Error())
 		}
 
 	L:
@@ -177,10 +153,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 					err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, c.jobTaskSpec.ServiceModule, c.jobTaskSpec.Image, c.kubeClient)
 					if err != nil {
 						msg := fmt.Sprintf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
-						c.logger.Error(msg)
-						c.job.Status = config.StatusFailed
-						c.job.Error = msg
-						return errors.New(msg)
+						return c.error(msg)
 					}
 					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
 						Kind:      setting.Deployment,
@@ -200,10 +173,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 					err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, c.jobTaskSpec.ServiceModule, c.jobTaskSpec.Image, c.kubeClient)
 					if err != nil {
 						msg := fmt.Sprintf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
-						c.logger.Error(msg)
-						c.job.Status = config.StatusFailed
-						c.job.Error = msg
-						return errors.New(msg)
+						return c.error(msg)
 					}
 					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
 						Kind:      setting.StatefulSet,
@@ -229,10 +199,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 					err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, c.jobTaskSpec.ServiceModule, c.jobTaskSpec.Image, c.kubeClient)
 					if err != nil {
 						msg := fmt.Sprintf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, statefulSet.Name, container.Name, err)
-						c.logger.Error(msg)
-						c.job.Status = config.StatusFailed
-						c.job.Error = msg
-						return errors.New(msg)
+						return c.error(msg)
 					}
 					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
 						Kind:      setting.StatefulSet,
@@ -255,10 +222,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 					err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, c.jobTaskSpec.ServiceModule, c.jobTaskSpec.Image, c.kubeClient)
 					if err != nil {
 						msg := fmt.Sprintf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deployment.Name, container.Name, err)
-						c.logger.Error(msg)
-						c.job.Status = config.StatusFailed
-						c.job.Error = msg
-						return errors.New(msg)
+						return c.error(msg)
 					}
 					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
 						Kind:      setting.Deployment,
@@ -274,10 +238,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	}
 	if !replaced {
 		msg := fmt.Sprintf("service %s container name %s is not found in env %s", c.jobTaskSpec.ServiceName, c.jobTaskSpec.ServiceModule, c.jobTaskSpec.Env)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
-		return errors.New(msg)
+		return c.error(msg)
 	}
 	c.job.Spec = c.jobTaskSpec
 	return nil
@@ -298,9 +259,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			pods, err := getter.ListPods(c.namespace, selector, c.kubeClient)
 			if err != nil {
 				msg := fmt.Sprintf("list pods error: %v", err)
-				c.logger.Error(msg)
-				c.job.Status = config.StatusFailed
-				c.job.Error = msg
+				c.error(msg)
 				return
 			}
 
@@ -319,9 +278,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 
 			if len(msg) != 0 {
 				err = errors.New(strings.Join(msg, "\n"))
-				c.logger.Error(err)
-				c.job.Status = config.StatusFailed
-				c.job.Error = err.Error()
+				c.error(err.Error())
 				return
 			}
 			c.job.Status = config.StatusTimeout
@@ -392,4 +349,11 @@ func (c *DeployJobCtl) timeout() int {
 		c.jobTaskSpec.Timeout = setting.DeployTimeout
 	}
 	return c.jobTaskSpec.Timeout
+}
+
+func (c *DeployJobCtl) error(msg string) error {
+	c.logger.Error(msg)
+	c.job.Status = config.StatusFailed
+	c.job.Error = msg
+	return errors.New(msg)
 }
