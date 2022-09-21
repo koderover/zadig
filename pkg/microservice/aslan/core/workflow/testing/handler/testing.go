@@ -101,7 +101,7 @@ func ListTestModules(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projects := c.QueryArray("projects")
 	projectName := c.Query("projectName")
-	if len(projects) == 0 {
+	if len(projects) == 0 && len(projectName) > 0 {
 		projects = []string{projectName}
 	}
 	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
