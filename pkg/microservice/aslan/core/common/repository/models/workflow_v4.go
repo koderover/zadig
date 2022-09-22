@@ -139,6 +139,16 @@ type ServiceAndImage struct {
 	Image         string `bson:"image"               yaml:"image"            json:"image"`
 }
 
+type ZadigTestingJobSpec struct {
+	TestModules []*TestModule `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
+}
+
+type TestModule struct {
+	TestName string              `bson:"test_name"           yaml:"test_name"        json:"test_name"`
+	KeyVals  []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	Repos    []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+}
+
 type BlueGreenDeployJobSpec struct {
 	ClusterID        string             `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
 	Namespace        string             `bson:"namespace"              json:"namespace"             yaml:"namespace"`

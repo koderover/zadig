@@ -174,6 +174,7 @@ const (
 	JobBuild               JobType = "build"
 	JobDeploy              JobType = "deploy"
 	JobZadigBuild          JobType = "zadig-build"
+	JobZadigTesting        JobType = "zadig-test"
 	JobCustomDeploy        JobType = "custom-deploy"
 	JobZadigDeploy         JobType = "zadig-deploy"
 	JobZadigHelmDeploy     JobType = "zadig-helm-deploy"

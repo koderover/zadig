@@ -363,7 +363,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			fallthrough
 		case string(config.JobZadigBuild):
 			spec := ZadigBuildJobSpec{}
-			taskJobSpec := &commonmodels.JobTaskBuildSpec{}
+			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}

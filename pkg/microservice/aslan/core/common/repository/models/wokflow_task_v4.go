@@ -124,7 +124,7 @@ type ImageAndServiceModule struct {
 	Image         string `bson:"image"                              json:"image"                                 yaml:"image"`
 }
 
-type JobTaskBuildSpec struct {
+type JobTaskFreestyleSpec struct {
 	Properties JobProperties `bson:"properties"          json:"properties"        yaml:"properties"`
 	Steps      []*StepTask   `bson:"steps"               json:"steps"             yaml:"steps"`
 }

@@ -191,7 +191,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, err
 		}
-		jobTaskSpec := &commonmodels.JobTaskBuildSpec{}
+		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
 			JobType: string(config.JobZadigBuild),
