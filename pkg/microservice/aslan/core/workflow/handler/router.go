@@ -219,5 +219,8 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	custom := router.Group("custom")
 	{
 		custom.POST("/task", CreateCustomWorkflowTask)
+		custom.GET("/task", OpenAPIGetWorkflowTaskV4)
+		custom.DELETE("/task", OpenAPICancelWorkflowTaskV4)
+		custom.POST("/task/approve", ApproveStage)
 	}
 }
