@@ -31,6 +31,9 @@ exemption_urls:
     - endpoint: api/plutus/signature/status
       methods:
         - GET
+    - endpoint: api/plutus/customer/installer/**
+      methods:
+        - GET
     - endpoint: plutus-vendor/**
       methods:
         - GET
