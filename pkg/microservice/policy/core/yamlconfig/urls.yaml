@@ -13,7 +13,7 @@ exemption_urls:
     - endpoint: api/plutus/license/sync
       methods:
         - POST
-    - endpoint: api/plutus/license/download
+    - endpoint: api/plutus/license/download/**
       methods:
         - POST
     - endpoint: api/plutus/customer/uploadBaseUri
