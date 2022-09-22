@@ -148,7 +148,7 @@ type TestingOpt struct {
 	Workflows   []*commonmodels.Workflow   `bson:"-"                      json:"workflows,omitempty"`
 	Schedules   *commonmodels.ScheduleCtrl `bson:"-"                      json:"schedules,omitempty"`
 	Repos       []*types.Repository        `bson:"repos"                  json:"repos"`
-	KeyVal      []*commonmodels.KeyVal     `bson:"key_vals"               json:"key_vals"`
+	KeyVals     []*commonmodels.KeyVal     `bson:"key_vals"               json:"key_vals"`
 }
 
 func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
@@ -203,7 +203,7 @@ func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogg
 			Workflows:   t.Workflows,
 			Schedules:   t.Schedules,
 			Repos:       t.Repos,
-			Envs:        t.PreTest.Envs,
+			KeyVals:     t.PreTest.Envs,
 		})
 	}
 
