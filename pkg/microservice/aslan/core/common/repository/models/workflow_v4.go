@@ -144,9 +144,9 @@ type ZadigTestingJobSpec struct {
 }
 
 type TestModule struct {
-	TestName string              `bson:"test_name"           yaml:"test_name"        json:"test_name"`
-	KeyVals  []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	Repos    []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+	Name    string              `bson:"name"                yaml:"name"             json:"name"`
+	KeyVals []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	Repos   []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
 }
 
 type BlueGreenDeployJobSpec struct {

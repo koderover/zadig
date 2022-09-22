@@ -55,9 +55,9 @@ func (j *TestingJob) SetPreset() error {
 	j.job.Spec = j.spec
 
 	for _, testing := range j.spec.TestModules {
-		testingInfo, err := commonrepo.NewTestingColl().Find(testing.TestName, "")
+		testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
 		if err != nil {
-			log.Errorf("find testing: %s error: %v", testing.TestName, err)
+			log.Errorf("find testing: %s error: %v", testing.Name, err)
 			continue
 		}
 		testing.Repos = mergeRepos(testingInfo.Repos, testing.Repos)
@@ -76,9 +76,9 @@ func (j *TestingJob) GetRepos() ([]*types.Repository, error) {
 	}
 
 	for _, testing := range j.spec.TestModules {
-		testingInfo, err := commonrepo.NewTestingColl().Find(testing.TestName, "")
+		testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
 		if err != nil {
-			log.Errorf("find testing: %s error: %v", testing.TestName, err)
+			log.Errorf("find testing: %s error: %v", testing.Name, err)
 			continue
 		}
 		resp = append(resp, mergeRepos(testingInfo.Repos, testing.Repos)...)
@@ -100,7 +100,7 @@ func (j *TestingJob) MergeArgs(args *commonmodels.Job) error {
 
 		for _, testing := range j.spec.TestModules {
 			for _, argsTesting := range argsSpec.TestModules {
-				if testing.TestName == argsTesting.TestName {
+				if testing.Name == argsTesting.Name {
 					testing.Repos = mergeRepos(testing.Repos, argsTesting.Repos)
 					testing.KeyVals = renderKeyVals(argsTesting.KeyVals, testing.KeyVals)
 					break
@@ -140,9 +140,9 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, testing := range j.spec.TestModules {
-		testingInfo, err := commonrepo.NewTestingColl().Find(testing.TestName, "")
+		testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
 		if err != nil {
-			return resp, fmt.Errorf("find testing: %s error: %v", testing.TestName, err)
+			return resp, fmt.Errorf("find testing: %s error: %v", testing.Name, err)
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(testingInfo.PreTest.ImageID)
 		if err != nil {
@@ -154,7 +154,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(testing.TestName + "-" + j.job.Name + "-" + rand.String(5)),
+			Name:    jobNameFormat(testing.Name + "-" + j.job.Name + "-" + rand.String(5)),
 			JobType: string(config.JobZadigTesting),
 			Spec:    jobTaskSpec,
 			Timeout: int64(testingInfo.Timeout),
@@ -198,7 +198,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			})
 		}
 		toolInstallStep := &commonmodels.StepTask{
-			Name:     fmt.Sprintf("%s-%s", testing.TestName, "tool-install"),
+			Name:     fmt.Sprintf("%s-%s", testing.Name, "tool-install"),
 			JobName:  jobTask.Name,
 			StepType: config.StepTools,
 			Spec:     step.StepToolInstallSpec{Installs: tools},
@@ -206,7 +206,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
 		gitStep := &commonmodels.StepTask{
-			Name:     testing.TestName + "-git",
+			Name:     testing.Name + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
 			Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos)},
@@ -215,7 +215,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		// init shell step
 		shellStep := &commonmodels.StepTask{
-			Name:     testing.TestName + "-shell",
+			Name:     testing.Name + "-shell",
 			JobName:  jobTask.Name,
 			StepType: config.StepShell,
 			Spec: &step.StepShellSpec{
@@ -233,7 +233,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
-				Name:     testing.TestName + "-archive-html-report",
+				Name:     testing.Name + "-archive-html-report",
 				JobName:  jobTask.Name,
 				StepType: config.StepArchive,
 				Spec: step.StepArchiveSpec{
@@ -247,7 +247,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init test result storage step
 		uploads := []*step.Upload{}
 		archiveStep := &commonmodels.StepTask{
-			Name:     testing.TestName + "-ar",
+			Name:     testing.Name + "-ar",
 			JobName:  jobTask.Name,
 			StepType: config.StepArchive,
 			Spec: step.StepArchiveSpec{
