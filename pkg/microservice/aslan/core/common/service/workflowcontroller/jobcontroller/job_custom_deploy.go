@@ -58,6 +58,8 @@ func NewCustomDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.
 	}
 }
 
+func (c *CustomDeployJobCtl) Clean(ctx context.Context) {}
+
 func (c *CustomDeployJobCtl) Run(ctx context.Context) {
 	if err := c.run(ctx); err != nil {
 		return
@@ -75,9 +77,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 		if err != nil {
 			msg := fmt.Sprintf("can't init k8s client: %v", err)
-			c.logger.Error(msg)
-			c.job.Status = config.StatusFailed
-			c.job.Error = msg
+			logError(c.job, msg, c.logger)
 			return errors.New(msg)
 		}
 	} else {
@@ -89,9 +89,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 	case setting.Deployment:
 		deployment, _, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 		if err != nil {
-			c.logger.Error(err)
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
+			logError(c.job, err.Error(), c.logger)
 			return err
 		}
 		for _, container := range deployment.Spec.Template.Spec.Containers {
@@ -120,9 +118,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 	case setting.StatefulSet:
 		statefulSet, _, err := getter.GetStatefulSet(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 		if err != nil {
-			c.logger.Error(err)
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
+			logError(c.job, err.Error(), c.logger)
 			return err
 		}
 		for _, container := range statefulSet.Spec.Template.Spec.Containers {
@@ -133,9 +129,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 						err,
 						"failed to update container image in %s/statefulset/%s/%s",
 						statefulSet.Namespace, statefulSet.Name, container.Name)
-					c.logger.Error(err)
-					c.job.Status = config.StatusFailed
-					c.job.Error = err.Error()
+					logError(c.job, err.Error(), c.logger)
 					return err
 				}
 				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
@@ -150,16 +144,12 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		}
 	default:
 		msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
+		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 	if !replaced {
 		msg := fmt.Sprintf("workload type: %s,name: %s, container %s is not found in namespace %s", c.jobTaskSpec.WorkloadType, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.ContainerName, c.jobTaskSpec.Namespace)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
+		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 	c.job.Spec = c.jobTaskSpec
@@ -219,9 +209,7 @@ func (c *CustomDeployJobCtl) wait(ctx context.Context) {
 				}
 			default:
 				msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
-				c.logger.Error(msg)
-				c.job.Status = config.StatusFailed
-				c.job.Error = msg
+				logError(c.job, msg, c.logger)
 				return
 			}
 			if ready {

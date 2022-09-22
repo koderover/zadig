@@ -98,3 +98,12 @@ func ScaleDeployment(ns, name string, replicas int, cl client.Client) error {
 func CreateOrPatchDeployment(d *appsv1.Deployment, cl client.Client) error {
 	return createOrPatchObject(d, cl)
 }
+
+func DeleteDeploymentAndWait(ns, name string, cl client.Client) error {
+	return deleteObjectAndWait(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+	}, cl)
+}

@@ -153,3 +153,10 @@ func ListCustomWorkload(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListCustomWorkload(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
+
+func ListCanaryDeploymentServiceInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListCanaryDeploymentServiceInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+}

@@ -36,6 +36,33 @@ import (
 
 type JobCtl interface {
 	Run(ctx context.Context)
+	// do some clean stuff when workflow finished, like collect reports or clean up resources.
+	Clean(ctx context.Context)
+}
+
+func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
+	var jobCtl JobCtl
+	switch job.JobType {
+	case string(config.JobZadigDeploy):
+		jobCtl = NewDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobZadigHelmDeploy):
+		jobCtl = NewHelmDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobCustomDeploy):
+		jobCtl = NewCustomDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobPlugin):
+		jobCtl = NewPluginsJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sCanaryDeploy):
+		jobCtl = NewCanaryDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sCanaryRelease):
+		jobCtl = NewCanaryReleaseJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sBlueGreenDeploy):
+		jobCtl = NewBlueGreenDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sBlueGreenRelease):
+		jobCtl = NewBlueGreenReleaseJobCtl(job, workflowCtx, ack, logger)
+	default:
+		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
+	}
+	return jobCtl
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
@@ -56,26 +83,32 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
 	}()
-	var jobCtl JobCtl
-	switch job.JobType {
-	case string(config.JobZadigDeploy):
-		jobCtl = NewDeployJobCtl(job, workflowCtx, ack, logger)
-	case string(config.JobZadigHelmDeploy):
-		jobCtl = NewHelmDeployJobCtl(job, workflowCtx, ack, logger)
-	case string(config.JobCustomDeploy):
-		jobCtl = NewCustomDeployJobCtl(job, workflowCtx, ack, logger)
-	case string(config.JobPlugin):
-		jobCtl = NewPluginsJobCtl(job, workflowCtx, ack, logger)
-	default:
-		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
-	}
+	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 
 	jobCtl.Run(ctx)
 }
 
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
+	if concurrency == 1 {
+		for _, job := range jobs {
+			runJob(ctx, job, workflowCtx, logger, ack)
+			if jobStatusFailed(job.Status) {
+				return
+			}
+		}
+		return
+	}
 	jobPool := NewPool(ctx, jobs, workflowCtx, concurrency, logger, ack)
 	jobPool.Run()
+}
+
+func CleanWorkflowJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+			jobCtl.Clean(ctx)
+		}
+	}
 }
 
 // Pool is a worker group that runs a number of tasks at a
@@ -156,4 +189,17 @@ func getJobName(workflowName string, taskID int64) string {
 		"_", "-", -1,
 	)
 	return rand.GenerateName(base)
+}
+
+func jobStatusFailed(status config.Status) bool {
+	if status == config.StatusCancelled || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusReject {
+		return true
+	}
+	return false
+}
+
+func logError(job *commonmodels.JobTask, msg string, logger *zap.SugaredLogger) {
+	logger.Error(msg)
+	job.Status = config.StatusFailed
+	job.Error = msg
 }

@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -130,7 +131,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		GlobalContextSet:  c.setGlobalContext,
 		GlobalContextEach: c.globalContextEach,
 	}
-
+	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.logger, c.ack)
 	updateworkflowStatus(c.workflowTask)
 }
