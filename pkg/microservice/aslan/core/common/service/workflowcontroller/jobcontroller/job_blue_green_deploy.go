@@ -18,10 +18,10 @@ package jobcontroller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -76,61 +76,80 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s client: %v", err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 
 	service, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("service: %s not found: %v", c.jobTaskSpec.K8sServiceName, err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 	selector := labels.Set(service.Spec.Selector).AsSelector()
 
 	deployment, exist, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("deployment: %s not found: %v", c.jobTaskSpec.WorkloadName, err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name != c.jobTaskSpec.ContainerName {
 			continue
 		}
-		c.info(fmt.Sprintf("the original image is: %s", container.Image))
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("the original image is: %s", container.Image))
+		c.ack()
 		break
 	}
 	// if label not exist, we think this was the first time to deploy, so we need to add the label
 	if previousLabel, ok := deployment.ObjectMeta.Labels[config.BlueGreenVerionLabelName]; !ok {
 		c.jobTaskSpec.FirstDeploy = true
-		c.info(fmt.Sprintf("deployment %s was the first time blue-green deploy by zadig", c.jobTaskSpec.WorkloadName))
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment %s was the first time blue-green deploy by zadig", c.jobTaskSpec.WorkloadName))
+		c.ack()
 
 		pods, err := getter.ListPods(c.jobTaskSpec.Namespace, selector, c.kubeClient)
 		if err != nil {
 			msg := fmt.Sprintf("list pods error: %v", err)
-			return c.error(msg)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
 		}
 		for _, pod := range pods {
 			addlabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVerionLabelName, config.OriginVersion)
 			if err := updater.PatchPod(c.jobTaskSpec.Namespace, pod.Name, []byte(addlabelPatch), c.kubeClient); err != nil {
 				msg := fmt.Sprintf("add origin label to pod error: %v", err)
-				return c.error(msg)
+				logError(c.job, msg, c.logger)
+				c.jobTaskSpec.Events.Error(msg)
+				return errors.New(msg)
 			}
 		}
-		c.info("add origin label to pods")
+		c.jobTaskSpec.Events.Info("add origin label to pods")
+		c.ack()
 		service.Spec.Selector[config.BlueGreenVerionLabelName] = config.OriginVersion
 		if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
 			msg := fmt.Sprintf("add origin label selector to serivce: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
-			return c.error(msg)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
 		}
-		c.info(fmt.Sprintf("add origin label selector to service: %s", c.jobTaskSpec.K8sServiceName))
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("add origin label selector to service: %s", c.jobTaskSpec.K8sServiceName))
+		c.ack()
 	} else {
 		// ensure service have the label selector match deployments.
 		if _, ok := service.Spec.Selector[config.BlueGreenVerionLabelName]; !ok {
 			service.Spec.Selector[config.BlueGreenVerionLabelName] = previousLabel
 			if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
 				msg := fmt.Sprintf("add label selector to serivce: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
-				return c.error(msg)
+				logError(c.job, msg, c.logger)
+				c.jobTaskSpec.Events.Error(msg)
+				return errors.New(msg)
 			}
-			c.info(fmt.Sprintf("add label selector to service: %s", c.jobTaskSpec.K8sServiceName))
+			c.jobTaskSpec.Events.Info(fmt.Sprintf("add label selector to service: %s", c.jobTaskSpec.K8sServiceName))
+			c.ack()
 		}
 	}
 	blueService := service.DeepCopy()
@@ -149,9 +168,12 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 
 	if err := updater.CreateOrPatchService(blueService, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("create blue serivce: %s error: %v", c.jobTaskSpec.BlueK8sServiceName, err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
-	c.info(fmt.Sprintf("blue service: %s created", c.jobTaskSpec.BlueK8sServiceName))
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue service: %s created", c.jobTaskSpec.BlueK8sServiceName))
+	c.ack()
 	blueDeployment := deployment.DeepCopy()
 	blueDeployment.Name = c.jobTaskSpec.BlueWorkloadName
 	for i, container := range blueDeployment.Spec.Template.Spec.Containers {
@@ -166,9 +188,12 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 	blueDeployment.ObjectMeta.ResourceVersion = ""
 	if err := updater.CreateOrPatchDeployment(blueDeployment, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("create blue deployment: %s error: %v", c.jobTaskSpec.BlueWorkloadName, err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
-	c.info(fmt.Sprintf("blue deployment: %s created", c.jobTaskSpec.BlueWorkloadName))
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue deployment: %s created", c.jobTaskSpec.BlueWorkloadName))
+	c.ack()
 	return nil
 }
 
@@ -215,18 +240,4 @@ func (c *BlueGreenDeployJobCtl) timeout() int64 {
 		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
 	}
 	return c.jobTaskSpec.DeployTimeout
-}
-
-func (c *BlueGreenDeployJobCtl) error(msg string) error {
-	c.logger.Error(msg)
-	c.job.Status = config.StatusFailed
-	c.job.Error = msg
-	c.jobTaskSpec.Events.Error(msg)
-	return errors.New(msg)
-}
-
-func (c *BlueGreenDeployJobCtl) info(msg string) {
-	c.logger.Info(msg)
-	c.jobTaskSpec.Events.Info(msg)
-	c.ack()
 }

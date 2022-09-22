@@ -197,3 +197,9 @@ func jobStatusFailed(status config.Status) bool {
 	}
 	return false
 }
+
+func logError(job *commonmodels.JobTask, msg string, logger *zap.SugaredLogger) {
+	logger.Error(msg)
+	job.Status = config.StatusFailed
+	job.Error = msg
+}

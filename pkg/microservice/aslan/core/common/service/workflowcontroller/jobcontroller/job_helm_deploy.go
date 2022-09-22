@@ -90,7 +90,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	})
 	if err != nil {
 		msg := fmt.Sprintf("find project %s error: %v", c.workflowCtx.ProjectName, err)
-		c.error(msg)
+		logError(c.job, msg, c.logger)
 		return
 	}
 	c.namespace = env.Namespace
@@ -99,14 +99,14 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't get k8s rest config: %v", err)
-		c.error(msg)
+		logError(c.job, msg, c.logger)
 		return
 	}
 
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s client: %v", err)
-		c.error(msg)
+		logError(c.job, msg, c.logger)
 		return
 	}
 
@@ -139,7 +139,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			err,
 			"failed to get product %s/%s",
 			c.namespace, c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -149,7 +149,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			err,
 			"failed to get getRenderSet %s/%d",
 			productInfo.Render.Name, productInfo.Render.Revision)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -166,7 +166,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			}
 			if container.ImagePath == nil {
 				err = errors.WithMessagef(err, "image path of %s/%s is nil", service.ServiceName, container.Name)
-				c.error(err.Error())
+				logError(c.job, err.Error(), c.logger)
 				return
 			}
 			involvedImagePaths[container.Name] = container.ImagePath
@@ -176,7 +176,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	if len(involvedImagePaths) == 0 {
 		err = errors.Errorf("failed to find containers from service %s", c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -190,19 +190,19 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	if renderChart == nil {
 		err = errors.Errorf("failed to update container image in %s/%s,chart not found",
 			c.namespace, c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
 	defaultS3, err := s3.FindDefaultS3()
 	if err != nil {
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
 	defaultURL, err := defaultS3.GetEncryptedURL()
 	if err != nil {
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -218,7 +218,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 				errDownload,
 				"failed to download service %s/%s",
 				c.namespace, c.jobTaskSpec.ServiceName)
-			c.error(err.Error())
+			logError(c.job, err.Error(), c.logger)
 			return
 		}
 	}
@@ -230,7 +230,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			"failed to get relative path %s",
 			servicePath,
 		)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -247,7 +247,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 					errAssign,
 					"failed to pase image uri %s/%s",
 					c.namespace, c.jobTaskSpec.ServiceName)
-				c.error(err.Error())
+				logError(c.job, err.Error(), c.logger)
 				return
 			}
 			for k, v := range singleReplaceValuesMap {
@@ -263,13 +263,13 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			err,
 			"failed to replace image uri %s/%s",
 			c.namespace, c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 	if replacedValuesYaml == "" {
 		err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
 			c.namespace, c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -281,7 +281,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			"failed to merge override values %s",
 			renderChart.OverrideValues,
 		)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -292,13 +292,13 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			err,
 			"failed to replace image uri into helm values %s/%s",
 			c.namespace, c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 	if replacedMergedValuesYaml == "" {
 		err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
 			c.namespace, c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -310,7 +310,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			err,
 			"failed to create helm client %s/%s",
 			c.namespace, c.jobTaskSpec.ServiceName)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -337,7 +337,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	err = ensureUpgrade()
 	if err != nil {
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -377,7 +377,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 	}
 	if err != nil {
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
@@ -400,7 +400,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			err,
 			"failed to update renderset info %s/%s, renderset %s",
 			c.namespace, c.jobTaskSpec.ServiceName, renderInfo.Name)
-		c.error(err.Error())
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 	c.job.Status = config.StatusPassed
@@ -550,10 +550,4 @@ func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (str
 		return "", err
 	}
 	return string(mergedBs), nil
-}
-
-func (c *HelmDeployJobCtl) error(msg string) {
-	c.logger.Error(msg)
-	c.job.Status = config.StatusFailed
-	c.job.Error = msg
 }

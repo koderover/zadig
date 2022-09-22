@@ -80,32 +80,41 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s client: %v", err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 
 	_, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("service: %s not found: %v", c.jobTaskSpec.K8sServiceName, err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 
 	deployment, exist, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("deployment: %s not found: %v", c.jobTaskSpec.WorkloadName, err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name != c.jobTaskSpec.ContainerName {
 			continue
 		}
-		c.info(fmt.Sprintf("the original image is: %s", container.Image))
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("the original image is: %s", container.Image))
+		c.ack()
 		break
 	}
 
 	if strings.HasSuffix(deployment.Name, CanaryDeploymentSuffix) {
 		msg := "canary deployment already exists"
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 	deployment.Name = deployment.Name + CanaryDeploymentSuffix
 	c.jobTaskSpec.CanaryWorkloadName = deployment.Name
@@ -119,10 +128,13 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 	}
 	if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("create canary deployment: %s failed: %v", c.jobTaskSpec.CanaryWorkloadName, err)
-		return c.error(msg)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
 	msg := fmt.Sprintf("canary deployment: %s created", deployment.Name)
-	c.info(msg)
+	c.jobTaskSpec.Events.Info(msg)
+	c.ack()
 	return nil
 }
 
@@ -169,18 +181,4 @@ func (c *CanaryDeployJobCtl) timeout() int64 {
 		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
 	}
 	return c.jobTaskSpec.DeployTimeout
-}
-
-func (c *CanaryDeployJobCtl) error(msg string) error {
-	c.logger.Error(msg)
-	c.job.Status = config.StatusFailed
-	c.job.Error = msg
-	c.jobTaskSpec.Events.Error(msg)
-	return errors.New(msg)
-}
-
-func (c *CanaryDeployJobCtl) info(msg string) {
-	c.logger.Info(msg)
-	c.jobTaskSpec.Events.Info(msg)
-	c.ack()
 }
