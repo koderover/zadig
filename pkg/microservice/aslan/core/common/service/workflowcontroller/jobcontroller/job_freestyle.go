@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -74,6 +73,8 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 	}
 }
 
+func (c *FreestyleJobCtl) Clean(ctx context.Context) {}
+
 func (c *FreestyleJobCtl) Run(ctx context.Context) {
 	if err := c.prepare(ctx); err != nil {
 		return
@@ -100,9 +101,7 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 	}
 	// init step configration.
 	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.jobTaskSpec.Steps, c.logger); err != nil {
-		c.logger.Error(err)
-		c.job.Error = err.Error()
-		c.job.Status = config.StatusFailed
+		logError(c.job, err.Error(), c.logger)
 		return err
 	}
 	return nil
@@ -122,9 +121,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 		crClient, clientset, restConfig, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
 		if err != nil {
-			c.job.Status = config.StatusFailed
-			c.job.Error = err.Error()
-			c.job.EndTime = time.Now().Unix()
+			logError(c.job, err.Error(), c.logger)
 			return err
 		}
 		c.kubeclient = crClient
@@ -163,9 +160,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
 	if err != nil {
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
+		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 
@@ -176,18 +171,14 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		JobName:      c.job.Name,
 	}
 	if err := ensureDeleteConfigMap(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
-		c.logger.Error(err)
-		c.job.Status = config.StatusFailed
-		c.job.Error = err.Error()
+		logError(c.job, err.Error(), c.logger)
 		return err
 	}
 
 	if err := createJobConfigMap(
 		c.jobTaskSpec.Properties.Namespace, c.jobName, jobLabel, string(jobCtxBytes), c.kubeclient); err != nil {
 		msg := fmt.Sprintf("createJobConfigMap error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
+		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 
@@ -202,9 +193,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	job, err := buildJob(c.job.JobType, jobImage, c.jobName, c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx, nil)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
+		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 
@@ -212,9 +201,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("delete job error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
+		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 
@@ -229,9 +216,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	// }
 	if err := updater.CreateJob(job, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
-		c.logger.Error(msg)
-		c.job.Status = config.StatusFailed
-		c.job.Error = msg
+		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 	c.logger.Infof("succeed to create job %s", c.jobName)

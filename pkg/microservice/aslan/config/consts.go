@@ -172,14 +172,18 @@ const (
 type JobType string
 
 const (
-	JobBuild           JobType = "build"
-	JobDeploy          JobType = "deploy"
-	JobZadigBuild      JobType = "zadig-build"
-	JobCustomDeploy    JobType = "custom-deploy"
-	JobZadigDeploy     JobType = "zadig-deploy"
-	JobZadigHelmDeploy JobType = "zadig-helm-deploy"
-	JobFreestyle       JobType = "freestyle"
-	JobPlugin          JobType = "plugin"
+	JobBuild               JobType = "build"
+	JobDeploy              JobType = "deploy"
+	JobZadigBuild          JobType = "zadig-build"
+	JobCustomDeploy        JobType = "custom-deploy"
+	JobZadigDeploy         JobType = "zadig-deploy"
+	JobZadigHelmDeploy     JobType = "zadig-helm-deploy"
+	JobFreestyle           JobType = "freestyle"
+	JobPlugin              JobType = "plugin"
+	JobK8sBlueGreenDeploy  JobType = "k8s-blue-green-deploy"
+	JobK8sBlueGreenRelease JobType = "k8s-blue-green-release"
+	JobK8sCanaryDeploy     JobType = "k8s-canary-deploy"
+	JobK8sCanaryRelease    JobType = "k8s-canary-release"
 )
 
 type ApproveOrReject string
@@ -287,6 +291,12 @@ const (
 	CommonEnvCfgTypeConfigMap CommonEnvCfgType = "ConfigMap"
 	CommonEnvCfgTypeSecret    CommonEnvCfgType = "Secret"
 	CommonEnvCfgTypePvc       CommonEnvCfgType = "PVC"
+)
+
+const (
+	BlueGreenVerionLabelName = "zadig-blue-green-version"
+	BlueServiceNameSuffix    = "-zadig-blue"
+	OriginVersion            = "origin"
 )
 
 type ProjectType string

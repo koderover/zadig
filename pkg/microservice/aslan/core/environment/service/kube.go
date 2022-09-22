@@ -60,6 +60,14 @@ type serviceInfo struct {
 	LastUpdateTime time.Time `json:"-"`
 }
 
+type ServiceMatchedDeploymentContainers struct {
+	ServiceName string `json:"service_name"`
+	Deployment  struct {
+		DeploymentName string   `json:"deployments_name"`
+		ContainerNames []string `json:"container_names"`
+	} `json:"deployment"`
+}
+
 func ListKubeEvents(env string, productName string, name string, rtype string, log *zap.SugaredLogger) ([]*resource.Event, error) {
 	res := make([]*resource.Event, 0)
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -537,6 +545,43 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 		for _, container := range statefulset.Spec.Template.Spec.Containers {
 			resp = append(resp, strings.Join([]string{setting.StatefulSet, statefulset.Name, container.Name}, "/"))
 		}
+	}
+	return resp, nil
+}
+
+// list serivce and matched deployment containers for canary and blue-green deployment.
+func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*ServiceMatchedDeploymentContainers, error) {
+	resp := []*ServiceMatchedDeploymentContainers{}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("get kubeclient error: %v, clusterID: %S", err, clusterID)
+		return resp, err
+	}
+	services, err := getter.ListServices(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("list services error: %v", err)
+		return resp, err
+	}
+	for _, service := range services {
+		deploymentContainers := &ServiceMatchedDeploymentContainers{
+			ServiceName: service.Name,
+		}
+		selector := labels.SelectorFromSet(service.Spec.Selector)
+		deployments, err := getter.ListDeployments(namespace, selector, kubeClient)
+		if err != nil {
+			log.Errorf("ListDeployments err:%v", err)
+			return resp, err
+		}
+		// one service should only match one deployment
+		if len(deployments) != 1 {
+			continue
+		}
+		deployment := deployments[0]
+		deploymentContainers.Deployment.DeploymentName = deployment.Name
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			deploymentContainers.Deployment.ContainerNames = append(deploymentContainers.Deployment.ContainerNames, container.Name)
+		}
+		resp = append(resp, deploymentContainers)
 	}
 	return resp, nil
 }
