@@ -19,7 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -44,7 +44,7 @@ func GetWorkflowProductName(c *gin.Context) {
 		return
 	}
 	c.Set("productName", args.ProductTmplName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
 
@@ -79,7 +79,7 @@ func CreateWorkflow(c *gin.Context) {
 		log.Errorf("CreateWorkflow json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -104,7 +104,7 @@ func UpdateWorkflow(c *gin.Context) {
 		log.Errorf("UpdateWorkflow json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "更新", "工作流", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())

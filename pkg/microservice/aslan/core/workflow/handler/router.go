@@ -211,3 +211,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		bundles.GET("", GetBundleResources)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	// custom workflow apis
+	custom := router.Group("custom")
+	{
+		custom.POST("/task", CreateCustomWorkflowTask)
+	}
+}

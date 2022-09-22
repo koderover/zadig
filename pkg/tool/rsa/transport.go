@@ -23,7 +23,6 @@ import (
 	"crypto/rsa"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -49,7 +48,7 @@ func (t *SignTransport) RoundTrip(req *http.Request) (resp *http.Response, err e
 			return nil, err
 		}
 		sh.Write(buf.Bytes())
-		req.Body = ioutil.NopCloser(buf)
+		req.Body = io.NopCloser(buf)
 	}
 	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
 	req.Header.Add("TimeStamp", timestamp)

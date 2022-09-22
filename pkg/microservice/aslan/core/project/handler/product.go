@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -82,7 +82,7 @@ func CreateProductTemplate(c *gin.Context) {
 		log.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-项目", args.ProductName, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
@@ -106,7 +106,7 @@ func UpdateProductTemplate(c *gin.Context) {
 		log.Errorf("UpdateProductTemplate json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-项目环境模板或变量", args.ProductName, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
@@ -140,7 +140,7 @@ func UpdateProject(c *gin.Context) {
 		log.Errorf("UpdateProject json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-项目", args.ProductName, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -48,7 +47,7 @@ func NewCodeHubClient(ak, sk, region, proxyAddr string, enableProxy bool) *CodeH
 // Just apply the signature and request the CodeHub interface
 func (c *CodeHubClient) sendRequest(method, path string, payload []byte) (io.ReadCloser, error) {
 	var client *http.Client
-	r, err := http.NewRequest(method, fmt.Sprintf("%s.%s.%s%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer(payload)))
+	r, err := http.NewRequest(method, fmt.Sprintf("%s.%s.%s%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), io.NopCloser(bytes.NewBuffer(payload)))
 	if r == nil || err != nil {
 		log.Errorf("http.NewRequest error:%s", err)
 		return nil, err

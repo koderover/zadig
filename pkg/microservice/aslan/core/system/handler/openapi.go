@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -43,7 +43,7 @@ func OpenAPICreateRegistry(c *gin.Context) {
 		log.Errorf("CreateRegistryNamespace json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.Provider, args.Namespace), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
