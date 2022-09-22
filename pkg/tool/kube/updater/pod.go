@@ -51,3 +51,12 @@ func DeletePod(ns, name string, cl client.Client) error {
 		},
 	}, cl)
 }
+
+func PatchPod(ns, name string, patchBytes []byte, cl client.Client) error {
+	return patchObject(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+	}, patchBytes, cl)
+}

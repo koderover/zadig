@@ -136,7 +136,55 @@ type ZadigDeployJobSpec struct {
 type ServiceAndImage struct {
 	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
-	Image         string `bson:"image"               yaml:"image"           json:"image"`
+	Image         string `bson:"image"               yaml:"image"            json:"image"`
+}
+
+type BlueGreenDeployJobSpec struct {
+	ClusterID        string             `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace        string             `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	DockerRegistryID string             `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	Targets          []*BlueGreenTarget `bson:"targets"                json:"targets"               yaml:"targets"`
+}
+
+type BlueGreenReleaseJobSpec struct {
+	FromJob string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
+}
+
+type BlueGreenTarget struct {
+	K8sServiceName     string `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
+	BlueK8sServiceName string `bson:"blue_k8s_service_name"  json:"blue_k8s_service_name" yaml:"-"`
+	ContainerName      string `bson:"container_name"         json:"container_name"        yaml:"container_name"`
+	Image              string `bson:"image"                  json:"image"                 yaml:"image"`
+	// unit is minute.
+	DeployTimeout    int64  `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
+	WorkloadName     string `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
+	BlueWorkloadName string `bson:"blue_workload_name"     json:"blue_workload_name"    yaml:"-"`
+	WorkloadType     string `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
+	Version          string `bson:"version"                json:"version"               yaml:"-"`
+}
+
+type CanaryDeployJobSpec struct {
+	ClusterID        string          `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace        string          `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	DockerRegistryID string          `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	Targets          []*CanaryTarget `bson:"targets"                json:"targets"               yaml:"targets"`
+}
+
+type CanaryReleaseJobSpec struct {
+	FromJob string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
+	// unit is minute.
+	ReleaseTimeout int64 `bson:"release_timeout"        json:"release_timeout"       yaml:"release_timeout"`
+}
+
+type CanaryTarget struct {
+	K8sServiceName   string `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
+	ContainerName    string `bson:"container_name"         json:"container_name"        yaml:"container_name"`
+	Image            string `bson:"image"                  json:"image"                 yaml:"image"`
+	CanaryPercentage int    `bson:"canary_percentage"      json:"canary_percentage"     yaml:"canary_percentage"`
+	// unit is minute.
+	DeployTimeout int64  `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
+	WorkloadName  string `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
+	WorkloadType  string `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
 }
 
 type JobProperties struct {
@@ -152,7 +200,7 @@ type JobProperties struct {
 	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs"`
 	// log user-defined variables, shows in workflow task detail.
 	CustomEnvs   []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
-	Params       []*Param             `bson:"params"               	 json:"params"                yaml:"params"`
+	Params       []*Param             `bson:"params"                 json:"params"                yaml:"params"`
 	Paths        string               `bson:"-"                      json:"-"                     yaml:"-"`
 	LogFileName  string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
 	DockerHost   string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`

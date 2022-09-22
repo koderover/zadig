@@ -255,3 +255,7 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	return ret
 }
+
+func (j *FreeStyleJob) LintJob() error {
+	return nil
+}

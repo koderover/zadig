@@ -607,7 +607,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 	if err != nil {
 		return nil
 	}
-	pull := action.NewPull()
+	pull := action.NewPullWithOpts(action.WithConfig(&action.Configuration{}))
 	pull.Password = repoEntry.Username
 	pull.Username = repoEntry.Password
 	pull.Version = chartVersion
