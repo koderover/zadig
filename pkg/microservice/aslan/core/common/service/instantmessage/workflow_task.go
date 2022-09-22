@@ -61,19 +61,8 @@ func (w *Service) SendWorkflowTaskAproveNotifications(workflowName string, taskI
 			log.Error(errMsg)
 			return errors.New(errMsg)
 		}
-		switch notify.WebHookType {
-		case dingDingType:
-			if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, notify.AtMobiles); err != nil {
-				log.Errorf("send dingding notification failed: %v", err)
-			}
-		case feiShuType:
-			if err := w.sendFeishuMessage(notify.FeiShuWebHook, larkCard); err != nil {
-				log.Errorf("send feishu notification failed: %v", err)
-			}
-		default:
-			if err := w.SendWeChatWorkMessage(weChatTextTypeMarkdown, notify.WeChatWebHook, content); err != nil {
-				log.Errorf("send dingding notification failed: %v", err)
-			}
+		if err := w.sendNotification(title, content, notify, larkCard); err != nil {
+			log.Errorf("failed to send notification, err: %s", err)
 		}
 	}
 	return nil
@@ -86,6 +75,9 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
+	if len(resp.NotifyCtls) == 0 {
+		return nil
+	}
 	if task.TaskID <= 0 {
 		return nil
 	}
@@ -96,7 +88,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		log.Error(errMsg)
 		statusChanged = true
 	}
-	if task.Status != preTask.Status && task.Status != config.StatusRunning {
+	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning {
 		statusChanged = true
 	}
 	for _, notify := range resp.NotifyCtls {
@@ -111,19 +103,8 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 				log.Error(errMsg)
 				return errors.New(errMsg)
 			}
-			switch notify.WebHookType {
-			case dingDingType:
-				if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, notify.AtMobiles); err != nil {
-					log.Errorf("send dingding notification failed: %v", err)
-				}
-			case feiShuType:
-				if err := w.sendFeishuMessage(notify.FeiShuWebHook, larkCard); err != nil {
-					log.Errorf("send feishu notification failed: %v", err)
-				}
-			default:
-				if err := w.SendWeChatWorkMessage(weChatTextTypeMarkdown, notify.WeChatWebHook, content); err != nil {
-					log.Errorf("send dingding notification failed: %v", err)
-				}
+			if err := w.sendNotification(title, content, notify, larkCard); err != nil {
+				log.Errorf("failed to send notification, err: %s", err)
 			}
 		}
 	}
@@ -234,8 +215,10 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						image = env.Value
 					}
 				}
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
+				if len(commitID) > 0 {
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
+				}
 				if image != "" {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", image)
 				}
@@ -404,4 +387,22 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 
 	}
 	return buffer.String(), nil
+}
+
+func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard) error {
+	switch notify.WebHookType {
+	case dingDingType:
+		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, notify.AtMobiles); err != nil {
+			return err
+		}
+	case feiShuType:
+		if err := w.sendFeishuMessage(notify.FeiShuWebHook, card); err != nil {
+			return err
+		}
+	default:
+		if err := w.SendWeChatWorkMessage(weChatTextTypeMarkdown, notify.WeChatWebHook, content); err != nil {
+			return err
+		}
+	}
+	return nil
 }
