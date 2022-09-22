@@ -139,7 +139,7 @@ type FreestyleJobInput struct {
 func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.FreestyleJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
-		return nil, errors.New("unable to cast job.Spec into commonmodels.PluginJobSpec")
+		return nil, errors.New("unable to cast job.Spec into commonmodels.FreestyleJobSpec")
 	}
 	kvMap := make(map[string]string)
 	for _, kv := range p.KVs {
@@ -180,7 +180,7 @@ type RepoInput struct {
 func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.ZadigBuildJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
-		return nil, errors.New("unable to cast job.Spec into commonmodels.PluginJobSpec")
+		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigBuildJobSpec")
 	}
 
 	// first convert registry name into registry id
@@ -259,7 +259,7 @@ type ServiceDeployArgs struct {
 func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.ZadigDeployJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
-		return nil, errors.New("unable to cast job.Spec into commonmodels.PluginJobSpec")
+		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigDeployJobSpec")
 	}
 
 	newSpec.Env = p.EnvName
@@ -289,7 +289,7 @@ type BlueGreenDeployArgs struct {
 func (p *BlueGreenDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.BlueGreenDeployJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
-		return nil, errors.New("unable to cast job.Spec into commonmodels.PluginJobSpec")
+		return nil, errors.New("unable to cast job.Spec into commonmodels.BlueGreenDeployJobSpec")
 	}
 
 	for _, svcDeploy := range newSpec.Targets {
@@ -317,7 +317,7 @@ type CanaryDeployArgs struct {
 func (p *CanaryDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.CanaryDeployJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
-		return nil, errors.New("unable to cast job.Spec into commonmodels.PluginJobSpec")
+		return nil, errors.New("unable to cast job.Spec into commonmodels.CanaryDeployJobSpec")
 	}
 
 	for _, svcDeploy := range newSpec.Targets {
@@ -347,7 +347,7 @@ type CustomDeployTarget struct {
 func (p *CustomDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.CustomDeployJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
-		return nil, errors.New("unable to cast job.Spec into commonmodels.PluginJobSpec")
+		return nil, errors.New("unable to cast job.Spec into commonmodels.CustomDeployJobSpec")
 	}
 
 	newTargets := make([]*commonmodels.DeployTargets, 0)
