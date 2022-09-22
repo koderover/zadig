@@ -218,12 +218,12 @@ echo $result > %s
 							Args:            jobTaskSpec.Plugin.Args,
 							Command:         jobTaskSpec.Plugin.Cmds,
 							Lifecycle: &corev1.Lifecycle{
-								PostStart: &corev1.Handler{
+								PostStart: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p %s", job.JobOutputDir)},
 									},
 								},
-								PreStop: &corev1.Handler{
+								PreStop: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{"/bin/sh", "-c", collectJobOutputCommand},
 									},
@@ -477,9 +477,9 @@ func getResourceRequirements(resReq setting.Request, resReqSpec setting.RequestS
 	}
 }
 
-//generateResourceRequirements
-//cpu Request:Limit=1:4
-//memory default Request:Limit=1:4 ; if memoryLimit>= 8Gi,Request:Limit=1:8
+// generateResourceRequirements
+// cpu Request:Limit=1:4
+// memory default Request:Limit=1:4 ; if memoryLimit>= 8Gi,Request:Limit=1:8
 func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSpec) corev1.ResourceRequirements {
 
 	if req != setting.DefineRequest {

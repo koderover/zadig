@@ -17,6 +17,8 @@ limitations under the License.
 package models
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -130,6 +132,95 @@ type JobTaskBuildSpec struct {
 type JobTaskPluginSpec struct {
 	Properties JobProperties   `bson:"properties"          json:"properties"        yaml:"properties"`
 	Plugin     *PluginTemplate `bson:"plugin"              json:"plugin"            yaml:"plugin"`
+}
+
+type JobTaskBlueGreenDeploySpec struct {
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	// unit is minute.
+	DeployTimeout      int64   `bson:"deploy_timeout"              json:"deploy_timeout"             yaml:"deploy_timeout"`
+	K8sServiceName     string  `bson:"k8s_service_name"            json:"k8s_service_name"           yaml:"k8s_service_name"`
+	BlueK8sServiceName string  `bson:"blue_k8s_service_name"       json:"blue_k8s_service_name"      yaml:"blue_k8s_service_name"`
+	WorkloadType       string  `bson:"workload_type"               json:"workload_type"              yaml:"workload_type"`
+	WorkloadName       string  `bson:"workload_name"               json:"workload_name"              yaml:"workload_name"`
+	BlueWorkloadName   string  `bson:"blue_workload_name"          json:"blue_workload_name"         yaml:"blue_workload_name"`
+	ContainerName      string  `bson:"container_name"              json:"container_name"             yaml:"container_name"`
+	Version            string  `bson:"version"                     json:"version"                    yaml:"version"`
+	Image              string  `bson:"image"                       json:"image"                      yaml:"image"`
+	FirstDeploy        bool    `bson:"first_deploy"                json:"first_deploy"               yaml:"first_deploy"`
+	Events             *Events `bson:"events"                      json:"events"                     yaml:"events"`
+}
+
+type JobTaskBlueGreenReleaseSpec struct {
+	ClusterID          string  `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace          string  `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	K8sServiceName     string  `bson:"k8s_service_name"       json:"k8s_service_name"      yaml:"k8s_service_name"`
+	BlueK8sServiceName string  `bson:"blue_k8s_service_name"  json:"blue_k8s_service_name" yaml:"blue_k8s_service_name"`
+	WorkloadType       string  `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
+	WorkloadName       string  `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
+	BlueWorkloadName   string  `bson:"blue_workload_name"     json:"blue_workload_name"    yaml:"blue_workload_name"`
+	Version            string  `bson:"version"                json:"version"               yaml:"version"`
+	Image              string  `bson:"image"                  json:"image"                 yaml:"image"`
+	ContainerName      string  `bson:"container_name"         json:"container_name"        yaml:"container_name"`
+	Events             *Events `bson:"events"                 json:"events"                yaml:"events"`
+}
+
+type JobTaskCanaryDeploySpec struct {
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	// unit is minute.
+	DeployTimeout      int64   `bson:"deploy_timeout"                 json:"deploy_timeout"                yaml:"deploy_timeout"`
+	K8sServiceName     string  `bson:"k8s_service_name"               json:"k8s_service_name"              yaml:"k8s_service_name"`
+	WorkloadType       string  `bson:"workload_type"                  json:"workload_type"                 yaml:"workload_type"`
+	WorkloadName       string  `bson:"workload_name"                  json:"workload_name"                 yaml:"workload_name"`
+	ContainerName      string  `bson:"container_name"                 json:"container_name"                yaml:"container_name"`
+	CanaryPercentage   int     `bson:"canary_percentage"              json:"canary_percentage"             yaml:"canary_percentage"`
+	CanaryReplica      int     `bson:"canary_replica"                 json:"canary_replica"                yaml:"canary_replica"`
+	CanaryWorkloadName string  `bson:"canary_workload_name"           json:"canary_workload_name"          yaml:"canary_workload_name"`
+	Version            string  `bson:"version"                        json:"version"                       yaml:"version"`
+	Image              string  `bson:"image"                          json:"image"                         yaml:"image"`
+	Events             *Events `bson:"events"                         json:"events"                        yaml:"events"`
+}
+
+type JobTaskCanaryReleaseSpec struct {
+	ClusterID          string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	Namespace          string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
+	K8sServiceName     string `bson:"k8s_service_name"       json:"k8s_service_name"       yaml:"k8s_service_name"`
+	WorkloadType       string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
+	WorkloadName       string `bson:"workload_name"          json:"workload_name"          yaml:"workload_name"`
+	ContainerName      string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
+	Version            string `bson:"version"                json:"version"                yaml:"version"`
+	Image              string `bson:"image"                  json:"image"                  yaml:"image"`
+	CanaryWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
+	// unit is minute.
+	ReleaseTimeout int64   `bson:"release_timeout"        json:"release_timeout"       yaml:"release_timeout"`
+	Events         *Events `bson:"events"                 json:"events"                yaml:"events"`
+}
+
+type Event struct {
+	EventType string `bson:"event_type"             json:"event_type"            yaml:"event_type"`
+	Time      string `bson:"time"                   json:"time"                  yaml:"time"`
+	Message   string `bson:"message"                json:"message"               yaml:"message"`
+}
+
+type Events []*Event
+
+func (e *Events) Info(message string) {
+	*e = append(*e, &Event{
+		EventType: "info",
+		Time:      time.Now().Format("2006-01-02 15:04:05"),
+		Message:   message,
+	})
+}
+
+func (e *Events) Error(message string) {
+	*e = append(*e, &Event{
+		EventType: "error",
+		Time:      time.Now().Format("2006-01-02 15:04:05"),
+		Message:   message,
+	})
 }
 
 type StepTask struct {

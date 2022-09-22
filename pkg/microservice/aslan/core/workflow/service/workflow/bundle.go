@@ -40,7 +40,11 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		log.Error("Failed to list workflows , err:%s", err)
 		return nil, err
 	}
-
+	commonWorkflows, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{}, 0, 0)
+	if err != nil {
+		log.Error("Failed to list commonWorkflows , err:%s", err)
+		return nil, err
+	}
 	// get labels by workflow resources ids
 	var resources []labeldb.Resource
 	for _, workflow := range workflows {
@@ -48,6 +52,15 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 			Name:        workflow.Name,
 			ProjectName: workflow.ProductTmplName,
 			Type:        string(config.ResourceTypeWorkflow),
+		}
+		resources = append(resources, resource)
+	}
+
+	for _, workflow := range commonWorkflows {
+		resource := labeldb.Resource{
+			Name:        workflow.Name,
+			ProjectName: workflow.Project,
+			Type:        string(config.ResourceTypeCommonWorkflow),
 		}
 		resources = append(resources, resource)
 	}
@@ -61,6 +74,20 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		resourceSpec := &resourceSpec{
 			ResourceID:  workflow.Name,
 			ProjectName: workflow.ProductTmplName,
+		}
+		if labels, ok := labelsResp.Labels[resourceKey]; ok {
+			for _, v := range labels {
+				resourceSpec.Spec = append(resourceSpec.Spec, v.Key+":"+v.Value)
+			}
+		}
+		res = append(res, resourceSpec)
+	}
+
+	for _, workflow := range commonWorkflows {
+		resourceKey := commonConfig.BuildResourceKey(string(config.ResourceTypeCommonWorkflow), workflow.Project, workflow.Name)
+		resourceSpec := &resourceSpec{
+			ResourceID:  "common##" + workflow.Name,
+			ProjectName: workflow.Project,
 		}
 		if labels, ok := labelsResp.Labels[resourceKey]; ok {
 			for _, v := range labels {

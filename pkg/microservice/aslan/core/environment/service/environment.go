@@ -3395,7 +3395,7 @@ func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	}
 
 	var release *release.Release
-	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec)
+	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
 	if err != nil {
 		err = errors.WithMessagef(
 			err,
@@ -3739,7 +3739,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	return renderSet, nil
 }
 
-//checkServiceImageUpdated If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
+// checkServiceImageUpdated If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
 func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo *commonmodels.ProductService) bool {
 	for _, proContainer := range serviceInfo.Containers {
 		if curContainer.Name == proContainer.Name && curContainer.Image == proContainer.Image {

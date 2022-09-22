@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 var (
@@ -47,7 +47,7 @@ func (s *Server) AddPeer(url, id, token string) {
 		cancel: cancel,
 	}
 
-	logrus.Infof("Adding peer %s, %s", url, id)
+	log.Infof("Adding peer %s, %s", url, id)
 
 	s.peerLock.Lock()
 	defer s.peerLock.Unlock()
@@ -68,7 +68,7 @@ func (s *Server) RemovePeer(id string) {
 	defer s.peerLock.Unlock()
 
 	if p, ok := s.peers[id]; ok {
-		logrus.Infof("Removing peer %s", id)
+		log.Infof("Removing peer %s", id)
 		p.cancel()
 	}
 	delete(s.peers, id)
@@ -108,7 +108,7 @@ outer:
 
 		ws, _, err := dialer.Dial(p.url, headers)
 		if err != nil {
-			logrus.Errorf("Failed to connect to peer %s [local ID=%s]: %v", p.url, s.PeerID, err)
+			log.Errorf("Failed to connect to peer %s [local ID=%s]: %s", p.url, s.PeerID, err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -129,7 +129,7 @@ outer:
 		session.Close()
 
 		if err != nil {
-			logrus.Errorf("Failed to serve peer connection %s: %v", p.id, err)
+			log.Errorf("Failed to serve peer connection %s: %s", p.id, err)
 		}
 
 		ws.Close()

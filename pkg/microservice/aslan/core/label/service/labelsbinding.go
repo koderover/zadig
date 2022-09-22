@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -74,6 +75,27 @@ func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *z
 			}
 			if len(wks) != resourceSet.Len() {
 				logger.Errorf("there're resources not exist")
+				return e.ErrForbidden.AddDesc("there're resources not exist")
+			}
+		case string(config.ResourceTypeCommonWorkflow):
+			workflows := []commondb.WorkflowV4{}
+			resourceSet := sets.NewString()
+			for _, vv := range v {
+				workflow := commondb.WorkflowV4{
+					Name:        vv.Resource.Name,
+					ProjectName: vv.Resource.ProjectName,
+				}
+				workflows = append(workflows, workflow)
+				resourceSet.Insert(fmt.Sprintf("%s-%s", vv.Resource.Name, vv.Resource.ProjectName))
+			}
+			wks, err := commondb.NewWorkflowV4Coll().ListByWorkflows(commondb.ListWorkflowV4Opt{workflows})
+			if err != nil {
+				logger.Errorf("can not find related resource err:%s", err)
+				return err
+			}
+			if len(wks) != resourceSet.Len() {
+				wksj, _ := json.Marshal(wks)
+				logger.Errorf("there're resources not exist:%s, %s", wksj, resourceSet)
 				return e.ErrForbidden.AddDesc("there're resources not exist")
 			}
 		case string(config.ResourceTypeEnvironment):

@@ -534,7 +534,7 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 }
 
 // InstallOrUpgradeChart install or upgrade helm chart, use the same rule with helm to determine weather to install or upgrade
-func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
+func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.ChartSpec, opts *hc.GenericHelmOptions) (*release.Release, error) {
 	install, err := hClient.isInstallOperation(spec)
 	if err != nil {
 		return nil, err
@@ -607,7 +607,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 	if err != nil {
 		return nil
 	}
-	pull := action.NewPull()
+	pull := action.NewPullWithOpts(action.WithConfig(&action.Configuration{}))
 	pull.Password = repoEntry.Username
 	pull.Username = repoEntry.Password
 	pull.Version = chartVersion

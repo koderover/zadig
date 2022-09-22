@@ -511,3 +511,7 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 	}
 	return templateRepos
 }
+
+func (j *BuildJob) LintJob() error {
+	return nil
+}

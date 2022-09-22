@@ -85,13 +85,11 @@ func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (
 			return nil, err
 		}
 
-		commitDate, _ := time.Parse(time.RFC3339, commit.Author.Date)
-
 		return &RepoCommit{
 			ID:         commit.Commit,
 			Title:      commit.Subject,
 			AuthorName: commit.Author.Name,
-			CreatedAt:  &commitDate,
+			CreatedAt:  &commit.Author.Date.Time,
 			Message:    commit.Message,
 		}, nil
 	}
@@ -132,13 +130,11 @@ func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoC
 			return nil, err
 		}
 
-		commitDate, _ := time.Parse(time.RFC3339, commit.Author.Date)
-
 		return &RepoCommit{
 			ID:         commit.Commit,
 			Title:      commit.Subject,
 			AuthorName: commit.Author.Name,
-			CreatedAt:  &commitDate,
+			CreatedAt:  &commit.Author.Date.Time,
 			Message:    commit.Message,
 		}, nil
 	}
@@ -180,7 +176,7 @@ func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *z
 				"current version %s is not in revision map %v", change.CurrentRevision, change.Revisions)
 		}
 
-		tm, _ := time.Parse(gerrit.TimeFormat, change.Revisions[change.CurrentRevision].Created)
+		tm := change.Revisions[change.CurrentRevision].Created.Time
 		return &PRCommit{
 			ID:          change.CurrentRevision,
 			Title:       change.Subject,

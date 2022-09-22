@@ -102,3 +102,7 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	j.job.Spec = j.spec
 	return resp, nil
 }
+
+func (j *CustomDeployJob) LintJob() error {
+	return nil
+}
