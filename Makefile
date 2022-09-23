@@ -11,15 +11,15 @@ all.push: $(TARGETS:=.push)
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.image:
-	@docker buildx build --tag ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile .
+	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile .
 
 %.push: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.push:
-	@docker buildx build --tag ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile --push .
+	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile --push .
 
 # for zadig developers ONLY:
 # the command below is used to generate amd64 file for daily developing purpose
 %.dev: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.dev:
-	@docker buildx build --tag ${MAKE_IMAGE_TAG} --platform linux/amd64 -f docker/$*.Dockerfile --push .
+	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64 -f docker/$*.Dockerfile --push .
 
