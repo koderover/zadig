@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -227,7 +228,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init junit report step
 		if len(testingInfo.TestResultPath) > 0 {
 			junitStep := &commonmodels.StepTask{
-				Name:     testing.Name + "-junit",
+				Name:     config.TestJobJunitReportStepName,
 				JobName:  jobTask.Name,
 				StepType: config.StepJunitReport,
 				Spec: &step.StepJunitReportSpec{
@@ -248,7 +249,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
-				Name:     testing.Name + "-archive-html-report",
+				Name:     config.TestJobHTMLReportStepName,
 				JobName:  jobTask.Name,
 				StepType: config.StepArchive,
 				Spec: step.StepArchiveSpec{
@@ -260,23 +261,19 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		// init test result storage step
-		uploads := []*step.Upload{}
-		archiveStep := &commonmodels.StepTask{
-			Name:     testing.Name + "-ar",
-			JobName:  jobTask.Name,
-			StepType: config.StepArchive,
-			Spec: step.StepArchiveSpec{
-				UploadDetail: uploads,
-				S3:           modelS3toS3(defaultS3),
-			},
+		if len(testingInfo.ArtifactPaths) > 0 {
+			tarArchiveStep := &commonmodels.StepTask{
+				Name:     config.TestJobArchiveResultStepName,
+				JobName:  jobTask.Name,
+				StepType: config.StepTarArchive,
+				Spec: &step.StepTarArchiveSpec{
+					ResultDirs: testingInfo.ArtifactPaths,
+					S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), "test-result"),
+					FileName:   setting.ArtifactResultOut,
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
 		}
-		for _, artifact := range testingInfo.ArtifactPaths {
-			uploads = append(uploads, &step.Upload{
-				FilePath:        artifact,
-				DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "test"),
-			})
-		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 
 		resp = append(resp, jobTask)
 	}

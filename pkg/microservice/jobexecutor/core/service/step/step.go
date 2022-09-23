@@ -78,6 +78,11 @@ func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "tar_archive":
+		stepInstance, err = NewTararchiveStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
 	default:
 		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
 		log.Error(err)

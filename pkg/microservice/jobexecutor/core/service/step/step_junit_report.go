@@ -121,6 +121,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 			return err
 		}
 	}
+	log.Infof("Finish archive %s.", s.spec.FileName)
 	return nil
 }
 
