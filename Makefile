@@ -1,14 +1,25 @@
 # New Makefile for multi-architecture
-.PHONY: all
+.PHONY: all.push
 
 IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
-TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua warpdrive
+TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin resource-server ua warpdrive zadig-debug zgctl-sidecar
 
-all:
+all: $(TARGETS:=.image)
+all.push: $(TARGETS:=.push)
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.image:
-	@mkdir -p docker/dist/amd64
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o docker/dist/$* cmd/$*/main.go
+	@docker buildx build --tag ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile .
+
+%.push: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
+%.push:
+	@docker buildx build --tag ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile --push .
+
+# for zadig developers ONLY:
+# the command below is used to generate amd64 file for daily developing purpose
+%.dev: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
+%.dev:
+	@docker buildx build --tag ${MAKE_IMAGE_TAG} --platform linux/amd64 -f docker/$*.Dockerfile --push .
+
