@@ -186,6 +186,7 @@ func jobNameFormat(jobName string) string {
 		jobName = jobName[:63]
 	}
 	jobName = strings.Trim(jobName, "-")
+	jobName = strings.ToLower(jobName)
 	return jobName
 }
 

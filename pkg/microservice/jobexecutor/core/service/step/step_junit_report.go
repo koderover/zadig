@@ -62,7 +62,11 @@ func NewJunitReportStep(spec interface{}, workspace string, envs, secretEnvs []s
 
 func (s *JunitReportStep) Run(ctx context.Context) error {
 	log.Info("Start merge ginkgo test results.")
-	err := mergeGinkgoTestResults(s.spec.FileName, s.spec.DestDir, s.spec.DestDir, time.Now())
+	if err := os.MkdirAll(s.spec.DestDir, os.ModePerm); err != nil {
+		return fmt.Errorf("create dest dir: %s error: %s", s.spec.DestDir, err)
+	}
+	reportDir := filepath.Join(s.workspace, s.spec.ReportDir)
+	err := mergeGinkgoTestResults(s.spec.FileName, reportDir, s.spec.DestDir, time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to merge test result: %s", err)
 	}
@@ -81,24 +85,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 	}
 
-	envmaps := make(map[string]string)
-	for _, env := range s.envs {
-		kv := strings.Split(env, "=")
-		if len(kv) != 2 {
-			continue
-		}
-		envmaps[kv[0]] = kv[1]
-	}
-	for _, secretEnv := range s.secretEnvs {
-		kv := strings.Split(secretEnv, "=")
-		if len(kv) != 2 {
-			continue
-		}
-		envmaps[kv[0]] = kv[1]
-	}
-
-	absFilePath := fmt.Sprintf("$WORKSPACE/%s/%s", s.spec.DestDir, s.spec.FileName)
-	absFilePath = replaceEnvWithValue(absFilePath, envmaps)
+	absFilePath := path.Join(s.spec.DestDir, s.spec.FileName)
 
 	if len(s.spec.S3Storage.Subfolder) > 0 {
 		s.spec.S3DestDir = strings.TrimLeft(path.Join(s.spec.S3Storage.Subfolder, s.spec.S3DestDir), "/")

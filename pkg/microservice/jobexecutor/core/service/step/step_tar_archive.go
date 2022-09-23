@@ -64,7 +64,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 	}
-	tarName := filepath.Join(s.workspace, s.spec.DestDir, s.spec.FileName)
+	tarName := filepath.Join(s.spec.DestDir, s.spec.FileName)
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, tarName)
