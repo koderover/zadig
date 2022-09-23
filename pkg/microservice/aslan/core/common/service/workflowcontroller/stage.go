@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 )
 
 type approveMap struct {
@@ -53,7 +54,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	stage.StartTime = time.Now().Unix()
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
-	if err := waitiForApprove(ctx, stage, workflowCtx, ack); err != nil {
+	if err := waitiForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
 		stage.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
@@ -90,7 +91,7 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return approveWithL.doApproval(userName, userID, comment, approve)
 }
 
-func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func()) error {
+func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
 	if stage.Approval == nil {
 		return nil
 	}
@@ -107,6 +108,9 @@ func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflo
 		globalApproveMap.deleteApproval(approveKey)
 		ack()
 	}()
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+		logger.Errorf("send approve notification failed, error: %v", err)
+	}
 
 	timeout := time.After(time.Duration(stage.Approval.Timeout) * time.Minute)
 	latestApproveCount := 0
