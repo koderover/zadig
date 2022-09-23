@@ -58,6 +58,9 @@ exemption_urls:
     - endpoint: api/aslan/testing/report
       methods:
         - GET
+    - endpoint: api/aslan/testing/report/workflowv4/?*/id/?*/job/?*
+      methods:
+        - GET
     - endpoint: api/aslan/cluster/agent/?*/agent.yaml
       methods:
         - GET

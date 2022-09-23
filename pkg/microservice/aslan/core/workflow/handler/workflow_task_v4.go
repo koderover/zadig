@@ -148,3 +148,23 @@ func ApproveStage(c *gin.Context) {
 
 	ctx.Err = workflow.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
 }
+
+func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	resp, err := workflow.GetWorkflowV4ArtifactFileContent(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
+
+	c.Data(200, "application/octet-stream", resp)
+}

@@ -224,10 +224,11 @@ func (e *Events) Error(message string) {
 }
 
 type StepTask struct {
-	Name     string          `bson:"name"           json:"name"      yaml:"name"`
-	JobName  string          `bson:"job_name"       json:"job_name"  yaml:"job_name"`
-	Error    string          `bson:"error"          json:"error"     yaml:"error"`
-	StepType config.StepType `bson:"type"           json:"type"      yaml:"type"`
+	Name      string          `bson:"name"           json:"name"         yaml:"name"`
+	JobName   string          `bson:"job_name"       json:"job_name"     yaml:"job_name"`
+	Error     string          `bson:"error"          json:"error"        yaml:"error"`
+	StepType  config.StepType `bson:"type"           json:"type"         yaml:"type"`
+	Onfailure bool            `bson:"on_failure"     json:"on_failure"   yaml:"on_failure"`
 	// step input params,differ form steps
 	Spec interface{} `bson:"spec"           json:"spec"   yaml:"spec"`
 	// step output results,like testing results,differ form steps

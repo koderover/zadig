@@ -36,9 +36,10 @@ type JobContext struct {
 }
 
 type Step struct {
-	Name     string      `yaml:"name"`
-	StepType string      `yaml:"type"`
-	Spec     interface{} `yaml:"spec"`
+	Name      string      `yaml:"name"`
+	StepType  string      `yaml:"type"`
+	Onfailure bool        `yaml:"on_failure"`
+	Spec      interface{} `yaml:"spec"`
 }
 
 type EnvVar []string

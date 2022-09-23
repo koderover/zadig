@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -143,6 +144,22 @@ func GetHTMLTestReport(c *gin.Context) {
 		c.Query("testName"),
 		ginzap.WithContext(c).Sugar(),
 	)
+	if err != nil {
+		c.JSON(500, gin.H{"err": err})
+		return
+	}
+
+	c.Header("content-type", "text/html")
+	c.String(200, content)
+}
+
+func GetWorkflowV4HTMLTestReport(c *gin.Context) {
+	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(500, gin.H{"err": err})
+		return
+	}
+	content, err := service.GetWorkflowV4HTMLTestReport(c.Param("workflowName"), c.Param("jobName"), taskID, ginzap.WithContext(c).Sugar())
 	if err != nil {
 		c.JSON(500, gin.H{"err": err})
 		return

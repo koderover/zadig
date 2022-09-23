@@ -193,6 +193,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.DELETE("/workflow/:workflowName/task/:taskID", CancelWorkflowTaskV4)
 		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)
 		taskV4.POST("/approve", ApproveStage)
+		taskV4.GET("/workflow/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4ArtifactFileContent)
 	}
 
 	// ---------------------------------------------------------------------------------------

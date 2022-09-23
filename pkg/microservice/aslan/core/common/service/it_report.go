@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"go.uber.org/zap"
@@ -33,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -146,5 +148,92 @@ func GetLocalTestSuite(pipelineName, serviceName, testType string, taskID int64,
 		performanceTestSuites = append(performanceTestSuites, performanceTestSuite)
 	}
 	testReport.PerformanceTestSuites = performanceTestSuites
+	return testReport, nil
+}
+
+func GetWorkflowV4LocalTestSuite(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) (*commonmodels.TestReport, error) {
+	testReport := new(commonmodels.TestReport)
+	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return testReport, fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	var jobTask *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != string(config.JobZadigTesting) {
+				return testReport, fmt.Errorf("job: %s was not a testing job", jobName)
+			}
+			jobTask = job
+		}
+	}
+	if jobTask == nil {
+		return testReport, fmt.Errorf("cannot find job task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
+		return testReport, fmt.Errorf("unmashal job spec error: %v", err)
+	}
+
+	var stepTask *commonmodels.StepTask
+	for _, step := range jobSpec.Steps {
+		if step.Name != config.TestJobJunitReportStepName {
+			continue
+		}
+		if step.StepType != config.StepJunitReport {
+			return testReport, fmt.Errorf("step: %s was not a junit report step", step.Name)
+		}
+		stepTask = step
+	}
+	if stepTask == nil {
+		return testReport, fmt.Errorf("cannot find step task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	stepSpec := &step.StepJunitReportSpec{}
+	if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+		return testReport, fmt.Errorf("unmashal step spec error: %v", err)
+	}
+
+	var s3Storage *s3.S3
+	var filename string
+	if s3Storage, err = s3.FindDefaultS3(); err == nil {
+		filename, err = util.GenerateTmpFile()
+		defer func() {
+			_ = os.Remove(filename)
+		}()
+		if err != nil {
+			log.Errorf("GetLocalTestSuite GenerateTmpFile err:%v", err)
+		}
+		objectKey := filepath.Join(stepSpec.S3DestDir, stepSpec.FileName)
+		forcedPathStyle := true
+		if s3Storage.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
+		}
+		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+		if err != nil {
+			log.Errorf("Failed to create s3 client for download, error: %+v", err)
+			return testReport, fmt.Errorf("failed to create s3 client for download, error: %+v", err)
+		}
+		if err = client.Download(s3Storage.Bucket, objectKey, filename); err != nil {
+			log.Errorf("GetLocalTestSuite s3 Download err:%v", err)
+			return testReport, fmt.Errorf("getLocalTestSuite s3 Download err: %v", err)
+		}
+	} else {
+		log.Errorf("GetLocalTestSuite FindDefaultS3 err:%v", err)
+		return testReport, fmt.Errorf("GetLocalTestSuite FindDefaultS3 err: %v", err)
+	}
+
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		msg := fmt.Sprintf("GetLocalTestSuite get local test result file error: %v", err)
+		log.Error(msg)
+		return testReport, errors.New(msg)
+	}
+	if err := xml.Unmarshal(b, &testReport.FunctionTestSuite); err != nil {
+		msg := fmt.Sprintf("GetLocalTestSuite unmarshal it report xml error: %v", err)
+		log.Error(msg)
+		return testReport, errors.New(msg)
+	}
 	return testReport, nil
 }

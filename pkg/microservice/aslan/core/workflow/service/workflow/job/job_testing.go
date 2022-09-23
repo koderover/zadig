@@ -228,9 +228,10 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init junit report step
 		if len(testingInfo.TestResultPath) > 0 {
 			junitStep := &commonmodels.StepTask{
-				Name:     config.TestJobJunitReportStepName,
-				JobName:  jobTask.Name,
-				StepType: config.StepJunitReport,
+				Name:      config.TestJobJunitReportStepName,
+				JobName:   jobTask.Name,
+				StepType:  config.StepJunitReport,
+				Onfailure: true,
 				Spec: &step.StepJunitReportSpec{
 					ReportDir: testingInfo.TestResultPath,
 					S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), "junit"),
@@ -250,9 +251,10 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
-				Name:     config.TestJobHTMLReportStepName,
-				JobName:  jobTask.Name,
-				StepType: config.StepArchive,
+				Name:      config.TestJobHTMLReportStepName,
+				JobName:   jobTask.Name,
+				StepType:  config.StepArchive,
+				Onfailure: true,
 				Spec: step.StepArchiveSpec{
 					UploadDetail: uploads,
 					S3:           modelS3toS3(defaultS3),
@@ -264,9 +266,10 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init test result storage step
 		if len(testingInfo.ArtifactPaths) > 0 {
 			tarArchiveStep := &commonmodels.StepTask{
-				Name:     config.TestJobArchiveResultStepName,
-				JobName:  jobTask.Name,
-				StepType: config.StepTarArchive,
+				Name:      config.TestJobArchiveResultStepName,
+				JobName:   jobTask.Name,
+				StepType:  config.StepTarArchive,
+				Onfailure: true,
 				Spec: &step.StepTarArchiveSpec{
 					ResultDirs: testingInfo.ArtifactPaths,
 					S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), "test-result"),
