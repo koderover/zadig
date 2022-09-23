@@ -1,10 +1,12 @@
 FROM golang:1.19.1-alpine as build
 
+VOLUME ["/gocache"]
+
 WORKDIR /app
 
 ENV CGO_ENABLED=0 GOOS=linux
 ENV GOPROXY=https://goproxy.cn,direct
-ENV GOCACHE=/tmp
+ENV GOCACHE=/gocache
 
 COPY go.mod go.sum ./
 COPY cmd cmd
