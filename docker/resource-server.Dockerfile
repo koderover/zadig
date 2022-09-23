@@ -19,7 +19,7 @@ FROM nginx
 WORKDIR /app
 
 ADD resource-server-nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build docker/dist/reaper .
-COPY --from=build docker/dist/jobexecutor .
+COPY --from=build /reaper .
+COPY --from=build /jobexecutor .
 
 EXPOSE 80

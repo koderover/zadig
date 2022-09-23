@@ -1,7 +1,7 @@
-FROM ubuntu:bionic
+FROM ubuntu:focal
 
 RUN sed -i -E "s/[a-zA-Z0-9]+.ubuntu.com/mirrors.aliyun.com/g" /etc/apt/sources.list
-RUN apt-get clean && apt-get update
+RUN apt-get clean && apt-get update && apt-get install -y apt-transport-https ca-certificates
 RUN DEBIAN_FRONTEND=noninteractive apt install -y tzdata
 RUN apt-get install -y \
   curl \
@@ -17,12 +17,11 @@ RUN apt-get install -y \
   cmake \
   python \
   librrd-dev \
-  sudo \
-  apt-transport-https \
-  ca-certificates
+  sudo
 
 # timezone modification
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
 # install docker client
 RUN curl -fsSL https://get.docker.com | bash
+

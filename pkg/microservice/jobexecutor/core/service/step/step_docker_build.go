@@ -33,7 +33,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const dockerExe = "/usr/local/bin/docker"
+const dockerExe = "docker"
 
 type DockerBuildStep struct {
 	spec       *step.StepDockerBuildSpec
