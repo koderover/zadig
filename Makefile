@@ -6,11 +6,9 @@ VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
 TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin resource-server ua warpdrive zadig-debug zgctl-sidecar
 
-prereq:
-	@docker buildx create --node=multiarch --use --platform=linux/amd64,linux/arm64
 
-all: prereq $(TARGETS:=.image)
-all.push: prereq $(TARGETS:=.push)
+all: $(TARGETS:=.image)
+all.push: $(TARGETS:=.push)
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.image:
