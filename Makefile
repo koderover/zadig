@@ -1,4 +1,7 @@
 # New Makefile for multi-architecture
+# WARNING:
+# This makefile used docker buildx to build multi-arch image
+# Please make sure you have the right version of docker.
 .PHONY: all.push
 
 IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public

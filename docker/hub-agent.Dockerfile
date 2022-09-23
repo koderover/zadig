@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV CGO_ENABLED=0 GOOS=linux
 ENV GOPROXY=https://goproxy.cn,direct
+ENV GOCACHE=/tmp
 
 COPY go.mod go.sum ./
 COPY cmd cmd

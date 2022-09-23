@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV CGO_ENABLED=0 GOOS=linux
 ENV GOPROXY=https://goproxy.cn,direct
+ENV GOCACHE=/tmp
 
 COPY go.mod go.sum ./
 COPY cmd cmd
@@ -24,6 +25,6 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 WORKDIR /app
 
-ADD docker/dist/hub-server .
+COPY --from=build /hub-server .
 
 ENTRYPOINT ["/app/hub-server"]
