@@ -14,7 +14,7 @@ COPY pkg pkg
 
 RUN go mod download
 
-RUN go build -v -o /jenkins-plugin ./cmd/init/jenkins-plugin.go
+RUN go build -v -o /jenkins-plugin ./cmd/jenkins-plugin.go
 
 FROM alpine:3.13.5
 
