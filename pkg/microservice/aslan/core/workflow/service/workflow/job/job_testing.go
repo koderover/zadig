@@ -224,12 +224,27 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 
+		// init junit report step
+		if len(testingInfo.TestResultPath) > 0 {
+			junitStep := &commonmodels.StepTask{
+				Name:     testing.Name + "-junit",
+				JobName:  jobTask.Name,
+				StepType: config.StepJunitReport,
+				Spec: &step.StepJunitReportSpec{
+					ReportDir: testingInfo.TestResultPath,
+					S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), "junit"),
+					FileName:  "merged.xml",
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
+		}
+
 		// init archive html step
 		if len(testingInfo.TestReportPath) > 0 {
 			uploads := []*step.Upload{
 				{
 					FilePath:        testingInfo.TestReportPath,
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "test"),
+					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "html"),
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
@@ -258,7 +273,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		for _, artifact := range testingInfo.ArtifactPaths {
 			uploads = append(uploads, &step.Upload{
 				FilePath:        artifact,
-				DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "artifact"),
+				DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "test"),
 			})
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
