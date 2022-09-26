@@ -2,19 +2,22 @@
 # WARNING:
 # This makefile used docker buildx to build multi-arch image
 # Please make sure you have the right version of docker.
-.PHONY: all.push
+.PHONY: microservice.push
 
 IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
-TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin resource-server ua warpdrive zadig-debug zgctl-sidecar
+MICROSERVICE_TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin resource-server ua warpdrive
+BUILD_BASE_TARGETS = focal bionic
+DEBUG_TOOLS_TARGETS = zadig-debug zgctl-sidecar
 
 prereq:
 	@docker buildx create --node=multiarch --use --platform=linux/amd64,linux/arm64
 
-all: prereq $(TARGETS:=.image)
-all.push: prereq $(TARGETS:=.push)
-buildbase: prereq $()
+microservice: prereq $(MICROSERVICE_TARGETS:=.image)
+microservice.push: prereq $(MICROSERVICE_TARGETS:=.push)
+buildbase: prereq $(BUILD_BASE_TARGETS:=.buildbase)
+debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.image:
