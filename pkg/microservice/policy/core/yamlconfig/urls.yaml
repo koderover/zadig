@@ -15,7 +15,7 @@ exemption_urls:
         - POST
     - endpoint: api/plutus/license/download/**
       methods:
-        - POST
+        - GET
     - endpoint: api/plutus/customer/uploadBaseUri
       methods:
         - POST
