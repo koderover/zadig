@@ -303,7 +303,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			uploads := []*step.Upload{
 				{
 					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "archive"),
+					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "archive"),
 				},
 			}
 			archiveStep := &commonmodels.StepTask{

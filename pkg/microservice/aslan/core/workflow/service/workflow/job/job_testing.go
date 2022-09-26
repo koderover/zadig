@@ -225,30 +225,12 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 
-		// init junit report step
-		if len(testingInfo.TestResultPath) > 0 {
-			junitStep := &commonmodels.StepTask{
-				Name:      config.TestJobJunitReportStepName,
-				JobName:   jobTask.Name,
-				StepType:  config.StepJunitReport,
-				Onfailure: true,
-				Spec: &step.StepJunitReportSpec{
-					ReportDir: testingInfo.TestResultPath,
-					S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), "junit"),
-					TestName:  testing.Name,
-					DestDir:   "/tmp",
-					FileName:  "merged.xml",
-				},
-			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
-		}
-
 		// init archive html step
 		if len(testingInfo.TestReportPath) > 0 {
 			uploads := []*step.Upload{
 				{
 					FilePath:        testingInfo.TestReportPath,
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), "html"),
+					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "html"),
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
@@ -273,7 +255,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Onfailure: true,
 				Spec: &step.StepTarArchiveSpec{
 					ResultDirs: testingInfo.ArtifactPaths,
-					S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), "test-result"),
+					S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "test-result"),
 					FileName:   setting.ArtifactResultOut,
 					DestDir:    "/tmp",
 				},
@@ -281,6 +263,24 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			if len(testingInfo.ArtifactPaths) > 1 || testingInfo.ArtifactPaths[0] != "" {
 				jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
 			}
+		}
+
+		// init junit report step
+		if len(testingInfo.TestResultPath) > 0 {
+			junitStep := &commonmodels.StepTask{
+				Name:      config.TestJobJunitReportStepName,
+				JobName:   jobTask.Name,
+				StepType:  config.StepJunitReport,
+				Onfailure: true,
+				Spec: &step.StepJunitReportSpec{
+					ReportDir: testingInfo.TestResultPath,
+					S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),
+					TestName:  testing.Name,
+					DestDir:   "/tmp",
+					FileName:  "merged.xml",
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
 		}
 
 		resp = append(resp, jobTask)

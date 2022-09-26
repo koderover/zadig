@@ -96,6 +96,7 @@ func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		return err
 	}
 	if err := stepInstance.Run(ctx); err != nil {
+		log.Error(err)
 		return err
 	}
 	return nil
