@@ -183,7 +183,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
 			jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
 		}
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, logger)...)
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, testing.ProjectName, testing.Name, logger)...)
 
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
@@ -290,12 +290,14 @@ func (j *TestingJob) LintJob() error {
 	return nil
 }
 
-func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName, testingProject, testingName string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	ret = append(ret, getReposVariables(repos)...)
 
 	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PROJECT", Value: project, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "TESTING_PROJECT", Value: testingProject, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "TESTING_NAME", Value: testingName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "ZADIG", Value: "true", IsCredential: false})

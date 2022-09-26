@@ -95,6 +95,8 @@ type ZadigTestingJobSpec struct {
 	JunitReport bool                   `bson:"junit_report"    json:"junit_report"`
 	Archive     bool                   `bson:"archive"         json:"archive"`
 	HtmlReport  bool                   `bson:"html_report"     json:"html_report"`
+	ProjectName string                 `bson:"project_name"    json:"project_name"`
+	TestName    string                 `bson:"test_name"       json:"test_name"`
 	Envs        []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
 }
 
@@ -417,6 +419,16 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					stepSpec := &stepspec.StepGitSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Repos = stepSpec.Repos
+					continue
+				}
+			}
+			for _, arg := range taskJobSpec.Properties.Envs {
+				if arg.Key == "TESTING_PROJECT" {
+					spec.ProjectName = arg.Value
+					continue
+				}
+				if arg.Key == "TESTING_NAME" {
+					spec.TestName = arg.Value
 					continue
 				}
 			}
