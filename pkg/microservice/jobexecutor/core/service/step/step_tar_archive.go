@@ -52,10 +52,10 @@ func NewTararchiveStep(spec interface{}, workspace string, envs, secretEnvs []st
 }
 
 func (s *TarArchiveStep) Run(ctx context.Context) error {
-	log.Infof("Start archive %s.", s.spec.FileName)
 	if len(s.spec.ResultDirs) == 0 {
 		return nil
 	}
+	log.Infof("Start archive %s.", s.spec.FileName)
 	forcedPathStyle := true
 	if s.spec.S3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
