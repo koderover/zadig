@@ -40,6 +40,7 @@ type WorkflowV4 struct {
 	UpdatedBy      string             `bson:"updated_by"          yaml:"updated_by"   json:"updated_by"`
 	UpdateTime     int64              `bson:"update_time"         yaml:"update_time"  json:"update_time"`
 	MultiRun       bool               `bson:"multi_run"           yaml:"multi_run"    json:"multi_run"`
+	NotifyCtls     []*NotifyCtl       `bson:"notify_ctls"         yaml:"notify_ctls"  json:"notify_ctls"`
 	HookCtls       []*WorkflowV4Hook  `bson:"hook_ctl"            yaml:"-"            json:"hook_ctl"`
 	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
 	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
