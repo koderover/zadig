@@ -235,6 +235,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Spec: &step.StepJunitReportSpec{
 					ReportDir: testingInfo.TestResultPath,
 					S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), "junit"),
+					TestName:  testing.Name,
 					DestDir:   "/tmp",
 					FileName:  "merged.xml",
 				},

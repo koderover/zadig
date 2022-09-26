@@ -21,5 +21,6 @@ type StepJunitReportSpec struct {
 	DestDir   string `bson:"dest_dir"                   json:"dest_dir"                          yaml:"dest_dir"`
 	S3DestDir string `bson:"s3_dest_dir"                json:"s3_dest_dir"                       yaml:"s3_dest_dir"`
 	FileName  string `bson:"file_name"                  json:"file_name"                         yaml:"file_name"`
+	TestName  string `bson:"test_name"                  json:"test_name"                         yaml:"test_name"`
 	S3Storage *S3    `bson:"s3_storage"                 json:"s3_storage"                        yaml:"s3_storage"`
 }

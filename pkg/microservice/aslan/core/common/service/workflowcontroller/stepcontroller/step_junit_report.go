@@ -18,14 +18,24 @@ package stepcontroller
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type junitReportCtl struct {
@@ -60,5 +70,66 @@ func (s *junitReportCtl) PreRun(ctx context.Context) error {
 }
 
 func (s *junitReportCtl) AfterRun(ctx context.Context) error {
+	if s.junitReportSpec.TestName == "" {
+		return nil
+	}
+	var testTaskStat *commonmodels.TestTaskStat
+	var isNew bool
+	testTaskStat, _ = commonrepo.NewTestTaskStatColl().FindTestTaskStat(&commonrepo.TestTaskStatOption{Name: s.junitReportSpec.TestName})
+	if testTaskStat == nil {
+		isNew = true
+		testTaskStat = new(commonmodels.TestTaskStat)
+		testTaskStat.Name = s.junitReportSpec.TestName
+		testTaskStat.CreateTime = time.Now().Unix()
+		testTaskStat.UpdateTime = time.Now().Unix()
+	}
+	filename, err := util.GenerateTmpFile()
+	if err != nil {
+		log.Errorf("GenerateTmpFile err:%v", err)
+		return err
+	}
+	storage, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("find defalt s3 error: %v", err)
+		return err
+	}
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("NewClient err:%v", err)
+		return err
+	}
+	objectKey := filepath.Join(s.junitReportSpec.S3DestDir, s.junitReportSpec.FileName)
+	err = client.Download(storage.Bucket, objectKey, filename)
+	if err != nil {
+		log.Errorf("Download junit report err:%v", err)
+		return err
+	}
+	defer os.Remove(filename)
+
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Error("get local test result file error: %v", err)
+		return err
+	}
+	testReport := new(commonmodels.TestSuite)
+	if err := xml.Unmarshal(b, &testReport); err != nil {
+		log.Error("uploadTaskData testSuite unmarshal it report xml error: %v", err)
+		return err
+	}
+	totalCaseNum := testReport.Tests
+	if totalCaseNum != 0 {
+		testTaskStat.TestCaseNum = totalCaseNum
+	}
+	testTaskStat.TotalSuccess++
+	if isNew {
+		_ = commonrepo.NewTestTaskStatColl().Create(testTaskStat)
+	} else {
+		testTaskStat.UpdateTime = time.Now().Unix()
+		_ = commonrepo.NewTestTaskStatColl().Update(testTaskStat)
+	}
 	return nil
 }
