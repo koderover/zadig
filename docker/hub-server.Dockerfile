@@ -1,7 +1,5 @@
 FROM golang:1.19.1-alpine as build
 
-VOLUME ["/gocache"]
-
 WORKDIR /app
 
 ENV CGO_ENABLED=0 GOOS=linux
@@ -14,7 +12,8 @@ COPY pkg pkg
 
 RUN go mod download
 
-RUN go build -v -o /hub-server ./cmd/hub-server/main.go
+RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+    go build -v -o /hub-server ./cmd/hub-server/main.go
 
 FROM alpine:3.13.5
 

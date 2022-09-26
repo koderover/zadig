@@ -1,7 +1,5 @@
 FROM golang:1.19.1-alpine as build
 
-VOLUME ["/gocache"]
-
 WORKDIR /app
 
 ENV CGO_ENABLED=0 GOOS=linux
@@ -14,8 +12,10 @@ COPY pkg pkg
 
 RUN go mod download
 
-RUN go build -v -o /reaper ./cmd/reaper/main.go
-RUN go build -v -o /jobexecutor ./cmd/jobexecutor/main.go
+RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+    go build -v -o /reaper ./cmd/reaper/main.go
+RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+    go build -v -o /jobexecutor ./cmd/jobexecutor/main.go
 
 FROM nginx
 
