@@ -19,7 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -47,7 +47,7 @@ func CreateWorkflowV3(c *gin.Context) {
 		log.Errorf("CreateWorkflow unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", "工作流V3", req.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
@@ -111,7 +111,7 @@ func UpdateWorkflowV3(c *gin.Context) {
 		log.Errorf("UpdateWorkflowV3 unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "修改", "工作流V3", req.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())

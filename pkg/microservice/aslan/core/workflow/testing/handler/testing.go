@@ -19,7 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +45,7 @@ func GetTestProductName(c *gin.Context) {
 		return
 	}
 	c.Set("productName", args.ProductName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
 
@@ -62,7 +62,7 @@ func CreateTestModule(c *gin.Context) {
 		log.Errorf("CreateTestModule json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-测试", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
 	if err != nil {
@@ -86,7 +86,7 @@ func UpdateTestModule(c *gin.Context) {
 		log.Errorf("UpdateTestModule json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-测试", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
 	if err != nil {

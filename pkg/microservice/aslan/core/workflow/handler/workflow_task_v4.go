@@ -19,7 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -63,7 +63,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -139,7 +139,7 @@ func ApproveStage(c *gin.Context) {
 		log.Errorf("ApproveStage json.Unmarshal err : %s", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())

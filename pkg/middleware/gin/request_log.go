@@ -51,7 +51,7 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 				var buf bytes.Buffer
 				tee := io.TeeReader(c.Request.Body, &buf)
 				body, _ = ioutil.ReadAll(tee)
-				c.Request.Body = ioutil.NopCloser(&buf)
+				c.Request.Body = io.NopCloser(&buf)
 			}
 
 			for k := range c.Request.Header {

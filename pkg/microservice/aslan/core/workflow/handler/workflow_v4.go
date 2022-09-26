@@ -18,7 +18,7 @@ package handler
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -55,7 +55,7 @@ func CreateWorkflowV4(c *gin.Context) {
 		log.Errorf("CreateWorkflowv4 json.Unmarshal err : %s", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindYAML(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -78,7 +78,7 @@ func LintWorkflowV4(c *gin.Context) {
 		log.Errorf("CreateWorkflowv4 json.Unmarshal err : %s", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindYAML(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -136,7 +136,7 @@ func UpdateWorkflowV4(c *gin.Context) {
 		log.Errorf("UpdateWorkflowV4 json.Unmarshal err : %s", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindYAML(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
