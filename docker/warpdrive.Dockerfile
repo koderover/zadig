@@ -16,7 +16,7 @@ RUN go mod download
 
 RUN go build -v -o /warpdrive ./cmd/warpdrive/main.go
 
-fFROM alpine:3.13.5
+FROM alpine:3.13.5
 
 # https://wiki.alpinelinux.org/wiki/Setting_the_timezone
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
