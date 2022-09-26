@@ -71,9 +71,6 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to merge test result: %s", err)
 	}
 	log.Info("Finish merge ginkgo test results.")
-	if failedCaseCount > 0 {
-		return fmt.Errorf("%d case(s) failed", failedCaseCount)
-	}
 
 	log.Infof("Start archive %s.", s.spec.FileName)
 	if s.spec.S3DestDir == "" || s.spec.FileName == "" {
@@ -112,6 +109,9 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 		}
 	}
 	log.Infof("Finish archive %s.", s.spec.FileName)
+	if failedCaseCount > 0 {
+		return fmt.Errorf("%d case(s) failed", failedCaseCount)
+	}
 	return nil
 }
 
