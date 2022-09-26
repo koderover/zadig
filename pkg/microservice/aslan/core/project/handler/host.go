@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -77,7 +77,7 @@ func CreatePMHost(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "项目资源-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid physical machine args")
 		return
@@ -101,7 +101,7 @@ func BatchCreatePMHost(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "批量新增", "项目资源-主机管理", "", string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid physical machine args")
 		return
@@ -126,7 +126,7 @@ func UpdatePMHost(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "项目资源-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid physical machine args")

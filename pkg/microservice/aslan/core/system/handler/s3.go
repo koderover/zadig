@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -57,7 +57,7 @@ func CreateS3Storage(c *gin.Context) {
 		log.Errorf("CreateS3Storage json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-对象存储", fmt.Sprintf("地址:%s", c.GetString("s3StorageEndpoint")), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
@@ -95,7 +95,7 @@ func UpdateS3Storage(c *gin.Context) {
 		log.Errorf("UpdateS3Storage json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-对象存储", fmt.Sprintf("地址:%s", c.GetString("s3StorageEndpoint")), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)

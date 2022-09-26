@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -45,7 +45,7 @@ func CreateInstall(c *gin.Context) {
 		log.Errorf("CreateInstall json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Install args")
@@ -69,7 +69,7 @@ func UpdateInstall(c *gin.Context) {
 		log.Errorf("UpdateInstall json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Install args")
@@ -117,7 +117,7 @@ func DeleteInstall(c *gin.Context) {
 		log.Errorf("DeleteInstall json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Install args")
