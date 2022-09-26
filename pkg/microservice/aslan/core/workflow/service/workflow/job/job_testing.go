@@ -278,7 +278,9 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					DestDir:    "/tmp",
 				},
 			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+			if len(testingInfo.ArtifactPaths) > 1 || testingInfo.ArtifactPaths[0] != "" {
+				jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+			}
 		}
 
 		resp = append(resp, jobTask)
