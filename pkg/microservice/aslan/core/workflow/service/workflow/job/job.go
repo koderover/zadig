@@ -139,6 +139,14 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 				}
 				resp = append(resp, freeStyleRepos...)
 			}
+			if job.JobType == config.JobZadigTesting {
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				testingRepos, err := jobCtl.GetRepos()
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, testingRepos...)
+			}
 		}
 	}
 	return resp, nil
