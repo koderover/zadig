@@ -44,5 +44,6 @@ func ListTestings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 			qs.Add("projects", name)
 		}
 	}
+	qs.Add("testType", "function")
 	return aslan.New().ListTestings(header, qs)
 }
