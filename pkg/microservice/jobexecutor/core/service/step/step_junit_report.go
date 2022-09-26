@@ -72,7 +72,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 	}
 	log.Info("Finish merge ginkgo test results.")
 	if failedCaseCount > 0 {
-		return fmt.Errorf("%d case(s) failed: %s", failedCaseCount, err)
+		return fmt.Errorf("%d case(s) failed", failedCaseCount)
 	}
 
 	log.Infof("Start archive %s.", s.spec.FileName)
