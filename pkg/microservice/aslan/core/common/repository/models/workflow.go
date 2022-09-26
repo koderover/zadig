@@ -315,14 +315,14 @@ type ProductDistribute struct {
 }
 
 type NotifyCtl struct {
-	Enabled         bool     `bson:"enabled"                          json:"enabled"`
-	WebHookType     string   `bson:"webhook_type"                     json:"webhook_type"`
-	WeChatWebHook   string   `bson:"weChat_webHook,omitempty"         json:"weChat_webHook,omitempty"`
-	DingDingWebHook string   `bson:"dingding_webhook,omitempty"       json:"dingding_webhook,omitempty"`
-	FeiShuWebHook   string   `bson:"feishu_webhook,omitempty"         json:"feishu_webhook,omitempty"`
-	AtMobiles       []string `bson:"at_mobiles,omitempty"             json:"at_mobiles,omitempty"`
-	IsAtAll         bool     `bson:"is_at_all,omitempty"              json:"is_at_all,omitempty"`
-	NotifyTypes     []string `bson:"notify_type"                      json:"notify_type"`
+	Enabled         bool     `bson:"enabled"                       yaml:"enabled"                       json:"enabled"`
+	WebHookType     string   `bson:"webhook_type"                  yaml:"webhook_type"                  json:"webhook_type"`
+	WeChatWebHook   string   `bson:"weChat_webHook,omitempty"      yaml:"weChat_webHook,omitempty"      json:"weChat_webHook,omitempty"`
+	DingDingWebHook string   `bson:"dingding_webhook,omitempty"    yaml:"dingding_webhook,omitempty"    json:"dingding_webhook,omitempty"`
+	FeiShuWebHook   string   `bson:"feishu_webhook,omitempty"      yaml:"feishu_webhook,omitempty"      json:"feishu_webhook,omitempty"`
+	AtMobiles       []string `bson:"at_mobiles,omitempty"          yaml:"at_mobiles,omitempty"          json:"at_mobiles,omitempty"`
+	IsAtAll         bool     `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
+	NotifyTypes     []string `bson:"notify_type"                   yaml:"notify_type"                   json:"notify_type"`
 }
 
 type TaskInfo struct {

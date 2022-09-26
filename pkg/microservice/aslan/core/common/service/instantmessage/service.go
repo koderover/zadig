@@ -52,20 +52,24 @@ const (
 )
 
 type Service struct {
-	proxyColl        *mongodb.ProxyColl
-	workflowColl     *mongodb.WorkflowColl
-	pipelineColl     *mongodb.PipelineColl
-	testingColl      *mongodb.TestingColl
-	testTaskStatColl *mongodb.TestTaskStatColl
+	proxyColl          *mongodb.ProxyColl
+	workflowColl       *mongodb.WorkflowColl
+	pipelineColl       *mongodb.PipelineColl
+	testingColl        *mongodb.TestingColl
+	testTaskStatColl   *mongodb.TestTaskStatColl
+	workflowV4Coll     *mongodb.WorkflowV4Coll
+	workflowTaskV4Coll *mongodb.WorkflowTaskv4Coll
 }
 
 func NewWeChatClient() *Service {
 	return &Service{
-		proxyColl:        mongodb.NewProxyColl(),
-		workflowColl:     mongodb.NewWorkflowColl(),
-		pipelineColl:     mongodb.NewPipelineColl(),
-		testingColl:      mongodb.NewTestingColl(),
-		testTaskStatColl: mongodb.NewTestTaskStatColl(),
+		proxyColl:          mongodb.NewProxyColl(),
+		workflowColl:       mongodb.NewWorkflowColl(),
+		pipelineColl:       mongodb.NewPipelineColl(),
+		testingColl:        mongodb.NewTestingColl(),
+		testTaskStatColl:   mongodb.NewTestTaskStatColl(),
+		workflowV4Coll:     mongodb.NewWorkflowV4Coll(),
+		workflowTaskV4Coll: mongodb.NewworkflowTaskv4Coll(),
 	}
 }
 
