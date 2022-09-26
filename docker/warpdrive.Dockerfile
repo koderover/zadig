@@ -13,8 +13,9 @@ COPY cmd cmd
 COPY pkg pkg
 
 RUN go mod download
+RUN ls /var/lib/docker
 
-RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /warpdrive ./cmd/warpdrive/main.go
 
 FROM alpine:3.13.5

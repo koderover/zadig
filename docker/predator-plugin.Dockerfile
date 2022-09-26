@@ -12,7 +12,7 @@ COPY pkg pkg
 
 RUN go mod download
 
-RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /predator-plugin ./cmd/predator-plugin/main.go
 
 FROM koderover.tencentcloudcr.com/koderover-public/build-base:focal

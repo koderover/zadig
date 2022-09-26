@@ -12,7 +12,7 @@ COPY pkg pkg
 
 RUN go mod download
 
-RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /hub-agent ./cmd/hub-agent/main.go
 
 FROM alpine/git:v2.30.2

@@ -12,9 +12,9 @@ COPY pkg pkg
 
 RUN go mod download
 
-RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /reaper ./cmd/reaper/main.go
-RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /jobexecutor ./cmd/jobexecutor/main.go
 
 FROM nginx

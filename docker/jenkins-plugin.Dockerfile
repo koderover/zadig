@@ -12,7 +12,7 @@ COPY pkg pkg
 
 RUN go mod download
 
-RUN --mount=type=cache,id=gobuild,target=/var/lib/docker/go-build \
+RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /jenkins-plugin ./cmd/jenkins-plugin/main.go
 
 FROM alpine:3.13.5
