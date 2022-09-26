@@ -14,6 +14,7 @@ prereq:
 
 all: prereq $(TARGETS:=.image)
 all.push: prereq $(TARGETS:=.push)
+buildbase: prereq $()
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.image:
