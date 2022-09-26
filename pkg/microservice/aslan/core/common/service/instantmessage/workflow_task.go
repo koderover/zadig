@@ -179,7 +179,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			case string(config.JobZadigBuild):
 				fallthrough
 			case string(config.JobFreestyle):
-				jobSpec := &models.JobTaskBuildSpec{}
+				jobSpec := &models.JobTaskFreestyleSpec{}
 				models.IToi(job.Spec, jobSpec)
 				repos := []*types.Repository{}
 				for _, stepTask := range jobSpec.Steps {
