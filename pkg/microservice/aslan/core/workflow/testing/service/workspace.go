@@ -194,7 +194,7 @@ func GetWorkflowV4TestArtifactInfo(workflowName, jobName string, taskID int64, l
 	}
 
 	objectKey := filepath.Join(stepSpec.S3DestDir, stepSpec.FileName)
-	object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{IgnoreNotExistError: true, RetryNum: 2})
+	object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 2})
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo GetFile err:%s", err)
 		return resp, err
