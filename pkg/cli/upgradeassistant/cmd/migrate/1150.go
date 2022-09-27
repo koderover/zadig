@@ -145,7 +145,11 @@ func deleteXenialBasicImage() error {
 		}
 	}
 
-	return internalmongodb.NewBasicImageColl().RemoveXenial()
+	err = internalmongodb.NewBasicImageColl().RemoveXenial()
+	if err != nil {
+		log.Warnf("delete xenial basic image failed, err: %s", err)
+	}
+	return nil
 }
 
 func workflowV4JobRefactor() error {
