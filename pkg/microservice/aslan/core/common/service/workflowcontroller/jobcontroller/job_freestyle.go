@@ -52,13 +52,13 @@ type FreestyleJobCtl struct {
 	clientset   kubernetes.Interface
 	restConfig  *rest.Config
 	paths       *string
-	jobTaskSpec *commonmodels.JobTaskBuildSpec
+	jobTaskSpec *commonmodels.JobTaskFreestyleSpec
 	ack         func()
 }
 
 func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
 	paths := ""
-	jobTaskSpec := &commonmodels.JobTaskBuildSpec{}
+	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
@@ -272,7 +272,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	}
 }
 
-func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskBuildSpec, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
+func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
 	var envVars, secretEnvVars []string
 	for _, env := range jobTaskSpec.Properties.Envs {
 		if env.IsCredential {

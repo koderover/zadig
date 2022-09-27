@@ -179,7 +179,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			case string(config.JobZadigBuild):
 				fallthrough
 			case string(config.JobFreestyle):
-				jobSpec := &models.JobTaskBuildSpec{}
+				jobSpec := &models.JobTaskFreestyleSpec{}
 				models.IToi(job.Spec, jobSpec)
 				repos := []*types.Repository{}
 				for _, stepTask := range jobSpec.Steps {
@@ -376,6 +376,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 				return "通用任务"
 			} else if jobType == string(config.JobPlugin) {
 				return "自定义任务"
+			} else if jobType == string(config.JobZadigTesting) {
+				return "测试"
 			}
 			return string(jobType)
 		},

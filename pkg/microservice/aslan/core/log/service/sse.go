@@ -219,8 +219,10 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 				fallthrough
 			case string(config.JobFreestyle):
 				fallthrough
+			case string(config.JobZadigTesting):
+				fallthrough
 			case string(config.JobBuild):
-				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
 					log.Errorf("Failed to parse job spec: %v", err)
 					return

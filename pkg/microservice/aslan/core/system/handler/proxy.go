@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -71,7 +71,7 @@ func CreateProxy(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代理", fmt.Sprintf("server:%s:%d", args.Address, args.Port), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")
@@ -96,7 +96,7 @@ func UpdateProxy(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "代理", fmt.Sprintf("id:%s", args.ID), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")
@@ -129,7 +129,7 @@ func TestConnection(c *gin.Context) {
 		log.Errorf("TestConnection json.Unmarshal err : %v", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")

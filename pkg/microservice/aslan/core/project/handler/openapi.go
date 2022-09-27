@@ -19,7 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -42,7 +42,7 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 		log.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "新增", "项目管理-项目", args.ProjectName, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")

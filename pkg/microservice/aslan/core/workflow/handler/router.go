@@ -198,6 +198,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.DELETE("/workflow/:workflowName/task/:taskID", CancelWorkflowTaskV4)
 		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)
 		taskV4.POST("/approve", ApproveStage)
+		taskV4.GET("/workflow/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4ArtifactFileContent)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -214,5 +215,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	bundles := router.Group("bundle-resources")
 	{
 		bundles.GET("", GetBundleResources)
+	}
+}
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	// custom workflow apis
+	custom := router.Group("custom")
+	{
+		custom.POST("/task", CreateCustomWorkflowTask)
+		custom.GET("/task", OpenAPIGetWorkflowTaskV4)
+		custom.DELETE("/task", OpenAPICancelWorkflowTaskV4)
+		custom.POST("/task/approve", ApproveStage)
 	}
 }

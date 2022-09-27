@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -84,7 +84,7 @@ func CreateServiceTemplate(c *gin.Context) {
 		log.Errorf("CreateServiceTemplate json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.ServiceName), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ServiceTmpl json args")
@@ -228,7 +228,7 @@ func UpdateWorkloads(c *gin.Context) {
 		log.Errorf("UpdateWorkloads json.Unmarshal err : %v", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "配置", "环境", c.Query("env"), string(data), ctx.Logger, c.Query("env"))
 
 	err = c.ShouldBindJSON(args)
@@ -267,7 +267,7 @@ func CreateK8sWorkloads(c *gin.Context) {
 		log.Errorf("CreateK8sWorkloads json.Unmarshal err : %v", err)
 	}
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
 
 	err = c.BindJSON(args)
@@ -298,7 +298,7 @@ func GetServiceTemplateProductName(c *gin.Context) {
 		return
 	}
 	c.Set("productName", args.ProductName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
 
@@ -314,7 +314,7 @@ func GetServiceTemplateObjectProductName(c *gin.Context) {
 		return
 	}
 	c.Set("productName", args.ProductName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
 
@@ -330,7 +330,7 @@ func CreatePMService(c *gin.Context) {
 		log.Errorf("CreatePMService json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "新增", "项目管理-物理机部署服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid service json args")
@@ -382,7 +382,7 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 		log.Errorf("UpdatePmServiceTemplate json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新", "项目管理-主机服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), "", ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
 		if heathCheck.TimeOut < 2 || heathCheck.TimeOut > 60 {

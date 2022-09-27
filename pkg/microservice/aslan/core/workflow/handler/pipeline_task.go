@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -54,7 +54,7 @@ func GetProductNameByPipelineTask(c *gin.Context) {
 		return
 	}
 	c.Set("productName", pipeline.ProductName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
 
@@ -72,7 +72,7 @@ func CreatePipelineTask(c *gin.Context) {
 		log.Errorf("CreatePipelineTask json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "新增", "单服务-工作流task", args.PipelineName, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PipelineTaskArgs")

@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -54,7 +54,7 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
 		string(data), ctx.Logger, args.EnvName)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -85,7 +85,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
 		string(data), ctx.Logger, args.EnvName)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())

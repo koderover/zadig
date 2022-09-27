@@ -131,7 +131,7 @@ func transformStagetask(stageTask []*models.StageTask) ([]*models.StageTask, err
 			}
 			switch originJob.JobType {
 			case string(config.JobZadigBuild):
-				jobSpec := &commonmodels.JobTaskBuildSpec{
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{
 					Properties: originJob.Properties,
 					Steps:      originJob.Steps,
 				}
@@ -185,7 +185,7 @@ func transformStagetask(stageTask []*models.StageTask) ([]*models.StageTask, err
 				}
 				originJob.Spec = jobSpec
 			case string(config.JobFreestyle):
-				jobSpec := &commonmodels.JobTaskBuildSpec{
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{
 					Properties: originJob.Properties,
 					Steps:      originJob.Steps,
 				}
@@ -226,7 +226,7 @@ func rollBackStagetask(stageTask []*models.StageTask) ([]*models.StageTask, erro
 			}
 			switch originJob.JobType {
 			case string(config.JobZadigBuild):
-				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
 					return stageTask, fmt.Errorf("unmashal job spec error: %v", err)
 				}
@@ -289,7 +289,7 @@ func rollBackStagetask(stageTask []*models.StageTask) ([]*models.StageTask, erro
 				originJob.Plugin = jobSpec.Plugin
 
 			case string(config.JobFreestyle):
-				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
 					return stageTask, fmt.Errorf("unmashal job spec error: %v", err)
 				}

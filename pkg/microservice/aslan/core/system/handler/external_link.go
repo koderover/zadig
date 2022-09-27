@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -52,7 +52,7 @@ func CreateExternalLink(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")
@@ -77,7 +77,7 @@ func UpdateExternalLink(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")

@@ -19,7 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -68,7 +68,7 @@ func CreateBuildModule(c *gin.Context) {
 		log.Errorf("CreateBuildModule json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-构建", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
 	if err != nil {
@@ -92,7 +92,7 @@ func UpdateBuildModule(c *gin.Context) {
 		log.Errorf("UpdateBuildModule json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-构建", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
 	if err != nil {
@@ -138,7 +138,7 @@ func UpdateBuildTargets(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "更新", "项目管理-服务组件", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)

@@ -168,6 +168,7 @@ const (
 	StepArchiveDistribute StepType = "archive_distribute"
 	StepJunitReport       StepType = "junit_report"
 	StepHtmlReport        StepType = "html_report"
+	StepTarArchive        StepType = "tar_archive"
 )
 
 type JobType string
@@ -176,6 +177,7 @@ const (
 	JobBuild               JobType = "build"
 	JobDeploy              JobType = "deploy"
 	JobZadigBuild          JobType = "zadig-build"
+	JobZadigTesting        JobType = "zadig-test"
 	JobCustomDeploy        JobType = "custom-deploy"
 	JobZadigDeploy         JobType = "zadig-deploy"
 	JobZadigHelmDeploy     JobType = "zadig-helm-deploy"
@@ -319,4 +321,10 @@ const (
 	RegistryProviderDockerhub = "dockerhub"
 	RegistryProviderECR       = "ecr"
 	RegistryProviderNative    = "native"
+)
+
+const (
+	TestJobJunitReportStepName   = "junit-report-step"
+	TestJobHTMLReportStepName    = "html-report-step"
+	TestJobArchiveResultStepName = "archive-result-step"
 )

@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -228,7 +228,7 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -271,7 +271,7 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境变量", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -310,7 +310,7 @@ func UpdateProductRegistry(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -425,7 +425,7 @@ func UpdateHelmProductRenderset(c *gin.Context) {
 		log.Errorf("UpdateHelmProductRenderset json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新环境变量", "", string(data), ctx.Logger, envName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(arg)
 	if err != nil {
@@ -458,7 +458,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		log.Errorf("UpdateHelmProductDefaultValues json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(arg)
 	if err != nil {
@@ -495,7 +495,7 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), ctx.Logger, envName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(arg)
 	if err != nil {

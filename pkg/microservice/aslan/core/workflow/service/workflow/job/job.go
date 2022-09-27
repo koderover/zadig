@@ -59,6 +59,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &CanaryDeployJob{job: job, workflow: workflow}
 	case config.JobK8sCanaryRelease:
 		resp = &CanaryReleaseJob{job: job, workflow: workflow}
+	case config.JobZadigTesting:
+		resp = &TestingJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}
@@ -137,6 +139,14 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 				}
 				resp = append(resp, freeStyleRepos...)
 			}
+			if job.JobType == config.JobZadigTesting {
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				testingRepos, err := jobCtl.GetRepos()
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, testingRepos...)
+			}
 		}
 	}
 	return resp, nil
@@ -184,6 +194,7 @@ func jobNameFormat(jobName string) string {
 		jobName = jobName[:63]
 	}
 	jobName = strings.Trim(jobName, "-")
+	jobName = strings.ToLower(jobName)
 	return jobName
 }
 

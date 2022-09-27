@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -44,7 +44,7 @@ func GetPipelineProductName(c *gin.Context) {
 		return
 	}
 	c.Set("productName", args.ProductName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
 
@@ -102,7 +102,7 @@ func UpsertPipeline(c *gin.Context) {
 		log.Errorf("UpsertPipeline json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "单服务-工作流", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil || len(args.Name) == 0 {
 		log.Error(err)
