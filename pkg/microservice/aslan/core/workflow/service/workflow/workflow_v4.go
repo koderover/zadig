@@ -586,7 +586,7 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 		return e.ErrUpsertCronjob.AddDesc("cronjob id is not empty")
 	}
 	input.Name = workflowName
-	input.JobType = config.WorkflowV4Cronjob
+	input.Type = config.WorkflowV4Cronjob
 	err := commonrepo.NewCronjobColl().Create(input)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to create cron job, error: %v", err)
@@ -720,7 +720,7 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 		Time:           input.Time,
 		MaxFailures:    input.MaxFailure,
 		WorkflowV4Args: input.WorkflowV4Args,
-		Type:           config.ScheduleType(input.Type),
+		Type:           config.ScheduleType(input.JobType),
 		Cron:           input.Cron,
 		Enabled:        input.Enabled,
 	}
