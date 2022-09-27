@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -99,8 +100,12 @@ func UpdateTestModule(c *gin.Context) {
 func ListTestModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.ListTestingOpt(c.Query("projectName"), c.Query("testType"), ctx.Logger)
+	projects := c.QueryArray("projects")
+	projectName := c.Query("projectName")
+	if len(projects) == 0 && len(projectName) > 0 {
+		projects = []string{projectName}
+	}
+	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
 }
 
 func GetTestModule(c *gin.Context) {
@@ -139,6 +144,22 @@ func GetHTMLTestReport(c *gin.Context) {
 		c.Query("testName"),
 		ginzap.WithContext(c).Sugar(),
 	)
+	if err != nil {
+		c.JSON(500, gin.H{"err": err})
+		return
+	}
+
+	c.Header("content-type", "text/html")
+	c.String(200, content)
+}
+
+func GetWorkflowV4HTMLTestReport(c *gin.Context) {
+	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(500, gin.H{"err": err})
+		return
+	}
+	content, err := service.GetWorkflowV4HTMLTestReport(c.Param("workflowName"), c.Param("jobName"), taskID, ginzap.WithContext(c).Sugar())
 	if err != nil {
 		c.JSON(500, gin.H{"err": err})
 		return

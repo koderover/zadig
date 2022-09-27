@@ -27,6 +27,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	testReport := router.Group("report")
 	{
 		testReport.GET("", GetHTMLTestReport)
+		testReport.GET("workflowv4/:workflowName/id/:id/job/:jobName", GetWorkflowV4HTMLTestReport)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -35,6 +36,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	itReport := router.Group("itreport")
 	{
 		itReport.GET("/pipelines/:pipelineName/id/:id/names/:testName", GetLocalTestSuite)
+		itReport.GET("/workflowv4/:workflowName/id/:id/job/:jobName", GetWorkflowV4LocalTestSuite)
 		itReport.GET("/workflow/:pipelineName/id/:id/names/:testName/service/:serviceName", GetWorkflowLocalTestSuite)
 		itReport.GET("/latest/service/:serviceName", GetTestLocalTestSuite)
 	}
@@ -98,5 +100,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workspace := router.Group("workspace")
 	{
 		workspace.GET("/workflow/:pipelineName/taskId/:taskId", GetTestArtifactInfo)
+		workspace.GET("/workflowv4/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4TestArtifactInfo)
 	}
 }

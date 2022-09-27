@@ -264,8 +264,8 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 				for _, build := range spec.ServiceAndBuilds {
 					buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 					if err != nil {
-						logger.Errorf(err.Error())
-						return e.ErrFindWorkflow.AddErr(err)
+						logger.Errorf("find build: %s error: %s", build.BuildName, err)
+						continue
 					}
 					kvs := buildInfo.PreBuild.Envs
 					if buildInfo.TemplateID != "" {
