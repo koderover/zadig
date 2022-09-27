@@ -709,6 +709,10 @@ func DeleteCronForWorkflowV4(workflowName, cronID string, logger *zap.SugaredLog
 		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
+	if err := commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{IDList: []string{cronID}}); err != nil {
+		logger.Errorf("Failed to delete cron job: %s, the error is: %v", cronID, err)
+		return e.ErrUpsertCronjob.AddDesc(err.Error())
+	}
 	return nil
 }
 
