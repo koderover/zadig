@@ -55,6 +55,95 @@ func V1150ToV1140() error {
 	return nil
 }
 
+func deleteXenialBasicImage() error {
+	xenialBasicImage, focalBasicImage, err := internalmongodb.NewBasicImageColl().FindXenialAndFocalBasicImage()
+	if err != nil {
+		return err
+	}
+	buildCollection := internalmongodb.NewBuildColl()
+	buildList, err := buildCollection.List(&internalmongodb.BuildListOption{})
+	if err != nil {
+		return err
+	}
+	var ms []mongo.WriteModel
+	for _, build := range buildList {
+		if build.PreBuild.BuildOS == "xenial" {
+			build.PreBuild.BuildOS = "focal"
+			build.PreBuild.ImageID = focalBasicImage.ID.Hex()
+			ms = append(ms, mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", build.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"pre_build", build.PreBuild},
+					}},
+				}),
+			)
+		}
+	}
+	if len(ms) > 0 {
+		_, err := buildCollection.BulkWrite(context.TODO(), ms)
+		if err != nil {
+			return err
+		}
+	}
+
+	testingCollection := internalmongodb.NewTestingColl()
+	testList, err := testingCollection.List(&internalmongodb.ListTestOption{})
+	if err != nil {
+		return err
+	}
+	ms = make([]mongo.WriteModel, 0)
+	for _, test := range testList {
+		if test.PreTest.BuildOS == "xenial" {
+			test.PreTest.BuildOS = "focal"
+			test.PreTest.ImageID = focalBasicImage.ID.Hex()
+			ms = append(ms, mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", test.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"pre_test", test.PreTest},
+					}},
+				}),
+			)
+		}
+	}
+
+	if len(ms) > 0 {
+		_, err := testingCollection.BulkWrite(context.TODO(), ms)
+		if err != nil {
+			return err
+		}
+	}
+
+	scanningColl := internalmongodb.NewScanningColl()
+	scanningList, err := scanningColl.List(&internalmongodb.ScanningListOption{})
+	if err != nil {
+		return err
+	}
+	ms = make([]mongo.WriteModel, 0)
+	for _, scanning := range scanningList {
+		if scanning.ImageID == xenialBasicImage.ID.Hex() {
+			ms = append(ms, mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", scanning.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"image_id", focalBasicImage.ID.Hex()},
+					}},
+				}),
+			)
+		}
+	}
+
+	if len(ms) > 0 {
+		_, err := scanningColl.BulkWrite(context.TODO(), ms)
+		if err != nil {
+			return err
+		}
+	}
+
+	return internalmongodb.NewBasicImageColl().RemoveXenial()
+}
+
 func workflowV4JobRefactor() error {
 	workflowtaskCol, err := internalmongodb.NewWorkflowTaskV4Coll().List()
 	if err != nil {

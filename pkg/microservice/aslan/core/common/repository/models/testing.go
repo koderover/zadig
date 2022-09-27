@@ -83,7 +83,7 @@ type PreTest struct {
 	// TODO: Deprecated.
 	CleanWorkspace bool `bson:"clean_workspace"            json:"clean_workspace"`
 
-	// BuildOS defines job image OS, it supports 12.04, 14.04, 16.04
+	// BuildOS defines job image OS, it supports 18.04 and 20.04
 	BuildOS   string `bson:"build_os"                        json:"build_os"`
 	ImageFrom string `bson:"image_from"                      json:"image_from"`
 	ImageID   string `bson:"image_id"                        json:"image_id"`

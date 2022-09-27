@@ -18,12 +18,13 @@ package mongodb
 
 import (
 	"context"
+	"time"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"time"
 )
 
 type BasicImageOpt struct {
@@ -77,5 +78,36 @@ func (c *BasicImageColl) CreateZadigSonarImage() error {
 	}
 
 	_, err := c.InsertOne(context.TODO(), args)
+	return err
+}
+
+func (c *BasicImageColl) FindXenialAndFocalBasicImage() (*models.BasicImage, *models.BasicImage, error) {
+	xenialResp := new(models.BasicImage)
+	focalResp := new(models.BasicImage)
+
+	query := bson.M{}
+	query["value"] = "xenial"
+	query["label"] = "ubuntu 16.04"
+
+	err := c.FindOne(context.TODO(), query, nil).Decode(xenialResp)
+	if err != nil {
+		return nil, nil, err
+	}
+	focalquery := bson.M{}
+	focalquery["value"] = "focal"
+	focalquery["label"] = "ubuntu 20.04"
+	err = c.FindOne(context.TODO(), focalquery, nil).Decode(focalResp)
+	if err != nil {
+		return nil, nil, err
+	}
+	return xenialResp, focalResp, nil
+}
+
+func (c *BasicImageColl) RemoveXenial() error {
+	query := bson.M{}
+	query["value"] = "xenial"
+	query["label"] = "ubuntu 16.04"
+
+	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }
