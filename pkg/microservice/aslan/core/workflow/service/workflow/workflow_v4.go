@@ -17,6 +17,8 @@ limitations under the License.
 package workflow
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -32,6 +34,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
@@ -576,4 +579,149 @@ func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.Sug
 		}
 	}
 	return commonrepo.NewWorkflowV4Coll().BulkCreate(newWorkflows)
+}
+
+func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, logger *zap.SugaredLogger) error {
+	if !input.ID.IsZero() {
+		return e.ErrUpsertCronjob.AddDesc("cronjob id is not empty")
+	}
+	input.Name = workflowName
+	input.JobType = config.WorkflowV4Cronjob
+	err := commonrepo.NewCronjobColl().Create(input)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to create cron job, error: %v", err)
+		log.Error(msg)
+		return errors.New(msg)
+	}
+	if !input.Enabled {
+		return nil
+	}
+
+	payload := &commonservice.CronjobPayload{
+		Name:    workflowName,
+		JobType: config.WorkflowV4Cronjob,
+		Action:  setting.TypeEnableCronjob,
+		JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
+	}
+
+	pl, _ := json.Marshal(payload)
+	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
+		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+		return e.ErrUpsertCronjob.AddDesc(err.Error())
+	}
+	return nil
+}
+
+func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLogger) error {
+	_, err := commonrepo.NewCronjobColl().GetByID(input.ID)
+	if err != nil {
+		msg := fmt.Sprintf("cron job not exist, error: %v", err)
+		log.Error(msg)
+		return errors.New(msg)
+	}
+	if err := commonrepo.NewCronjobColl().Create(input); err != nil {
+		msg := fmt.Sprintf("Failed to update cron job, error: %v", err)
+		log.Error(msg)
+		return errors.New(msg)
+	}
+	payload := &commonservice.CronjobPayload{
+		Name:    input.Name,
+		JobType: config.WorkflowV4Cronjob,
+		Action:  setting.TypeEnableCronjob,
+	}
+	if !input.Enabled {
+		payload.DeleteList = []string{input.ID.Hex()}
+	} else {
+		payload.JobList = []*commonmodels.Schedule{cronJobToSchedule(input)}
+	}
+
+	pl, _ := json.Marshal(payload)
+	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
+		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+		return e.ErrUpsertCronjob.AddDesc(err.Error())
+	}
+	return nil
+}
+
+func ListCronForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*commonmodels.Cronjob, error) {
+	crons, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
+		ParentName: workflowName,
+		ParentType: config.WorkflowV4Cronjob,
+	})
+	if err != nil {
+		logger.Errorf("Failed to list WorkflowV4 : %s cron jobs, the error is: %v", workflowName, err)
+		return crons, e.ErrUpsertCronjob.AddErr(err)
+	}
+	return crons, nil
+}
+
+func GetCronForWorkflowV4Preset(workflowName, cronID string, logger *zap.SugaredLogger) (*commonmodels.Cronjob, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrUpsertCronjob.AddErr(err)
+	}
+	cronJob := &commonmodels.Cronjob{}
+	if cronID != "" {
+		id, err := primitive.ObjectIDFromHex(cronID)
+		if err != nil {
+			logger.Errorf("Failed to parse cron id: %s, the error is: %v", cronID, err)
+			return nil, e.ErrUpsertCronjob.AddErr(err)
+		}
+		cronJob, err = commonrepo.NewCronjobColl().GetByID(id)
+		if err != nil {
+			msg := fmt.Sprintf("cron job not exist, error: %v", err)
+			log.Error(msg)
+			return nil, errors.New(msg)
+		}
+	}
+
+	if err := job.MergeArgs(workflow, cronJob.WorkflowV4Args); err != nil {
+		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+		log.Error(errMsg)
+		return nil, e.ErrGetWebhook.AddDesc(errMsg)
+	}
+	cronJob.WorkflowV4Args = workflow
+	return cronJob, nil
+}
+
+func DeleteCronForWorkflowV4(workflowName, cronID string, logger *zap.SugaredLogger) error {
+	id, err := primitive.ObjectIDFromHex(cronID)
+	if err != nil {
+		logger.Errorf("Failed to parse cron id: %s, the error is: %v", cronID, err)
+		return e.ErrUpsertCronjob.AddErr(err)
+	}
+	job, err := commonrepo.NewCronjobColl().GetByID(id)
+	if err != nil {
+		msg := fmt.Sprintf("cron job not exist, error: %v", err)
+		log.Error(msg)
+		return errors.New(msg)
+	}
+	payload := &commonservice.CronjobPayload{
+		Name:       workflowName,
+		JobType:    config.WorkflowV4Cronjob,
+		Action:     setting.TypeEnableCronjob,
+		DeleteList: []string{job.ID.Hex()},
+	}
+
+	pl, _ := json.Marshal(payload)
+	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
+		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+		return e.ErrUpsertCronjob.AddDesc(err.Error())
+	}
+	return nil
+}
+
+func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
+	return &commonmodels.Schedule{
+		ID:             input.ID,
+		Number:         input.Number,
+		Frequency:      input.Frequency,
+		Time:           input.Time,
+		MaxFailures:    input.MaxFailure,
+		WorkflowV4Args: input.WorkflowV4Args,
+		Type:           config.ScheduleType(input.Type),
+		Cron:           input.Cron,
+		Enabled:        input.Enabled,
+	}
 }

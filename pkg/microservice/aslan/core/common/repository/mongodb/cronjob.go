@@ -149,6 +149,20 @@ func (c *CronjobColl) Update(job *models.Cronjob) error {
 	return err
 }
 
+func (c *CronjobColl) GetByID(id primitive.ObjectID) (*models.Cronjob, error) {
+	resp := new(models.Cronjob)
+	if id.IsZero() {
+		return nil, errors.New("empty cron job id")
+	}
+
+	query := bson.M{"_id": id}
+
+	if err := c.FindOne(context.TODO(), query).Decode(&resp); err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
 func (c *CronjobColl) ListActiveJob() ([]*models.Cronjob, error) {
 	resp := make([]*models.Cronjob, 0)
 	query := bson.M{}

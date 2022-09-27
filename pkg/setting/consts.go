@@ -516,8 +516,9 @@ const (
 	FixedGapCronjob     = "gap"
 	CrontabCronjob      = "crontab"
 
-	WorkflowCronjob = "workflow"
-	TestingCronjob  = "test"
+	WorkflowCronjob   = "workflow"
+	WorkflowV4Cronjob = "workflow_v4"
+	TestingCronjob    = "test"
 
 	TopicProcess      = "task.process"
 	TopicCancel       = "task.cancel"

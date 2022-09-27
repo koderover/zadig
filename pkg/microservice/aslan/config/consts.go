@@ -41,8 +41,9 @@ const (
 	EnvRecyclePolicyNever      = "never"
 
 	// 定时器的所属job类型
-	WorkflowCronjob = "workflow"
-	TestingCronjob  = "test"
+	WorkflowCronjob   = "workflow"
+	WorkflowV4Cronjob = "workflow_v4"
+	TestingCronjob    = "test"
 )
 
 var (
