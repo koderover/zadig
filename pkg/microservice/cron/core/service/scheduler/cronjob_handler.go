@@ -279,7 +279,7 @@ func (h *CronjobHandler) registerWorkFlowV4Job(name, schedule string, job *servi
 		return nil
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
-		if err := h.aslanCli.ScheduleCall(path.Join("workflow/v4/workflowtask"), job.WorkflowV4Args, log.SugaredLogger()); err != nil {
+		if err := h.aslanCli.ScheduleCall("workflow/v4/workflowtask", job.WorkflowV4Args, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
 		}
 	})
@@ -398,7 +398,7 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 			return err
 		}
 	case setting.WorkflowV4Cronjob:
-		if job.WorkflowArgs == nil {
+		if job.WorkflowV4Args == nil {
 			return fmt.Errorf("workflow args is nil")
 		}
 		var cron string
@@ -408,7 +408,7 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 			cron, _ = convertCronString(job.JobType, job.Time, job.Frequency, job.Number)
 		}
 		scheduleJob, err := cronlib.NewJobModel(cron, func() {
-			if err := client.ScheduleCall(path.Join("workflow/v4/workflowtask", job.WorkflowArgs.WorkflowName), job.WorkflowArgs, log.SugaredLogger()); err != nil {
+			if err := client.ScheduleCall("workflow/v4/workflowtask", job.WorkflowV4Args, log.SugaredLogger()); err != nil {
 				log.Errorf("[%s]RunScheduledTask err: %v", job.Name, err)
 			}
 		})
