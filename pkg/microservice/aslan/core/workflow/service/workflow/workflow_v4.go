@@ -619,7 +619,7 @@ func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLog
 		log.Error(msg)
 		return errors.New(msg)
 	}
-	if err := commonrepo.NewCronjobColl().Create(input); err != nil {
+	if err := commonrepo.NewCronjobColl().Update(input); err != nil {
 		msg := fmt.Sprintf("Failed to update cron job, error: %v", err)
 		log.Error(msg)
 		return errors.New(msg)
