@@ -43,6 +43,10 @@ func V1140ToV1150() error {
 		log.Errorf("workflowV4JobRefactor err:%s", err)
 		return err
 	}
+	if err := deleteXenialBasicImage(); err != nil {
+		log.Errorf("delete xenial basic image err:%s", err)
+		return err
+	}
 	return nil
 }
 
