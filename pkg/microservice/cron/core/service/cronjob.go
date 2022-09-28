@@ -26,20 +26,21 @@ type CronjobPayload struct {
 }
 
 type Cronjob struct {
-	ID           string            `json:"_id,omitempty"`
-	Name         string            `json:"name"`
-	Type         string            `json:"type"`
-	Number       uint64            `json:"number"`
-	Frequency    string            `json:"frequency"`
-	Time         string            `json:"time"`
-	Cron         string            `json:"cron"`
-	ProductName  string            `json:"product_name,omitempty"`
-	MaxFailure   int               `json:"max_failures,omitempty"`
-	TaskArgs     *TaskArgs         `json:"task_args,omitempty"`
-	WorkflowArgs *WorkflowTaskArgs `json:"workflow_args,omitempty"`
-	TestArgs     *TestTaskArgs     `json:"test_args,omitempty"`
-	JobType      string            `json:"job_type"`
-	Enabled      bool              `json:"enabled"`
+	ID             string            `json:"_id,omitempty"`
+	Name           string            `json:"name"`
+	Type           string            `json:"type"`
+	Number         uint64            `json:"number"`
+	Frequency      string            `json:"frequency"`
+	Time           string            `json:"time"`
+	Cron           string            `json:"cron"`
+	ProductName    string            `json:"product_name,omitempty"`
+	MaxFailure     int               `json:"max_failures,omitempty"`
+	TaskArgs       *TaskArgs         `json:"task_args,omitempty"`
+	WorkflowArgs   *WorkflowTaskArgs `json:"workflow_args,omitempty"`
+	TestArgs       *TestTaskArgs     `json:"test_args,omitempty"`
+	WorkflowV4Args *WorkflowV4       `json:"workflow_v4_args"`
+	JobType        string            `json:"job_type"`
+	Enabled        bool              `json:"enabled"`
 }
 
 // param type: cronjob的执行内容类型

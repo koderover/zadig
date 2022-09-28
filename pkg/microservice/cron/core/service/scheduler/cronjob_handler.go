@@ -184,6 +184,11 @@ func (h *CronjobHandler) updateCronjob(name, productName, jobType string, jobLis
 			if err != nil {
 				return err
 			}
+		case setting.WorkflowV4Cronjob:
+			err := h.registerWorkFlowV4Job(name, cron, job)
+			if err != nil {
+				return err
+			}
 		default:
 			log.Errorf("unrecognized cron job type for job id: %s", job.ID)
 		}
@@ -252,6 +257,29 @@ func (h *CronjobHandler) registerWorkFlowJob(name, schedule string, job *service
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
 		if err := h.aslanCli.ScheduleCall(path.Join("workflow/workflowtask", args.WorkflowName), args, log.SugaredLogger()); err != nil {
+			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
+		}
+	})
+	if err != nil {
+		log.Errorf("Failed to create job of ID: %s, the error is: %v", job.ID.Hex(), err)
+		return err
+	}
+
+	log.Infof("registering jobID: %s with cron: %s", job.ID.Hex(), schedule)
+	err = h.Scheduler.UpdateJobModel(job.ID.Hex(), scheduleJob)
+	if err != nil {
+		log.Errorf("Failed to register job of ID: %s to scheduler, the error is: %v", job.ID, err)
+		return err
+	}
+	return nil
+}
+
+func (h *CronjobHandler) registerWorkFlowV4Job(name, schedule string, job *service.Schedule) error {
+	if job.WorkflowV4Args == nil {
+		return nil
+	}
+	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
+		if err := h.aslanCli.ScheduleCall("workflow/v4/workflowtask", job.WorkflowV4Args, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
 		}
 	})
@@ -356,6 +384,31 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 		}
 		scheduleJob, err := cronlib.NewJobModel(cron, func() {
 			if err := client.ScheduleCall(path.Join("workflow/workflowtask", job.WorkflowArgs.WorkflowName), args, log.SugaredLogger()); err != nil {
+				log.Errorf("[%s]RunScheduledTask err: %v", job.Name, err)
+			}
+		})
+		if err != nil {
+			log.Errorf("Failed to generate job of ID: %s to scheduler, the error is: %v", job.ID, err)
+			return err
+		}
+		log.Infof("registering jobID: %s with cron: %s", job.ID, cron)
+		err = scheduler.UpdateJobModel(job.ID, scheduleJob)
+		if err != nil {
+			log.Errorf("Failed to register job of ID: %s to scheduler, the error is: %v", job.ID, err)
+			return err
+		}
+	case setting.WorkflowV4Cronjob:
+		if job.WorkflowV4Args == nil {
+			return fmt.Errorf("workflow args is nil")
+		}
+		var cron string
+		if job.JobType == setting.CrontabCronjob {
+			cron = fmt.Sprintf("%s%s", "0 ", job.Cron)
+		} else {
+			cron, _ = convertCronString(job.JobType, job.Time, job.Frequency, job.Number)
+		}
+		scheduleJob, err := cronlib.NewJobModel(cron, func() {
+			if err := client.ScheduleCall("workflow/v4/workflowtask", job.WorkflowV4Args, log.SugaredLogger()); err != nil {
 				log.Errorf("[%s]RunScheduledTask err: %v", job.Name, err)
 			}
 		})

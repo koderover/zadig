@@ -117,15 +117,18 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
+		newBuilds := []*commonmodels.ServiceAndBuild{}
 		for _, build := range j.spec.ServiceAndBuilds {
 			for _, argsBuild := range argsSpec.ServiceAndBuilds {
 				if build.BuildName == argsBuild.BuildName && build.ServiceName == argsBuild.ServiceName && build.ServiceModule == argsBuild.ServiceModule {
 					build.Repos = mergeRepos(build.Repos, argsBuild.Repos)
 					build.KeyVals = renderKeyVals(argsBuild.KeyVals, build.KeyVals)
+					newBuilds = append(newBuilds, build)
 					break
 				}
 			}
 		}
+		j.spec.ServiceAndBuilds = newBuilds
 		j.job.Spec = j.spec
 	}
 	return nil

@@ -21,20 +21,21 @@ import (
 )
 
 type Cronjob struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty"`
-	Name         string             `bson:"name"`
-	Type         string             `bson:"type"`
-	Number       uint64             `bson:"number"`
-	Frequency    string             `bson:"frequency"`
-	Time         string             `bson:"time"`
-	Cron         string             `bson:"cron"`
-	ProductName  string             `bson:"product_name,omitempty"`
-	MaxFailure   int                `bson:"max_failures,omitempty"`
-	TaskArgs     *TaskArgs          `bson:"task_args,omitempty"`
-	WorkflowArgs *WorkflowTaskArgs  `bson:"workflow_args,omitempty"`
-	TestArgs     *TestTaskArgs      `bson:"test_args,omitempty"`
-	JobType      string             `bson:"job_type"`
-	Enabled      bool               `bson:"enabled"`
+	ID             primitive.ObjectID `bson:"_id,omitempty"                       json:"id"`
+	Name           string             `bson:"name"                                json:"name"`
+	Type           string             `bson:"type"                                json:"type"`
+	Number         uint64             `bson:"number"                              json:"number"`
+	Frequency      string             `bson:"frequency"                           json:"frequency"`
+	Time           string             `bson:"time"                                json:"time"`
+	Cron           string             `bson:"cron"                                json:"cron"`
+	ProductName    string             `bson:"product_name,omitempty"              json:"product_name,omitempty"`
+	MaxFailure     int                `bson:"max_failures,omitempty"              json:"max_failures,omitempty"`
+	TaskArgs       *TaskArgs          `bson:"task_args,omitempty"                 json:"task_args,omitempty"`
+	WorkflowArgs   *WorkflowTaskArgs  `bson:"workflow_args,omitempty"             json:"workflow_args,omitempty"`
+	WorkflowV4Args *WorkflowV4        `bson:"workflow_v4_args"                    json:"workflow_v4_args"`
+	TestArgs       *TestTaskArgs      `bson:"test_args,omitempty"                 json:"test_args,omitempty"`
+	JobType        string             `bson:"job_type"                            json:"job_type"`
+	Enabled        bool               `bson:"enabled"                             json:"enabled"`
 }
 
 func (Cronjob) TableName() string {
