@@ -64,7 +64,11 @@ metas:
           - method: GET
             endpoint: /api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*
           - method: GET
+            endpoint: /api/aslan/workflow/v4/workflowtask/workflow/?*/taskId/?*/job/?*
+          - method: GET
             endpoint: /api/aslan/testing/workspace/workflow/?*/taskId/?*
+          - method: GET
+            endpoint: /api/aslan/testing/workspace/workflowv4/?*/taskId/?*/job/?*
           - method: GET
             endpoint: /api/aslan/cluster/clusters
       - action: edit_test
@@ -460,6 +464,8 @@ metas:
             endpoint: /api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*
           - method: GET
             endpoint: /api/aslan/testing/itreport/workflow/?*/id/?*/names/?*/service/?*
+          - method: GET
+            endpoint: /api/aslan/testing/itreport/workflowv4/?*/id/?*/job/?*
           - method: GET
             endpoint: /api/directory/workflowTask
           - method: GET
