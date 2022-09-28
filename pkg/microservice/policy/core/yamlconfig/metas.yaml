@@ -499,6 +499,10 @@ metas:
             endpoint: /api/aslan/workflow/v4/cron/preset
           - method: GET
             endpoint: /api/aslan/workflow/v4/cron
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/workflowtask/workflow/?*/taskId/?*/job/?*
+          - method: GET
+            endpoint: /api/aslan/testing/workspace/workflowv4/?*/taskId/?*/job/?*
       - action: edit_workflow
         alias: 编辑
         description: ''
