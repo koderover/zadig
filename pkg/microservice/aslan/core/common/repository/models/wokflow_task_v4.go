@@ -64,16 +64,17 @@ type StageTask struct {
 }
 
 type JobTask struct {
-	Name      string        `bson:"name"                json:"name"`
-	JobType   string        `bson:"type"                json:"type"`
-	Status    config.Status `bson:"status"              json:"status"`
-	StartTime int64         `bson:"start_time"          json:"start_time,omitempty"`
-	EndTime   int64         `bson:"end_time"            json:"end_time,omitempty"`
-	Error     string        `bson:"error"               json:"error"`
-	Timeout   int64         `bson:"timeout"             json:"timeout"`
-	Retry     int64         `bson:"retry"               json:"retry"`
-	Spec      interface{}   `bson:"spec"                json:"spec"`
-	Outputs   []*Output     `bson:"outputs"             json:"outputs"`
+	Name       string        `bson:"name"                json:"name"`
+	K8sJobName string        `bson:"k8s_job_name"        json:"k8s_job_name"`
+	JobType    string        `bson:"type"                json:"type"`
+	Status     config.Status `bson:"status"              json:"status"`
+	StartTime  int64         `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime    int64         `bson:"end_time"            json:"end_time,omitempty"`
+	Error      string        `bson:"error"               json:"error"`
+	Timeout    int64         `bson:"timeout"             json:"timeout"`
+	Retry      int64         `bson:"retry"               json:"retry"`
+	Spec       interface{}   `bson:"spec"                json:"spec"`
+	Outputs    []*Output     `bson:"outputs"             json:"outputs"`
 }
 
 type JobTaskCustomDeploySpec struct {

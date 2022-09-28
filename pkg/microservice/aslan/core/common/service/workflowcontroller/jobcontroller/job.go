@@ -75,6 +75,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	})
 	job.Status = config.StatusRunning
 	job.StartTime = time.Now().Unix()
+	job.K8sJobName = getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID)
 	ack()
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
