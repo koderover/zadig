@@ -87,10 +87,8 @@ func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes
 }
 
 type JobLabel struct {
-	WorkflowName string
-	TaskID       int64
-	JobName      string
-	JobType      string
+	JobID   string
+	JobType string
 }
 
 func ensureDeleteConfigMap(namespace string, jobLabel *JobLabel, kubeClient crClient.Client) error {
@@ -106,8 +104,7 @@ func ensureDeleteJob(namespace string, jobLabel *JobLabel, kubeClient crClient.C
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
 	retMap := map[string]string{
-		setting.JobLabelTaskKey:  fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.WorkflowName), jobLabel.TaskID),
-		setting.JobLabelNameKey:  strings.Replace(jobLabel.JobName, "_", "-", -1),
+		setting.JobLabelNameKey:  strings.Replace(jobLabel.JobID, "_", "-", -1),
 		setting.JobLabelSTypeKey: strings.Replace(jobLabel.JobType, "_", "-", -1),
 	}
 	// no need to add labels with empty value to a job
@@ -119,10 +116,10 @@ func getJobLabels(jobLabel *JobLabel) map[string]string {
 	return retMap
 }
 
-func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx string, kubeClient crClient.Client) error {
+func createJobConfigMap(namespace, jobID string, jobLabel *JobLabel, jobCtx string, kubeClient crClient.Client) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
+			Name:      jobID,
 			Namespace: namespace,
 			Labels:    getJobLabels(jobLabel),
 		},
@@ -146,7 +143,7 @@ func getBaseImage(buildOS, imageFrom string) string {
 	return jobImage
 }
 
-func buildPlainJob(jobName string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskPluginSpec, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
+func buildPlainJob(jobID string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskPluginSpec, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
 	collectJobOutput := `OLD_IFS=$IFS
 export IFS=","
 files='%s'
@@ -174,10 +171,8 @@ echo $result > %s
 	collectJobOutputCommand := fmt.Sprintf(collectJobOutput, strings.Join(files, ","), strings.Join(outputs, ","), job.JobTerminationFile)
 
 	labels := getJobLabels(&JobLabel{
-		WorkflowName: workflowCtx.WorkflowName,
-		TaskID:       workflowCtx.TaskID,
-		JobType:      string(jobTask.JobType),
-		JobName:      jobTask.Name,
+		JobType: string(jobTask.JobType),
+		JobID:   jobID,
 	})
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
@@ -192,7 +187,7 @@ echo $result > %s
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
+			Name:   jobID,
 			Labels: labels,
 		},
 		Spec: batchv1.JobSpec{
@@ -257,7 +252,7 @@ echo $result > %s
 	return job, nil
 }
 
-func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(jobType, jobImage, jobID, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	// 	tailLogCommandTemplate := `tail -f %s &
 	// while [ -f %s ];
 	// do
@@ -280,10 +275,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	jobExecutorBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
 
 	labels := getJobLabels(&JobLabel{
-		WorkflowName: workflowCtx.WorkflowName,
-		TaskID:       workflowCtx.TaskID,
-		JobType:      string(jobType),
-		JobName:      jobTask.Name,
+		JobType: string(jobType),
+		JobID:   jobID,
 	})
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
@@ -293,7 +286,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
+			Name:   jobID,
 			Labels: labels,
 		},
 		Spec: batchv1.JobSpec{
@@ -362,7 +355,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 						// 	Lifecycle:       &corev1.Lifecycle{},
 						// },
 					},
-					Volumes: getVolumes(jobName),
+					Volumes: getVolumes(jobID),
 				},
 			},
 		},
@@ -582,8 +575,8 @@ func waitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName st
 
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
-	xl.Infof("wait job to start: %s/%s", namespace, jobName)
+func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobID string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
+	xl.Infof("wait job to start: %s/%s", namespace, jobID)
 	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
 	podTimeout := time.After(120 * time.Second)
 
@@ -598,9 +591,9 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 		case <-podTimeout:
 			return config.StatusTimeout
 		default:
-			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
+			job, _, err := getter.GetJob(namespace, jobID, kubeClient)
 			if err != nil {
-				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
+				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobID, err)
 			}
 			if job != nil {
 				started = job.Status.Active > 0
@@ -614,7 +607,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 	}
 
 	// 等待job 运行结束
-	xl.Infof("wait job to end: %s %s", namespace, jobName)
+	xl.Infof("wait job to end: %s %s", namespace, jobID)
 	for {
 		select {
 		case <-ctx.Done():
@@ -624,9 +617,9 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 			return config.StatusTimeout
 
 		default:
-			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
+			job, found, err := getter.GetJob(namespace, jobID, kubeClient)
 			if err != nil || !found {
-				xl.Errorf("failed to get pod with label job-name=%s %v", jobName, err)
+				xl.Errorf("failed to get pod with label job-name=%s %v", jobID, err)
 				return config.StatusFailed
 			}
 			// pod is still running
@@ -636,9 +629,9 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					break
 				}
 
-				pods, err := getter.ListPods(namespace, labels.Set{"job-name": jobName}.AsSelector(), kubeClient)
+				pods, err := getter.ListPods(namespace, labels.Set{"job-name": jobID}.AsSelector(), kubeClient)
 				if err != nil {
-					xl.Errorf("failed to find pod with label job-name=%s %v", jobName, err)
+					xl.Errorf("failed to find pod with label job-name=%s %v", jobID, err)
 					return config.StatusFailed
 				}
 				var done, exists bool

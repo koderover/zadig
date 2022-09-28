@@ -42,7 +42,7 @@ import (
 
 const (
 	JobNameRegx  = "^[a-z][a-z0-9-]{0,31}$"
-	WorkflowRegx = "^[a-z0-9-]{1,32}$"
+	WorkflowRegx = "^[a-z0-9-]+$"
 )
 
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {

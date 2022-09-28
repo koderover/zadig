@@ -36,7 +36,7 @@ import (
 
 type PluginJobCtl struct {
 	job         *commonmodels.JobTask
-	jobName     string
+	jobID       string
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
 	kubeclient  crClient.Client
@@ -56,7 +56,7 @@ func NewPluginsJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workf
 		workflowCtx: workflowCtx,
 		logger:      logger,
 		ack:         ack,
-		jobName:     getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID),
+		jobID:       getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID),
 		jobTaskSpec: jobTaskSpec,
 	}
 }
@@ -110,12 +110,10 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 	}
 
 	jobLabel := &JobLabel{
-		WorkflowName: c.workflowCtx.WorkflowName,
-		TaskID:       c.workflowCtx.TaskID,
-		JobType:      string(c.job.JobType),
-		JobName:      c.job.Name,
+		JobType: string(c.job.JobType),
+		JobID:   c.jobID,
 	}
-	job, err := buildPlainJob(c.jobName, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx)
+	job, err := buildPlainJob(c.jobID, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
 		logError(c.job, msg, c.logger)
@@ -134,22 +132,20 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return err
 	}
-	c.logger.Infof("succeed to create job %s", c.jobName)
+	c.logger.Infof("succeed to create job %s", c.jobID)
 	return nil
 }
 
 func (c *PluginJobCtl) wait(ctx context.Context) {
-	status := waitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.jobName, c.kubeclient, c.logger)
+	status := waitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.jobID, c.kubeclient, c.logger)
 	c.job.Status = status
 
 }
 
 func (c *PluginJobCtl) complete(ctx context.Context) {
 	jobLabel := &JobLabel{
-		WorkflowName: c.workflowCtx.WorkflowName,
-		TaskID:       c.workflowCtx.TaskID,
-		JobType:      string(c.job.JobType),
-		JobName:      c.job.Name,
+		JobType: string(c.job.JobType),
+		JobID:   c.jobID,
 	}
 
 	// 清理用户取消和超时的任务
