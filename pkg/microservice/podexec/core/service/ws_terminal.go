@@ -30,12 +30,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/remotecommand"
 
 	conf "github.com/koderover/zadig/pkg/microservice/podexec/config"
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -213,81 +211,19 @@ func ExecPod(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, pt
 	return nil
 }
 
-// kubeclient config
+// NewKubeOutClusterClient returns kubeClient and config
 func NewKubeOutClusterClient(clusterID string) (kubernetes.Interface, *rest.Config, error) {
-	var config *rest.Config
-	var err error
+	clientset, err := client.GetClientset(conf.HubServerAddr(), clusterID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init clientset for cluster: %s, err:%v", clusterID, err)
+	}
 
-	if clusterID == "" || clusterID == setting.LocalClusterID {
-		kubeConfig := ""
-		config, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
-		if err != nil {
-			return nil, nil, fmt.Errorf("new kube config error:%v", err)
-		}
-	} else {
-		hubServerAddr := conf.HubServerAddr()
-
-		if err := hasSession(hubServerAddr, "/hasSession/"+clusterID); err != nil {
-			return nil, nil, fmt.Errorf("cluster is not connected %s, err:%v", clusterID, err)
-		}
-		cfg := &api.Config{
-			Kind:       "Config",
-			APIVersion: "v1",
-			Clusters: map[string]*api.Cluster{
-				"hubserver": {
-					InsecureSkipTLSVerify: true,
-					Server:                fmt.Sprintf("%s/kube/%s", hubServerAddr, clusterID),
-				},
-			},
-			Contexts: map[string]*api.Context{
-				"hubserver": {
-					Cluster: "hubserver",
-				},
-			},
-			CurrentContext: "hubserver",
-		}
-		config, err = clientcmd.BuildConfigFromKubeconfigGetter("", func() (config *api.Config, err error) {
-			return cfg, nil
-		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("new kube config error:%v", err)
-		}
+	config, err := client.GetRESTConfig(conf.HubServerAddr(), clusterID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get restconfig for cluster: %s, err:%v", clusterID, err)
 	}
 
 	config.QPS = 20
 	config.Burst = 40
-
-	// create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, nil, fmt.Errorf("new kube client set error: %v", err)
-	}
 	return clientset, config, nil
-}
-
-func hasSession(hubServerAddr, uri string) error {
-	client := &http.Client{}
-	req, err := http.NewRequest(
-		"POST",
-		fmt.Sprintf("%s%s", hubServerAddr, uri),
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("got %d response", resp.StatusCode)
-	}
-
-	return nil
 }

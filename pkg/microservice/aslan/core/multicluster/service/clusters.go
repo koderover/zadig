@@ -578,24 +578,31 @@ func setClusterDind(cluster *K8SCluster) error {
 	return nil
 }
 
-func ClusterApplyUpgradeAgent() {
+func ClusterApplyUpgrade() {
 	for i := 0; i < 3; i++ {
 		time.Sleep(10 * time.Second)
 		k8sClusters, err := commonrepo.NewK8SClusterColl().List(nil)
 		if err != nil && !commonrepo.IsErrNoDocuments(err) {
-			log.Errorf("[ClusterApplyUpgradeAgent] list cluster error:%s", err)
+			log.Errorf("[ClusterApplyUpgrade] list cluster error:%s", err)
 			return
 		}
 
 		for _, cluster := range k8sClusters {
+			if cluster.Type == setting.KubeConfigClusterType {
+				err = kube.InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
+				if err != nil {
+					log.Errorf("[ClusterApplyUpgrade] InitializeExternalCluster cluster %s error:%s", cluster.Name, err)
+				}
+				continue
+			}
 			if cluster.Status != setting.Normal {
-				log.Warnf("[ClusterApplyUpgradeAgent] not support apply. cluster %s status %s ", cluster.Name, cluster.Status)
+				log.Warnf("[ClusterApplyUpgrade] not support apply. cluster %s status %s ", cluster.Name, cluster.Status)
 				continue
 			}
 			if err := UpgradeAgent(cluster.ID.Hex(), ginzap.WithContext(&gin.Context{}).Sugar()); err != nil {
-				log.Errorf("[ClusterApplyUpgradeAgent] UpgradeAgent cluster %s error:%s", cluster.Name, err)
+				log.Errorf("[ClusterApplyUpgrade] UpgradeAgent cluster %s error:%s", cluster.Name, err)
 			} else {
-				log.Infof("[ClusterApplyUpgradeAgent] UpgradeAgent cluster %s successed", cluster.Name)
+				log.Infof("[ClusterApplyUpgrade] UpgradeAgent cluster %s successed", cluster.Name)
 			}
 		}
 		time.Sleep(20 * time.Second)
