@@ -489,6 +489,10 @@ metas:
             endpoint: /api/aslan/workflow/v4/webhook/preset
           - method: GET
             endpoint: /api/aslan/workflow/v4/webhook
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/cron/preset
+          - method: GET
+            endpoint: /api/aslan/workflow/v4/cron
       - action: edit_workflow
         alias: 编辑
         description: ''
@@ -515,6 +519,12 @@ metas:
             endpoint: /api/aslan/workflow/v4/webhook/?*
           - method: DELETE
             endpoint: /api/aslan/workflow/v4/webhook/?*/trigger/?*
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/cron/?*
+          - method: PUT
+            endpoint: /api/aslan/workflow/v4/cron
+          - method: DELETE
+            endpoint: /api/aslan/workflow/v4/cron/?*/trigger/?*
       - action: create_workflow
         alias: 新建
         description: ''
