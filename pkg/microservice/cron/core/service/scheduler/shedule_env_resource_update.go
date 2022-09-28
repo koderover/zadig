@@ -46,10 +46,9 @@ func (c *CronClient) deleteEnvResourceScheduler(envResourceKey string) {
 }
 
 func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
-
 	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{DeployType: []string{setting.HelmDeployType, setting.K8SDeployType}})
 	if err != nil {
-		log.Errorf("failed to list envs for env resource update: %s", err)
+		log.Errorf("failed to list envs for env resource sync: %s", err)
 		return
 	}
 
