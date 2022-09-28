@@ -588,13 +588,6 @@ func ClusterApplyUpgrade() {
 		}
 
 		for _, cluster := range k8sClusters {
-			if cluster.Type == setting.KubeConfigClusterType {
-				err = kube.InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
-				if err != nil {
-					log.Errorf("[ClusterApplyUpgrade] InitializeExternalCluster cluster %s error:%s", cluster.Name, err)
-				}
-				continue
-			}
 			if cluster.Status != setting.Normal {
 				log.Warnf("[ClusterApplyUpgrade] not support apply. cluster %s status %s ", cluster.Name, cluster.Status)
 				continue
