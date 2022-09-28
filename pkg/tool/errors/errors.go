@@ -141,9 +141,10 @@ func ErrorMessage(err error) (code int, message map[string]interface{}) {
 		}
 	}
 
-	return ErrInternalError.Code(), map[string]interface{}{
-		"message":     ErrInternalError.Error(),
-		"code":        ErrInternalError.Code(),
+	internalErr := NewHTTPError(500, "Internal Error")
+	return internalErr.Code(), map[string]interface{}{
+		"message":     internalErr.Error(),
+		"code":        internalErr.Code(),
 		"description": err.Error(),
 	}
 }
