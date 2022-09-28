@@ -78,7 +78,9 @@ func (s *GitStep) RunGitGc(folder string) error {
 }
 
 func (s *GitStep) runGitCmds() error {
-
+	if err := os.MkdirAll(path.Join(config.Home(), "/.ssh"), os.ModePerm); err != nil {
+		return fmt.Errorf("create ssh folder error: %v", err)
+	}
 	envs := s.envs
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
 	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
