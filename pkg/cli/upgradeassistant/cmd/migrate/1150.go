@@ -62,7 +62,7 @@ func V1150ToV1140() error {
 func deleteXenialBasicImage() error {
 	xenialBasicImage, focalBasicImage, err := internalmongodb.NewBasicImageColl().FindXenialAndFocalBasicImage()
 	if err != nil {
-		return err
+		return nil
 	}
 	buildCollection := internalmongodb.NewBuildColl()
 	buildList, err := buildCollection.List(&internalmongodb.BuildListOption{})
