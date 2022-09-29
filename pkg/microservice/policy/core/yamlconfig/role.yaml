@@ -54,10 +54,6 @@ preset_roles:
         resources:
           - Environment
       - verbs:
-          - get_environment
-        resources:
-          - ProductionEnvironment
-      - verbs:
           - get_service
         resources:
           - Service
