@@ -204,7 +204,6 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 					Enabled: true,
 					Modules: artifactModules,
 				}
-				workflow.EnvName = "ops" //TODO necessary to set a fake env name?
 			}
 
 			workflow.Schedules = &commonmodels.ScheduleCtrl{
