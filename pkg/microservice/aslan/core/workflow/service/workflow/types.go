@@ -24,6 +24,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	steptypes "github.com/koderover/zadig/pkg/types/step"
 )
 
 type WorkflowV3 struct {
@@ -133,7 +134,8 @@ func (p *PluginJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job
 }
 
 type FreestyleJobInput struct {
-	KVs []*KV `json:"kv"`
+	KVs      []*KV        `json:"kv"`
+	RepoInfo []*RepoInput `json:"repo_info"`
 }
 
 func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
@@ -149,6 +151,32 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 	for _, env := range newSpec.Properties.Envs {
 		if val, ok := kvMap[env.Key]; ok {
 			env.Value = val
+		}
+	}
+
+	// replace the git info with the provided info
+	for _, step := range newSpec.Steps {
+		if step.StepType == config.StepGit {
+			gitStepSpec := new(steptypes.StepGitSpec)
+			if err := commonmodels.IToi(step.Spec, gitStepSpec); err != nil {
+				return nil, errors.New("unable to cast git step Spec into commonmodels.StepGitSpec")
+			}
+			for _, inputRepo := range p.RepoInfo {
+				repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+				if err != nil {
+					return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+				}
+
+				for _, buildRepo := range gitStepSpec.Repos {
+					if buildRepo.CodehostID == repoInfo.ID {
+						if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
+							buildRepo.Branch = inputRepo.Branch
+							buildRepo.PR = inputRepo.PR
+						}
+					}
+				}
+			}
+			step.Spec = gitStepSpec
 		}
 	}
 
