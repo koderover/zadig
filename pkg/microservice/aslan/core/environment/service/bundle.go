@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"strconv"
-
 	"go.uber.org/zap"
 
 	commonConfig "github.com/koderover/zadig/pkg/config"
@@ -85,13 +83,6 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 			}
 		}
 
-		clusterID := env.ClusterID
-		production := false
-		cluster, ok := clusterMap[clusterID]
-		if ok {
-			production = cluster.Production
-		}
-		resourceSpec.Spec = append(resourceSpec.Spec, "production:"+strconv.FormatBool(production))
 		res = append(res, resourceSpec)
 	}
 
