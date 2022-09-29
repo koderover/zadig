@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package version
+package models
 
-var (
-	Version     = "1.9.0"
-	BuildNumber = "0"
-	GitCommit   = ""
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+type Scanning struct {
+	ID      primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	ImageID string             `bson:"image_id"      json:"image_id"`
+}
+
+func (Scanning) TableName() string {
+	return "scanning"
+}

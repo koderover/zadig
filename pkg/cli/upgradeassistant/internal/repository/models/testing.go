@@ -51,6 +51,8 @@ type Testing struct {
 type PreTest struct {
 	ClusterID string          `bson:"cluster_id"             json:"cluster_id"`
 	ResReq    setting.Request `bson:"res_req"                json:"res_req"`
+	BuildOS   string          `bson:"build_os"                        json:"build_os"`
+	ImageID   string          `bson:"image_id"                        json:"image_id"`
 	// TODO: Deprecated.
 	CleanWorkspace bool `bson:"clean_workspace"            json:"clean_workspace"`
 }
