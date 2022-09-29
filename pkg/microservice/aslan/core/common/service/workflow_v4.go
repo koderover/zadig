@@ -27,6 +27,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
@@ -83,6 +84,8 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	if err != nil {
 		log.Errorf("Failed to stop cronjob for workflowv4: %s, error: %s", workflow.Name, err)
 	}
+
+	go gerrit.DeleteGerritWebhookForWorkflowV4(workflow, logger)
 
 	err = mongodb.NewCronjobColl().Delete(&mongodb.CronjobDeleteOption{
 		ParentName: name,

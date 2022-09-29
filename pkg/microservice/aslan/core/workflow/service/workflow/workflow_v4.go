@@ -425,6 +425,9 @@ func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		log.Error(errMsg)
 		return e.ErrCreateWebhook.AddDesc(errMsg)
 	}
+	if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
+		logger.Errorf("create gerrit webhook failed: %v", err)
+	}
 	return nil
 }
 
@@ -464,6 +467,13 @@ func UpdateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		errMsg := fmt.Sprintf("failed to update webhook for workflow %s, the error is: %v", workflowName, err)
 		log.Error(errMsg)
 		return e.ErrUpdateWebhook.AddDesc(errMsg)
+	}
+
+	if err := deleteGerritWebhook(existHook.MainRepo, workflowName); err != nil {
+		logger.Errorf("delete gerrit webhook failed: %v", err)
+	}
+	if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
+		logger.Errorf("create gerrit webhook failed: %v", err)
 	}
 	return nil
 }
@@ -540,6 +550,9 @@ func DeleteWebhookForWorkflowV4(workflowName, triggerName string, logger *zap.Su
 		errMsg := fmt.Sprintf("failed to delete webhook for workflow %s, the error is: %v", workflowName, err)
 		log.Error(errMsg)
 		return e.ErrDeleteWebhook.AddDesc(errMsg)
+	}
+	if err := deleteGerritWebhook(existHook.MainRepo, workflowName); err != nil {
+		logger.Errorf("delete gerrit webhook failed: %v", err)
 	}
 	return nil
 }

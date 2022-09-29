@@ -57,6 +57,29 @@ func DeleteGerritWebhook(workflow *models.Workflow, log *zap.SugaredLogger) erro
 	return nil
 }
 
+func DeleteGerritWebhookForWorkflowV4(workflow *models.WorkflowV4, log *zap.SugaredLogger) error {
+	if workflow != nil && workflow.HookCtls != nil {
+		for _, workflowWebhook := range workflow.HookCtls {
+			if workflowWebhook == nil {
+				continue
+			}
+
+			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
+			if err != nil {
+				log.Errorf("DeleteGerritWebhook GetCodehostDetail err:%v", err)
+				continue
+			}
+			if detail.Type == gerrit.CodehostTypeGerrit {
+				cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
+				if err := cl.DeleteWebhook(workflowWebhook.MainRepo.RepoName, gerrit.RemoteName); err != nil {
+					log.Errorf("DeleteGerritWebhook err:%v", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func GetGerritWorkspaceBasePath(repoName string) (string, error) {
 	if strings.Contains(repoName, "/") {
 		repoName = strings.Replace(repoName, "/", "-", -1)
