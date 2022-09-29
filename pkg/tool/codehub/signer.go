@@ -9,6 +9,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -36,12 +37,13 @@ func hmacsha256(key []byte, data string) ([]byte, error) {
 // Build a CanonicalRequest from a regular request string
 //
 // CanonicalRequest =
-//  HTTPRequestMethod + '\n' +
-//  CanonicalURI + '\n' +
-//  CanonicalQueryString + '\n' +
-//  CanonicalHeaders + '\n' +
-//  SignedHeaders + '\n' +
-//  HexEncode(Hash(RequestPayload))
+//
+//	HTTPRequestMethod + '\n' +
+//	CanonicalURI + '\n' +
+//	CanonicalQueryString + '\n' +
+//	CanonicalHeaders + '\n' +
+//	SignedHeaders + '\n' +
+//	HexEncode(Hash(RequestPayload))
 func CanonicalRequest(r *http.Request, signedHeaders []string) (string, error) {
 	var hexencode string
 	var err error
@@ -135,7 +137,7 @@ func RequestPayload(r *http.Request) ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	r.Body = ioutil.NopCloser(bytes.NewBuffer(b))
+	r.Body = io.NopCloser(bytes.NewBuffer(b))
 	return b, err
 }
 

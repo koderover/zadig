@@ -17,7 +17,12 @@ limitations under the License.
 package gerrit
 
 import (
+	"fmt"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type HTTPClient struct {
@@ -39,4 +44,34 @@ func NewHTTPClient(host, token string) *HTTPClient {
 		host:   host,
 		token:  token,
 	}
+}
+
+func (c *HTTPClient) UpsertWebhook(repoName, webhookName string, events []string) error {
+	webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", Escape(repoName), "remotes", webhookName)
+	if _, err := c.Get(webhookURL); err == nil {
+		log.Infof("webhook %s already exists", webhookName)
+		return nil
+
+	}
+	c.SetHeader("Content-Type", "application/json")
+	//create webhook
+	gerritWebhook := &Webhook{
+		URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), webhookName),
+		MaxTries:  setting.MaxTries,
+		SslVerify: false,
+	}
+	if _, err := c.Put(webhookURL, httpclient.SetBody(gerritWebhook)); err != nil {
+		return fmt.Errorf("create gerrit webhook err:%v", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) DeleteWebhook(repoName, webhookName string) error {
+	c.SetHeader("Content-Type", "text/plain;charset=utf-8")
+	webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", Escape(repoName), "remotes")
+	_, _ = c.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, RemoteName))
+	if _, err := c.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, webhookName)); err != nil {
+		return fmt.Errorf("delete gerrit webhook:%s err:%v", webhookName, err)
+	}
+	return nil
 }

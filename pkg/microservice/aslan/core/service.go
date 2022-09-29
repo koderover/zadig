@@ -157,7 +157,7 @@ func Start(ctx context.Context) {
 
 	go StartControllers(ctx.Done())
 
-	go multiclusterservice.ClusterApplyUpgradeAgent()
+	go multiclusterservice.ClusterApplyUpgrade()
 
 	initRsaKey()
 

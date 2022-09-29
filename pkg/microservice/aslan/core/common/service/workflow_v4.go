@@ -17,15 +17,21 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -73,6 +79,22 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
 	}
+
+	err = DisableCronjobForWorkflowV4(workflow)
+	if err != nil {
+		log.Errorf("Failed to stop cronjob for workflowv4: %s, error: %s", workflow.Name, err)
+	}
+
+	go gerrit.DeleteGerritWebhookForWorkflowV4(workflow, logger)
+
+	err = mongodb.NewCronjobColl().Delete(&mongodb.CronjobDeleteOption{
+		ParentName: name,
+		ParentType: config.WorkflowV4Cronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to delete cronjob for workflowV4 %s, error: %s", workflow.Name, err)
+	}
+
 	if err := mongodb.NewWorkflowV4Coll().DeleteByID(workflow.ID.Hex()); err != nil {
 		logger.Errorf("Failed to delete WorkflowV4: %s, the error is: %v", name, err)
 		return e.ErrDeleteWorkflow.AddErr(err)
@@ -127,4 +149,29 @@ func EncryptParams(encryptedKey string, params []*commonmodels.Param, logger *za
 		}
 	}
 	return nil
+}
+
+func DisableCronjobForWorkflowV4(workflow *commonmodels.WorkflowV4) error {
+	disableIDList := make([]string, 0)
+	payload := &CronjobPayload{
+		Name:    workflow.Name,
+		JobType: config.WorkflowCronjob,
+		Action:  setting.TypeEnableCronjob,
+	}
+
+	jobList, err := mongodb.NewCronjobColl().List(&mongodb.ListCronjobParam{
+		ParentName: workflow.Name,
+		ParentType: config.WorkflowV4Cronjob,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, job := range jobList {
+		disableIDList = append(disableIDList, job.ID.Hex())
+	}
+	payload.DeleteList = disableIDList
+
+	pl, _ := json.Marshal(payload)
+	return nsq.Publish(setting.TopicCronjob, pl)
 }

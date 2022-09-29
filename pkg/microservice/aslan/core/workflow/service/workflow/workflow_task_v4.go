@@ -18,19 +18,24 @@ package workflow
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/types/step"
 	stepspec "github.com/koderover/zadig/pkg/types/step"
 	"go.uber.org/zap"
 )
@@ -83,6 +88,16 @@ type ZadigBuildJobSpec struct {
 	ServiceName   string                 `bson:"service_name"    json:"service_name"`
 	ServiceModule string                 `bson:"service_module"  json:"service_module"`
 	Envs          []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
+}
+
+type ZadigTestingJobSpec struct {
+	Repos       []*types.Repository    `bson:"repos"           json:"repos"`
+	JunitReport bool                   `bson:"junit_report"    json:"junit_report"`
+	Archive     bool                   `bson:"archive"         json:"archive"`
+	HtmlReport  bool                   `bson:"html_report"     json:"html_report"`
+	ProjectName string                 `bson:"project_name"    json:"project_name"`
+	TestName    string                 `bson:"test_name"       json:"test_name"`
+	Envs        []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
 }
 
 type ZadigDeployJobSpec struct {
@@ -227,6 +242,12 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 					return resp, e.ErrCreateTask.AddDesc(err.Error())
 				}
 			}
+			if job.JobType == config.JobZadigTesting {
+				if err := setZadigTestingRepos(job, log); err != nil {
+					log.Errorf("testing job set build info error: %v", err)
+					return resp, e.ErrCreateTask.AddDesc(err.Error())
+				}
+			}
 
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
@@ -363,7 +384,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			fallthrough
 		case string(config.JobZadigBuild):
 			spec := ZadigBuildJobSpec{}
-			taskJobSpec := &commonmodels.JobTaskBuildSpec{}
+			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}
@@ -391,6 +412,45 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				}
 			}
 			jobPreview.Spec = spec
+		case string(config.JobZadigTesting):
+			spec := &ZadigTestingJobSpec{}
+			jobPreview.Spec = spec
+			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			spec.Envs = taskJobSpec.Properties.CustomEnvs
+			for _, step := range taskJobSpec.Steps {
+				if step.StepType == config.StepGit {
+					stepSpec := &stepspec.StepGitSpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					spec.Repos = stepSpec.Repos
+					continue
+				}
+			}
+			for _, arg := range taskJobSpec.Properties.Envs {
+				if arg.Key == "TESTING_PROJECT" {
+					spec.ProjectName = arg.Value
+					continue
+				}
+				if arg.Key == "TESTING_NAME" {
+					spec.TestName = arg.Value
+					continue
+				}
+			}
+			if job.Status == config.StatusPassed || job.Status == config.StatusFailed {
+				for _, step := range taskJobSpec.Steps {
+					if step.Name == config.TestJobArchiveResultStepName {
+						spec.Archive = true
+					}
+					if step.Name == config.TestJobHTMLReportStepName {
+						spec.HtmlReport = true
+					}
+					if step.Name == config.TestJobJunitReportStepName {
+						spec.JunitReport = true
+					}
+				}
+			}
 		case string(config.JobZadigDeploy):
 			spec := ZadigDeployJobSpec{}
 			taskJobSpec := &commonmodels.JobTaskDeploySpec{}
@@ -545,6 +605,20 @@ func setZadigBuildRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error 
 	return nil
 }
 
+func setZadigTestingRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
+	spec := &commonmodels.ZadigTestingJobSpec{}
+	if err := commonmodels.IToi(job.Spec, spec); err != nil {
+		return err
+	}
+	for _, build := range spec.TestModules {
+		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
+			return err
+		}
+	}
+	job.Spec = spec
+	return nil
+}
+
 func setFreeStyleRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
 	spec := &commonmodels.FreestyleJobSpec{}
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
@@ -581,4 +655,75 @@ func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.Sugar
 		}
 	}
 	return nil
+}
+
+func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return []byte{}, fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	var jobTask *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != string(config.JobZadigTesting) {
+				return []byte{}, fmt.Errorf("job: %s was not a testing job", jobName)
+			}
+			jobTask = job
+		}
+	}
+	if jobTask == nil {
+		return []byte{}, fmt.Errorf("cannot find job task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
+		return []byte{}, fmt.Errorf("unmashal job spec error: %v", err)
+	}
+
+	var stepTask *commonmodels.StepTask
+	for _, step := range jobSpec.Steps {
+		if step.Name != config.TestJobArchiveResultStepName {
+			continue
+		}
+		if step.StepType != config.StepTarArchive {
+			return []byte{}, fmt.Errorf("step: %s was not a junit report step", step.Name)
+		}
+		stepTask = step
+	}
+	if stepTask == nil {
+		return []byte{}, fmt.Errorf("cannot find step task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	stepSpec := &step.StepTarArchiveSpec{}
+	if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+		return []byte{}, fmt.Errorf("unmashal step spec error: %v", err)
+	}
+
+	storage, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
+		return []byte{}, fmt.Errorf("findDefaultS3 err: %v", err)
+	}
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
+		return []byte{}, fmt.Errorf("create S3 client err: %v", err)
+	}
+	objectKey := filepath.Join(stepSpec.S3DestDir, stepSpec.FileName)
+	object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 2})
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo GetFile err:%s", err)
+		return []byte{}, fmt.Errorf("GetFile err: %v", err)
+	}
+	fileByts, err := ioutil.ReadAll(object.Body)
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo ioutil.ReadAll err:%s", err)
+		return []byte{}, fmt.Errorf("ioutil.ReadAll err: %v", err)
+	}
+	return fileByts, nil
 }

@@ -58,4 +58,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		stat.GET("dashboard/test", Test)
 		stat.GET("dashboard/build", Build)
 	}
+	testing := router.Group("testing")
+	{
+		testing.GET("", ListTestings)
+	}
 }

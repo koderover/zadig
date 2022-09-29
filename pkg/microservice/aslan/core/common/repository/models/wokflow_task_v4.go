@@ -64,16 +64,17 @@ type StageTask struct {
 }
 
 type JobTask struct {
-	Name      string        `bson:"name"                json:"name"`
-	JobType   string        `bson:"type"                json:"type"`
-	Status    config.Status `bson:"status"              json:"status"`
-	StartTime int64         `bson:"start_time"          json:"start_time,omitempty"`
-	EndTime   int64         `bson:"end_time"            json:"end_time,omitempty"`
-	Error     string        `bson:"error"               json:"error"`
-	Timeout   int64         `bson:"timeout"             json:"timeout"`
-	Retry     int64         `bson:"retry"               json:"retry"`
-	Spec      interface{}   `bson:"spec"                json:"spec"`
-	Outputs   []*Output     `bson:"outputs"             json:"outputs"`
+	Name       string        `bson:"name"                json:"name"`
+	K8sJobName string        `bson:"k8s_job_name"        json:"k8s_job_name"`
+	JobType    string        `bson:"type"                json:"type"`
+	Status     config.Status `bson:"status"              json:"status"`
+	StartTime  int64         `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime    int64         `bson:"end_time"            json:"end_time,omitempty"`
+	Error      string        `bson:"error"               json:"error"`
+	Timeout    int64         `bson:"timeout"             json:"timeout"`
+	Retry      int64         `bson:"retry"               json:"retry"`
+	Spec       interface{}   `bson:"spec"                json:"spec"`
+	Outputs    []*Output     `bson:"outputs"             json:"outputs"`
 }
 
 type JobTaskCustomDeploySpec struct {
@@ -124,7 +125,7 @@ type ImageAndServiceModule struct {
 	Image         string `bson:"image"                              json:"image"                                 yaml:"image"`
 }
 
-type JobTaskBuildSpec struct {
+type JobTaskFreestyleSpec struct {
 	Properties JobProperties `bson:"properties"          json:"properties"        yaml:"properties"`
 	Steps      []*StepTask   `bson:"steps"               json:"steps"             yaml:"steps"`
 }
@@ -224,10 +225,11 @@ func (e *Events) Error(message string) {
 }
 
 type StepTask struct {
-	Name     string          `bson:"name"           json:"name"      yaml:"name"`
-	JobName  string          `bson:"job_name"       json:"job_name"  yaml:"job_name"`
-	Error    string          `bson:"error"          json:"error"     yaml:"error"`
-	StepType config.StepType `bson:"type"           json:"type"      yaml:"type"`
+	Name      string          `bson:"name"           json:"name"         yaml:"name"`
+	JobName   string          `bson:"job_name"       json:"job_name"     yaml:"job_name"`
+	Error     string          `bson:"error"          json:"error"        yaml:"error"`
+	StepType  config.StepType `bson:"type"           json:"type"         yaml:"type"`
+	Onfailure bool            `bson:"on_failure"     json:"on_failure"   yaml:"on_failure"`
 	// step input params,differ form steps
 	Spec interface{} `bson:"spec"           json:"spec"   yaml:"spec"`
 	// step output results,like testing results,differ form steps

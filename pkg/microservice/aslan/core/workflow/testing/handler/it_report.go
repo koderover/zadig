@@ -46,6 +46,19 @@ func GetLocalTestSuite(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.GetLocalTestSuite(c.Param("pipelineName"), "", testType, taskID, c.Param("testName"), config.SingleType, ctx.Logger)
 }
 
+func GetWorkflowV4LocalTestSuite(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = commonservice.GetWorkflowV4LocalTestSuite(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
+}
+
 func GetWorkflowLocalTestSuite(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

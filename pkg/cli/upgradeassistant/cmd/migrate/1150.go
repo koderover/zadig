@@ -43,6 +43,10 @@ func V1140ToV1150() error {
 		log.Errorf("workflowV4JobRefactor err:%s", err)
 		return err
 	}
+	if err := deleteXenialBasicImage(); err != nil {
+		log.Errorf("delete xenial basic image err:%s", err)
+		return err
+	}
 	return nil
 }
 
@@ -51,6 +55,99 @@ func V1150ToV1140() error {
 	if err := workflowV4JobRollback(); err != nil {
 		log.Errorf("workflowV4JobRollback err:%s", err)
 		return err
+	}
+	return nil
+}
+
+func deleteXenialBasicImage() error {
+	xenialBasicImage, focalBasicImage, err := internalmongodb.NewBasicImageColl().FindXenialAndFocalBasicImage()
+	if err != nil {
+		return err
+	}
+	buildCollection := internalmongodb.NewBuildColl()
+	buildList, err := buildCollection.List(&internalmongodb.BuildListOption{})
+	if err != nil {
+		return err
+	}
+	var ms []mongo.WriteModel
+	for _, build := range buildList {
+		if build.PreBuild.BuildOS == "xenial" {
+			build.PreBuild.BuildOS = "focal"
+			build.PreBuild.ImageID = focalBasicImage.ID.Hex()
+			ms = append(ms, mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", build.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"pre_build", build.PreBuild},
+					}},
+				}),
+			)
+		}
+	}
+	if len(ms) > 0 {
+		_, err := buildCollection.BulkWrite(context.TODO(), ms)
+		if err != nil {
+			return err
+		}
+	}
+
+	testingCollection := internalmongodb.NewTestingColl()
+	testList, err := testingCollection.List(&internalmongodb.ListTestOption{})
+	if err != nil {
+		return err
+	}
+	ms = make([]mongo.WriteModel, 0)
+	for _, test := range testList {
+		if test.PreTest.BuildOS == "xenial" {
+			test.PreTest.BuildOS = "focal"
+			test.PreTest.ImageID = focalBasicImage.ID.Hex()
+			ms = append(ms, mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", test.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"pre_test", test.PreTest},
+					}},
+				}),
+			)
+		}
+	}
+
+	if len(ms) > 0 {
+		_, err := testingCollection.BulkWrite(context.TODO(), ms)
+		if err != nil {
+			return err
+		}
+	}
+
+	scanningColl := internalmongodb.NewScanningColl()
+	scanningList, err := scanningColl.List(&internalmongodb.ScanningListOption{})
+	if err != nil {
+		return err
+	}
+	ms = make([]mongo.WriteModel, 0)
+	for _, scanning := range scanningList {
+		if scanning.ImageID == xenialBasicImage.ID.Hex() {
+			ms = append(ms, mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", scanning.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"image_id", focalBasicImage.ID.Hex()},
+					}},
+				}),
+			)
+		}
+	}
+
+	if len(ms) > 0 {
+		_, err := scanningColl.BulkWrite(context.TODO(), ms)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = internalmongodb.NewBasicImageColl().RemoveXenial()
+	if err != nil {
+		log.Warnf("delete xenial basic image failed, err: %s", err)
 	}
 	return nil
 }
@@ -131,7 +228,7 @@ func transformStagetask(stageTask []*models.StageTask) ([]*models.StageTask, err
 			}
 			switch originJob.JobType {
 			case string(config.JobZadigBuild):
-				jobSpec := &commonmodels.JobTaskBuildSpec{
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{
 					Properties: originJob.Properties,
 					Steps:      originJob.Steps,
 				}
@@ -185,7 +282,7 @@ func transformStagetask(stageTask []*models.StageTask) ([]*models.StageTask, err
 				}
 				originJob.Spec = jobSpec
 			case string(config.JobFreestyle):
-				jobSpec := &commonmodels.JobTaskBuildSpec{
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{
 					Properties: originJob.Properties,
 					Steps:      originJob.Steps,
 				}
@@ -226,7 +323,7 @@ func rollBackStagetask(stageTask []*models.StageTask) ([]*models.StageTask, erro
 			}
 			switch originJob.JobType {
 			case string(config.JobZadigBuild):
-				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
 					return stageTask, fmt.Errorf("unmashal job spec error: %v", err)
 				}
@@ -289,7 +386,7 @@ func rollBackStagetask(stageTask []*models.StageTask) ([]*models.StageTask, erro
 				originJob.Plugin = jobSpec.Plugin
 
 			case string(config.JobFreestyle):
-				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
 					return stageTask, fmt.Errorf("unmashal job spec error: %v", err)
 				}

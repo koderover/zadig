@@ -87,7 +87,7 @@ func NewTaskAckHandler(maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler 
 // 1. 更新 queue pipeline task
 // 2. 更新 数据库 pipeline task
 // 3. 如果 pipeline task 完成, 检查是否有 blocked pipeline task, 检查是否可以unblock, 从queue中移除task
-//    - pipeline 完成状态包括：passed, failed, timeout
+// pipeline 完成状态包括：passed, failed, timeout
 // 4. 更新 数据库 proudct
 // 5. 更新历史piplinetask的状态为archived(默认只留下最近的一百个task)
 func (h *TaskAckHandler) HandleMessage(message *nsq.Message) error {
@@ -116,7 +116,7 @@ func (h *TaskAckHandler) handle(message *nsq.Message) error {
 	}
 
 	ptInfo := fmt.Sprintf("%s %s-%d(%s)", message.ID, pt.PipelineName, pt.TaskID, pt.Status)
-	h.log.Infof("[%s]receive task ACK: %+v", ptInfo, pt)
+	//h.log.Infof("[%s]receive task ACK: %+v", ptInfo, pt)
 
 	start := time.Now()
 	defer func() {

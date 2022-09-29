@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -60,6 +59,6 @@ func VerifyHTTPRequest(req *http.Request) (err error) {
 	sh.Write([]byte(timestamp))
 	sh.Write([]byte(req.URL.RequestURI()))
 	hash := sh.Sum(nil)
-	req.Body = ioutil.NopCloser(buf)
+	req.Body = io.NopCloser(buf)
 	return rsa.VerifyPKCS1v15(pub, crypto.SHA1, hash, sig)
 }

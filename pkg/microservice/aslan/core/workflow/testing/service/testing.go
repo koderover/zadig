@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +30,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
@@ -38,6 +41,8 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -146,9 +151,11 @@ type TestingOpt struct {
 	AvgDuration float64                    `bson:"-"                      json:"avg_duration,omitempty"`
 	Workflows   []*commonmodels.Workflow   `bson:"-"                      json:"workflows,omitempty"`
 	Schedules   *commonmodels.ScheduleCtrl `bson:"-"                      json:"schedules,omitempty"`
+	Repos       []*types.Repository        `bson:"repos"                  json:"repos"`
+	KeyVals     []*commonmodels.KeyVal     `bson:"key_vals"               json:"key_vals"`
 }
 
-func ListTestingOpt(productName, testType string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
+func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
 	allTestings := make([]*commonmodels.Testing, 0)
 	if testType == "" {
 		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: testType})
@@ -158,9 +165,9 @@ func ListTestingOpt(productName, testType string, log *zap.SugaredLogger) ([]*Te
 		}
 		allTestings = append(allTestings, testings...)
 	} else {
-		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{ProductName: productName, TestType: testType})
+		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{ProductNames: productNames, TestType: testType})
 		if err != nil {
-			log.Errorf("[Testing.List] %s error: %v", productName, err)
+			log.Errorf("[Testing.List] error: %v", err)
 			return nil, e.ErrListTestModule.AddErr(err)
 		}
 		for _, testing := range testings {
@@ -199,6 +206,8 @@ func ListTestingOpt(productName, testType string, log *zap.SugaredLogger) ([]*Te
 			AvgDuration: t.AvgDuration,
 			Workflows:   t.Workflows,
 			Schedules:   t.Schedules,
+			Repos:       t.Repos,
+			KeyVals:     t.PreTest.Envs,
 		})
 	}
 
@@ -337,6 +346,93 @@ func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, l
 		return "", e.ErrGetTestReport.AddErr(err)
 	}
 	objectKey := store.GetObjectPath(fileName)
+	err = client.Download(store.Bucket, objectKey, tmpFilename)
+	if err != nil {
+		log.Errorf("download html test report error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	content, err := os.ReadFile(tmpFilename)
+	if err != nil {
+		log.Errorf("parse test report file error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	return string(content), nil
+}
+
+func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return "", fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	var jobTask *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != string(config.JobZadigTesting) {
+				return "", fmt.Errorf("job: %s was not a testing job", jobName)
+			}
+			jobTask = job
+		}
+	}
+	if jobTask == nil {
+		return "", fmt.Errorf("cannot find job task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
+		return "", fmt.Errorf("unmashal job spec error: %v", err)
+	}
+
+	var stepTask *commonmodels.StepTask
+	for _, step := range jobSpec.Steps {
+		if step.Name != config.TestJobHTMLReportStepName {
+			continue
+		}
+		if step.StepType != config.StepArchive {
+			return "", fmt.Errorf("step: %s was not a junit report step", step.Name)
+		}
+		stepTask = step
+	}
+	if stepTask == nil {
+		return "", fmt.Errorf("cannot find step task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	stepSpec := &step.StepArchiveSpec{}
+	if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+		return "", fmt.Errorf("unmashal step spec error: %v", err)
+	}
+	filePath := ""
+	for _, artifact := range stepSpec.UploadDetail {
+		fileName := path.Base(artifact.FilePath)
+		filePath = filepath.Join(artifact.DestinationPath, fileName)
+	}
+
+	store, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("parse storageURI failed, err: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	tmpFilename, err := util.GenerateTmpFile()
+	if err != nil {
+		log.Errorf("generate temp file error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+	defer func() {
+		_ = os.Remove(tmpFilename)
+	}()
+	forcedPathStyle := true
+	if store.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("download html test report error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+	objectKey := store.GetObjectPath(filePath)
 	err = client.Download(store.Bucket, objectKey, tmpFilename)
 	if err != nil {
 		log.Errorf("download html test report error: %s", err)

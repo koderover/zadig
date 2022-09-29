@@ -22,6 +22,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
@@ -76,17 +77,18 @@ type PipelineSpec struct {
 }
 
 type Schedule struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty"                 json:"id,omitempty"`
-	Number       uint64             `bson:"number"                        json:"number"`
-	Frequency    string             `bson:"frequency"                     json:"frequency"`
-	Time         string             `bson:"time"                          json:"time"`
-	MaxFailures  int                `bson:"max_failures,omitempty"        json:"max_failures,omitempty"`
-	TaskArgs     *TaskArgs          `bson:"task_args,omitempty"           json:"task_args,omitempty"`
-	WorkflowArgs *WorkflowTaskArgs  `bson:"workflow_args,omitempty"       json:"workflow_args,omitempty"`
-	TestArgs     *TestTaskArgs      `bson:"test_args,omitempty"           json:"test_args,omitempty"`
-	Type         ScheduleType       `bson:"type"                          json:"type"`
-	Cron         string             `bson:"cron"                          json:"cron"`
-	IsModified   bool               `bson:"-"                             json:"-"`
+	ID             primitive.ObjectID `bson:"_id,omitempty"                 json:"id,omitempty"`
+	Number         uint64             `bson:"number"                        json:"number"`
+	Frequency      string             `bson:"frequency"                     json:"frequency"`
+	Time           string             `bson:"time"                          json:"time"`
+	MaxFailures    int                `bson:"max_failures,omitempty"        json:"max_failures,omitempty"`
+	TaskArgs       *TaskArgs          `bson:"task_args,omitempty"           json:"task_args,omitempty"`
+	WorkflowArgs   *WorkflowTaskArgs  `bson:"workflow_args,omitempty"       json:"workflow_args,omitempty"`
+	TestArgs       *TestTaskArgs      `bson:"test_args,omitempty"           json:"test_args,omitempty"`
+	WorkflowV4Args *WorkflowV4        `bson:"workflow_v4_args"              json:"workflow_v4_args"`
+	Type           ScheduleType       `bson:"type"                          json:"type"`
+	Cron           string             `bson:"cron"                          json:"cron"`
+	IsModified     bool               `bson:"-"                             json:"-"`
 	// 自由编排工作流的开关是放在schedule里面的
 	Enabled bool `bson:"enabled"                       json:"enabled"`
 }
@@ -449,6 +451,67 @@ type Pipeline struct {
 type ScheduleCtrl struct {
 	Enabled bool        `bson:"enabled"    json:"enabled"`
 	Items   []*Schedule `bson:"items"      json:"items"`
+}
+
+type WorkflowV4 struct {
+	ID             primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"            json:"id"`
+	Name           string             `bson:"name"                yaml:"name"         json:"name"`
+	KeyVals        []*KeyVal          `bson:"key_vals"            yaml:"key_vals"     json:"key_vals"`
+	Params         []*Param           `bson:"params"              yaml:"params"       json:"params"`
+	Stages         []*WorkflowStage   `bson:"stages"              yaml:"stages"       json:"stages"`
+	Project        string             `bson:"project"             yaml:"project"      json:"project"`
+	Description    string             `bson:"description"         yaml:"description"  json:"description"`
+	CreatedBy      string             `bson:"created_by"          yaml:"created_by"   json:"created_by"`
+	CreateTime     int64              `bson:"create_time"         yaml:"create_time"  json:"create_time"`
+	UpdatedBy      string             `bson:"updated_by"          yaml:"updated_by"   json:"updated_by"`
+	UpdateTime     int64              `bson:"update_time"         yaml:"update_time"  json:"update_time"`
+	MultiRun       bool               `bson:"multi_run"           yaml:"multi_run"    json:"multi_run"`
+	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
+	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
+	BaseName       string             `bson:"base_name"           yaml:"-"            json:"base_name"`
+}
+
+type WorkflowStage struct {
+	Name     string    `bson:"name"          yaml:"name"         json:"name"`
+	Parallel bool      `bson:"parallel"      yaml:"parallel"     json:"parallel"`
+	Approval *Approval `bson:"approval"      yaml:"approval"     json:"approval"`
+	Jobs     []*Job    `bson:"jobs"          yaml:"jobs"         json:"jobs"`
+}
+
+type Approval struct {
+	Enabled         bool                   `bson:"enabled"                     yaml:"enabled"                    json:"enabled"`
+	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Timeout         int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
+	Description     string                 `bson:"description"                 yaml:"description"                json:"description"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+}
+
+type User struct {
+	UserID          string                 `bson:"user_id"                     yaml:"user_id"                    json:"user_id"`
+	UserName        string                 `bson:"user_name"                   yaml:"user_name"                  json:"user_name"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
+	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
+}
+
+type Job struct {
+	Name    string         `bson:"name"           yaml:"name"     json:"name"`
+	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
+	// only for webhook workflow args to skip some tasks.
+	Skipped bool        `bson:"skipped"        yaml:"skipped"  json:"skipped"`
+	Spec    interface{} `bson:"spec"           yaml:"spec"     json:"spec"`
+}
+
+type Param struct {
+	Name        string `bson:"name"             json:"name"             yaml:"name"`
+	Description string `bson:"description"      json:"description"      yaml:"description"`
+	// support string/text type
+	ParamsType   string   `bson:"type"                      json:"type"                        yaml:"type"`
+	Value        string   `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
+	ChoiceOption []string `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	Default      string   `bson:"default"                   json:"default"                     yaml:"default"`
+	IsCredential bool     `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 // Type pipeline type

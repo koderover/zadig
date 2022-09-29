@@ -87,10 +87,8 @@ func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes
 }
 
 type JobLabel struct {
-	WorkflowName string
-	TaskID       int64
-	JobName      string
-	JobType      string
+	JobName string
+	JobType string
 }
 
 func ensureDeleteConfigMap(namespace string, jobLabel *JobLabel, kubeClient crClient.Client) error {
@@ -106,7 +104,6 @@ func ensureDeleteJob(namespace string, jobLabel *JobLabel, kubeClient crClient.C
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
 	retMap := map[string]string{
-		setting.JobLabelTaskKey:  fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.WorkflowName), jobLabel.TaskID),
 		setting.JobLabelNameKey:  strings.Replace(jobLabel.JobName, "_", "-", -1),
 		setting.JobLabelSTypeKey: strings.Replace(jobLabel.JobType, "_", "-", -1),
 	}
@@ -174,10 +171,8 @@ echo $result > %s
 	collectJobOutputCommand := fmt.Sprintf(collectJobOutput, strings.Join(files, ","), strings.Join(outputs, ","), job.JobTerminationFile)
 
 	labels := getJobLabels(&JobLabel{
-		WorkflowName: workflowCtx.WorkflowName,
-		TaskID:       workflowCtx.TaskID,
-		JobType:      string(jobTask.JobType),
-		JobName:      jobTask.Name,
+		JobType: string(jobTask.JobType),
+		JobName: jobTask.K8sJobName,
 	})
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
@@ -257,7 +252,7 @@ echo $result > %s
 	return job, nil
 }
 
-func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskBuildSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	// 	tailLogCommandTemplate := `tail -f %s &
 	// while [ -f %s ];
 	// do
@@ -280,10 +275,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	jobExecutorBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
 
 	labels := getJobLabels(&JobLabel{
-		WorkflowName: workflowCtx.WorkflowName,
-		TaskID:       workflowCtx.TaskID,
-		JobType:      string(jobType),
-		JobName:      jobTask.Name,
+		JobType: string(jobType),
+		JobName: jobTask.K8sJobName,
 	})
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)

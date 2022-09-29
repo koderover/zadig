@@ -20,7 +20,7 @@ import (
 	"os/exec"
 )
 
-const dockerExe = "/usr/local/bin/docker"
+const dockerExe = "docker"
 
 func dockerLogin(user, password, registry string) *exec.Cmd {
 	return exec.Command(

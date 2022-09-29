@@ -40,3 +40,16 @@ func GetTestArtifactInfo(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetTestArtifactInfo(c.Param("pipelineName"), dir, taskID, ctx.Logger)
 }
+
+func GetWorkflowV4TestArtifactInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetWorkflowV4TestArtifactInfo(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
+}

@@ -85,13 +85,8 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 	}
 
 	for _, prod := range products {
-
 		// find all service templates with max revisions
-		allServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: prod.ProductName})
-		if err != nil {
-			log.Errorf("ListAllRevisions error: %s", err)
-			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-		}
+		allServiceTmpls, err := getServicesWithMaxRevision(prod.ProductName)
 
 		prodRev, err := GetProductRevision(prod, allServiceTmpls, log)
 		if err != nil {

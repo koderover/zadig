@@ -115,17 +115,18 @@ type ScheduleCtrl struct {
 }
 
 type Schedule struct {
-	ID           primitive.ObjectID  `bson:"_id,omitempty"                 json:"id,omitempty"`
-	Number       uint64              `bson:"number"                        json:"number"`
-	Frequency    string              `bson:"frequency"                     json:"frequency"`
-	Time         string              `bson:"time"                          json:"time"`
-	MaxFailures  int                 `bson:"max_failures,omitempty"        json:"max_failures,omitempty"`
-	TaskArgs     *TaskArgs           `bson:"task_args,omitempty"           json:"task_args,omitempty"`
-	WorkflowArgs *WorkflowTaskArgs   `bson:"workflow_args,omitempty"       json:"workflow_args,omitempty"`
-	TestArgs     *TestTaskArgs       `bson:"test_args,omitempty"           json:"test_args,omitempty"`
-	Type         config.ScheduleType `bson:"type"                          json:"type"`
-	Cron         string              `bson:"cron"                          json:"cron"`
-	IsModified   bool                `bson:"-"                             json:"-"`
+	ID             primitive.ObjectID  `bson:"_id,omitempty"                 json:"id,omitempty"`
+	Number         uint64              `bson:"number"                        json:"number"`
+	Frequency      string              `bson:"frequency"                     json:"frequency"`
+	Time           string              `bson:"time"                          json:"time"`
+	MaxFailures    int                 `bson:"max_failures,omitempty"        json:"max_failures,omitempty"`
+	TaskArgs       *TaskArgs           `bson:"task_args,omitempty"           json:"task_args,omitempty"`
+	WorkflowArgs   *WorkflowTaskArgs   `bson:"workflow_args,omitempty"       json:"workflow_args,omitempty"`
+	TestArgs       *TestTaskArgs       `bson:"test_args,omitempty"           json:"test_args,omitempty"`
+	WorkflowV4Args *WorkflowV4         `bson:"workflow_v4_args"              json:"workflow_v4_args"`
+	Type           config.ScheduleType `bson:"type"                          json:"type"`
+	Cron           string              `bson:"cron"                          json:"cron"`
+	IsModified     bool                `bson:"-"                             json:"-"`
 	// 自由编排工作流的开关是放在schedule里面的
 	Enabled bool `bson:"enabled"                       json:"enabled"`
 }

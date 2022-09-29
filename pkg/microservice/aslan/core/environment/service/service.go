@@ -269,11 +269,11 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 
 		// 获取服务模板
 		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   service.ServiceName,
-			ProductName:   service.ProductName,
-			Type:          service.Type,
-			Revision:      service.Revision,
-			ExcludeStatus: setting.ProductStatusDeleting,
+			ServiceName: service.ServiceName,
+			ProductName: service.ProductName,
+			Type:        service.Type,
+			Revision:    service.Revision,
+			//ExcludeStatus: setting.ProductStatusDeleting,
 		}
 
 		svcTmpl, err := commonrepo.NewServiceColl().Find(opt)

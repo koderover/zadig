@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -45,7 +45,7 @@ func CreateExternalSystem(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-外部系统", fmt.Sprintf("name:%s server:%s", args.Name, args.Server), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if args.Name == "" || args.Server == "" {
 		ctx.Err = errors.New("name and server must be provided")
@@ -113,7 +113,7 @@ func UpdateExternalSystem(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-外部系统", fmt.Sprintf("name:%s server:%s", req.Name, req.Server), string(data), ctx.Logger)
 
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if req.Name == "" || req.Server == "" {
 		ctx.Err = errors.New("name and server must be provided")

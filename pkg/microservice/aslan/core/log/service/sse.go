@@ -48,6 +48,8 @@ type GetContainerOptions struct {
 	Namespace     string
 	PipelineName  string
 	SubTask       string
+	JobName       string
+	JobType       string
 	TailLines     int64
 	TaskID        int64
 	PipelineType  string
@@ -214,13 +216,17 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 			if job.Name != options.SubTask {
 				continue
 			}
+			options.JobName = job.K8sJobName
+			options.JobType = job.JobType
 			switch job.JobType {
 			case string(config.JobZadigBuild):
 				fallthrough
 			case string(config.JobFreestyle):
 				fallthrough
+			case string(config.JobZadigTesting):
+				fallthrough
 			case string(config.JobBuild):
-				jobSpec := &commonmodels.JobTaskBuildSpec{}
+				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
 					log.Errorf("Failed to parse job spec: %v", err)
 					return
@@ -346,8 +352,8 @@ func getPipelineSelector(options *GetContainerOptions) labels.Selector {
 
 func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
 	retMap := map[string]string{
-		setting.JobLabelTaskKey: fmt.Sprintf("%s-%d", strings.ToLower(options.PipelineName), options.TaskID),
-		setting.JobLabelNameKey: strings.Replace(options.SubTask, "_", "-", -1),
+		setting.JobLabelSTypeKey: strings.Replace(options.JobType, "_", "-", -1),
+		setting.JobLabelNameKey:  strings.Replace(options.JobName, "_", "-", -1),
 	}
 	// no need to add labels with empty value to a job
 	for k, v := range retMap {

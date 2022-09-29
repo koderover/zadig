@@ -21,11 +21,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	"io/ioutil"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"io"
 	"strconv"
 	"time"
+
+	e "github.com/koderover/zadig/pkg/tool/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/gin-gonic/gin"
 
@@ -50,7 +51,7 @@ func GetScanningProductName(c *gin.Context) {
 		return
 	}
 	c.Set("productName", args.ProjectName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	c.Next()
 }
 

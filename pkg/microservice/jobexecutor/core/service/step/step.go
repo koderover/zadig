@@ -36,13 +36,20 @@ type Step interface {
 }
 
 func RunSteps(ctx context.Context, steps []*meta.Step, workspace, paths string, envs, secretEnvs []string) error {
+	hasFailed := false
+	var respErr error
 	for _, stepInfo := range steps {
+		if hasFailed && !stepInfo.Onfailure {
+			continue
+		}
 		if err := runStep(ctx, stepInfo, workspace, paths, envs, secretEnvs); err != nil {
-			return err
+			hasFailed = true
+			respErr = err
 		}
 	}
-	return nil
+	return respErr
 }
+
 func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string) error {
 	var stepInstance Step
 	var err error
@@ -73,12 +80,23 @@ func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "junit_report":
+		stepInstance, err = NewJunitReportStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
+	case "tar_archive":
+		stepInstance, err = NewTararchiveStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
 	default:
 		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
 		log.Error(err)
 		return err
 	}
 	if err := stepInstance.Run(ctx); err != nil {
+		log.Error(err)
 		return err
 	}
 	return nil

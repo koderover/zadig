@@ -17,16 +17,12 @@ limitations under the License.
 package workflow
 
 import (
-	"fmt"
-
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
 func CreateGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
@@ -35,39 +31,48 @@ func CreateGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger
 			if workflowWebhook == nil {
 				continue
 			}
-
-			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
-			if err != nil {
+			if err := createGerritWebhook(workflowWebhook.MainRepo, workflow.Name); err != nil {
+				log.Errorf("CreateGerritWebhook addGerritWebhook err: %v", err)
 				return err
-			}
-
-			if detail.Type != setting.SourceFromGerrit {
-				continue
-			}
-
-			cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
-			webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(workflowWebhook.MainRepo.RepoName), "remotes", workflow.Name)
-			if _, err := cl.Get(webhookURL); err != nil {
-				log.Errorf("CreateGerritWebhook getGerritWebhook err:%v", err)
-				//创建webhook
-				gerritWebhook := &gerrit.Webhook{
-					URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), workflow.Name),
-					MaxTries:  setting.MaxTries,
-					SslVerify: false,
-				}
-				for _, event := range workflowWebhook.MainRepo.Events {
-					gerritWebhook.Events = append(gerritWebhook.Events, string(event))
-				}
-
-				_, err = cl.Put(webhookURL, httpclient.SetBody(gerritWebhook))
-				if err != nil {
-					log.Errorf("CreateGerritWebhook addGerritWebhook err:%v", err)
-					return err
-				}
 			}
 		}
 	}
+	return nil
+}
 
+func createGerritWebhook(mainRepo *commonmodels.MainHookRepo, workflowName string) error {
+	detail, err := systemconfig.New().GetCodeHost(mainRepo.CodehostID)
+	if err != nil {
+		return err
+	}
+
+	if detail.Type != setting.SourceFromGerrit {
+		return nil
+	}
+
+	cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
+	events := []string{}
+	for _, event := range mainRepo.Events {
+		events = append(events, string(event))
+	}
+	if err := cl.UpsertWebhook(mainRepo.RepoName, workflowName, events); err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteGerritWebhook(mainRepo *commonmodels.MainHookRepo, workflowName string) error {
+	detail, err := systemconfig.New().GetCodeHost(mainRepo.CodehostID)
+	if err != nil {
+		return err
+	}
+
+	if detail.Type == setting.SourceFromGerrit {
+		cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
+		if err := cl.DeleteWebhook(mainRepo.RepoName, workflowName); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -84,20 +89,8 @@ func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.Sugare
 			if oldWorkflowWebhook == nil {
 				continue
 			}
-
-			detail, err := systemconfig.New().GetCodeHost(oldWorkflowWebhook.MainRepo.CodehostID)
-			if err != nil {
-				return err
-			}
-
-			if detail.Type == setting.SourceFromGerrit {
-				cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
-				webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(oldWorkflowWebhook.MainRepo.RepoName), "remotes")
-				_, _ = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, gerrit.RemoteName))
-				_, err = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, oldWorkflow.Name))
-				if err != nil {
-					log.Errorf("UpdateGerritWebhook err:%v", err)
-				}
+			if err := deleteGerritWebhook(oldWorkflowWebhook.MainRepo, oldWorkflow.Name); err != nil {
+				log.Errorf("UpdateGerritWebhook delete webhook err:%v", err)
 			}
 		}
 	}
@@ -106,31 +99,8 @@ func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.Sugare
 			if workflowWebhook == nil {
 				continue
 			}
-
-			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
-			if err != nil {
-				return err
-			}
-
-			if detail.Type != setting.SourceFromGerrit {
-				continue
-			}
-
-			cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
-			webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(workflowWebhook.MainRepo.RepoName), "remotes", currentWorkflow.Name)
-			//创建webhook
-			gerritWebhook := &gerrit.Webhook{
-				URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), currentWorkflow.Name),
-				MaxTries:  setting.MaxTries,
-				SslVerify: false,
-			}
-			for _, event := range workflowWebhook.MainRepo.Events {
-				gerritWebhook.Events = append(gerritWebhook.Events, string(event))
-			}
-
-			_, err = cl.Put(webhookURL, httpclient.SetBody(gerritWebhook))
-			if err != nil {
-				log.Errorf("UpdateGerritWebhook addGerritWebhook err:%v", err)
+			if err := createGerritWebhook(workflowWebhook.MainRepo, currentWorkflow.Name); err != nil {
+				log.Errorf("UpdateGerritWebhook addGerritWebhook err: %v", err)
 				return err
 			}
 		}
@@ -146,22 +116,10 @@ func DeleteGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger
 				continue
 			}
 
-			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
-			if err != nil {
-				return err
-			}
-
-			if detail.Type == setting.SourceFromGerrit {
-				cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
-				webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(workflowWebhook.MainRepo.RepoName), "remotes")
-				_, _ = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, gerrit.RemoteName))
-				_, err = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, workflow.Name))
-				if err != nil {
-					log.Errorf("DeleteGerritWebhook err:%v", err)
-				}
+			if err := deleteGerritWebhook(workflowWebhook.MainRepo, workflow.Name); err != nil {
+				log.Errorf("UpdateGerritWebhook delete webhook err:%v", err)
 			}
 		}
 	}
-
 	return nil
 }

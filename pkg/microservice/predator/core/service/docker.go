@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-const dockerExe = "/usr/local/bin/docker"
+const dockerExe = "docker"
 
 func dockerVersion() *exec.Cmd {
 	return exec.Command(dockerExe, "version")

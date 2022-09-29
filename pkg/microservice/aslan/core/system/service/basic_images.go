@@ -32,14 +32,6 @@ import (
 func InitbasicImageInfos() []*commonmodels.BasicImage {
 	basicImageInfos := []*commonmodels.BasicImage{
 		{
-			Value:      "xenial",
-			Label:      "ubuntu 16.04",
-			ImageFrom:  "koderover",
-			CreateTime: time.Now().Unix(),
-			UpdateTime: time.Now().Unix(),
-			UpdateBy:   "system",
-		},
-		{
 			Value:      "bionic",
 			Label:      "ubuntu 18.04",
 			ImageFrom:  "koderover",
