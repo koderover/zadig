@@ -42,6 +42,9 @@ func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cluster == nil {
+		return nil, fmt.Errorf("cluster %s not found", clusterID)
+	}
 
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
