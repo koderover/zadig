@@ -38,6 +38,7 @@ func NewHTTPClient(host, token string) *HTTPClient {
 		httpclient.SetAuthToken(token),
 		httpclient.SetHostURL(host),
 	)
+	c.SetHeader("Accept", "*/*")
 
 	return &HTTPClient{
 		Client: c,
