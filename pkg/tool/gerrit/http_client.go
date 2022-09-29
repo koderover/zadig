@@ -38,8 +38,6 @@ func NewHTTPClient(host, token string) *HTTPClient {
 		httpclient.SetAuthToken(token),
 		httpclient.SetHostURL(host),
 	)
-	c.SetHeader("Accept", "*/*")
-	c.SetHeader("Content-Type", "*/*")
 
 	return &HTTPClient{
 		Client: c,
@@ -55,6 +53,7 @@ func (c *HTTPClient) UpsertWebhook(repoName, webhookName string, events []string
 		return nil
 
 	}
+	c.SetHeader("Content-Type", "application/json")
 	//create webhook
 	gerritWebhook := &Webhook{
 		URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), webhookName),
@@ -68,6 +67,7 @@ func (c *HTTPClient) UpsertWebhook(repoName, webhookName string, events []string
 }
 
 func (c *HTTPClient) DeleteWebhook(repoName, webhookName string) error {
+	c.SetHeader("Content-Type", "text/plain;charset=utf-8")
 	webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", Escape(repoName), "remotes")
 	_, _ = c.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, RemoteName))
 	if _, err := c.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, webhookName)); err != nil {

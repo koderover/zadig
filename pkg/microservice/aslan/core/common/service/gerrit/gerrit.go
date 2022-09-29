@@ -17,7 +17,6 @@ limitations under the License.
 package gerrit
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -44,16 +43,12 @@ func DeleteGerritWebhook(workflow *models.Workflow, log *zap.SugaredLogger) erro
 			}
 			if detail.Type == gerrit.CodehostTypeGerrit {
 				cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
-				webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(workflowWebhook.MainRepo.RepoName), "remotes")
-				_, _ = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, gerrit.RemoteName))
-				_, err = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, workflow.Name))
-				if err != nil {
+				if err := cl.DeleteWebhook(workflowWebhook.MainRepo.RepoName, workflow.Name); err != nil {
 					log.Errorf("DeleteGerritWebhook err:%v", err)
 				}
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -71,7 +66,7 @@ func DeleteGerritWebhookForWorkflowV4(workflow *models.WorkflowV4, log *zap.Suga
 			}
 			if detail.Type == gerrit.CodehostTypeGerrit {
 				cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
-				if err := cl.DeleteWebhook(workflowWebhook.MainRepo.RepoName, gerrit.RemoteName); err != nil {
+				if err := cl.DeleteWebhook(workflowWebhook.MainRepo.RepoName, workflow.Name); err != nil {
 					log.Errorf("DeleteGerritWebhook err:%v", err)
 				}
 			}
