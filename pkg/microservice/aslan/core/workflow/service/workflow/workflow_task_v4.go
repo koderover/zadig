@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -47,19 +48,20 @@ type CreateTaskV4Resp struct {
 }
 
 type WorkflowTaskPreview struct {
-	TaskID       int64                 `bson:"task_id"                   json:"task_id"`
-	WorkflowName string                `bson:"workflow_name"             json:"workflow_name"`
-	Params       []*commonmodels.Param `bson:"params"                    json:"params"`
-	Status       config.Status         `bson:"status"                    json:"status,omitempty"`
-	TaskCreator  string                `bson:"task_creator"              json:"task_creator,omitempty"`
-	TaskRevoker  string                `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
-	CreateTime   int64                 `bson:"create_time"               json:"create_time,omitempty"`
-	StartTime    int64                 `bson:"start_time"                json:"start_time,omitempty"`
-	EndTime      int64                 `bson:"end_time"                  json:"end_time,omitempty"`
-	Stages       []*StageTaskPreview   `bson:"stages"                    json:"stages"`
-	ProjectName  string                `bson:"project_name"              json:"project_name"`
-	Error        string                `bson:"error,omitempty"           json:"error,omitempty"`
-	IsRestart    bool                  `bson:"is_restart"                json:"is_restart"`
+	TaskID              int64                 `bson:"task_id"                   json:"task_id"`
+	WorkflowName        string                `bson:"workflow_name"             json:"workflow_name"`
+	WorkflowDisplayName string                `bson:"workflow_display_name"     json:"workflow_display_name"`
+	Params              []*commonmodels.Param `bson:"params"                    json:"params"`
+	Status              config.Status         `bson:"status"                    json:"status,omitempty"`
+	TaskCreator         string                `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskRevoker         string                `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
+	CreateTime          int64                 `bson:"create_time"               json:"create_time,omitempty"`
+	StartTime           int64                 `bson:"start_time"                json:"start_time,omitempty"`
+	EndTime             int64                 `bson:"end_time"                  json:"end_time,omitempty"`
+	Stages              []*StageTaskPreview   `bson:"stages"                    json:"stages"`
+	ProjectName         string                `bson:"project_name"              json:"project_name"`
+	Error               string                `bson:"error,omitempty"           json:"error,omitempty"`
+	IsRestart           bool                  `bson:"is_restart"                json:"is_restart"`
 }
 
 type StageTaskPreview struct {
@@ -182,13 +184,22 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
 	}
-	if err := LintWorkflowV4(workflow, log); err != nil {
+	existWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+	if err != nil {
+		log.Errorf("find workflowv4 error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+	if err := job.MergeArgs(existWorkflow, workflow); err != nil {
+		log.Errorf("merge workflowv4 args error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+	if err := LintWorkflowV4(existWorkflow, log); err != nil {
 		return resp, err
 	}
 	workflowTask := &commonmodels.WorkflowTask{}
 	// save workflow original workflow task args.
 	originTaskArgs := &commonmodels.WorkflowV4{}
-	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
+	if err := commonmodels.IToi(existWorkflow, originTaskArgs); err != nil {
 		log.Errorf("save original workflow args error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
@@ -200,11 +211,11 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	}
 	resp.TaskID = nextTaskID
 
-	if err := jobctl.RemoveFixedValueMarks(workflow); err != nil {
+	if err := jobctl.RemoveFixedValueMarks(existWorkflow); err != nil {
 		log.Errorf("RemoveFixedValueMarks error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
-	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, user); err != nil {
+	if err := jobctl.RenderGlobalVariables(existWorkflow, nextTaskID, user); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
@@ -213,13 +224,14 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	workflowTask.TaskCreator = user
 	workflowTask.TaskRevoker = user
 	workflowTask.CreateTime = time.Now().Unix()
-	workflowTask.WorkflowName = workflow.Name
-	workflowTask.ProjectName = workflow.Project
-	workflowTask.Params = workflow.Params
-	workflowTask.KeyVals = workflow.KeyVals
-	workflowTask.MultiRun = workflow.MultiRun
+	workflowTask.WorkflowName = existWorkflow.Name
+	workflowTask.WorkflowDisplayName = existWorkflow.DisplayName
+	workflowTask.ProjectName = existWorkflow.Project
+	workflowTask.Params = existWorkflow.Params
+	workflowTask.KeyVals = existWorkflow.KeyVals
+	workflowTask.MultiRun = existWorkflow.MultiRun
 
-	for _, stage := range workflow.Stages {
+	for _, stage := range existWorkflow.Stages {
 		stageTask := &commonmodels.StageTask{
 			Name:     stage.Name,
 			Parallel: stage.Parallel,
@@ -249,9 +261,9 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 				}
 			}
 
-			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
+			jobs, err := jobctl.ToJobs(job, existWorkflow, nextTaskID)
 			if err != nil {
-				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
+				log.Errorf("cannot create workflow %s, the error is: %v", existWorkflow.Name, err)
 				return resp, e.ErrCreateTask.AddDesc(err.Error())
 			}
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
@@ -265,7 +277,7 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		return resp, err
 	}
 
-	workflowTask.WorkflowArgs = workflow
+	workflowTask.WorkflowArgs = existWorkflow
 	workflowTask.Status = config.StatusCreated
 
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
@@ -328,18 +340,19 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		return nil, err
 	}
 	resp := &WorkflowTaskPreview{
-		TaskID:       task.TaskID,
-		WorkflowName: task.WorkflowName,
-		ProjectName:  task.ProjectName,
-		Status:       task.Status,
-		Params:       task.Params,
-		TaskCreator:  task.TaskCreator,
-		TaskRevoker:  task.TaskRevoker,
-		CreateTime:   task.CreateTime,
-		StartTime:    task.StartTime,
-		EndTime:      task.EndTime,
-		Error:        task.Error,
-		IsRestart:    task.IsRestart,
+		TaskID:              task.TaskID,
+		WorkflowName:        task.WorkflowName,
+		WorkflowDisplayName: task.WorkflowDisplayName,
+		ProjectName:         task.ProjectName,
+		Status:              task.Status,
+		Params:              task.Params,
+		TaskCreator:         task.TaskCreator,
+		TaskRevoker:         task.TaskRevoker,
+		CreateTime:          task.CreateTime,
+		StartTime:           task.StartTime,
+		EndTime:             task.EndTime,
+		Error:               task.Error,
+		IsRestart:           task.IsRestart,
 	}
 	for _, stage := range task.Stages {
 		resp.Stages = append(resp.Stages, &StageTaskPreview{

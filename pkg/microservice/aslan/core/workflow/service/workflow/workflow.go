@@ -190,6 +190,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			workflow.Enabled = true
 			workflow.ProductTmplName = productName
 			workflow.Name = workflowName
+			workflow.DisplayName = workflowName
 			workflow.CreateBy = setting.SystemUser
 			workflow.UpdateBy = setting.SystemUser
 			workflow.EnvName = workflowArg.envName
@@ -494,6 +495,11 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		errStr := fmt.Sprintf("workflow [%s] 在项目 [%s] 中已经存在!", workflow.Name, existedWorkflow.ProductTmplName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
+	existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{workflow.ProductTmplName}, DisplayName: workflow.DisplayName})
+	if len(existedWorkflows) > 0 {
+		errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+		return e.ErrUpsertWorkflow.AddDesc(errStr)
+	}
 
 	if !checkWorkflowSubModule(workflow) {
 		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
@@ -789,6 +795,7 @@ func CopyWorkflow(oldWorkflowName, newWorkflowName, username string, log *zap.Su
 	}
 	oldWorkflow.UpdateBy = username
 	oldWorkflow.Name = newWorkflowName
+	oldWorkflow.DisplayName = newWorkflowName
 	oldWorkflow.ID = primitive.NewObjectID()
 
 	return commonrepo.NewWorkflowColl().Create(oldWorkflow)
@@ -831,6 +838,7 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 			newItem := *item
 			newItem.UpdateBy = username
 			newItem.Name = workflow.New
+			newItem.DisplayName = workflow.New
 			newItem.BaseName = workflow.BaseName
 			newItem.ID = primitive.NewObjectID()
 
