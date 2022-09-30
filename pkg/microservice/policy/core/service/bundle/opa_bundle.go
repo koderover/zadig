@@ -250,6 +250,9 @@ func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *o
 		verbAttrMap := make(map[string]sets.String)
 		resourceVerbs := make(map[string]sets.String)
 		for _, r := range ro.Rules {
+			if r.Resources[0] == "ProductionEnvironment" {
+				continue
+			}
 			for _, verb := range r.Verbs {
 				if verbs, ok := resourceVerbs[r.Resources[0]]; ok {
 					for _, v := range r.Verbs {
@@ -285,6 +288,9 @@ func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *o
 			opaRole.Rules = append(opaRole.Rules, ruleList...)
 		}
 		for _, r := range ro.Rules {
+			if r.Resources[0] == "ProductionEnvironment" {
+				continue
+			}
 			if r.Kind != models.KindResource {
 				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
 					r.Verbs = AllMethods
