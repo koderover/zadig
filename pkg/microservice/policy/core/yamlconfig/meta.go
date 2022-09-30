@@ -121,26 +121,12 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 					if rule.ResourceType == "" {
 						rule.ResourceType = "Environment"
 					}
-					if rule.Filter {
-						rule.MatchAttributes = []*types.Attribute{
-							{
-								Key:   "production",
-								Value: "false",
-							},
-						}
-					}
 					if strings.Contains(rule.Endpoint, ":name") {
 						idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
 						idRegex = strings.ReplaceAll(idRegex, "?*", `[\w\W].*`)
 						endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
 						rule.Endpoint = endpoint
 						rule.IDRegex = idRegex
-						rule.MatchAttributes = []*types.Attribute{
-							{
-								Key:   "production",
-								Value: "false",
-							},
-						}
 					}
 
 					tmpRules = append(tmpRules, rule)
@@ -150,17 +136,6 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 
 			if err := deepcopy.FromTo(meta, proEnvMeta); err != nil {
 				log.DPanic(err)
-			}
-			proEnvMeta.Resource = "ProductionEnvironment"
-			proEnvMeta.Alias = "环境(生产/预发布)"
-			for _, ru := range proEnvMeta.Rules {
-				for _, r := range ru.Rules {
-					for _, a := range r.MatchAttributes {
-						if a.Key == "production" {
-							a.Value = "true"
-						}
-					}
-				}
 			}
 		}
 	}
