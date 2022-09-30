@@ -7,7 +7,6 @@ require (
 	github.com/27149chen/afero v1.6.2
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20220906192238-4fc99996c860
-	github.com/andygrunwald/go-jira v1.16.0
 	github.com/antihax/optional v1.0.0
 	github.com/aws/aws-sdk-go v1.44.99
 	github.com/blang/semver/v4 v4.0.0
@@ -123,7 +122,6 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
@@ -141,7 +139,6 @@ require (
 	github.com/go-playground/validator/v10 v10.10.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -220,7 +217,6 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
-	github.com/trivago/tgo v1.0.7 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
