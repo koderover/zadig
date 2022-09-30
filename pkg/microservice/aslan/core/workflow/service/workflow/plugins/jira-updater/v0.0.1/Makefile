@@ -3,4 +3,6 @@ VERSION = v0.0.1
 
 build: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/jira-updater:${VERSION}
 build:
+	@go mod init jira-updater
+	@go mod tidy
 	@docker buildx build -t ${MAKE_IMAGE} --platform linux/amd64,linux/arm64 -f Dockerfile --push .
