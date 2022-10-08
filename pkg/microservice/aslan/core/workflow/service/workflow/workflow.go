@@ -568,16 +568,17 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
 	}
 
-	existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{workflow.ProductTmplName}, DisplayName: workflow.DisplayName})
-	if len(existedWorkflows) > 0 {
-		errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
-		return e.ErrUpsertWorkflow.AddDesc(errStr)
-	}
-
 	currentWorkflow, err := commonrepo.NewWorkflowColl().Find(workflow.Name)
 	if err != nil {
 		log.Errorf("Can not find workflow %s, err: %s", workflow.Name, err)
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+	if workflow.DisplayName != currentWorkflow.DisplayName {
+		existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{workflow.ProductTmplName}, DisplayName: workflow.DisplayName})
+		if len(existedWorkflows) > 0 {
+			errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+			return e.ErrUpsertWorkflow.AddDesc(errStr)
+		}
 	}
 
 	if err := validateWorkflowHookNames(workflow); err != nil {
