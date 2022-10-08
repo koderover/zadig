@@ -36,11 +36,14 @@ func V1150ToV1160() error {
 		log.Errorf("addDisplayNameToWorkflowV4 err:%s", err)
 		return err
 	}
+	if err := addDisplayNameToWorkflow(); err != nil {
+		log.Errorf("addDisplayNameToWorkflow err:%s", err)
+		return err
+	}
 	return nil
 }
 
 func V1160ToV1150() error {
-
 	return nil
 }
 
@@ -90,7 +93,7 @@ func addDisplayNameToWorkflowV4() error {
 		)
 	}
 	if len(mTasks) > 0 {
-		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), ms); err != nil {
+		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
 			return err
 		}
 	}
@@ -119,7 +122,7 @@ func addDisplayNameToWorkflow() error {
 		)
 	}
 	if len(ms) > 0 {
-		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+		if _, err := mongodb.NewWorkflowColl().BulkWrite(context.TODO(), ms); err != nil {
 			return err
 		}
 	}
@@ -144,7 +147,7 @@ func addDisplayNameToWorkflow() error {
 		)
 	}
 	if len(mTasks) > 0 {
-		if _, err := mongodb.NewTaskColl().BulkWrite(context.TODO(), ms); err != nil {
+		if _, err := mongodb.NewTaskColl().BulkWrite(context.TODO(), mTasks); err != nil {
 			return err
 		}
 	}
