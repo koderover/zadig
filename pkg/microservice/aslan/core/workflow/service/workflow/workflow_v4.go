@@ -54,11 +54,6 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		errStr := fmt.Sprintf("workflow v4 [%s] 在项目 [%s] 中已经存在!", workflow.Name, existedWorkflow.Project)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
-	existedWorkflows, _, _ := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{ProjectName: workflow.Project, DisplayName: workflow.DisplayName}, 0, 0)
-	if len(existedWorkflows) > 0 {
-		errStr := fmt.Sprintf("workflow v4 [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
-		return e.ErrUpsertWorkflow.AddDesc(errStr)
-	}
 	if err := LintWorkflowV4(workflow, logger); err != nil {
 		return err
 	}
@@ -348,6 +343,13 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		err := fmt.Errorf("workflow name should match %s", WorkflowRegx)
 		logger.Errorf(err.Error())
 		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+
+	existedWorkflows, _, _ := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{ProjectName: workflow.Project, DisplayName: workflow.DisplayName}, 0, 0)
+	if len(existedWorkflows) > 0 {
+		errStr := fmt.Sprintf("workflow v4 [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+		logger.Errorf(err.Error())
+		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 
 	project := &template.Product{}

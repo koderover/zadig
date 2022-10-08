@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -184,22 +183,13 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
 	}
-	existWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
-	if err != nil {
-		log.Errorf("find workflowv4 error: %v", err)
-		return resp, e.ErrCreateTask.AddDesc(err.Error())
-	}
-	if err := job.MergeArgs(existWorkflow, workflow); err != nil {
-		log.Errorf("merge workflowv4 args error: %v", err)
-		return resp, e.ErrCreateTask.AddDesc(err.Error())
-	}
-	if err := LintWorkflowV4(existWorkflow, log); err != nil {
+	if err := LintWorkflowV4(workflow, log); err != nil {
 		return resp, err
 	}
 	workflowTask := &commonmodels.WorkflowTask{}
 	// save workflow original workflow task args.
 	originTaskArgs := &commonmodels.WorkflowV4{}
-	if err := commonmodels.IToi(existWorkflow, originTaskArgs); err != nil {
+	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
 		log.Errorf("save original workflow args error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
@@ -211,11 +201,11 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	}
 	resp.TaskID = nextTaskID
 
-	if err := jobctl.RemoveFixedValueMarks(existWorkflow); err != nil {
+	if err := jobctl.RemoveFixedValueMarks(workflow); err != nil {
 		log.Errorf("RemoveFixedValueMarks error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
-	if err := jobctl.RenderGlobalVariables(existWorkflow, nextTaskID, user); err != nil {
+	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, user); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
@@ -224,14 +214,14 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	workflowTask.TaskCreator = user
 	workflowTask.TaskRevoker = user
 	workflowTask.CreateTime = time.Now().Unix()
-	workflowTask.WorkflowName = existWorkflow.Name
-	workflowTask.WorkflowDisplayName = existWorkflow.DisplayName
-	workflowTask.ProjectName = existWorkflow.Project
-	workflowTask.Params = existWorkflow.Params
-	workflowTask.KeyVals = existWorkflow.KeyVals
-	workflowTask.MultiRun = existWorkflow.MultiRun
+	workflowTask.WorkflowName = workflow.Name
+	workflowTask.WorkflowDisplayName = workflow.DisplayName
+	workflowTask.ProjectName = workflow.Project
+	workflowTask.Params = workflow.Params
+	workflowTask.KeyVals = workflow.KeyVals
+	workflowTask.MultiRun = workflow.MultiRun
 
-	for _, stage := range existWorkflow.Stages {
+	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
 			Name:     stage.Name,
 			Parallel: stage.Parallel,
@@ -261,9 +251,9 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 				}
 			}
 
-			jobs, err := jobctl.ToJobs(job, existWorkflow, nextTaskID)
+			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
-				log.Errorf("cannot create workflow %s, the error is: %v", existWorkflow.Name, err)
+				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
 				return resp, e.ErrCreateTask.AddDesc(err.Error())
 			}
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
@@ -277,7 +267,7 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 		return resp, err
 	}
 
-	workflowTask.WorkflowArgs = existWorkflow
+	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
 
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
