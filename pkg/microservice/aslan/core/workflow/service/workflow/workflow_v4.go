@@ -91,9 +91,9 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 		return e.ErrFindWorkflow.AddErr(err)
 	}
 	if workflow.DisplayName != inputWorkflow.DisplayName {
-		existedWorkflows, _, _ := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{ProjectName: workflow.Project, DisplayName: workflow.DisplayName}, 0, 0)
+		existedWorkflows, _, _ := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{ProjectName: workflow.Project, DisplayName: inputWorkflow.DisplayName}, 0, 0)
 		if len(existedWorkflows) > 0 {
-			errStr := fmt.Sprintf("workflow v4 [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+			errStr := fmt.Sprintf("workflow v4 [%s] 展示名称在当前项目下重复!", inputWorkflow.DisplayName)
 			return e.ErrUpsertWorkflow.AddDesc(errStr)
 		}
 	}
