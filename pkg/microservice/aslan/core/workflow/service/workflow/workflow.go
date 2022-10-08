@@ -802,10 +802,14 @@ func CopyWorkflow(oldWorkflowName, newWorkflowName, newWorkflowDisplayName, user
 		log.Error("new workflow already exists")
 		return e.ErrExistsPipeline
 	}
+	existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{oldWorkflow.ProductTmplName}, DisplayName: newWorkflowDisplayName})
+	if len(existedWorkflows) > 0 {
+		errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", newWorkflowDisplayName)
+		return e.ErrUpsertWorkflow.AddDesc(errStr)
+	}
 	oldWorkflow.UpdateBy = username
 	oldWorkflow.Name = newWorkflowName
 	oldWorkflow.DisplayName = newWorkflowDisplayName
-	oldWorkflow.DisplayName = newWorkflowName
 	oldWorkflow.ID = primitive.NewObjectID()
 
 	return commonrepo.NewWorkflowColl().Create(oldWorkflow)
