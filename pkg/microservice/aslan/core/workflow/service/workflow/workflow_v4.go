@@ -202,7 +202,7 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 			CreateTime:    workflowModel.CreateTime,
 			UpdateTime:    workflowModel.UpdateTime,
 			UpdateBy:      workflowModel.UpdatedBy,
-			WorkflowType:  "common_workflow",
+			WorkflowType:  setting.CustomWorkflowType,
 			Description:   workflowModel.Description,
 			BaseRefs:      baseRefs,
 			BaseName:      workflowModel.BaseName,
