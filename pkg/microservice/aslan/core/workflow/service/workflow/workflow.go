@@ -47,6 +47,7 @@ type EnvStatus struct {
 
 type Workflow struct {
 	Name                 string                     `json:"name"`
+	DisPlayName          string                     `json:"display_name"`
 	ProjectName          string                     `json:"projectName"`
 	UpdateTime           int64                      `json:"updateTime"`
 	CreateTime           int64                      `json:"createTime"`
@@ -668,6 +669,7 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 		}
 		res = append(res, &Workflow{
 			Name:             w.Name,
+			DisPlayName:      w.DisplayName,
 			ProjectName:      w.ProductTmplName,
 			UpdateTime:       w.UpdateTime,
 			CreateTime:       w.CreateTime,

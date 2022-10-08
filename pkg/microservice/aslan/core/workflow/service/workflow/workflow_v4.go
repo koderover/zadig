@@ -197,6 +197,7 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 		}
 		workflow := &Workflow{
 			Name:          workflowModel.Name,
+			DisPlayName:   workflowModel.DisplayName,
 			ProjectName:   workflowModel.Project,
 			EnabledStages: stages,
 			CreateTime:    workflowModel.CreateTime,
