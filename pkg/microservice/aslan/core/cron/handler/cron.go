@@ -60,20 +60,21 @@ func DisableCronjob(c *gin.Context) {
 }
 
 type cronjobResp struct {
-	ID           string                         `json:"_id,omitempty"`
-	Name         string                         `json:"name"`
-	Type         string                         `json:"type"`
-	Number       uint64                         `json:"number"`
-	Frequency    string                         `json:"frequency"`
-	Time         string                         `json:"time"`
-	Cron         string                         `json:"cron"`
-	ProductName  string                         `json:"product_name,omitempty"`
-	MaxFailure   int                            `json:"max_failures,omitempty"`
-	TaskArgs     *commonmodels.TaskArgs         `json:"task_args,omitempty"`
-	WorkflowArgs *commonmodels.WorkflowTaskArgs `json:"workflow_args,omitempty"`
-	TestArgs     *commonmodels.TestTaskArgs     `json:"test_args,omitempty"`
-	JobType      string                         `json:"job_type"`
-	Enabled      bool                           `json:"enabled"`
+	ID             string                         `json:"_id,omitempty"`
+	Name           string                         `json:"name"`
+	Type           string                         `json:"type"`
+	Number         uint64                         `json:"number"`
+	Frequency      string                         `json:"frequency"`
+	Time           string                         `json:"time"`
+	Cron           string                         `json:"cron"`
+	ProductName    string                         `json:"product_name,omitempty"`
+	MaxFailure     int                            `json:"max_failures,omitempty"`
+	TaskArgs       *commonmodels.TaskArgs         `json:"task_args,omitempty"`
+	WorkflowArgs   *commonmodels.WorkflowTaskArgs `json:"workflow_args,omitempty"`
+	WorkflowV4Args *commonmodels.WorkflowV4       `json:"workflow_v4_args,omitempty"`
+	TestArgs       *commonmodels.TestTaskArgs     `json:"test_args,omitempty"`
+	JobType        string                         `json:"job_type"`
+	Enabled        bool                           `json:"enabled"`
 }
 
 func ListActiveCronjobFailsafe(c *gin.Context) {
@@ -84,20 +85,21 @@ func ListActiveCronjobFailsafe(c *gin.Context) {
 	cronjobList, err := cronservice.ListActiveCronjobFailsafe()
 	for _, cronjob := range cronjobList {
 		resp = append(resp, &cronjobResp{
-			ID:           cronjob.ID.Hex(),
-			Name:         cronjob.Name,
-			Type:         cronjob.Type,
-			Number:       cronjob.Number,
-			Frequency:    cronjob.Frequency,
-			Time:         cronjob.Time,
-			Cron:         cronjob.Cron,
-			ProductName:  cronjob.ProductName,
-			MaxFailure:   cronjob.MaxFailure,
-			TaskArgs:     cronjob.TaskArgs,
-			WorkflowArgs: cronjob.WorkflowArgs,
-			TestArgs:     cronjob.TestArgs,
-			JobType:      cronjob.JobType,
-			Enabled:      cronjob.Enabled,
+			ID:             cronjob.ID.Hex(),
+			Name:           cronjob.Name,
+			Type:           cronjob.Type,
+			Number:         cronjob.Number,
+			Frequency:      cronjob.Frequency,
+			Time:           cronjob.Time,
+			Cron:           cronjob.Cron,
+			ProductName:    cronjob.ProductName,
+			MaxFailure:     cronjob.MaxFailure,
+			TaskArgs:       cronjob.TaskArgs,
+			WorkflowArgs:   cronjob.WorkflowArgs,
+			WorkflowV4Args: cronjob.WorkflowV4Args,
+			TestArgs:       cronjob.TestArgs,
+			JobType:        cronjob.JobType,
+			Enabled:        cronjob.Enabled,
 		})
 	}
 	ctx.Resp = resp
@@ -112,20 +114,21 @@ func ListActiveCronjob(c *gin.Context) {
 	cronjobList, err := cronservice.ListActiveCronjob()
 	for _, cronjob := range cronjobList {
 		resp = append(resp, &cronjobResp{
-			ID:           cronjob.ID.Hex(),
-			Name:         cronjob.Name,
-			Type:         cronjob.Type,
-			Number:       cronjob.Number,
-			Frequency:    cronjob.Frequency,
-			Time:         cronjob.Time,
-			Cron:         cronjob.Cron,
-			ProductName:  cronjob.ProductName,
-			MaxFailure:   cronjob.MaxFailure,
-			TaskArgs:     cronjob.TaskArgs,
-			WorkflowArgs: cronjob.WorkflowArgs,
-			TestArgs:     cronjob.TestArgs,
-			JobType:      cronjob.JobType,
-			Enabled:      cronjob.Enabled,
+			ID:             cronjob.ID.Hex(),
+			Name:           cronjob.Name,
+			Type:           cronjob.Type,
+			Number:         cronjob.Number,
+			Frequency:      cronjob.Frequency,
+			Time:           cronjob.Time,
+			Cron:           cronjob.Cron,
+			ProductName:    cronjob.ProductName,
+			MaxFailure:     cronjob.MaxFailure,
+			TaskArgs:       cronjob.TaskArgs,
+			WorkflowArgs:   cronjob.WorkflowArgs,
+			WorkflowV4Args: cronjob.WorkflowV4Args,
+			TestArgs:       cronjob.TestArgs,
+			JobType:        cronjob.JobType,
+			Enabled:        cronjob.Enabled,
 		})
 	}
 	ctx.Resp = resp
@@ -143,20 +146,21 @@ func ListCronjob(c *gin.Context) {
 	cronjobList, err := cronservice.ListCronjob(name, pType)
 	for _, cronjob := range cronjobList {
 		resp = append(resp, &cronjobResp{
-			ID:           cronjob.ID.Hex(),
-			Name:         cronjob.Name,
-			Type:         cronjob.Type,
-			Number:       cronjob.Number,
-			Frequency:    cronjob.Frequency,
-			Time:         cronjob.Time,
-			Cron:         cronjob.Cron,
-			ProductName:  cronjob.ProductName,
-			MaxFailure:   cronjob.MaxFailure,
-			TaskArgs:     cronjob.TaskArgs,
-			WorkflowArgs: cronjob.WorkflowArgs,
-			TestArgs:     cronjob.TestArgs,
-			JobType:      cronjob.JobType,
-			Enabled:      cronjob.Enabled,
+			ID:             cronjob.ID.Hex(),
+			Name:           cronjob.Name,
+			Type:           cronjob.Type,
+			Number:         cronjob.Number,
+			Frequency:      cronjob.Frequency,
+			Time:           cronjob.Time,
+			Cron:           cronjob.Cron,
+			ProductName:    cronjob.ProductName,
+			MaxFailure:     cronjob.MaxFailure,
+			TaskArgs:       cronjob.TaskArgs,
+			WorkflowArgs:   cronjob.WorkflowArgs,
+			WorkflowV4Args: cronjob.WorkflowV4Args,
+			TestArgs:       cronjob.TestArgs,
+			JobType:        cronjob.JobType,
+			Enabled:        cronjob.Enabled,
 		})
 	}
 	ctx.Resp = resp
