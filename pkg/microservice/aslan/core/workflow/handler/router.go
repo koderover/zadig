@@ -202,6 +202,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// workflow view 接口
+	// ---------------------------------------------------------------------------------------
+	view := router.Group("view")
+	{
+		view.POST("", CreateWorkflowView)
+		view.GET("", ListWorkflowViewNames)
+		view.GET("/preset", GetWorkflowViewPreset)
+		view.DELETE("/:projectName/:viewName", DeleteWorkflowView)
+		view.PUT("", UpdateWorkflowView)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// plugin repo 接口
 	// ---------------------------------------------------------------------------------------
 	plugin := router.Group("plugin")

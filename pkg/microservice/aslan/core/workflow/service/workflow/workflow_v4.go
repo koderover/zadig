@@ -145,9 +145,22 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreWorkflow, ignoreWorkflowV4 bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
+func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []string, policyFound bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
 	var err error
+	names, v4Names, err = filterWorkflowNamesByView(projectName, viewName, names, v4Names)
+	if err != nil {
+		logger.Errorf("filterWorkflowNames error: %s", err)
+		return resp, err
+	}
+	ignoreWorkflow := false
+	ignoreWorkflowV4 := false
+	if policyFound && len(names) == 0 {
+		ignoreWorkflow = true
+	}
+	if policyFound && len(v4Names) == 0 {
+		ignoreWorkflowV4 = true
+	}
 	workflowV4List := []*commonmodels.WorkflowV4{}
 	if !ignoreWorkflowV4 {
 		workflowV4List, _, err = commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
@@ -212,6 +225,40 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 		resp = append(resp, workflow)
 	}
 	return resp, nil
+}
+
+func filterWorkflowNamesByView(projectName, viewName string, workflowNames, workflowV4Names []string) ([]string, []string, error) {
+	if viewName == "" {
+		return workflowNames, workflowV4Names, nil
+	}
+	view, err := commonrepo.NewWorkflowViewColl().Find(projectName, viewName)
+	if err != nil {
+		return workflowNames, workflowV4Names, err
+	}
+	enabledWorkflow := []string{}
+	enabledWorkflowV4 := []string{}
+	for _, workflow := range view.Workflows {
+		if workflow.WorkflowType == setting.CustomWorkflowType && workflow.Enabled {
+			enabledWorkflowV4 = append(enabledWorkflowV4, workflow.WorkflowName)
+		} else {
+			enabledWorkflow = append(enabledWorkflow, workflow.WorkflowName)
+		}
+	}
+	return intersection(workflowNames, enabledWorkflow), intersection(workflowV4Names, enabledWorkflowV4), nil
+}
+
+func intersection(a, b []string) []string {
+	m := make(map[string]bool)
+	var intersection []string
+	for _, item := range a {
+		m[item] = true
+	}
+	for _, item := range b {
+		if _, ok := m[item]; ok {
+			intersection = append(intersection, item)
+		}
+	}
+	return intersection
 }
 
 func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask) {

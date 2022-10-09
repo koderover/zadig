@@ -722,4 +722,13 @@ var (
 	ErrCreateWebhook = NewHTTPError(6882, "创建webhook失败")
 	ErrUpdateWebhook = NewHTTPError(6883, "更新webhook失败")
 	ErrDeleteWebhook = NewHTTPError(6884, "删除webhook失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// workflow view releated Error Range: 6890 - 6899
+	//-----------------------------------------------------------------------------------------------
+	ErrGetView    = NewHTTPError(6890, "获取视图详情失败")
+	ErrListView   = NewHTTPError(6891, "列出视图失败")
+	ErrCreateView = NewHTTPError(6892, "创建视图失败")
+	ErrUpdateView = NewHTTPError(6893, "更新视图失败")
+	ErrDeleteView = NewHTTPError(6894, "删除视图失败")
 )
