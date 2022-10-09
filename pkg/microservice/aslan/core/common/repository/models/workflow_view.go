@@ -19,7 +19,7 @@ package models
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type WorkflowView struct {
-	ID          primitive.ObjectID    `bson:"_id,omitempty"          json:"id"`
+	ID          primitive.ObjectID    `bson:"_id,omitempty"          json:"id,omitempty"`
 	Name        string                `bson:"name"                   json:"name"`
 	ProjectName string                `bson:"project_name"           json:"project_name"`
 	Workflows   []*WorkflowViewDetail `bson:"workflows"              json:"workflows"`
