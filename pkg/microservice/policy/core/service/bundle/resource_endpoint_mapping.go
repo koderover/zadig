@@ -120,7 +120,7 @@ func getResourceActionMappings(isPolicy bool, policies []*models.PolicyMeta) res
 			for _, ar := range r.Rules {
 				var as []*Attribute
 				for _, a := range ar.MatchAttributes {
-					if a.Key == "production" && isPolicy {
+					if isPolicy {
 						continue
 					}
 					as = append(as, &Attribute{Key: a.Key, Value: a.Value})

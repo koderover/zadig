@@ -1470,7 +1470,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 	for _, re := range res {
 		for _, rule := range re.Rules {
 			for _, attribute := range rule.MatchAttributes {
-				if attribute.Key != "placeholder" && attribute.Key != "production" &&
+				if attribute.Key != "placeholder" &&
 					!labelSet.Has(attribute.Key+"-"+attribute.Value) {
 					labels = append(labels, mongodb2.Label{
 						Key:   attribute.Key,
