@@ -596,7 +596,7 @@ func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.Sug
 			newItem := *item
 			newItem.UpdatedBy = username
 			newItem.Name = workflow.New
-			newItem.DisplayName = workflow.New
+			newItem.DisplayName = workflow.NewDisPlayName
 			newItem.BaseName = workflow.BaseName
 			newItem.ID = primitive.NewObjectID()
 			// do not copy webhook triggers.

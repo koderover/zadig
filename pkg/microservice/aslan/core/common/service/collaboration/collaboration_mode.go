@@ -100,7 +100,19 @@ func GetCollaborationModes(projects []string, logger *zap.SugaredLogger) (*GetCo
 		logger.Errorf("GetCollaborationModes error, err msg:%s", err)
 		return nil, err
 	}
+	for _, mode := range collaborations {
+		setCollaborationModesDefaultWorkflowDisplayName(mode)
+	}
 	return &GetCollaborationModeResp{
 		Collaborations: collaborations,
 	}, nil
+}
+
+func setCollaborationModesDefaultWorkflowDisplayName(mode *models.CollaborationMode) {
+	for i, workflow := range mode.Workflows {
+		if workflow.DisplayName != "" {
+			continue
+		}
+		mode.Workflows[i].DisplayName = workflow.Name
+	}
 }

@@ -816,10 +816,11 @@ func CopyWorkflow(oldWorkflowName, newWorkflowName, newWorkflowDisplayName, user
 }
 
 type WorkflowCopyItem struct {
-	ProjectName string `json:"project_name"`
-	Old         string `json:"old"`
-	New         string `json:"new"`
-	BaseName    string `json:"base_name"`
+	ProjectName    string `json:"project_name"`
+	Old            string `json:"old"`
+	New            string `json:"new"`
+	NewDisPlayName string `json:"new_display_name"`
+	BaseName       string `json:"base_name"`
 }
 
 type BulkCopyWorkflowArgs struct {
@@ -852,7 +853,7 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 			newItem := *item
 			newItem.UpdateBy = username
 			newItem.Name = workflow.New
-			newItem.DisplayName = workflow.New
+			newItem.DisplayName = workflow.NewDisPlayName
 			newItem.BaseName = workflow.BaseName
 			newItem.ID = primitive.NewObjectID()
 

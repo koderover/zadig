@@ -88,6 +88,7 @@ type Workflow struct {
 	BaseName          string                   `json:"base_name"`
 	CollaborationMode string                   `json:"collaboration_mode"`
 	Name              string                   `json:"name"`
+	DisPlayName       string                   `json:"display_name"`
 	Description       string                   `json:"description"`
 	WorkflowType      string                   `json:"workflow_type"`
 }
@@ -221,6 +222,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 			Verbs:             workflow.Verbs,
 			CollaborationType: workflow.CollaborationType,
 			WorkflowType:      workflow.WorkflowType,
+			DisplayName:       workflow.DisplayName,
 		})
 	}
 	var products []models.ProductCIItem
@@ -1081,17 +1083,19 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 		if workflow.CollaborationType == config.CollaborationNew {
 			if workflow.WorkflowType == "common_workflow" {
 				newCommonWorkflows = append(newCommonWorkflows, workflowservice.WorkflowCopyItem{
-					ProjectName: projectName,
-					Old:         workflow.BaseName,
-					New:         workflow.Name,
-					BaseName:    workflow.BaseName,
+					ProjectName:    projectName,
+					Old:            workflow.BaseName,
+					New:            workflow.Name,
+					NewDisPlayName: workflow.DisPlayName,
+					BaseName:       workflow.BaseName,
 				})
 			} else {
 				newWorkflows = append(newWorkflows, workflowservice.WorkflowCopyItem{
-					ProjectName: projectName,
-					Old:         workflow.BaseName,
-					New:         workflow.Name,
-					BaseName:    workflow.BaseName,
+					ProjectName:    projectName,
+					Old:            workflow.BaseName,
+					New:            workflow.Name,
+					NewDisPlayName: workflow.DisPlayName,
+					BaseName:       workflow.BaseName,
 				})
 			}
 
@@ -1266,8 +1270,13 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
 			name := workflow.Name
+			displayName := workflow.DisplayName
+			if workflow.DisplayName == "" {
+				displayName = workflow.Name
+			}
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, mode.Name, identityType, userName)
+				displayName = buildName(workflow.DisplayName, mode.Name, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
@@ -1275,6 +1284,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				CollaborationMode: mode.Name,
 				Name:              name,
 				WorkflowType:      workflow.WorkflowType,
+				DisPlayName:       displayName,
 			})
 		}
 		for _, product := range mode.Products {
@@ -1295,8 +1305,13 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
 			name := workflow.Name
+			displayName := workflow.DisplayName
+			if workflow.DisplayName == "" {
+				displayName = workflow.Name
+			}
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
+				displayName = buildName(workflow.DisplayName, item.CollaborationMode, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				WorkflowType:      workflow.WorkflowType,
@@ -1304,6 +1319,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				BaseName:          workflow.Name,
 				CollaborationMode: item.CollaborationMode,
 				Name:              name,
+				DisPlayName:       displayName,
 			})
 		}
 		for _, product := range item.NewSpec.Products {
@@ -1322,12 +1338,17 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
+				displayName := workflow.New.DisplayName
+				if workflow.New.DisplayName == "" {
+					displayName = workflow.Old.BaseName
+				}
 				newWorkflow = append(newWorkflow, &Workflow{
 					WorkflowType:      workflow.Old.WorkflowType,
 					CollaborationType: workflow.New.CollaborationType,
 					BaseName:          workflow.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
 					Name:              buildName(workflow.Old.BaseName, item.CollaborationMode, identityType, userName),
+					DisPlayName:       buildName(displayName, item.CollaborationMode, identityType, userName),
 				})
 			}
 		}
