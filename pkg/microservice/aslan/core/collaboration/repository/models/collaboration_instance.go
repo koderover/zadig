@@ -45,9 +45,10 @@ type ProductCIItem struct {
 }
 
 type WorkflowCIItem struct {
-	WorkflowType      string                   `bson:"workflow_type" json:"workflow_type"`
-	Name              string                   `bson:"name"               json:"name"`
-	DisplayName       string                   `bson:"display_name"       json:"display_name"`
+	WorkflowType string `bson:"workflow_type" json:"workflow_type"`
+	Name         string `bson:"name"               json:"name"`
+	// workflow display name, it can be modified by users, so we don't save it.
+	DisplayName       string                   `bson:"-"                  json:"display_name"`
 	BaseName          string                   `bson:"base_name"          json:"base_name"`
 	CollaborationType config.CollaborationType `bson:"collaboration_type" json:"collaboration_type"`
 	Verbs             []string                 `bson:"verbs"              json:"verbs"`
