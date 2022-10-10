@@ -81,7 +81,7 @@ func DeleteWorkflowView(projectName, viewName string, logger *zap.SugaredLogger)
 		log.Error(msg)
 		return e.ErrDeleteView.AddDesc(msg)
 	}
-	if err := commonrepo.NewWorkflowViewColl().DeleteByID(view.ID.Hex()	); err != nil {
+	if err := commonrepo.NewWorkflowViewColl().DeleteByID(view.ID.Hex()); err != nil {
 		msg := fmt.Sprintf("delete workflow view error: %v", err)
 		log.Error(msg)
 		return e.ErrDeleteView.AddDesc(msg)
@@ -118,8 +118,9 @@ func GetWorkflowViewPreset(projectName, viewName string, logger *zap.SugaredLogg
 	}
 	for _, workflowV4 := range workkflowV4s {
 		workflowDetail := &commonmodels.WorkflowViewDetail{
-			WorkflowName: workflowV4.Name,
-			WorkflowType: setting.CustomWorkflowType,
+			WorkflowName:        workflowV4.Name,
+			WorkflowType:        setting.CustomWorkflowType,
+			WorkflowDisplayName: workflowV4.DisplayName,
 		}
 		if enabled := workflowV4Map[workflowV4.Name]; enabled {
 			workflowDetail.Enabled = true
@@ -134,8 +135,9 @@ func GetWorkflowViewPreset(projectName, viewName string, logger *zap.SugaredLogg
 	}
 	for _, workflow := range workflows {
 		workflowDetail := &commonmodels.WorkflowViewDetail{
-			WorkflowName: workflow.Name,
-			WorkflowType: setting.ProductWorkflowType,
+			WorkflowName:        workflow.Name,
+			WorkflowType:        setting.ProductWorkflowType,
+			WorkflowDisplayName: workflow.DisplayName,
 		}
 		if enabled := workflowMap[workflow.Name]; enabled {
 			workflowDetail.Enabled = true
