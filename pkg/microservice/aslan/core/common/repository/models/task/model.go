@@ -29,27 +29,28 @@ import (
 )
 
 type Task struct {
-	ID           primitive.ObjectID       `bson:"_id,omitempty"             json:"id,omitempty"`
-	TaskID       int64                    `bson:"task_id"                   json:"task_id"`
-	ProductName  string                   `bson:"product_name"              json:"product_name"`
-	PipelineName string                   `bson:"pipeline_name"             json:"pipeline_name"`
-	Type         config.PipelineType      `bson:"type"                      json:"type"`
-	Status       config.Status            `bson:"status"                    json:"status,omitempty"`
-	Description  string                   `bson:"description,omitempty"     json:"description,omitempty"`
-	TaskCreator  string                   `bson:"task_creator"              json:"task_creator,omitempty"`
-	TaskRevoker  string                   `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
-	CreateTime   int64                    `bson:"create_time"               json:"create_time,omitempty"`
-	StartTime    int64                    `bson:"start_time"                json:"start_time,omitempty"`
-	EndTime      int64                    `bson:"end_time"                  json:"end_time,omitempty"`
-	SubTasks     []map[string]interface{} `bson:"sub_tasks"                 json:"sub_tasks"`
-	Stages       []*models.Stage          `bson:"stages"                    json:"stages"`
-	ReqID        string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
-	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
-	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`
-	TeamName     string                   `bson:"team,omitempty"            json:"team,omitempty"`
-	IsDeleted    bool                     `bson:"is_deleted"                json:"is_deleted"`
-	IsArchived   bool                     `bson:"is_archived"               json:"is_archived"`
-	AgentID      string                   `bson:"agent_id"                  json:"agent_id"`
+	ID                  primitive.ObjectID       `bson:"_id,omitempty"             json:"id,omitempty"`
+	TaskID              int64                    `bson:"task_id"                   json:"task_id"`
+	ProductName         string                   `bson:"product_name"              json:"product_name"`
+	PipelineName        string                   `bson:"pipeline_name"             json:"pipeline_name"`
+	PipelineDisplayName string                   `bson:"pipeline_display_name"     json:"pipeline_display_name"`
+	Type                config.PipelineType      `bson:"type"                      json:"type"`
+	Status              config.Status            `bson:"status"                    json:"status,omitempty"`
+	Description         string                   `bson:"description,omitempty"     json:"description,omitempty"`
+	TaskCreator         string                   `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskRevoker         string                   `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
+	CreateTime          int64                    `bson:"create_time"               json:"create_time,omitempty"`
+	StartTime           int64                    `bson:"start_time"                json:"start_time,omitempty"`
+	EndTime             int64                    `bson:"end_time"                  json:"end_time,omitempty"`
+	SubTasks            []map[string]interface{} `bson:"sub_tasks"                 json:"sub_tasks"`
+	Stages              []*models.Stage          `bson:"stages"                    json:"stages"`
+	ReqID               string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
+	AgentHost           string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
+	DockerHost          string                   `bson:"-"                         json:"docker_host,omitempty"`
+	TeamName            string                   `bson:"team,omitempty"            json:"team,omitempty"`
+	IsDeleted           bool                     `bson:"is_deleted"                json:"is_deleted"`
+	IsArchived          bool                     `bson:"is_archived"               json:"is_archived"`
+	AgentID             string                   `bson:"agent_id"                  json:"agent_id"`
 	// 是否允许同时运行多次
 	MultiRun bool `bson:"multi_run"                 json:"multi_run"`
 	// target 服务名称, k8s为容器名称, 物理机为服务名

@@ -47,6 +47,7 @@ type EnvStatus struct {
 
 type Workflow struct {
 	Name                 string                     `json:"name"`
+	DisPlayName          string                     `json:"display_name"`
 	ProjectName          string                     `json:"projectName"`
 	UpdateTime           int64                      `json:"updateTime"`
 	CreateTime           int64                      `json:"createTime"`
@@ -190,6 +191,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			workflow.Enabled = true
 			workflow.ProductTmplName = productName
 			workflow.Name = workflowName
+			workflow.DisplayName = workflowName
 			workflow.CreateBy = setting.SystemUser
 			workflow.UpdateBy = setting.SystemUser
 			workflow.EnvName = workflowArg.envName
@@ -494,6 +496,11 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		errStr := fmt.Sprintf("workflow [%s] 在项目 [%s] 中已经存在!", workflow.Name, existedWorkflow.ProductTmplName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
+	existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{workflow.ProductTmplName}, DisplayName: workflow.DisplayName})
+	if len(existedWorkflows) > 0 {
+		errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+		return e.ErrUpsertWorkflow.AddDesc(errStr)
+	}
 
 	if !checkWorkflowSubModule(workflow) {
 		return e.ErrUpsertWorkflow.AddDesc("未检测到构建部署或交付物部署，请配置一项")
@@ -565,6 +572,13 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	if err != nil {
 		log.Errorf("Can not find workflow %s, err: %s", workflow.Name, err)
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+	if workflow.DisplayName != currentWorkflow.DisplayName {
+		existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{workflow.ProductTmplName}, DisplayName: workflow.DisplayName})
+		if len(existedWorkflows) > 0 {
+			errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+			return e.ErrUpsertWorkflow.AddDesc(errStr)
+		}
 	}
 
 	if err := validateWorkflowHookNames(workflow); err != nil {
@@ -656,6 +670,7 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 		}
 		res = append(res, &Workflow{
 			Name:             w.Name,
+			DisPlayName:      w.DisplayName,
 			ProjectName:      w.ProductTmplName,
 			UpdateTime:       w.UpdateTime,
 			CreateTime:       w.CreateTime,
@@ -776,7 +791,7 @@ func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogge
 	return workflows, nil
 }
 
-func CopyWorkflow(oldWorkflowName, newWorkflowName, username string, log *zap.SugaredLogger) error {
+func CopyWorkflow(oldWorkflowName, newWorkflowName, newWorkflowDisplayName, username string, log *zap.SugaredLogger) error {
 	oldWorkflow, err := commonrepo.NewWorkflowColl().Find(oldWorkflowName)
 	if err != nil {
 		log.Error(err)
@@ -787,18 +802,25 @@ func CopyWorkflow(oldWorkflowName, newWorkflowName, username string, log *zap.Su
 		log.Error("new workflow already exists")
 		return e.ErrExistsPipeline
 	}
+	existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{oldWorkflow.ProductTmplName}, DisplayName: newWorkflowDisplayName})
+	if len(existedWorkflows) > 0 {
+		errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", newWorkflowDisplayName)
+		return e.ErrUpsertWorkflow.AddDesc(errStr)
+	}
 	oldWorkflow.UpdateBy = username
 	oldWorkflow.Name = newWorkflowName
+	oldWorkflow.DisplayName = newWorkflowDisplayName
 	oldWorkflow.ID = primitive.NewObjectID()
 
 	return commonrepo.NewWorkflowColl().Create(oldWorkflow)
 }
 
 type WorkflowCopyItem struct {
-	ProjectName string `json:"project_name"`
-	Old         string `json:"old"`
-	New         string `json:"new"`
-	BaseName    string `json:"base_name"`
+	ProjectName    string `json:"project_name"`
+	Old            string `json:"old"`
+	New            string `json:"new"`
+	NewDisPlayName string `json:"new_display_name"`
+	BaseName       string `json:"base_name"`
 }
 
 type BulkCopyWorkflowArgs struct {
@@ -831,6 +853,7 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 			newItem := *item
 			newItem.UpdateBy = username
 			newItem.Name = workflow.New
+			newItem.DisplayName = workflow.NewDisPlayName
 			newItem.BaseName = workflow.BaseName
 			newItem.ID = primitive.NewObjectID()
 

@@ -111,7 +111,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflow.DELETE("/:name", GetProductNameByWorkflow, DeleteWorkflow)
 		workflow.GET("/preset/:productName", PreSetWorkflow)
 
-		workflow.PUT("/old/:old/new/:new", CopyWorkflow)
+		workflow.PUT("/old/:old/new/:new/:newDisplay", CopyWorkflow)
 	}
 
 	// ---------------------------------------------------------------------------------------
