@@ -28,9 +28,10 @@ type WorkflowView struct {
 }
 
 type WorkflowViewDetail struct {
-	WorkflowName string `bson:"workflow_name"                   json:"workflow_name"`
-	WorkflowType string `bson:"workflow_type"                   json:"workflow_type"`
-	Enabled      bool   `bson:"enabled"                         json:"enabled"`
+	WorkflowName        string `bson:"workflow_name"                   json:"workflow_name"`
+	WorkflowDisplayName string `bson:"-"                               json:"workflow_display_name"`
+	WorkflowType        string `bson:"workflow_type"                   json:"workflow_type"`
+	Enabled             bool   `bson:"enabled"                         json:"enabled"`
 }
 
 func (WorkflowView) TableName() string {
