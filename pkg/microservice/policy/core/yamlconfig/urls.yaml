@@ -354,12 +354,8 @@ exemption_urls:
     - endpoint: api/aslan/environment/envcfgs/?*/sync
       methods:
         - PUT
-    - endpoint: /api/aslan/workflow/view/preset
-      methods:
-        - GET
     - endpoint: /api/aslan/workflow/view
       methods:
-        - GET
         - POST
         - PUT
     - endpoint: /api/aslan/workflow/view/?*/?*
@@ -474,12 +470,8 @@ exemption_urls:
       methods:
         - GET
         - POST
-    - endpoint: /api/aslan/workflow/view/preset
-      methods:
-        - GET
     - endpoint: /api/aslan/workflow/view
       methods:
-        - GET
         - POST
         - PUT
     - endpoint: /api/aslan/workflow/view/?*/?*
