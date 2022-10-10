@@ -67,5 +67,5 @@ func DeleteWorkflowView(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = workflowservice.DeleteWorkflowView(c.Query("projectName"), c.Param("viewName"), ctx.Logger)
+	ctx.Err = workflowservice.DeleteWorkflowView(c.Param("projectName"), c.Param("viewName"), ctx.Logger)
 }
