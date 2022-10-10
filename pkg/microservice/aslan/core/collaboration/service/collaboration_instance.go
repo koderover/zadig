@@ -39,6 +39,7 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -1270,10 +1271,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
 			name := workflow.Name
-			displayName := workflow.DisplayName
-			if workflow.DisplayName == "" {
-				displayName = workflow.Name
-			}
+			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, mode.Name, identityType, userName)
 				displayName = buildName(workflow.DisplayName, mode.Name, identityType, userName)
@@ -1305,10 +1303,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
 			name := workflow.Name
-			displayName := workflow.DisplayName
-			if workflow.DisplayName == "" {
-				displayName = workflow.Name
-			}
+			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
 				displayName = buildName(workflow.DisplayName, item.CollaborationMode, identityType, userName)
@@ -1338,10 +1333,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
-				displayName := workflow.New.DisplayName
-				if workflow.New.DisplayName == "" {
-					displayName = workflow.Old.BaseName
-				}
+				displayName := getWorkflowDisplayName(workflow.Old.BaseName, workflow.Old.WorkflowType)
 				newWorkflow = append(newWorkflow, &Workflow{
 					WorkflowType:      workflow.Old.WorkflowType,
 					CollaborationType: workflow.New.CollaborationType,
@@ -1602,4 +1594,22 @@ func getHelmRenderSet(projectName string, envs []string, logger *zap.SugaredLogg
 	}
 
 	return envChartsMap
+}
+
+func getWorkflowDisplayName(workflowName, workflowType string) string {
+	resp := workflowName
+	if workflowType == "common_workflow" {
+		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+		if err != nil {
+			log.Errorf("workflow v4 :%s not found", workflowName)
+			return resp
+		}
+		return workflow.DisplayName
+	}
+	workflow, err := commonrepo.NewWorkflowColl().Find(workflowName)
+	if err != nil {
+		log.Errorf("workflow :%s not found", workflowName)
+		return resp
+	}
+	return workflow.DisplayName
 }
