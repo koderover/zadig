@@ -238,7 +238,10 @@ func filterWorkflowNamesByView(projectName, viewName string, workflowNames, work
 	enabledWorkflow := []string{}
 	enabledWorkflowV4 := []string{}
 	for _, workflow := range view.Workflows {
-		if workflow.WorkflowType == setting.CustomWorkflowType && workflow.Enabled {
+		if !workflow.Enabled {
+			continue
+		}
+		if workflow.WorkflowType == setting.CustomWorkflowType {
 			enabledWorkflowV4 = append(enabledWorkflowV4, workflow.WorkflowName)
 		} else {
 			enabledWorkflow = append(enabledWorkflow, workflow.WorkflowName)
