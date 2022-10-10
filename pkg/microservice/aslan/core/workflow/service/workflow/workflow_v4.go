@@ -160,18 +160,27 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []string, policyFound bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
 	var err error
-	names, v4Names, err = filterWorkflowNamesByView(projectName, viewName, names, v4Names, policyFound)
-	if err != nil {
-		logger.Errorf("filterWorkflowNames error: %s", err)
-		return resp, err
-	}
 	ignoreWorkflow := false
 	ignoreWorkflowV4 := false
-	if policyFound && len(names) == 0 {
-		ignoreWorkflow = true
-	}
-	if policyFound && len(v4Names) == 0 {
-		ignoreWorkflowV4 = true
+	if viewName == "" {
+		if policyFound && len(names) == 0 {
+			ignoreWorkflow = true
+		}
+		if policyFound && len(v4Names) == 0 {
+			ignoreWorkflowV4 = true
+		}
+	} else {
+		names, v4Names, err = filterWorkflowNamesByView(projectName, viewName, names, v4Names, policyFound)
+		if err != nil {
+			logger.Errorf("filterWorkflowNames error: %s", err)
+			return resp, err
+		}
+		if len(names) == 0 {
+			ignoreWorkflow = true
+		}
+		if len(v4Names) == 0 {
+			ignoreWorkflowV4 = true
+		}
 	}
 	workflowV4List := []*commonmodels.WorkflowV4{}
 	if !ignoreWorkflowV4 {
