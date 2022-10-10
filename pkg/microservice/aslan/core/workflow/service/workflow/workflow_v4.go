@@ -209,7 +209,7 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 		}
 		workflow := &Workflow{
 			Name:          workflowModel.Name,
-			DisPlayName:   workflowModel.DisplayName,
+			DisplayName:   workflowModel.DisplayName,
 			ProjectName:   workflowModel.Project,
 			EnabledStages: stages,
 			CreateTime:    workflowModel.CreateTime,
@@ -596,7 +596,7 @@ func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.Sug
 			newItem := *item
 			newItem.UpdatedBy = username
 			newItem.Name = workflow.New
-			newItem.DisplayName = workflow.NewDisPlayName
+			newItem.DisplayName = workflow.NewDisplayName
 			newItem.BaseName = workflow.BaseName
 			newItem.ID = primitive.NewObjectID()
 			// do not copy webhook triggers.

@@ -89,7 +89,7 @@ type Workflow struct {
 	BaseName          string                   `json:"base_name"`
 	CollaborationMode string                   `json:"collaboration_mode"`
 	Name              string                   `json:"name"`
-	DisPlayName       string                   `json:"display_name"`
+	DisplayName       string                   `json:"display_name"`
 	Description       string                   `json:"description"`
 	WorkflowType      string                   `json:"workflow_type"`
 }
@@ -1087,7 +1087,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					ProjectName:    projectName,
 					Old:            workflow.BaseName,
 					New:            workflow.Name,
-					NewDisPlayName: workflow.DisPlayName,
+					NewDisplayName: workflow.DisplayName,
 					BaseName:       workflow.BaseName,
 				})
 			} else {
@@ -1095,7 +1095,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					ProjectName:    projectName,
 					Old:            workflow.BaseName,
 					New:            workflow.Name,
-					NewDisPlayName: workflow.DisPlayName,
+					NewDisplayName: workflow.DisplayName,
 					BaseName:       workflow.BaseName,
 				})
 			}
@@ -1282,7 +1282,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				CollaborationMode: mode.Name,
 				Name:              name,
 				WorkflowType:      workflow.WorkflowType,
-				DisPlayName:       displayName,
+				DisplayName:       displayName,
 			})
 		}
 		for _, product := range mode.Products {
@@ -1314,7 +1314,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				BaseName:          workflow.Name,
 				CollaborationMode: item.CollaborationMode,
 				Name:              name,
-				DisPlayName:       displayName,
+				DisplayName:       displayName,
 			})
 		}
 		for _, product := range item.NewSpec.Products {
@@ -1340,7 +1340,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 					BaseName:          workflow.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
 					Name:              buildName(workflow.Old.BaseName, item.CollaborationMode, identityType, userName),
-					DisPlayName:       buildName(displayName, item.CollaborationMode, identityType, userName),
+					DisplayName:       buildName(displayName, item.CollaborationMode, identityType, userName),
 				})
 			}
 		}
