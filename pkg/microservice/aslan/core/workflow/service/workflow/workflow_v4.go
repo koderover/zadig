@@ -148,7 +148,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []string, policyFound bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
 	var err error
-	names, v4Names, err = filterWorkflowNamesByView(projectName, viewName, names, v4Names)
+	names, v4Names, err = filterWorkflowNamesByView(projectName, viewName, names, v4Names, policyFound)
 	if err != nil {
 		logger.Errorf("filterWorkflowNames error: %s", err)
 		return resp, err
@@ -227,7 +227,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	return resp, nil
 }
 
-func filterWorkflowNamesByView(projectName, viewName string, workflowNames, workflowV4Names []string) ([]string, []string, error) {
+func filterWorkflowNamesByView(projectName, viewName string, workflowNames, workflowV4Names []string, policyFound bool) ([]string, []string, error) {
 	if viewName == "" {
 		return workflowNames, workflowV4Names, nil
 	}
@@ -243,6 +243,9 @@ func filterWorkflowNamesByView(projectName, viewName string, workflowNames, work
 		} else {
 			enabledWorkflow = append(enabledWorkflow, workflow.WorkflowName)
 		}
+	}
+	if !policyFound {
+		return enabledWorkflow, enabledWorkflowV4, nil
 	}
 	return intersection(workflowNames, enabledWorkflow), intersection(workflowV4Names, enabledWorkflowV4), nil
 }
