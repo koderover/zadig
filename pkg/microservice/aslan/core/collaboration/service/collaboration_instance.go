@@ -1274,7 +1274,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, mode.Name, identityType, userName)
-				displayName = buildName(workflow.DisplayName, mode.Name, identityType, userName)
+				displayName = buildName(displayName, mode.Name, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
@@ -1306,7 +1306,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
-				displayName = buildName(workflow.DisplayName, item.CollaborationMode, identityType, userName)
+				displayName = buildName(displayName, item.CollaborationMode, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				WorkflowType:      workflow.WorkflowType,
