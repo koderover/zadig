@@ -101,6 +101,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 		Description: fmt.Sprintf("Workflow [%s] is queued.", pt.PipelineName),
 		AslanURL:    configbase.SystemAddress(),
 		PipeName:    pt.PipelineName,
+		DisplayName: pt.PipelineDisplayName,
 		ProductName: pt.ProductName,
 		PipeType:    pt.Type,
 		TaskID:      pt.TaskID,
