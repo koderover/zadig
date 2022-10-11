@@ -544,7 +544,7 @@ metas:
           - method: POST
             endpoint: api/aslan/workflow/workflow
           - method: PUT
-            endpoint: /api/aslan/workflow/workflow/old/?*/new/?*
+            endpoint: /api/aslan/workflow/workflow/old/?*/new/?*/?*
           - method: POST
             endpoint: /api/directory/workflowTask/create
           - method: GET

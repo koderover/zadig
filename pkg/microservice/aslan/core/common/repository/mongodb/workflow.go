@@ -32,10 +32,11 @@ import (
 )
 
 type ListWorkflowOption struct {
-	IsSort   bool
-	Projects []string
-	Names    []string
-	Ids      []string
+	IsSort      bool
+	Projects    []string
+	Names       []string
+	Ids         []string
+	DisplayName string
 }
 
 type Workflow struct {
@@ -107,6 +108,9 @@ func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error)
 	}
 	if len(opt.Names) > 0 {
 		query["name"] = bson.M{"$in": opt.Names}
+	}
+	if opt.DisplayName != "" {
+		query["display_name"] = opt.DisplayName
 	}
 	if len(opt.Ids) > 0 {
 		var oids []primitive.ObjectID

@@ -30,6 +30,7 @@ import (
 type Workflow struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
 	Name            string             `bson:"name"                         json:"name"`
+	DisplayName     string             `bson:"display_name"                 json:"display_name"`
 	Enabled         bool               `bson:"enabled"                      json:"enabled"`
 	ProductTmplName string             `bson:"product_tmpl_name"            json:"product_tmpl_name"`
 	Team            string             `bson:"team,omitempty"               json:"team,omitempty"`

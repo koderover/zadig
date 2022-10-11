@@ -50,6 +50,8 @@ type ProductCMItem struct {
 type WorkflowCMItem struct {
 	WorkflowType      string                   `bson:"workflow_type" json:"workflow_type"`
 	Name              string                   `bson:"name" json:"name"`
+	// workflow display name, it can be modified by users, so we don't save it.
+	DisplayName       string                   `bson:"-"    json:"display_name"`
 	CollaborationType config.CollaborationType `bson:"collaboration_type" json:"collaboration_type"`
 	Verbs             []string                 `bson:"verbs" json:"verbs"`
 }
