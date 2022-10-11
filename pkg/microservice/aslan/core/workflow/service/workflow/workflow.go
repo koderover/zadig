@@ -47,7 +47,7 @@ type EnvStatus struct {
 
 type Workflow struct {
 	Name                 string                     `json:"name"`
-	DisPlayName          string                     `json:"display_name"`
+	DisplayName          string                     `json:"display_name"`
 	ProjectName          string                     `json:"projectName"`
 	UpdateTime           int64                      `json:"updateTime"`
 	CreateTime           int64                      `json:"createTime"`
@@ -670,7 +670,7 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 		}
 		res = append(res, &Workflow{
 			Name:             w.Name,
-			DisPlayName:      w.DisplayName,
+			DisplayName:      w.DisplayName,
 			ProjectName:      w.ProductTmplName,
 			UpdateTime:       w.UpdateTime,
 			CreateTime:       w.CreateTime,
@@ -819,7 +819,7 @@ type WorkflowCopyItem struct {
 	ProjectName    string `json:"project_name"`
 	Old            string `json:"old"`
 	New            string `json:"new"`
-	NewDisPlayName string `json:"new_display_name"`
+	NewDisplayName string `json:"new_display_name"`
 	BaseName       string `json:"base_name"`
 }
 
@@ -853,7 +853,7 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 			newItem := *item
 			newItem.UpdateBy = username
 			newItem.Name = workflow.New
-			newItem.DisplayName = workflow.NewDisPlayName
+			newItem.DisplayName = workflow.NewDisplayName
 			newItem.BaseName = workflow.BaseName
 			newItem.ID = primitive.NewObjectID()
 
