@@ -277,15 +277,16 @@ func UpdateQueue(task *commonmodels.WorkflowTask) bool {
 
 func ConvertTaskToQueue(task *commonmodels.WorkflowTask) *commonmodels.WorkflowQueue {
 	return &commonmodels.WorkflowQueue{
-		TaskID:       task.TaskID,
-		WorkflowName: task.WorkflowName,
-		ProjectName:  task.ProjectName,
-		Status:       task.Status,
-		Stages:       cleanStages(task.Stages),
-		TaskCreator:  task.TaskCreator,
-		TaskRevoker:  task.TaskRevoker,
-		CreateTime:   task.CreateTime,
-		MultiRun:     task.MultiRun,
+		TaskID:              task.TaskID,
+		WorkflowName:        task.WorkflowName,
+		WorkflowDisplayName: task.WorkflowDisplayName,
+		ProjectName:         task.ProjectName,
+		Status:              task.Status,
+		Stages:              cleanStages(task.Stages),
+		TaskCreator:         task.TaskCreator,
+		TaskRevoker:         task.TaskRevoker,
+		CreateTime:          task.CreateTime,
+		MultiRun:            task.MultiRun,
 	}
 }
 

@@ -119,7 +119,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		TotalTime:   time.Now().Unix() - task.StartTime,
 	}
 
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"markdownColorInfo\">工作流{{.Task.WorkflowName}} #{{.Task.TaskID}} 等待审批</font>{{else}}工作流 {{.Task.WorkflowName}} #{{.Task.TaskID}} 等待审批{{end}} \n"
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"markdownColorInfo\">工作流{{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批</font>{{else}}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
@@ -129,7 +129,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		return "", "", nil, err
 	}
 	buttonContent := "点击查看更多信息"
-	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}"
+	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.Task.WorkflowDisplayName}}"
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
@@ -166,7 +166,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		TotalTime:   time.Now().Unix() - task.StartTime,
 	}
 
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.WorkflowName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.WorkflowName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
@@ -249,7 +249,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		return "", "", nil, err
 	}
 	buttonContent := "点击查看更多信息"
-	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}"
+	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.Task.WorkflowDisplayName}}"
 	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
