@@ -35,6 +35,7 @@ type listWorkflowV4Query struct {
 	PageSize int64  `json:"page_size"    form:"page_size,default=20"`
 	PageNum  int64  `json:"page_num"     form:"page_num,default=1"`
 	Project  string `json:"project"      form:"project"`
+	ViewName string `json:"view_name"    form:"view_name"`
 }
 
 type listWorkflowV4Resp struct {
@@ -95,8 +96,6 @@ func ListWorkflowV4(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ignoreWorkflow := false
-	ignoreWorkflowV4 := false
 	workflowNames, found := internalhandler.GetResourcesInHeader(c)
 
 	ctx.Logger.Infof("workflowNames:%s found:%v", workflowNames, found)
@@ -108,13 +107,7 @@ func ListWorkflowV4(c *gin.Context) {
 			names = append(names, name)
 		}
 	}
-	if found && len(names) == 0 {
-		ignoreWorkflow = true
-	}
-	if found && len(workflowV4Names) == 0 {
-		ignoreWorkflowV4 = true
-	}
-	workflowList, err := workflow.ListWorkflowV4(args.Project, ctx.UserID, names, workflowV4Names, ignoreWorkflow, ignoreWorkflowV4, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, args.ViewName, ctx.UserID, names, workflowV4Names, found, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,
