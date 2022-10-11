@@ -23,7 +23,7 @@ type WorkflowView struct {
 	Name        string                `bson:"name"                   json:"name"`
 	ProjectName string                `bson:"project_name"           json:"project_name"`
 	Workflows   []*WorkflowViewDetail `bson:"workflows"              json:"workflows"`
-	UpdateTime  int64                 `bson:"create_time"            json:"create_time"`
+	UpdateTime  int64                 `bson:"update_time"            json:"update_time"`
 	UpdateBy    string                `bson:"update_by"              json:"update_by,omitempty"`
 }
 
