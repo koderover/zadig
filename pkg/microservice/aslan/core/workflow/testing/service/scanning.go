@@ -216,6 +216,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 			RepoName:           arg.RepoName,
 			Branch:             arg.Branch,
 			PR:                 arg.PR,
+			PRs:                arg.PRs,
 			CodehostID:         arg.CodehostID,
 			OauthToken:         rep.AccessToken,
 			Address:            rep.Address,

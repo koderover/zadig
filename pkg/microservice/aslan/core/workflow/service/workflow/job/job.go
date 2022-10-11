@@ -222,6 +222,14 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
 		}
 
+		if len(repo.PRs) > 0 {
+			prStrs := []string{}
+			for _, pr := range repo.PRs {
+				prStrs = append(prStrs, strconv.Itoa(pr))
+			}
+			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strings.Join(prStrs, ","), IsCredential: false})
+		}
+
 		if len(repo.CommitID) > 0 {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
 		}

@@ -54,6 +54,7 @@ type ScanningRepoInfo struct {
 	RepoNamespace string `json:"repo_namespace"`
 	RepoName      string `json:"repo_name"`
 	PR            int    `json:"pr"`
+	PRs           []int  `json:"prs"`
 	Branch        string `json:"branch"`
 	Tag           string `json:"tag"`
 }
