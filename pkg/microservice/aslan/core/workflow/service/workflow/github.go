@@ -64,6 +64,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
+			DisplayName: pt.PipelineDisplayName,
 			ProductName: pt.ProductName,
 			PipeType:    pt.Type,
 			TaskID:      pt.TaskID,

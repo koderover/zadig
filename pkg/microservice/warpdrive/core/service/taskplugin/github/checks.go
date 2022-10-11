@@ -53,6 +53,7 @@ type GitCheck struct {
 
 	AslanURL    string
 	PipeName    string
+	DisplayName string
 	ProductName string
 	PipeType    config.PipelineType
 	TaskID      int64
@@ -65,6 +66,7 @@ func (gc *GitCheck) DetailsURL() string {
 		gc.AslanURL,
 		gc.ProductName,
 		gc.PipeName,
+		gc.DisplayName,
 		gc.PipeType,
 		gc.TaskID,
 	)
@@ -72,14 +74,15 @@ func (gc *GitCheck) DetailsURL() string {
 	return url
 }
 
-func GetTaskLink(baseURI, productName, pipelineName string, pipelineType config.PipelineType, taskID int64) string {
+func GetTaskLink(baseURI, productName, pipelineName, displayName string, pipelineType config.PipelineType, taskID int64) string {
 	return fmt.Sprintf(
-		"%s/v1/projects/detail/%s/pipelines/%s/%s/%d",
+		"%s/v1/projects/detail/%s/pipelines/%s/%s/%d?display_name=%s",
 		baseURI,
 		productName,
 		UIType(pipelineType),
 		pipelineName,
 		taskID,
+		displayName,
 	)
 }
 

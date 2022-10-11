@@ -336,6 +336,7 @@ func updateGitCheck(pt *task.Task) error {
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
+			DisplayName: pt.PipelineDisplayName,
 			PipeType:    pt.Type,
 			ProductName: pt.ProductName,
 			TaskID:      pt.TaskID,
@@ -413,6 +414,7 @@ func completeGitCheck(pt *task.Task) error {
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
+			DisplayName: pt.PipelineDisplayName,
 			PipeType:    pt.Type,
 			ProductName: pt.ProductName,
 			TaskID:      pt.TaskID,

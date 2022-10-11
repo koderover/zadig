@@ -95,7 +95,7 @@ func (s *Service) SendErrWebhookComment(
 		}
 	}
 
-	url := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s", baseURI, workflow.ProductTmplName, workflow.Name)
+	url := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s?display_name=%s", baseURI, workflow.ProductTmplName, workflow.Name, workflow.DisplayName)
 	errInfo := fmt.Sprintf("创建工作流任务失败，项目名称：%s， 工作流名称：[%s](%s)， 错误信息：%s", workflow.ProductTmplName, workflow.Name, url, errStr)
 
 	notification := &models.Notification{
@@ -191,10 +191,11 @@ func (s *Service) UpdateWebhookComment(task *task.Task, logger *zap.SugaredLogge
 		if nTask.ID == task.TaskID {
 			shouldComment = nTask.Status != status
 			scmTask := &models.NotificationTask{
-				ProductName:  task.ProductName,
-				WorkflowName: task.PipelineName,
-				ID:           task.TaskID,
-				Status:       status,
+				ProductName:         task.ProductName,
+				WorkflowName:        task.PipelineName,
+				WorkflowDisplayName: task.PipelineDisplayName,
+				ID:                  task.TaskID,
+				Status:              status,
 			}
 
 			if status == config.TaskStatusPass {
@@ -513,10 +514,11 @@ func (s *Service) UpdateWebhookCommentForWorkflowV4(task *models.WorkflowTask, l
 
 	if !taskExist {
 		tasks = append(tasks, &models.NotificationTask{
-			ProductName:  task.ProjectName,
-			WorkflowName: task.WorkflowName,
-			ID:           task.TaskID,
-			Status:       status,
+			ProductName:         task.ProjectName,
+			WorkflowName:        task.WorkflowName,
+			ID:                  task.TaskID,
+			WorkflowDisplayName: task.WorkflowDisplayName,
+			Status:              status,
 		})
 		shouldComment = true
 	}
@@ -671,6 +673,7 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    workflowArgs.Name,
+			DisplayName: workflowArgs.DisplayName,
 			ProductName: workflowArgs.Project,
 			PipeType:    config.WorkflowTypeV4,
 			TaskID:      taskID,
@@ -733,6 +736,7 @@ func (s *Service) UpdateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    workflowArgs.Name,
+			DisplayName: workflowArgs.DisplayName,
 			PipeType:    config.WorkflowTypeV4,
 			ProductName: workflowArgs.Project,
 			TaskID:      taskID,
@@ -791,6 +795,7 @@ func (s *Service) CompleteGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4,
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    workflowArgs.Name,
+			DisplayName: workflowArgs.DisplayName,
 			PipeType:    config.WorkflowTypeV4,
 			ProductName: workflowArgs.Project,
 			TaskID:      taskID,
