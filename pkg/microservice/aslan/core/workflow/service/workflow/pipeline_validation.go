@@ -303,6 +303,9 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
+	if build.PR > 0 && len(build.PRs) == 0 {
+		build.PRs = []int{build.PR}
+	}
 	build.Address = codeHostInfo.Address
 	if codeHostInfo.Type == systemconfig.GitLabProvider || codeHostInfo.Type == systemconfig.GerritProvider {
 		if build.CommitID == "" {
@@ -311,10 +314,10 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 			var err error
 			if build.Tag != "" {
 				commit, err = QueryByTag(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Tag, log)
-			} else if build.Branch != "" && build.PR == 0 {
+			} else if build.Branch != "" && len(build.PRs) == 0 {
 				commit, err = QueryByBranch(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Branch, log)
-			} else if build.PR > 0 {
-				pr, err = GetLatestPrCommit(build.CodehostID, build.PR, build.GetRepoNamespace(), build.RepoName, log)
+			} else if len(build.PRs) > 0 {
+				pr, err = GetLatestPrCommit(build.CodehostID, getlatestPrNum(build), build.GetRepoNamespace(), build.RepoName, log)
 				if err == nil && pr != nil {
 					commit = &RepoCommit{
 						ID:         pr.ID,
@@ -355,7 +358,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 	} else if codeHostInfo.Type == systemconfig.GiteeProvider {
 		gitCli := gitee.NewClient(codeHostInfo.ID, codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" {
-			if build.Tag != "" && build.PR == 0 {
+			if build.Tag != "" && len(build.PRs) == 0 {
 				tags, err := gitCli.ListTags(context.Background(), codeHostInfo.AccessToken, build.RepoOwner, build.RepoName)
 				if err != nil {
 					log.Errorf("failed to gitee ListTags err:%s", err)
@@ -375,7 +378,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 						return
 					}
 				}
-			} else if build.Branch != "" && build.PR == 0 {
+			} else if build.Branch != "" && len(build.PRs) == 0 {
 				branch, err := gitCli.GetSingleBranch(codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.Branch)
 				if err != nil {
 					log.Errorf("failed to gitee GetSingleBranch  repoOwner:%s,repoName:%s,repoBranch:%s err:%s", build.RepoOwner, build.RepoName, build.Branch, err)
@@ -384,8 +387,8 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 				build.CommitID = branch.Commit.Sha
 				build.CommitMessage = branch.Commit.Commit.Message
 				build.AuthorName = branch.Commit.Commit.Author.Name
-			} else if build.PR > 0 {
-				prCommits, err := gitCli.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, nil)
+			} else if len(build.PRs) > 0 {
+				prCommits, err := gitCli.ListCommits(context.Background(), build.RepoOwner, build.RepoName, getlatestPrNum(build), nil)
 				sort.SliceStable(prCommits, func(i, j int) bool {
 					return prCommits[i].Commit.Committer.Date.Unix() > prCommits[j].Commit.Committer.Date.Unix()
 				})
@@ -402,7 +405,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 	} else if codeHostInfo.Type == systemconfig.GitHubProvider {
 		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" {
-			if build.Tag != "" && build.PR == 0 {
+			if build.Tag != "" && len(build.PRs) == 0 {
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
 				tags, _, err := gitCli.Repositories.ListTags(context.Background(), build.RepoOwner, build.RepoName, opt)
 				if err != nil {
@@ -424,16 +427,16 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 						return
 					}
 				}
-			} else if build.Branch != "" && build.PR == 0 {
+			} else if build.Branch != "" && len(build.PRs) == 0 {
 				branch, _, err := gitCli.Repositories.GetBranch(context.Background(), build.RepoOwner, build.RepoName, build.Branch)
 				if err == nil {
 					build.CommitID = *branch.Commit.SHA
 					build.CommitMessage = *branch.Commit.Commit.Message
 					build.AuthorName = *branch.Commit.Commit.Author.Name
 				}
-			} else if build.PR > 0 {
+			} else if len(build.PRs) > 0 {
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
-				prCommits, _, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
+				prCommits, _, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, getlatestPrNum(build), opt)
 				sort.SliceStable(prCommits, func(i, j int) bool {
 					return prCommits[i].Commit.Committer.Date.Unix() > prCommits[j].Commit.Committer.Date.Unix()
 				})
@@ -461,6 +464,14 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 		}
 		return
 	}
+}
+
+func getlatestPrNum(build *types.Repository) int {
+	var prNum int
+	if len(build.PRs) > 0 {
+		prNum = build.PRs[len(build.PRs)-1]
+	}
+	return prNum
 }
 
 // 根据传入的build arg设置build参数
