@@ -1,5 +1,5 @@
 IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
-VERSION = v0.0.1
+VERSION = v0.0.2
 
 build: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/jenkins-runner:${VERSION}
 build:
