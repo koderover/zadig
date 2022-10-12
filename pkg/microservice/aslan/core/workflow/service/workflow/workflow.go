@@ -493,12 +493,12 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
 	existedWorkflow, err := commonrepo.NewWorkflowColl().Find(workflow.Name)
 	if err == nil {
-		errStr := fmt.Sprintf("workflow [%s] 在项目 [%s] 中已经存在!", workflow.Name, existedWorkflow.ProductTmplName)
+		errStr := fmt.Sprintf("与项目 [%s] 中的工作流 [%s] 标识相同", existedWorkflow.ProductTmplName, existedWorkflow.DisplayName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{workflow.ProductTmplName}, DisplayName: workflow.DisplayName})
 	if len(existedWorkflows) > 0 {
-		errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+		errStr := fmt.Sprintf("当前项目已存在工作流 [%s]", workflow.DisplayName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 
@@ -804,7 +804,7 @@ func CopyWorkflow(oldWorkflowName, newWorkflowName, newWorkflowDisplayName, user
 	}
 	existedWorkflows, _ := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{oldWorkflow.ProductTmplName}, DisplayName: newWorkflowDisplayName})
 	if len(existedWorkflows) > 0 {
-		errStr := fmt.Sprintf("workflow [%s] 展示名称在当前项目下重复!", newWorkflowDisplayName)
+		errStr := fmt.Sprintf("当前项目已存在工作流 [%s]", newWorkflowDisplayName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	oldWorkflow.UpdateBy = username

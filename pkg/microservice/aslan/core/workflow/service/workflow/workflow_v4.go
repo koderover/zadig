@@ -51,12 +51,12 @@ const (
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	existedWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
 	if err == nil {
-		errStr := fmt.Sprintf("workflow v4 [%s] 在项目 [%s] 中已经存在!", workflow.Name, existedWorkflow.Project)
+		errStr := fmt.Sprintf("与项目 [%s] 中的工作流 [%s] 标识相同", existedWorkflow.Project, existedWorkflow.DisplayName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	existedWorkflows, _, _ := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{ProjectName: workflow.Project, DisplayName: workflow.DisplayName}, 0, 0)
 	if len(existedWorkflows) > 0 {
-		errStr := fmt.Sprintf("workflow v4 [%s] 展示名称在当前项目下重复!", workflow.DisplayName)
+		errStr := fmt.Sprintf("当前项目已存在工作流 [%s]", workflow.DisplayName)
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	if err := LintWorkflowV4(workflow, logger); err != nil {
