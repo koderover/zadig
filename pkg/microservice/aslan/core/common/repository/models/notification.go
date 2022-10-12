@@ -19,6 +19,7 @@ package models
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"text/template"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -101,6 +102,7 @@ func (n *Notification) ToString() string {
 func (n *Notification) CreateCommentBody() (comment string, err error) {
 	hasTest := false
 	for _, task := range n.Tasks {
+		task.WorkflowDisplayName = url.QueryEscape(task.WorkflowDisplayName)
 		if len(task.TestReports) != 0 {
 			hasTest = true
 			break
