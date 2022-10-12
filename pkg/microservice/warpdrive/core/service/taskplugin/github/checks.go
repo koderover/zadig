@@ -19,6 +19,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/google/go-github/v35/github"
@@ -75,6 +76,7 @@ func (gc *GitCheck) DetailsURL() string {
 }
 
 func GetTaskLink(baseURI, productName, pipelineName, displayName string, pipelineType config.PipelineType, taskID int64) string {
+	disPlayNameEncoded := url.QueryEscape(displayName)
 	return fmt.Sprintf(
 		"%s/v1/projects/detail/%s/pipelines/%s/%s/%d?display_name=%s",
 		baseURI,
@@ -82,7 +84,7 @@ func GetTaskLink(baseURI, productName, pipelineName, displayName string, pipelin
 		UIType(pipelineType),
 		pipelineName,
 		taskID,
-		displayName,
+		disPlayNameEncoded,
 	)
 }
 
