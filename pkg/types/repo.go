@@ -155,6 +155,15 @@ func (r *Repository) PRRef() string {
 	return fmt.Sprintf("refs/pull/%d/head", r.PR)
 }
 
+func (r *Repository) PRRefByPRID(pr int) string {
+	if strings.ToLower(r.Source) == ProviderGitlab || strings.ToLower(r.Source) == ProviderCodehub {
+		return fmt.Sprintf("merge-requests/%d/head", pr)
+	} else if strings.ToLower(r.Source) == ProviderGerrit {
+		return r.CheckoutRef
+	}
+	return fmt.Sprintf("refs/pull/%d/head", pr)
+}
+
 // BranchRef returns branch refs format
 // e.g. refs/heads/master
 func (r *Repository) BranchRef() string {
