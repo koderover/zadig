@@ -54,7 +54,6 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 	}
 	if ghApp != nil {
 		log.Infof("GitHub App found, start to create check-run")
-
 		opt := &github.GitCheck{
 			Owner:  hook.Owner,
 			Repo:   hook.Repo,
@@ -64,7 +63,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
-			DisplayName: pt.PipelineDisplayName,
+			DisplayName: getDisplayName(pt),
 			ProductName: pt.ProductName,
 			PipeType:    pt.Type,
 			TaskID:      pt.TaskID,
@@ -101,9 +100,16 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 		Description: fmt.Sprintf("Workflow [%s] is queued.", pt.PipelineName),
 		AslanURL:    configbase.SystemAddress(),
 		PipeName:    pt.PipelineName,
-		DisplayName: pt.PipelineDisplayName,
+		DisplayName: getDisplayName(pt),
 		ProductName: pt.ProductName,
 		PipeType:    pt.Type,
 		TaskID:      pt.TaskID,
 	})
+}
+
+func getDisplayName(pt *task.Task) string {
+	if pt.PipelineDisplayName != "" {
+		return pt.PipelineDisplayName
+	}
+	return pt.PipelineName
 }

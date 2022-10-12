@@ -663,7 +663,6 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 	}
 	if ghApp != nil {
 		log.Infof("GitHub App found, start to create check-run")
-
 		opt := &github.GitCheck{
 			Owner:  hook.Owner,
 			Repo:   hook.Repo,
@@ -673,7 +672,7 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    workflowArgs.Name,
-			DisplayName: workflowArgs.DisplayName,
+			DisplayName: getDisplayName(workflowArgs),
 			ProductName: workflowArgs.Project,
 			PipeType:    config.WorkflowTypeV4,
 			TaskID:      taskID,
@@ -702,7 +701,7 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 		Description: fmt.Sprintf("Workflow [%s] is queued.", workflowArgs.Name),
 		AslanURL:    configbase.SystemAddress(),
 		PipeName:    workflowArgs.Name,
-		DisplayName: workflowArgs.DisplayName,
+		DisplayName: getDisplayName(workflowArgs),
 		ProductName: workflowArgs.Project,
 		PipeType:    config.WorkflowTypeV4,
 		TaskID:      taskID,
@@ -737,7 +736,7 @@ func (s *Service) UpdateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    workflowArgs.Name,
-			DisplayName: workflowArgs.DisplayName,
+			DisplayName: getDisplayName(workflowArgs),
 			PipeType:    config.WorkflowTypeV4,
 			ProductName: workflowArgs.Project,
 			TaskID:      taskID,
@@ -762,7 +761,7 @@ func (s *Service) UpdateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 		Description: fmt.Sprintf("Workflow [%s] is running.", workflowArgs.Name),
 		AslanURL:    configbase.SystemAddress(),
 		PipeName:    workflowArgs.Name,
-		DisplayName: workflowArgs.DisplayName,
+		DisplayName: getDisplayName(workflowArgs),
 		PipeType:    config.WorkflowTypeV4,
 		ProductName: workflowArgs.Project,
 		TaskID:      taskID,
@@ -797,7 +796,7 @@ func (s *Service) CompleteGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4,
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    workflowArgs.Name,
-			DisplayName: workflowArgs.DisplayName,
+			DisplayName: getDisplayName(workflowArgs),
 			PipeType:    config.WorkflowTypeV4,
 			ProductName: workflowArgs.Project,
 			TaskID:      taskID,
@@ -823,7 +822,7 @@ func (s *Service) CompleteGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4,
 		Description: fmt.Sprintf("Workflow [%s] is %s.", workflowArgs.Name, ciStatus),
 		AslanURL:    configbase.SystemAddress(),
 		PipeName:    workflowArgs.Name,
-		DisplayName: workflowArgs.DisplayName,
+		DisplayName: getDisplayName(workflowArgs),
 		PipeType:    config.WorkflowTypeV4,
 		ProductName: workflowArgs.Project,
 		TaskID:      taskID,
@@ -860,4 +859,11 @@ func getGitHubStatusFromCIStatus(status github.CIStatus) string {
 	default:
 		return github.StateError
 	}
+}
+
+func getDisplayName(args *models.WorkflowV4) string {
+	if args.DisplayName != "" {
+		return args.DisplayName
+	}
+	return args.Name
 }

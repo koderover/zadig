@@ -336,7 +336,7 @@ func updateGitCheck(pt *task.Task) error {
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
-			DisplayName: pt.PipelineDisplayName,
+			DisplayName: getDisplayName(pt),
 			PipeType:    pt.Type,
 			ProductName: pt.ProductName,
 			TaskID:      pt.TaskID,
@@ -359,7 +359,7 @@ func updateGitCheck(pt *task.Task) error {
 		Description: fmt.Sprintf("Workflow [%s] is running.", pt.PipelineName),
 		AslanURL:    configbase.SystemAddress(),
 		PipeName:    pt.PipelineName,
-		DisplayName: pt.PipelineDisplayName,
+		DisplayName: getDisplayName(pt),
 		ProductName: pt.ProductName,
 		PipeType:    pt.Type,
 		TaskID:      pt.TaskID,
@@ -415,7 +415,7 @@ func completeGitCheck(pt *task.Task) error {
 
 			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
-			DisplayName: pt.PipelineDisplayName,
+			DisplayName: getDisplayName(pt),
 			PipeType:    pt.Type,
 			ProductName: pt.ProductName,
 			TaskID:      pt.TaskID,
@@ -440,11 +440,18 @@ func completeGitCheck(pt *task.Task) error {
 		Description: fmt.Sprintf("Workflow [%s] is %s.", pt.PipelineName, ciStatus),
 		AslanURL:    configbase.SystemAddress(),
 		PipeName:    pt.PipelineName,
-		DisplayName: pt.PipelineDisplayName,
+		DisplayName: getDisplayName(pt),
 		ProductName: pt.ProductName,
 		PipeType:    pt.Type,
 		TaskID:      pt.TaskID,
 	})
+}
+
+func getDisplayName(pt *task.Task) string {
+	if pt.PipelineDisplayName != "" {
+		return pt.PipelineDisplayName
+	}
+	return pt.PipelineName
 }
 
 func DownloadTestReports(taskInfo *task.Task, logger *zap.SugaredLogger) ([]*types.TestSuite, error) {
