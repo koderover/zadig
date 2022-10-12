@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -85,7 +86,7 @@ func main() {
 		if err != nil {
 			log.Warnf("[Jenkins Plugin] failed to get logs from jenkins job, error: %s", err)
 		}
-		log.Infof("%s", consoleOutput.Content)
+		fmt.Printf("%s", consoleOutput.Content)
 		offset += consoleOutput.Offset
 	}
 
