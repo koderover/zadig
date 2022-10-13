@@ -114,6 +114,12 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 					return err
 				}
 			}
+			if job.JobType == config.JobZadigTesting {
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
