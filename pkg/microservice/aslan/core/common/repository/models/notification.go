@@ -59,6 +59,7 @@ type NotificationTask struct {
 	ProductName         string            `bson:"product_name"            json:"product_name"`
 	WorkflowName        string            `bson:"workflow_name"           json:"workflow_name"`
 	WorkflowDisplayName string            `bson:"workflow_display_name"   json:"workflow_display_name"`
+	EncodedDisplayName  string            `bson:"encoded_display_name"    json:"encoded_display_name"`
 	PipelineName        string            `bson:"pipeline_name"           json:"pipeline_name"`
 	ScanningName        string            `bson:"scanning_name"           json:"scanningName"`
 	ScanningID          string            `bson:"scanning_id"             json:"scanning_id"`
@@ -102,7 +103,7 @@ func (n *Notification) ToString() string {
 func (n *Notification) CreateCommentBody() (comment string, err error) {
 	hasTest := false
 	for _, task := range n.Tasks {
-		task.WorkflowDisplayName = url.QueryEscape(task.WorkflowDisplayName)
+		task.EncodedDisplayName = url.QueryEscape(task.WorkflowDisplayName)
 		if len(task.TestReports) != 0 {
 			hasTest = true
 			break
@@ -143,17 +144,17 @@ func (n *Notification) CreateCommentBody() (comment string, err error) {
 			tmplSource = "触发的工作流：等待任务启动中"
 		} else {
 			tmplSource =
-				"|触发的工作流|状态| \n |---|---| \n {{range .Tasks}}|[{{.WorkflowDisplayName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/pipelines/custom/{{.WorkflowName}}/{{.ID}}?display_name={{.WorkflowDisplayName}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | \n {{end}}"
+				"|触发的工作流|状态| \n |---|---| \n {{range .Tasks}}|[{{.WorkflowDisplayName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/pipelines/custom/{{.WorkflowName}}/{{.ID}}?display_name={{.EncodedDisplayName}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | \n {{end}}"
 		}
 	} else {
 		if len(n.Tasks) == 0 {
 			tmplSource = "触发的工作流：等待任务启动中"
 		} else if !hasTest {
 			tmplSource =
-				"|触发的工作流|状态| \n |---|---| \n {{range .Tasks}}|[{{.WorkflowDisplayName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/pipelines/multi/{{.WorkflowName}}/{{.ID}}?display_name={{.WorkflowDisplayName}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | \n {{end}}"
+				"|触发的工作流|状态| \n |---|---| \n {{range .Tasks}}|[{{.WorkflowDisplayName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/pipelines/multi/{{.WorkflowName}}/{{.ID}}?display_name={{.EncodedDisplayName}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | \n {{end}}"
 		} else {
 			tmplSource =
-				"|触发的工作流|状态|测试结果（成功数/总用例数量）| \n |---|---|---| \n {{range .Tasks}}|[{{.WorkflowDisplayName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/pipelines/multi/{{.WorkflowName}}/{{.ID}}?display_name={{.WorkflowDisplayName}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | {{range .TestReports}}{{.Name}}: {{.Successes}}/{{.Tests}} <br> {{end}} | \n {{end}}"
+				"|触发的工作流|状态|测试结果（成功数/总用例数量）| \n |---|---|---| \n {{range .Tasks}}|[{{.WorkflowDisplayName}}#{{.ID}}]({{$.BaseURI}}/v1/projects/detail/{{.ProductName}}/pipelines/multi/{{.WorkflowName}}/{{.ID}}?display_name={{.EncodedDisplayName}}) | {{if eq .StatusVerbose $.Success}} {+ {{.StatusVerbose}} +}{{else}}{- {{.StatusVerbose}} -}{{end}} | {{range .TestReports}}{{.Name}}: {{.Successes}}/{{.Tests}} <br> {{end}} | \n {{end}}"
 		}
 	}
 
