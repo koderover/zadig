@@ -28,22 +28,23 @@ type DeliveryVersionProgress struct {
 }
 
 type DeliveryVersion struct {
-	ID             primitive.ObjectID       `bson:"_id,omitempty"           json:"id,omitempty"`
-	Version        string                   `bson:"version"                 json:"version"`
-	ProductName    string                   `bson:"product_name"            json:"productName"`
-	WorkflowName   string                   `bson:"workflow_name"           json:"workflowName"`
-	Type           string                   `bson:"type"                    json:"type"`
-	TaskID         int                      `bson:"task_id"                 json:"taskId"`
-	Desc           string                   `bson:"desc"                    json:"desc"`
-	Labels         []string                 `bson:"labels"                  json:"labels"`
-	ProductEnvInfo *Product                 `bson:"product_env_info"        json:"productEnvInfo"`
-	Status         string                   `bson:"status"                  json:"status"`
-	Error          string                   `bson:"error"                   json:"-"`
-	Progress       *DeliveryVersionProgress `bson:"-"                       json:"progress"`
-	CreateArgument interface{}              `bson:"createArgument"          json:"-"`
-	CreatedBy      string                   `bson:"created_by"              json:"createdBy"`
-	CreatedAt      int64                    `bson:"created_at"              json:"created_at"`
-	DeletedAt      int64                    `bson:"deleted_at"              json:"deleted_at"`
+	ID                  primitive.ObjectID       `bson:"_id,omitempty"           json:"id,omitempty"`
+	Version             string                   `bson:"version"                 json:"version"`
+	ProductName         string                   `bson:"product_name"            json:"productName"`
+	WorkflowName        string                   `bson:"workflow_name"           json:"workflowName"`
+	WorkflowDisplayName string                   `bson:"workflow_display_name"   json:"workflowDisplayName"`
+	Type                string                   `bson:"type"                    json:"type"`
+	TaskID              int                      `bson:"task_id"                 json:"taskId"`
+	Desc                string                   `bson:"desc"                    json:"desc"`
+	Labels              []string                 `bson:"labels"                  json:"labels"`
+	ProductEnvInfo      *Product                 `bson:"product_env_info"        json:"productEnvInfo"`
+	Status              string                   `bson:"status"                  json:"status"`
+	Error               string                   `bson:"error"                   json:"-"`
+	Progress            *DeliveryVersionProgress `bson:"-"                       json:"progress"`
+	CreateArgument      interface{}              `bson:"createArgument"          json:"-"`
+	CreatedBy           string                   `bson:"created_by"              json:"createdBy"`
+	CreatedAt           int64                    `bson:"created_at"              json:"created_at"`
+	DeletedAt           int64                    `bson:"deleted_at"              json:"deleted_at"`
 }
 
 func (DeliveryVersion) TableName() string {

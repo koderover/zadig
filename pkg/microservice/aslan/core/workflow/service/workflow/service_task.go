@@ -44,6 +44,7 @@ type ServiceTaskPreview struct {
 
 type Preview struct {
 	Name         string              `json:"name"`
+	DisplayName  string              `json:"display_name"`
 	WorkflowType config.PipelineType `json:"workflow_type"`
 }
 
@@ -103,7 +104,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 		if workflow.EnvName != "" && workflow.EnvName != envName {
 			continue
 		}
-		workflowPreview := &Preview{Name: workflow.Name, WorkflowType: config.WorkflowType}
+		workflowPreview := &Preview{Name: workflow.Name, WorkflowType: config.WorkflowType, DisplayName: workflow.DisplayName}
 		resp.Workflows = append(resp.Workflows, workflowPreview)
 	}
 
