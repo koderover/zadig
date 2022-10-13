@@ -415,9 +415,9 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	if !match {
-		err := fmt.Errorf("workflow name should match %s", WorkflowRegx)
-		logger.Errorf(err.Error())
-		return e.ErrUpsertWorkflow.AddErr(err)
+		errMsg := "工作流标识支持小写字母、数字和中划线"
+		logger.Error(errMsg)
+		return e.ErrUpsertWorkflow.AddDesc(errMsg)
 	}
 
 	project := &template.Product{}
