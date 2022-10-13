@@ -254,7 +254,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
 				continue
 			}
-			if err := job.MergeWebhookRepo(item.WorkflowArg, eventRepo); err != nil {
+			if err := job.MergeWebhookRepo(workflow, eventRepo); err != nil {
 				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
