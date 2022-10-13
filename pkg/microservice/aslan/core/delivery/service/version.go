@@ -400,7 +400,26 @@ func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogge
 	if err != nil {
 		return nil, err
 	}
-
+	names := []string{}
+	for _, version := range deliveryVersions {
+		if version.WorkflowName == "" {
+			continue
+		}
+		names = append(names, version.WorkflowName)
+	}
+	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{args.ProjectName}, Names: names})
+	if err != nil {
+		return nil, err
+	}
+	displayNameMap := map[string]string{}
+	for _, workflow := range workflows {
+		displayNameMap[workflow.Name] = workflow.DisplayName
+	}
+	for _, version := range deliveryVersions {
+		if name, ok := displayNameMap[version.WorkflowName]; ok {
+			version.WorkflowDisplayName = name
+		}
+	}
 	releaseInfos := make([]*ReleaseInfo, 0)
 	for _, deliveryVersion := range deliveryVersions {
 		releaseInfo, err := buildListReleaseResp(args.Verbosity, deliveryVersion, &DeliveryVersionFilter{ServiceName: args.ServiceName}, logger)
