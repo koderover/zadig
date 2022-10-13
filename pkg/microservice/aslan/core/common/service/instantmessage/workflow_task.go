@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -113,10 +114,11 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 }
 func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, error) {
 	workflowNotification := &workflowTaskNotification{
-		Task:        task,
-		BaseURI:     configbase.SystemAddress(),
-		WebHookType: notify.WebHookType,
-		TotalTime:   time.Now().Unix() - task.StartTime,
+		Task:               task,
+		EncodedDisplayName: url.PathEscape(task.WorkflowDisplayName),
+		BaseURI:            configbase.SystemAddress(),
+		WebHookType:        notify.WebHookType,
+		TotalTime:          time.Now().Unix() - task.StartTime,
 	}
 
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"markdownColorInfo\">工作流{{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批</font>{{else}}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{end}} \n"
@@ -130,7 +132,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		return "", "", nil, err
 	}
 	buttonContent := "点击查看更多信息"
-	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.Task.WorkflowDisplayName}}"
+	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
@@ -161,10 +163,11 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 
 func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, error) {
 	workflowNotification := &workflowTaskNotification{
-		Task:        task,
-		BaseURI:     configbase.SystemAddress(),
-		WebHookType: notify.WebHookType,
-		TotalTime:   time.Now().Unix() - task.StartTime,
+		Task:               task,
+		EncodedDisplayName: url.PathEscape(task.WorkflowDisplayName),
+		BaseURI:            configbase.SystemAddress(),
+		WebHookType:        notify.WebHookType,
+		TotalTime:          time.Now().Unix() - task.StartTime,
 	}
 
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
@@ -251,7 +254,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		return "", "", nil, err
 	}
 	buttonContent := "点击查看更多信息"
-	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.Task.WorkflowDisplayName}}"
+	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
 	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
@@ -286,10 +289,11 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 }
 
 type workflowTaskNotification struct {
-	Task        *models.WorkflowTask `json:"task"`
-	BaseURI     string               `json:"base_uri"`
-	WebHookType string               `json:"web_hook_type"`
-	TotalTime   int64                `json:"total_time"`
+	Task               *models.WorkflowTask `json:"task"`
+	EncodedDisplayName string               `json:"encoded_display_name"`
+	BaseURI            string               `json:"base_uri"`
+	WebHookType        string               `json:"web_hook_type"`
+	TotalTime          int64                `json:"total_time"`
 }
 
 func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (string, error) {
