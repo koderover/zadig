@@ -368,6 +368,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 										deliveryCommit.Branch = build.Branch
 										deliveryCommit.Tag = build.Tag
 										deliveryCommit.PR = build.PR
+										deliveryCommit.PRs = build.PRs
 										deliveryCommit.CommitID = build.CommitID
 										deliveryCommit.CommitMessage = build.CommitMessage
 										deliveryCommit.AuthorName = build.AuthorName

@@ -32,6 +32,7 @@ type Repository struct {
 	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"    yaml:"remote_name,omitempty"`
 	Branch        string `bson:"branch"                    json:"branch"                   yaml:"branch"`
 	PR            int    `bson:"pr,omitempty"              json:"pr,omitempty"             yaml:"pr,omitempty"`
+	PRs           []int  `bson:"prs,omitempty"             json:"prs,omitempty"            yaml:"prs,omitempty"`
 	Tag           string `bson:"tag,omitempty"             json:"tag,omitempty"            yaml:"tag,omitempty"`
 	CommitID      string `bson:"commit_id,omitempty"       json:"commit_id,omitempty"      yaml:"commit_id,omitempty"`
 	CommitMessage string `bson:"commit_message,omitempty"  json:"commit_message,omitempty" yaml:"commit_message,omitempty"`
@@ -152,6 +153,15 @@ func (r *Repository) PRRef() string {
 		return r.CheckoutRef
 	}
 	return fmt.Sprintf("refs/pull/%d/head", r.PR)
+}
+
+func (r *Repository) PRRefByPRID(pr int) string {
+	if strings.ToLower(r.Source) == ProviderGitlab || strings.ToLower(r.Source) == ProviderCodehub {
+		return fmt.Sprintf("merge-requests/%d/head", pr)
+	} else if strings.ToLower(r.Source) == ProviderGerrit {
+		return r.CheckoutRef
+	}
+	return fmt.Sprintf("refs/pull/%d/head", pr)
 }
 
 // BranchRef returns branch refs format

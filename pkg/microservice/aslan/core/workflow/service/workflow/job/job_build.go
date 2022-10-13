@@ -510,6 +510,7 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 			repo.Branch = cv.Branch
 			repo.Tag = cv.Tag
 			repo.PR = cv.PR
+			repo.PRs = cv.PRs
 		}
 	}
 	return templateRepos

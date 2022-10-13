@@ -802,6 +802,7 @@ type candidate struct {
 	Tag         string
 	CommitID    string
 	PR          int
+	PRs         []int
 	TaskID      int64
 	Timestamp   string
 	ProductName string
@@ -857,6 +858,7 @@ func ReleaseCandidate(builds []*types.Repository, taskID int64, productName, ser
 		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
 		CommitID:    commitID,
 		PR:          first.PR,
+		PRs:         first.PRs,
 		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
 		EnvName:     envName,
 		Timestamp:   timeStamp,
@@ -889,17 +891,17 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
 		}
 		currentRule = customRule.TagRule
-	} else if candidate.Branch != "" && candidate.PR != 0 {
+	} else if candidate.Branch != "" && (candidate.PR != 0 || len(candidate.PRs) > 0) {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
+			return fmt.Sprintf("%s:%s-%d-%s-pr-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, getCandidatePRsStr(candidate))
 		}
 		currentRule = customRule.PRAndBranchRule
-	} else if candidate.Branch == "" && candidate.PR != 0 {
+	} else if candidate.Branch == "" && (candidate.PR != 0 || len(candidate.PRs) > 0) {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
+			return fmt.Sprintf("%s:%s-%d-pr-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, getCandidatePRsStr(candidate))
 		}
 		currentRule = customRule.PRRule
-	} else if candidate.Branch != "" && candidate.PR == 0 {
+	} else if candidate.Branch != "" && candidate.PR == 0 && len(candidate.PRs) == 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
@@ -916,9 +918,22 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		ENV_NAME:       candidate.EnvName,
 		REPO_TAG:       candidate.Tag,
 		REPO_BRANCH:    candidate.Branch,
-		REPO_PR:        strconv.Itoa(candidate.PR),
+		REPO_PR:        getCandidatePRsStr(candidate),
 	})
 	return currentRule
+}
+
+func getCandidatePRsStr(candidate *candidate) string {
+	prStrs := []string{}
+	// pr was deprecated, so we use prs first
+	if candidate.PR != 0 && len(candidate.PRs) == 0 {
+		prStrs = append(prStrs, strconv.Itoa(candidate.PR))
+	} else {
+		for _, pr := range candidate.PRs {
+			prStrs = append(prStrs, strconv.Itoa(pr))
+		}
+	}
+	return strings.Join(prStrs, "-")
 }
 
 func ReplaceRuleVariable(rule string, replaceValue *Variable) string {

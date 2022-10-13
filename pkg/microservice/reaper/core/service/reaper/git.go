@@ -268,16 +268,21 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	cmds = append(cmds, &c.Command{Cmd: c.Fetch(repo.RemoteName, ref)}, &c.Command{Cmd: c.CheckoutHead()})
 
 	// PR rebase branch 请求
-	if repo.PR > 0 && len(repo.Branch) > 0 {
-		newBranch := fmt.Sprintf("pr%d", repo.PR)
-		ref := fmt.Sprintf("%s:%s", repo.PRRef(), newBranch)
+	if len(repo.PRs) > 0 && len(repo.Branch) > 0 {
 		cmds = append(
 			cmds,
 			&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, repo.BranchRef())},
 			&c.Command{Cmd: c.ResetMerge()},
-			&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, ref)},
-			&c.Command{Cmd: c.Merge(newBranch)},
 		)
+		for _, pr := range repo.PRs {
+			newBranch := fmt.Sprintf("pr%d", pr)
+			ref := fmt.Sprintf("%s:%s", repo.PRRefByPRID(pr), newBranch)
+			cmds = append(
+				cmds,
+				&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, ref)},
+				&c.Command{Cmd: c.Merge(newBranch)},
+			)
+		}
 	}
 
 	if repo.SubModules {

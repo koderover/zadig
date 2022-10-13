@@ -269,6 +269,7 @@ type Repository struct {
 	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"`
 	Branch        string `bson:"branch"                    json:"branch"`
 	PR            int    `bson:"pr,omitempty"              json:"pr,omitempty"`
+	PRs           []int  `bson:"prs,omitempty"             json:"prs,omitempty"`
 	Tag           string `bson:"tag,omitempty"             json:"tag,omitempty"`
 	CommitID      string `bson:"commit_id,omitempty"       json:"commit_id,omitempty"`
 	CommitMessage string `bson:"commit_message,omitempty"  json:"commit_message,omitempty"`

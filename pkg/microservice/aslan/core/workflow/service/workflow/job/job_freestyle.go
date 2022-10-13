@@ -159,6 +159,7 @@ func (j *FreeStyleJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 			return err
 		}
 		stepSpec.Repos = mergeRepos(stepSpec.Repos, []*types.Repository{webhookRepo})
+		step.Spec = stepSpec
 	}
 	j.job.Spec = j.spec
 	return nil
