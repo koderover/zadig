@@ -476,19 +476,29 @@ func getlatestPrNum(build *types.Repository) int {
 
 // 根据传入的build arg设置build参数
 func setBuildFromArg(build, buildArg *types.Repository) {
-	// 单pr编译
+	// single pr build
 	if buildArg.PR > 0 && len(buildArg.Branch) == 0 {
-		build.PR = buildArg.PR
+		build.PRs = []int{buildArg.PR}
 		build.Branch = ""
 	}
-	//pr rebase branch编译
+	//single pr rebase branch build
 	if buildArg.PR > 0 && len(buildArg.Branch) > 0 {
-		build.PR = buildArg.PR
+		build.PRs = []int{buildArg.PR}
 		build.Branch = buildArg.Branch
 	}
-	// 单branch编译
-	if buildArg.PR == 0 && len(buildArg.Branch) > 0 {
-		build.PR = 0
+	// multi prs build
+	if len(buildArg.PRs) > 0 && len(buildArg.Branch) == 0 {
+		build.PRs = buildArg.PRs
+		build.Branch = ""
+	}
+	//multi prs rebase branch build
+	if len(buildArg.PRs) > 0 && len(buildArg.Branch) > 0 {
+		build.PRs = buildArg.PRs
+		build.Branch = buildArg.Branch
+	}
+	// single branch build
+	if buildArg.PR == 0 && len(buildArg.PRs) == 0 && len(buildArg.Branch) > 0 {
+		build.PRs = []int{}
 		build.Branch = buildArg.Branch
 	}
 
