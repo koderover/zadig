@@ -353,44 +353,55 @@ func (r *Reaper) prepareDockerfile() error {
 	return nil
 }
 
-func (r *Reaper) Exec() error {
+func (r *Reaper) Exec() (err error) {
 	log.Info("Installing Dependency Packages.")
 	startTimeInstallDeps := time.Now()
-	if err := r.runIntallationScripts(); err != nil {
-		return fmt.Errorf("failed to install dependency packages: %s", err)
+	if err = r.runIntallationScripts(); err != nil {
+		err = fmt.Errorf("failed to install dependency packages: %s", err)
+		return
 	}
 	log.Infof("Install ended. Duration: %.2f seconds.", time.Since(startTimeInstallDeps).Seconds())
 
 	log.Info("Cloning Repository.")
 	startTimeCloneRepo := time.Now()
-	if err := r.runGitCmds(); err != nil {
-		return fmt.Errorf("failed to clone repository: %s", err)
+	if err = r.runGitCmds(); err != nil {
+		err = fmt.Errorf("failed to clone repository: %s", err)
+		return
 	}
 	log.Infof("Clone ended. Duration: %.2f seconds.", time.Since(startTimeCloneRepo).Seconds())
 
-	if err := r.createReadme(ReadmeFile); err != nil {
+	if err = r.createReadme(ReadmeFile); err != nil {
 		log.Warningf("Failed to create README file: %s", err)
 	}
 
 	// for build/test/scanner of type other than sonar, we run the script
 	if !r.Ctx.ScannerFlag || r.Ctx.ScannerType != types.ScanningTypeSonar {
+		defer func() {
+			collectErr := r.CollectTestResults()
+			if collectErr != nil {
+				err = collectErr
+			}
+		}()
 		log.Info("Executing User Build Script.")
 		startTimeRunBuildScript := time.Now()
-		if err := r.runScripts(); err != nil {
-			return fmt.Errorf("failed to execute user build script: %s", err)
+		if err = r.runScripts(); err != nil {
+			err = fmt.Errorf("failed to execute user build script: %s", err)
+			return
 		}
 		log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
 	} else {
 		// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
 		log.Info("Executing SonarQube Scanning process.")
 		startTimeRunSonar := time.Now()
-		if err := r.runSonarScanner(); err != nil {
-			return fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
+		if err = r.runSonarScanner(); err != nil {
+			err = fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
+			return
 		}
 		log.Infof("Sonar scan ended. Duration %.2f seconds.", time.Since(startTimeRunSonar).Seconds())
 	}
 
-	return r.runDockerBuild()
+	err = r.runDockerBuild()
+	return
 }
 
 func (r *Reaper) CollectTestResults() error {

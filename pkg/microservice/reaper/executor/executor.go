@@ -40,17 +40,7 @@ func Execute() error {
 
 	var err error
 	var reaperType types.ReaperType
-	var r *reaper.Reaper
-	r, err = reaper.NewReaper()
-	if err != nil {
-		return fmt.Errorf("failed to new reaper: %s", err)
-	}
-
 	defer func() {
-		collectErr := r.CollectTestResults()
-		if collectErr != nil {
-			err = collectErr
-		}
 		// Create dog food file to tell wd that task has finished.
 		resultMsg := types.JobSuccess
 		if err != nil {
@@ -73,6 +63,12 @@ func Execute() error {
 		time.Sleep(30 * time.Second)
 	}()
 
+	var r *reaper.Reaper
+	r, err = reaper.NewReaper()
+	if err != nil {
+		return fmt.Errorf("failed to new reaper: %s", err)
+	}
+	
 	reaperType = r.Type
 	log.Infof("====================== %s Start ======================", reaperType)
 
