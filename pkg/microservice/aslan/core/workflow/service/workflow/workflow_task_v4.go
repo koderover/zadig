@@ -312,7 +312,17 @@ func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *za
 		logger.Errorf("list workflowTaskV4 error: %s", err)
 		return resp, total, err
 	}
+	cleanWorkflowV4Tasks(resp)
 	return resp, total, nil
+}
+
+// clean extra message for list workflow
+func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
+	for _, workflow := range workflows {
+		workflow.WorkflowArgs = nil
+		workflow.OriginWorkflowArgs = nil
+		workflow.Stages = nil
+	}
 }
 
 func CancelWorkflowTaskV4(userName, workflowName string, taskID int64, logger *zap.SugaredLogger) error {
