@@ -370,12 +370,13 @@ func (r *Reaper) Exec() (err error) {
 	}
 	log.Infof("Clone ended. Duration: %.2f seconds.", time.Since(startTimeCloneRepo).Seconds())
 
-	if err = r.createReadme(ReadmeFile); err != nil {
+	if err := r.createReadme(ReadmeFile); err != nil {
 		log.Warningf("Failed to create README file: %s", err)
 	}
 
 	// for build/test/scanner of type other than sonar, we run the script
 	if !r.Ctx.ScannerFlag || r.Ctx.ScannerType != types.ScanningTypeSonar {
+	    // collect test result regardless of excution result
 		defer func() {
 			collectErr := r.CollectTestResults()
 			if collectErr != nil {
