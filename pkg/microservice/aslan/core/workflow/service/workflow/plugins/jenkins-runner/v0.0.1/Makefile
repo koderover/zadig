@@ -3,6 +3,4 @@ VERSION = v0.0.1
 
 build: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/jenkins-runner:${VERSION}
 build:
-	@go mod init jenkins-runner
-	@go mod tidy
 	@docker buildx build -t ${MAKE_IMAGE} --platform linux/amd64,linux/arm64 -f Dockerfile --push .
