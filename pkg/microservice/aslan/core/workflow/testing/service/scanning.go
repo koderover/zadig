@@ -257,9 +257,10 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		Registries: registries,
 		Parameter:  scanningInfo.Parameter,
 		Script:     scanningInfo.Script,
-		Timeout:    DefaultScanningTimeout,
-		ClusterID:  scanningInfo.AdvancedSetting.ClusterID,
-		Repos:      repos,
+		// the timeout we save is measured in minute
+		Timeout:   scanningInfo.AdvancedSetting.Timeout * 60,
+		ClusterID: scanningInfo.AdvancedSetting.ClusterID,
+		Repos:     repos,
 	}
 
 	if scanningInfo.ScannerType == "sonarQube" {
