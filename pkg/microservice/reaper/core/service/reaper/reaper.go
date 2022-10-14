@@ -393,45 +393,49 @@ func (r *Reaper) Exec() error {
 	return r.runDockerBuild()
 }
 
-func (r *Reaper) AfterExec() error {
-	if r.Ctx.GinkgoTest != nil {
-		resultPath := r.Ctx.GinkgoTest.ResultPath
-		if resultPath != "" && !strings.HasPrefix(resultPath, "/") {
-			resultPath = filepath.Join(r.ActiveWorkspace, resultPath)
-		}
+func (r *Reaper) CollectTestResults() error {
+	if r.Ctx.GinkgoTest == nil {
+		return nil
+	}
+	resultPath := r.Ctx.GinkgoTest.ResultPath
+	if resultPath != "" && !strings.HasPrefix(resultPath, "/") {
+		resultPath = filepath.Join(r.ActiveWorkspace, resultPath)
+	}
 
-		if r.Ctx.TestType == "" {
-			r.Ctx.TestType = setting.FunctionTest
-		}
+	if r.Ctx.TestType == "" {
+		r.Ctx.TestType = setting.FunctionTest
+	}
 
-		switch r.Ctx.TestType {
-		case setting.FunctionTest:
-			err := mergeGinkgoTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir, r.StartTime)
-			if err != nil {
-				return fmt.Errorf("failed to merge test result: %s", err)
-			}
-		case setting.PerformanceTest:
-			err := JmeterTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir)
-			if err != nil {
-				return fmt.Errorf("failed to archive performance test result: %s", err)
-			}
+	switch r.Ctx.TestType {
+	case setting.FunctionTest:
+		err := mergeGinkgoTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir, r.StartTime)
+		if err != nil {
+			return fmt.Errorf("failed to merge test result: %s", err)
 		}
-
-		if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
-			if err := artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
-				return fmt.Errorf("failed to upload artifacts: %s", err)
-			}
-		}
-
-		if err := r.archiveTestFiles(); err != nil {
-			return fmt.Errorf("failed to archive test files: %s", err)
-		}
-
-		if err := r.archiveHTMLTestReportFile(); err != nil {
-			return fmt.Errorf("failed to archive HTML test report: %s", err)
+	case setting.PerformanceTest:
+		err := JmeterTestResults(r.Ctx.Archive.File, resultPath, r.Ctx.Archive.Dir)
+		if err != nil {
+			return fmt.Errorf("failed to archive performance test result: %s", err)
 		}
 	}
 
+	if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
+		if err := artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
+			return fmt.Errorf("failed to upload artifacts: %s", err)
+		}
+	}
+
+	if err := r.archiveTestFiles(); err != nil {
+		return fmt.Errorf("failed to archive test files: %s", err)
+	}
+
+	if err := r.archiveHTMLTestReportFile(); err != nil {
+		return fmt.Errorf("failed to archive HTML test report: %s", err)
+	}
+	return nil
+}
+
+func (r *Reaper) AfterExec() error {
 	if r.Ctx.ArtifactInfo == nil {
 		if err := r.archiveS3Files(); err != nil {
 			return fmt.Errorf("failed to archive S3 files: %s", err)
