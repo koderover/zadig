@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -554,7 +555,7 @@ func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.Sugar
 	resp := []*ServiceMatchedDeploymentContainers{}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		log.Errorf("get kubeclient error: %v, clusterID: %S", err, clusterID)
+		log.Errorf("get kubeclient error: %v, clusterID: %s", err, clusterID)
 		return resp, err
 	}
 	services, err := getter.ListServices(namespace, labels.Everything(), kubeClient)
@@ -582,6 +583,43 @@ func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.Sugar
 			deploymentContainers.Deployment.ContainerNames = append(deploymentContainers.Deployment.ContainerNames, container.Name)
 		}
 		resp = append(resp, deploymentContainers)
+	}
+	return resp, nil
+}
+
+func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
+	resp := make([]string, 0)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("get kubeclient error: %v, clusterID: %s", err, clusterID)
+		return resp, err
+	}
+	discoveryCli, err := kubeclient.GetDiscoveryClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("get discovery client clusterID:%s error:%v", clusterID, err)
+		return resp, err
+	}
+	apiResources, err := discoveryCli.ServerPreferredNamespacedResources()
+	if err != nil {
+		log.Errorf("clusterID: %s, list api resources error:%v", clusterID, err)
+		return resp, err
+	}
+	for _, apiGroup := range apiResources {
+		for _, apiResource := range apiGroup.APIResources {
+			gvk := schema.GroupVersionKind{
+				Group:   apiResource.Group,
+				Version: apiResource.Version,
+				Kind:    apiResource.Kind,
+			}
+			resources, err := getter.ListUnstructuredResourceInCache(namespace, labels.Everything(), nil, gvk, kubeClient)
+			if err != nil {
+				log.Errorf("list resources %s/%s %s error:%v", apiResource.Group, apiResource.Version, apiResource.Kind, err)
+				return resp, err
+			}
+			for _, resource := range resources {
+				resp = append(resp, strings.Join([]string{resource.GetKind(), resource.GetName()}, "/"))
+			}
+		}
 	}
 	return resp, nil
 }

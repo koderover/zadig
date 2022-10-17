@@ -200,6 +200,19 @@ type CanaryTarget struct {
 	WorkloadType  string `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
 }
 
+type K8sPatchJobSpec struct {
+	ClusterID  string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace  string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	PatchItems []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+}
+
+type PatchItem struct {
+	Resource     string `bson:"resource"                json:"resource"               yaml:"resource"`
+	PatchContent string `bson:"patch_content"           json:"patch_content"          yaml:"patch_content"`
+	// support strategic-merge/merge/json
+	PatchStrategy string `bson:"patch_strategy"          json:"patch_strategy"         yaml:"patch_strategy"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`
