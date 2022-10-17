@@ -618,7 +618,7 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 			resources, err := getter.ListUnstructuredResourceInCache(namespace, labels.Everything(), nil, gvk, kubeClient)
 			if err != nil {
 				log.Errorf("list resources %s %s error:%v", apiGroup.GroupVersion, apiResource.Kind, err)
-				return resp, err
+				continue
 			}
 			for _, resource := range resources {
 				resp = append(resp, strings.Join([]string{resource.GetKind(), resource.GetName()}, "/"))
