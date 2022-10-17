@@ -165,21 +165,11 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	return helmService, nil
 }
 
-func getCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
-	bs, err := json.Marshal(createFrom)
-	if err != nil {
-		return nil, err
-	}
-	ret := &models.CreateFromChartTemplate{}
-	err = json.Unmarshal(bs, ret)
-	return ret, err
-}
-
 func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
 	if serviceTemplate.Source != setting.SourceFromChartTemplate {
 		return nil
 	}
-	creation, err := getCreateFromChartTemplate(serviceTemplate.CreateFrom)
+	creation, err := commonservice.GetCreateFromChartTemplate(serviceTemplate.CreateFrom)
 	if err != nil {
 		return fmt.Errorf("failed to get creation detail: %s", err)
 	}
@@ -202,37 +192,6 @@ func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
 		variables = append(variables, &models.Variable{Key: v.Key, Value: value})
 	}
 	creation.Variables = variables
-	serviceTemplate.CreateFrom = creation
-	return nil
-}
-
-func fillServiceCreationInfo(serviceTemplate *models.Service) error {
-	if serviceTemplate.Source != setting.SourceFromChartTemplate {
-		return nil
-	}
-	creation, err := getCreateFromChartTemplate(serviceTemplate.CreateFrom)
-	if err != nil {
-		return fmt.Errorf("failed to get creation detail: %s", err)
-	}
-
-	if creation.YamlData == nil || creation.YamlData.Source != setting.SourceFromGitRepo {
-		return nil
-	}
-
-	bs, err := json.Marshal(creation.YamlData.SourceDetail)
-	if err != nil {
-		return err
-	}
-	cfr := &models.CreateFromRepo{}
-	err = json.Unmarshal(bs, cfr)
-	if err != nil {
-		return err
-	}
-	if cfr.GitRepoConfig == nil {
-		return nil
-	}
-	cfr.GitRepoConfig.Namespace = cfr.GitRepoConfig.GetNamespace()
-	creation.YamlData.SourceDetail = cfr
 	serviceTemplate.CreateFrom = creation
 	return nil
 }
@@ -264,7 +223,7 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 		// NOTE source template may be deleted, error should not block the following logic
 		log.Warnf("failed to fill service template variables for service: %s, err: %s", serviceTemplate.ServiceName, err)
 	}
-	err = fillServiceCreationInfo(serviceTemplate)
+	err = commonservice.FillServiceCreationInfo(serviceTemplate)
 	if err != nil {
 		// NOTE since the source of yaml can always be selected when reloading, error should not block the following logic
 		log.Warnf("failed to fill git namespace for yaml source : %s, err: %s", serviceTemplate.ServiceName, err)
