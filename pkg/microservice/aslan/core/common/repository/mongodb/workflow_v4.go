@@ -232,3 +232,17 @@ func (c *WorkflowV4Coll) DeleteByID(idString string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
+
+func (c *WorkflowV4Coll) ListByCursor(opt *ListWorkflowV4Option) (*mongo.Cursor, error) {
+	query := bson.M{}
+	if opt.ProjectName != "" {
+		query["project"] = opt.ProjectName
+	}
+	if opt.DisplayName != "" {
+		query["display_name"] = opt.DisplayName
+	}
+	if len(opt.Names) > 0 {
+		query["name"] = bson.M{"$in": opt.Names}
+	}
+	return c.Collection.Find(context.TODO(), query)
+}

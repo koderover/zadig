@@ -54,12 +54,16 @@ func V1160ToV1150() error {
 }
 
 func addDisplayNameToWorkflowV4() error {
-	workflows, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{}, 0, 0)
+	cursor, err := mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{})
 	if err != nil {
 		return err
 	}
 	var ms []mongo.WriteModel
-	for _, workflow := range workflows {
+	for cursor.Next(context.Background()) {
+		var workflow models.WorkflowV4
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
 		displayName := workflow.DisplayName
 		if workflow.DisplayName == "" {
 			displayName = workflow.Name
@@ -92,12 +96,16 @@ func addDisplayNameToWorkflowV4() error {
 		}
 	}
 
-	workflowtasks, _, err := mongodb.NewworkflowTaskv4Coll().List(&mongodb.ListWorkflowTaskV4Option{})
+	taskCursor, err := mongodb.NewworkflowTaskv4Coll().ListByCursor(&mongodb.ListWorkflowTaskV4Option{})
 	if err != nil {
-		return nil
+		return err
 	}
 	var mTasks []mongo.WriteModel
-	for _, workflowTask := range workflowtasks {
+	for taskCursor.Next(context.Background()) {
+		var workflowTask models.WorkflowTask
+		if err := taskCursor.Decode(&workflowTask); err != nil {
+			return err
+		}
 		displayName := workflowTask.WorkflowDisplayName
 		if workflowTask.WorkflowDisplayName == "" {
 			displayName = workflowTask.WorkflowName
@@ -185,12 +193,16 @@ func setPRsforWorkflowV4(workflow *models.WorkflowV4) {
 }
 
 func addDisplayNameToWorkflow() error {
-	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{})
+	cursor, err := mongodb.NewWorkflowColl().ListByCursor(&mongodb.ListWorkflowOption{})
 	if err != nil {
 		return err
 	}
 	var ms []mongo.WriteModel
-	for _, workflow := range workflows {
+	for cursor.Next(context.Background()) {
+		var workflow models.Workflow
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
 		if workflow.DisplayName != "" {
 			continue
 		}
@@ -218,17 +230,21 @@ func addDisplayNameToWorkflow() error {
 		}
 	}
 
-	workflowtasks, err := mongodb.NewTaskColl().ListAllTasks(&mongodb.ListAllTaskOption{})
+	taskCursor, err := mongodb.NewTaskColl().ListByCursor(&mongodb.ListAllTaskOption{})
 	if err != nil {
-		return nil
+		return err
 	}
 	var mTasks []mongo.WriteModel
-	for _, workflowTask := range workflowtasks {
+	for taskCursor.Next(context.Background()) {
+		var workflowTask task.Task
+		if err := cursor.Decode(&workflowTask); err != nil {
+			return err
+		}
 		displayName := workflowTask.PipelineDisplayName
 		if workflowTask.PipelineDisplayName == "" {
 			displayName = workflowTask.PipelineName
 		}
-		setPRsForWorkflowTask(workflowTask)
+		setPRsForWorkflowTask(&workflowTask)
 		mTasks = append(mTasks,
 			mongo.NewUpdateOneModel().
 				SetFilter(bson.D{{"_id", workflowTask.ID}}).
