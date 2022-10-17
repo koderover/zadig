@@ -98,6 +98,7 @@ type ServiceProductMap struct {
 	LoadFromDir      bool                      `json:"is_dir"`
 	GerritRemoteName string                    `json:"gerrit_remote_name,omitempty"`
 	CreateFrom       interface{}               `json:"create_from"`
+	AutoSync         bool                      `json:"auto_sync"`
 }
 
 var (
@@ -217,6 +218,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			LoadPath:         serviceObject.LoadPath,
 			GerritRemoteName: serviceObject.GerritRemoteName,
 			CreateFrom:       serviceObject.CreateFrom,
+			AutoSync:         serviceObject.AutoSync,
 		}
 
 		if _, ok := serviceToProject[serviceObject.ServiceName]; ok {
