@@ -606,13 +606,20 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 	}
 	for _, apiGroup := range apiResources {
 		for _, apiResource := range apiGroup.APIResources {
+			version := ""
+			group := ""
 			groupVersions := strings.Split(apiGroup.GroupVersion, "/")
-			if len(groupVersions) != 2 {
+			if len(groupVersions) == 2 {
+				group = groupVersions[0]
+				version = groupVersions[1]
+			} else if len(groupVersions) == 1 {
+				version = groupVersions[0]
+			} else {
 				continue
 			}
 			gvk := schema.GroupVersionKind{
-				Group:   groupVersions[0],
-				Version: groupVersions[1],
+				Group:   group,
+				Version: version,
 				Kind:    apiResource.Kind,
 			}
 			resources, err := getter.ListUnstructuredResourceInCache(namespace, labels.Everything(), nil, gvk, kubeClient)
