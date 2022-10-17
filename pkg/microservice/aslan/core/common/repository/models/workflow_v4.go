@@ -207,8 +207,11 @@ type K8sPatchJobSpec struct {
 }
 
 type PatchItem struct {
-	Resource     string `bson:"resource"                json:"resource"               yaml:"resource"`
-	PatchContent string `bson:"patch_content"           json:"patch_content"          yaml:"patch_content"`
+	ResourceName    string `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
+	ResourceKind    string `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`
+	ResourceGroup   string `bson:"resource_group"               json:"resource_group"              yaml:"resource_group"`
+	ResourceVersion string `bson:"resource_version"             json:"resource_version"            yaml:"resource_version"`
+	PatchContent    string `bson:"patch_content"                json:"patch_content"               yaml:"patch_content"`
 	// support strategic-merge/merge/json
 	PatchStrategy string `bson:"patch_strategy"          json:"patch_strategy"         yaml:"patch_strategy"`
 }

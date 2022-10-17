@@ -587,8 +587,15 @@ func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.Sugar
 	return resp, nil
 }
 
-func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
-	resp := make([]string, 0)
+type K8sResource struct {
+	ResourceName    string `json:"resource_name"`
+	ResourceKind    string `json:"resource_kind"`
+	ResourceGroup   string `json:"resource_group"`
+	ResourceVersion string `json:"resource_version"`
+}
+
+func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.SugaredLogger) ([]*K8sResource, error) {
+	resp := []*K8sResource{}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("get kubeclient error: %v, clusterID: %s", err, clusterID)
@@ -599,6 +606,7 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 		log.Errorf("get discovery client clusterID:%s error:%v", clusterID, err)
 		return resp, err
 	}
+	discoveryCli.ServerGroups()
 	apiResources, err := discoveryCli.ServerPreferredNamespacedResources()
 	if err != nil {
 		log.Errorf("clusterID: %s, list api resources error:%v", clusterID, err)
@@ -628,7 +636,12 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 				continue
 			}
 			for _, resource := range resources {
-				resp = append(resp, strings.Join([]string{resource.GetKind(), resource.GetName()}, "/"))
+				resp = append(resp, &K8sResource{
+					ResourceName:    resource.GetName(),
+					ResourceKind:    resource.GetKind(),
+					ResourceGroup:   group,
+					ResourceVersion: version,
+				})
 			}
 		}
 	}
