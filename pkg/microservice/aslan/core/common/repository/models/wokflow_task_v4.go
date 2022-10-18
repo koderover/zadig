@@ -201,6 +201,19 @@ type JobTaskCanaryReleaseSpec struct {
 	Events         *Events `bson:"events"                 json:"events"                yaml:"events"`
 }
 
+type JobTaskGrayDeploySpec struct {
+	ClusterID          string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	Namespace          string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
+	WorkloadType       string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
+	WorkloadName       string `bson:"workload_name"          json:"workload_name"          yaml:"workload_name"`
+	ContainerName      string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
+	Image              string `bson:"image"                  json:"image"                  yaml:"image"`
+	CanaryWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
+	// unit is minute.
+	DeployTimeout int64   `bson:"deploy_timeout"        json:"deploy_timeout"       yaml:"deploy_timeout"`
+	Events        *Events `bson:"events"                json:"events"               yaml:"events"`
+}
+
 type Event struct {
 	EventType string `bson:"event_type"             json:"event_type"            yaml:"event_type"`
 	Time      string `bson:"time"                   json:"time"                  yaml:"time"`

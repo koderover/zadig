@@ -200,6 +200,23 @@ type CanaryTarget struct {
 	WorkloadType  string `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
 }
 
+type GrayDeployJobSpec struct {
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	FromJob          string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
+	// unit is minute.
+	DeployTimeout int64 `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
+	GrayScale     int   `bson:"gray_scale"             json:"gray_scale"            yaml:"gray_scale"`
+}
+
+type GrayDeployTarget struct {
+	ResourceType  string `bson:"resource_type"             json:"resource_type"            yaml:"resource_type"`
+	ResourceName  string `bson:"resource_name"             json:"resource_name"            yaml:"resource_name"`
+	ContainerName string `bson:"container_name"            json:"container_name"           yaml:"container_name"`
+	Image         string `bson:"image"                     json:"image"                    yaml:"image"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`
