@@ -111,7 +111,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflow.DELETE("/:name", GetProductNameByWorkflow, DeleteWorkflow)
 		workflow.GET("/preset/:productName", PreSetWorkflow)
 
-		workflow.PUT("/old/:old/new/:new", CopyWorkflow)
+		workflow.PUT("/old/:old/new/:new/:newDisplay", CopyWorkflow)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -199,6 +199,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)
 		taskV4.POST("/approve", ApproveStage)
 		taskV4.GET("/workflow/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4ArtifactFileContent)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// workflow view 接口
+	// ---------------------------------------------------------------------------------------
+	view := router.Group("view")
+	{
+		view.POST("", CreateWorkflowView)
+		view.GET("", ListWorkflowViewNames)
+		view.GET("/preset", GetWorkflowViewPreset)
+		view.DELETE("/:projectName/:viewName", DeleteWorkflowView)
+		view.PUT("", UpdateWorkflowView)
 	}
 
 	// ---------------------------------------------------------------------------------------

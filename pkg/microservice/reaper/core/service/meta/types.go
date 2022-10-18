@@ -270,6 +270,7 @@ type Repo struct {
 	RemoteName         string         `yaml:"remote_name"`
 	Branch             string         `yaml:"branch"`
 	PR                 int            `yaml:"pr"`
+	PRs                []int          `yaml:"prs"`
 	Tag                string         `yaml:"tag"`
 	CheckoutPath       string         `yaml:"checkout_path"`
 	SubModules         bool           `yaml:"submodules"`
@@ -295,6 +296,15 @@ func (r *Repo) PRRef() string {
 		return r.CheckoutRef
 	}
 	return fmt.Sprintf("refs/pull/%d/head", r.PR)
+}
+
+func (r *Repo) PRRefByPRID(pr int) string {
+	if strings.ToLower(r.Source) == ProviderGitlab || strings.ToLower(r.Source) == ProviderCodehub {
+		return fmt.Sprintf("merge-requests/%d/head", pr)
+	} else if strings.ToLower(r.Source) == ProviderGerrit {
+		return r.CheckoutRef
+	}
+	return fmt.Sprintf("refs/pull/%d/head", pr)
 }
 
 // BranchRef returns branch refs format

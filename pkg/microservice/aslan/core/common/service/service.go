@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -96,6 +97,8 @@ type ServiceProductMap struct {
 	LoadPath         string                    `json:"load_path"`
 	LoadFromDir      bool                      `json:"is_dir"`
 	GerritRemoteName string                    `json:"gerrit_remote_name,omitempty"`
+	CreateFrom       interface{}               `json:"create_from"`
+	AutoSync         bool                      `json:"auto_sync"`
 }
 
 var (
@@ -105,6 +108,47 @@ var (
 		{setting.PathSearchComponentImage: "image"},
 	}
 )
+
+func GetCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
+	bs, err := json.Marshal(createFrom)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.CreateFromChartTemplate{}
+	err = json.Unmarshal(bs, ret)
+	return ret, err
+}
+
+func FillServiceCreationInfo(serviceTemplate *models.Service) error {
+	if serviceTemplate.Source != setting.SourceFromChartTemplate {
+		return nil
+	}
+	creation, err := GetCreateFromChartTemplate(serviceTemplate.CreateFrom)
+	if err != nil {
+		return fmt.Errorf("failed to get creation detail: %s", err)
+	}
+
+	if creation.YamlData == nil || creation.YamlData.Source != setting.SourceFromGitRepo {
+		return nil
+	}
+
+	bs, err := json.Marshal(creation.YamlData.SourceDetail)
+	if err != nil {
+		return err
+	}
+	cfr := &models.CreateFromRepo{}
+	err = json.Unmarshal(bs, cfr)
+	if err != nil {
+		return err
+	}
+	if cfr.GitRepoConfig == nil {
+		return nil
+	}
+	cfr.GitRepoConfig.Namespace = cfr.GitRepoConfig.GetNamespace()
+	creation.YamlData.SourceDetail = cfr
+	serviceTemplate.CreateFrom = creation
+	return nil
+}
 
 // ListServiceTemplate 列出服务模板
 func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
@@ -149,10 +193,13 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			if err != nil {
 				return nil, err
 			}
-
 			serviceObject.LoadFromDir = true
 		}
 
+		err = FillServiceCreationInfo(serviceObject)
+		if err != nil {
+			log.Warnf("faile to fill service creation info: %s", err)
+		}
 		spmap := &ServiceProductMap{
 			Service:          serviceObject.ServiceName,
 			Type:             serviceObject.Type,
@@ -170,6 +217,8 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			LoadFromDir:      serviceObject.LoadFromDir,
 			LoadPath:         serviceObject.LoadPath,
 			GerritRemoteName: serviceObject.GerritRemoteName,
+			CreateFrom:       serviceObject.CreateFrom,
+			AutoSync:         serviceObject.AutoSync,
 		}
 
 		if _, ok := serviceToProject[serviceObject.ServiceName]; ok {
@@ -802,6 +851,7 @@ type candidate struct {
 	Tag         string
 	CommitID    string
 	PR          int
+	PRs         []int
 	TaskID      int64
 	Timestamp   string
 	ProductName string
@@ -857,6 +907,7 @@ func ReleaseCandidate(builds []*types.Repository, taskID int64, productName, ser
 		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
 		CommitID:    commitID,
 		PR:          first.PR,
+		PRs:         first.PRs,
 		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
 		EnvName:     envName,
 		Timestamp:   timeStamp,
@@ -889,17 +940,17 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
 		}
 		currentRule = customRule.TagRule
-	} else if candidate.Branch != "" && candidate.PR != 0 {
+	} else if candidate.Branch != "" && (candidate.PR != 0 || len(candidate.PRs) > 0) {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
+			return fmt.Sprintf("%s:%s-%d-%s-pr-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, getCandidatePRsStr(candidate))
 		}
 		currentRule = customRule.PRAndBranchRule
-	} else if candidate.Branch == "" && candidate.PR != 0 {
+	} else if candidate.Branch == "" && (candidate.PR != 0 || len(candidate.PRs) > 0) {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
+			return fmt.Sprintf("%s:%s-%d-pr-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, getCandidatePRsStr(candidate))
 		}
 		currentRule = customRule.PRRule
-	} else if candidate.Branch != "" && candidate.PR == 0 {
+	} else if candidate.Branch != "" && candidate.PR == 0 && len(candidate.PRs) == 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
@@ -916,9 +967,22 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		ENV_NAME:       candidate.EnvName,
 		REPO_TAG:       candidate.Tag,
 		REPO_BRANCH:    candidate.Branch,
-		REPO_PR:        strconv.Itoa(candidate.PR),
+		REPO_PR:        getCandidatePRsStr(candidate),
 	})
 	return currentRule
+}
+
+func getCandidatePRsStr(candidate *candidate) string {
+	prStrs := []string{}
+	// pr was deprecated, so we use prs first
+	if candidate.PR != 0 && len(candidate.PRs) == 0 {
+		prStrs = append(prStrs, strconv.Itoa(candidate.PR))
+	} else {
+		for _, pr := range candidate.PRs {
+			prStrs = append(prStrs, strconv.Itoa(pr))
+		}
+	}
+	return strings.Join(prStrs, "-")
 }
 
 func ReplaceRuleVariable(rule string, replaceValue *Variable) string {

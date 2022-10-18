@@ -41,13 +41,14 @@ type StatusOptions struct {
 
 	AslanURL    string
 	PipeName    string
+	DisplayName string
 	ProductName string
 	PipeType    config.PipelineType
 	TaskID      int64
 }
 
 func (c *Client) UpdateCheckStatus(opt *StatusOptions) error {
-	sc := setting.ProductName + "/" + opt.PipeName
+	sc := setting.ProductName + "/" + opt.DisplayName
 	_, err := c.CreateStatus(
 		context.TODO(), opt.Owner, opt.Repo, opt.Ref,
 		&github.RepoStatus{
@@ -57,6 +58,7 @@ func (c *Client) UpdateCheckStatus(opt *StatusOptions) error {
 				opt.AslanURL,
 				opt.ProductName,
 				opt.PipeName,
+				opt.DisplayName,
 				opt.PipeType,
 				opt.TaskID,
 			)),

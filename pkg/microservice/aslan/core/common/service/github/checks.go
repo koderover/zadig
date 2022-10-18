@@ -19,6 +19,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/google/go-github/v35/github"
@@ -54,6 +55,7 @@ type GitCheck struct {
 
 	AslanURL    string
 	PipeName    string
+	DisplayName string
 	ProductName string
 	PipeType    config.PipelineType
 	TaskID      int64
@@ -66,6 +68,7 @@ func (gc *GitCheck) DetailsURL() string {
 		gc.AslanURL,
 		gc.ProductName,
 		gc.PipeName,
+		gc.DisplayName,
 		gc.PipeType,
 		gc.TaskID,
 	)
@@ -73,14 +76,16 @@ func (gc *GitCheck) DetailsURL() string {
 	return url
 }
 
-func GetTaskLink(baseURI, productName, pipelineName string, pipelineType config.PipelineType, taskID int64) string {
+func GetTaskLink(baseURI, productName, pipelineName, displayName string, pipelineType config.PipelineType, taskID int64) string {
+	disPlayNameEncoded := url.QueryEscape(displayName)
 	return fmt.Sprintf(
-		"%s/v1/projects/detail/%s/pipelines/%s/%s/%d",
+		"%s/v1/projects/detail/%s/pipelines/%s/%s/%d?display_name=%s",
 		baseURI,
 		productName,
 		UIType(pipelineType),
 		pipelineName,
 		taskID,
+		disPlayNameEncoded,
 	)
 }
 
@@ -98,7 +103,7 @@ func UIType(pipelineType config.PipelineType) string {
 func (c *Client) StartGitCheck(check *GitCheck) (int64, error) {
 
 	opt := github.CreateCheckRunOptions{
-		Name:       fmt.Sprintf("Aslan - %s", check.PipeName),
+		Name:       fmt.Sprintf("Aslan - %s", check.DisplayName),
 		HeadSHA:    check.Ref,
 		DetailsURL: github.String(check.DetailsURL()),
 		ExternalID: github.String(fmt.Sprintf("%s/%d", check.PipeName, check.TaskID)),
@@ -119,7 +124,7 @@ func (c *Client) StartGitCheck(check *GitCheck) (int64, error) {
 // https://developer.github.com/v3/checks/runs/#update-a-check-run
 func (c *Client) UpdateGitCheck(gitCheckID int64, check *GitCheck) error {
 	opt := github.UpdateCheckRunOptions{
-		Name:       fmt.Sprintf("Aslan - %s", check.PipeName),
+		Name:       fmt.Sprintf("Aslan - %s", check.DisplayName),
 		DetailsURL: github.String(check.DetailsURL()),
 		ExternalID: github.String(fmt.Sprintf("%s/%d", check.PipeName, check.TaskID)),
 		Status:     github.String(StatusInProgress),
@@ -130,7 +135,7 @@ func (c *Client) UpdateGitCheck(gitCheckID int64, check *GitCheck) error {
 	}
 
 	if check.PipeType == config.WorkflowType {
-		opt.Output.Summary = github.String(fmt.Sprintf("<a href='%s'> The **%s** workflow</a> is currently running.", check.DetailsURL(), check.PipeName))
+		opt.Output.Summary = github.String(fmt.Sprintf("<a href='%s'> The **%s** workflow</a> is currently running.", check.DetailsURL(), check.DisplayName))
 	}
 	_, err := c.UpdateCheckRun(context.TODO(), check.Owner, check.Repo, gitCheckID, opt)
 	return err
@@ -140,7 +145,7 @@ func (c *Client) UpdateGitCheck(gitCheckID int64, check *GitCheck) error {
 func (c *Client) CompleteGitCheck(gitCheckID int64, status CIStatus, check *GitCheck) error {
 	summary := fmt.Sprintf("<a href='%s'> The **%s** pipeline</a> is **%s**.", check.DetailsURL(), check.PipeName, status)
 	if check.PipeType == config.WorkflowType {
-		summary = fmt.Sprintf("<a href='%s'> The **%s** workflow</a> is **%s**.", check.DetailsURL(), check.PipeName, status)
+		summary = fmt.Sprintf("<a href='%s'> The **%s** workflow</a> is **%s**.", check.DetailsURL(), check.DisplayName, status)
 	}
 	if len(check.TestReports) != 0 {
 		summary += "<br/> test result: <br/>"
@@ -150,7 +155,7 @@ func (c *Client) CompleteGitCheck(gitCheckID int64, status CIStatus, check *GitC
 	}
 
 	opt := github.UpdateCheckRunOptions{
-		Name:        fmt.Sprintf("Aslan - %s", check.PipeName),
+		Name:        fmt.Sprintf("Aslan - %s", check.DisplayName),
 		DetailsURL:  github.String(check.DetailsURL()),
 		ExternalID:  github.String(fmt.Sprintf("%s/%d", check.PipeName, check.TaskID)),
 		Status:      github.String(StatusCompleted),

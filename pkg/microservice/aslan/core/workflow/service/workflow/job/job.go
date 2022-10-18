@@ -114,6 +114,12 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 					return err
 				}
 			}
+			if job.JobType == config.JobZadigTesting {
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
@@ -220,6 +226,14 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 
 		if repo.PR > 0 {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
+		}
+
+		if len(repo.PRs) > 0 {
+			prStrs := []string{}
+			for _, pr := range repo.PRs {
+				prStrs = append(prStrs, strconv.Itoa(pr))
+			}
+			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strings.Join(prStrs, ","), IsCredential: false})
 		}
 
 		if len(repo.CommitID) > 0 {

@@ -19,6 +19,7 @@ package instantmessage
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -74,13 +75,14 @@ func NewWeChatClient() *Service {
 }
 
 type wechatNotification struct {
-	Task        *task.Task `json:"task"`
-	BaseURI     string     `json:"base_uri"`
-	IsSingle    bool       `json:"is_single"`
-	WebHookType string     `json:"web_hook_type"`
-	TotalTime   int64      `json:"total_time"`
-	AtMobiles   []string   `json:"atMobiles"`
-	IsAtAll     bool       `json:"is_at_all"`
+	Task               *task.Task `json:"task"`
+	EncodedDisplayName string     `json:"encoded_display_name"`
+	BaseURI            string     `json:"base_uri"`
+	IsSingle           bool       `json:"is_single"`
+	WebHookType        string     `json:"web_hook_type"`
+	TotalTime          int64      `json:"total_time"`
+	AtMobiles          []string   `json:"atMobiles"`
+	IsAtAll            bool       `json:"is_at_all"`
 }
 
 func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, error) {
@@ -310,9 +312,11 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 }
 
 func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification) (string, string, *LarkCard, error) {
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	weChatNotification.EncodedDisplayName = url.PathEscape(weChatNotification.Task.PipelineDisplayName)
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境信息**：{{.Task.WorkflowArgs.Namespace}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProductName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
 	}
@@ -383,7 +387,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 	}
 
 	buttonContent := "点击查看更多信息"
-	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/pipelines/{{ isSingle .IsSingle }}/{{.Task.PipelineName}}/{{.Task.TaskID}}"
+	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/pipelines/{{ isSingle .IsSingle }}/{{.Task.PipelineName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
 
@@ -425,6 +429,7 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProductName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试描述**：" + desc + " \n",

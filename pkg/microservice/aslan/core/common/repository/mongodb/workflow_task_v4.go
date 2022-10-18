@@ -254,3 +254,24 @@ func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, rem
 
 	return err
 }
+
+func (c *WorkflowTaskv4Coll) ListByCursor(opt *ListWorkflowTaskV4Option) (*mongo.Cursor, error) {
+	query := bson.M{}
+	if opt.WorkflowName != "" {
+		query["workflow_name"] = opt.WorkflowName
+	}
+	if opt.WorkflowNames != nil {
+		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
+	}
+	query["is_archived"] = false
+	query["is_deleted"] = false
+	if opt.CreateTime > 0 {
+		comparison := "$gte"
+		if opt.BeforeCreatTime {
+			comparison = "$lte"
+		}
+		query["create_time"] = bson.M{comparison: opt.CreateTime}
+	}
+
+	return c.Collection.Find(context.TODO(), query)
+}

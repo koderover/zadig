@@ -30,6 +30,7 @@ import (
 type WorkflowV4 struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"            json:"id"`
 	Name           string             `bson:"name"                yaml:"name"         json:"name"`
+	DisplayName    string             `bson:"display_name"        yaml:"display_name" json:"display_name"`
 	KeyVals        []*KeyVal          `bson:"key_vals"            yaml:"key_vals"     json:"key_vals"`
 	Params         []*Param           `bson:"params"              yaml:"params"       json:"params"`
 	Stages         []*WorkflowStage   `bson:"stages"              yaml:"stages"       json:"stages"`

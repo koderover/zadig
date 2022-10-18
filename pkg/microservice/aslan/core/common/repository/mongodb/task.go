@@ -708,3 +708,24 @@ func (c *TaskColl) DistinctFieldsPipelineTask(fieldName, projectName, pipelineNa
 	res, err := c.Distinct(context.TODO(), fieldName, query)
 	return res, err
 }
+
+func (c *TaskColl) ListByCursor(option *ListAllTaskOption) (*mongo.Cursor, error) {
+	if option == nil {
+		return nil, errors.New("nil list pipeline option")
+	}
+	query := bson.M{"is_deleted": false}
+	if len(option.ProductNames) > 0 {
+		query["product_name"] = bson.M{"$in": option.ProductNames}
+	}
+	if option.Type != "" {
+		query["type"] = option.Type
+	}
+	if option.CreateTime > 0 {
+		comparison := "$gte"
+		if option.BeforeCreatTime {
+			comparison = "$lte"
+		}
+		query["create_time"] = bson.M{comparison: option.CreateTime}
+	}
+	return c.Collection.Find(context.TODO(), query)
+}

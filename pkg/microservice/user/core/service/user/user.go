@@ -140,7 +140,7 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 			Name:         entry.GetAttributeValue(name),
 			Email:        entry.GetAttributeValue(config.UserSearch.EmailAttr),
 			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
-		}, logger)
+		}, false, logger)
 		if err != nil {
 			logger.Errorf("ldap host:%s sync user error, error msg:%s", config.Host, err)
 			return err
@@ -516,7 +516,7 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.User, error) {
+func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.SugaredLogger) (*models.User, error) {
 	user, err := orm.GetUser(syncUserInfo.Account, syncUserInfo.IdentityType, core.DB)
 	if err != nil {
 		logger.Error("SyncUser get user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
@@ -578,12 +578,16 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 			return nil, err
 		}
 	} else {
-		err = orm.CreateUserLogin(&models.UserLogin{
-			UID:           user.UID,
-			LastLoginTime: time.Now().Unix(),
-			LoginId:       getLoginId(user, config.AccountLoginType),
-			LoginType:     int(config.AccountLoginType),
-		}, tx)
+		userLoginModel := &models.UserLogin{
+			UID:       user.UID,
+			LoginId:   getLoginId(user, config.AccountLoginType),
+			LoginType: int(config.AccountLoginType),
+		}
+		if ifUpdateLoginTime {
+			userLoginModel.LastLoginTime = time.Now().Unix()
+		}
+
+		err = orm.CreateUserLogin(userLoginModel, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("UpdateLoginInfo create user:%s login error, error msg:%s", user.UID, err.Error())

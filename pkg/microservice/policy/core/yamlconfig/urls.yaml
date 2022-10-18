@@ -463,3 +463,10 @@ exemption_urls:
       methods:
         - GET
         - POST
+    - endpoint: api/aslan/workflow/view
+      methods:
+        - POST
+        - PUT
+    - endpoint: api/aslan/workflow/view/?*/?*
+      methods:
+        - DELETE

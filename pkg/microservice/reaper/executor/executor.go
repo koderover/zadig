@@ -68,7 +68,7 @@ func Execute() error {
 	if err != nil {
 		return fmt.Errorf("failed to new reaper: %s", err)
 	}
-
+	
 	reaperType = r.Type
 	log.Infof("====================== %s Start ======================", reaperType)
 

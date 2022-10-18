@@ -39,6 +39,7 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -88,6 +89,7 @@ type Workflow struct {
 	BaseName          string                   `json:"base_name"`
 	CollaborationMode string                   `json:"collaboration_mode"`
 	Name              string                   `json:"name"`
+	DisplayName       string                   `json:"display_name"`
 	Description       string                   `json:"description"`
 	WorkflowType      string                   `json:"workflow_type"`
 }
@@ -221,6 +223,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 			Verbs:             workflow.Verbs,
 			CollaborationType: workflow.CollaborationType,
 			WorkflowType:      workflow.WorkflowType,
+			DisplayName:       workflow.DisplayName,
 		})
 	}
 	var products []models.ProductCIItem
@@ -1081,17 +1084,19 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 		if workflow.CollaborationType == config.CollaborationNew {
 			if workflow.WorkflowType == "common_workflow" {
 				newCommonWorkflows = append(newCommonWorkflows, workflowservice.WorkflowCopyItem{
-					ProjectName: projectName,
-					Old:         workflow.BaseName,
-					New:         workflow.Name,
-					BaseName:    workflow.BaseName,
+					ProjectName:    projectName,
+					Old:            workflow.BaseName,
+					New:            workflow.Name,
+					NewDisplayName: workflow.DisplayName,
+					BaseName:       workflow.BaseName,
 				})
 			} else {
 				newWorkflows = append(newWorkflows, workflowservice.WorkflowCopyItem{
-					ProjectName: projectName,
-					Old:         workflow.BaseName,
-					New:         workflow.Name,
-					BaseName:    workflow.BaseName,
+					ProjectName:    projectName,
+					Old:            workflow.BaseName,
+					New:            workflow.Name,
+					NewDisplayName: workflow.DisplayName,
+					BaseName:       workflow.BaseName,
 				})
 			}
 
@@ -1266,8 +1271,10 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
 			name := workflow.Name
+			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, mode.Name, identityType, userName)
+				displayName = buildName(displayName, mode.Name, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
@@ -1275,6 +1282,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				CollaborationMode: mode.Name,
 				Name:              name,
 				WorkflowType:      workflow.WorkflowType,
+				DisplayName:       displayName,
 			})
 		}
 		for _, product := range mode.Products {
@@ -1295,8 +1303,10 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
 			name := workflow.Name
+			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
+				displayName = buildName(displayName, item.CollaborationMode, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				WorkflowType:      workflow.WorkflowType,
@@ -1304,6 +1314,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 				BaseName:          workflow.Name,
 				CollaborationMode: item.CollaborationMode,
 				Name:              name,
+				DisplayName:       displayName,
 			})
 		}
 		for _, product := range item.NewSpec.Products {
@@ -1322,12 +1333,14 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
+				displayName := getWorkflowDisplayName(workflow.Old.BaseName, workflow.Old.WorkflowType)
 				newWorkflow = append(newWorkflow, &Workflow{
 					WorkflowType:      workflow.Old.WorkflowType,
 					CollaborationType: workflow.New.CollaborationType,
 					BaseName:          workflow.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
 					Name:              buildName(workflow.Old.BaseName, item.CollaborationMode, identityType, userName),
+					DisplayName:       buildName(displayName, item.CollaborationMode, identityType, userName),
 				})
 			}
 		}
@@ -1581,4 +1594,22 @@ func getHelmRenderSet(projectName string, envs []string, logger *zap.SugaredLogg
 	}
 
 	return envChartsMap
+}
+
+func getWorkflowDisplayName(workflowName, workflowType string) string {
+	resp := workflowName
+	if workflowType == "common_workflow" {
+		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+		if err != nil {
+			log.Errorf("workflow v4 :%s not found", workflowName)
+			return resp
+		}
+		return workflow.DisplayName
+	}
+	workflow, err := commonrepo.NewWorkflowColl().Find(workflowName)
+	if err != nil {
+		log.Errorf("workflow :%s not found", workflowName)
+		return resp
+	}
+	return workflow.DisplayName
 }

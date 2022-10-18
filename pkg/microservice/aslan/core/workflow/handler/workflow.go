@@ -171,5 +171,5 @@ func CopyWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = workflow.CopyWorkflow(c.Param("old"), c.Param("new"), ctx.UserName, ctx.Logger)
+	ctx.Err = workflow.CopyWorkflow(c.Param("old"), c.Param("new"), c.Param("newDisplay"), ctx.UserName, ctx.Logger)
 }

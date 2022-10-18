@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -68,6 +69,8 @@ func main() {
 		params[kv[0]] = value
 	}
 
+	var offset int64 = 0
+
 	queueid, err := job.InvokeSimple(context.TODO(), params)
 
 	build, err := jenkinsClient.GetBuildFromQueueID(context.TODO(), queueid)
@@ -79,6 +82,12 @@ func main() {
 	for build.IsRunning(context.TODO()) {
 		time.Sleep(5000 * time.Millisecond)
 		build.Poll(context.TODO())
+		consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), offset)
+		if err != nil {
+			log.Warnf("[Jenkins Plugin] failed to get logs from jenkins job, error: %s", err)
+		}
+		fmt.Printf("%s", consoleOutput.Content)
+		offset += consoleOutput.Offset
 	}
 
 	if !build.IsGood(context.TODO()) {

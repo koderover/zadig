@@ -23,6 +23,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type GetCollaborationModeResp struct {
@@ -100,7 +102,49 @@ func GetCollaborationModes(projects []string, logger *zap.SugaredLogger) (*GetCo
 		logger.Errorf("GetCollaborationModes error, err msg:%s", err)
 		return nil, err
 	}
+	for _, mode := range collaborations {
+		setCollaborationModesWorkflowDisplayName(mode)
+	}
 	return &GetCollaborationModeResp{
 		Collaborations: collaborations,
 	}, nil
+}
+
+func setCollaborationModesWorkflowDisplayName(mode *models.CollaborationMode) {
+	names := []string{}
+	v4Names := []string{}
+	for _, workflow := range mode.Workflows {
+		if workflow.WorkflowType == "common_workflow" {
+			v4Names = append(v4Names, workflow.Name)
+			continue
+		}
+		names = append(names, workflow.Name)
+	}
+	namesMap := map[string]string{}
+	v4NamesMap := map[string]string{}
+	if len(names) > 0 {
+		workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{mode.ProjectName}, Names: names})
+		if err != nil {
+			log.Errorf("list workflow in project %s error: %v", mode.ProjectName, err)
+		}
+		for _, workflow := range workflows {
+			namesMap[workflow.Name] = workflow.DisplayName
+		}
+	}
+	if len(v4Names) > 0 {
+		workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{ProjectName: mode.ProjectName, Names: v4Names}, 0, 0)
+		if err != nil {
+			log.Errorf("list workflow v4 in project %s error: %v", mode.ProjectName, err)
+		}
+		for _, workflow := range workflows {
+			v4NamesMap[workflow.Name] = workflow.DisplayName
+		}
+	}
+	for i, workflow := range mode.Workflows {
+		if workflow.WorkflowType == "common_workflow" {
+			mode.Workflows[i].DisplayName = v4NamesMap[workflow.Name]
+			continue
+		}
+		mode.Workflows[i].DisplayName = namesMap[workflow.Name]
+	}
 }

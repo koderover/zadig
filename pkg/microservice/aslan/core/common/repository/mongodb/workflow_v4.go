@@ -40,6 +40,7 @@ type WorkflowV4Coll struct {
 
 type ListWorkflowV4Option struct {
 	ProjectName string
+	DisplayName string
 	Names       []string
 }
 
@@ -56,14 +57,23 @@ func (c *WorkflowV4Coll) GetCollectionName() string {
 }
 
 func (c *WorkflowV4Coll) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "project", Value: 1},
-			bson.E{Key: "name", Value: 1},
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "project", Value: 1},
+				bson.E{Key: "name", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
 		},
-		Options: options.Index().SetUnique(true),
+		{
+			Keys: bson.D{
+				bson.E{Key: "project", Value: 1},
+				bson.E{Key: "display_name", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mod)
 
 	return err
 }
@@ -141,13 +151,15 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 	if opt.ProjectName != "" {
 		query["project"] = opt.ProjectName
 	}
+	if opt.DisplayName != "" {
+		query["display_name"] = opt.DisplayName
+	}
 	if len(opt.Names) > 0 {
 		query["name"] = bson.M{"$in": opt.Names}
 	}
-
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
-		return nil, 0, err
+		return nil, count, err
 	}
 	var findOption *options.FindOptions
 	if pageNum == 0 && pageSize == 0 {
@@ -160,11 +172,11 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
 	if err != nil {
-		return nil, 0, err
+		return nil, count, err
 	}
 	err = cursor.All(context.TODO(), &resp)
 	if err != nil {
-		return nil, 0, err
+		return nil, count, err
 	}
 	return resp, count, nil
 }
@@ -219,4 +231,18 @@ func (c *WorkflowV4Coll) DeleteByID(idString string) error {
 
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
+}
+
+func (c *WorkflowV4Coll) ListByCursor(opt *ListWorkflowV4Option) (*mongo.Cursor, error) {
+	query := bson.M{}
+	if opt.ProjectName != "" {
+		query["project"] = opt.ProjectName
+	}
+	if opt.DisplayName != "" {
+		query["display_name"] = opt.DisplayName
+	}
+	if len(opt.Names) > 0 {
+		query["name"] = bson.M{"$in": opt.Names}
+	}
+	return c.Collection.Find(context.TODO(), query)
 }

@@ -1,7 +1,7 @@
 name: "执行 Jenkins Job"
 version: "v0.0.1"
 description: "使用参数化变量触发 Jenkins Job 并获取对应的日志"
-image: koderover.tencentcloudcr.com/koderover-public/jenkins-runner:v0.0.1
+image: koderover.tencentcloudcr.com/koderover-public/jenkins-runner:v0.0.2
 
 inputs:
   - name: jenkins_address

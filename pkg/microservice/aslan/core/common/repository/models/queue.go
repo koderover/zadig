@@ -30,6 +30,7 @@ type Queue struct {
 	TaskID                  int64                        `bson:"task_id"                                    json:"task_id"`
 	ProductName             string                       `bson:"product_name"                               json:"product_name"`
 	PipelineName            string                       `bson:"pipeline_name"                              json:"pipeline_name"`
+	PipelineDisplayName     string                       `bson:"pipeline_display_name"                      json:"pipeline_display_name"`
 	Namespace               string                       `bson:"namespace,omitempty"                        json:"namespace,omitempty"`
 	Type                    config.PipelineType          `bson:"type"                                       json:"type"`
 	Status                  config.Status                `bson:"status"                                     json:"status,omitempty"`

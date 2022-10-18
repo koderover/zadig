@@ -225,6 +225,7 @@ type Repo struct {
 	RemoteName         string         `yaml:"remote_name"`
 	Branch             string         `yaml:"branch"`
 	PR                 int            `yaml:"pr"`
+	PRs                []int          `yaml:"prs"`
 	Tag                string         `yaml:"tag"`
 	CheckoutPath       string         `yaml:"checkout_path"`
 	SubModules         bool           `yaml:"submodules"`
