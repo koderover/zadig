@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
@@ -68,17 +69,35 @@ func (j *K8sPacthJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
-
-	// kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
-	// if err != nil {
-	// 	logger.Errorf("Failed to get kube client, err: %v", err)
-	// 	return resp, err
-	// }
-
+	jobTask := &commonmodels.JobTask{
+		Name:    j.job.Name,
+		JobType: string(config.JobK8sPatch),
+		Spec:    patchJobToTaskJob(j.spec),
+	}
+	resp = append(resp, jobTask)
 	j.job.Spec = j.spec
 	return resp, nil
 }
 
 func (j *K8sPacthJob) LintJob() error {
 	return nil
+}
+
+func patchJobToTaskJob(job *commonmodels.K8sPatchJobSpec) *commonmodels.JobTasK8sPatchSpec {
+	resp := &commonmodels.JobTasK8sPatchSpec{
+		ClusterID: job.ClusterID,
+		Namespace: job.Namespace,
+	}
+	for _, patch := range job.PatchItems {
+		patchTaskItem := &commonmodels.PatchTaskItem{
+			ResourceName:    patch.ResourceName,
+			ResourceKind:    patch.ResourceKind,
+			ResourceGroup:   patch.ResourceGroup,
+			ResourceVersion: patch.ResourceVersion,
+			PatchContent:    patch.PatchContent,
+			PatchStrategy:   patch.PatchStrategy,
+		}
+		resp.PatchItems = append(resp.PatchItems, patchTaskItem)
+	}
+	return resp
 }
