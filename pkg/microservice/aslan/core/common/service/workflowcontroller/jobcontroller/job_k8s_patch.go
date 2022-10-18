@@ -81,6 +81,7 @@ func (c *K8sPatchJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
+	c.job.Status = config.StatusPassed
 }
 
 func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem, wg sync.WaitGroup, errList *multierror.Error) {
