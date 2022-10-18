@@ -277,3 +277,34 @@ func (c *WorkflowColl) ListWorkflowsByProjects(projects []string) ([]*models.Wor
 
 	return resp, nil
 }
+
+func (c *WorkflowColl) ListByCursor(opt *ListWorkflowOption) (*mongo.Cursor, error) {
+	query := bson.M{}
+	if len(opt.Projects) > 0 {
+		query["product_tmpl_name"] = bson.M{"$in": opt.Projects}
+	}
+	if len(opt.Names) > 0 {
+		query["name"] = bson.M{"$in": opt.Names}
+	}
+	if opt.DisplayName != "" {
+		query["display_name"] = opt.DisplayName
+	}
+	if len(opt.Ids) > 0 {
+		var oids []primitive.ObjectID
+		for _, id := range opt.Ids {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
+		}
+		query["_id"] = bson.M{"$in": oids}
+	}
+
+	ctx := context.Background()
+	opts := options.Find()
+	if opt.IsSort {
+		opts.SetSort(bson.D{{"update_time", -1}})
+	}
+	return c.Collection.Find(ctx, query, opts)
+}
