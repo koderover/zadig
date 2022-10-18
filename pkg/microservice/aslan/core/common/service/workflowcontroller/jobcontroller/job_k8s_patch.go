@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -73,7 +74,12 @@ func (c *K8sPatchJobCtl) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	var errList *multierror.Error
 	for _, patch := range c.jobTaskSpec.PatchItems {
-		c.runPatch(patch, wg, errList)
+		go func(patch *commonmodels.PatchTaskItem) {
+			err := c.runPatch(patch, wg)
+			if err != nil {
+				errList = multierror.Append(errList, err)
+			}
+		}(patch)
 	}
 	wg.Wait()
 	if err := errList.ErrorOrNil(); err != nil {
@@ -84,7 +90,7 @@ func (c *K8sPatchJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusPassed
 }
 
-func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem, wg sync.WaitGroup, errList *multierror.Error) {
+func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem, wg sync.WaitGroup) error {
 	wg.Add(1)
 	defer wg.Done()
 	var err error
@@ -103,28 +109,24 @@ func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem, wg sync
 		resource := map[string]interface{}{}
 		if err = yaml.Unmarshal([]byte(patchItem.PatchContent), &resource); err != nil {
 			patchItem.Error = fmt.Sprintf("unmarshal yaml input error: %v", err)
-			errList = multierror.Append(errList, err)
-			return
+			return errors.New(patchItem.Error)
 		}
 		patchBytes, err = json.Marshal(resource)
 		if err != nil {
 			patchItem.Error = fmt.Sprintf("marshal input into json error: %v", err)
-			errList = multierror.Append(errList, err)
-			return
+			return errors.New(patchItem.Error)
 		}
 		patchType = types.MergePatchType
 	case "strategic-merge":
 		resource := map[string]interface{}{}
 		if err := yaml.Unmarshal([]byte(patchItem.PatchContent), &resource); err != nil {
 			patchItem.Error = fmt.Sprintf("unmarshal yaml input error: %v", err)
-			errList = multierror.Append(errList, err)
-			return
+			return errors.New(patchItem.Error)
 		}
 		patchBytes, err = json.Marshal(resource)
 		if err != nil {
 			patchItem.Error = fmt.Sprintf("marshal input into json error: %v", err)
-			errList = multierror.Append(errList, err)
-			return
+			return errors.New(patchItem.Error)
 		}
 		patchType = types.StrategicMergePatchType
 	case "json":
@@ -132,12 +134,12 @@ func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem, wg sync
 		patchType = types.JSONPatchType
 	default:
 		patchItem.Error = fmt.Sprintf("pacth strategy %s not supported", patchItem.PatchStrategy)
-		errList = multierror.Append(errList, fmt.Errorf("pacth strategy %s not supported", patchItem.PatchStrategy))
+		return errors.New(patchItem.Error)
 	}
 
 	if err = updater.PatchUnstructured(obj, patchBytes, patchType, c.kubeClient); err != nil {
 		patchItem.Error = fmt.Sprintf("patch resoure error: %v", err)
-		errList = multierror.Append(errList, err)
-		return
+		return errors.New(patchItem.Error)
 	}
+	return nil
 }
