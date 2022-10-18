@@ -65,5 +65,14 @@ func (c *K8sPatchJobCtl) Run(ctx context.Context) {
 }
 
 func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem) {
-	// updater.PatchPod()
+	// obj := &unstructured.Unstructured{}
+
+	// obj.SetGroupVersionKind(schema.GroupVersionKind{
+	// 	Group:   patchItem.ResourceGroup,
+	// 	Version: patchItem.ResourceVersion,
+	// 	Kind:    patchItem.ResourceKind,
+	// })
+	// obj.SetName(patchItem.ResourceName)
+	// obj.SetNamespace(c.jobTaskSpec.Namespace)
+	// updater.PatchUnstructured()
 }
