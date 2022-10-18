@@ -71,12 +71,14 @@ func (c *K8sPatchJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
-	var wg sync.WaitGroup
-	var errList *multierror.Error
+	errList := new(multierror.Error)
+	wg := sync.WaitGroup{}
+
 	for _, patch := range c.jobTaskSpec.PatchItems {
+		wg.Add(1)
 		go func(patch *commonmodels.PatchTaskItem) {
-			err := c.runPatch(patch, wg)
-			if err != nil {
+			defer wg.Done()
+			if err := c.runPatch(patch); err != nil {
 				errList = multierror.Append(errList, err)
 			}
 		}(patch)
@@ -90,9 +92,7 @@ func (c *K8sPatchJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusPassed
 }
 
-func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem, wg sync.WaitGroup) error {
-	wg.Add(1)
-	defer wg.Done()
+func (c *K8sPatchJobCtl) runPatch(patchItem *commonmodels.PatchTaskItem) error {
 	var err error
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(schema.GroupVersionKind{
