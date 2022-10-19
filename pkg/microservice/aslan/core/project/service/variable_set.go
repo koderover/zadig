@@ -151,7 +151,7 @@ func UpdateVariableSet(args *CreateVariableSetRequest, requestID string, log *za
 	//		errList = multierror.Append(errList, fmt.Errorf("failed to update: %s:%s ", renderSet.ProductTmpl, renderSet.EnvName))
 	//	}
 	//}
-
+	//
 	//if errList.ErrorOrNil() != nil {
 	//	return errors.ErrEditVariableSet.AddErr(errList.ErrorOrNil())
 	//}

@@ -58,16 +58,25 @@ func fromGitRepo(source string) bool {
 	return false
 }
 
-// SyncYamlFromSource sync values.yaml from source
-// NOTE currently only support gitHub and gitlab
-func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
-	if yamlData == nil || !yamlData.AutoSync {
+func syncYamlFromVariableSet(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
+	if yamlData.Source != setting.SourceFromVariableSet {
 		return false, "", nil
 	}
-	if !fromGitRepo(yamlData.Source) {
-		return false, "", nil
+	variableSet, err := commonrepo.NewVariableSetColl().Find(&commonrepo.VariableSetFindOption{
+		ID: yamlData.SourceID,
+	})
+	if err != nil {
+		return false, "", err
 	}
+	equal, err := yamlutil.Equal(variableSet.VariableYaml, curValue)
+	if err != nil || equal {
+		return false, "", err
+	}
+	log.Infof("####### syncing yaml from variable set, new: %s, current: %s", variableSet.VariableYaml, curValue)
+	return true, variableSet.VariableYaml, nil
+}
 
+func syncYamlFromGit(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
 	sourceDetail, err := service.UnMarshalSourceDetail(yamlData.SourceDetail)
 	if err != nil {
 		return false, "", err
@@ -94,6 +103,18 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 		return false, "", err
 	}
 	return true, string(valuesYAML), nil
+}
+
+// SyncYamlFromSource sync values.yaml from source
+// NOTE for git source currently only support gitHub and gitlab
+func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
+	if yamlData == nil || !yamlData.AutoSync {
+		return false, "", nil
+	}
+	if fromGitRepo(yamlData.Source) {
+		return syncYamlFromGit(yamlData, curValue)
+	}
+	return syncYamlFromVariableSet(yamlData, curValue)
 }
 
 func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
