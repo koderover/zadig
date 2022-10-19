@@ -201,16 +201,20 @@ type JobTaskCanaryReleaseSpec struct {
 	Events         *Events `bson:"events"                 json:"events"                yaml:"events"`
 }
 
-type JobTaskGrayDeploySpec struct {
-	ClusterID          string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
-	Namespace          string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
-	WorkloadType       string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
-	WorkloadName       string `bson:"workload_name"          json:"workload_name"          yaml:"workload_name"`
-	ContainerName      string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
-	Image              string `bson:"image"                  json:"image"                  yaml:"image"`
-	CanaryWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
+type JobTaskGrayReleaseSpec struct {
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	ClusterName      string `bson:"cluster_name"             json:"cluster_name"             yaml:"cluster_name"`
+	Namespace        string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
+	WorkloadType     string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
+	WorkloadName     string `bson:"workload_name"          json:"workload_name"          yaml:"workload_name"`
+	ContainerName    string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
+	Image            string `bson:"image"                  json:"image"                  yaml:"image"`
+	GrayWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
 	// unit is minute.
 	DeployTimeout int64   `bson:"deploy_timeout"        json:"deploy_timeout"       yaml:"deploy_timeout"`
+	GrayScale     int     `bson:"gray_scale"            json:"gray_scale"           yaml:"gray_scale"`
+	TotalReplica  int     `bson:"total_replica"         json:"total_replica"        yaml:"total_replica"`
+	GrayReplica   int     `bson:"gray_replica"          json:"gray_replica"         yaml:"gray_replica"`
 	Events        *Events `bson:"events"                json:"events"               yaml:"events"`
 }
 
