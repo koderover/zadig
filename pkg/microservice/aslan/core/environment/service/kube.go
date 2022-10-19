@@ -513,6 +513,27 @@ func ListNamespace(clusterID string, log *zap.SugaredLogger) ([]string, error) {
 	return resp, nil
 }
 
+func ListDeployments(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
+	resp := make([]string, 0)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListDeployments clusterID:%s err:%v", clusterID, err)
+		return resp, err
+	}
+	deployments, err := getter.ListDeployments(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDeployments err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, deployment := range deployments {
+		resp = append(resp, deployment.Name)
+	}
+	return resp, nil
+}
+
 func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
 	resp := make([]string, 0)
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
