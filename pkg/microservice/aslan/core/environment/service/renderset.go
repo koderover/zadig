@@ -72,11 +72,13 @@ func syncYamlFromVariableSet(yamlData *templatemodels.CustomYaml, curValue strin
 	if err != nil || equal {
 		return false, "", err
 	}
-	log.Infof("####### syncing yaml from variable set, new: %s, current: %s", variableSet.VariableYaml, curValue)
 	return true, variableSet.VariableYaml, nil
 }
 
 func syncYamlFromGit(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
+	if !fromGitRepo(yamlData.Source) {
+		return false, "", nil
+	}
 	sourceDetail, err := service.UnMarshalSourceDetail(yamlData.SourceDetail)
 	if err != nil {
 		return false, "", err
@@ -111,10 +113,10 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 	if yamlData == nil || !yamlData.AutoSync {
 		return false, "", nil
 	}
-	if fromGitRepo(yamlData.Source) {
-		return syncYamlFromGit(yamlData, curValue)
+	if yamlData.Source == setting.SourceFromVariableSet {
+		return syncYamlFromVariableSet(yamlData, curValue)
 	}
-	return syncYamlFromVariableSet(yamlData, curValue)
+	return syncYamlFromGit(yamlData, curValue)
 }
 
 func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {

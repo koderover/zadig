@@ -1794,6 +1794,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 	changed, defaultValues, err := SyncYamlFromSource(productRenderset.YamlData, productRenderset.DefaultValues)
 	if err != nil {
+		log.Errorf("failed to update default values of env %s:%s", productRenderset.ProductTmpl, productRenderset.EnvName)
 		return err
 	}
 	if changed {
