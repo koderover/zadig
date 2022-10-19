@@ -259,9 +259,10 @@ const (
 	// SourceFromChartTemplate The configuration source is helmTemplate
 	SourceFromChartTemplate = "chartTemplate"
 	// SourceFromPublicRepo The configuration source is publicRepo
-	SourceFromPublicRepo = "publicRepo"
-	SourceFromChartRepo  = "chartRepo"
-	SourceFromCustomEdit = "customEdit"
+	SourceFromPublicRepo  = "publicRepo"
+	SourceFromChartRepo   = "chartRepo"
+	SourceFromCustomEdit  = "customEdit"
+	SourceFromVariableSet = "variableSet"
 
 	// SourceFromGUI The configuration source is gui
 	SourceFromGUI = "gui"
@@ -313,7 +314,7 @@ const (
 	AuthorizationHeader = "Authorization"
 )
 
-//install script constants
+// install script constants
 const (
 	StandardScriptName   = "install.sh"
 	AllInOneScriptName   = "install_with_k8s.sh"
@@ -329,7 +330,7 @@ const (
 	StatusSucceeded = "Succeeded"
 )
 
-//build image consts
+// build image consts
 const (
 	// BuildImageJob ...
 	BuildImageJob = "docker-build"

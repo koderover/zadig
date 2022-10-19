@@ -71,8 +71,9 @@ func UpdateVariableSet(c *gin.Context) {
 	}
 	args.UserName = ctx.UserName
 	args.ID = c.Param("id")
+	args.ProjectName = c.Query("projectName")
 
-	ctx.Err = service.UpdateVariableSet(args)
+	ctx.Err = service.UpdateVariableSet(args, ctx.RequestID, ctx.Logger)
 }
 
 func DeleteVariableSet(c *gin.Context) {

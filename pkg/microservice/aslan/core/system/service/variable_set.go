@@ -17,7 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"time"
+
+	"github.com/koderover/zadig/pkg/setting"
+	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/tool/errors"
 
@@ -58,6 +62,11 @@ func CreateVariableSet(args *CreateVariableSetRequest) error {
 		UpdatedAt:    time.Now().Unix(),
 		UpdatedBy:    args.UserName,
 	}
+	err := yaml.Unmarshal([]byte(args.VariableYaml), map[string]interface{}{})
+	if err != nil {
+		return errors.ErrCreateVariableSet.AddErr(fmt.Errorf("invalid yaml: %s", err))
+	}
+
 	if err := commonrepo.NewVariableSetColl().Create(modelData); err != nil {
 		log.Errorf("CreateVariableSet err:%v", err)
 		return errors.ErrCreateVariableSet.AddErr(err)
@@ -65,7 +74,38 @@ func CreateVariableSet(args *CreateVariableSetRequest) error {
 	return nil
 }
 
-func UpdateVariableSet(args *CreateVariableSetRequest) error {
+func getRelatedEnvs(variableSetId, projectName string) ([]commonmodels.RenderSet, error) {
+	// check if this variable set is used by some environments
+	helmEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Source:     setting.HelmDeployType,
+		InProjects: []string{projectName},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	renderSetOption := &commonrepo.RenderSetListOption{
+		FindOpts: make([]commonrepo.RenderSetFindOption, 0),
+	}
+
+	for _, singleHelmEnv := range helmEnvs {
+		if singleHelmEnv.Render == nil {
+			continue
+		}
+		renderSetOption.FindOpts = append(renderSetOption.FindOpts, commonrepo.RenderSetFindOption{
+			ProductTmpl:       singleHelmEnv.ProductName,
+			EnvName:           singleHelmEnv.EnvName,
+			IsDefault:         false,
+			Revision:          singleHelmEnv.Render.Revision,
+			Name:              singleHelmEnv.Render.Name,
+			YamlVariableSetID: variableSetId,
+		})
+	}
+
+	return commonrepo.NewRenderSetColl().ListByFindOpts(renderSetOption)
+}
+
+func UpdateVariableSet(args *CreateVariableSetRequest, requestID string, log *zap.SugaredLogger) error {
 	modelData := &commonmodels.VariableSet{
 		Name:         args.Name,
 		Description:  args.Description,
@@ -74,10 +114,48 @@ func UpdateVariableSet(args *CreateVariableSetRequest) error {
 		UpdatedAt:    time.Now().Unix(),
 		UpdatedBy:    args.UserName,
 	}
+
+	err := yaml.Unmarshal([]byte(args.VariableYaml), map[string]interface{}{})
+	if err != nil {
+		return errors.ErrEditVariableSet.AddErr(fmt.Errorf("invalid yaml: %s", err))
+	}
+
+	//renderSets, err := getRelatedEnvs(args.ID, args.ProjectName)
+	//if err != nil {
+	//	return errors.ErrEditVariableSet.AddErr(err)
+	//}
+
 	if err := commonrepo.NewVariableSetColl().Update(args.ID, modelData); err != nil {
 		log.Errorf("UpdateVariableSet err:%v", err)
 		return errors.ErrEditVariableSet.AddErr(err)
 	}
+
+	//errList := &multierror.Error{}
+	//for _, renderSet := range renderSets {
+	//	if renderSet.YamlData == nil || !renderSet.YamlData.AutoSync {
+	//		continue
+	//	}
+	//	defaultValueUpdateArg := &service.EnvRendersetArg{
+	//		DefaultValues: args.VariableYaml,
+	//		ValuesData: &commonservice.ValuesDataArgs{
+	//			YamlSource:    setting.SourceFromVariableSet,
+	//			SourceID:      args.ID,
+	//			AutoSync:      true,
+	//			GitRepoConfig: nil,
+	//		},
+	//		ChartValues:       nil,
+	//		UpdateServiceTmpl: false,
+	//	}
+	//	err = service.UpdateHelmProductDefaultValuesWithRender(&renderSet, args.UserName, requestID, defaultValueUpdateArg, log)
+	//	if err != nil {
+	//		errList = multierror.Append(errList, fmt.Errorf("failed to update: %s:%s ", renderSet.ProductTmpl, renderSet.EnvName))
+	//	}
+	//}
+
+	//if errList.ErrorOrNil() != nil {
+	//	return errors.ErrEditVariableSet.AddErr(errList.ErrorOrNil())
+	//}
+
 	return nil
 }
 
@@ -114,7 +192,21 @@ func ListVariableSets(option *VariableSetFindOption, log *zap.SugaredLogger) (*V
 }
 
 func DeleteVariableSet(id, projectName string, log *zap.SugaredLogger) error {
-	err := commonrepo.NewVariableSetColl().Delete(id)
+	// check if this variable set is used by some environments
+	renderSets, err := getRelatedEnvs(id, projectName)
+	if err != nil {
+		log.Errorf("DeleteVariableSet failed, err: %s", err)
+		return errors.ErrDeleteVariableSet.AddErr(err)
+	}
+	if len(renderSets) > 0 {
+		envNames := make([]string, 0)
+		for _, render := range renderSets {
+			envNames = append(envNames, fmt.Sprintf("%s:%s", render.ProductTmpl, render.EnvName))
+		}
+		return errors.ErrDeleteVariableSet.AddDesc(fmt.Sprintf("variable set is used by envs: %v", envNames))
+	}
+
+	err = commonrepo.NewVariableSetColl().Delete(id)
 	if err != nil {
 		log.Errorf("DeleteVariableSet err:%v", err)
 		return errors.ErrDeleteVariableSet.AddErr(err)

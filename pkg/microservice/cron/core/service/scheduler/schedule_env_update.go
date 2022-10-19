@@ -29,8 +29,10 @@ import (
 const EnvUpdateInterval = 30
 
 func needCreateSchedule(rendersetObj *service.ProductRenderset) bool {
-	if rendersetObj.YamlData != nil && rendersetObj.YamlData.Source == setting.SourceFromGitRepo {
-		return true
+	if rendersetObj.YamlData != nil {
+		if rendersetObj.YamlData.Source == setting.SourceFromGitRepo || rendersetObj.YamlData.Source == setting.SourceFromVariableSet {
+			return true
+		}
 	}
 	for _, chartData := range rendersetObj.ChartInfos {
 		if chartData.OverrideYaml != nil && chartData.OverrideYaml.Source == setting.SourceFromGitRepo {

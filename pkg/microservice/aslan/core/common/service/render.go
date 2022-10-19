@@ -54,6 +54,7 @@ type KVPair struct {
 
 type ValuesDataArgs struct {
 	YamlSource    string      `json:"yamlSource,omitempty"`
+	SourceID      string      `json:"source_id,omitempty"`
 	AutoSync      bool        `json:"autoSync,omitempty"`
 	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
 }
