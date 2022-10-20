@@ -838,7 +838,8 @@ func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger
 			continue
 		}
 		resp = append(resp, &commonmodels.Param{
-			Name: kv.Key,
+			Name:       kv.Key,
+			ParamsType: "string",
 		})
 	}
 	return resp, nil
