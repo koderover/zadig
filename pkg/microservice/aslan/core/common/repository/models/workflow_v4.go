@@ -207,11 +207,12 @@ type K8sPatchJobSpec struct {
 }
 
 type PatchItem struct {
-	ResourceName    string `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
-	ResourceKind    string `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`
-	ResourceGroup   string `bson:"resource_group"               json:"resource_group"              yaml:"resource_group"`
-	ResourceVersion string `bson:"resource_version"             json:"resource_version"            yaml:"resource_version"`
-	PatchContent    string `bson:"patch_content"                json:"patch_content"               yaml:"patch_content"`
+	ResourceName    string   `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
+	ResourceKind    string   `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`
+	ResourceGroup   string   `bson:"resource_group"               json:"resource_group"              yaml:"resource_group"`
+	ResourceVersion string   `bson:"resource_version"             json:"resource_version"            yaml:"resource_version"`
+	PatchContent    string   `bson:"patch_content"                json:"patch_content"               yaml:"patch_content"`
+	Params          []*Param `bson:"params"                       json:"params"                      yaml:"params"`
 	// support strategic-merge/merge/json
 	PatchStrategy string `bson:"patch_strategy"          json:"patch_strategy"         yaml:"patch_strategy"`
 }
@@ -266,7 +267,7 @@ type WorkflowV4Hook struct {
 type Param struct {
 	Name        string `bson:"name"             json:"name"             yaml:"name"`
 	Description string `bson:"description"      json:"description"      yaml:"description"`
-	// support string/text type
+	// support string/text/choice type
 	ParamsType   string   `bson:"type"                      json:"type"                        yaml:"type"`
 	Value        string   `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
 	ChoiceOption []string `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`

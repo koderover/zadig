@@ -19,6 +19,7 @@ package job
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type K8sPacthJob struct {
@@ -94,7 +95,7 @@ func patchJobToTaskJob(job *commonmodels.K8sPatchJobSpec) *commonmodels.JobTasK8
 			ResourceKind:    patch.ResourceKind,
 			ResourceGroup:   patch.ResourceGroup,
 			ResourceVersion: patch.ResourceVersion,
-			PatchContent:    patch.PatchContent,
+			PatchContent:    renderString(patch.PatchContent, setting.RenderValueTemplate, patch.Params),
 			PatchStrategy:   patch.PatchStrategy,
 		}
 		resp.PatchItems = append(resp.PatchItems, patchTaskItem)
