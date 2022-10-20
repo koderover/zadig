@@ -32,7 +32,7 @@ type GrayReleaseJobCtl struct {
 	ack         func()
 }
 
-func NewK8sPatchJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *GrayReleaseJobCtl {
+func NewGrayReleaseJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *GrayReleaseJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskGrayReleaseSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
