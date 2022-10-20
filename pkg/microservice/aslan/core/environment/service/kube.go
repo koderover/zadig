@@ -513,8 +513,15 @@ func ListNamespace(clusterID string, log *zap.SugaredLogger) ([]string, error) {
 	return resp, nil
 }
 
-func ListDeployments(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
-	resp := make([]string, 0)
+type WorkloadInfo struct {
+	WorkloadType  string `json:"workload_type"`
+	WorkloadName  string `json:"workload_name"`
+	ContainerName string `json:"container_name"`
+}
+
+// for now,only support deployment
+func ListWorkloadsInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*WorkloadInfo, error) {
+	resp := make([]*WorkloadInfo, 0)
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListDeployments clusterID:%s err:%v", clusterID, err)
@@ -529,7 +536,13 @@ func ListDeployments(clusterID, namespace string, log *zap.SugaredLogger) ([]str
 		return resp, err
 	}
 	for _, deployment := range deployments {
-		resp = append(resp, deployment.Name)
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadInfo{
+				WorkloadType:  setting.Deployment,
+				WorkloadName:  deployment.Name,
+				ContainerName: container.Name,
+			})
+		}
 	}
 	return resp, nil
 }
