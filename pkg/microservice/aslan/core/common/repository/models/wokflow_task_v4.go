@@ -203,11 +203,12 @@ type JobTaskCanaryReleaseSpec struct {
 
 type JobTaskGrayReleaseSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
-	ClusterName      string `bson:"cluster_name"             json:"cluster_name"             yaml:"cluster_name"`
+	ClusterName      string `bson:"cluster_name"           json:"cluster_name"           yaml:"cluster_name"`
 	Namespace        string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
 	WorkloadType     string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
 	WorkloadName     string `bson:"workload_name"          json:"workload_name"          yaml:"workload_name"`
 	ContainerName    string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
+	FirstJob         bool   `bson:"first_job"              json:"first_job"              yaml:"first_job"`
 	Image            string `bson:"image"                  json:"image"                  yaml:"image"`
 	GrayWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
 	// unit is minute.

@@ -214,8 +214,9 @@ type GrayReleaseJobSpec struct {
 type GrayReleaseTarget struct {
 	WorkloadType  string `bson:"workload_type"             json:"workload_type"            yaml:"workload_type"`
 	WorkloadName  string `bson:"workload_name"             json:"workload_name"            yaml:"workload_name"`
+	Replica       int    `bson:"replica,omitempty"         json:"replica,omitempty"        yaml:"replica,omitempty"`
 	ContainerName string `bson:"container_name"            json:"container_name"           yaml:"container_name"`
-	Image         string `bson:"image"                     json:"image"                    yaml:"image"`
+	Image         string `bson:"image,omitempty"           json:"image,omitempty"          yaml:"image,omitempty"`
 }
 
 type JobProperties struct {
