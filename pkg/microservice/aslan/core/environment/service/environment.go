@@ -901,6 +901,11 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 
 // fill product services and chart infos and insert renderset data
 func prepareHelmProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateHelmProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
+	err := validateArgs(arg.ValuesData)
+	if err != nil {
+		return fmt.Errorf("failed to validate args: %s", err)
+	}
+
 	productObj.ChartInfos = make([]*templatemodels.RenderChart, 0)
 	// chart infos in template product
 	templateChartInfoMap := make(map[string]*templatemodels.RenderChart)
@@ -972,7 +977,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+	err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
@@ -1592,11 +1597,11 @@ func checkOverrideValuesChange(source *templatemodels.RenderChart, args *commons
 	return false, false
 }
 
-func validateArgs(args *EnvRendersetArg) error {
-	if args.ValuesData == nil || args.ValuesData.YamlSource != setting.SourceFromVariableSet {
+func validateArgs(args *commonservice.ValuesDataArgs) error {
+	if args == nil || args.YamlSource != setting.SourceFromVariableSet {
 		return nil
 	}
-	_, err := commonrepo.NewVariableSetColl().Find(&commonrepo.VariableSetFindOption{ID: args.ValuesData.SourceID})
+	_, err := commonrepo.NewVariableSetColl().Find(&commonrepo.VariableSetFindOption{ID: args.SourceID})
 	if err != nil {
 		return err
 	}
@@ -1632,7 +1637,7 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
 	}
 
-	err = validateArgs(args)
+	err = validateArgs(args.ValuesData)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to validate args: %s", err))
 	}
