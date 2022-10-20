@@ -102,6 +102,7 @@ type Product struct {
 	DeployType        string                          `json:"deploy_type"`
 	Vars              []*templatemodels.RenderKV      `json:"vars"`
 	DefaultValues     string                          `json:"defaultValues,omitempty"`
+	ValuesData        *commonservice.ValuesDataArgs   `json:"values_data"`
 	ChartValues       []*commonservice.RenderChartArg `json:"chartValues,omitempty"`
 }
 
@@ -1136,6 +1137,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					BaseName:      product.BaseName,
 					DefaultValues: productArg.DefaultValues,
 					ChartValues:   productArg.ChartValues,
+					ValuesData:    productArg.ValuesData,
 				})
 			}
 			if productArg.DeployType == string(setting.K8SDeployType) {

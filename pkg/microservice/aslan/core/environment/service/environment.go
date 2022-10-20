@@ -1083,6 +1083,7 @@ type HelmProductItem struct {
 	BaseName      string                          `json:"base_name"`
 	DefaultValues string                          `json:"default_values"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chart_values"`
+	ValuesData    *commonservice.ValuesDataArgs   `json:"values_data"`
 }
 
 type CopyHelmProductArg struct {
@@ -1124,6 +1125,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 				BaseEnvName:   product.BaseName,
 				BaseName:      item.BaseName,
 				ChartValues:   item.ChartValues,
+				ValuesData:    item.ValuesData,
 			})
 		} else {
 			return fmt.Errorf("product:%s not exist", item.OldName)
