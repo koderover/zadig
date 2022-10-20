@@ -97,6 +97,7 @@ func patchJobToTaskJob(job *commonmodels.K8sPatchJobSpec) *commonmodels.JobTasK8
 			ResourceVersion: patch.ResourceVersion,
 			PatchContent:    renderString(patch.PatchContent, setting.RenderValueTemplate, patch.Params),
 			PatchStrategy:   patch.PatchStrategy,
+			Params:          patch.Params,
 		}
 		resp.PatchItems = append(resp.PatchItems, patchTaskItem)
 	}
