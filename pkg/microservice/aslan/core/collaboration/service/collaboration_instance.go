@@ -102,7 +102,7 @@ type Product struct {
 	DeployType        string                          `json:"deploy_type"`
 	Vars              []*templatemodels.RenderKV      `json:"vars"`
 	DefaultValues     string                          `json:"defaultValues,omitempty"`
-	ValuesData        *commonservice.ValuesDataArgs   `json:"values_data"`
+	ValuesData        *commonservice.ValuesDataArgs   `json:"valuesData,omitempty"`
 	ChartValues       []*commonservice.RenderChartArg `json:"chartValues,omitempty"`
 }
 
