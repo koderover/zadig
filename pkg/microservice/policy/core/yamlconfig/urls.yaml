@@ -354,6 +354,12 @@ exemption_urls:
     - endpoint: api/aslan/environment/envcfgs/?*/sync
       methods:
         - PUT
+    - endpoint: api/aslan/project/variablesets/?*
+      methods:
+        - GET
+        - PUT
+        - POST
+        - DELETE
   project_admin:
     - endpoint: api/aslan/project/products
       methods:
@@ -469,4 +475,10 @@ exemption_urls:
         - PUT
     - endpoint: api/aslan/workflow/view/?*/?*
       methods:
+        - DELETE
+    - endpoint: api/aslan/project/variablesets/?*
+      methods:
+        - GET
+        - PUT
+        - POST
         - DELETE
