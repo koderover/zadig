@@ -188,6 +188,7 @@ const (
 	JobK8sCanaryDeploy     JobType = "k8s-canary-deploy"
 	JobK8sCanaryRelease    JobType = "k8s-canary-release"
 	JobK8sGrayRelease      JobType = "k8s-gray-release"
+	JobK8sPatch            JobType = "k8s-resource-patch"
 )
 
 type ApproveOrReject string

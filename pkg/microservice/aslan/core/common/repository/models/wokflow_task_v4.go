@@ -219,6 +219,24 @@ type JobTaskGrayReleaseSpec struct {
 	Events        *Events `bson:"events"                json:"events"               yaml:"events"`
 }
 
+type JobTasK8sPatchSpec struct {
+	ClusterID  string           `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	Namespace  string           `bson:"namespace"              json:"namespace"              yaml:"namespace"`
+	PatchItems []*PatchTaskItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+}
+
+type PatchTaskItem struct {
+	ResourceName    string   `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
+	ResourceKind    string   `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`
+	ResourceGroup   string   `bson:"resource_group"               json:"resource_group"              yaml:"resource_group"`
+	ResourceVersion string   `bson:"resource_version"             json:"resource_version"            yaml:"resource_version"`
+	PatchContent    string   `bson:"patch_content"                json:"patch_content"               yaml:"patch_content"`
+	Params          []*Param `bson:"params"                       json:"params"                      yaml:"params"`
+	// support strategic-merge/merge/json
+	PatchStrategy string `bson:"patch_strategy"          json:"patch_strategy"         yaml:"patch_strategy"`
+	Error         string `bson:"error"                   json:"error"                  yaml:"error"`
+}
+
 type Event struct {
 	EventType string `bson:"event_type"             json:"event_type"            yaml:"event_type"`
 	Time      string `bson:"time"                   json:"time"                  yaml:"time"`

@@ -18,11 +18,16 @@ package updater
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func CreateOrPatchUnstructured(u *unstructured.Unstructured, cl client.Client) error {
 	return createOrPatchObject(u, cl)
+}
+
+func PatchUnstructured(u *unstructured.Unstructured, patchBytes []byte, patchType types.PatchType, cl client.Client) error {
+	return PatchObject(u, patchBytes, patchType, cl)
 }
 
 func CreateOrPatchUnstructuredNeverAnnotation(u *unstructured.Unstructured, cl client.Client) error {

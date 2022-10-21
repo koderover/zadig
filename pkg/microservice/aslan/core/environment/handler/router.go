@@ -115,6 +115,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/workload/cluster/:clusterID/namespace/:namespace", ListWorkloadsInfo)
 		kube.GET("/custom_workload/cluster/:clusterID/namespace/:namespace", ListCustomWorkload)
 		kube.GET("/canary_service/cluster/:clusterID/namespace/:namespace", ListCanaryDeploymentServiceInfo)
+		kube.GET("/resources/cluster/:clusterID/namespace/:namespace", ListAllK8sResourcesInNamespace)
 	}
 
 	operations := router.Group("operations")

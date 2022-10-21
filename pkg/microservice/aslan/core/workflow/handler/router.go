@@ -185,6 +185,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/cron/:workflowName", CreateCronForWorkflowV4)
 		workflowV4.PUT("/cron", UpdateCronForWorkflowV4)
 		workflowV4.DELETE("/cron/:workflowName/trigger/:cronID", DeleteCronForWorkflowV4)
+		workflowV4.POST("/patch", GetPatchParams)
+
 	}
 
 	// ---------------------------------------------------------------------------------------

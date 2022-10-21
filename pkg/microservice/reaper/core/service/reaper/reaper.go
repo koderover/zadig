@@ -178,7 +178,7 @@ func (r *Reaper) BeforeExec() error {
 	r.StartTime = time.Now()
 
 	// the execution preparation are not required, so we skip it if the reaper type is scanning
-	if r.Type != types.ScanningReaperType {
+	if r.Type != types.ScanningReaperType && r.Type != types.TestReaperType {
 		log.Infof("Checking Docker Connectivity.")
 		startTimeCheckDocker := time.Now()
 		for i := 0; i < 15; i++ {
@@ -376,7 +376,7 @@ func (r *Reaper) Exec() (err error) {
 
 	// for build/test/scanner of type other than sonar, we run the script
 	if !r.Ctx.ScannerFlag || r.Ctx.ScannerType != types.ScanningTypeSonar {
-	    // collect test result regardless of excution result
+		// collect test result regardless of excution result
 		defer func() {
 			collectErr := r.CollectTestResults()
 			if collectErr != nil {
