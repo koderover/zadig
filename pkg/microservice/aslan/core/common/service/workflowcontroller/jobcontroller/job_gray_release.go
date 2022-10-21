@@ -92,20 +92,26 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 			c.Errorf("get deployment: %s error", c.jobTaskSpec.GrayWorkloadName)
 			return
 		}
-		deployment.Name = c.jobTaskSpec.GrayWorkloadName
-		deployment.Spec.Replicas = int32Ptr(int32(c.jobTaskSpec.GrayReplica))
-		deployment.ObjectMeta.ResourceVersion = ""
-		deployment.Spec.Template.Labels[GrayLabelKey] = GrayLabelValue
+		grayDeployment := deployment.DeepCopy()
+		grayDeployment.Name = c.jobTaskSpec.GrayWorkloadName
+		grayDeployment.Spec.Replicas = int32Ptr(int32(c.jobTaskSpec.GrayReplica))
+		grayDeployment.ObjectMeta.ResourceVersion = ""
+		grayDeployment.Spec.Template.Labels[GrayLabelKey] = GrayLabelValue
 
 		for i := range deployment.Spec.Template.Spec.Containers {
 			if deployment.Spec.Template.Spec.Containers[i].Name == c.jobTaskSpec.ContainerName {
 				deployment.ObjectMeta.Annotations[GrayImageAnnotationKey] = deployment.Spec.Template.Spec.Containers[i].Image
 				deployment.ObjectMeta.Annotations[GrayContainerAnnotationKey] = c.jobTaskSpec.ContainerName
-				deployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
+				grayDeployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
 				break
 			}
 		}
 		if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
+			c.Errorf("add annotations to origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
+			return
+		}
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("add annotations to origin deployment: %s", c.jobTaskSpec.WorkloadName))
+		if err := updater.CreateOrPatchDeployment(grayDeployment, c.kubeClient); err != nil {
 			c.Errorf("create gray release deployment: %s failed: %v", c.jobTaskSpec.GrayWorkloadName, err)
 			return
 		}
