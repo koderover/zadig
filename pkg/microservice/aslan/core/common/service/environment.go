@@ -171,7 +171,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		rcaObj.YamlData = singleChart.OverrideYaml
 		ret = append(ret, rcaObj)
 	}
-	return ret, nil, nil
+	return ret, rendersetObj, nil
 }
 
 // fill service display name if necessary
