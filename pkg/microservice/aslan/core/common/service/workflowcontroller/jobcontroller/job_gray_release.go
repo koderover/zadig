@@ -98,14 +98,15 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		grayDeployment.ObjectMeta.ResourceVersion = ""
 		grayDeployment.Spec.Template.Labels[GrayLabelKey] = GrayLabelValue
 
-		for i := range deployment.Spec.Template.Spec.Containers {
-			if deployment.Spec.Template.Spec.Containers[i].Name == c.jobTaskSpec.ContainerName {
-				deployment.ObjectMeta.Annotations[GrayImageAnnotationKey] = deployment.Spec.Template.Spec.Containers[i].Image
+		for i := range grayDeployment.Spec.Template.Spec.Containers {
+			if grayDeployment.Spec.Template.Spec.Containers[i].Name == c.jobTaskSpec.ContainerName {
+				deployment.ObjectMeta.Annotations[GrayImageAnnotationKey] = grayDeployment.Spec.Template.Spec.Containers[i].Image
 				deployment.ObjectMeta.Annotations[GrayContainerAnnotationKey] = c.jobTaskSpec.ContainerName
 				grayDeployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
 				break
 			}
 		}
+
 		if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
 			c.Errorf("add annotations to origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 			return
