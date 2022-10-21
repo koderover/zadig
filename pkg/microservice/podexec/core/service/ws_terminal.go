@@ -131,7 +131,6 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 		Operation: "stdout",
 		Data:      string(p),
 	})
-	log.Infof("####### sending back data: %s", string(p))
 	if err != nil {
 		log.Errorf("write parse message err: %v", err)
 		return 0, err

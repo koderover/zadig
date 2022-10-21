@@ -103,6 +103,7 @@ type Product struct {
 	Vars              []*templatemodels.RenderKV      `json:"vars"`
 	DefaultValues     string                          `json:"defaultValues,omitempty"`
 	ValuesData        *commonservice.ValuesDataArgs   `json:"valuesData,omitempty"`
+	YamlData          *templatemodels.CustomYaml      `json:"yaml_data,omitempty"`
 	ChartValues       []*commonservice.RenderChartArg `json:"chartValues,omitempty"`
 }
 
@@ -1383,15 +1384,21 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		}
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
-		envChartsMap := getHelmRenderSet(projectName, newProductName.List(), logger)
 		for _, product := range newProduct {
-			chart, ok := envChartsMap[product.BaseName]
-			if !ok {
-				logger.Errorf("product:%s not exist", product.BaseName)
-				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
+			//chart, ok := envChartsMap[product.BaseName]
+
+			renderChartArgs, rendersetData, err := commonservice.GetRenderCharts(projectName, product.BaseName, "", logger)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find product renderset :%s, err: %s", product.BaseName, err)
+			}
+			if rendersetData == nil {
+				logger.Errorf("product renderset:%s not exist", product.BaseName)
+				return nil, fmt.Errorf("product renderset :%s not exist", product.BaseName)
 			}
 
-			product.ChartValues = chart
+			product.ChartValues = renderChartArgs
+			product.DefaultValues = rendersetData.DefaultValues
+			product.YamlData = rendersetData.YamlData
 		}
 	}
 	var workNames []string
@@ -1582,20 +1589,6 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 		return nil, err
 	}
 	return renderSets, nil
-}
-
-func getHelmRenderSet(projectName string, envs []string, logger *zap.SugaredLogger) map[string][]*commonservice.RenderChartArg {
-	envChartsMap := make(map[string][]*commonservice.RenderChartArg)
-	for _, env := range envs {
-		renderChartArgs, err := commonservice.GetRenderCharts(projectName, env, "", logger)
-		if err != nil {
-			logger.Errorf("GetRenderCharts error:%s", err)
-			continue
-		}
-		envChartsMap[env] = renderChartArgs
-	}
-
-	return envChartsMap
 }
 
 func getWorkflowDisplayName(workflowName, workflowType string) string {
