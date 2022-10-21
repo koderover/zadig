@@ -61,6 +61,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &CanaryReleaseJob{job: job, workflow: workflow}
 	case config.JobZadigTesting:
 		resp = &TestingJob{job: job, workflow: workflow}
+	case config.JobK8sPatch:
+		resp = &K8sPacthJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}

@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -554,7 +555,7 @@ func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.Sugar
 	resp := []*ServiceMatchedDeploymentContainers{}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		log.Errorf("get kubeclient error: %v, clusterID: %S", err, clusterID)
+		log.Errorf("get kubeclient error: %v, clusterID: %s", err, clusterID)
 		return resp, err
 	}
 	services, err := getter.ListServices(namespace, labels.Everything(), kubeClient)
@@ -582,6 +583,67 @@ func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.Sugar
 			deploymentContainers.Deployment.ContainerNames = append(deploymentContainers.Deployment.ContainerNames, container.Name)
 		}
 		resp = append(resp, deploymentContainers)
+	}
+	return resp, nil
+}
+
+type K8sResource struct {
+	ResourceName    string `json:"resource_name"`
+	ResourceKind    string `json:"resource_kind"`
+	ResourceGroup   string `json:"resource_group"`
+	ResourceVersion string `json:"resource_version"`
+}
+
+func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.SugaredLogger) ([]*K8sResource, error) {
+	resp := []*K8sResource{}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("get kubeclient error: %v, clusterID: %s", err, clusterID)
+		return resp, err
+	}
+	discoveryCli, err := kubeclient.GetDiscoveryClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("get discovery client clusterID:%s error:%v", clusterID, err)
+		return resp, err
+	}
+	discoveryCli.ServerGroups()
+	apiResources, err := discoveryCli.ServerPreferredNamespacedResources()
+	if err != nil {
+		log.Errorf("clusterID: %s, list api resources error:%v", clusterID, err)
+		return resp, err
+	}
+	for _, apiGroup := range apiResources {
+		for _, apiResource := range apiGroup.APIResources {
+			version := ""
+			group := ""
+			groupVersions := strings.Split(apiGroup.GroupVersion, "/")
+			if len(groupVersions) == 2 {
+				group = groupVersions[0]
+				version = groupVersions[1]
+			} else if len(groupVersions) == 1 {
+				version = groupVersions[0]
+			} else {
+				continue
+			}
+			gvk := schema.GroupVersionKind{
+				Group:   group,
+				Version: version,
+				Kind:    apiResource.Kind,
+			}
+			resources, err := getter.ListUnstructuredResourceInCache(namespace, labels.Everything(), nil, gvk, kubeClient)
+			if err != nil {
+				log.Warnf("list resources %s %s error:%v", apiGroup.GroupVersion, apiResource.Kind, err)
+				continue
+			}
+			for _, resource := range resources {
+				resp = append(resp, &K8sResource{
+					ResourceName:    resource.GetName(),
+					ResourceKind:    resource.GetKind(),
+					ResourceGroup:   group,
+					ResourceVersion: version,
+				})
+			}
+		}
 	}
 	return resp, nil
 }
