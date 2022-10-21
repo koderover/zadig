@@ -15,9 +15,8 @@ package jobcontroller
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"time"
+	"strconv"
 
 	"go.uber.org/zap"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,16 +25,8 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-)
-
-const (
-	GrayLabelKey               = "zadig-gray-release"
-	GrayLabelValue             = "released-by-zadig"
-	GrayImageAnnotationKey     = "zadig-gray-release-image"
-	GrayContainerAnnotationKey = "zadig-gray-release-container"
 )
 
 type GrayReleaseJobCtl struct {
@@ -96,12 +87,13 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		grayDeployment.Name = c.jobTaskSpec.GrayWorkloadName
 		grayDeployment.Spec.Replicas = int32Ptr(int32(c.jobTaskSpec.GrayReplica))
 		grayDeployment.ObjectMeta.ResourceVersion = ""
-		grayDeployment.Spec.Template.Labels[GrayLabelKey] = GrayLabelValue
+		grayDeployment.Spec.Template.Labels[config.GrayLabelKey] = config.GrayLabelValue
 
 		for i := range grayDeployment.Spec.Template.Spec.Containers {
 			if grayDeployment.Spec.Template.Spec.Containers[i].Name == c.jobTaskSpec.ContainerName {
-				deployment.ObjectMeta.Annotations[GrayImageAnnotationKey] = grayDeployment.Spec.Template.Spec.Containers[i].Image
-				deployment.ObjectMeta.Annotations[GrayContainerAnnotationKey] = c.jobTaskSpec.ContainerName
+				deployment.ObjectMeta.Annotations[config.GrayImageAnnotationKey] = grayDeployment.Spec.Template.Spec.Containers[i].Image
+				deployment.ObjectMeta.Annotations[config.GrayContainerAnnotationKey] = c.jobTaskSpec.ContainerName
+				deployment.ObjectMeta.Annotations[config.GrayReplicaAnnotationKey] = strconv.Itoa(c.jobTaskSpec.TotalReplica)
 				grayDeployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
 				break
 			}
@@ -117,7 +109,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("gray release deployment: %s created", c.jobTaskSpec.GrayWorkloadName))
-		if status, err := c.waitDeploymentReady(ctx, c.jobTaskSpec.GrayWorkloadName); err != nil {
+		if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.GrayWorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
 			c.logger.Error(err)
 			c.job.Status = status
 			c.job.Error = err.Error()
@@ -129,7 +121,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 			c.Errorf("update origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 			return
 		}
-		if status, err := c.waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName); err != nil {
+		if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
 			c.logger.Error(err)
 			c.job.Status = status
 			c.job.Error = err.Error()
@@ -160,7 +152,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 			c.Errorf("update origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 			return
 		}
-		if status, err := c.waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName); err != nil {
+		if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
 			c.logger.Error(err)
 			c.job.Status = status
 			c.job.Error = err.Error()
@@ -184,7 +176,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		c.Errorf("update gray release deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 		return
 	}
-	if status, err := c.waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName); err != nil {
+	if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Status = status
 		c.job.Error = err.Error()
@@ -196,7 +188,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		c.Errorf("update origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 		return
 	}
-	if status, err := c.waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName); err != nil {
+	if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Status = status
 		c.job.Error = err.Error()
@@ -205,36 +197,6 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s replica set to %d", c.jobTaskSpec.WorkloadName, leftReplica))
 	c.job.Status = config.StatusPassed
-}
-
-func (c *GrayReleaseJobCtl) waitDeploymentReady(ctx context.Context, deploymentName string) (config.Status, error) {
-	timeout := time.After(time.Duration(c.timeout()) * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			return config.StatusCancelled, errors.New("job was cancelled")
-
-		case <-timeout:
-			msg := fmt.Sprintf("timeout waiting for the deployment: %s to run", deploymentName)
-			return config.StatusTimeout, errors.New(msg)
-
-		default:
-			time.Sleep(time.Second * 2)
-			d, found, err := getter.GetDeployment(c.jobTaskSpec.Namespace, deploymentName, c.kubeClient)
-			if err != nil || !found {
-				c.logger.Errorf(
-					"failed to check deployment ready status %s/%s - %v",
-					c.jobTaskSpec.Namespace,
-					deploymentName,
-					err,
-				)
-			} else {
-				if wrapper.Deployment(d).Ready() {
-					return config.StatusRunning, nil
-				}
-			}
-		}
-	}
 }
 
 func (c *GrayReleaseJobCtl) Errorf(format string, a ...any) {

@@ -236,6 +236,19 @@ type PatchItem struct {
 	PatchStrategy string `bson:"patch_strategy"          json:"patch_strategy"         yaml:"patch_strategy"`
 }
 
+type GrayRollbackJobSpec struct {
+	ClusterID string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	// unit is minute.
+	RollbackTimeout int64                 `bson:"rollback_timeout"       json:"rollback_timeout"      yaml:"rollback_timeout"`
+	Targets         []*GrayRollbackTarget `bson:"targets"                json:"targets"               yaml:"targets"`
+}
+
+type GrayRollbackTarget struct {
+	WorkloadType string `bson:"workload_type"             json:"workload_type"            yaml:"workload_type"`
+	WorkloadName string `bson:"workload_name"             json:"workload_name"            yaml:"workload_name"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`

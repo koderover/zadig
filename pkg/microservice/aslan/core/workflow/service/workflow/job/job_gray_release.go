@@ -24,10 +24,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 )
 
-const (
-	GrayDeploymentSuffix = "-zadig-gray"
-)
-
 type GrayReleaseJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
@@ -138,7 +134,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				WorkloadName:     target.WorkloadName,
 				ContainerName:    target.ContainerName,
 				FirstJob:         firstJob,
-				GrayWorkloadName: target.WorkloadName + GrayDeploymentSuffix,
+				GrayWorkloadName: target.WorkloadName + config.GrayDeploymentSuffix,
 				Image:            target.Image,
 				DeployTimeout:    j.spec.DeployTimeout,
 				GrayScale:        j.spec.GrayScale,

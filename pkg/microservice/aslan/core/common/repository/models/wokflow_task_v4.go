@@ -219,6 +219,21 @@ type JobTaskGrayReleaseSpec struct {
 	Events        *Events `bson:"events"                json:"events"               yaml:"events"`
 }
 
+type JobTaskGrayRollbackSpec struct {
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	ClusterName      string `bson:"cluster_name"           json:"cluster_name"           yaml:"cluster_name"`
+	Namespace        string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
+	WorkloadType     string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
+	WorkloadName     string `bson:"workload_name"          json:"workload_name"          yaml:"workload_name"`
+	ContainerName    string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
+	Image            string `bson:"image"                  json:"image"                  yaml:"image"`
+	GrayWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
+	// unit is minute.
+	RollbackTimeout int64   `bson:"rollback_timeout"      json:"rollback_timeout"     yaml:"rollback_timeout"`
+	TotalReplica    int     `bson:"total_replica"         json:"total_replica"        yaml:"total_replica"`
+	Events          *Events `bson:"events"                json:"events"               yaml:"events"`
+}
+
 type JobTasK8sPatchSpec struct {
 	ClusterID  string           `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
 	Namespace  string           `bson:"namespace"              json:"namespace"              yaml:"namespace"`

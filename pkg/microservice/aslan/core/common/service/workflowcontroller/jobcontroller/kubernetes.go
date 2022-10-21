@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -801,4 +802,34 @@ func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *r
 	})
 
 	return commontypes.JobStatus(stdout), success, err
+}
+
+func waitDeploymentReady(ctx context.Context, deploymentName, namespace string, timout int64, kubeClient crClient.Client, logger *zap.SugaredLogger) (config.Status, error) {
+	timeout := time.After(time.Duration(timout) * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return config.StatusCancelled, errors.New("job was cancelled")
+
+		case <-timeout:
+			msg := fmt.Sprintf("timeout waiting for the deployment: %s to run", deploymentName)
+			return config.StatusTimeout, errors.New(msg)
+
+		default:
+			time.Sleep(time.Second * 2)
+			d, found, err := getter.GetDeployment(namespace, deploymentName, kubeClient)
+			if err != nil || !found {
+				logger.Errorf(
+					"failed to check deployment ready status %s/%s - %v",
+					namespace,
+					deploymentName,
+					err,
+				)
+			} else {
+				if wrapper.Deployment(d).Ready() {
+					return config.StatusRunning, nil
+				}
+			}
+		}
+	}
 }
