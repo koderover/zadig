@@ -147,8 +147,16 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		return
 	}
 
+	// gray scale equals 100 means it was a full release
 	if c.jobTaskSpec.GrayScale >= 100 {
-		if err := updater.ScaleDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.TotalReplica, c.kubeClient); err != nil {
+		deployment.Spec.Replicas = int32Ptr(int32(c.jobTaskSpec.TotalReplica))
+		for i := range deployment.Spec.Template.Spec.Containers {
+			if deployment.Spec.Template.Spec.Containers[i].Name == c.jobTaskSpec.ContainerName {
+				deployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
+				break
+			}
+		}
+		if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
 			c.Errorf("update origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 			return
 		}
@@ -160,6 +168,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s replica set to %d", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.TotalReplica))
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s image set to %s", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Image))
 
 		if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, c.kubeClient); err != nil {
 			msg := fmt.Sprintf("delete gray deployment %s error: %v", c.jobTaskSpec.GrayWorkloadName, err)
