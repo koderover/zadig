@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/27149chen/afero"
-	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -478,11 +477,13 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 
-		err = copy.Copy(currentChartPath, path.Join(localBase, path.Base(args.Path)))
-		if err != nil {
-			logger.Errorf("Failed to save files to disk, err: %s", err)
+		err1 := fs.CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(args.Path)), "", currentChartPath, logger)
+		if err1 != nil {
+			logger.Errorf("Failed to save files to disk, err: %s", err1)
+			err = err1
 			return
 		}
+
 		logger.Debug("Finish to save and upload chart")
 	})
 

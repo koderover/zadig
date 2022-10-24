@@ -2105,7 +2105,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(module.PreBuild.ClusterID)
 		if err != nil {
-			return nil, e.ErrConvertSubTasks.AddErr(fmt.Errorf("failed to get cluster: %s, err: %s", module.PreBuild.ClusterID, err))
+			return nil, e.ErrConvertSubTasks.AddErr(err)
 		}
 		build.Cache = clusterInfo.Cache
 

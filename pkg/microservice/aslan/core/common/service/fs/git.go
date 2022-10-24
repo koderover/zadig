@@ -59,50 +59,41 @@ func DownloadFileFromSource(args *DownloadFromSourceArgs) ([]byte, error) {
 }
 
 func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(afero.Fs) (string, error)) (fs.FS, error) {
-	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	getter, err := treeGetter(args.RepoLink, args.CodehostID)
 	if err != nil {
-		log.Errorf("Failed to get codehost info to download helm chart")
+		log.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, err
 	}
-	if ch.Type != setting.SourceFromOther {
-		getter, err := treeGetter(args.RepoLink, args.CodehostID)
-		if err != nil {
-			log.Errorf("Failed to get tree getter, err: %s", err)
-			return nil, err
-		}
-		owner := args.Namespace
-		if owner == "" {
-			owner = args.Owner
-		}
-		chartTree, err := getter.GetTreeContents(owner, args.Repo, args.Path, args.Branch)
-		if err != nil {
-			log.Errorf("Failed to get tree contents for service %+v, err: %s", args, err)
-			return nil, err
-		}
-
-		rootName, err := rootNameGetter(chartTree)
-		if err != nil {
-			log.Errorf("Failed to get service name, err: %s", err)
-			return nil, err
-		}
-		if rootName != "" {
-			// rename the root path of the chart to the service name
-			f, err := fs.ReadDir(afero.NewIOFS(chartTree), "")
-			if err != nil {
-				return nil, err
-			}
-			if len(f) == 1 {
-				if err = chartTree.Rename(f[0].Name(), rootName); err != nil {
-					log.Errorf("Failed to rename dir name from %s to %s, err: %s", f[0].Name(), rootName, err)
-					return nil, err
-				}
-			}
-		}
-
-		return afero.NewIOFS(chartTree), nil
+	owner := args.Namespace
+	if owner == "" {
+		owner = args.Owner
+	}
+	chartTree, err := getter.GetTreeContents(owner, args.Repo, args.Path, args.Branch)
+	if err != nil {
+		log.Errorf("Failed to get tree contents for service %+v, err: %s", args, err)
+		return nil, err
 	}
 
-	// if the given
+	rootName, err := rootNameGetter(chartTree)
+	if err != nil {
+		log.Errorf("Failed to get service name, err: %s", err)
+		return nil, err
+	}
+	if rootName != "" {
+		// rename the root path of the chart to the service name
+		f, err := fs.ReadDir(afero.NewIOFS(chartTree), "")
+		if err != nil {
+			return nil, err
+		}
+		if len(f) == 1 {
+			if err = chartTree.Rename(f[0].Name(), rootName); err != nil {
+				log.Errorf("Failed to rename dir name from %s to %s, err: %s", f[0].Name(), rootName, err)
+				return nil, err
+			}
+		}
+	}
+
+	return afero.NewIOFS(chartTree), nil
 }
 
 func treeGetter(repoLink string, codeHostID int) (TreeGetter, error) {
