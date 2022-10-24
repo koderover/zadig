@@ -85,8 +85,11 @@ func getRelatedEnvs(variableSetId, projectName string) ([]commonmodels.RenderSet
 	}
 
 	renderSetOption := &commonrepo.RenderSetListOption{
-		FindOpts: make([]commonrepo.RenderSetFindOption, 0),
+		ProductTmpl: projectName,
+		FindOpts:    make([]commonrepo.RenderSetFindOption, 0),
 	}
+
+	log.Infof("############# the helm env count is : %d", len(helmEnvs))
 
 	for _, singleHelmEnv := range helmEnvs {
 		if singleHelmEnv.Render == nil {
@@ -102,6 +105,7 @@ func getRelatedEnvs(variableSetId, projectName string) ([]commonmodels.RenderSet
 		})
 	}
 
+	log.Infof("######### render set option count is %v", len(renderSetOption.FindOpts))
 	return commonrepo.NewRenderSetColl().ListByFindOpts(renderSetOption)
 }
 
@@ -171,7 +175,7 @@ func DeleteVariableSet(id, projectName string, log *zap.SugaredLogger) error {
 		for _, render := range renderSets {
 			envNames = append(envNames, fmt.Sprintf("%s:%s", render.ProductTmpl, render.EnvName))
 		}
-		return errors.ErrDeleteVariableSet.AddDesc(fmt.Sprintf("variable set is used by envs: %v", envNames))
+		return errors.ErrDeleteVariableSet.AddDesc(fmt.Sprintf("variableSet is used by envs: %v", envNames))
 	}
 
 	err = commonrepo.NewVariableSetColl().Delete(id)
