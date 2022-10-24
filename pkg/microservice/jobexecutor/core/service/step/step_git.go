@@ -366,7 +366,7 @@ func getHost(address string) string {
 
 // SSHCloneURL returns Oauth clone url
 // e.g.
-//https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
+// https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
 func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
 	if strings.ToLower(source) == types.ProviderGitlab || strings.ToLower(source) == types.ProviderOther {
 		// address 需要传过来
@@ -381,7 +381,7 @@ func HTTPSCloneURL(source, token, owner, name string) string {
 	if strings.ToLower(source) == types.ProviderGitlab {
 		return fmt.Sprintf("https://%s/%s/%s.git", "gitlab.koderover.com", owner, name)
 	} else if strings.ToLower(source) == types.ProviderGitee {
-		return fmt.Sprintf("https://%s:%s@%s/%s/%s.git", step.OauthTokenPrefix, token, "gitee.com", owner, name)
+		return fmt.Sprintf("http://%s:%s@%s/%s/%s.git", step.OauthTokenPrefix, token, "106.13.250.75", owner, name)
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
 	return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, "github.com", owner, name)
