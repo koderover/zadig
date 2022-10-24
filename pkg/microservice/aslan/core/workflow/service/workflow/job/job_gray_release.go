@@ -149,7 +149,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 func (j *GrayReleaseJob) LintJob() error {
 	j.spec = &commonmodels.GrayReleaseJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	// from job was empty means it is the first deploy job.
@@ -164,7 +164,7 @@ func (j *GrayReleaseJob) LintJob() error {
 		for _, job := range stage.Jobs {
 			if job.JobType == config.JobK8sGrayRelease && job.Name == j.spec.FromJob {
 				jobSpec := &commonmodels.GrayReleaseJobSpec{}
-				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+				if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
 					return err
 				}
 				if jobSpec.FromJob != "" {
@@ -194,7 +194,7 @@ func lintFirstGrayReleaseJob(jobName string, stages []*commonmodels.WorkflowStag
 				continue
 			}
 			jobSpec := &commonmodels.GrayReleaseJobSpec{}
-			if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+			if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
 				return err
 			}
 			if jobSpec.FromJob != jobName {
