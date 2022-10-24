@@ -514,6 +514,27 @@ func ListNamespace(clusterID string, log *zap.SugaredLogger) ([]string, error) {
 	return resp, nil
 }
 
+func ListDeploymentNames(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
+	resp := make([]string, 0)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListDeployment clusterID:%s err:%v", clusterID, err)
+		return resp, err
+	}
+	deployments, err := getter.ListDeployments(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDeployment err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, deployment := range deployments {
+		resp = append(resp, deployment.Name)
+	}
+	return resp, nil
+}
+
 type WorkloadInfo struct {
 	WorkloadType  string `json:"workload_type"`
 	WorkloadName  string `json:"workload_name"`

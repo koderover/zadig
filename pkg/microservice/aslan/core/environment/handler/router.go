@@ -112,6 +112,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		kube.GET("/pods/:podName/file", DownloadFileFromPod)
 		kube.GET("/namespace/cluster/:clusterID", ListNamespace)
+		kube.GET("/deployment/cluster/:clusterID/namespace/:namespace", ListDeploymentNames)
 		kube.GET("/workload/cluster/:clusterID/namespace/:namespace", ListWorkloadsInfo)
 		kube.GET("/custom_workload/cluster/:clusterID/namespace/:namespace", ListCustomWorkload)
 		kube.GET("/canary_service/cluster/:clusterID/namespace/:namespace", ListCanaryDeploymentServiceInfo)
