@@ -733,7 +733,7 @@ var (
 	ErrDeleteView = NewHTTPError(6894, "删除视图失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// VariableSet releated errors
+	// VariableSet releated errors: 6900-6909
 	//-----------------------------------------------------------------------------------------------
 	ErrListVariableSets  = NewHTTPError(6900, "列出变量集失败")
 	ErrGetVariableSet    = NewHTTPError(6901, "获取变量集详情失败")
