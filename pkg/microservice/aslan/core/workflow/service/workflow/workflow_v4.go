@@ -35,6 +35,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
+	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
@@ -819,4 +820,27 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 		Cron:           input.Cron,
 		Enabled:        input.Enabled,
 	}
+}
+
+func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger) ([]*commonmodels.Param, error) {
+	resp := []*commonmodels.Param{}
+	kvs, err := commomtemplate.GetYamlVariables(patchItem.PatchContent, logger)
+	if err != nil {
+		return resp, fmt.Errorf("get kv from content error: %s", err)
+	}
+	paramMap := map[string]*commonmodels.Param{}
+	for _, param := range patchItem.Params {
+		paramMap[param.Name] = param
+	}
+	for _, kv := range kvs {
+		if param, ok := paramMap[kv.Key]; ok {
+			resp = append(resp, param)
+			continue
+		}
+		resp = append(resp, &commonmodels.Param{
+			Name:       kv.Key,
+			ParamsType: "string",
+		})
+	}
+	return resp, nil
 }

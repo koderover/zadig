@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -103,6 +104,29 @@ func GetDynamicKubeclientFromKubeConfig(clusterID, kubeConfig string) (dynamic.I
 	}
 
 	return dynamic.NewForConfig(cfg)
+}
+
+func GetDiscoveryClient(hubServerAddr, clusterID string) (*discovery.DiscoveryClient, error) {
+	if clusterID == "" {
+		return krkubeclient.NewDiscoveryClient()
+	}
+
+	clusterService, err := NewAgent(hubServerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clusterService: %v", err)
+	}
+
+	return clusterService.GetDisCoveryClient(clusterID)
+}
+
+func GetDiscoveryClientFromKubeConfig(clusterID, kubeConfig string) (*discovery.DiscoveryClient, error) {
+	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
+	if err != nil {
+		log.Errorf("failed to get kubeconfig from file, error: %s", err)
+		return nil, err
+	}
+
+	return discovery.NewDiscoveryClientForConfig(cfg)
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
@@ -229,6 +253,11 @@ func (s *Agent) GetClientGoKubeClient(clusterID string) (*kubernetes.Clientset, 
 func (s *Agent) GetDynamicKubeClient(clusterID string) (dynamic.Interface, error) {
 	config := generateRestConfig(clusterID, s.hubServerAddr)
 	return dynamic.NewForConfig(config)
+}
+
+func (s *Agent) GetDisCoveryClient(clusterID string) (*discovery.DiscoveryClient, error) {
+	config := generateRestConfig(clusterID, s.hubServerAddr)
+	return discovery.NewDiscoveryClientForConfig(config)
 }
 
 func (s *Agent) ClusterConnected(clusterID string) bool {
