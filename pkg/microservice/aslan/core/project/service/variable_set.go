@@ -89,8 +89,6 @@ func getRelatedEnvs(variableSetId, projectName string) ([]commonmodels.RenderSet
 		FindOpts:    make([]commonrepo.RenderSetFindOption, 0),
 	}
 
-	log.Infof("############# the helm env count is : %d", len(helmEnvs))
-
 	for _, singleHelmEnv := range helmEnvs {
 		if singleHelmEnv.Render == nil {
 			continue
@@ -105,7 +103,6 @@ func getRelatedEnvs(variableSetId, projectName string) ([]commonmodels.RenderSet
 		})
 	}
 
-	log.Infof("######### render set option count is %v", len(renderSetOption.FindOpts))
 	return commonrepo.NewRenderSetColl().ListByFindOpts(renderSetOption)
 }
 
