@@ -245,8 +245,10 @@ type GrayRollbackJobSpec struct {
 }
 
 type GrayRollbackTarget struct {
-	WorkloadType string `bson:"workload_type"             json:"workload_type"            yaml:"workload_type"`
-	WorkloadName string `bson:"workload_name"             json:"workload_name"            yaml:"workload_name"`
+	WorkloadType  string `bson:"workload_type"             json:"workload_type"            yaml:"workload_type"`
+	WorkloadName  string `bson:"workload_name"             json:"workload_name"            yaml:"workload_name"`
+	OriginImage   string `bson:"-"                         json:"origin_image"             yaml:"origin_image,omitempty"`
+	OriginReplica int    `bson:"-"                         json:"origin_replica"           yaml:"origin_replica,omitempty"`
 }
 
 type JobProperties struct {

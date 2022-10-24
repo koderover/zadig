@@ -22,6 +22,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type GrayRollbackJob struct {
@@ -43,6 +44,24 @@ func (j *GrayRollbackJob) SetPreset() error {
 	j.spec = &commonmodels.GrayRollbackJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client, err: %v", err)
+	}
+	for _, target := range j.spec.Targets {
+		deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
+		if err != nil || !found {
+			log.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.spec.Namespace)
+			continue
+		}
+		rollbackInfo, err := getGrayRollbackInfoFromAnnotations(deployment.GetAnnotations())
+		if err != nil {
+			log.Errorf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
+			continue
+		}
+		target.OriginImage = rollbackInfo.image
+		target.OriginReplica = rollbackInfo.replica
 	}
 	j.job.Spec = j.spec
 	return nil
