@@ -20,7 +20,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -48,12 +47,6 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 			TestCases: []meta.TestCase{},
 		}
 	)
-
-	if len(testUploadPath) > 0 {
-		if err := os.MkdirAll(testUploadPath, os.ModePerm); err != nil {
-			return fmt.Errorf("create test upload path error: %v", err)
-		}
-	}
 
 	if len(testResultPath) == 0 {
 		return nil
