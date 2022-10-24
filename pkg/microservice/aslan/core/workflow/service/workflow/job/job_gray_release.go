@@ -66,7 +66,6 @@ func (j *GrayReleaseJob) MergeArgs(args *commonmodels.Job) error {
 }
 
 func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
-	// logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.GrayReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -149,6 +148,74 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *GrayReleaseJob) LintJob() error {
-	// TODO
+	j.spec = &commonmodels.GrayReleaseJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	// from job was empty means it is the first deploy job.
+	if j.spec.FromJob == "" {
+		if err := lintFirstGrayReleaseJob(j.job.Name, j.workflow.Stages); err != nil {
+			return err
+		}
+		return nil
+	}
+	found := false
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobK8sGrayRelease && job.Name == j.spec.FromJob {
+				jobSpec := &commonmodels.GrayReleaseJobSpec{}
+				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+					return err
+				}
+				if jobSpec.FromJob != "" {
+					return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
+				}
+				found = true
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("[%s] quote release job: %s not found", j.job.Name, j.spec.FromJob)
+	}
+	return nil
+}
+
+type lintGrayReleaseJob struct {
+	jobName   string
+	GrayScale int
+}
+
+func lintFirstGrayReleaseJob(jobName string, stages []*commonmodels.WorkflowStage) error {
+	jobRankmap := getJobRankMap(stages)
+	releaseJobs := []*lintGrayReleaseJob{}
+	for _, stage := range stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobK8sGrayRelease {
+				continue
+			}
+			jobSpec := &commonmodels.GrayReleaseJobSpec{}
+			if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+				return err
+			}
+			if jobSpec.FromJob != jobName {
+				continue
+			}
+			releaseJobs = append(releaseJobs, &lintGrayReleaseJob{jobName: job.Name, GrayScale: jobSpec.GrayScale})
+		}
+	}
+	if len(releaseJobs) == 0 {
+		return fmt.Errorf("no release job found for job [%s]", jobName)
+	}
+	for i, releaseJob := range releaseJobs {
+		if jobRankmap[jobName] >= jobRankmap[releaseJob.jobName] {
+			return fmt.Errorf("release job: [%s] must be run before [%s]", jobName, releaseJob.jobName)
+		}
+		if i < len(releaseJobs)-1 && releaseJob.GrayScale >= 100 {
+			return fmt.Errorf("release job: [%s] cannot full release in the middle", releaseJob.jobName)
+		}
+		if i == len(releaseJobs)-1 && releaseJob.GrayScale != 100 {
+			return fmt.Errorf("last release job: [%s] must be full released", releaseJob.jobName)
+		}
+	}
 	return nil
 }
