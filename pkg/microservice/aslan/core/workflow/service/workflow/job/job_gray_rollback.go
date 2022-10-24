@@ -49,6 +49,7 @@ func (j *GrayRollbackJob) SetPreset() error {
 	if err != nil {
 		return fmt.Errorf("failed to get kube client, err: %v", err)
 	}
+	newTargets := []*commonmodels.GrayRollbackTarget{}
 	for _, target := range j.spec.Targets {
 		deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
 		if err != nil || !found {
@@ -62,7 +63,9 @@ func (j *GrayRollbackJob) SetPreset() error {
 		}
 		target.OriginImage = rollbackInfo.image
 		target.OriginReplica = rollbackInfo.replica
+		newTargets = append(newTargets, target)
 	}
+	j.spec.Targets = newTargets
 	j.job.Spec = j.spec
 	return nil
 }
@@ -112,7 +115,7 @@ func (j *GrayRollbackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		}
 		jobTask := &commonmodels.JobTask{
 			Name:    j.job.Name,
-			JobType: string(config.JobK8sGrayRelease),
+			JobType: string(config.JobK8sGrayRollback),
 			Spec: &commonmodels.JobTaskGrayRollbackSpec{
 				ClusterID:        j.spec.ClusterID,
 				ClusterName:      cluster.Name,

@@ -210,7 +210,7 @@ type JobTaskGrayReleaseSpec struct {
 	ContainerName    string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
 	FirstJob         bool   `bson:"first_job"              json:"first_job"              yaml:"first_job"`
 	Image            string `bson:"image"                  json:"image"                  yaml:"image"`
-	GrayWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
+	GrayWorkloadName string `bson:"gray_workload_name"     json:"gray_workload_name"     yaml:"gray_workload_name"`
 	// unit is minute.
 	DeployTimeout int64   `bson:"deploy_timeout"        json:"deploy_timeout"       yaml:"deploy_timeout"`
 	GrayScale     int     `bson:"gray_scale"            json:"gray_scale"           yaml:"gray_scale"`
@@ -227,7 +227,7 @@ type JobTaskGrayRollbackSpec struct {
 	WorkloadName     string `bson:"workload_name"          json:"workload_name"          yaml:"workload_name"`
 	ContainerName    string `bson:"container_name"         json:"container_name"         yaml:"container_name"`
 	Image            string `bson:"image"                  json:"image"                  yaml:"image"`
-	GrayWorkloadName string `bson:"canary_workload_name"   json:"canary_workload_name"   yaml:"canary_workload_name"`
+	GrayWorkloadName string `bson:"gray_workload_name"     json:"gray_workload_name"     yaml:"gray_workload_name"`
 	// unit is minute.
 	RollbackTimeout int64   `bson:"rollback_timeout"      json:"rollback_timeout"     yaml:"rollback_timeout"`
 	TotalReplica    int     `bson:"total_replica"         json:"total_replica"        yaml:"total_replica"`
