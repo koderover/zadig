@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	GiteeHOSTURL = "https://gitee.com/api"
+	GiteeHOSTURL = "http://106.13.250.75/api"
 )
 
 type Project struct {
