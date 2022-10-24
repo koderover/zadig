@@ -82,5 +82,5 @@ func DeleteVariableSet(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DeleteVariableSet(c.Param("id"), c.Param("projectName"), ctx.Logger)
+	ctx.Err = service.DeleteVariableSet(c.Param("id"), c.Query("projectName"), ctx.Logger)
 }
