@@ -131,7 +131,7 @@ func (c *RenderSetColl) ListByFindOpts(opt *RenderSetListOption) ([]models.Rende
 			"revision": findOpt.Revision,
 		}
 		if len(findOpt.YamlVariableSetID) > 0 {
-			singleCondition["yaml_data.source"] = setting.SourceFromGitRepo
+			singleCondition["yaml_data.source"] = setting.SourceFromVariableSet
 			singleCondition["yaml_data.source_id"] = findOpt.YamlVariableSetID
 		}
 		condition = append(condition, singleCondition)

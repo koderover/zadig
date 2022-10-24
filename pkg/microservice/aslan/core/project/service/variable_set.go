@@ -120,42 +120,10 @@ func UpdateVariableSet(args *CreateVariableSetRequest, requestID string, log *za
 		return errors.ErrEditVariableSet.AddErr(fmt.Errorf("invalid yaml: %s", err))
 	}
 
-	//renderSets, err := getRelatedEnvs(args.ID, args.ProjectName)
-	//if err != nil {
-	//	return errors.ErrEditVariableSet.AddErr(err)
-	//}
-
 	if err := commonrepo.NewVariableSetColl().Update(args.ID, modelData); err != nil {
 		log.Errorf("UpdateVariableSet err:%v", err)
 		return errors.ErrEditVariableSet.AddErr(err)
 	}
-
-	//errList := &multierror.Error{}
-	//for _, renderSet := range renderSets {
-	//	if renderSet.YamlData == nil || !renderSet.YamlData.AutoSync {
-	//		continue
-	//	}
-	//	defaultValueUpdateArg := &service.EnvRendersetArg{
-	//		DefaultValues: args.VariableYaml,
-	//		ValuesData: &commonservice.ValuesDataArgs{
-	//			YamlSource:    setting.SourceFromVariableSet,
-	//			SourceID:      args.ID,
-	//			AutoSync:      true,
-	//			GitRepoConfig: nil,
-	//		},
-	//		ChartValues:       nil,
-	//		UpdateServiceTmpl: false,
-	//	}
-	//	err = service.UpdateHelmProductDefaultValuesWithRender(&renderSet, args.UserName, requestID, defaultValueUpdateArg, log)
-	//	if err != nil {
-	//		errList = multierror.Append(errList, fmt.Errorf("failed to update: %s:%s ", renderSet.ProductTmpl, renderSet.EnvName))
-	//	}
-	//}
-	//
-	//if errList.ErrorOrNil() != nil {
-	//	return errors.ErrEditVariableSet.AddErr(errList.ErrorOrNil())
-	//}
-
 	return nil
 }
 
