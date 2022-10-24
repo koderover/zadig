@@ -204,55 +204,55 @@ func (r *Reaper) BeforeExec() error {
 				log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
 			}
 		}
+	}
 
-		if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
-			log.Info("Pulling Cache.")
-			startTimePullCache := time.Now()
-			if err := r.DecompressCache(); err != nil {
-				// If the workflow runs for the first time, there may be no cache.
-				log.Infof("Failed to pull cache: %s. Duration: %.2f seconds.", err, time.Since(startTimePullCache).Seconds())
-			} else {
-				log.Infof("Succeed to pull cache. Duration: %.2f seconds.", time.Since(startTimePullCache).Seconds())
-			}
+	if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
+		log.Info("Pulling Cache.")
+		startTimePullCache := time.Now()
+		if err := r.DecompressCache(); err != nil {
+			// If the workflow runs for the first time, there may be no cache.
+			log.Infof("Failed to pull cache: %s. Duration: %.2f seconds.", err, time.Since(startTimePullCache).Seconds())
+		} else {
+			log.Infof("Succeed to pull cache. Duration: %.2f seconds.", time.Since(startTimePullCache).Seconds())
+		}
+	}
+
+	if err := os.MkdirAll(path.Join(os.Getenv("HOME"), "/.ssh"), os.ModePerm); err != nil {
+		return fmt.Errorf("create ssh folder error: %v", err)
+	}
+
+	if r.Ctx.Archive != nil && len(r.Ctx.Archive.Dir) > 0 {
+		if err := os.MkdirAll(r.Ctx.Archive.Dir, os.ModePerm); err != nil {
+			return fmt.Errorf("create DistDir error: %v", err)
+		}
+	}
+
+	if r.Ctx.Git != nil {
+		if err := r.Ctx.Git.WriteGithubSSHFile(); err != nil {
+			return fmt.Errorf("write github ssh file error: %v", err)
 		}
 
-		if err := os.MkdirAll(path.Join(os.Getenv("HOME"), "/.ssh"), os.ModePerm); err != nil {
-			return fmt.Errorf("create ssh folder error: %v", err)
+		if err := r.Ctx.Git.WriteGitlabSSHFile(); err != nil {
+			return fmt.Errorf("write gitlab ssh file error: %v", err)
 		}
 
-		if r.Ctx.Archive != nil && len(r.Ctx.Archive.Dir) > 0 {
-			if err := os.MkdirAll(r.Ctx.Archive.Dir, os.ModePerm); err != nil {
-				return fmt.Errorf("create DistDir error: %v", err)
-			}
+		if err := r.Ctx.Git.WriteKnownHostFile(); err != nil {
+			return fmt.Errorf("write known_host file error: %v", err)
 		}
 
-		if r.Ctx.Git != nil {
-			if err := r.Ctx.Git.WriteGithubSSHFile(); err != nil {
-				return fmt.Errorf("write github ssh file error: %v", err)
-			}
+		if err := r.Ctx.Git.WriteSSHConfigFile(r.Ctx.Proxy); err != nil {
+			return fmt.Errorf("write ssh config error: %v", err)
+		}
+	}
 
-			if err := r.Ctx.Git.WriteGitlabSSHFile(); err != nil {
-				return fmt.Errorf("write gitlab ssh file error: %v", err)
-			}
-
-			if err := r.Ctx.Git.WriteKnownHostFile(); err != nil {
-				return fmt.Errorf("write known_host file error: %v", err)
-			}
-
-			if err := r.Ctx.Git.WriteSSHConfigFile(r.Ctx.Proxy); err != nil {
-				return fmt.Errorf("write ssh config error: %v", err)
-			}
+	if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
+		r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
+		if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
+			log.Warning(err.Error())
 		}
 
-		if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
-			r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
-			if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
-				log.Warning(err.Error())
-			}
-
-			if err := os.MkdirAll(r.Ctx.GinkgoTest.ResultPath, os.ModePerm); err != nil {
-				return fmt.Errorf("create test result path error: %v", err)
-			}
+		if err := os.MkdirAll(r.Ctx.GinkgoTest.ResultPath, os.ModePerm); err != nil {
+			return fmt.Errorf("create test result path error: %v", err)
 		}
 	}
 
