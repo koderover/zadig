@@ -172,6 +172,7 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 						if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
 							buildRepo.Branch = inputRepo.Branch
 							buildRepo.PR = inputRepo.PR
+							buildRepo.PRs = inputRepo.PRs
 						}
 					}
 				}
@@ -203,6 +204,7 @@ type RepoInput struct {
 	RepoName      string `json:"repo_name"`
 	Branch        string `json:"branch"`
 	PR            int    `json:"pr"`
+	PRs           []int  `json:"prs"`
 }
 
 func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
@@ -248,6 +250,7 @@ func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels
 							if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
 								buildRepo.Branch = inputRepo.Branch
 								buildRepo.PR = inputRepo.PR
+								buildRepo.PRs = inputRepo.PRs
 							}
 						}
 					}
@@ -397,5 +400,178 @@ func (p *CustomDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 type EmptyInput struct{}
 
 func (p *EmptyInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	return job, nil
+}
+
+type ZadigTestingJobInput struct {
+	TestingList []*TestingArgs `json:"testing_list"`
+}
+
+type TestingArgs struct {
+	TestingName string       `json:"testing_name"`
+	RepoInfo    []*RepoInput `json:"repo_info"`
+	Inputs      []*KV        `json:"inputs"`
+}
+
+func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.ZadigTestingJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigTestingJobSpec")
+	}
+
+	for _, testing := range newSpec.TestModules {
+		for _, inputTesting := range p.TestingList {
+			// if the testing name match, we do the update logic
+			if inputTesting.TestingName == testing.Name {
+				// update build repo info with input build info
+				for _, inputRepo := range inputTesting.RepoInfo {
+					repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+					if err != nil {
+						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+					}
+
+					for _, buildRepo := range testing.Repos {
+						if buildRepo.CodehostID == repoInfo.ID {
+							if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
+								buildRepo.Branch = inputRepo.Branch
+								buildRepo.PR = inputRepo.PR
+								buildRepo.PRs = inputRepo.PRs
+							}
+						}
+					}
+				}
+
+				// update the build kv
+				kvMap := make(map[string]string)
+				for _, kv := range inputTesting.Inputs {
+					kvMap[kv.Key] = kv.Value
+				}
+
+				for _, buildParam := range testing.KeyVals {
+					if val, ok := kvMap[buildParam.Key]; ok {
+						buildParam.Value = val
+					}
+				}
+			}
+		}
+	}
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
+type GrayReleaseJobInput struct {
+	TargetList []*GrayReleaseTarget `json:"target_list"`
+}
+
+type GrayReleaseTarget struct {
+	WorkloadType  string `json:"workload_type"`
+	WorkloadName  string `json:"workload_name"`
+	ContainerName string `json:"container_name"`
+	ImageName     string `json:"image_name"`
+}
+
+func (p *GrayReleaseJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.GrayReleaseJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, errors.New("unable to cast job.Spec into commonmodels.GrayReleaseJobSpec")
+	}
+
+	newTargets := []*commonmodels.GrayReleaseTarget{}
+
+	for _, target := range newSpec.Targets {
+		for _, inputTarget := range p.TargetList {
+			if target.WorkloadName != inputTarget.WorkloadName {
+				continue
+			}
+			target.Image = inputTarget.ImageName
+			newTargets = append(newTargets, target)
+		}
+	}
+
+	newSpec.Targets = newTargets
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
+type GrayRollbackJobInput struct {
+	TargetList []*GrayReleaseTarget `json:"target_list"`
+}
+
+type GrayRollbackTarget struct {
+	WorkloadType string `json:"workload_type"`
+	WorkloadName string `json:"workload_name"`
+}
+
+func (p *GrayRollbackJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.GrayRollbackJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, errors.New("unable to cast job.Spec into commonmodels.GrayRollbackJobSpec")
+	}
+
+	newTargets := []*commonmodels.GrayRollbackTarget{}
+
+	for _, target := range newSpec.Targets {
+		for _, inputTarget := range p.TargetList {
+			if target.WorkloadName != inputTarget.WorkloadName {
+				continue
+			}
+			newTargets = append(newTargets, target)
+		}
+	}
+
+	newSpec.Targets = newTargets
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
+type K8sPatchJobInput struct {
+	TargetList []*K8sPatchTarget `json:"target_list"`
+}
+
+type K8sPatchTarget struct {
+	ResourceName    string `json:"resource_name"`
+	ResourceKind    string `json:"resource_kind"`
+	ResourceGroup   string `json:"resource_group"`
+	ResourceVersion string `json:"resource_version"`
+	Inputs          []*KV  `json:"inputs"`
+}
+
+func (p *K8sPatchJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.K8sPatchJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, errors.New("unable to cast job.Spec into commonmodels.K8sPatchJobSpec")
+	}
+
+	newItems := []*commonmodels.PatchItem{}
+
+	for _, target := range newSpec.PatchItems {
+		for _, inputTarget := range p.TargetList {
+			if target.ResourceName == inputTarget.ResourceName && target.ResourceGroup == inputTarget.ResourceGroup && target.ResourceVersion == inputTarget.ResourceVersion && target.ResourceKind == inputTarget.ResourceKind {
+				// update the render kv
+				kvMap := make(map[string]string)
+				for _, kv := range inputTarget.Inputs {
+					kvMap[kv.Key] = kv.Value
+				}
+
+				for _, param := range target.Params {
+					if val, ok := kvMap[param.Name]; ok {
+						param.Value = val
+					}
+				}
+				newItems = append(newItems, target)
+			}
+		}
+	}
+
+	newSpec.PatchItems = newItems
+
+	job.Spec = newSpec
+
 	return job, nil
 }
