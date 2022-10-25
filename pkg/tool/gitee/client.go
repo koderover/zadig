@@ -40,7 +40,7 @@ func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) *Client 
 	)
 
 	conf := gitee.NewConfiguration()
-	conf.BasePath = "http://106.13.250.75"
+	conf.BasePath = "http://106.13.250.75/api"
 	dc := http.DefaultClient
 	if enableProxy {
 		p, err := url.Parse(proxyAddr)
