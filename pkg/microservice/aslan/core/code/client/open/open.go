@@ -60,5 +60,8 @@ func OpenClient(ch *systemconfig.CodeHost, log *zap.SugaredLogger) (client.CodeH
 		log.Errorf("marsh err:%s", err)
 		return nil, err
 	}
+	if ch.Type == setting.SourceFromGitee {
+		log.Infof("gitee access token is: %+v", clientConfig)
+	}
 	return clientConfig.Open(ch.ID, log)
 }
