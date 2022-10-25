@@ -253,7 +253,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGitee {
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName)), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
@@ -286,7 +286,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		}
 	} else {
 		// github
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.RepoName)), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.RepoName, "")), DisableTrace: true})
 	}
 
 	ref := repo.Ref()
@@ -366,7 +366,7 @@ func getHost(address string) string {
 
 // SSHCloneURL returns Oauth clone url
 // e.g.
-//https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
+// https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
 func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
 	if strings.ToLower(source) == types.ProviderGitlab || strings.ToLower(source) == types.ProviderOther {
 		// address 需要传过来
@@ -377,11 +377,10 @@ func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
 }
 
 // HTTPSCloneURL returns HTTPS clone url
-func HTTPSCloneURL(source, token, owner, name string) string {
-	if strings.ToLower(source) == types.ProviderGitlab {
-		return fmt.Sprintf("https://%s/%s/%s.git", "gitlab.koderover.com", owner, name)
-	} else if strings.ToLower(source) == types.ProviderGitee {
-		return fmt.Sprintf("https://%s:%s@%s/%s/%s.git", step.OauthTokenPrefix, token, "gitee.com", owner, name)
+func HTTPSCloneURL(source, token, owner, name string, optionalGiteeAddr string) string {
+	if strings.ToLower(source) == types.ProviderGitee {
+		addrSegment := strings.Split(optionalGiteeAddr, "://")
+		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", addrSegment[0], step.OauthTokenPrefix, token, addrSegment[1], owner, name)
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
 	return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, "github.com", owner, name)

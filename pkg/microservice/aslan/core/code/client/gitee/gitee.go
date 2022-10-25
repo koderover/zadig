@@ -31,18 +31,21 @@ import (
 type Config struct {
 	AccessToken string `json:"access_token"`
 	EnableProxy bool   `json:"enable_proxy"`
+	Address     string `json:"address"`
 }
 
 type Client struct {
 	Client      *gitee.Client
 	AccessToken string
+	Address     string
 }
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
-	client := gitee.NewClient(id, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
+	client := gitee.NewClient(id, c.Address, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
 	return &Client{
 		Client:      client,
 		AccessToken: c.AccessToken,
+		Address:     c.Address,
 	}, nil
 }
 
@@ -62,7 +65,7 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 }
 
 func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
-	tags, err := c.Client.ListTags(context.TODO(), c.AccessToken, opt.Namespace, opt.ProjectName)
+	tags, err := c.Client.ListTags(context.TODO(), c.Address, c.AccessToken, opt.Namespace, opt.ProjectName)
 	if err != nil {
 		return nil, err
 	}
@@ -133,12 +136,12 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	var err error
 	switch opt.NamespaceType {
 	case client.OrgKind:
-		projects, err = c.Client.ListRepositoriesForOrg(c.AccessToken, opt.Namespace, opt.Page, opt.PerPage)
+		projects, err = c.Client.ListRepositoriesForOrg(c.Address, c.AccessToken, opt.Namespace, opt.Page, opt.PerPage)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		projects, err = c.Client.ListRepositoriesForAuthenticatedUser(c.AccessToken, opt.Key, opt.Page, opt.PerPage)
+		projects, err = c.Client.ListRepositoriesForAuthenticatedUser(c.Address, c.AccessToken, opt.Key, opt.Page, opt.PerPage)
 		if err != nil {
 			return nil, err
 		}

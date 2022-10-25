@@ -33,13 +33,15 @@ type Client struct {
 	*gitee.APIClient
 }
 
-func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) *Client {
+func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) *Client {
 	var (
 		client     *gitee.APIClient
 		HttpClient *http.Client
 	)
 
 	conf := gitee.NewConfiguration()
+	// since the default address for gitee is gitee.com, we change it to whatever the user need
+	conf.BasePath = address + "/api"
 	dc := http.DefaultClient
 	if enableProxy {
 		p, err := url.Parse(proxyAddr)
@@ -56,7 +58,7 @@ func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) *Client 
 		ch, err := systemconfig.New().GetCodeHost(id)
 		// The normal expiration time is 86400
 		if err == nil && (time.Now().Unix()-ch.UpdatedAt) >= 86000 {
-			token, err := RefreshAccessToken(ch.RefreshToken)
+			token, err := RefreshAccessToken(ch.Address, ch.RefreshToken)
 			if err == nil {
 				accessToken = token.AccessToken
 				ch.AccessToken = token.AccessToken

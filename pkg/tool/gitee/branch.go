@@ -70,9 +70,10 @@ type BranchCommitter struct {
 	Email string    `json:"email"`
 }
 
-func (c *Client) GetSingleBranch(accessToken, owner, repo, branch string) (*Branch, error) {
+func (c *Client) GetSingleBranch(hostURL, accessToken, owner, repo, branch string) (*Branch, error) {
+	apiHost := fmt.Sprintf("%s/%s", hostURL, "api")
 	httpClient := httpclient.New(
-		httpclient.SetHostURL(GiteeHOSTURL),
+		httpclient.SetHostURL(apiHost),
 	)
 	url := fmt.Sprintf("/v5/repos/%s/%s/branches/%s", owner, repo, branch)
 	var branchInfo *Branch

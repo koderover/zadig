@@ -216,7 +216,7 @@ func getTaskEnvs(pipelineName string) map[string]string {
 	return resp
 }
 
-//根据用户的配置和BuildStep中步骤的依赖，从系统配置的InstallItems中获取配置项，构建Install Context
+// 根据用户的配置和BuildStep中步骤的依赖，从系统配置的InstallItems中获取配置项，构建Install Context
 func buildInstallCtx(installItems []*commonmodels.Item) ([]*commonmodels.Install, error) {
 	resp := make([]*commonmodels.Install, 0)
 
@@ -245,7 +245,7 @@ func fmtBuildsTask(build *task.Build, log *zap.SugaredLogger) {
 	FmtBuilds(build.JobCtx.Builds, log)
 }
 
-//replace gitInfo with codehostID
+// replace gitInfo with codehostID
 func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 	for _, repo := range builds {
 		cID := repo.CodehostID
@@ -356,10 +356,10 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 			}
 		}
 	} else if codeHostInfo.Type == systemconfig.GiteeProvider {
-		gitCli := gitee.NewClient(codeHostInfo.ID, codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
+		gitCli := gitee.NewClient(codeHostInfo.ID, codeHostInfo.Address, codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" {
 			if build.Tag != "" && len(build.PRs) == 0 {
-				tags, err := gitCli.ListTags(context.Background(), codeHostInfo.AccessToken, build.RepoOwner, build.RepoName)
+				tags, err := gitCli.ListTags(context.Background(), codeHostInfo.Address, codeHostInfo.AccessToken, build.RepoOwner, build.RepoName)
 				if err != nil {
 					log.Errorf("failed to gitee ListTags err:%s", err)
 					return
@@ -368,7 +368,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 				for _, tag := range tags {
 					if tag.Name == build.Tag {
 						build.CommitID = tag.Commit.Sha
-						commitInfo, err := gitCli.GetSingleCommitOfProject(context.Background(), codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.CommitID)
+						commitInfo, err := gitCli.GetSingleCommitOfProject(context.Background(), codeHostInfo.Address, codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.CommitID)
 						if err != nil {
 							log.Errorf("failed to gitee GetCommit %s err:%s", tag.Commit.Sha, err)
 							return
@@ -379,7 +379,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 					}
 				}
 			} else if build.Branch != "" && len(build.PRs) == 0 {
-				branch, err := gitCli.GetSingleBranch(codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.Branch)
+				branch, err := gitCli.GetSingleBranch(codeHostInfo.Address, codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.Branch)
 				if err != nil {
 					log.Errorf("failed to gitee GetSingleBranch  repoOwner:%s,repoName:%s,repoBranch:%s err:%s", build.RepoOwner, build.RepoName, build.Branch, err)
 					return

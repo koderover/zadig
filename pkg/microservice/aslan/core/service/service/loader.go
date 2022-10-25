@@ -236,7 +236,7 @@ func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, br
 	return ret, nil
 }
 
-//Get a list of services that gitee can load based on repo information
+// Get a list of services that gitee can load based on repo information
 func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName, loadPath string, isDir bool) ([]string, error) {
 	ret := make([]string, 0)
 
@@ -581,8 +581,8 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 		}
 	}
 
-	giteeCli := gitee.NewClient(ch.ID, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
-	branch, err := giteeCli.GetSingleBranch(ch.AccessToken, repoOwner, repoName, branchName)
+	giteeCli := gitee.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+	branch, err := giteeCli.GetSingleBranch(ch.Address, ch.AccessToken, repoOwner, repoName, branchName)
 	if err != nil {
 		log.Errorf("Failed to get latest commit info from repo: %s, the error is: %s", repoName, err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())

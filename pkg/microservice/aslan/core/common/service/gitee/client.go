@@ -23,12 +23,14 @@ import (
 type Client struct {
 	*gitee.Client
 	AccessToken string
+	Address     string
 }
 
-func NewClient(id int, accessToken, proxyAddress string, enableProxy bool) *Client {
-	client := gitee.NewClient(id, accessToken, proxyAddress, enableProxy)
+func NewClient(id int, accessToken, proxyAddress string, enableProxy bool, optionalGiteeAddr string) *Client {
+	client := gitee.NewClient(id, optionalGiteeAddr, accessToken, proxyAddress, enableProxy)
 	return &Client{
 		Client:      client,
 		AccessToken: accessToken,
+		Address:     optionalGiteeAddr,
 	}
 }

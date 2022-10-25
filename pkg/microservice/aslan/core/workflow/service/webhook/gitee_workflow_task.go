@@ -346,8 +346,8 @@ func findChangedFilesOfPullRequestEvent(event *gitee.PullRequestEvent, codehostI
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 
-	giteeCli := gitee.NewClient(detail.ID, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
-	commitComparison, err := giteeCli.GetReposOwnerRepoCompareBaseHead(detail.AccessToken, event.Project.Namespace, event.Project.Name, event.PullRequest.Base.Sha, event.PullRequest.Head.Sha)
+	giteeCli := gitee.NewClient(detail.ID, detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
+	commitComparison, err := giteeCli.GetReposOwnerRepoCompareBaseHead(detail.Address, detail.AccessToken, event.Project.Namespace, event.Project.Name, event.PullRequest.Base.Sha, event.PullRequest.Head.Sha)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changes from gitee, err: %v", err)
 	}
