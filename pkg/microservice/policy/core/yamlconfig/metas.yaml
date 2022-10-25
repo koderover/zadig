@@ -677,6 +677,8 @@ metas:
             endpoint: /api/aslan/project/products/?*/services
           - method: GET
             endpoint: api/aslan/cluster/clusters
+          - method: GET
+            endpoint: api/aslan/project/variablesets/?*
       - action: config_environment
         alias: 配置
         description: ''
@@ -721,6 +723,8 @@ metas:
             endpoint: '/api/aslan/environment/envcfgs/:name'
           - method: DELETE
             endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
+          - method: GET
+            endpoint: api/aslan/project/variablesets/?*
       - action: manage_environment
         alias: 管理服务实例
         description: ''

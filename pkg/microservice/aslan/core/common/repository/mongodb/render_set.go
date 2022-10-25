@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/setting"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -42,11 +44,12 @@ type RenderSetListOption struct {
 // RenderSetFindOption ...
 type RenderSetFindOption struct {
 	// if Revision == 0 then search max revision of RenderSet
-	ProductTmpl string
-	EnvName     string
-	IsDefault   bool
-	Revision    int64
-	Name        string
+	ProductTmpl       string
+	EnvName           string
+	IsDefault         bool
+	Revision          int64
+	Name              string
+	YamlVariableSetID string
 }
 
 type RenderSetPipeResp struct {
@@ -123,10 +126,15 @@ func (c *RenderSetColl) ListByFindOpts(opt *RenderSetListOption) ([]models.Rende
 		return nil, nil
 	}
 	for _, findOpt := range opt.FindOpts {
-		condition = append(condition, bson.M{
+		singleCondition := bson.M{
 			"name":     findOpt.Name,
 			"revision": findOpt.Revision,
-		})
+		}
+		if len(findOpt.YamlVariableSetID) > 0 {
+			singleCondition["yaml_data.source"] = setting.SourceFromVariableSet
+			singleCondition["yaml_data.source_id"] = findOpt.YamlVariableSetID
+		}
+		condition = append(condition, singleCondition)
 	}
 	projectCon := bson.A{}
 	projectCon = append(projectCon, bson.M{"product_tmpl": opt.ProductTmpl})

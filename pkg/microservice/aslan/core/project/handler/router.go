@@ -73,6 +73,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pms.PUT("/:id", UpdatePMHost)
 		pms.DELETE("/:id", DeletePMHost)
 	}
+
+	variables := router.Group("variablesets")
+	{
+		variables.GET("", ListVariableSets)
+		variables.GET("/:id", GetVariableSet)
+		variables.POST("", CreateVariableSet)
+		variables.PUT("/:id", UpdateVariableSet)
+		variables.DELETE("/:id", DeleteVariableSet)
+	}
 }
 
 type OpenAPIRouter struct{}

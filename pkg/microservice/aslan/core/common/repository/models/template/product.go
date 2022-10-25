@@ -117,6 +117,7 @@ type CustomYaml struct {
 	Source       string      `bson:"source" json:"source"`
 	AutoSync     bool        `bson:"auto_sync" json:"auto_sync"`
 	SourceDetail interface{} `bson:"source_detail" json:"source_detail"`
+	SourceID     string      `bson:"source_id" json:"source_id"`
 }
 
 // RenderChart ...

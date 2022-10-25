@@ -901,6 +901,11 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 
 // fill product services and chart infos and insert renderset data
 func prepareHelmProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateHelmProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
+	err := validateArgs(arg.ValuesData)
+	if err != nil {
+		return fmt.Errorf("failed to validate args: %s", err)
+	}
+
 	productObj.ChartInfos = make([]*templatemodels.RenderChart, 0)
 	// chart infos in template product
 	templateChartInfoMap := make(map[string]*templatemodels.RenderChart)
@@ -972,7 +977,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+	err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
@@ -1078,6 +1083,7 @@ type HelmProductItem struct {
 	BaseName      string                          `json:"base_name"`
 	DefaultValues string                          `json:"default_values"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chart_values"`
+	ValuesData    *commonservice.ValuesDataArgs   `json:"values_data"`
 }
 
 type CopyHelmProductArg struct {
@@ -1119,6 +1125,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 				BaseEnvName:   product.BaseName,
 				BaseName:      item.BaseName,
 				ChartValues:   item.ChartValues,
+				ValuesData:    item.ValuesData,
 			})
 		} else {
 			return fmt.Errorf("product:%s not exist", item.OldName)
@@ -1592,6 +1599,17 @@ func checkOverrideValuesChange(source *templatemodels.RenderChart, args *commons
 	return false, false
 }
 
+func validateArgs(args *commonservice.ValuesDataArgs) error {
+	if args == nil || args.YamlSource != setting.SourceFromVariableSet {
+		return nil
+	}
+	_, err := commonrepo.NewVariableSetColl().Find(&commonrepo.VariableSetFindOption{ID: args.SourceID})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func UpdateHelmProductDefaultValues(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
 	// validate if yaml content is legal
 	err := yaml.Unmarshal([]byte(args.DefaultValues), map[string]interface{}{})
@@ -1607,6 +1625,7 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
+
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        product.Namespace,
 		EnvName:     envName,
@@ -1620,31 +1639,38 @@ func UpdateHelmProductDefaultValues(productName, envName, userName, requestID st
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
 	}
 
-	equal, err := yamlutil.Equal(productRenderset.DefaultValues, args.DefaultValues)
+	err = validateArgs(args.ValuesData)
 	if err != nil {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err))
+		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to validate args: %s", err))
 	}
 
-	productRenderset.DefaultValues = args.DefaultValues
-	productRenderset.YamlData = geneYamlData(args.ValuesData)
-
-	updatedRcList := make([]*templatemodels.RenderChart, 0)
-	if !equal {
-		for _, curRenderChart := range productRenderset.ChartInfos {
-			updatedRcList = append(updatedRcList, curRenderChart)
-		}
-	}
-
-	err = UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcList, productRenderset, log)
+	err = UpdateHelmProductDefaultValuesWithRender(productRenderset, userName, requestID, args, log)
 	if err != nil {
-		return err
+		return e.ErrUpdateEnv.AddErr(err)
 	}
+
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
+}
+
+func UpdateHelmProductDefaultValuesWithRender(productRenderset *models.RenderSet, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+	equal, err := yamlutil.Equal(productRenderset.DefaultValues, args.DefaultValues)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err)
+	}
+	productRenderset.DefaultValues = args.DefaultValues
+	productRenderset.YamlData = geneYamlData(args.ValuesData)
+	updatedRcList := make([]*templatemodels.RenderChart, 0)
+	if !equal {
+		for _, curRenderChart := range productRenderset.ChartInfos {
+			updatedRcList = append(updatedRcList, curRenderChart)
+		}
+	}
+	return UpdateHelmProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedRcList, productRenderset, log)
 }
 
 func UpdateHelmProductCharts(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
@@ -1723,9 +1749,15 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 	if args == nil {
 		return nil
 	}
-	var repoData *models.CreateFromRepo = nil
-	if args.GitRepoConfig != nil {
-		repoData = &models.CreateFromRepo{
+	ret := &templatemodels.CustomYaml{
+		Source:   args.YamlSource,
+		AutoSync: args.AutoSync,
+	}
+	if args.YamlSource == setting.SourceFromVariableSet {
+		ret.Source = setting.SourceFromVariableSet
+		ret.SourceID = args.SourceID
+	} else if args.GitRepoConfig != nil && args.GitRepoConfig.CodehostID > 0 {
+		repoData := &models.CreateFromRepo{
 			GitRepoConfig: &templatemodels.GitRepoConfig{
 				CodehostID: args.GitRepoConfig.CodehostID,
 				Owner:      args.GitRepoConfig.Owner,
@@ -1738,11 +1770,7 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 			repoData.LoadPath = args.GitRepoConfig.ValuesPaths[0]
 		}
 		args.YamlSource = setting.SourceFromGitRepo
-	}
-	ret := &templatemodels.CustomYaml{
-		Source:       args.YamlSource,
-		AutoSync:     args.AutoSync,
-		SourceDetail: repoData,
+		ret.SourceDetail = repoData
 	}
 	return ret
 }
@@ -1773,6 +1801,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 	changed, defaultValues, err := SyncYamlFromSource(productRenderset.YamlData, productRenderset.DefaultValues)
 	if err != nil {
+		log.Errorf("failed to update default values of env %s:%s", productRenderset.ProductTmpl, productRenderset.EnvName)
 		return err
 	}
 	if changed {
@@ -2591,7 +2620,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	}
 
 	// find renderchart info in env
-	renderChartInEnv, err := commonservice.GetRenderCharts(productName, envName, serviceNameListStr, log)
+	renderChartInEnv, _, err := commonservice.GetRenderCharts(productName, envName, serviceNameListStr, log)
 	if err != nil {
 		log.Errorf("find render charts in env fail, env %s err %s", envName, err.Error())
 		return nil, e.ErrGetRenderSet.AddDesc("failed to get render charts in env")

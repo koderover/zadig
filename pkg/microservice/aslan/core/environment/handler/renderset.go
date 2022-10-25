@@ -41,7 +41,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = commonservice.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, _, ctx.Err = commonservice.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {

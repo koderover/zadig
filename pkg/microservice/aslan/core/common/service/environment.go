@@ -125,7 +125,7 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, error) {
+func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, *models.RenderSet, error) {
 
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 
@@ -136,11 +136,11 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !existed {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	ret := make([]*RenderChartArg, 0)
@@ -171,7 +171,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		rcaObj.YamlData = singleChart.OverrideYaml
 		ret = append(ret, rcaObj)
 	}
-	return ret, nil
+	return ret, rendersetObj, nil
 }
 
 // fill service display name if necessary
