@@ -168,6 +168,7 @@ func (j *GrayReleaseJob) LintJob() error {
 			if job.JobType != config.JobK8sGrayRelease || job.Name != j.spec.FromJob {
 				continue
 			}
+			quoteJobSpec = &commonmodels.GrayReleaseJobSpec{}
 			if err := commonmodels.IToiYaml(job.Spec, quoteJobSpec); err != nil {
 				return err
 			}
