@@ -152,6 +152,9 @@ func (j *GrayReleaseJob) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	if j.spec.GrayScale > 100 {
+		return fmt.Errorf("release job: [%s] release percentage cannot largger than 100%", j.job.Name)
+	}
 	// from job was empty means it is the first deploy job.
 	if j.spec.FromJob == "" {
 		if err := lintFirstGrayReleaseJob(j.job.Name, j.workflow.Stages); err != nil {
