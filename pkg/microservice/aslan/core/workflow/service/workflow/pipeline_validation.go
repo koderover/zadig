@@ -355,7 +355,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 				}
 			}
 		}
-	} else if codeHostInfo.Type == systemconfig.GiteeProvider {
+	} else if codeHostInfo.Type == systemconfig.GiteeProvider || codeHostInfo.Type == systemconfig.GiteeEEProvider {
 		gitCli := gitee.NewClient(codeHostInfo.ID, codeHostInfo.Address, codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" {
 			if build.Tag != "" && len(build.PRs) == 0 {
