@@ -65,7 +65,7 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 		ret, err = preloadGerritService(ch, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
 		ret, err = preloadCodehubService(ch, repoName, repoUUID, branchName, path, isDir)
-	case setting.SourceFromGitee:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		ret, err = preloadGiteeService(ch, repoOwner, repoName, branchName, remoteName, path, isDir)
 	default:
 		return nil, e.ErrPreloadServiceTemplate.AddDesc("Not supported code source")
@@ -88,7 +88,7 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, namespa
 		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, log)
 	case setting.SourceFromCodeHub:
 		return loadCodehubService(username, ch, repoOwner, repoName, repoUUID, branchName, args, force, log)
-	case setting.SourceFromGitee:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return loadGiteeService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, log)
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
@@ -111,7 +111,7 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
 		return validateServiceUpdateCodehub(detail, serviceName, repoName, repoUUID, branchName, path, isDir)
-	case setting.SourceFromGitee:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return validateServiceUpdateGitee(detail, serviceName, repoOwner, repoName, branchName, remoteName, path, isDir)
 	default:
 		return e.ErrValidateServiceUpdate.AddDesc("Not supported code source")

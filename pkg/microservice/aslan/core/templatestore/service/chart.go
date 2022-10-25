@@ -216,7 +216,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		loadErr error
 	)
 	switch ch.Type {
-	case setting.SourceFromGerrit, setting.SourceFromGitee:
+	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		sha1, loadErr = processChartFromGitRepo(name, args, logger)
 	default:
 		sha1, loadErr = processChartFromSource(name, args, logger)
@@ -269,7 +269,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 	)
 
 	switch ch.Type {
-	case setting.SourceFromGerrit, setting.SourceFromGitee:
+	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		sha1, loadErr = processChartFromGitRepo(name, args, logger)
 	default:
 		sha1, loadErr = processChartFromSource(name, args, logger)

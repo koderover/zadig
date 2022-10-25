@@ -501,7 +501,7 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, force, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, force, logger)
-	case LoadFromGerrit, setting.SourceFromGitee:
+	case LoadFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
 	case LoadFromChartRepo:
 		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, force, logger)
@@ -848,7 +848,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			}
 
 			var repoLink string
-			if string(args.Source) == setting.SourceFromGitee {
+			if string(args.Source) == setting.SourceFromGitee || string(args.Source) == setting.SourceFromGiteeEE {
 				codehostInfo, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
 				if err != nil {
 					finalErr = errors.Wrapf(err, "failed to get code host, id %d", createFromRepo.CodehostID)
@@ -1310,6 +1310,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 		setting.SourceFromGithub,
 		setting.SourceFromGerrit,
 		setting.SourceFromGitee,
+		setting.SourceFromGiteeEE,
 		setting.SourceFromCodeHub:
 		return &models.CreateFromRepo{
 			GitRepoConfig: &templatemodels.GitRepoConfig{
@@ -1405,7 +1406,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	case string(LoadFromGerrit):
 		base := path.Join(config.S3StoragePath(), args.GerritRepoName)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
-	case setting.SourceFromGitee:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		base := path.Join(config.S3StoragePath(), args.Repo)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
 	default:
@@ -1468,7 +1469,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 		serviceObj.GerritRepoName = args.GerritRepoName
 		serviceObj.GerritBranchName = args.GerritBranchName
 		serviceObj.GerritRemoteName = args.GerritRemoteName
-	case setting.SourceFromGitee:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		serviceObj.GiteePath = args.GiteePath
 	}
 

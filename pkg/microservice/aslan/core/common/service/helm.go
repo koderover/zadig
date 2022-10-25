@@ -80,7 +80,7 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 	switch svc.Source {
 	case setting.SourceFromGerrit:
 		return preLoadServiceManifestsFromGerrit(svc)
-	case setting.SourceFromGitee:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return preLoadServiceManifestsFromGitee(svc)
 	default:
 		return preLoadServiceManifestsFromSource(svc)

@@ -178,7 +178,7 @@ func buildGitCommands(repo *Repo) []*Command {
 		cmds = append(cmds, &Command{Cmd: RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
 	}
 
-	if repo.Source == setting.SourceFromGitlab || repo.Source == setting.SourceFromGitee {
+	if repo.Source == setting.SourceFromGitlab || repo.Source == setting.SourceFromGitee || repo.Source == setting.SourceFromGiteeEE {
 		u, _ := url.Parse(repo.Address)
 		url := OAuthCloneURL(repo.OauthToken, u.Host, repo.Owner, repo.Name, u.Scheme)
 		cmds = append(cmds, &Command{
