@@ -472,7 +472,6 @@ exemption_urls:
         - DELETE
     - endpoint: api/aslan/project/variablesets
       methods:
-        - GET
         - POST
     - endpoint: api/aslan/project/variablesets/?*
       methods:
