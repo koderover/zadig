@@ -162,23 +162,23 @@ func (j *GrayReleaseJob) LintJob() error {
 		}
 		return nil
 	}
-	found := false
+	var quoteJobSpec *commonmodels.GrayReleaseJobSpec
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.JobType == config.JobK8sGrayRelease && job.Name == j.spec.FromJob {
-				jobSpec := &commonmodels.GrayReleaseJobSpec{}
-				if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
-					return err
-				}
-				if jobSpec.FromJob != "" {
-					return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
-				}
-				found = true
+			if job.JobType != config.JobK8sGrayRelease || job.Name != j.spec.FromJob {
+				continue
 			}
+			if err := commonmodels.IToiYaml(job.Spec, quoteJobSpec); err != nil {
+				return err
+			}
+			break
 		}
 	}
-	if !found {
-		return fmt.Errorf("[%s] quote release job: %s not found", j.job.Name, j.spec.FromJob)
+	if quoteJobSpec == nil {
+		return fmt.Errorf("[%s] quote release job: [%s] not found", j.job.Name, j.spec.FromJob)
+	}
+	if quoteJobSpec.FromJob != "" {
+		return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
 	}
 	return nil
 }
