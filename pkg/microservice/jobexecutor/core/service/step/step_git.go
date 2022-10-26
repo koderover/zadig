@@ -252,7 +252,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, host, owner, repo.RepoName)),
 			DisableTrace: true,
 		})
-	} else if repo.Source == types.ProviderGitee {
+	} else if repo.Source == types.ProviderGitee || repo.Source == types.ProviderGiteeEE {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
