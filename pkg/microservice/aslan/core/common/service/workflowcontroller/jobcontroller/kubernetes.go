@@ -807,6 +807,7 @@ func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *r
 func waitDeploymentReady(ctx context.Context, deploymentName, namespace string, timout int64, kubeClient crClient.Client, logger *zap.SugaredLogger) (config.Status, error) {
 	timeout := time.After(time.Duration(timout) * time.Second)
 	tick := time.NewTicker(time.Second * 2)
+	defer tick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
