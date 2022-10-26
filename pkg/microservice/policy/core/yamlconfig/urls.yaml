@@ -354,6 +354,9 @@ exemption_urls:
     - endpoint: api/aslan/environment/envcfgs/?*/sync
       methods:
         - PUT
+    - endpoint: api/aslan/workflow/plugin/enterprise
+      methods:
+        - POST
   project_admin:
     - endpoint: api/aslan/project/products
       methods:

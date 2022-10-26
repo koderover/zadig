@@ -86,6 +86,15 @@ func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredL
 	return nil
 }
 
+func UpsertEnterprisePluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredLogger) error {
+	if err := commonrepo.NewPluginRepoColl().Upsert(args); err != nil {
+		errMsg := fmt.Sprintf("upsert enterprise plugin repo error: %v", err)
+		log.Error(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	return nil
+}
+
 func UpdateOfficalPluginRepository(log *zap.SugaredLogger) {
 	officalPluginRepo := &commonmodels.PluginRepo{
 		RepoOwner: OfficalRepoOwner,

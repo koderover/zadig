@@ -57,3 +57,15 @@ func UpsertUserPluginRepository(c *gin.Context) {
 	}
 	ctx.Err = workflow.UpsertUserPluginRepository(req, ctx.Logger)
 }
+
+func UpsertEnterprisePluginRepository(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(commonmodels.PluginRepo)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = workflow.UpsertEnterprisePluginRepository(req, ctx.Logger)
+}
