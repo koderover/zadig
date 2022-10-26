@@ -223,8 +223,8 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, host, owner, repo.Name)),
 			DisableTrace: true,
 		})
-	} else if repo.Source == meta.ProviderGitee {
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name)), DisableTrace: true})
+	} else if repo.Source == meta.ProviderGitee || repo.Source == meta.ProviderGiteeEE {
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name, repo.Address)), DisableTrace: true})
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
@@ -257,7 +257,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		}
 	} else {
 		// github
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.Name)), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, r.Ctx.Git.HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.Name, "")), DisableTrace: true})
 	}
 
 	ref := repo.Ref()

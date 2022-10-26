@@ -167,8 +167,8 @@ func removeWebhook(t *task, logger *zap.Logger) {
 		}
 	case setting.SourceFromCodeHub:
 		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
-	case setting.SourceFromGitee:
-		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
+		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.address)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}
@@ -246,8 +246,8 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	case setting.SourceFromCodeHub:
 		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
-	case setting.SourceFromGitee:
-		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
+		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.address)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}

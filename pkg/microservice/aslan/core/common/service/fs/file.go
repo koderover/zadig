@@ -46,7 +46,7 @@ func PreloadFiles(name, localBase, s3Base, source string, logger *zap.SugaredLog
 			logger.Errorf("Failed to download files from s3, err: %s", err)
 			return err
 		}
-	case setting.SourceFromGitee:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		if err = DownloadAndCopyFilesFromGitee(name, localBase, logger); err != nil {
 			logger.Errorf("Failed to download files from s3, err: %s", err)
 			return err

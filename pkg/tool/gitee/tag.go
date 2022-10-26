@@ -35,9 +35,10 @@ type Commit struct {
 	Date time.Time `json:"date"`
 }
 
-func (c *Client) ListTags(ctx context.Context, accessToken, owner string, repo string) ([]Tag, error) {
+func (c *Client) ListTags(ctx context.Context, hostURL, accessToken, owner string, repo string) ([]Tag, error) {
+	apiHost := fmt.Sprintf("%s/%s", hostURL, "api")
 	httpClient := httpclient.New(
-		httpclient.SetHostURL(GiteeHOSTURL),
+		httpclient.SetHostURL(apiHost),
 	)
 	url := fmt.Sprintf("/v5/repos/%s/%s/tags", owner, repo)
 	var tags []Tag

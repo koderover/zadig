@@ -339,8 +339,8 @@ func syncGiteeLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHos
 		return nil, err
 	}
 
-	giteeCli := gitee.NewClient(detail.ID, detail.AccessToken, microserviceConfig.ProxyHTTPSAddr(), detail.EnableProxy)
-	commit, err := giteeCli.GetSingleBranch(detail.AccessToken, service.RepoOwner, service.RepoName, service.BranchName)
+	giteeCli := gitee.NewClient(detail.ID, detail.Address, detail.AccessToken, microserviceConfig.ProxyHTTPSAddr(), detail.EnableProxy)
+	commit, err := giteeCli.GetSingleBranch(detail.Address, detail.AccessToken, service.RepoOwner, service.RepoName, service.BranchName)
 	if err != nil {
 		return detail, err
 	}

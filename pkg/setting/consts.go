@@ -248,13 +248,15 @@ const (
 	SourceFromGitlab = "gitlab"
 	// SourceFromGithub The configuration source is github
 	SourceFromGithub = "github"
-	// SourceFromGitlab The configuration source is gerrit
+	// SourceFromGerrit The configuration source is gerrit
 	SourceFromGerrit = "gerrit"
 	// SourceFromCodeHub The configuration source is codehub
 	SourceFromCodeHub = "codehub"
 	// SourceFromGitee Configure the source as gitee
 	SourceFromGitee = "gitee"
-	// SourceFromGitee Configure the source as other
+	// SourceFromGiteeEE Configure the source as gitee-enterprise
+	SourceFromGiteeEE = "gitee-enterprise"
+	// SourceFromOther Configure the source as other
 	SourceFromOther = "other"
 	// SourceFromChartTemplate The configuration source is helmTemplate
 	SourceFromChartTemplate = "chartTemplate"

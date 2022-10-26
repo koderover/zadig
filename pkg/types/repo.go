@@ -137,6 +137,9 @@ const (
 	// ProviderGitee
 	ProviderGitee = "gitee"
 
+	// ProviderGiteeEE
+	ProviderGiteeEE = "gitee-enterprise"
+
 	// ProviderOther
 	ProviderOther = "other"
 )

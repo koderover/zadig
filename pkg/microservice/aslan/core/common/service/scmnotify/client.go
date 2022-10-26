@@ -158,8 +158,8 @@ func (c *Client) Comment(notify *models.Notification) error {
 				}
 			}
 		}
-	} else if strings.ToLower(codeHostDetail.Type) == setting.SourceFromGitee {
-		cli := gitee.NewClient(codeHostDetail.ID, codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
+	} else if strings.ToLower(codeHostDetail.Type) == setting.SourceFromGitee || strings.ToLower(codeHostDetail.Type) == setting.SourceFromGiteeEE {
+		cli := gitee.NewClient(codeHostDetail.ID, codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy, codeHostDetail.Address)
 		var pullRequestComments giteeClient.PullRequestComments
 		if notify.CommentID == "" {
 			// create comment

@@ -29,6 +29,7 @@ const (
 	GerritProvider  = "gerrit"
 	CodeHubProvider = "codehub"
 	GiteeProvider   = "gitee"
+	GiteeEEProvider = "gitee-enterprise"
 	OtherProvider   = "other"
 )
 
