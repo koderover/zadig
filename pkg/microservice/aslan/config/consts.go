@@ -187,6 +187,8 @@ const (
 	JobK8sBlueGreenRelease JobType = "k8s-blue-green-release"
 	JobK8sCanaryDeploy     JobType = "k8s-canary-deploy"
 	JobK8sCanaryRelease    JobType = "k8s-canary-release"
+	JobK8sGrayRelease      JobType = "k8s-gray-release"
+	JobK8sGrayRollback     JobType = "k8s-gray-rollback"
 	JobK8sPatch            JobType = "k8s-resource-patch"
 )
 
@@ -232,7 +234,7 @@ const (
 	NameSpaceRegexString = "[^a-z0-9.-]"
 )
 
-//ProductPermission ...
+// ProductPermission ...
 type ProductPermission string
 
 // ProductAuthType ...
@@ -297,10 +299,21 @@ const (
 	CommonEnvCfgTypePvc       CommonEnvCfgType = "PVC"
 )
 
+// for custom blue-green release job
 const (
 	BlueGreenVerionLabelName = "zadig-blue-green-version"
 	BlueServiceNameSuffix    = "-zadig-blue"
 	OriginVersion            = "origin"
+)
+
+// for custom gray release job
+const (
+	GrayLabelKey               = "zadig-gray-release"
+	GrayLabelValue             = "released-by-zadig"
+	GrayImageAnnotationKey     = "zadig-gray-release-image"
+	GrayContainerAnnotationKey = "zadig-gray-release-container"
+	GrayReplicaAnnotationKey   = "zadig-gray-release-replica"
+	GrayDeploymentSuffix       = "-zadig-gray"
 )
 
 type ProjectType string

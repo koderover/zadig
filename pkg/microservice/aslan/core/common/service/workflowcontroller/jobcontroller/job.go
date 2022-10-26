@@ -59,6 +59,10 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewBlueGreenDeployJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobK8sBlueGreenRelease):
 		jobCtl = NewBlueGreenReleaseJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sGrayRelease):
+		jobCtl = NewGrayReleaseJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobK8sGrayRollback):
+		jobCtl = NewGrayRollbackJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobK8sPatch):
 		jobCtl = NewK8sPatchJobCtl(job, workflowCtx, ack, logger)
 	default:

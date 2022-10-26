@@ -200,6 +200,25 @@ type CanaryTarget struct {
 	WorkloadType  string `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
 }
 
+type GrayReleaseJobSpec struct {
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	FromJob          string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
+	// unit is minute.
+	DeployTimeout int64                `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
+	GrayScale     int                  `bson:"gray_scale"             json:"gray_scale"            yaml:"gray_scale"`
+	Targets       []*GrayReleaseTarget `bson:"targets"                json:"targets"               yaml:"targets"`
+}
+
+type GrayReleaseTarget struct {
+	WorkloadType  string `bson:"workload_type"             json:"workload_type"            yaml:"workload_type"`
+	WorkloadName  string `bson:"workload_name"             json:"workload_name"            yaml:"workload_name"`
+	Replica       int    `bson:"replica,omitempty"         json:"replica,omitempty"        yaml:"replica,omitempty"`
+	ContainerName string `bson:"container_name"            json:"container_name"           yaml:"container_name"`
+	Image         string `bson:"image,omitempty"           json:"image,omitempty"          yaml:"image,omitempty"`
+}
+
 type K8sPatchJobSpec struct {
 	ClusterID  string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
 	Namespace  string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
@@ -215,6 +234,21 @@ type PatchItem struct {
 	Params          []*Param `bson:"params"                       json:"params"                      yaml:"params"`
 	// support strategic-merge/merge/json
 	PatchStrategy string `bson:"patch_strategy"          json:"patch_strategy"         yaml:"patch_strategy"`
+}
+
+type GrayRollbackJobSpec struct {
+	ClusterID string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	// unit is minute.
+	RollbackTimeout int64                 `bson:"rollback_timeout"       json:"rollback_timeout"      yaml:"rollback_timeout"`
+	Targets         []*GrayRollbackTarget `bson:"targets"                json:"targets"               yaml:"targets"`
+}
+
+type GrayRollbackTarget struct {
+	WorkloadType  string `bson:"workload_type"             json:"workload_type"            yaml:"workload_type"`
+	WorkloadName  string `bson:"workload_name"             json:"workload_name"            yaml:"workload_name"`
+	OriginImage   string `bson:"-"                         json:"origin_image"             yaml:"origin_image,omitempty"`
+	OriginReplica int    `bson:"-"                         json:"origin_replica"           yaml:"origin_replica,omitempty"`
 }
 
 type JobProperties struct {

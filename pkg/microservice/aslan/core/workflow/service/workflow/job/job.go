@@ -61,6 +61,10 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &CanaryReleaseJob{job: job, workflow: workflow}
 	case config.JobZadigTesting:
 		resp = &TestingJob{job: job, workflow: workflow}
+	case config.JobK8sGrayRelease:
+		resp = &GrayReleaseJob{job: job, workflow: workflow}
+	case config.JobK8sGrayRollback:
+		resp = &GrayRollbackJob{job: job, workflow: workflow}
 	case config.JobK8sPatch:
 		resp = &K8sPacthJob{job: job, workflow: workflow}
 	default:

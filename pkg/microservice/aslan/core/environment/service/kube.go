@@ -514,6 +514,61 @@ func ListNamespace(clusterID string, log *zap.SugaredLogger) ([]string, error) {
 	return resp, nil
 }
 
+func ListDeploymentNames(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
+	resp := make([]string, 0)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListDeployment clusterID:%s err:%v", clusterID, err)
+		return resp, err
+	}
+	deployments, err := getter.ListDeployments(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDeployment err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, deployment := range deployments {
+		resp = append(resp, deployment.Name)
+	}
+	return resp, nil
+}
+
+type WorkloadInfo struct {
+	WorkloadType  string `json:"workload_type"`
+	WorkloadName  string `json:"workload_name"`
+	ContainerName string `json:"container_name"`
+}
+
+// for now,only support deployment
+func ListWorkloadsInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*WorkloadInfo, error) {
+	resp := make([]*WorkloadInfo, 0)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListDeployments clusterID:%s err:%v", clusterID, err)
+		return resp, err
+	}
+	deployments, err := getter.ListDeployments(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDeployments err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, deployment := range deployments {
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadInfo{
+				WorkloadType:  setting.Deployment,
+				WorkloadName:  deployment.Name,
+				ContainerName: container.Name,
+			})
+		}
+	}
+	return resp, nil
+}
+
 func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
 	resp := make([]string, 0)
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
