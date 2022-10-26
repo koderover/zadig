@@ -378,7 +378,7 @@ func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
 
 // HTTPSCloneURL returns HTTPS clone url
 func HTTPSCloneURL(source, token, owner, name string, optionalGiteeAddr string) string {
-	if strings.ToLower(source) == types.ProviderGitee {
+	if strings.ToLower(source) == types.ProviderGitee || strings.ToLower(source) == types.ProviderGiteeEE {
 		addrSegment := strings.Split(optionalGiteeAddr, "://")
 		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", addrSegment[0], step.OauthTokenPrefix, token, addrSegment[1], owner, name)
 	}
