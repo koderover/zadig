@@ -204,11 +204,6 @@ func (r *Reaper) BeforeExec() error {
 				log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
 			}
 		}
-		if r.Ctx.Archive != nil && len(r.Ctx.Archive.Dir) > 0 {
-			if err := os.MkdirAll(r.Ctx.Archive.Dir, os.ModePerm); err != nil {
-				return fmt.Errorf("create DistDir error: %v", err)
-			}
-		}
 	}
 
 	if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
@@ -224,6 +219,12 @@ func (r *Reaper) BeforeExec() error {
 
 	if err := os.MkdirAll(path.Join(os.Getenv("HOME"), "/.ssh"), os.ModePerm); err != nil {
 		return fmt.Errorf("create ssh folder error: %v", err)
+	}
+
+	if r.Ctx.Archive != nil && len(r.Ctx.Archive.Dir) > 0 {
+		if err := os.MkdirAll(r.Ctx.Archive.Dir, os.ModePerm); err != nil {
+			return fmt.Errorf("create DistDir error: %v", err)
+		}
 	}
 
 	if r.Ctx.Git != nil {

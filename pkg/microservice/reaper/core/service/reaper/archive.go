@@ -73,7 +73,7 @@ func (r *Reaper) archiveS3Files() (err error) {
 }
 
 func (r *Reaper) archiveTestFiles() error {
-	if r.Ctx.Archive == nil || r.Ctx.StorageURI == "" {
+	if r.Ctx.Archive == nil || r.Ctx.Archive.File == "" || r.Ctx.StorageURI == "" {
 		return nil
 	}
 
