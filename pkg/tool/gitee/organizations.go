@@ -32,3 +32,14 @@ func (c *Client) ListOrganizationsForAuthenticatedUser(ctx context.Context) ([]g
 	}
 	return resp, nil
 }
+
+func (c *Client) ListEnterprises(ctx context.Context) ([]gitee.EnterpriseBasic, error) {
+	resp, _, err := c.EnterprisesApi.GetV5UserEnterprises(ctx, &gitee.GetV5UserEnterprisesOpts{
+		PerPage: optional.NewInt32(100),
+		Admin:   optional.NewBool(false),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

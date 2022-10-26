@@ -114,17 +114,19 @@ func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 		Kind: client.UserKind,
 	}
 
-	organizations, err := c.Client.ListOrganizationsForAuthenticatedUser(context.TODO())
-	if err != nil {
-		return nil, err
-	}
+	// FIXME: This is a temporary solution for gitee enterprise version, we are using enterprise as namespace
+	enterprises, err := c.Client.ListEnterprises(context.TODO())
+	//organizations, err := c.Client.ListOrganizationsForAuthenticatedUser(context.TODO())
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	var res []*client.Namespace
 	res = append(res, &namespaceUser)
-	for _, o := range organizations {
+	for _, o := range enterprises {
 		res = append(res, &client.Namespace{
-			Name: o.Login,
-			Path: o.Login,
+			Name: o.Name,
+			Path: o.Path,
 			Kind: client.OrgKind,
 		})
 	}

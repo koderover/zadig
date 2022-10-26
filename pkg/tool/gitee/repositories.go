@@ -65,13 +65,17 @@ func (c *Client) ListRepositoriesForOrg(hostURL, accessToken, org string, page, 
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(apiHost),
 	)
+	// FIXME: in order to get the repositories from enterprise directly, we change the api called.
+	// FIXME: This need to be fixed immediately
+	// enterprise api reference: https://gitee.com/api/v5/swagger#/getV5EnterprisesEnterpriseRepos
 	// api reference: https://gitee.com/api/v5/swagger#/getV5OrgsOrgRepos
-	url := fmt.Sprintf("/v5/orgs/%s/repos", org)
+	url := fmt.Sprintf("/v5/enterprises/%s/repos", org)
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
 	queryParams["type"] = "all"
 	queryParams["page"] = strconv.Itoa(page)
 	queryParams["per_page"] = strconv.Itoa(perPage)
+	queryParams["direct"] = "false"
 
 	var projects []Project
 	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projects))
