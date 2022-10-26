@@ -158,6 +158,22 @@ func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, 
 		updater := new(EmptyInput)
 		err := commonmodels.IToi(input, updater)
 		return updater, err
+	case config.JobZadigTesting:
+		updater := new(ZadigTestingJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
+	case config.JobK8sGrayRelease:
+		updater := new(GrayReleaseJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
+	case config.JobK8sGrayRollback:
+		updater := new(GrayRollbackJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
+	case config.JobK8sPatch:
+		updater := new(K8sPatchJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
 	default:
 		return nil, errors.New("undefined job type of type:" + string(job.JobType))
 	}

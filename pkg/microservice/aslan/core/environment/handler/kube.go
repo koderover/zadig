@@ -147,6 +147,20 @@ func ListNamespace(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListNamespace(c.Param("clusterID"), ctx.Logger)
 }
 
+func ListDeploymentNames(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListDeploymentNames(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+}
+
+func ListWorkloadsInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListWorkloadsInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+}
+
 func ListCustomWorkload(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
