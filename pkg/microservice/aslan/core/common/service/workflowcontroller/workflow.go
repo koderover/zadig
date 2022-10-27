@@ -59,6 +59,12 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		return err
 	}
 
+	// try to remove task from queue first.
+	q := ConvertTaskToQueue(t)
+	if err := Remove(q); err != nil {
+		logger.Errorf("[%s] remove queue task: %s:%d error: %v", userName, workflowName, taskID, err)
+	}
+
 	if t.Status == config.StatusPassed {
 		logger.Errorf("[%s] task: %s:%d is passed, cannot cancel", userName, workflowName, taskID)
 		return fmt.Errorf("task: %s:%d is passed, cannot cancel", workflowName, taskID)
@@ -80,12 +86,6 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	}
 	if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(t.WorkflowArgs, t.TaskID, t.Status, logger); err != nil {
 		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
-	}
-
-	q := ConvertTaskToQueue(t)
-	if err := Remove(q); err != nil {
-		logger.Errorf("[%s] remove queue task: %s:%d error: %v", userName, workflowName, taskID, err)
-		return err
 	}
 
 	value, ok := cancelChannelMap.Load(fmt.Sprintf("%s-%d", workflowName, taskID))
