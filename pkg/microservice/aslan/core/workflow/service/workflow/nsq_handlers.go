@@ -44,6 +44,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowstat"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
@@ -169,8 +170,10 @@ func (h *TaskAckHandler) handle(message *nsq.Message) error {
 		}()
 
 		go func() {
-			if err = h.updateWorkflowStat(pt); err != nil {
-				h.log.Errorf("updateWorkflowStat err: %v", err)
+			if pt.Type == config.SingleType || pt.Type == config.WorkflowType {
+				if err := workflowstat.UpdateWorkflowStat(pt.PipelineName, string(pt.Type), string(pt.Status), pt.ProductName, pt.EndTime-pt.StartTime, pt.IsRestart); err != nil {
+					log.Warnf("Failed to update workflow stat for custom workflow %s, taskID: %d the error is: %s", pt.PipelineName, pt.TaskID, err)
+				}
 			}
 		}()
 
@@ -723,37 +726,6 @@ func (h *TaskAckHandler) createVersion(pt *task.Task) error {
 	return nil
 }
 
-func (h *TaskAckHandler) updateWorkflowStat(pt *task.Task) error {
-	if pt.IsRestart {
-		return nil
-	}
-	if pt.Type == config.SingleType || pt.Type == config.WorkflowType {
-		totalSuccess := 0
-		totalFailure := 0
-		if pt.Status == config.StatusPassed {
-			totalSuccess = 1
-			totalFailure = 0
-		} else {
-			totalSuccess = 0
-			totalFailure = 1
-		}
-		workflowStat := &commonmodels.WorkflowStat{
-			ProductName:   pt.ProductName,
-			Name:          pt.PipelineName,
-			Type:          string(pt.Type),
-			TotalDuration: pt.EndTime - pt.StartTime,
-			TotalSuccess:  totalSuccess,
-			TotalFailure:  totalFailure,
-		}
-		if err := upsertWorkflowStat(workflowStat, h.log); err != nil {
-			return err
-		}
-
-	}
-
-	return nil
-}
-
 func (h *TaskAckHandler) getArtifactID(image string, deliveryArtifacts []*commonmodels.DeliveryArtifact) string {
 	for _, deliveryArtifact := range deliveryArtifacts {
 		if deliveryArtifact.Image == image {
@@ -890,28 +862,6 @@ func (h *TaskNotificationHandler) HandleMessage(message *nsq.Message) error {
 	notifyClient := notify.NewNotifyClient()
 	if err := notifyClient.ProccessNotify(n); err != nil {
 		h.log.Errorf("send notify error :%v", err)
-	}
-
-	return nil
-}
-
-func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger) error {
-	if workflowStats, _ := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: []string{args.Name}, Type: args.Type}); len(workflowStats) > 0 {
-		currentWorkflowStat := workflowStats[0]
-		currentWorkflowStat.TotalDuration += args.TotalDuration
-		currentWorkflowStat.TotalSuccess += args.TotalSuccess
-		currentWorkflowStat.TotalFailure += args.TotalFailure
-		if err := commonrepo.NewWorkflowStatColl().Upsert(currentWorkflowStat); err != nil {
-			log.Errorf("WorkflowStat upsert err:%v", err)
-			return err
-		}
-	} else {
-		args.CreatedAt = time.Now().Unix()
-		args.UpdatedAt = time.Now().Unix()
-		if err := commonrepo.NewWorkflowStatColl().Create(args); err != nil {
-			log.Errorf("WorkflowStat create err:%v", err)
-			return err
-		}
 	}
 
 	return nil
