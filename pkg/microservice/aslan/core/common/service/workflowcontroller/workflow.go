@@ -233,8 +233,10 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(c.workflowTask.WorkflowArgs, c.workflowTask.TaskID, c.workflowTask.Status, c.logger); err != nil {
 			log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
+		if err := c.updateWorkflowStat(); err != nil {
+			log.Warnf("Failed to update workflow stat for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
+		}
 	}
-
 }
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
@@ -258,4 +260,57 @@ func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
 			return
 		}
 	}
+}
+
+func (c *workflowCtl) updateWorkflowStat() error {
+	if c.workflowTask.IsRestart {
+		return nil
+	}
+	if c.workflowTask.Status != config.StatusPassed && c.workflowTask.Status != config.StatusFailed && c.workflowTask.Status != config.StatusTimeout {
+		return nil
+	}
+
+	totalSuccess := 0
+	totalFailure := 0
+	if c.workflowTask.Status == config.StatusPassed {
+		totalSuccess = 1
+		totalFailure = 0
+	} else {
+		totalSuccess = 0
+		totalFailure = 1
+	}
+	workflowStat := &commonmodels.WorkflowStat{
+		ProductName:   c.workflowTask.ProjectName,
+		Name:          c.workflowTask.WorkflowName,
+		Type:          string(config.WorkflowTypeV4),
+		TotalDuration: c.workflowTask.EndTime - c.workflowTask.StartTime,
+		TotalSuccess:  totalSuccess,
+		TotalFailure:  totalFailure,
+	}
+	if err := upsertWorkflowStat(workflowStat, c.logger); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger) error {
+	if workflowStats, _ := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: []string{args.Name}, Type: args.Type}); len(workflowStats) > 0 {
+		currentWorkflowStat := workflowStats[0]
+		currentWorkflowStat.TotalDuration += args.TotalDuration
+		currentWorkflowStat.TotalSuccess += args.TotalSuccess
+		currentWorkflowStat.TotalFailure += args.TotalFailure
+		if err := commonrepo.NewWorkflowStatColl().Upsert(currentWorkflowStat); err != nil {
+			log.Errorf("WorkflowStat upsert err:%v", err)
+			return err
+		}
+	} else {
+		args.CreatedAt = time.Now().Unix()
+		args.UpdatedAt = time.Now().Unix()
+		if err := commonrepo.NewWorkflowStatColl().Create(args); err != nil {
+			log.Errorf("WorkflowStat create err:%v", err)
+			return err
+		}
+	}
+	return nil
 }
