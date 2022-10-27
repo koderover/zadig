@@ -71,6 +71,8 @@ type TaskInfo struct {
 	TaskID       int64  `json:"taskID"`
 	PipelineName string `json:"pipelineName"`
 	Status       string `json:"status"`
+	TaskCreator  string `json:"task_creator"`
+	CreateTime   int64  `json:"create_time"`
 }
 
 type workflowCreateArg struct {
@@ -751,6 +753,8 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 			TaskID:       recentTask.TaskID,
 			PipelineName: recentTask.PipelineName,
 			Status:       string(recentTask.Status),
+			TaskCreator:  recentTask.TaskCreator,
+			CreateTime:   recentTask.CreateTime,
 		}
 	}
 	if recentSucceedTask.TaskID > 0 {
@@ -758,6 +762,8 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 			TaskID:       recentSucceedTask.TaskID,
 			PipelineName: recentSucceedTask.PipelineName,
 			Status:       string(recentSucceedTask.Status),
+			TaskCreator:  recentSucceedTask.TaskCreator,
+			CreateTime:   recentSucceedTask.CreateTime,
 		}
 	}
 	if recentFailedTask.TaskID > 0 {
@@ -765,6 +771,8 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 			TaskID:       recentFailedTask.TaskID,
 			PipelineName: recentFailedTask.PipelineName,
 			Status:       string(recentFailedTask.Status),
+			TaskCreator:  recentFailedTask.TaskCreator,
+			CreateTime:   recentFailedTask.CreateTime,
 		}
 	}
 }
