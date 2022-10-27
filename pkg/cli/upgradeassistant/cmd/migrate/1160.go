@@ -19,6 +19,7 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -38,6 +39,10 @@ func init() {
 }
 
 func V1150ToV1160() error {
+	if err := initWorkflowV4TaskStats(); err != nil {
+		log.Errorf("initWorkflowV4TaskStats err:%s", err)
+		return err
+	}
 	if err := addDisplayNameToWorkflowV4(); err != nil {
 		log.Errorf("addDisplayNameToWorkflowV4 err:%s", err)
 		return err
@@ -50,6 +55,63 @@ func V1150ToV1160() error {
 }
 
 func V1160ToV1150() error {
+	return nil
+}
+
+func initWorkflowV4TaskStats() error {
+	taskCursor, err := mongodb.NewworkflowTaskv4Coll().ListByCursor(&mongodb.ListWorkflowTaskV4Option{})
+	if err != nil {
+		return err
+	}
+	statMap := map[string]*models.WorkflowStat{}
+	for taskCursor.Next(context.Background()) {
+		var workflowTask models.WorkflowTask
+		if err := taskCursor.Decode(&workflowTask); err != nil {
+			return err
+		}
+		if workflowTask.Status != config.StatusPassed && workflowTask.Status != config.StatusFailed && workflowTask.Status != config.StatusTimeout {
+			continue
+		}
+		totalSuccess := 0
+		totalFailure := 0
+		if workflowTask.Status == config.StatusPassed {
+			totalSuccess = 1
+			totalFailure = 0
+		} else {
+			totalSuccess = 0
+			totalFailure = 1
+		}
+		duration := workflowTask.EndTime - workflowTask.StartTime
+		if stat, exist := statMap[workflowTask.WorkflowName]; !exist {
+			statMap[workflowTask.WorkflowName] = &models.WorkflowStat{
+				ProductName:   workflowTask.ProjectName,
+				Name:          workflowTask.WorkflowName,
+				Type:          string(config.WorkflowTypeV4),
+				TotalDuration: duration,
+				TotalSuccess:  totalSuccess,
+				TotalFailure:  totalFailure,
+				CreatedAt:     time.Now().Unix(),
+				UpdatedAt:     time.Now().Unix(),
+			}
+		} else {
+			stat.TotalDuration += duration
+			stat.TotalSuccess += totalSuccess
+			stat.TotalFailure += totalFailure
+		}
+	}
+	var ms []mongo.WriteModel
+	for _, stat := range statMap {
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"name", stat.Name}, {"type", stat.Type}}).
+				SetUpdate(bson.D{{"$set", stat}}).SetUpsert(true),
+		)
+	}
+	if len(ms) > 0 {
+		if _, err := mongodb.NewWorkflowStatColl().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4s stat error: %s", err)
+		}
+	}
 	return nil
 }
 

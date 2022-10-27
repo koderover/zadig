@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -697,14 +698,7 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 		favoriteSet.Insert(f.Name)
 	}
 
-	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: workflowNames, Type: string(config.WorkflowType)})
-	if err != nil {
-		log.Warnf("Failed to list workflow stats, err: %s", err)
-	}
-	workflowStatMap := make(map[string]*commonmodels.WorkflowStat)
-	for _, s := range workflowStats {
-		workflowStatMap[s.Name] = s
-	}
+	workflowStatMap := getWorkflowStatMap(workflowNames, config.WorkflowType)
 
 	tasks, err := commonrepo.NewTaskColl().ListPreview(workflowNames)
 	if err != nil {
@@ -716,15 +710,7 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 		if favoriteSet.Has(r.Name) {
 			r.IsFavorite = true
 		}
-
-		if s, ok := workflowStatMap[r.Name]; ok {
-			total := float64(s.TotalSuccess + s.TotalFailure)
-			successful := float64(s.TotalSuccess)
-			totalDuration := float64(s.TotalDuration)
-
-			r.AverageExecutionTime = totalDuration / total
-			r.SuccessRate = successful / total
-		}
+		setWorkflowStat(r, workflowStatMap)
 	}
 
 	return res, nil
@@ -872,4 +858,27 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 		}
 	}
 	return commonrepo.NewWorkflowColl().BulkCreate(newWorkflows)
+}
+
+func getWorkflowStatMap(workflowNames []string, workflowType config.PipelineType) map[string]*commonmodels.WorkflowStat {
+	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: workflowNames, Type: string(workflowType)})
+	if err != nil {
+		log.Warnf("Failed to list workflow stats, err: %s", err)
+	}
+	workflowStatMap := make(map[string]*commonmodels.WorkflowStat)
+	for _, s := range workflowStats {
+		workflowStatMap[s.Name] = s
+	}
+	return workflowStatMap
+}
+
+func setWorkflowStat(workflow *Workflow, statMap map[string]*commonmodels.WorkflowStat) {
+	if s, ok := statMap[workflow.Name]; ok {
+		total := float64(s.TotalSuccess + s.TotalFailure)
+		successful := float64(s.TotalSuccess)
+		totalDuration := float64(s.TotalDuration)
+
+		workflow.AverageExecutionTime = totalDuration / total
+		workflow.SuccessRate = successful / total
+	}
 }

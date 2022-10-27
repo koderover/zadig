@@ -218,6 +218,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
+	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
 
 	for _, workflowModel := range workflowV4List {
 		stages := []string{}
@@ -244,6 +245,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			BaseName:      workflowModel.BaseName,
 		}
 		getRecentTaskV4Info(workflow, tasks)
+		setWorkflowStat(workflow, workflowStatMap)
 
 		resp = append(resp, workflow)
 	}
