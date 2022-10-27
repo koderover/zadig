@@ -313,6 +313,8 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 			TaskID:       recentTask.TaskID,
 			PipelineName: recentTask.WorkflowName,
 			Status:       string(recentTask.Status),
+			TaskCreator:  recentTask.TaskCreator,
+			CreateTime:   recentTask.CreateTime,
 		}
 	}
 	if recentSucceedTask.TaskID > 0 {
@@ -320,6 +322,8 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 			TaskID:       recentSucceedTask.TaskID,
 			PipelineName: recentSucceedTask.WorkflowName,
 			Status:       string(recentSucceedTask.Status),
+			TaskCreator:  recentSucceedTask.TaskCreator,
+			CreateTime:   recentSucceedTask.CreateTime,
 		}
 	}
 	if recentFailedTask.TaskID > 0 {
@@ -327,6 +331,8 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 			TaskID:       recentFailedTask.TaskID,
 			PipelineName: recentFailedTask.WorkflowName,
 			Status:       string(recentFailedTask.Status),
+			TaskCreator:  recentFailedTask.TaskCreator,
+			CreateTime:   recentFailedTask.CreateTime,
 		}
 	}
 }
