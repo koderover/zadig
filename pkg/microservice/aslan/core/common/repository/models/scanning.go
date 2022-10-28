@@ -31,11 +31,14 @@ type Scanning struct {
 	ImageID     string              `bson:"image_id"      json:"image_id"`
 	SonarID     string              `bson:"sonar_id"      json:"sonar_id"`
 	Repos       []*types.Repository `bson:"repos"         json:"repos"`
+	Installs    []*Item             `bson:"installs"      json:"installs"`
+	PreScript   string              `bson:"pre_script"    json:"pre_script"`
 	// Parameter is for sonarQube type only
 	Parameter string `bson:"parameter" json:"parameter"`
 	// Script is for other type only
-	Script          string                         `bson:"script" json:"script"`
-	AdvancedSetting *types.ScanningAdvancedSetting `bson:"advanced_setting" json:"advanced_setting"`
+	Script           string                         `bson:"script"                json:"script"`
+	AdvancedSetting  *types.ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
+	CheckQualityGate bool                           `bson:"check_quality_gate"    json:"check_quality_gate"`
 
 	CreatedAt int64  `bson:"created_at" json:"created_at"`
 	UpdatedAt int64  `bson:"updated_at" json:"updated_at"`
