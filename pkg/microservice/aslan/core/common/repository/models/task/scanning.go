@@ -26,16 +26,17 @@ import (
 )
 
 type Scanning struct {
-	TaskType   config.TaskType     `bson:"type"            json:"type"`
-	Status     config.Status       `bson:"status"          json:"status,omitempty"`
-	ScanningID string              `bson:"scanning_id"     json:"scanning_id"`
-	Name       string              `bson:"name"            json:"name"`
-	Error      string              `bson:"error,omitempty" json:"error,omitempty"`
-	ImageInfo  string              `bson:"image_info"      json:"image_info"`
-	SonarInfo  *types.SonarInfo    `bson:"sonar_info"      json:"sonar_info"`
-	Repos      []*types.Repository `bson:"repos"           json:"repos"`
-	Proxy      *models.Proxy       `bson:"proxy"           json:"proxy"`
-	ClusterID  string              `bson:"cluster_id"      json:"cluster_id"`
+	TaskType     config.TaskType     `bson:"type"            json:"type"`
+	Status       config.Status       `bson:"status"          json:"status,omitempty"`
+	ScanningID   string              `bson:"scanning_id"     json:"scanning_id"`
+	Name         string              `bson:"name"            json:"name"`
+	Error        string              `bson:"error,omitempty" json:"error,omitempty"`
+	ImageInfo    string              `bson:"image_info"      json:"image_info"`
+	SonarInfo    *types.SonarInfo    `bson:"sonar_info"      json:"sonar_info"`
+	InstallItems []*models.Item      `bson:"install_items"   json:"install_items"`
+	Repos        []*types.Repository `bson:"repos"           json:"repos"`
+	Proxy        *models.Proxy       `bson:"proxy"           json:"proxy"`
+	ClusterID    string              `bson:"cluster_id"      json:"cluster_id"`
 	// ResReq defines job requested resources
 	ResReq     setting.Request             `bson:"res_req"       json:"res_req"`
 	ResReqSpec setting.RequestSpec         `bson:"res_req_spec"  json:"res_req_spec"`
@@ -44,7 +45,9 @@ type Scanning struct {
 	// Parameter is for sonarQube type only
 	Parameter string `bson:"parameter" json:"parameter"`
 	// Script is for other type only
-	Script string `bson:"script" json:"script"`
+	Script           string `bson:"script"                json:"script"`
+	PreScript        string `bson:"pre_script"            json:"pre_script"`
+	CheckQualityGate bool   `bson:"check_quality_gate"    json:"check_quality_gate"`
 }
 
 func (t *Scanning) ToSubTask() (map[string]interface{}, error) {

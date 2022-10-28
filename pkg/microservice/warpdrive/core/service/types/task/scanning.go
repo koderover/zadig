@@ -42,5 +42,8 @@ type Scanning struct {
 	// Parameter is for sonarQube type only
 	Parameter string `bson:"parameter" json:"parameter"`
 	// Script is for other type only
-	Script string `bson:"script" json:"script"`
+	Script           string     `bson:"script"                json:"script"`
+	PreScript        string     `bson:"pre_script"            json:"pre_script"`
+	CheckQualityGate bool       `bson:"check_quality_gate"    json:"check_quality_gate"`
+	InstallCtx       []*Install `bson:"-"                     json:"install_ctx"`
 }

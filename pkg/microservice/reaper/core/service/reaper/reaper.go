@@ -373,33 +373,29 @@ func (r *Reaper) Exec() (err error) {
 	if err := r.createReadme(ReadmeFile); err != nil {
 		log.Warningf("Failed to create README file: %s", err)
 	}
-
-	// for build/test/scanner of type other than sonar, we run the script
-	if !r.Ctx.ScannerFlag || r.Ctx.ScannerType != types.ScanningTypeSonar {
-		// collect test result regardless of excution result
-		defer func() {
-			collectErr := r.CollectTestResults()
-			if collectErr != nil {
-				err = collectErr
-			}
-		}()
-		log.Info("Executing User Build Script.")
-		startTimeRunBuildScript := time.Now()
-		if err = r.runScripts(); err != nil {
-			err = fmt.Errorf("failed to execute user build script: %s", err)
-			return
+	// collect test result regardless of excution result
+	defer func() {
+		collectErr := r.CollectTestResults()
+		if collectErr != nil {
+			err = collectErr
 		}
-		log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
-	} else {
-		// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
-		log.Info("Executing SonarQube Scanning process.")
-		startTimeRunSonar := time.Now()
-		if err = r.runSonarScanner(); err != nil {
-			err = fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
-			return
-		}
-		log.Infof("Sonar scan ended. Duration %.2f seconds.", time.Since(startTimeRunSonar).Seconds())
+	}()
+	log.Info("Executing User Build Script.")
+	startTimeRunBuildScript := time.Now()
+	if err = r.runScripts(); err != nil {
+		err = fmt.Errorf("failed to execute user build script: %s", err)
+		return
 	}
+	log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
+
+	// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
+	log.Info("Executing SonarQube Scanning process.")
+	startTimeRunSonar := time.Now()
+	if err = r.runSonarScanner(); err != nil {
+		err = fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
+		return
+	}
+	log.Infof("Sonar scan ended. Duration %.2f seconds.", time.Since(startTimeRunSonar).Seconds())
 
 	err = r.runDockerBuild()
 	return
