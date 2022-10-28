@@ -18,6 +18,7 @@ package reaper
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/tool/sonar"
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
@@ -444,6 +446,46 @@ func (r *Reaper) CollectTestResults() error {
 }
 
 func (r *Reaper) AfterExec() error {
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar && r.Ctx.SonarCheckQualityGate {
+		sonarWorkDir := getKeyValue(r.Ctx.SonarParameter, "sonar.working.directory")
+		if sonarWorkDir == "" {
+			sonarWorkDir = ".scannerwork"
+		}
+		if !filepath.IsAbs(sonarWorkDir) {
+			sonarWorkDir = filepath.Join("/workspace", r.Ctx.Repos[0].Name, sonarWorkDir)
+		}
+		taskReportDir := filepath.Join(sonarWorkDir, "report-tasks.txt")
+		bytes, err := ioutil.ReadFile(taskReportDir)
+		if err != nil {
+			log.Errorf("read sonar task report file: %s error :%v", taskReportDir, err)
+			return err
+		}
+		taskReportContent := string(bytes)
+		ceTaskID := getKeyValue(taskReportContent, "ceTaskId")
+		if ceTaskID == "" {
+			log.Error("can not get sonar ce task ID")
+			return errors.New("can not get sonar ce task ID")
+		}
+		analysisID, err := r.waitForCETaskTobeDone(ceTaskID)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		client := sonar.NewSonarClient(r.Ctx.SonarServer, r.Ctx.SonarLogin)
+		gateInfo, err := client.GetQualityGateInfo(analysisID)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
+		for _, condition := range gateInfo.ProjectStatus.Conditions {
+			log.Infof("metric[%s]		status[%s]		operator[%s]		threshold[%s]		actualvalue[%s]", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
+		}
+		if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
+			return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
+		}
+	}
+
 	if r.Ctx.ArtifactInfo == nil {
 		if err := r.archiveS3Files(); err != nil {
 			return fmt.Errorf("failed to archive S3 files: %s", err)
@@ -579,4 +621,48 @@ func (r *Reaper) renderUserEnv(raw string) string {
 	}
 
 	return os.Expand(raw, mapper)
+}
+
+func getKeyValue(content, inputKey string) string {
+	kvStrs := strings.Split(content, "\n")
+	for _, kvStr := range kvStrs {
+		kvStr = strings.TrimSpace(string(kvStr))
+		index := strings.Index(kvStr, "=")
+		if index < 0 {
+			continue
+		}
+		key := strings.TrimSpace(kvStr[:index])
+		if len(key) == 0 {
+			continue
+		}
+		if key != inputKey {
+			continue
+		}
+		return strings.TrimSpace(kvStr[index+1:])
+	}
+	return ""
+}
+
+func (r *Reaper) waitForCETaskTobeDone(taskID string) (string, error) {
+	client := sonar.NewSonarClient(r.Ctx.SonarServer, r.Ctx.SonarLogin)
+	timeout := time.After(10 * time.Minute)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timeout:
+			return "", errors.New("sonar ce task excution timeout 10m")
+		case <-ticker.C:
+			taskInfo, err := client.GetCETaskInfo(taskID)
+			if err != nil {
+				return "", fmt.Errorf("get sonar ce task info error: %v", err)
+			}
+			if taskInfo.Task.Status == sonar.CETaskSuccess {
+				return taskInfo.Task.AnalysisID, nil
+			}
+			if taskInfo.Task.Status == sonar.CETaskCanceled || taskInfo.Task.Status == sonar.CETaskFailed {
+				return "", fmt.Errorf("sonar ce task status was %s", taskInfo.Task.Status)
+			}
+		}
+	}
 }
