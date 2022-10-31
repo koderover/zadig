@@ -447,7 +447,6 @@ func (r *Reaper) CollectTestResults() error {
 
 func (r *Reaper) AfterExec() error {
 	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar && r.Ctx.SonarCheckQualityGate {
-		time.Sleep(5 * time.Minute)
 		sonarWorkDir := getKeyValue(r.Ctx.SonarParameter, "sonar.working.directory")
 		if sonarWorkDir == "" {
 			sonarWorkDir = ".scannerwork"
@@ -455,7 +454,7 @@ func (r *Reaper) AfterExec() error {
 		if !filepath.IsAbs(sonarWorkDir) {
 			sonarWorkDir = filepath.Join("/workspace", r.Ctx.Repos[0].Name, sonarWorkDir)
 		}
-		taskReportDir := filepath.Join(sonarWorkDir, "report-tasks.txt")
+		taskReportDir := filepath.Join(sonarWorkDir, "report-task.txt")
 		bytes, err := ioutil.ReadFile(taskReportDir)
 		if err != nil {
 			log.Errorf("read sonar task report file: %s error :%v", taskReportDir, err)
