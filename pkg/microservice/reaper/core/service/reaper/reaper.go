@@ -447,6 +447,7 @@ func (r *Reaper) CollectTestResults() error {
 
 func (r *Reaper) AfterExec() error {
 	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar && r.Ctx.SonarCheckQualityGate {
+		time.Sleep(5 * time.Minute)
 		sonarWorkDir := getKeyValue(r.Ctx.SonarParameter, "sonar.working.directory")
 		if sonarWorkDir == "" {
 			sonarWorkDir = ".scannerwork"
