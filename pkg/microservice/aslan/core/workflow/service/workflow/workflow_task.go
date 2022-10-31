@@ -1684,7 +1684,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			testTask.ResReqSpec = testModule.PreTest.ResReqSpec
 		}
 		// 设置 build 安装脚本
-		testTask.InstallCtx, err = buildInstallCtx(testTask.InstallItems)
+		testTask.InstallCtx, err = BuildInstallCtx(testTask.InstallItems)
 		if err != nil {
 			log.Errorf("buildInstallCtx error: %v", err)
 			return resp, err
@@ -2404,7 +2404,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				}
 
 				// 设置 build 安装脚本
-				t.InstallCtx, err = buildInstallCtx(t.InstallItems)
+				t.InstallCtx, err = BuildInstallCtx(t.InstallItems)
 				if err != nil {
 					log.Error(err)
 					return err

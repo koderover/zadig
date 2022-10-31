@@ -266,6 +266,12 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		CheckQualityGate: scanningInfo.CheckQualityGate,
 	}
 
+	scanningTask.InstallCtx, err = workflowservice.BuildInstallCtx(scanningTask.InstallItems)
+	if err != nil {
+		log.Errorf("buildInstallCtx for scanning task error: %v", err)
+		return 0, err
+	}
+
 	if scanningInfo.ScannerType == "sonarQube" {
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
 		if err != nil {

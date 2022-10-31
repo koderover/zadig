@@ -500,7 +500,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 							}
 							buildInfo.JobCtx.Caches = newBuildInfo.Caches
 							// 设置 build 安装脚本
-							buildInfo.InstallCtx, err = buildInstallCtx(buildInfo.InstallItems)
+							buildInfo.InstallCtx, err = BuildInstallCtx(buildInfo.InstallItems)
 							if err != nil {
 								log.Errorf("buildInstallCtx error: %v", err)
 							}
@@ -549,7 +549,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 								testInfo.ResReqSpec = newTestInfo.PreTest.ResReqSpec
 							}
 							// 设置 build 安装脚本
-							testInfo.InstallCtx, err = buildInstallCtx(testInfo.InstallItems)
+							testInfo.InstallCtx, err = BuildInstallCtx(testInfo.InstallItems)
 							if err != nil {
 								log.Errorf("buildInstallCtx error: %v", err)
 							}
@@ -715,7 +715,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		testTask.ResReqSpec = testModule.PreTest.ResReqSpec
 	}
 	// 设置 build 安装脚本
-	testTask.InstallCtx, err = buildInstallCtx(testTask.InstallItems)
+	testTask.InstallCtx, err = BuildInstallCtx(testTask.InstallItems)
 	if err != nil {
 		log.Errorf("buildInstallCtx error: %v", err)
 		return resp, err

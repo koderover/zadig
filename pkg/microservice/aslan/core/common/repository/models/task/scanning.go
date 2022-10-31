@@ -34,6 +34,7 @@ type Scanning struct {
 	ImageInfo    string              `bson:"image_info"      json:"image_info"`
 	SonarInfo    *types.SonarInfo    `bson:"sonar_info"      json:"sonar_info"`
 	InstallItems []*models.Item      `bson:"install_items"   json:"install_items"`
+	InstallCtx   []*models.Install   `bson:"-"               json:"install_ctx"`
 	Repos        []*types.Repository `bson:"repos"           json:"repos"`
 	Proxy        *models.Proxy       `bson:"proxy"           json:"proxy"`
 	ClusterID    string              `bson:"cluster_id"      json:"cluster_id"`
