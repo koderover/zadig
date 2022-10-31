@@ -667,7 +667,7 @@ func (r *Reaper) waitForCETaskTobeDone(taskID string) (string, error) {
 }
 
 func printSonarConditionTables(conditions []sonar.Condition) {
-	w := tabwriter.NewWriter(os.Stdout, 20, 8, 1, ' ', tabwriter.Debug|tabwriter.AlignRight)
+	w := tabwriter.NewWriter(os.Stdout, 40, 8, 1, '	', tabwriter.Debug)
 	fmt.Fprintf(w, "Metric\tStatus\tOperator\tThreshold\tActualvalue\t\n")
 	for _, condition := range conditions {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
