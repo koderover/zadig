@@ -27,6 +27,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/koderover/zadig/pkg/tool/s3"
@@ -478,9 +479,7 @@ func (r *Reaper) AfterExec() error {
 			return err
 		}
 		log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
-		for _, condition := range gateInfo.ProjectStatus.Conditions {
-			log.Infof("metric[%s]		status[%s]		operator[%s]		threshold[%s]		actualvalue[%s]", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
-		}
+		printSonarConditionTables(gateInfo.ProjectStatus.Conditions)
 		if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
 			return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
 		}
@@ -665,4 +664,14 @@ func (r *Reaper) waitForCETaskTobeDone(taskID string) (string, error) {
 			}
 		}
 	}
+}
+
+func printSonarConditionTables(conditions []sonar.Condition) {
+	w := tabwriter.NewWriter(os.Stdout, 20, 8, 1, ' ', tabwriter.Debug|tabwriter.AlignRight)
+	fmt.Fprintf(w, "Metric\tStatus\tOperator\tThreshold\tActualvalue\t\n")
+	for _, condition := range conditions {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
+	}
+	w.Flush()
+	fmt.Printf("\n")
 }
