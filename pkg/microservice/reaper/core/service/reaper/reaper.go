@@ -666,9 +666,9 @@ func (r *Reaper) waitForCETaskTobeDone(taskID string) (string, error) {
 }
 
 func printSonarConditionTables(conditions []sonar.Condition) {
-	fmt.Printf("%40s|%10s|%10s|%10s|%10s|\n", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
+	fmt.Printf("%40s|%10s|%10s|%10s|%20s|\n", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
 	for _, condition := range conditions {
-		fmt.Printf("%40s|%10s|%10s|%10s|%10s|\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
+		fmt.Printf("%40s|%10s|%10s|%10s|%20s|\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
 	}
 	fmt.Printf("\n")
 }
