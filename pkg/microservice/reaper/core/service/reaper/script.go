@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -293,10 +294,6 @@ func (r *Reaper) runSonarScanner() error {
 		r.handleCmdOutput(cmdStdoutReader, false, fileName)
 	}()
 
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
 	cmdStdErrReader, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -320,6 +317,9 @@ func (r *Reaper) runSonarScanner() error {
 
 func (r *Reaper) prepareScriptsEnv() []string {
 	scripts := []string{}
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar {
+		return scripts
+	}
 	scripts = append(scripts, "eval $(ssh-agent -s) > /dev/null")
 	// $HOME/.ssh/id_rsa 为 github 私钥
 	scripts = append(scripts, fmt.Sprintf("ssh-add %s/.ssh/id_rsa.github &> /dev/null", config.Home()))
