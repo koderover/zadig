@@ -27,7 +27,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/koderover/zadig/pkg/tool/s3"
@@ -667,11 +666,9 @@ func (r *Reaper) waitForCETaskTobeDone(taskID string) (string, error) {
 }
 
 func printSonarConditionTables(conditions []sonar.Condition) {
-	w := tabwriter.NewWriter(os.Stdout, 40, 8, 1, '	', tabwriter.Debug)
-	fmt.Fprintf(w, "Metric\tStatus\tOperator\tThreshold\tActualvalue\t\n")
+	fmt.Printf("%40s|%10s|%10s|%10s|%10s|\n", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
 	for _, condition := range conditions {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
+		fmt.Printf("%40s|%10s|%10s|%10s|%10s|\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
 	}
-	w.Flush()
 	fmt.Printf("\n")
 }
