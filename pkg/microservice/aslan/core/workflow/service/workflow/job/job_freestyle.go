@@ -19,6 +19,8 @@ package job
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -40,6 +42,11 @@ func (j *FreeStyleJob) Instantiate() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	if err := util.CheckDefineResourceParam(j.spec.Properties.ResourceRequest, j.spec.Properties.ResReqSpec); err != nil {
+		return err
+	}
+
 	for _, step := range j.spec.Steps {
 		switch step.StepType {
 		case config.StepTools:
