@@ -258,9 +258,18 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		Parameter:  scanningInfo.Parameter,
 		Script:     scanningInfo.Script,
 		// the timeout we save is measured in minute
-		Timeout:   scanningInfo.AdvancedSetting.Timeout * 60,
-		ClusterID: scanningInfo.AdvancedSetting.ClusterID,
-		Repos:     repos,
+		Timeout:          scanningInfo.AdvancedSetting.Timeout * 60,
+		ClusterID:        scanningInfo.AdvancedSetting.ClusterID,
+		Repos:            repos,
+		InstallItems:     scanningInfo.Installs,
+		PreScript:        scanningInfo.PreScript,
+		CheckQualityGate: scanningInfo.CheckQualityGate,
+	}
+
+	scanningTask.InstallCtx, err = workflowservice.BuildInstallCtx(scanningTask.InstallItems)
+	if err != nil {
+		log.Errorf("buildInstallCtx for scanning task error: %v", err)
+		return 0, err
 	}
 
 	if scanningInfo.ScannerType == "sonarQube" {

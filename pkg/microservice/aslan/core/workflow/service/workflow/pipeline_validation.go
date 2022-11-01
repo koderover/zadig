@@ -144,7 +144,7 @@ func validateSubTaskSetting(pipeName string, subtasks []map[string]interface{}) 
 			ensureTaskSecretEnvs(pipeName, config.TaskTestingV2, t.JobCtx.EnvVars)
 
 			// 设置 build 安装脚本
-			t.InstallCtx, err = buildInstallCtx(t.InstallItems)
+			t.InstallCtx, err = BuildInstallCtx(t.InstallItems)
 			if err != nil {
 				log.Errorf("buildInstallCtx error: %v", err)
 				return err
@@ -217,7 +217,7 @@ func getTaskEnvs(pipelineName string) map[string]string {
 }
 
 // 根据用户的配置和BuildStep中步骤的依赖，从系统配置的InstallItems中获取配置项，构建Install Context
-func buildInstallCtx(installItems []*commonmodels.Item) ([]*commonmodels.Install, error) {
+func BuildInstallCtx(installItems []*commonmodels.Item) ([]*commonmodels.Install, error) {
 	resp := make([]*commonmodels.Install, 0)
 
 	for _, item := range installItems {

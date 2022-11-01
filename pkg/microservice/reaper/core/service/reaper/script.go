@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -265,7 +266,7 @@ func (r *Reaper) runSonarScanner() error {
 		log.Infof("Writing sonar-project.properties for repo: %s", repo.Name)
 		repoConfigPath := filepath.Join("/workspace", repo.Name, "sonar-project.properties")
 		// renders the scanned repository branch information to the user configuration
-		r.Ctx.SonarParameter=strings.ReplaceAll(r.Ctx.SonarParameter,"$BRANCH",repo.Branch)
+		r.Ctx.SonarParameter = strings.ReplaceAll(r.Ctx.SonarParameter, "$BRANCH", repo.Branch)
 		configContent := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", r.Ctx.SonarLogin, r.Ctx.SonarServer, r.Ctx.SonarParameter)
 		err := os.WriteFile(repoConfigPath, []byte(configContent), fs.ModeAppend)
 		if err != nil {
@@ -293,6 +294,18 @@ func (r *Reaper) runSonarScanner() error {
 		r.handleCmdOutput(cmdStdoutReader, false, fileName)
 	}()
 
+	cmdStdErrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdErrReader, false, fileName)
+	}()
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -304,6 +317,9 @@ func (r *Reaper) runSonarScanner() error {
 
 func (r *Reaper) prepareScriptsEnv() []string {
 	scripts := []string{}
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar {
+		return scripts
+	}
 	scripts = append(scripts, "eval $(ssh-agent -s) > /dev/null")
 	// $HOME/.ssh/id_rsa 为 github 私钥
 	scripts = append(scripts, fmt.Sprintf("ssh-add %s/.ssh/id_rsa.github &> /dev/null", config.Home()))
