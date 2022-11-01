@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -160,6 +161,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ResReqSpec:      scanningInfo.AdvancedSetting.ResReqSpec,
 			ClusterID:       scanningInfo.AdvancedSetting.ClusterID,
 			BuildOS:         basicImage.Value,
+			ImageFrom:       setting.ImageFromCustom,
 			Envs:            []*commonmodels.KeyVal{},
 			Registries:      registries,
 		}
