@@ -17,7 +17,9 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -158,6 +160,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ResReqSpec:      scanningInfo.AdvancedSetting.ResReqSpec,
 			ClusterID:       scanningInfo.AdvancedSetting.ClusterID,
 			BuildOS:         basicImage.Value,
+			Envs:            []*commonmodels.KeyVal{},
 			Registries:      registries,
 		}
 
@@ -184,7 +187,12 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepGitSpec{Repos: renderRepos(scanning.Repos, scanningInfo.Repos)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
-
+		repoName := ""
+		branch := ""
+		if len(scanningInfo.Repos) > 0 {
+			repoName = scanningInfo.Repos[0].RepoName
+			branch = scanningInfo.Repos[0].Branch
+		}
 		// init shell step
 		if scanningInfo.ScannerType == types.ScanningTypeSonar {
 			shellStep := &commonmodels.StepTask{
@@ -192,10 +200,48 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepShell,
 				Spec: &step.StepShellSpec{
-					Scripts: strings.Split(replaceWrapLine(scanningInfo.Script), "\n"),
+					Scripts: strings.Split(replaceWrapLine(scanningInfo.PreScript), "\n"),
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
+
+			sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+			if err != nil {
+				return resp, fmt.Errorf("failed to get sonar integration information to create scanning task, error: %s", err)
+
+			}
+			sonarLinkKeyVal := &commonmodels.KeyVal{
+				Key:   "SONAR_LINK",
+				Value: path.Join(sonarInfo.ServerAddress, "projects"),
+			}
+			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
+			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+			sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+			sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, sonarConfig)
+			sonarShellStep := &commonmodels.StepTask{
+				Name:     scanning.Name + "-sonar-shell",
+				JobName:  jobTask.Name,
+				StepType: config.StepShell,
+				Spec: &step.StepShellSpec{
+					Scripts: strings.Split(replaceWrapLine(sonarScript), "\n"),
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarShellStep)
+
+			if scanningInfo.CheckQualityGate {
+				sonarChekStep := &commonmodels.StepTask{
+					Name:     scanning.Name + "-sonar-check",
+					JobName:  jobTask.Name,
+					StepType: config.StepSonarCheck,
+					Spec: &step.StepSonarCheckSpec{
+						Parameter:   scanningInfo.Parameter,
+						CheckDir:    repoName,
+						SonarToken:  sonarInfo.Token,
+						SonarServer: sonarInfo.ServerAddress,
+					},
+				}
+				jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarChekStep)
+			}
 		} else {
 			shellStep := &commonmodels.StepTask{
 				Name:     scanning.Name + "-shell",

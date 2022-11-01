@@ -484,6 +484,12 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					continue
 				}
 			}
+			for _, arg := range taskJobSpec.Properties.Envs {
+				if arg.Key == "SONAR_LINK" {
+					spec.LinkURL = arg.Value
+					continue
+				}
+			}
 			jobPreview.Spec = spec
 		case string(config.JobZadigDeploy):
 			spec := ZadigDeployJobSpec{}
