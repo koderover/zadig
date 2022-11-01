@@ -152,6 +152,16 @@ type TestModule struct {
 	Repos       []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
 }
 
+type ZadigScanningJobSpec struct {
+	Scannings []*ScanningModule `bson:"scannings"     yaml:"scannings"     json:"scannings"`
+}
+
+type ScanningModule struct {
+	Name        string              `bson:"name"                yaml:"name"             json:"name"`
+	ProjectName string              `bson:"project_name"        yaml:"project_name"     json:"project_name"`
+	Repos       []*types.Repository `bson:"repos"                yaml:"repos"           json:"repos"`
+}
+
 type BlueGreenDeployJobSpec struct {
 	ClusterID        string             `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
 	Namespace        string             `bson:"namespace"              json:"namespace"             yaml:"namespace"`

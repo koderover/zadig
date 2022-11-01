@@ -133,6 +133,13 @@ func (c *ScanningColl) List(listOption *ScanningListOption, pageNum, pageSize in
 	return resp, count, nil
 }
 
+func (c *ScanningColl) Find(projectName, name string) (*models.Scanning, error) {
+	resp := new(models.Scanning)
+	query := bson.M{"name": name, "project_name": projectName}
+	err := c.FindOne(context.TODO(), query).Decode(resp)
+	return resp, err
+}
+
 func (c *ScanningColl) GetByID(idstring string) (*models.Scanning, error) {
 	resp := new(models.Scanning)
 	id, err := primitive.ObjectIDFromHex(idstring)
