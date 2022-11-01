@@ -372,8 +372,8 @@ func (r *Reaper) Exec() (err error) {
 	}
 	log.Infof("Clone ended. Duration: %.2f seconds.", time.Since(startTimeCloneRepo).Seconds())
 
-	if err1 := r.createReadme(ReadmeFile); err1 != nil {
-		log.Warningf("Failed to create README file: %s", err1)
+	if err = r.createReadme(ReadmeFile); err != nil {
+		log.Warningf("Failed to create README file: %s", err)
 	}
 	// collect test result regardless of excution result
 	defer func() {
