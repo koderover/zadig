@@ -40,16 +40,16 @@ func checkGpuResourceParam(gpuLimit string) error {
 
 func CheckDefineResourceParam(req setting.Request, reqSpec setting.RequestSpec) error {
 	if req != setting.DefineRequest {
-		if len(reqSpec.GpuLimit) == 0 {
-			return nil
-		}
+		return nil
+	}
+	if len(reqSpec.GpuLimit) > 0 {
 		return checkGpuResourceParam(reqSpec.GpuLimit)
 	}
-	if reqSpec.CpuLimit < 1 {
-		return fmt.Errorf("Parameter res_req_spc.cpu_limit must be greater than 1m")
-	}
-	if reqSpec.MemoryLimit < 1 {
-		return fmt.Errorf("Parameter res_req_spc.memory_limit must be greater than 1Mi")
-	}
+	//if reqSpec.CpuLimit < 1 {
+	//	return fmt.Errorf("Parameter res_req_spc.cpu_limit must be greater than 1m")
+	//}
+	//if reqSpec.MemoryLimit < 1 {
+	//	return fmt.Errorf("Parameter res_req_spc.memory_limit must be greater than 1Mi")
+	//}
 	return nil
 }
