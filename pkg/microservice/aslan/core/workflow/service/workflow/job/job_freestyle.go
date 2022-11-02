@@ -24,6 +24,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
@@ -40,6 +41,11 @@ func (j *FreeStyleJob) Instantiate() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	if err := util.CheckDefineResourceParam(j.spec.Properties.ResourceRequest, j.spec.Properties.ResReqSpec); err != nil {
+		return err
+	}
+
 	for _, step := range j.spec.Steps {
 		switch step.StepType {
 		case config.StepTools:

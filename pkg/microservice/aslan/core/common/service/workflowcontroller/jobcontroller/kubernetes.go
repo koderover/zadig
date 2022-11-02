@@ -489,27 +489,42 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 		}
 	}
 
-	cpuReqInt := reqSpec.CpuLimit / 4
-	if cpuReqInt < 1 {
-		cpuReqInt = 1
+	limits := corev1.ResourceList{}
+	requests := corev1.ResourceList{}
+
+	if reqSpec.CpuLimit > 0 {
+		cpuReqInt := reqSpec.CpuLimit / 4
+		if cpuReqInt < 1 {
+			cpuReqInt = 1
+		}
+		limits[corev1.ResourceCPU] = resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM)
+		requests[corev1.ResourceCPU] = resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM)
 	}
-	memoryReqInt := reqSpec.MemoryLimit / 4
-	if memoryReqInt >= 2*1024 {
-		memoryReqInt = memoryReqInt / 2
+
+	if reqSpec.MemoryLimit > 0 {
+		memoryReqInt := reqSpec.MemoryLimit / 4
+		if memoryReqInt >= 2*1024 {
+			memoryReqInt = memoryReqInt / 2
+		}
+		if memoryReqInt < 1 {
+			memoryReqInt = 1
+		}
+		limits[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi)
+		requests[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi)
 	}
-	if memoryReqInt < 1 {
-		memoryReqInt = 1
+
+	// add gpu limit
+	if len(reqSpec.GpuLimit) > 0 {
+		reqSpec.GpuLimit = strings.ReplaceAll(reqSpec.GpuLimit, " ", "")
+		requestPair := strings.Split(reqSpec.GpuLimit, ":")
+		if len(requestPair) == 2 {
+			limits[corev1.ResourceName(requestPair[0])] = resource.MustParse(requestPair[1])
+		}
 	}
 
 	return corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
-			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM),
-			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi),
-		},
+		Limits:   limits,
+		Requests: requests,
 	}
 }
 

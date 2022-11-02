@@ -40,6 +40,8 @@ type RequestSpec struct {
 	MemoryLimit int `bson:"memory_limit"                  json:"memory_limit"            yaml:"memory_limit"`
 	CpuReq      int `bson:"cpu_req,omitempty"             json:"cpu_req,omitempty"       yaml:"cpu_req,omitempty"`
 	MemoryReq   int `bson:"memory_req,omitempty"          json:"memory_req,omitempty"    yaml:"memory_req,omitempty"`
+	// gpu request, eg: "nvidia.com/gpu: 1"
+	GpuLimit string `bson:"gpu_limit"                     json:"gpu_limit"               yaml:"gpu_limit"`
 }
 
 var (
