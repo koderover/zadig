@@ -789,7 +789,7 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 	limits := corev1.ResourceList{}
 	requests := corev1.ResourceList{}
 
-	if reqSpec.CpuReq > 0 {
+	if reqSpec.CpuLimit > 0 {
 		cpuReqInt := reqSpec.CpuLimit / 4
 		if cpuReqInt < 1 {
 			cpuReqInt = 1
@@ -807,7 +807,7 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 			memoryReqInt = 1
 		}
 		limits[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi)
-		requests[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(memoryReqInt) + setting.CpuUintM)
+		requests[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi)
 	}
 
 	// add gpu limit
