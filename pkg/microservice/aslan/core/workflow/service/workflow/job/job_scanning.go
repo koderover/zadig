@@ -155,6 +155,10 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:    jobTaskSpec,
 			Timeout: timeout,
 		}
+		scanningNameKV := &commonmodels.KeyVal{
+			Key:   "SCANNING_NAME",
+			Value: scanning.Name,
+		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         timeout,
 			ResourceRequest: scanningInfo.AdvancedSetting.ResReq,
@@ -162,7 +166,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ClusterID:       scanningInfo.AdvancedSetting.ClusterID,
 			BuildOS:         basicImage.Value,
 			ImageFrom:       setting.ImageFromCustom,
-			Envs:            []*commonmodels.KeyVal{},
+			Envs:            []*commonmodels.KeyVal{scanningNameKV},
 			Registries:      registries,
 		}
 

@@ -489,6 +489,10 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					spec.LinkURL = arg.Value
 					continue
 				}
+				if arg.Key == "SCANNING_NAME" {
+					spec.ScanningName = arg.Value
+					continue
+				}
 			}
 			jobPreview.Spec = spec
 		case string(config.JobZadigDeploy):
