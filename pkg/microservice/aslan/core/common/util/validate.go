@@ -18,19 +18,38 @@ package util
 
 import (
 	"fmt"
+	"strings"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/koderover/zadig/pkg/setting"
 )
+
+func checkGpuResourceParam(gpuLimit string) error {
+	gpuLimit = strings.ReplaceAll(gpuLimit, " ", "")
+	requestPair := strings.Split(gpuLimit, ":")
+	if len(requestPair) != 2 {
+		return fmt.Errorf("format of gpu request is incorrect")
+	}
+	_, err := resource.ParseQuantity(requestPair[1])
+	if err != nil {
+		return fmt.Errorf("failed to parse resource quantity, err: %s", err)
+	}
+	return err
+}
 
 func CheckDefineResourceParam(req setting.Request, reqSpec setting.RequestSpec) error {
 	if req != setting.DefineRequest {
 		return nil
 	}
-	if reqSpec.CpuLimit < 1 {
-		return fmt.Errorf("Parameter res_req_spc.cpu_limit must be greater than 1m")
+	if len(reqSpec.GpuLimit) > 0 {
+		return checkGpuResourceParam(reqSpec.GpuLimit)
 	}
-	if reqSpec.MemoryLimit < 1 {
-		return fmt.Errorf("Parameter res_req_spc.memory_limit must be greater than 1Mi")
-	}
+	//if reqSpec.CpuLimit < 1 {
+	//	return fmt.Errorf("Parameter res_req_spc.cpu_limit must be greater than 1m")
+	//}
+	//if reqSpec.MemoryLimit < 1 {
+	//	return fmt.Errorf("Parameter res_req_spc.memory_limit must be greater than 1Mi")
+	//}
 	return nil
 }

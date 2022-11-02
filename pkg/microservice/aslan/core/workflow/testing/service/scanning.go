@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -46,7 +47,12 @@ func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogge
 		return e.ErrCreateScanningModule.AddDesc("empty Name")
 	}
 
-	err := commonservice.ProcessWebhook(args.AdvancedSetting.HookCtl.Items, nil, webhook.ScannerPrefix+args.Name, log)
+	err := util.CheckDefineResourceParam(args.AdvancedSetting.ResReq, args.AdvancedSetting.ResReqSpec)
+	if err != nil {
+		return e.ErrCreateScanningModule.AddErr(err)
+	}
+
+	err = commonservice.ProcessWebhook(args.AdvancedSetting.HookCtl.Items, nil, webhook.ScannerPrefix+args.Name, log)
 	if err != nil {
 		return e.ErrCreateScanningModule.AddErr(err)
 	}
@@ -66,13 +72,18 @@ func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogge
 
 func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredLogger) error {
 	if len(args.Name) == 0 {
-		return e.ErrCreateScanningModule.AddDesc("empty Name")
+		return e.ErrUpdateScanningModule.AddDesc("empty Name")
 	}
 
 	scanning, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning information to update webhook, err: %s", err)
 		return err
+	}
+
+	err = util.CheckDefineResourceParam(args.AdvancedSetting.ResReq, args.AdvancedSetting.ResReqSpec)
+	if err != nil {
+		return e.ErrUpdateScanningModule.AddErr(err)
 	}
 
 	if scanning.AdvancedSetting.HookCtl.Enabled {
@@ -132,6 +143,7 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 				TimesRun:       int64(res.TotalTasks),
 				AverageRuntime: avgRuntime,
 			},
+			Repos:     scanning.Repos,
 			CreatedAt: scanning.CreatedAt,
 			UpdatedAt: scanning.UpdatedAt,
 		})

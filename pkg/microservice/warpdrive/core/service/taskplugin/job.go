@@ -449,9 +449,9 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 // e.g. build task JOBNAME = pipelinename-taskid-buildv2-servicename
 // e.g. release image JOBNAME = pipelinename-taskid-release-image-servicename
 // JOB Label
-//"s-job":  pipelinename-taskid-tasktype-servicename,
-//"s-task": pipelinename-taskid,
-//"s-type": tasktype,
+// "s-job":  pipelinename-taskid-tasktype-servicename,
+// "s-task": pipelinename-taskid,
+// "s-type": tasktype,
 func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	return buildJobWithLinkedNs(
 		taskType,
@@ -640,7 +640,8 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 }
 
 // Note: The name of a Secret object must be a valid DNS subdomain name:
-//   https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
+//
+//	https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
 func formatRegistryName(namespaceInRegistry string) (string, error) {
 	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
 	if err != nil {
@@ -767,9 +768,9 @@ func getResourceRequirements(resReq setting.Request, resReqSpec setting.RequestS
 	}
 }
 
-//generateResourceRequirements
-//cpu Request:Limit=1:4
-//memory default Request:Limit=1:4 ; if memoryLimit>= 8Gi,Request:Limit=1:8
+// generateResourceRequirements
+// cpu Request:Limit=1:4
+// memory default Request:Limit=1:4 ; if memoryLimit>= 8Gi,Request:Limit=1:8
 func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSpec) corev1.ResourceRequirements {
 
 	if req != setting.DefineRequest {
@@ -785,32 +786,47 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 		}
 	}
 
-	cpuReqInt := reqSpec.CpuLimit / 4
-	if cpuReqInt < 1 {
-		cpuReqInt = 1
+	limits := corev1.ResourceList{}
+	requests := corev1.ResourceList{}
+
+	if reqSpec.CpuLimit > 0 {
+		cpuReqInt := reqSpec.CpuLimit / 4
+		if cpuReqInt < 1 {
+			cpuReqInt = 1
+		}
+		limits[corev1.ResourceCPU] = resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM)
+		requests[corev1.ResourceCPU] = resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM)
 	}
-	memoryReqInt := reqSpec.MemoryLimit / 4
-	if memoryReqInt >= 2*1024 {
-		memoryReqInt = memoryReqInt / 2
+
+	if reqSpec.MemoryLimit > 0 {
+		memoryReqInt := reqSpec.MemoryLimit / 4
+		if memoryReqInt >= 2*1024 {
+			memoryReqInt = memoryReqInt / 2
+		}
+		if memoryReqInt < 1 {
+			memoryReqInt = 1
+		}
+		limits[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi)
+		requests[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi)
 	}
-	if memoryReqInt < 1 {
-		memoryReqInt = 1
+
+	// add gpu limit
+	if len(reqSpec.GpuLimit) > 0 {
+		reqSpec.GpuLimit = strings.ReplaceAll(reqSpec.GpuLimit, " ", "")
+		requestPair := strings.Split(reqSpec.GpuLimit, ":")
+		if len(requestPair) == 2 {
+			limits[corev1.ResourceName(requestPair[0])] = resource.MustParse(requestPair[1])
+		}
 	}
 
 	return corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
-			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM),
-			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi),
-		},
+		Limits:   limits,
+		Requests: requests,
 	}
 }
 
-//waitJobEnd
-//Returns job status
+// waitJobEnd
+// Returns job status
 func waitJobEnd(ctx context.Context, taskTimeout int, namspace, jobName string, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
 	return waitJobEndWithFile(ctx, taskTimeout, namspace, jobName, false, kubeClient, clientset, restConfig, xl)
 }

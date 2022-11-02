@@ -63,8 +63,10 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	if len(s.spec.Scripts) == 0 {
 		return nil
 	}
-	scripts := prepareScriptsEnv()
-
+	scripts := []string{}
+	if !s.spec.SkipPrepare {
+		scripts = prepareScriptsEnv()
+	}
 	scripts = append(scripts, s.spec.Scripts...)
 
 	userScriptFile := "user_script.sh"

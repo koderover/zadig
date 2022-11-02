@@ -18,7 +18,10 @@ package sonar
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -29,6 +32,11 @@ type Client struct {
 	host  string
 	token string
 }
+
+const (
+	SonarWorkDirKey = "sonar.working.directory"
+	CETaskIDKey     = "ceTaskId"
+)
 
 func NewSonarClient(host, token string) *Client {
 	encodeToken := base64.StdEncoding.EncodeToString([]byte(token + ":"))
@@ -113,4 +121,63 @@ func (c *Client) GetQualityGateInfo(analysisID string) (*ProjectInfo, error) {
 		return nil, fmt.Errorf("get sonar quality gate: %s info error: %v", analysisID, err)
 	}
 	return res, nil
+}
+
+func (c *Client) WaitForCETaskTobeDone(taskID string, timeout time.Duration) (string, error) {
+	timeouts := time.After(timeout)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timeouts:
+			return "", errors.New("sonar ce task excution timeout 10m")
+		case <-ticker.C:
+			taskInfo, err := c.GetCETaskInfo(taskID)
+			if err != nil {
+				return "", fmt.Errorf("get sonar ce task info error: %v", err)
+			}
+			if taskInfo.Task.Status == CETaskSuccess {
+				return taskInfo.Task.AnalysisID, nil
+			}
+			if taskInfo.Task.Status == CETaskCanceled || taskInfo.Task.Status == CETaskFailed {
+				return "", fmt.Errorf("sonar ce task status was %s", taskInfo.Task.Status)
+			}
+		}
+	}
+}
+
+func GetSonarWorkDir(content string) string {
+	return getKeyValue(content, SonarWorkDirKey)
+}
+
+func GetSonarCETaskID(content string) string {
+	return getKeyValue(content, CETaskIDKey)
+}
+
+func getKeyValue(content, inputKey string) string {
+	kvStrs := strings.Split(content, "\n")
+	for _, kvStr := range kvStrs {
+		kvStr = strings.TrimSpace(string(kvStr))
+		index := strings.Index(kvStr, "=")
+		if index < 0 {
+			continue
+		}
+		key := strings.TrimSpace(kvStr[:index])
+		if len(key) == 0 {
+			continue
+		}
+		if key != inputKey {
+			continue
+		}
+		return strings.TrimSpace(kvStr[index+1:])
+	}
+	return ""
+}
+
+func PrintSonarConditionTables(conditions []Condition) {
+	fmt.Printf("%-40s|%-10s|%-10s|%-10s|%-20s|\n", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
+	for _, condition := range conditions {
+		fmt.Printf("%-40s|%-10s|%-10s|%-10s|%-20s|\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
+	}
+	fmt.Printf("\n")
 }

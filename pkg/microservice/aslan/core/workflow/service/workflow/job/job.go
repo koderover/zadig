@@ -67,6 +67,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &GrayRollbackJob{job: job, workflow: workflow}
 	case config.JobK8sPatch:
 		resp = &K8sPacthJob{job: job, workflow: workflow}
+	case config.JobZadigScanning:
+		resp = &ScanningJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}
@@ -126,6 +128,12 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 					return err
 				}
 			}
+			if job.JobType == config.JobZadigScanning {
+				jobCtl := &ScanningJob{job: job, workflow: workflow}
+				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
@@ -158,6 +166,14 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 					return resp, err
 				}
 				resp = append(resp, testingRepos...)
+			}
+			if job.JobType == config.JobZadigScanning {
+				jobCtl := &ScanningJob{job: job, workflow: workflow}
+				scanningRepos, err := jobCtl.GetRepos()
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, scanningRepos...)
 			}
 		}
 	}

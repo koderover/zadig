@@ -101,6 +101,12 @@ type ZadigTestingJobSpec struct {
 	Envs        []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
 }
 
+type ZadigScanningJobSpec struct {
+	Repos        []*types.Repository `bson:"repos"           json:"repos"`
+	LinkURL      string              `bson:"link_url"        json:"link_url"`
+	ScanningName string              `bson:"scanning_name"   json:"scanning_name"`
+}
+
 type ZadigDeployJobSpec struct {
 	Env                string             `bson:"env"                          json:"env"`
 	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
@@ -464,6 +470,31 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					}
 				}
 			}
+		case string(config.JobZadigScanning):
+			spec := ZadigScanningJobSpec{}
+			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			for _, step := range taskJobSpec.Steps {
+				if step.StepType == config.StepGit {
+					stepSpec := &stepspec.StepGitSpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					spec.Repos = stepSpec.Repos
+					continue
+				}
+			}
+			for _, arg := range taskJobSpec.Properties.Envs {
+				if arg.Key == "SONAR_LINK" {
+					spec.LinkURL = arg.Value
+					continue
+				}
+				if arg.Key == "SCANNING_NAME" {
+					spec.ScanningName = arg.Value
+					continue
+				}
+			}
+			jobPreview.Spec = spec
 		case string(config.JobZadigDeploy):
 			spec := ZadigDeployJobSpec{}
 			taskJobSpec := &commonmodels.JobTaskDeploySpec{}

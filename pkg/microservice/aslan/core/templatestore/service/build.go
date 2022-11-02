@@ -108,6 +108,9 @@ func UpdateBuildTemplate(id string, buildTemplate *commonmodels.BuildTemplate, l
 	_, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 		ID: id,
 	})
+	if err := commonutil.CheckDefineResourceParam(buildTemplate.PreBuild.ResReq, buildTemplate.PreBuild.ResReqSpec); err != nil {
+		return e.ErrCreateBuildModule.AddDesc(err.Error())
+	}
 	if err != nil {
 		return err
 	}
