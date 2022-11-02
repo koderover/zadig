@@ -57,7 +57,7 @@ func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string, 
 	var message interface{}
 	if textType == weChatTextTypeText {
 		message = &Messsage{
-			MsgType: msgType,
+			MsgType: string(textType),
 			Text: &Text{
 				Content:             content,
 				MentionedMobileList: atMobiles,
@@ -65,7 +65,7 @@ func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string, 
 		}
 	} else if textType == weChatTextTypeMarkdown {
 		message = &WeChatWorkCard{
-			MsgType: msgType,
+			MsgType: string(textType),
 			Markdown: Markdown{
 				Content:             content,
 				MentionedMobileList: atMobiles,
