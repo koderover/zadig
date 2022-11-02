@@ -42,7 +42,7 @@ type Markdown struct {
 
 type Messsage struct {
 	MsgType string `json:"msgtype"`
-	Text    *Text  `json:"markdown"`
+	Text    *Text  `json:"text"`
 }
 
 type Text struct {
