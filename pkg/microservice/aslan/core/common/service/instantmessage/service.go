@@ -271,7 +271,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			if task.Type == config.SingleType {
 				typeText = weChatTextTypeText
 			}
-			err := w.SendWeChatWorkMessage(typeText, uri, content)
+			err := w.SendWeChatWorkMessage(typeText, uri, content, notifyCtl.AtMobiles)
 			if err != nil {
 				log.Errorf("SendWeChatWorkMessage err : %s", err)
 				return err

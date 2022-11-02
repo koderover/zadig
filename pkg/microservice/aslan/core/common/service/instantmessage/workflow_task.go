@@ -409,7 +409,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return err
 		}
 	default:
-		if err := w.SendWeChatWorkMessage(weChatTextTypeMarkdown, notify.WeChatWebHook, content); err != nil {
+		if err := w.SendWeChatWorkMessage(weChatTextTypeMarkdown, notify.WeChatWebHook, content, notify.AtMobiles); err != nil {
 			return err
 		}
 	}

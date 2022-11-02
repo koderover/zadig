@@ -36,7 +36,8 @@ type WeChatWorkCard struct {
 	Markdown Markdown `json:"markdown"`
 }
 type Markdown struct {
-	Content string `json:"content"`
+	Content             string   `json:"content"`
+	MentionedMobileList []string `json:"mentioned_mobile_list"`
 }
 
 type Messsage struct {
@@ -45,23 +46,26 @@ type Messsage struct {
 }
 
 type Text struct {
-	Content string `json:"content"`
+	Content             string   `json:"content"`
+	MentionedMobileList []string `json:"mentioned_mobile_list"`
 }
 
-func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string) error {
+func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string, atMobiles []string) error {
 	var message interface{}
 	if textType == weChatTextTypeText {
 		message = &Messsage{
 			MsgType: msgType,
 			Text: &Text{
-				Content: content,
+				Content:             content,
+				MentionedMobileList: atMobiles,
 			},
 		}
 	} else if textType == weChatTextTypeMarkdown {
 		message = &WeChatWorkCard{
 			MsgType: msgType,
 			Markdown: Markdown{
-				Content: content,
+				Content:             content,
+				MentionedMobileList: atMobiles,
 			},
 		}
 	} else {
