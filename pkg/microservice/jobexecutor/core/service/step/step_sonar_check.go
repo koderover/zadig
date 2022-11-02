@@ -24,10 +24,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/sonar"
 	"github.com/koderover/zadig/pkg/types/step"
-	"gopkg.in/yaml.v3"
 )
 
 type SonarCheckStep struct {
