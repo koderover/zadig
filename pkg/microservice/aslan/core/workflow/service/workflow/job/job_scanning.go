@@ -19,7 +19,6 @@ package job
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -218,7 +217,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			sonarLinkKeyVal := &commonmodels.KeyVal{
 				Key:   "SONAR_LINK",
-				Value: path.Join(sonarInfo.ServerAddress, "projects"),
+				Value: sonarInfo.ServerAddress,
 			}
 			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
 			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
