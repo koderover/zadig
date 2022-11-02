@@ -30,6 +30,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
+	"gopkg.in/yaml.v3"
+
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
@@ -144,6 +147,76 @@ func getBaseImage(buildOS, imageFrom string) string {
 	return jobImage
 }
 
+func buildTolerations(clusterConfig *commonmodels.AdvancedConfig) []corev1.Toleration {
+	ret := make([]corev1.Toleration, 0)
+	if clusterConfig == nil || len(clusterConfig.Tolerations) == 0 {
+		return ret
+	}
+
+	err := yaml.Unmarshal([]byte(clusterConfig.Tolerations), &ret)
+	if err != nil {
+		log.Errorf("failed to parse toleration config, err: %s", err)
+		return nil
+	}
+	return ret
+}
+
+func addNodeAffinity(clusterConfig *commonmodels.AdvancedConfig) *corev1.Affinity {
+	if clusterConfig == nil || len(clusterConfig.NodeLabels) == 0 {
+		return nil
+	}
+
+	switch clusterConfig.Strategy {
+	case setting.RequiredSchedule:
+		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
+		for _, nodeLabel := range clusterConfig.NodeLabels {
+			var matchExpressions []corev1.NodeSelectorRequirement
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      nodeLabel.Key,
+				Operator: nodeLabel.Operator,
+				Values:   nodeLabel.Value,
+			})
+			nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
+				MatchExpressions: matchExpressions,
+			})
+		}
+
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: nodeSelectorTerms,
+				},
+			},
+		}
+		return affinity
+	case setting.PreferredSchedule:
+		preferredScheduleTerms := make([]corev1.PreferredSchedulingTerm, 0)
+		for _, nodeLabel := range clusterConfig.NodeLabels {
+			var matchExpressions []corev1.NodeSelectorRequirement
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      nodeLabel.Key,
+				Operator: nodeLabel.Operator,
+				Values:   nodeLabel.Value,
+			})
+			nodeSelectorTerm := corev1.NodeSelectorTerm{
+				MatchExpressions: matchExpressions,
+			}
+			preferredScheduleTerms = append(preferredScheduleTerms, corev1.PreferredSchedulingTerm{
+				Weight:     10,
+				Preference: nodeSelectorTerm,
+			})
+		}
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: preferredScheduleTerms,
+			},
+		}
+		return affinity
+	default:
+		return nil
+	}
+}
+
 func buildPlainJob(jobName string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskPluginSpec, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
 	collectJobOutput := `OLD_IFS=$IFS
 export IFS=","
@@ -184,6 +257,16 @@ echo $result > %s
 	envs := []corev1.EnvVar{}
 	for _, env := range jobTaskSpec.Plugin.Envs {
 		envs = append(envs, corev1.EnvVar{Name: env.Name, Value: env.Value})
+	}
+
+	clusterID := jobTaskSpec.Properties.ClusterID
+	if clusterID == "" {
+		clusterID = setting.LocalClusterID
+	}
+	// fetch cluster to get node nodeAffinity and tolerations
+	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
+	if err != nil {
+		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
 	}
 
 	job := &batchv1.Job{
@@ -246,6 +329,8 @@ echo $result > %s
 							},
 						},
 					},
+					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
+					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig),
 				},
 			},
 		},
@@ -271,6 +356,15 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
 	} else {
 		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
+	}
+
+	if clusterID == "" {
+		clusterID = setting.LocalClusterID
+	}
+	// fetch cluster to get node nodeAffinity and tolerations
+	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
+	if err != nil {
+		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
 	}
 
 	jobExecutorBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
@@ -356,7 +450,9 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 						// 	Lifecycle:       &corev1.Lifecycle{},
 						// },
 					},
-					Volumes: getVolumes(jobName),
+					Volumes:     getVolumes(jobName),
+					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
+					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig),
 				},
 			},
 		},
