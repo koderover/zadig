@@ -257,6 +257,13 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 				}
 			}
 
+			if job.JobType == config.JobZadigScanning {
+				if err := setZadigScanningRepos(job, log); err != nil {
+					log.Errorf("scanning job set build info error: %v", err)
+					return resp, e.ErrCreateTask.AddDesc(err.Error())
+				}
+			}
+
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
 				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
@@ -655,6 +662,20 @@ func setZadigTestingRepos(job *commonmodels.Job, logger *zap.SugaredLogger) erro
 		return err
 	}
 	for _, build := range spec.TestModules {
+		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
+			return err
+		}
+	}
+	job.Spec = spec
+	return nil
+}
+
+func setZadigScanningRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
+	spec := &commonmodels.ZadigScanningJobSpec{}
+	if err := commonmodels.IToi(job.Spec, spec); err != nil {
+		return err
+	}
+	for _, build := range spec.Scannings {
 		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
 			return err
 		}
