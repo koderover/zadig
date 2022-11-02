@@ -448,7 +448,8 @@ func (r *Reaper) CollectTestResults() error {
 func (r *Reaper) AfterExec() error {
 	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar && r.Ctx.SonarCheckQualityGate {
 		log.Info("Start check Sonar scanning quality gate status.")
-		sonarWorkDir := getKeyValue(r.Ctx.SonarParameter, "sonar.working.directory")
+		client := sonar.NewSonarClient(r.Ctx.SonarServer, r.Ctx.SonarLogin)
+		sonarWorkDir := sonar.GetSonarWorkDir(r.Ctx.SonarParameter)
 		if sonarWorkDir == "" {
 			sonarWorkDir = ".scannerwork"
 		}
@@ -462,24 +463,23 @@ func (r *Reaper) AfterExec() error {
 			return err
 		}
 		taskReportContent := string(bytes)
-		ceTaskID := getKeyValue(taskReportContent, "ceTaskId")
+		ceTaskID := sonar.GetSonarCETaskID(taskReportContent)
 		if ceTaskID == "" {
 			log.Error("can not get sonar ce task ID")
 			return errors.New("can not get sonar ce task ID")
 		}
-		analysisID, err := r.waitForCETaskTobeDone(ceTaskID)
+		analysisID, err := client.WaitForCETaskTobeDone(ceTaskID, time.Minute*10)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
-		client := sonar.NewSonarClient(r.Ctx.SonarServer, r.Ctx.SonarLogin)
 		gateInfo, err := client.GetQualityGateInfo(analysisID)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
 		log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
-		printSonarConditionTables(gateInfo.ProjectStatus.Conditions)
+		sonar.PrintSonarConditionTables(gateInfo.ProjectStatus.Conditions)
 		if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
 			return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
 		}
@@ -620,56 +620,4 @@ func (r *Reaper) renderUserEnv(raw string) string {
 	}
 
 	return os.Expand(raw, mapper)
-}
-
-func getKeyValue(content, inputKey string) string {
-	kvStrs := strings.Split(content, "\n")
-	for _, kvStr := range kvStrs {
-		kvStr = strings.TrimSpace(string(kvStr))
-		index := strings.Index(kvStr, "=")
-		if index < 0 {
-			continue
-		}
-		key := strings.TrimSpace(kvStr[:index])
-		if len(key) == 0 {
-			continue
-		}
-		if key != inputKey {
-			continue
-		}
-		return strings.TrimSpace(kvStr[index+1:])
-	}
-	return ""
-}
-
-func (r *Reaper) waitForCETaskTobeDone(taskID string) (string, error) {
-	client := sonar.NewSonarClient(r.Ctx.SonarServer, r.Ctx.SonarLogin)
-	timeout := time.After(10 * time.Minute)
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-timeout:
-			return "", errors.New("sonar ce task excution timeout 10m")
-		case <-ticker.C:
-			taskInfo, err := client.GetCETaskInfo(taskID)
-			if err != nil {
-				return "", fmt.Errorf("get sonar ce task info error: %v", err)
-			}
-			if taskInfo.Task.Status == sonar.CETaskSuccess {
-				return taskInfo.Task.AnalysisID, nil
-			}
-			if taskInfo.Task.Status == sonar.CETaskCanceled || taskInfo.Task.Status == sonar.CETaskFailed {
-				return "", fmt.Errorf("sonar ce task status was %s", taskInfo.Task.Status)
-			}
-		}
-	}
-}
-
-func printSonarConditionTables(conditions []sonar.Condition) {
-	fmt.Printf("%-40s|%-10s|%-10s|%-10s|%-20s|\n", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
-	for _, condition := range conditions {
-		fmt.Printf("%-40s|%-10s|%-10s|%-10s|%-20s|\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
-	}
-	fmt.Printf("\n")
 }

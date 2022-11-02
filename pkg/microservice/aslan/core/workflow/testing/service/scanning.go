@@ -132,6 +132,7 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 				TimesRun:       int64(res.TotalTasks),
 				AverageRuntime: avgRuntime,
 			},
+			Repos:     scanning.Repos,
 			CreatedAt: scanning.CreatedAt,
 			UpdatedAt: scanning.UpdatedAt,
 		})

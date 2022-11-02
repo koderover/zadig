@@ -43,11 +43,12 @@ type Scanning struct {
 }
 
 type ListScanningRespItem struct {
-	ID         string             `json:"id"`
-	Name       string             `json:"name"`
-	Statistics *ScanningStatistic `json:"statistics"`
-	CreatedAt  int64              `json:"created_at"`
-	UpdatedAt  int64              `json:"updated_at"`
+	ID         string              `json:"id"`
+	Name       string              `json:"name"`
+	Statistics *ScanningStatistic  `json:"statistics"`
+	CreatedAt  int64               `json:"created_at"`
+	UpdatedAt  int64               `json:"updated_at"`
+	Repos      []*types.Repository `json:"repos"`
 }
 
 type ScanningRepoInfo struct {

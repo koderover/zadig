@@ -169,6 +169,7 @@ const (
 	StepJunitReport       StepType = "junit_report"
 	StepHtmlReport        StepType = "html_report"
 	StepTarArchive        StepType = "tar_archive"
+	StepSonarCheck        StepType = "sonar_check"
 )
 
 type JobType string
@@ -178,6 +179,7 @@ const (
 	JobDeploy              JobType = "deploy"
 	JobZadigBuild          JobType = "zadig-build"
 	JobZadigTesting        JobType = "zadig-test"
+	JobZadigScanning       JobType = "zadig-scanning"
 	JobCustomDeploy        JobType = "custom-deploy"
 	JobZadigDeploy         JobType = "zadig-deploy"
 	JobZadigHelmDeploy     JobType = "zadig-helm-deploy"
