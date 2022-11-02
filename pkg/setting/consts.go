@@ -705,3 +705,10 @@ const (
 	ProductWorkflowType = "product_workflow"
 	CustomWorkflowType  = "common_workflow"
 )
+
+// cluster dodeAffinity schedule type
+const (
+	NormalSchedule    = "normal"
+	RequiredSchedule  = "required"
+	PreferredSchedule = "preferred"
+)

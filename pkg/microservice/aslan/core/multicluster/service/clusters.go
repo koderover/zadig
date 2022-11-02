@@ -27,6 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -82,6 +83,7 @@ type AdvancedConfig struct {
 	Strategy     string   `json:"strategy,omitempty"        bson:"strategy,omitempty"`
 	NodeLabels   []string `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
 	ProjectNames []string `json:"project_names"             bson:"project_names"`
+	Tolerations  string   `json:"tolerations"               bson:"tolerations"`
 }
 
 func (k *K8SCluster) Clean() error {
@@ -131,6 +133,7 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 				Strategy:     c.AdvancedConfig.Strategy,
 				NodeLabels:   convertToNodeLabels(c.AdvancedConfig.NodeLabels),
 				ProjectNames: getProjectNames(c.ID.Hex(), logger),
+				Tolerations:  c.AdvancedConfig.Tolerations,
 			}
 		}
 
@@ -241,19 +244,13 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			Strategy:     args.AdvancedConfig.Strategy,
 			NodeLabels:   convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
 			ProjectNames: args.AdvancedConfig.ProjectNames,
+			Tolerations:  args.AdvancedConfig.Tolerations,
 		}
 	}
 
-	// If user does not configure a cache for the cluster, object storage is used by default.
-	err = setClusterCache(args)
+	err = buildConfigs(args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set cache for cluster %s: %s", args.ID, err)
-	}
-
-	// If user does not set a dind config for the cluster, set the default values.
-	err = setClusterDind(args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set dind args for cluster %s: %s", args.ID, err)
+		return nil, err
 	}
 
 	cluster := &commonmodels.K8SCluster{
@@ -284,6 +281,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	if args.AdvancedConfig != nil {
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
 		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
+		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
 		// Delete all projects associated with clusterID
 		err := commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
 		if err != nil {
@@ -301,16 +299,9 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		}
 	}
 
-	// If user does not configure a cache for the cluster, object storage is used by default.
-	err = setClusterCache(args)
+	err = buildConfigs(args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set cache for cluster %s: %s", id, err)
-	}
-
-	// If user does not set a dind config for the cluster, set the default values.
-	err = setClusterDind(args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set dind args for cluster %s: %s", args.ID, err)
+		return nil, err
 	}
 
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
@@ -507,6 +498,27 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	return s.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
 }
 
+func buildConfigs(args *K8SCluster) error {
+	// If user does not configure a cache for the cluster, object storage is used by default.
+	err := setClusterCache(args)
+	if err != nil {
+		return fmt.Errorf("failed to set cache for cluster %s: %s", args.ID, err)
+	}
+
+	// If user does not set a dind config for the cluster, set the default values.
+	err = setClusterDind(args)
+	if err != nil {
+		return fmt.Errorf("failed to set dind args for cluster %s: %s", args.ID, err)
+	}
+
+	// validate tolerations config
+	err = validateTolerations(args)
+	if err != nil {
+		return fmt.Errorf("failed to validate toleration config for cluster %s: %s", args.ID, err)
+	}
+	return nil
+}
+
 func setClusterCache(args *K8SCluster) error {
 	if args.Cache.MediumType != "" {
 		return nil
@@ -524,7 +536,7 @@ func setClusterCache(args *K8SCluster) error {
 	// - Since the local cluster will be written to the database when Zadig is created, empty ID indicates
 	//   that the cluster is attached.
 	// - Currently, we do not support attaching the local cluster again.
-	if (args.ID == "" || args.ID != setting.LocalClusterID) && strings.Contains(defaultStorage.Endpoint, ZadigMinioSVC) {
+	if (args.ID != setting.LocalClusterID) && strings.Contains(defaultStorage.Endpoint, ZadigMinioSVC) {
 		return nil
 	}
 
@@ -576,6 +588,14 @@ func setClusterDind(cluster *K8SCluster) error {
 	}
 
 	return nil
+}
+
+func validateTolerations(cluster *K8SCluster) error {
+	if cluster.AdvancedConfig == nil || len(cluster.AdvancedConfig.Tolerations) == 0 {
+		return nil
+	}
+	ts := make([]corev1.Toleration, 0)
+	return yaml.Unmarshal([]byte(cluster.AdvancedConfig.Tolerations), &ts)
 }
 
 func ClusterApplyUpgrade() {
