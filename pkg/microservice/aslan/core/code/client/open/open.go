@@ -42,7 +42,7 @@ var ClientsConfig = map[string]func() ClientConfig{
 	setting.SourceFromGerrit:  func() ClientConfig { return new(gerrit.Config) },
 	setting.SourceFromCodeHub: func() ClientConfig { return new(codehub.Config) },
 	setting.SourceFromGitee:   func() ClientConfig { return new(gitee.Config) },
-	setting.SourceFromGiteeEE: func() ClientConfig { return new(gitee.Config) },
+	setting.SourceFromGiteeEE: func() ClientConfig { return new(gitee.EEConfig) },
 }
 
 func OpenClient(ch *systemconfig.CodeHost, log *zap.SugaredLogger) (client.CodeHostClient, error) {

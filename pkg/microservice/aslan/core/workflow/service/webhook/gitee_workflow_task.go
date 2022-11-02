@@ -346,10 +346,19 @@ func findChangedFilesOfPullRequestEvent(event *gitee.PullRequestEvent, codehostI
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 
+	var commitComparison *gitee.Compare
+
 	giteeCli := gitee.NewClient(detail.ID, detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
-	commitComparison, err := giteeCli.GetReposOwnerRepoCompareBaseHead(detail.Address, detail.AccessToken, event.Project.Namespace, event.Project.Name, event.PullRequest.Base.Sha, event.PullRequest.Head.Sha)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get changes from gitee, err: %v", err)
+	if detail.Type == setting.SourceFromGitee {
+		commitComparison, err = giteeCli.GetReposOwnerRepoCompareBaseHead(detail.Address, detail.AccessToken, event.Project.Namespace, event.Project.Name, event.PullRequest.Base.Sha, event.PullRequest.Head.Sha)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get changes from gitee, err: %v", err)
+		}
+	} else if detail.Type == setting.SourceFromGiteeEE {
+		commitComparison, err = giteeCli.GetReposOwnerRepoCompareBaseHeadForEnterprise(detail.Address, detail.AccessToken, event.Project.Namespace, event.Project.Name, event.PullRequest.Base.Sha, event.PullRequest.Head.Sha)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get changes from gitee enterprise, err: %v", err)
+		}
 	}
 
 	changeFiles := make([]string, 0)

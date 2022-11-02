@@ -17,9 +17,10 @@ limitations under the License.
 package client
 
 const (
-	OrgKind   = "org"
-	GroupKind = "group"
-	UserKind  = "user"
+	OrgKind        = "org"
+	GroupKind      = "group"
+	UserKind       = "user"
+	EnterpriseKind = "enterprise"
 )
 
 type CodeHostClient interface {
