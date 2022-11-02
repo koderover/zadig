@@ -71,10 +71,10 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	preparecCmd := exec.Command("/bin/bash", filepath.Join(os.TempDir(), prepareScriptFile))
 	preparecCmd.Dir = s.workspace
 	if err := preparecCmd.Start(); err != nil {
-		return err
+		log.Errorf("start cmd error: %v", err)
 	}
 	if err := preparecCmd.Wait(); err != nil {
-		return err
+		log.Errorf("wait cmd error: %v", err)
 	}
 
 	userScriptFile := "user_script.sh"
