@@ -104,16 +104,6 @@ func (c *EEClient) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 }
 
 func (c *EEClient) ListNamespaces(keyword string) ([]*client.Namespace, error) {
-	user, err := c.Client.GetAuthenticatedUser(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-	namespaceUser := client.Namespace{
-		Name: user.Login,
-		Path: user.Login,
-		Kind: client.UserKind,
-	}
-
 	// since there are enterprise AND organization simultaneously, we need to list both
 	enterprises, err := c.Client.ListEnterprises(context.TODO())
 	if err != nil {
@@ -125,7 +115,6 @@ func (c *EEClient) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 	}
 
 	var res []*client.Namespace
-	res = append(res, &namespaceUser)
 	for _, e := range enterprises {
 		res = append(res, &client.Namespace{
 			Name: e.Name,
