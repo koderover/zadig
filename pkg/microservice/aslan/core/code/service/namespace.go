@@ -30,6 +30,7 @@ const (
 	OrgKind         = "org"
 	GroupKind       = "group"
 	UserKind        = "user"
+	EnterpriseKind  = "enterprise"
 	CodeHostCodeHub = "codehub"
 )
 
