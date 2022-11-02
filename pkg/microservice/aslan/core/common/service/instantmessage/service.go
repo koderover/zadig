@@ -206,7 +206,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				TotalTime:   time.Now().Unix() - task.StartTime,
 				AtMobiles:   atMobiles,
 				IsAtAll:     isAtAll,
-			})
+			}, notifyCtl)
 			if err != nil {
 				log.Errorf("workflow createNotifyBodyOfWorkflowIM err :%s", err)
 				return err
@@ -233,7 +233,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				TotalTime:   time.Now().Unix() - task.StartTime,
 				AtMobiles:   atMobiles,
 				IsAtAll:     isAtAll,
-			})
+			}, notifyCtl)
 			if err != nil {
 				log.Errorf("testing createNotifyBodyOfTestIM err :%s", err)
 				return err
@@ -311,7 +311,7 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 	return tplcontent, err
 }
 
-func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification) (string, string, *LarkCard, error) {
+func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 	weChatNotification.EncodedDisplayName = url.PathEscape(weChatNotification.Task.PipelineDisplayName)
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
@@ -395,11 +395,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(build, "")
 		tplcontent = fmt.Sprintf("%s%s", tplcontent, test)
-		if weChatNotification.WebHookType == dingDingType {
-			if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
-				tplcontent = fmt.Sprintf("%s{{if eq .WebHookType \"dingding\"}}##### {{end}}**相关人员**：@%s \n", tplcontent, strings.Join(weChatNotification.AtMobiles, "@"))
-			}
-		}
+		tplcontent = tplcontent + getNotifyAtContent(notify)
 		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
 		tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
 		return tplTitle, tplExecContent, nil, nil
@@ -425,7 +421,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 	return "", "", lc, nil
 }
 
-func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wechatNotification) (string, string, *LarkCard, error) {
+func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
@@ -454,11 +450,7 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 	if weChatNotification.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent = fmt.Sprintf("%s%s", tplcontent, tplTestCaseInfo)
-		if weChatNotification.WebHookType == dingDingType {
-			if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
-				tplcontent = fmt.Sprintf("%s{{if eq .WebHookType \"dingding\"}}##### {{end}}**相关人员**：@%s \n", tplcontent, strings.Join(weChatNotification.AtMobiles, "@"))
-			}
-		}
+		tplcontent = tplcontent + getNotifyAtContent(notify)
 		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
 		tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
 		return tplTitle, tplExecContent, nil, nil
@@ -611,4 +603,21 @@ func genTestCaseText(test string, subTask, testReports map[string]interface{}) s
 		test += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
 	}
 	return test
+}
+
+func getNotifyAtContent(notify *models.NotifyCtl) string {
+	resp := ""
+	if notify.WebHookType == dingDingType {
+		if len(notify.AtMobiles) > 0 && !notify.IsAtAll {
+			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.AtMobiles, "@"))
+		}
+	}
+	if notify.WebHookType == weChatWorkType && len(notify.AtUserIDs) > 0 {
+		atUserList := []string{}
+		for _, userID := range notify.AtUserIDs {
+			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
+		}
+		resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(atUserList, " "))
+	}
+	return resp
 }
