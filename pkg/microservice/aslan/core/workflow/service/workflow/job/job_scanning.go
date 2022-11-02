@@ -158,12 +158,16 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Key:   "SCANNING_NAME",
 			Value: scanning.Name,
 		}
+		scanningImage := basicImage.Value
+		if basicImage.ImageFrom == commonmodels.ImageFromKoderover {
+			scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", basicImage.Value)
+		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         timeout,
 			ResourceRequest: scanningInfo.AdvancedSetting.ResReq,
 			ResReqSpec:      scanningInfo.AdvancedSetting.ResReqSpec,
 			ClusterID:       scanningInfo.AdvancedSetting.ClusterID,
-			BuildOS:         basicImage.Value,
+			BuildOS:         scanningImage,
 			ImageFrom:       setting.ImageFromCustom,
 			Envs:            []*commonmodels.KeyVal{scanningNameKV},
 			Registries:      registries,
