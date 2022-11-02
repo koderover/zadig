@@ -205,7 +205,8 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepShell,
 				Spec: &step.StepShellSpec{
-					Scripts: strings.Split(replaceWrapLine(scanningInfo.PreScript), "\n"),
+					Scripts:     strings.Split(replaceWrapLine(scanningInfo.PreScript), "\n"),
+					SkipPrepare: true,
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
@@ -228,7 +229,8 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepShell,
 				Spec: &step.StepShellSpec{
-					Scripts: strings.Split(replaceWrapLine(sonarScript), "\n"),
+					Scripts:     strings.Split(replaceWrapLine(sonarScript), "\n"),
+					SkipPrepare: true,
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarShellStep)

@@ -63,22 +63,14 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	if len(s.spec.Scripts) == 0 {
 		return nil
 	}
-	prepareScripts := prepareScriptsEnv()
-	prepareScriptFile := "prepare_script.sh"
-	if err := ioutil.WriteFile(filepath.Join(os.TempDir(), prepareScriptFile), []byte(strings.Join(prepareScripts, "\n")), 0700); err != nil {
-		return fmt.Errorf("write prepare script file error: %v", err)
+	scripts := []string{}
+	if !s.spec.SkipPrepare {
+		scripts = prepareScriptsEnv()
 	}
-	preparecCmd := exec.Command("/bin/bash", filepath.Join(os.TempDir(), prepareScriptFile))
-	preparecCmd.Dir = s.workspace
-	if err := preparecCmd.Start(); err != nil {
-		log.Errorf("start cmd error: %v", err)
-	}
-	if err := preparecCmd.Wait(); err != nil {
-		log.Errorf("wait cmd error: %v", err)
-	}
+	scripts = append(scripts, s.spec.Scripts...)
 
 	userScriptFile := "user_script.sh"
-	if err := ioutil.WriteFile(filepath.Join(os.TempDir(), userScriptFile), []byte(strings.Join(s.spec.Scripts, "\n")), 0700); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(os.TempDir(), userScriptFile), []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 		return fmt.Errorf("write script file error: %v", err)
 	}
 

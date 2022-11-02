@@ -17,6 +17,7 @@ limitations under the License.
 package step
 
 type StepShellSpec struct {
-	Scripts []string `bson:"scripts"                              json:"scripts"                                 yaml:"scripts,omitempty"`
-	Script  string   `bson:"script"                               json:"script"                                  yaml:"script"`
+	Scripts     []string `bson:"scripts"                              json:"scripts"                                 yaml:"scripts,omitempty"`
+	Script      string   `bson:"script"                               json:"script"                                  yaml:"script"`
+	SkipPrepare bool     `bson:"skip_prepare"                         json:"skip_prepare"                            yaml:"skip_prepare"`
 }
