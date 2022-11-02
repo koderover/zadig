@@ -263,7 +263,7 @@ echo $result > %s
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
-	// fetch cluster to get node nodeAffinity and tolerations
+	// fetch cluster to get nodeAffinity and tolerations
 	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
@@ -361,7 +361,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
-	// fetch cluster to get node nodeAffinity and tolerations
+	// fetch cluster to get nodeAffinity and tolerations
 	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
