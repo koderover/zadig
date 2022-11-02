@@ -132,7 +132,7 @@ func (c *Client) GetRepositoryDetail(hostURL, accessToken, owner, repo string) (
 	queryParams["access_token"] = accessToken
 
 	var projectDetail Project
-	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projectDetailg))
+	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projectDetail))
 	if err != nil {
 		return nil, err
 	}
