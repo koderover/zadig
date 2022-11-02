@@ -617,7 +617,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 		for _, userID := range notify.AtUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
 		}
-		resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(atUserList, " "))
+		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
 	}
 	return resp
 }
