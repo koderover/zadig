@@ -17,7 +17,10 @@ limitations under the License.
 package instantmessage
 
 import (
+	"encoding/json"
 	"fmt"
+
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -71,6 +74,9 @@ func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string, 
 	} else {
 		return fmt.Errorf("SendWeChatWorkMessage err:%s", "WeChatWork textType is invalid")
 	}
+
+	b, _ := json.Marshal(message)
+	log.Errorf("@@@@@msg: %s", b)
 
 	_, err := w.SendMessageRequest(uri, message)
 	return err
