@@ -189,6 +189,9 @@ func (w *Service) sendFeishuMessage(uri string, lcMsg *LarkCard) error {
 }
 
 func (w *Service) sendFeishuMessageOfSingleType(title, uri, content string) error {
+	if content == "" {
+		return nil
+	}
 	var message interface{}
 	message = &FeiShuMessage{
 		Title: title,
