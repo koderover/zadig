@@ -127,6 +127,25 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 
 	serviceModuleAndBuildResp := make([]*ServiceModuleAndBuildResp, 0)
 	for _, serviceTmpl := range services {
+		if serviceTmpl.Type == setting.PMDeployType {
+			buildModule, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName})
+			if err != nil {
+				log.Errorf("find build module info error: %v", err)
+				continue
+			}
+			build := &BuildResp{
+				ID:      buildModule.ID.Hex(),
+				Name:    buildModule.Name,
+				KeyVals: buildModule.PreBuild.Envs,
+				Repos:   buildModule.Repos,
+			}
+			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
+				ServiceName:   serviceTmpl.ServiceName,
+				ServiceModule: serviceTmpl.ServiceName,
+				ModuleBuilds:  []*BuildResp{build},
+			})
+			continue
+		}
 		for _, container := range serviceTmpl.Containers {
 			opt := &commonrepo.BuildListOption{
 				ServiceName: serviceTmpl.ServiceName,
