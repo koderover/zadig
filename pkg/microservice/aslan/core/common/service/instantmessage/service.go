@@ -623,7 +623,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 		}
 		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
 	}
-	if notify.WebHookType == feiShuType && len(notify.LarkUserIDs) > 0 {
+	if notify.WebHookType == feiShuType {
 		atUserList := []string{}
 		for _, userID := range notify.LarkUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
