@@ -614,16 +614,16 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.AtMobiles, "@"))
 		}
 	}
-	if notify.WebHookType == weChatWorkType && len(notify.AtUserIDs) > 0 {
+	if notify.WebHookType == weChatWorkType && len(notify.AtMobiles) > 0 {
 		atUserList := []string{}
-		for _, userID := range notify.AtUserIDs {
+		for _, userID := range notify.AtMobiles {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
 		}
 		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
 	}
-	if notify.WebHookType == feiShuType && len(notify.AtUserIDs) > 0 {
+	if notify.WebHookType == feiShuType && len(notify.AtMobiles) > 0 {
 		atUserList := []string{}
-		for _, userID := range notify.AtUserIDs {
+		for _, userID := range notify.AtMobiles {
 			atUserList = append(atUserList, fmt.Sprintf("<at id=%s></at>", userID))
 		}
 		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))

@@ -323,7 +323,6 @@ type NotifyCtl struct {
 	DingDingWebHook string   `bson:"dingding_webhook,omitempty"    yaml:"dingding_webhook,omitempty"    json:"dingding_webhook,omitempty"`
 	FeiShuWebHook   string   `bson:"feishu_webhook,omitempty"      yaml:"feishu_webhook,omitempty"      json:"feishu_webhook,omitempty"`
 	AtMobiles       []string `bson:"at_mobiles,omitempty"          yaml:"at_mobiles,omitempty"          json:"at_mobiles,omitempty"`
-	AtUserIDs       []string `bson:"at_user_ids,omitempty"         yaml:"at_user_ids,omitempty"         json:"at_user_ids,omitempty"`
 	IsAtAll         bool     `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
 	NotifyTypes     []string `bson:"notify_type"                   yaml:"notify_type"                   json:"notify_type"`
 }
