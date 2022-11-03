@@ -38,6 +38,8 @@ type Project struct {
 
 type NamespaceInfo struct {
 	Parent *ParentInfo `json:"parent"`
+	Type   string      `json:"type"`
+	Path   string      `json:"path"`
 }
 
 type ParentInfo struct {
@@ -397,7 +399,15 @@ func (c *Client) GetReposOwnerRepoCompareBaseHeadForEnterprise(hostURL, accessTo
 		return nil, err
 	}
 
-	url := fmt.Sprintf("/v5/repos/%s/%s/%s/compare/%s...%s", repoDetail.Namespace.Parent.Path, owner, repo, base, head)
+	enterpriseName := ""
+	if repoDetail.Namespace.Type == "enterprise" {
+		enterpriseName = repoDetail.Namespace.Path
+	} else {
+		// else this belongs to a group, thus getting it from repoDetail.Namespace.Parent.Path
+		enterpriseName = repoDetail.Namespace.Parent.Path
+	}
+
+	url := fmt.Sprintf("/v5/repos/%s/%s/%s/compare/%s...%s", enterpriseName, owner, repo, base, head)
 
 	var compare *Compare
 	_, err = httpClient.Get(url, httpclient.SetQueryParam("access_token", accessToken), httpclient.SetResult(&compare))
