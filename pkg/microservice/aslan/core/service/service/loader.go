@@ -88,10 +88,8 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, namespa
 		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, log)
 	case setting.SourceFromCodeHub:
 		return loadCodehubService(username, ch, repoOwner, repoName, repoUUID, branchName, args, force, log)
-	case setting.SourceFromGitee:
-		return loadGiteeService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, false, log)
-	case setting.SourceFromGiteeEE:
-		return loadGiteeService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, true, log)
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
+		return loadGiteeService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, log)
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
 	}
@@ -571,7 +569,7 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 }
 
 // Load services from gitee based on repo information
-func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, force bool, isEnterprise bool, log *zap.SugaredLogger) error {
+func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, force bool, log *zap.SugaredLogger) error {
 	if remoteName == "" {
 		remoteName = "origin"
 	}
@@ -623,9 +621,6 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 			Yaml:        string(contentBytes),
 			Commit:      commitInfo,
 			Visibility:  args.Visibility,
-		}
-		if isEnterprise {
-			createSvcArgs.Source = setting.SourceFromGiteeEE
 		}
 		_, err = CreateServiceTemplate(username, createSvcArgs, force, log)
 		if err != nil {
