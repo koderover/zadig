@@ -88,7 +88,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty namespaceType")
 		return
 	}
-	if namespaceType != service.UserKind && namespaceType != service.GroupKind && namespaceType != service.OrgKind {
+	if namespaceType != service.UserKind && namespaceType != service.GroupKind && namespaceType != service.OrgKind && namespaceType != service.EnterpriseKind {
 		ctx.Err = e.ErrInvalidParam.AddDesc("namespaceType must be user/group/org")
 		return
 	}

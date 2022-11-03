@@ -28,29 +28,28 @@ import (
 	"github.com/koderover/zadig/pkg/tool/gitee"
 )
 
-const GiteeHost = "https://gitee.com"
-
-type Config struct {
+type EEConfig struct {
 	AccessToken string `json:"access_token"`
 	EnableProxy bool   `json:"enable_proxy"`
+	Address     string `json:"address"`
 }
 
-type Client struct {
+type EEClient struct {
 	Client      *gitee.Client
 	AccessToken string
 	Address     string
 }
 
-func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
-	client := gitee.NewClient(id, GiteeHost, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
-	return &Client{
+func (c *EEConfig) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
+	client := gitee.NewClient(id, c.Address, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
+	return &EEClient{
 		Client:      client,
 		AccessToken: c.AccessToken,
-		Address:     GiteeHost,
+		Address:     c.Address,
 	}, nil
 }
 
-func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
+func (c *EEClient) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 	bList, err := c.Client.ListBranches(context.TODO(), opt.Namespace, opt.ProjectName, nil)
 	if err != nil {
 		return nil, err
@@ -65,7 +64,7 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 	return res, nil
 }
 
-func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
+func (c *EEClient) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 	tags, err := c.Client.ListTags(context.TODO(), c.Address, c.AccessToken, opt.Namespace, opt.ProjectName)
 	if err != nil {
 		return nil, err
@@ -81,7 +80,7 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 	return resp, nil
 }
 
-func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
+func (c *EEClient) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 	prs, err := c.Client.ListPullRequests(context.TODO(), opt.Namespace, opt.ProjectName, &giteeClient.GetV5ReposOwnerRepoPullsOpts{
 		PerPage: optional.NewInt32(100),
 	})
@@ -104,24 +103,25 @@ func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 	return res, nil
 }
 
-func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
-	user, err := c.Client.GetAuthenticatedUser(context.TODO())
+func (c *EEClient) ListNamespaces(keyword string) ([]*client.Namespace, error) {
+	// since there are enterprise AND organization simultaneously, we need to list both
+	enterprises, err := c.Client.ListEnterprises(context.TODO())
 	if err != nil {
 		return nil, err
 	}
-	namespaceUser := client.Namespace{
-		Name: user.Login,
-		Path: user.Login,
-		Kind: client.UserKind,
-	}
-
 	organizations, err := c.Client.ListOrganizationsForAuthenticatedUser(context.TODO())
 	if err != nil {
 		return nil, err
 	}
 
 	var res []*client.Namespace
-	res = append(res, &namespaceUser)
+	for _, e := range enterprises {
+		res = append(res, &client.Namespace{
+			Name: e.Name,
+			Path: e.Path,
+			Kind: client.EnterpriseKind,
+		})
+	}
 	for _, o := range organizations {
 		res = append(res, &client.Namespace{
 			Name: o.Login,
@@ -132,10 +132,15 @@ func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 	return res, nil
 }
 
-func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
+func (c *EEClient) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	var projects []gitee.Project
 	var err error
 	switch opt.NamespaceType {
+	case client.EnterpriseKind:
+		projects, err = c.Client.ListRepositoryForEnterprise(c.Address, c.AccessToken, opt.Namespace, opt.Page, opt.PerPage)
+		if err != nil {
+			return nil, err
+		}
 	case client.OrgKind:
 		projects, err = c.Client.ListRepositoriesForOrg(c.Address, c.AccessToken, opt.Namespace, opt.Page, opt.PerPage)
 		if err != nil {

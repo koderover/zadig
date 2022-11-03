@@ -501,7 +501,9 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, force, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, force, logger)
-	case LoadFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
+	case LoadFromGerrit, setting.SourceFromGitee:
+		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
+	case setting.SourceFromGiteeEE:
 		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
 	case LoadFromChartRepo:
 		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, force, logger)
