@@ -629,6 +629,9 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
 		}
 		resp = strings.Join(atUserList, " ")
+		if notify.IsAtAll {
+			resp = "<at user_id=\"all\"></at>"
+		}
 	}
 	return resp
 }
