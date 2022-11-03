@@ -575,3 +575,48 @@ func (p *K8sPatchJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.J
 
 	return job, nil
 }
+
+type ZadigScanningJobInput struct {
+	ScanningList []*ScanningArg `json:"testing_list"`
+}
+
+type ScanningArg struct {
+	ScanningName string       `json:"scanning_name"`
+	RepoInfo     []*RepoInput `json:"repo_info"`
+}
+
+func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.ZadigScanningJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigScanningJobSpec")
+	}
+
+	for _, scanning := range newSpec.Scannings {
+		for _, inputScanning := range p.ScanningList {
+			// if the scanning name match, we do the update logic
+			if inputScanning.ScanningName == scanning.Name {
+				// update build repo info with input build info
+				for _, inputRepo := range inputScanning.RepoInfo {
+					repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+					if err != nil {
+						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+					}
+
+					for _, buildRepo := range scanning.Repos {
+						if buildRepo.CodehostID == repoInfo.ID {
+							if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
+								buildRepo.Branch = inputRepo.Branch
+								buildRepo.PR = inputRepo.PR
+								buildRepo.PRs = inputRepo.PRs
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	job.Spec = newSpec
+
+	return job, nil
+}
