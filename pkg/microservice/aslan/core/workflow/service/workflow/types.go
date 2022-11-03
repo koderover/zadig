@@ -577,7 +577,7 @@ func (p *K8sPatchJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.J
 }
 
 type ZadigScanningJobInput struct {
-	ScanningList []*ScanningArg `json:"testing_list"`
+	ScanningList []*ScanningArg `json:"scanning_list"`
 }
 
 type ScanningArg struct {
