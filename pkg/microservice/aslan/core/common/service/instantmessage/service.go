@@ -266,6 +266,10 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				log.Errorf("SendFeiShuMessageRequest err : %s", err)
 				return err
 			}
+			if err := w.sendFeishuMessageOfSingleType("", notifyCtl.FeiShuWebHook, getNotifyAtContent(notifyCtl)); err != nil {
+				log.Errorf("SendFeiShu @ message err : %s", err)
+				return err
+			}
 		} else {
 			typeText := weChatTextTypeMarkdown
 			if task.Type == config.SingleType {
@@ -618,6 +622,16 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
 		}
 		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
+	}
+	if notify.WebHookType == feiShuType {
+		atUserList := []string{}
+		for _, userID := range notify.LarkUserIDs {
+			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
+		}
+		resp = strings.Join(atUserList, " ")
+		if notify.IsAtAll {
+			resp = "<at user_id=\"all\"></at>"
+		}
 	}
 	return resp
 }
