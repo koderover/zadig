@@ -152,7 +152,6 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
 		lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
 	}
-	lc.AddI18NElementsZhcnFeild(getNotifyAtContent(notify), true)
 	workflowDetailURL, _ = getWorkflowTaskTplExec(workflowDetailURL, workflowNotification)
 	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
 	return "", "", lc, nil
@@ -276,7 +275,6 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
 		lc.AddI18NElementsZhcnFeild(feildExecContent, true)
 	}
-	lc.AddI18NElementsZhcnFeild(getNotifyAtContent(notify), true)
 	workflowDetailURL, _ = getWorkflowTaskTplExec(workflowDetailURL, workflowNotification)
 	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
 	return "", "", lc, nil

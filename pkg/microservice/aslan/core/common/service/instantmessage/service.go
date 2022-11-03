@@ -416,7 +416,6 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 		test, _ = getTplExec(test, weChatNotification)
 		lc.AddI18NElementsZhcnFeild(test, true)
 	}
-	lc.AddI18NElementsZhcnFeild(getNotifyAtContent(notify), true)
 	workflowDetailURL, _ = getTplExec(workflowDetailURL, weChatNotification)
 	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
 	return "", "", lc, nil
@@ -467,7 +466,6 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 		tplTestCaseInfo, _ = getTplExec(tplTestCaseInfo, weChatNotification)
 		lc.AddI18NElementsZhcnFeild(tplTestCaseInfo, true)
 	}
-	lc.AddI18NElementsZhcnFeild(getNotifyAtContent(notify), true)
 	workflowDetailURL, _ = getTplExec(workflowDetailURL, weChatNotification)
 	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
 
@@ -614,17 +612,10 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.AtMobiles, "@"))
 		}
 	}
-	if notify.WebHookType == weChatWorkType && len(notify.AtMobiles) > 0 {
+	if notify.WebHookType == weChatWorkType && len(notify.WechatUserIDs) > 0 {
 		atUserList := []string{}
-		for _, userID := range notify.AtMobiles {
+		for _, userID := range notify.WechatUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
-		}
-		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
-	}
-	if notify.WebHookType == feiShuType && len(notify.AtMobiles) > 0 {
-		atUserList := []string{}
-		for _, userID := range notify.AtMobiles {
-			atUserList = append(atUserList, fmt.Sprintf("<at id=%s></at>", userID))
 		}
 		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
 	}
