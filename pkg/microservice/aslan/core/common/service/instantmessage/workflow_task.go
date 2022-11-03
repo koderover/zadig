@@ -400,6 +400,9 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 		if err := w.sendFeishuMessage(notify.FeiShuWebHook, card); err != nil {
 			return err
 		}
+		if err := w.sendFeishuMessageOfSingleType("", notify.FeiShuWebHook, getNotifyAtContent(notify)); err != nil {
+			return err
+		}
 	default:
 		if err := w.SendWeChatWorkMessage(weChatTextTypeMarkdown, notify.WeChatWebHook, content); err != nil {
 			return err
