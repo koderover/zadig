@@ -136,11 +136,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
-		if notify.WebHookType == dingDingType {
-			if len(notify.AtMobiles) > 0 && !notify.IsAtAll {
-				tplcontent = fmt.Sprintf("%s##### **相关人员**: @%s \n", tplcontent, strings.Join(notify.AtMobiles, "@"))
-			}
-		}
+		tplcontent = tplcontent + getNotifyAtContent(notify)
 		tplcontent = fmt.Sprintf("%s%s%s", title, tplcontent, moreInformation)
 		content, err := getWorkflowTaskTplExec(tplcontent, workflowNotification)
 		if err != nil {
@@ -259,11 +255,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	if notify.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
-		if notify.WebHookType == dingDingType {
-			if len(notify.AtMobiles) > 0 && !notify.IsAtAll {
-				tplcontent = fmt.Sprintf("%s##### **相关人员**: @%s \n", tplcontent, strings.Join(notify.AtMobiles, "@"))
-			}
-		}
+		tplcontent = tplcontent + getNotifyAtContent(notify)
 		tplcontent = fmt.Sprintf("%s%s%s", title, tplcontent, moreInformation)
 		content, err := getWorkflowTaskTplExec(tplcontent, workflowNotification)
 		if err != nil {
