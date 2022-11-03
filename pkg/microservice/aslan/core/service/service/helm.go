@@ -859,6 +859,11 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, createFromRepo.Owner, createFromRepo.Repo, "tree", createFromRepo.Branch, filePath)
 			}
 
+			source := string(args.Source)
+			if source == setting.SourceFromGiteeEE {
+				source = setting.SourceFromGitee
+			}
+
 			helmServiceCreationArgs := &helmServiceCreationArgs{
 				ChartName:        serviceName,
 				ChartVersion:     chartVersion,
@@ -874,7 +879,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				Namespace:        createFromRepo.Namespace,
 				Repo:             createFromRepo.Repo,
 				Branch:           createFromRepo.Branch,
-				Source:           string(args.Source),
+				Source:           source,
 				RepoLink:         repoLink,
 				GiteePath:        currentFilePath,
 				GerritCodeHostID: createFromRepo.CodehostID,
