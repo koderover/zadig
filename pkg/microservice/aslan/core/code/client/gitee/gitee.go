@@ -46,6 +46,7 @@ func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient,
 	return &Client{
 		Client:      client,
 		AccessToken: c.AccessToken,
+		Address:     GiteeHost,
 	}, nil
 }
 
