@@ -68,9 +68,10 @@ func Execute() error {
 	if err != nil {
 		return fmt.Errorf("failed to new reaper: %s", err)
 	}
-	
+
 	reaperType = r.Type
 	log.Infof("====================== %s Start ======================", reaperType)
+	log.Info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
 	if err = r.BeforeExec(); err != nil {
 		return fmt.Errorf("failed to prepare before building: %s", err)
