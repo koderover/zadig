@@ -390,14 +390,16 @@ func (r *Reaper) Exec() (err error) {
 	}
 	log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
 
-	// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
-	log.Info("Executing SonarQube Scanning process.")
-	startTimeRunSonar := time.Now()
-	if err = r.runSonarScanner(); err != nil {
-		err = fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
-		return
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar {
+		// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
+		log.Info("Executing SonarQube Scanning process.")
+		startTimeRunSonar := time.Now()
+		if err = r.runSonarScanner(); err != nil {
+			err = fmt.Errorf("failed to execute sonar scanning process, the error is: %s", err)
+			return
+		}
+		log.Infof("Sonar scan ended. Duration %.2f seconds.", time.Since(startTimeRunSonar).Seconds())
 	}
-	log.Infof("Sonar scan ended. Duration %.2f seconds.", time.Since(startTimeRunSonar).Seconds())
 
 	err = r.runDockerBuild()
 	return
