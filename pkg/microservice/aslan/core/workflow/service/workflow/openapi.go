@@ -174,6 +174,10 @@ func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, 
 		updater := new(K8sPatchJobInput)
 		err := commonmodels.IToi(input, updater)
 		return updater, err
+	case config.JobZadigScanning:
+		updater := new(ZadigScanningJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
 	default:
 		return nil, errors.New("undefined job type of type:" + string(job.JobType))
 	}
