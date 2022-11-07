@@ -28,24 +28,25 @@ import (
 )
 
 type WorkflowV4 struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"            json:"id"`
-	Name           string             `bson:"name"                yaml:"name"         json:"name"`
-	DisplayName    string             `bson:"display_name"        yaml:"display_name" json:"display_name"`
-	KeyVals        []*KeyVal          `bson:"key_vals"            yaml:"key_vals"     json:"key_vals"`
-	Params         []*Param           `bson:"params"              yaml:"params"       json:"params"`
-	Stages         []*WorkflowStage   `bson:"stages"              yaml:"stages"       json:"stages"`
-	Project        string             `bson:"project"             yaml:"project"      json:"project"`
-	Description    string             `bson:"description"         yaml:"description"  json:"description"`
-	CreatedBy      string             `bson:"created_by"          yaml:"created_by"   json:"created_by"`
-	CreateTime     int64              `bson:"create_time"         yaml:"create_time"  json:"create_time"`
-	UpdatedBy      string             `bson:"updated_by"          yaml:"updated_by"   json:"updated_by"`
-	UpdateTime     int64              `bson:"update_time"         yaml:"update_time"  json:"update_time"`
-	MultiRun       bool               `bson:"multi_run"           yaml:"multi_run"    json:"multi_run"`
-	NotifyCtls     []*NotifyCtl       `bson:"notify_ctls"         yaml:"notify_ctls"  json:"notify_ctls"`
-	HookCtls       []*WorkflowV4Hook  `bson:"hook_ctl"            yaml:"-"            json:"hook_ctl"`
-	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
-	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
-	BaseName       string             `bson:"base_name"           yaml:"-"            json:"base_name"`
+	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"            json:"id"`
+	Name           string                   `bson:"name"                yaml:"name"         json:"name"`
+	DisplayName    string                   `bson:"display_name"        yaml:"display_name" json:"display_name"`
+	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"     json:"category"`
+	KeyVals        []*KeyVal                `bson:"key_vals"            yaml:"key_vals"     json:"key_vals"`
+	Params         []*Param                 `bson:"params"              yaml:"params"       json:"params"`
+	Stages         []*WorkflowStage         `bson:"stages"              yaml:"stages"       json:"stages"`
+	Project        string                   `bson:"project"             yaml:"project"      json:"project"`
+	Description    string                   `bson:"description"         yaml:"description"  json:"description"`
+	CreatedBy      string                   `bson:"created_by"          yaml:"created_by"   json:"created_by"`
+	CreateTime     int64                    `bson:"create_time"         yaml:"create_time"  json:"create_time"`
+	UpdatedBy      string                   `bson:"updated_by"          yaml:"updated_by"   json:"updated_by"`
+	UpdateTime     int64                    `bson:"update_time"         yaml:"update_time"  json:"update_time"`
+	MultiRun       bool                     `bson:"multi_run"           yaml:"multi_run"    json:"multi_run"`
+	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"  json:"notify_ctls"`
+	HookCtls       []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"            json:"hook_ctl"`
+	NotificationID string                   `bson:"notification_id"     yaml:"-"            json:"notification_id"`
+	HookPayload    *HookPayload             `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
+	BaseName       string                   `bson:"base_name"           yaml:"-"            json:"base_name"`
 }
 
 type WorkflowStage struct {

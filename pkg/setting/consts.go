@@ -712,3 +712,15 @@ const (
 	RequiredSchedule  = "required"
 	PreferredSchedule = "preferred"
 )
+
+const (
+	JobNameRegx  = "^[a-z][a-z0-9-]{0,31}$"
+	WorkflowRegx = "^[a-z0-9-]+$"
+)
+
+type WorkflowCategory string
+
+const (
+	CustomWorkflow  WorkflowCategory = ""
+	ReleaseWorkflow WorkflowCategory = "release"
+)
