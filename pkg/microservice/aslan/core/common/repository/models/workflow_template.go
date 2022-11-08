@@ -22,7 +22,7 @@ import (
 )
 
 type WorkflowV4Template struct {
-	ID           primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                  json:"id"`
+	ID           primitive.ObjectID       `bson:"_id,omitempty"       yaml:"id"                  json:"id"`
 	TemplateName string                   `bson:"template_name"       yaml:"template_name"      json:"template_name"`
 	Category     setting.WorkflowCategory `bson:"category"            yaml:"category"           json:"category"`
 	KeyVals      []*KeyVal                `bson:"key_vals"            yaml:"key_vals"           json:"key_vals"`
