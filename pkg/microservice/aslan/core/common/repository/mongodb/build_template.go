@@ -111,7 +111,7 @@ func (c *BuildTemplateColl) FindByName(name string) (*models.BuildTemplate, erro
 		return nil, errors.New("empty name for build template search")
 	}
 	query := bson.M{}
-	query["name"] = opt.Name
+	query["name"] = name
 	resp := new(models.BuildTemplate)
 	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
 	if err != nil {
