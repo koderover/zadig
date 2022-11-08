@@ -70,6 +70,11 @@ func CreateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Te
 }
 
 func UpdateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Template, logger *zap.SugaredLogger) error {
+	if _, err := commonrepo.NewWorkflowV4TemplateColl().Find(&commonrepo.WorkflowTemplateQueryOption{Name: template.TemplateName}); err != nil {
+		errMsg := fmt.Sprintf("workflow template %s not found: %v", template.TemplateName, err)
+		logger.Error(errMsg)
+		return e.ErrUpdateWorkflowTemplate.AddDesc(errMsg)
+	}
 	if err := lintWorkflowTemplate(template, logger); err != nil {
 		return err
 	}
