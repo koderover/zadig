@@ -359,6 +359,8 @@ metas:
             endpoint: /api/aslan/template/yaml
           - method: POST
             endpoint: /api/aslan/template/build
+          - method: POST
+            endpoint: /api/aslan/template/workflow
       - action: get_template
         alias: 查看
         description: 查看
@@ -377,6 +379,10 @@ metas:
             endpoint: /api/aslan/template/build
           - method: GET
             endpoint: /api/aslan/template/build/?*
+          - method: GET
+            endpoint: /api/aslan/template/workflow
+          - method: GET
+            endpoint: /api/aslan/template/workflow/?*
       - action: edit_template
         alias: 编辑
         description: 编辑
@@ -399,6 +405,8 @@ metas:
             endpoint: /api/aslan/template/build/?*
           - method: POST
             endpoint: /api/aslan/template/yaml/validateVariable
+          - method: PUT
+            endpoint: /api/aslan/template/workflow
       - action: delete_template
         alias: 删除
         description: 删除
@@ -411,6 +419,8 @@ metas:
             endpoint: /api/aslan/template/dockerfile/?*
           - method: DELETE
             endpoint: /api/aslan/template/build/?*
+          - method: DELETE
+            endpoint: /api/aslan/template/workflow/?*
   - resource: DeliveryCenter
     alias: 交付中心
     description: ''
@@ -559,6 +569,10 @@ metas:
             endpoint: /api/aslan/workflow/v4
           - method: POST
             endpoint: /api/aslan/workflow/v4/lint
+          - method: GET
+            endpoint: /api/aslan/template/workflow
+          - method: GET
+            endpoint: /api/aslan/template/workflow/?*
       - action: delete_workflow
         alias: 删除
         description: ''
