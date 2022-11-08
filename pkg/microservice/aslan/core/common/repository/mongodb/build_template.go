@@ -88,7 +88,7 @@ func (c *BuildTemplateColl) Find(opt *BuildTemplateQueryOption) (*models.BuildTe
 	}
 	query := bson.M{}
 	if len(opt.ID) > 0 {
-		fmt.println("object ID query is:", opt.ID)
+		fmt.Println("object ID query is:", opt.ID)
 		id, err := primitive.ObjectIDFromHex(opt.ID)
 		if err != nil {
 			return nil, err
