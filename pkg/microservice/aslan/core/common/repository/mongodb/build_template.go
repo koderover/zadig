@@ -106,6 +106,20 @@ func (c *BuildTemplateColl) Find(opt *BuildTemplateQueryOption) (*models.BuildTe
 	return resp, nil
 }
 
+func (c *BuildTemplateColl) FindByName(name string) (*models.BuildTemplate, error) {
+	if name == "" {
+		return nil, errors.New("empty name for build template search")
+	}
+	query := bson.M{}
+	query["name"] = opt.Name
+	resp := new(models.BuildTemplate)
+	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *BuildTemplateColl) List(pageNum, pageSize int) ([]*models.BuildTemplate, int, error) {
 	resp := make([]*models.BuildTemplate, 0)
 	query := bson.M{}
