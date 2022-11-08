@@ -83,7 +83,7 @@ func (c *WorkflowV4TemplateColl) Create(obj *models.WorkflowV4Template) error {
 }
 
 func (c *WorkflowV4TemplateColl) Update(obj *models.WorkflowV4Template) error {
-	query := bson.M{"_id": obj}
+	query := bson.M{"template_name": obj.TemplateName}
 	change := bson.M{"$set": obj}
 	obj.UpdateTime = time.Now().Unix()
 	_, err := c.UpdateOne(context.TODO(), query, change)
