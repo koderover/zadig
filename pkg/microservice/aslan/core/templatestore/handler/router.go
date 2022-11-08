@@ -73,3 +73,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		build.DELETE("/:id", RemoveBuildTemplate)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	build := router.Group("build")
+	{
+		build.GET("/template", GetBuildTemplateOpenAPI)
+	}
+}
