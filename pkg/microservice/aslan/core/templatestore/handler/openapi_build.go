@@ -25,5 +25,5 @@ func GetBuildTemplateOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateByName(c.Param("id"))
+	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateByName(c.Param("name"))
 }
