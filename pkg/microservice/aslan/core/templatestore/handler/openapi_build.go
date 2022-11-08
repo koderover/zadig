@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
