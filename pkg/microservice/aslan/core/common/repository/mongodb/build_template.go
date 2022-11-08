@@ -88,7 +88,6 @@ func (c *BuildTemplateColl) Find(opt *BuildTemplateQueryOption) (*models.BuildTe
 	}
 	query := bson.M{}
 	if len(opt.ID) > 0 {
-		fmt.Println("object ID query is:", opt.ID)
 		id, err := primitive.ObjectIDFromHex(opt.ID)
 		if err != nil {
 			return nil, err
@@ -98,20 +97,6 @@ func (c *BuildTemplateColl) Find(opt *BuildTemplateQueryOption) (*models.BuildTe
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
 	}
-	resp := new(models.BuildTemplate)
-	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-func (c *BuildTemplateColl) FindByName(name string) (*models.BuildTemplate, error) {
-	if name == "" {
-		return nil, errors.New("empty name for build template search")
-	}
-	query := bson.M{}
-	query["name"] = name
 	resp := new(models.BuildTemplate)
 	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
 	if err != nil {

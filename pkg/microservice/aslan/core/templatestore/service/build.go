@@ -55,7 +55,7 @@ func AddBuildTemplate(userName string, build *commonmodels.BuildTemplate, logger
 }
 
 func GetBuildTemplateByName(name string) (*commonmodels.BuildTemplate, error) {
-	return mongodb.NewBuildTemplateColl().FindByName(name)
+	return mongodb.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{Name: name})
 }
 
 func GetBuildTemplateByID(idStr string) (*commonmodels.BuildTemplate, error) {
