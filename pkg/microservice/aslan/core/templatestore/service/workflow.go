@@ -78,6 +78,77 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			BuildIn:      true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
+					Name: "MySQL 变更",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "Mysql-update",
+							JobType: config.JobPlugin,
+							Spec: commonmodels.PluginJobSpec{
+								Properties: &commonmodels.JobProperties{
+									Timeout:         10,
+									ResourceRequest: setting.MinRequest,
+								},
+								Plugin: &commonmodels.PluginTemplate{
+									Name:        "MySQL 数据库变更",
+									IsOffical:   true,
+									Description: "针对 MySQL 数据库执行 SQL 变量",
+									Version:     "v0.0.1",
+									Image:       "koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1",
+									Envs: []*commonmodels.Env{
+										{
+											Name:  "MYSQL_HOST",
+											Value: "$(inputs.mysql_host)",
+										},
+										{
+											Name:  "MYSQL_PORT",
+											Value: "$(inputs.mysql_port)",
+										},
+										{
+											Name:  "USERNAME",
+											Value: "$(inputs.username)",
+										},
+										{
+											Name:  "PASSWORD",
+											Value: "$(inputs.password)",
+										},
+										{
+											Name:  "QUERY",
+											Value: "$(inputs.query)",
+										},
+									},
+									Inputs: []*commonmodels.Param{
+										{
+											Name:        "mysql_host",
+											Description: "mysql host",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "mysql_port",
+											Description: "mysql port",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "username",
+											Description: "mysql username",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "password",
+											Description: "mysql password",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "query",
+											Description: "query to be used",
+											ParamsType:  "string",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
 					Name: "构建",
 					Jobs: []*commonmodels.Job{
 						{
