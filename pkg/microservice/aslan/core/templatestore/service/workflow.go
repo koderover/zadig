@@ -23,12 +23,88 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
+
+func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
+	buildInWorkflowTemplateInfos := []*commonmodels.WorkflowV4Template{
+		{
+			TemplateName: "自定义工作流模板1",
+			BuildIn:      true,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "构建",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "部署",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+				{
+					Name: "测试",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "test",
+							JobType: config.JobZadigTesting,
+							Spec:    commonmodels.ZadigTestingJobSpec{},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "自定义工作流模板2",
+			BuildIn:      true,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "构建",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "部署",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return buildInWorkflowTemplateInfos
+}
 
 type WorkflowtemplatePreView struct {
 	ID           primitive.ObjectID       `json:"id"`
@@ -180,4 +256,13 @@ func lintWorkflowTemplate(template *commonmodels.WorkflowV4Template, logger *zap
 		}
 	}
 	return nil
+}
+
+func InitWorkflowTemplate() {
+	logger := log.SugaredLogger()
+	for _, template := range InitWorkflowTemplateInfos() {
+		if err := CreateWorkflowTemplate("system", template, logger); err != nil {
+			logger.Error(err)
+		}
+	}
 }

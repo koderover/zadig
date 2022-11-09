@@ -42,6 +42,7 @@ import (
 	policyservice "github.com/koderover/zadig/pkg/microservice/aslan/core/policy/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
@@ -323,6 +324,7 @@ func initDatabase() {
 	commonrepo.NewInstallColl().InitInstallData(systemservice.InitInstallMap())
 	commonrepo.NewBasicImageColl().InitBasicImageData(systemservice.InitbasicImageInfos())
 	commonrepo.NewSystemSettingColl().InitSystemSettings()
+	templateservice.InitWorkflowTemplate()
 
 	if err := commonrepo.NewS3StorageColl().InitData(); err != nil {
 		log.Warnf("Failed to init S3 data: %s", err)
