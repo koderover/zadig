@@ -38,7 +38,8 @@ type WorkflowTemplateQueryOption struct {
 }
 
 type WorkflowTemplateListOption struct {
-	Category string
+	Category      string
+	FilterBuildIn bool
 }
 
 type WorkflowV4TemplateColl struct {
@@ -116,6 +117,9 @@ func (c *WorkflowV4TemplateColl) Find(opt *WorkflowTemplateQueryOption) (*models
 func (c *WorkflowV4TemplateColl) List(option *WorkflowTemplateListOption) ([]*models.WorkflowV4Template, error) {
 	resp := make([]*models.WorkflowV4Template, 0)
 	query := bson.M{"category": option.Category}
+	if option.FilterBuildIn {
+		query["build_in"] = false
+	}
 	opt := options.Find().
 		SetSort(bson.D{{"template_name", -1}})
 
