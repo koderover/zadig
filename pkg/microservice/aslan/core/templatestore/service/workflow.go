@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -332,8 +333,12 @@ func lintWorkflowTemplate(template *commonmodels.WorkflowV4Template, logger *zap
 func InitWorkflowTemplate() {
 	logger := log.SugaredLogger()
 	for _, template := range InitWorkflowTemplateInfos() {
-		if err := CreateWorkflowTemplate("system", template, logger); err != nil {
-			logger.Error(err)
+		template.CreateTime = time.Now().Unix()
+		template.UpdateTime = time.Now().Unix()
+		template.CreatedBy = "system"
+		template.UpdatedBy = "system"
+		if err := commonrepo.NewWorkflowV4TemplateColl().UpsertByName(template); err != nil {
+			logger.Errorf("update build-in workflow template error: %v", err)
 		}
 	}
 }
