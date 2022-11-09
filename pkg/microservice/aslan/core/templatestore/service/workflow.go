@@ -176,9 +176,9 @@ func UpdateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Te
 	return nil
 }
 
-func ListWorkflowTemplate(category string, filterBuildIn bool, logger *zap.SugaredLogger) ([]*WorkflowtemplatePreView, error) {
+func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.SugaredLogger) ([]*WorkflowtemplatePreView, error) {
 	resp := []*WorkflowtemplatePreView{}
-	templates, err := commonrepo.NewWorkflowV4TemplateColl().List(&commonrepo.WorkflowTemplateListOption{Category: category, FilterBuildIn: filterBuildIn})
+	templates, err := commonrepo.NewWorkflowV4TemplateColl().List(&commonrepo.WorkflowTemplateListOption{Category: category, ExcludeBuildIn: excludeBuildIn})
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to list workflow template err: %v", err)
 		logger.Error(errMsg)

@@ -39,12 +39,12 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 func ListWorkflowTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	filterBuildIn := false
-	if c.Query("filterBuildIn") == "true" {
-		filterBuildIn = true
+	excludeBuildIn := false
+	if c.Query("excludeBuildIn") == "true" {
+		excludeBuildIn = true
 	}
 
-	ctx.Resp, ctx.Err = templateservice.ListWorkflowTemplate(c.Query("category"), filterBuildIn, ctx.Logger)
+	ctx.Resp, ctx.Err = templateservice.ListWorkflowTemplate(c.Query("category"), excludeBuildIn, ctx.Logger)
 }
 
 func CreateWorkflowTemplate(c *gin.Context) {
