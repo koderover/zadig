@@ -33,151 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
-	buildInWorkflowTemplateInfos := []*commonmodels.WorkflowV4Template{
-		{
-			TemplateName: "自定义工作流模板1",
-			BuildIn:      true,
-			Stages: []*commonmodels.WorkflowStage{
-				{
-					Name: "构建",
-					Jobs: []*commonmodels.Job{
-						{
-							Name:    "build",
-							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
-						},
-					},
-				},
-				{
-					Name: "部署",
-					Jobs: []*commonmodels.Job{
-						{
-							Name:    "deploy",
-							JobType: config.JobZadigDeploy,
-							Spec: commonmodels.ZadigDeployJobSpec{
-								Source:  config.SourceFromJob,
-								JobName: "build",
-							},
-						},
-					},
-				},
-				{
-					Name: "测试",
-					Jobs: []*commonmodels.Job{
-						{
-							Name:    "test",
-							JobType: config.JobZadigTesting,
-							Spec:    commonmodels.ZadigTestingJobSpec{},
-						},
-					},
-				},
-			},
-		},
-		{
-			TemplateName: "自定义工作流模板2",
-			BuildIn:      true,
-			Stages: []*commonmodels.WorkflowStage{
-				{
-					Name: "MySQL 变更",
-					Jobs: []*commonmodels.Job{
-						{
-							Name:    "Mysql-update",
-							JobType: config.JobPlugin,
-							Spec: commonmodels.PluginJobSpec{
-								Properties: &commonmodels.JobProperties{
-									Timeout:         10,
-									ResourceRequest: setting.MinRequest,
-								},
-								Plugin: &commonmodels.PluginTemplate{
-									Name:        "MySQL 数据库变更",
-									IsOffical:   true,
-									Description: "针对 MySQL 数据库执行 SQL 变量",
-									Version:     "v0.0.1",
-									Image:       "koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1",
-									Envs: []*commonmodels.Env{
-										{
-											Name:  "MYSQL_HOST",
-											Value: "$(inputs.mysql_host)",
-										},
-										{
-											Name:  "MYSQL_PORT",
-											Value: "$(inputs.mysql_port)",
-										},
-										{
-											Name:  "USERNAME",
-											Value: "$(inputs.username)",
-										},
-										{
-											Name:  "PASSWORD",
-											Value: "$(inputs.password)",
-										},
-										{
-											Name:  "QUERY",
-											Value: "$(inputs.query)",
-										},
-									},
-									Inputs: []*commonmodels.Param{
-										{
-											Name:        "mysql_host",
-											Description: "mysql host",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "mysql_port",
-											Description: "mysql port",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "username",
-											Description: "mysql username",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "password",
-											Description: "mysql password",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "query",
-											Description: "query to be used",
-											ParamsType:  "string",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				{
-					Name: "构建",
-					Jobs: []*commonmodels.Job{
-						{
-							Name:    "build",
-							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
-						},
-					},
-				},
-				{
-					Name: "部署",
-					Jobs: []*commonmodels.Job{
-						{
-							Name:    "deploy",
-							JobType: config.JobZadigDeploy,
-							Spec: commonmodels.ZadigDeployJobSpec{
-								Source:  config.SourceFromJob,
-								JobName: "build",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	return buildInWorkflowTemplateInfos
-}
-
 type WorkflowtemplatePreView struct {
 	ID           primitive.ObjectID       `json:"id"`
 	TemplateName string                   `json:"template_name"`
@@ -341,4 +196,352 @@ func InitWorkflowTemplate() {
 			logger.Errorf("update build-in workflow template error: %v", err)
 		}
 	}
+}
+
+func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
+	buildInWorkflowTemplateInfos := []*commonmodels.WorkflowV4Template{
+		{
+			TemplateName: "业务变更及测试",
+			BuildIn:      true,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "构建",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "部署",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+				{
+					Name: "测试",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "test",
+							JobType: config.JobZadigTesting,
+							Spec:    commonmodels.ZadigTestingJobSpec{},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "数据库及业务变更",
+			BuildIn:      true,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "MySQL 变更",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "Mysql-update",
+							JobType: config.JobPlugin,
+							Spec: commonmodels.PluginJobSpec{
+								Properties: &commonmodels.JobProperties{
+									Timeout:         10,
+									ResourceRequest: setting.MinRequest,
+								},
+								Plugin: &commonmodels.PluginTemplate{
+									Name:        "MySQL 数据库变更",
+									IsOffical:   true,
+									Description: "针对 MySQL 数据库执行 SQL 变量",
+									Version:     "v0.0.1",
+									Image:       "koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1",
+									Envs: []*commonmodels.Env{
+										{
+											Name:  "MYSQL_HOST",
+											Value: "$(inputs.mysql_host)",
+										},
+										{
+											Name:  "MYSQL_PORT",
+											Value: "$(inputs.mysql_port)",
+										},
+										{
+											Name:  "USERNAME",
+											Value: "$(inputs.username)",
+										},
+										{
+											Name:  "PASSWORD",
+											Value: "$(inputs.password)",
+										},
+										{
+											Name:  "QUERY",
+											Value: "$(inputs.query)",
+										},
+									},
+									Inputs: []*commonmodels.Param{
+										{
+											Name:        "mysql_host",
+											Description: "mysql host",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "mysql_port",
+											Description: "mysql port",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "username",
+											Description: "mysql username",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "password",
+											Description: "mysql password",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "query",
+											Description: "query to be used",
+											ParamsType:  "string",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "构建",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "部署",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "多阶段灰度",
+			BuildIn:      true,
+			Category:     setting.ReleaseWorkflow,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "灰度20%",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "gray-20",
+							JobType: config.JobK8sGrayRelease,
+							Spec: commonmodels.GrayReleaseJobSpec{
+								DeployTimeout: 10,
+								GrayScale:     20,
+							},
+						},
+					},
+				},
+				{
+					Name: "灰度50%",
+					Approval: &commonmodels.Approval{
+						Enabled:         true,
+						Timeout:         60,
+						NeededApprovers: 1,
+						Description:     "Confirm release to 50%",
+					},
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "gray-50",
+							JobType: config.JobK8sGrayRelease,
+							Spec: commonmodels.GrayReleaseJobSpec{
+								FromJob:       "gray-20",
+								DeployTimeout: 10,
+								GrayScale:     50,
+							},
+						},
+					},
+				},
+				{
+					Name: "灰度100%",
+					Approval: &commonmodels.Approval{
+						Enabled:         true,
+						Timeout:         60,
+						NeededApprovers: 1,
+						Description:     "Confirm release to 100%",
+					},
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "gray-100",
+							JobType: config.JobK8sGrayRelease,
+							Spec: commonmodels.GrayReleaseJobSpec{
+								FromJob:       "gray-20",
+								DeployTimeout: 10,
+								GrayScale:     100,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "蓝绿发布",
+			BuildIn:      true,
+			Category:     setting.ReleaseWorkflow,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "蓝绿部署",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "blue-green-deploy",
+							JobType: config.JobK8sBlueGreenDeploy,
+							Spec:    commonmodels.BlueGreenDeployJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "蓝绿发布",
+					Approval: &commonmodels.Approval{
+						Enabled:         true,
+						Timeout:         60,
+						NeededApprovers: 1,
+						Description:     "Confirm to release",
+					},
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "blue-green-release",
+							JobType: config.JobK8sBlueGreenRelease,
+							Spec: commonmodels.BlueGreenReleaseJobSpec{
+								FromJob: "blue-green-deploy",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "金丝雀发布",
+			BuildIn:      true,
+			Category:     setting.ReleaseWorkflow,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "金丝雀部署",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "canary-deploy",
+							JobType: config.JobK8sCanaryDeploy,
+							Spec:    commonmodels.CanaryDeployJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "金丝雀发布",
+					Approval: &commonmodels.Approval{
+						Enabled:         true,
+						Timeout:         60,
+						NeededApprovers: 1,
+						Description:     "Confirm to release",
+					},
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "canary-release",
+							JobType: config.JobK8sCanaryRelease,
+							Spec: commonmodels.CanaryReleaseJobSpec{
+								FromJob:        "canary-deploy",
+								ReleaseTimeout: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "istio发布",
+			BuildIn:      true,
+			Category:     setting.ReleaseWorkflow,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name: "灰度20%",
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "gray-20",
+							JobType: config.JobK8sGrayRelease,
+							Spec: commonmodels.GrayReleaseJobSpec{
+								DeployTimeout: 10,
+								GrayScale:     20,
+							},
+						},
+					},
+				},
+				{
+					Name: "istio流量切换20%",
+					Approval: &commonmodels.Approval{
+						Enabled:         true,
+						Timeout:         60,
+						NeededApprovers: 1,
+						Description:     "Confirm switch 20% reaffic",
+					},
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "istio-20",
+							JobType: config.JobK8sPatch,
+							Spec:    commonmodels.K8sPatchJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "istio流量切换100%",
+					Approval: &commonmodels.Approval{
+						Enabled:         true,
+						Timeout:         60,
+						NeededApprovers: 1,
+						Description:     "Confirm switch 100% reaffic",
+					},
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "istio-100",
+							JobType: config.JobK8sPatch,
+							Spec:    commonmodels.K8sPatchJobSpec{},
+						},
+					},
+				},
+				{
+					Name: "灰度100%",
+					Approval: &commonmodels.Approval{
+						Enabled:         true,
+						Timeout:         60,
+						NeededApprovers: 1,
+						Description:     "Confirm release to 100%",
+					},
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "gray-100",
+							JobType: config.JobK8sGrayRelease,
+							Spec: commonmodels.GrayReleaseJobSpec{
+								FromJob:       "gray-20",
+								DeployTimeout: 10,
+								GrayScale:     100,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return buildInWorkflowTemplateInfos
 }
