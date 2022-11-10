@@ -788,7 +788,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 	}
 
 	if codehostDetail.Type == setting.SourceFromOther {
-		err = command.RunGitCmds(codehostDetail, createFromRepo.Namespace, createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, "origin")
+		err = command.RunGitCmds(codehostDetail, createFromRepo.Owner, createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, "origin")
 		if err != nil {
 			log.Errorf("Failed to clone the repo, namespace: [%s], name: [%s], branch: [%s], error: %s", createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, err)
 			return nil, err
