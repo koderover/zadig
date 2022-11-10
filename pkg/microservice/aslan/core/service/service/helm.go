@@ -824,6 +824,9 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			}()
 
 			currentFilePath := path.Join(base, filePath)
+			if args.Source == setting.SourceFromOther {
+				currentFilePath = path.Join(createFromRepo.Repo, p)
+			}
 			log.Infof("Loading chart under path %s", currentFilePath)
 			serviceName, chartVersion, finalErr = readChartYAMLFromLocal(currentFilePath, log)
 			if finalErr != nil {
