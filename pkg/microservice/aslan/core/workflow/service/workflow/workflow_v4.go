@@ -242,6 +242,9 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			BaseRefs:      baseRefs,
 			BaseName:      workflowModel.BaseName,
 		}
+		if workflowModel.Category == setting.ReleaseWorkflow {
+			workflow.WorkflowType = string(setting.ReleaseWorkflow)
+		}
 		getRecentTaskV4Info(workflow, tasks)
 		setWorkflowStat(workflow, workflowStatMap)
 
