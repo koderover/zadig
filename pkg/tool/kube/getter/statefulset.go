@@ -30,6 +30,7 @@ func GetStatefulSet(ns, name string, cl client.Client) (*appsv1.StatefulSet, boo
 	if err != nil || !found {
 		ss = nil
 	}
+	setStatefulSetGVK(ss)
 
 	return ss, found, err
 }
@@ -43,6 +44,7 @@ func ListStatefulSets(ns string, selector labels.Selector, cl client.Client) ([]
 
 	var res []*appsv1.StatefulSet
 	for i := range ss.Items {
+		setStatefulSetGVK(&ss.Items[i])
 		res = append(res, &ss.Items[i])
 	}
 	return res, err
@@ -80,4 +82,16 @@ func GetStatefulSetYamlFormat(ns string, name string, cl client.Client) ([]byte,
 		Version: "v1",
 	}
 	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+}
+
+func setStatefulSetGVK(statefulSet *appsv1.StatefulSet) {
+	if statefulSet == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Kind:    "StatefulSet",
+		Version: "v1",
+	}
+	statefulSet.SetGroupVersionKind(gvk)
 }

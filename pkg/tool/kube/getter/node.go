@@ -18,6 +18,7 @@ package getter
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,7 +31,20 @@ func ListNodes(cl client.Client) ([]*corev1.Node, error) {
 
 	var res []*corev1.Node
 	for i := range nodes.Items {
+		setNodeGVK(&nodes.Items[i])
 		res = append(res, &nodes.Items[i])
 	}
 	return res, err
+}
+
+func setNodeGVK(node *corev1.Node) {
+	if node == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Node",
+		Version: "v1",
+	}
+	node.SetGroupVersionKind(gvk)
 }
