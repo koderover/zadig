@@ -17,6 +17,8 @@ limitations under the License.
 package getter
 
 import (
+	"encoding/json"
+
 	"github.com/koderover/zadig/pkg/tool/log"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,7 +40,8 @@ func GetDeployment(ns, name string, cl client.Client) (*appsv1.Deployment, bool,
 		g = nil
 	}
 	if g != nil {
-		// g.SetGroupVersionKind(gvk)
+		b, _ := json.Marshal(g)
+		log.Errorf("@@deployment: %s was: %s", g.Name, b)
 	} else {
 		log.Error("@@@deployment was nil")
 	}
