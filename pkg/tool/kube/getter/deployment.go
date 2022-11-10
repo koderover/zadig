@@ -17,6 +17,7 @@ limitations under the License.
 package getter
 
 import (
+	"github.com/koderover/zadig/pkg/tool/log"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,9 +34,14 @@ func GetDeployment(ns, name string, cl client.Client) (*appsv1.Deployment, bool,
 	}
 	found, err := GetResourceInCache(ns, name, g, cl)
 	if err != nil || !found {
+		log.Errorf("@@@get deployment err: %v", err)
 		g = nil
 	}
-	g.SetGroupVersionKind(gvk)
+	if g != nil {
+		g.SetGroupVersionKind(gvk)
+	} else {
+		log.Error("@@@deployment was nil")
+	}
 	return g, found, err
 }
 
