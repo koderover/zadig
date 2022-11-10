@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/27149chen/afero"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -501,9 +502,7 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, force, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, force, logger)
-	case LoadFromGerrit, setting.SourceFromGitee:
-		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
-	case setting.SourceFromGiteeEE:
+	case LoadFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
 		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
 	case LoadFromChartRepo:
 		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, force, logger)
@@ -779,6 +778,21 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 	if jsonResErr != nil {
 		log.Errorf("failed to json.Unmarshal err:%s", resByteErr)
 		return nil, jsonResErr
+	}
+
+	// if the repo type is other, we download the chart
+	if args.Source == setting.SourceFromOther {
+		codehostDetail, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
+		if err != nil {
+			log.Errorf("failed to get codehost detail to pull the repo, error: %s", err)
+			return nil, err
+		}
+
+		err = command.RunGitCmds(codehostDetail, createFromRepo.Namespace, createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, "origin")
+		if err != nil {
+			log.Errorf("Failed to clone the repo, namespace: [%s], name: [%s], branch: [%s], error: %s", createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, err)
+			return nil, err
+		}
 	}
 
 	filePaths = createFromRepo.Paths

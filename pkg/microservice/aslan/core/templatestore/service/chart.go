@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/27149chen/afero"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -216,7 +217,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		loadErr error
 	)
 	switch ch.Type {
-	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
+	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
 		sha1, loadErr = processChartFromGitRepo(name, args, logger)
 	default:
 		sha1, loadErr = processChartFromSource(name, args, logger)
@@ -269,7 +270,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 	)
 
 	switch ch.Type {
-	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
+	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
 		sha1, loadErr = processChartFromGitRepo(name, args, logger)
 	default:
 		sha1, loadErr = processChartFromSource(name, args, logger)
@@ -464,6 +465,20 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 		sha1 string
 		err  error
 	)
+
+	codehostDetail, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	if err != nil {
+		log.Errorf("Failed to get codeHost by id %d, err: %s", args.CodehostID, err)
+		return "", err
+	}
+
+	if codehostDetail.Type == setting.SourceFromOther {
+		err = command.RunGitCmds(codehostDetail, args.Namespace, args.Namespace, args.Repo, args.Branch, "origin")
+		if err != nil {
+			log.Errorf("Failed to clone the repo, namespace: [%s], name: [%s], branch: [%s], error: %s", args.Namespace, args.Repo, args.Branch, err)
+			return "", err
+		}
+	}
 
 	base := path.Join(config.S3StoragePath(), args.Repo)
 	filePath := strings.TrimLeft(args.Path, "/")

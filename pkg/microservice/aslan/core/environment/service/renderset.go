@@ -18,8 +18,12 @@ package service
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -168,26 +172,49 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 		wg             sync.WaitGroup
 		err            error
 	)
+	detail, err := systemconfig.New().GetCodeHost(arg.CodehostID)
+	if err != nil {
+		log.Errorf("GetGitRepoInfo GetCodehostDetail err:%s", err)
+		return "", e.ErrListRepoDir.AddDesc(err.Error())
+	}
+	if detail.Type == setting.SourceFromOther {
+		err = command.RunGitCmds(detail, arg.Namespace, arg.Namespace, arg.Repo, arg.Branch, "origin")
+		if err != nil {
+			log.Errorf("GetGitRepoInfo runGitCmds err:%s", err)
+			return "", e.ErrListRepoDir.AddDesc(err.Error())
+		}
+	}
+
 	for i, filePath := range paths {
 		wg.Add(1)
-		go func(index int, path string) {
+		go func(index int, path string, isOtherTypeRepo bool) {
 			defer wg.Done()
-			fileContent, errDownload := fsservice.DownloadFileFromSource(
-				&fsservice.DownloadFromSourceArgs{
-					CodehostID: arg.CodehostID,
-					Owner:      arg.Owner,
-					Namespace:  arg.Namespace,
-					Repo:       arg.Repo,
-					Path:       path,
-					Branch:     arg.Branch,
-					RepoLink:   arg.RepoLink,
-				})
-			if errDownload != nil {
-				err = errors.Wrapf(errDownload, fmt.Sprintf("failed to download file from git, path %s", path))
-				return
+			if !isOtherTypeRepo {
+				fileContent, errDownload := fsservice.DownloadFileFromSource(
+					&fsservice.DownloadFromSourceArgs{
+						CodehostID: arg.CodehostID,
+						Owner:      arg.Owner,
+						Namespace:  arg.Namespace,
+						Repo:       arg.Repo,
+						Path:       path,
+						Branch:     arg.Branch,
+						RepoLink:   arg.RepoLink,
+					})
+				if errDownload != nil {
+					err = errors.Wrapf(errDownload, fmt.Sprintf("failed to download file from git, path %s", path))
+					return
+				}
+				fileContentMap.Store(index, fileContent)
+			} else {
+				relativePath := fmt.Sprintf("%s/%s", arg.Repo, path)
+				fileContent, err := os.ReadFile(relativePath)
+				if err != nil {
+					err = errors.Wrapf(err, fmt.Sprintf("failed to read file from git repo, relative path %s", relativePath))
+					return
+				}
+				fileContentMap.Store(index, fileContent)
 			}
-			fileContentMap.Store(index, fileContent)
-		}(i, filePath)
+		}(i, filePath, detail.Type == setting.SourceFromOther)
 	}
 	wg.Wait()
 
