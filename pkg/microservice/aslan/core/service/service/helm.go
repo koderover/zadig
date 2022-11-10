@@ -502,7 +502,7 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, force, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, force, logger)
-	case LoadFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
+	case LoadFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
 	case LoadFromChartRepo:
 		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, force, logger)
@@ -962,6 +962,9 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 	if err != nil {
 		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err.Error())
 		return nil, err
+	}
+	if source == setting.SourceFromOther {
+		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, log)
 	}
 
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
