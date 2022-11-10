@@ -27,18 +27,18 @@ import (
 
 func GetDeployment(ns, name string, cl client.Client) (*appsv1.Deployment, bool, error) {
 	g := &appsv1.Deployment{}
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "Deployment",
-		Version: "v1",
-	}
+	// gvk := schema.GroupVersionKind{
+	// 	Group:   "apps",
+	// 	Kind:    "Deployment",
+	// 	Version: "v1",
+	// }
 	found, err := GetResourceInCache(ns, name, g, cl)
 	if err != nil || !found {
-		log.Errorf("@@@get deployment err: %v", err)
+		log.Errorf("@@@get deployment err: %v,found: %t", err, found)
 		g = nil
 	}
 	if g != nil {
-		g.SetGroupVersionKind(gvk)
+		// g.SetGroupVersionKind(gvk)
 	} else {
 		log.Error("@@@deployment was nil")
 	}
