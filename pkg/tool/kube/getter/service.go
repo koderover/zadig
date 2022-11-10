@@ -30,6 +30,7 @@ func GetService(ns, name string, cl client.Client) (*corev1.Service, bool, error
 	if err != nil || !found {
 		svc = nil
 	}
+	setServiceGVK(svc)
 
 	return svc, found, err
 }
@@ -43,6 +44,7 @@ func ListServices(ns string, selector labels.Selector, cl client.Client) ([]*cor
 
 	var res []*corev1.Service
 	for i := range ss.Items {
+		setServiceGVK(&ss.Items[i])
 		res = append(res, &ss.Items[i])
 	}
 	return res, err
@@ -81,3 +83,16 @@ func GetServiceYamlFormat(ns string, name string, cl client.Client) ([]byte, boo
 	}
 	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
 }
+
+func setServiceGVK(service *corev1.Service) {
+	if service == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Service",
+		Version: "v1",
+	}
+	service.SetGroupVersionKind(gvk)
+}
+

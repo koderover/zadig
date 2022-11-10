@@ -18,6 +18,7 @@ package getter
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,6 +28,7 @@ func GetNamespace(ns string, cl client.Client) (*corev1.Namespace, bool, error) 
 	if err != nil || !found {
 		g = nil
 	}
+	setNamespaceGVK(g)
 
 	return g, found, err
 }
@@ -40,7 +42,20 @@ func ListNamespaces(cl client.Reader) ([]*corev1.Namespace, error) {
 
 	var res []*corev1.Namespace
 	for i := range l.Items {
+		setNamespaceGVK(&l.Items[i])
 		res = append(res, &l.Items[i])
 	}
 	return res, err
+}
+
+func setNamespaceGVK(namespace *corev1.Namespace) {
+	if namespace == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Namespace",
+		Version: "v1",
+	}
+	namespace.SetGroupVersionKind(gvk)
 }
