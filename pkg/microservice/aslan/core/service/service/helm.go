@@ -1537,6 +1537,9 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 			log.Errorf("Failed to create gerrit webhook, err: %s", err)
 			return nil, err
 		}
+	case setting.SourceFromOther:
+		// no webhook is required
+		break
 	default:
 		commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, logger)
 	}
