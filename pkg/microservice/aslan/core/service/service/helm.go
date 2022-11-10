@@ -781,13 +781,13 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 	}
 
 	// if the repo type is other, we download the chart
-	if args.Source == setting.SourceFromOther {
-		codehostDetail, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
-		if err != nil {
-			log.Errorf("failed to get codehost detail to pull the repo, error: %s", err)
-			return nil, err
-		}
+	codehostDetail, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
+	if err != nil {
+		log.Errorf("failed to get codehost detail to pull the repo, error: %s", err)
+		return nil, err
+	}
 
+	if codehostDetail.Type == setting.SourceFromOther {
 		err = command.RunGitCmds(codehostDetail, createFromRepo.Namespace, createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, "origin")
 		if err != nil {
 			log.Errorf("Failed to clone the repo, namespace: [%s], name: [%s], branch: [%s], error: %s", createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, err)
@@ -824,7 +824,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			}()
 
 			currentFilePath := path.Join(base, filePath)
-			if args.Source == setting.SourceFromOther {
+			if codehostDetail.Type == setting.SourceFromOther {
 				currentFilePath = path.Join(createFromRepo.Repo, p)
 			}
 			log.Infof("Loading chart under path %s", currentFilePath)
