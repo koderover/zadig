@@ -26,11 +26,11 @@ import (
 
 func GetDeployment(ns, name string, cl client.Client) (*appsv1.Deployment, bool, error) {
 	g := &appsv1.Deployment{}
+	g.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
 	found, err := GetResourceInCache(ns, name, g, cl)
 	if err != nil || !found {
 		g = nil
 	}
-
 	return g, found, err
 }
 
