@@ -68,6 +68,9 @@ type Build struct {
 	CacheEnable  bool               `bson:"cache_enable"                    json:"cache_enable"`
 	CacheDirType types.CacheDirType `bson:"cache_dir_type"                  json:"cache_dir_type"`
 	CacheUserDir string             `bson:"cache_user_dir"                  json:"cache_user_dir"`
+
+	// New since V1.16.0, determines is dockerDaemon on host node is used in pod
+	UseHostDockerDaemon bool `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty"`
 }
 
 type ArtifactInfo struct {
