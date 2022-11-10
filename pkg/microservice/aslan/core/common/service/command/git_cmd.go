@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -28,28 +29,35 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type Repo struct {
-	Source       string `yaml:"source"`
-	Address      string `yaml:"address"`
-	Owner        string `yaml:"owner"`
-	Namespace    string `yaml:"namespace"`
-	Name         string `yaml:"name"`
-	RemoteName   string `yaml:"remote_name"`
-	Branch       string `yaml:"branch"`
-	PR           int    `yaml:"pr"`
-	Tag          string `yaml:"tag"`
-	CheckoutPath string `yaml:"checkout_path"`
-	SubModules   bool   `yaml:"submodules"`
-	OauthToken   string `yaml:"oauthToken"`
-	User         string `yaml:"-"`
-	Password     string `yaml:"-"`
-	CheckoutRef  string `yaml:"checkout_ref"`
+	Source             string         `yaml:"source"`
+	Address            string         `yaml:"address"`
+	Owner              string         `yaml:"owner"`
+	Namespace          string         `yaml:"namespace"`
+	Name               string         `yaml:"name"`
+	RemoteName         string         `yaml:"remote_name"`
+	Branch             string         `yaml:"branch"`
+	PR                 int            `yaml:"pr"`
+	Tag                string         `yaml:"tag"`
+	CheckoutPath       string         `yaml:"checkout_path"`
+	SubModules         bool           `yaml:"submodules"`
+	OauthToken         string         `yaml:"oauthToken"`
+	User               string         `yaml:"-"`
+	Password           string         `yaml:"-"`
+	CheckoutRef        string         `yaml:"checkout_ref"`
+	AuthType           types.AuthType `yaml:"auth_type,omitempty"`
+	SSHKey             string         `yaml:"ssh_key,omitempty"`
+	PrivateAccessToken string         `yaml:"private_access_token,omitempty"`
 }
 
 // BranchRef returns branch refs format
@@ -74,19 +82,23 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace,
 		cmds   = make([]*Command, 0)
 	)
 	repo = &Repo{
-		Source:     codehostDetail.Type,
-		Address:    codehostDetail.Address,
-		Name:       repoName,
-		Namespace:  repoNamespace,
-		Branch:     branchName,
-		OauthToken: codehostDetail.AccessToken,
-		RemoteName: remoteName,
-		Owner:      repoOwner,
+		Source:             codehostDetail.Type,
+		Address:            codehostDetail.Address,
+		Name:               repoName,
+		Namespace:          repoNamespace,
+		Branch:             branchName,
+		OauthToken:         codehostDetail.AccessToken,
+		RemoteName:         remoteName,
+		Owner:              repoOwner,
+		AuthType:           codehostDetail.AuthType,
+		SSHKey:             codehostDetail.SSHKey,
+		PrivateAccessToken: codehostDetail.PrivateAccessToken,
 	}
 
 	userpass, _ := base64.StdEncoding.DecodeString(repo.OauthToken)
 	userpassPair := strings.Split(string(userpass), ":")
 	var user, password string
+	var hostNames = sets.NewString()
 	if len(userpassPair) > 1 {
 		password = userpassPair[1]
 	}
@@ -97,7 +109,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace,
 		tokens = append(tokens, repo.Password)
 	}
 	tokens = append(tokens, repo.OauthToken)
-	cmds = append(cmds, buildGitCommands(repo)...)
+	cmds = append(cmds, buildGitCommands(repo, hostNames)...)
 
 	if codehostDetail.EnableProxy {
 		httpsProxy := config.ProxyHTTPSAddr()
@@ -149,7 +161,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace,
 	return nil
 }
 
-func buildGitCommands(repo *Repo) []*Command {
+func buildGitCommands(repo *Repo, hostNames sets.String) []*Command {
 	cmds := make([]*Command, 0)
 
 	if len(repo.Name) == 0 {
@@ -170,7 +182,14 @@ func buildGitCommands(repo *Repo) []*Command {
 	}
 
 	// 预防非正常退出导致git被锁住
-	_ = os.Remove(path.Join(workDir, "/.git/index.lock"))
+	indexLockPath := path.Join(workDir, "/.git/index.lock")
+	if err := os.RemoveAll(indexLockPath); err != nil {
+		log.Errorf("Failed to remove %s: %s", indexLockPath, err)
+	}
+	shallowLockPath := path.Join(workDir, "/.git/shallow.lock")
+	if err := os.RemoveAll(shallowLockPath); err != nil {
+		log.Errorf("Failed to remove %s: %s", shallowLockPath, err)
+	}
 
 	if isDirEmpty(filepath.Join(workDir, ".git")) {
 		cmds = append(cmds, &Command{Cmd: InitGit(workDir)})
@@ -178,7 +197,13 @@ func buildGitCommands(repo *Repo) []*Command {
 		cmds = append(cmds, &Command{Cmd: RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
 	}
 
-	if repo.Source == setting.SourceFromGitlab || repo.Source == setting.SourceFromGitee || repo.Source == setting.SourceFromGiteeEE {
+	// namespace represents the real owner
+	owner := repo.Namespace
+	if len(owner) == 0 {
+		owner = repo.Owner
+	}
+
+	if repo.Source == setting.SourceFromGitlab {
 		u, _ := url.Parse(repo.Address)
 		url := OAuthCloneURL(repo.OauthToken, u.Host, repo.Owner, repo.Name, u.Scheme)
 		cmds = append(cmds, &Command{
@@ -194,16 +219,49 @@ func buildGitCommands(repo *Repo) []*Command {
 			Cmd:          RemoteAdd(repo.RemoteName, u.String()),
 			DisableTrace: true,
 		})
-	} else {
-		// github
-		cmd := RemoteAdd(repo.RemoteName, fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", repo.OauthToken, "github.com", repo.Owner, repo.Name))
-		if repo.OauthToken == "" {
-			cmd = RemoteAdd(repo.RemoteName, repo.Address)
+	} else if repo.Source == setting.SourceFromGiteeEE || repo.Source == setting.SourceFromGitee {
+		giteeURL := step.HTTPSCloneURL(repo.Source, repo.OauthToken, repo.Owner, repo.Name, repo.Address)
+		cmds = append(cmds, &Command{Cmd: RemoteAdd(repo.RemoteName, giteeURL), DisableTrace: true})
+	} else if repo.Source == setting.SourceFromOther {
+		if repo.AuthType == types.SSHAuthType {
+			host := getHost(repo.Address)
+			if !hostNames.Has(host) {
+				if err := writeSSHFile(repo.SSHKey, host); err != nil {
+					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
+				}
+				hostNames.Insert(host)
+			}
+			remoteName := fmt.Sprintf("%s:%s/%s.git", repo.Address, repo.Owner, repo.Name)
+			// Including the case of the port
+			if strings.Contains(repo.Address, ":") {
+				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.Owner, repo.Name)
+			}
+			cmds = append(cmds, &Command{
+				Cmd:          RemoteAdd(repo.RemoteName, remoteName),
+				DisableTrace: true,
+			})
+		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
+			u, err := url.Parse(repo.Address)
+			if err != nil {
+				log.Errorf("failed to parse url,err:%s", err)
+			} else {
+				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
+				cmds = append(cmds, &Command{
+					Cmd:          RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.Owner, repo.Name, u.Scheme)),
+					DisableTrace: true,
+				})
+			}
+		} else {
+			// github
+			cmd := RemoteAdd(repo.RemoteName, fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", repo.OauthToken, "github.com", repo.Owner, repo.Name))
+			if repo.OauthToken == "" {
+				cmd = RemoteAdd(repo.RemoteName, repo.Address)
+			}
+			cmds = append(cmds, &Command{
+				Cmd:          cmd,
+				DisableTrace: true,
+			})
 		}
-		cmds = append(cmds, &Command{
-			Cmd:          cmd,
-			DisableTrace: true,
-		})
 	}
 
 	cmds = append(cmds, &Command{Cmd: Fetch(repo.RemoteName, repo.BranchRef())})
@@ -313,4 +371,29 @@ func maskSecret(secrets []string, message string) string {
 		out = strings.Replace(out, val, "********", -1)
 	}
 	return out
+}
+
+// git@github.com or git@github.com:2000
+// return github.com
+func getHost(address string) string {
+	address = strings.TrimPrefix(address, "ssh://")
+	address = strings.TrimPrefix(address, "git@")
+	hostArr := strings.Split(address, ":")
+	return hostArr[0]
+}
+
+func writeSSHFile(sshKey, hostName string) error {
+	if sshKey == "" {
+		return fmt.Errorf("ssh cannot be empty")
+	}
+
+	if hostName == "" {
+		return fmt.Errorf("hostName cannot be empty")
+	}
+
+	hostName = strings.Replace(hostName, ".", "", -1)
+	hostName = strings.Replace(hostName, ":", "", -1)
+	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
+	file := path.Join(config.Home(), pathName)
+	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
