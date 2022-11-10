@@ -1430,7 +1430,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	case string(LoadFromGerrit):
 		base := path.Join(config.S3StoragePath(), args.GerritRepoName)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
-	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
 		base := path.Join(config.S3StoragePath(), args.Repo)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
 	default:
