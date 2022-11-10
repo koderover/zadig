@@ -205,7 +205,7 @@ func buildGitCommands(repo *Repo, hostNames sets.String) []*Command {
 
 	if repo.Source == setting.SourceFromGitlab {
 		u, _ := url.Parse(repo.Address)
-		url := OAuthCloneURL(repo.OauthToken, u.Host, repo.Owner, repo.Name, u.Scheme)
+		url := OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, repo.Owner, repo.Name, u.Scheme)
 		cmds = append(cmds, &Command{
 			Cmd:          RemoteAdd(repo.RemoteName, url),
 			DisableTrace: true,
@@ -340,8 +340,13 @@ func ShowLastLog() *exec.Cmd {
 	)
 }
 
-func OAuthCloneURL(token, address, owner, name, scheme string) string {
-	return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", scheme, "oauth2", token, address, owner, name)
+func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
+	if strings.ToLower(source) == setting.SourceFromGitlab || strings.ToLower(source) == setting.SourceFromOther {
+		// address 需要传过来
+		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", scheme, "oauth2", token, address, owner, name)
+	}
+	//	GITHUB
+	return "github"
 }
 
 func isDirEmpty(dir string) bool {
