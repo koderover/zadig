@@ -877,6 +877,9 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			if source == setting.SourceFromGiteeEE {
 				source = setting.SourceFromGitee
 			}
+			if codehostDetail.Type == setting.SourceFromOther {
+				source = setting.SourceFromOther
+			}
 
 			helmServiceCreationArgs := &helmServiceCreationArgs{
 				ChartName:        serviceName,
