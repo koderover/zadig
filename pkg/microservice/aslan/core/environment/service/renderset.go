@@ -19,8 +19,10 @@ package service
 import (
 	"fmt"
 	"os"
+	"path"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -187,7 +189,7 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 
 	for i, filePath := range paths {
 		wg.Add(1)
-		go func(index int, path string, isOtherTypeRepo bool) {
+		go func(index int, filePath string, isOtherTypeRepo bool) {
 			defer wg.Done()
 			if !isOtherTypeRepo {
 				fileContent, errDownload := fsservice.DownloadFileFromSource(
@@ -196,7 +198,7 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 						Owner:      arg.Owner,
 						Namespace:  arg.Namespace,
 						Repo:       arg.Repo,
-						Path:       path,
+						Path:       filePath,
 						Branch:     arg.Branch,
 						RepoLink:   arg.RepoLink,
 					})
@@ -206,7 +208,8 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 				}
 				fileContentMap.Store(index, fileContent)
 			} else {
-				relativePath := fmt.Sprintf("%s/%s", arg.Repo, path)
+				base := path.Join(config.S3StoragePath(), arg.Repo)
+				relativePath := path.Join(base, filePath)
 				fileContent, err := os.ReadFile(relativePath)
 				if err != nil {
 					err = errors.Wrapf(err, fmt.Sprintf("failed to read file from git repo, relative path %s", relativePath))
