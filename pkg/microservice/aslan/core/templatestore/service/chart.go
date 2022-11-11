@@ -26,6 +26,8 @@ import (
 
 	"github.com/27149chen/afero"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -499,16 +501,6 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 
-		// we need to upload the chart file to the object storage
-		if codehostDetail.Type == setting.SourceFromOther {
-			dirEntry, err := os.ReadDir(path.Join(localBase, path.Base(args.Path)))
-			if err != nil {
-				log.Errorf("Failed to read dir, err: %s", err)
-			}
-			for i, entry := range dirEntry {
-				log.Infof("Entry [%d]: %s", i, entry.Name())
-			}
-		}
 		logger.Debug("Finish to save and upload chart")
 	})
 
@@ -524,12 +516,39 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			_ = os.RemoveAll(tmpDir)
 		}()
 
-		fileName := fmt.Sprintf("%s.tar.gz", filepath.Base(args.Path))
+		fileName := fmt.Sprintf("%s.tar.gz", name)
 		tarball := filepath.Join(tmpDir, fileName)
 		tree := os.DirFS(currentChartPath)
 		if err1 = fsutil.Tar(tree, tarball); err1 != nil {
 			logger.Errorf("Failed to archive files to %s, err: %s", tarball, err1)
 			err = err1
+			return
+		}
+
+		s3Storage, err2 := s3service.FindDefaultS3()
+		if err2 != nil {
+			logger.Errorf("Failed to find default s3, err:%v", err)
+			err = err2
+			return
+		}
+
+		forcedPathStyle := true
+		if s3Storage.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
+		}
+
+		s3Client, err2 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+		if err2 != nil {
+			logger.Errorf("Failed to create s3 client, err: %s", err)
+			err = err2
+			return
+		}
+
+		s3Base := configbase.ObjectStorageChartTemplatePath(name)
+		err2 = s3Client.Upload(s3Storage.Bucket, tarball, s3Base)
+		if err != nil {
+			logger.Errorf("Failed to upload to s3 client, err: %s", err)
+			err = err2
 			return
 		}
 
