@@ -56,6 +56,7 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
+	newBuilds := []*commonmodels.ServiceAndBuild{}
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
@@ -73,7 +74,9 @@ func (j *BuildJob) SetPreset() error {
 				break
 			}
 		}
+		newBuilds = append(newBuilds, build)
 	}
+	j.spec.ServiceAndBuilds = newBuilds
 	j.job.Spec = j.spec
 	return nil
 }
