@@ -545,7 +545,8 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 		}
 
 		s3Base := configbase.ObjectStorageChartTemplatePath(name)
-		err2 = s3Client.Upload(s3Storage.Bucket, tarball, s3Base)
+		s3Path := filepath.Join(s3Storage.Subfolder, s3Base, tarball)
+		err2 = s3Client.Upload(s3Storage.Bucket, tarball, s3Path)
 		if err != nil {
 			logger.Errorf("Failed to upload to s3 client, err: %s", err)
 			err = err2
