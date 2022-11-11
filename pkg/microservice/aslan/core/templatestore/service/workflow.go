@@ -500,7 +500,42 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "istio-20",
 							JobType: config.JobK8sPatch,
-							Spec:    commonmodels.K8sPatchJobSpec{},
+							Spec: commonmodels.K8sPatchJobSpec{
+								PatchItems: []*commonmodels.PatchItem{
+									{
+										PatchContent: `spec:
+  hosts:
+  - demo-service
+  http:
+  - route:
+    - destination:
+        host: demo-service
+        subset: origin
+        weight: {{.originWeight}}
+    - destination:
+        host: demo-service
+        subset: gray
+        weight: {{.grayWeight}}`,
+										PatchStrategy:   "merge",
+										ResourceGroup:   "networking.istio.io",
+										ResourceKind:    "VirtualService",
+										ResourceName:    "istio-demo-vs",
+										ResourceVersion: "v1beta1",
+										Params: []*commonmodels.Param{
+											{
+												Name:       "originWeight",
+												ParamsType: "string",
+												Value:      "80",
+											},
+											{
+												Name:       "grayWeight",
+												ParamsType: "string",
+												Value:      "20",
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -510,13 +545,31 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						Enabled:         true,
 						Timeout:         60,
 						NeededApprovers: 1,
-						Description:     "Confirm switch 100% reaffic",
+						Description:     "Confirm switch 100 traffic",
 					},
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "istio-100",
 							JobType: config.JobK8sPatch,
-							Spec:    commonmodels.K8sPatchJobSpec{},
+							Spec: commonmodels.K8sPatchJobSpec{
+								PatchItems: []*commonmodels.PatchItem{
+									{
+										PatchContent: `spec:
+  hosts:
+  - demo-service
+  http:
+  - route:
+    - destination:
+        host: demo-service
+        subset: origin`,
+										PatchStrategy:   "merge",
+										ResourceGroup:   "networking.istio.io",
+										ResourceKind:    "VirtualService",
+										ResourceName:    "istio-demo-vs",
+										ResourceVersion: "v1beta1",
+									},
+								},
+							},
 						},
 					},
 				},
