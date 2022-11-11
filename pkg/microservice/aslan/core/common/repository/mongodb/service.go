@@ -184,15 +184,6 @@ func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.S
 	return c.listMaxRevisions(m, nil)
 }
 
-func (c *ServiceColl) ListMaxRevisionServicesByYamlTemplate(templateId string) ([]*models.Service, error) {
-	m := bson.M{
-		"template_id": templateId,
-		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
-		"source":      setting.ServiceSourceTemplate,
-	}
-	return c.listMaxRevisions(m, nil)
-}
-
 func (c *ServiceColl) ListMaxRevisionServicesByChartTemplate(templateName string) ([]*models.Service, error) {
 	m := bson.M{
 		"create_from.template_name": templateName,
@@ -657,13 +648,17 @@ func (c *ServiceColl) Count(productName string) (int, error) {
 	return cs[0].Count, nil
 }
 
-func (c *ServiceColl) GetTemplateReference(templateID string) ([]*models.Service, error) {
+func (c *ServiceColl) GetYamlTemplateReference(templateID string) ([]*models.Service, error) {
 	query := bson.M{
-		"template_id": templateID,
-		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+		"source": setting.ServiceSourceTemplate,
 	}
 
-	return c.listMaxRevisions(query, nil)
+	postMatch := bson.M{
+		"template_id": templateID,
+	}
+
+	return c.listMaxRevisions(query, postMatch)
 }
 
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
