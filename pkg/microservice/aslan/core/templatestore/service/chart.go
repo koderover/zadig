@@ -518,6 +518,13 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 
 		fileName := fmt.Sprintf("%s.tar.gz", name)
 		tarball := filepath.Join(tmpDir, fileName)
+		newFilePath := path.Join(currentChartPath, name)
+		renameErr := os.Rename(currentChartPath, newFilePath)
+		if renameErr != nil {
+			logger.Errorf("Failed to rename directory, err: %s", err)
+			err = renameErr
+			return
+		}
 		tree := os.DirFS(currentChartPath)
 		if err1 = fsutil.Tar(tree, tarball); err1 != nil {
 			logger.Errorf("Failed to archive files to %s, err: %s", tarball, err1)
