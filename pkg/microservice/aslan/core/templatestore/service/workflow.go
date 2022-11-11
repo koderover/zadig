@@ -46,6 +46,11 @@ type WorkflowtemplatePreView struct {
 }
 
 func CreateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Template, logger *zap.SugaredLogger) error {
+	if _, err := commonrepo.NewWorkflowV4TemplateColl().Find(&commonrepo.WorkflowTemplateQueryOption{Name: template.TemplateName}); err == nil {
+		errMsg := fmt.Sprintf("工作流模板名称: %s 已存在", template.TemplateName)
+		logger.Error(errMsg)
+		return e.ErrCreateWorkflowTemplate.AddDesc(errMsg)
+	}
 	if err := lintWorkflowTemplate(template, logger); err != nil {
 		return err
 	}
