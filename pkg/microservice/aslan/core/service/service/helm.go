@@ -1426,7 +1426,18 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 		chartName, chartVersion string
 		err                     error
 	)
-	switch args.Source {
+	// FIXME: use a temporary source, make sure it is correct next time
+	tempSource := args.Source
+	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	if err != nil {
+		log.Errorf("failed to get codehost detail, err: %s", err)
+		return nil, err
+	}
+	if ch.Type == setting.SourceFromOther {
+		tempSource = setting.SourceFromOther
+	}
+
+	switch tempSource {
 	case string(LoadFromGerrit):
 		base := path.Join(config.S3StoragePath(), args.GerritRepoName)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
