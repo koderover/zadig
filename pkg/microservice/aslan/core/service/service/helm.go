@@ -1660,4 +1660,18 @@ func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, 
 	); err != nil {
 		log.Errorf("helmService.Create CreateHelmRenderSet error: %v", err)
 	}
+
+	newRenderset := &models.RenderSet{
+		Name:        productName,
+		ProductTmpl: productName,
+		UpdateBy:    createdBy,
+		ChartInfos:  mixtureChartInfos,
+		IsDefault:   true,
+	}
+
+	if err := commonservice.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
+		log.Error(fmt.Errorf("failed to create renderset, name: %s, err: %s", newRenderset.Name, err))
+		return
+	}
+
 }

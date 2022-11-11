@@ -294,16 +294,7 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 		mergedKVs := mergeKVs(args.KVs, rs.KVs)
 		args.KVs = mergedKVs
 	}
-	if err := ensureRenderSetArgs(args); err != nil {
-		log.Error(err)
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
-	}
-	if err := commonrepo.NewRenderSetColl().Create(args); err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", args.Name, err)
-		log.Error(errMsg)
-		return e.ErrCreateRenderSet.AddDesc(errMsg)
-	}
-	return nil
+	return createRenderset(args, log)
 }
 
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
@@ -320,16 +311,7 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 			return nil
 		}
 	}
-	if err := ensureRenderSetArgs(args); err != nil {
-		log.Error(err)
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
-	}
-	if err := commonrepo.NewRenderSetColl().Create(args); err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", args.Name, err)
-		log.Error(errMsg)
-		return e.ErrCreateRenderSet.AddDesc(errMsg)
-	}
-	return nil
+	return createRenderset(args, log)
 }
 
 // CreateHelmRenderSet 添加renderSet
@@ -349,7 +331,16 @@ func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) e
 			return nil
 		}
 	}
-	if err := ensureHelmRenderSetArgs(args); err != nil {
+	return createRenderset(args, log)
+}
+
+func CreateDefaultHelmRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	args.IsDefault = true
+	return createRenderset(args, log)
+}
+
+func createRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	if err := ensureRenderSetArgs(args); err != nil {
 		log.Error(err)
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
@@ -695,30 +686,6 @@ func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 		return errors.New("empty render set name")
 	}
 
-	//log := log.SugaredLogger()
-	//if err := IsAllKeyCovered(args, log); err != nil {
-	//	return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
-	//}
-
-	// 设置新的版本号
-	rev, err := commonrepo.NewCounterColl().GetNextSeq("renderset:" + args.Name)
-	if err != nil {
-		return fmt.Errorf("get next render set revision error: %v", err)
-	}
-
-	args.Revision = rev
-	return nil
-}
-
-// ensureHelmRenderSetArgs ...
-func ensureHelmRenderSetArgs(args *commonmodels.RenderSet) error {
-	if args == nil {
-		return errors.New("nil RenderSet")
-	}
-
-	if len(args.Name) == 0 {
-		return errors.New("empty render set name")
-	}
 	// 设置新的版本号
 	rev, err := commonrepo.NewCounterColl().GetNextSeq("renderset:" + args.Name)
 	if err != nil {
