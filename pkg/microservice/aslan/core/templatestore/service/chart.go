@@ -498,6 +498,17 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			logger.Errorf("Failed to save files to disk, err: %s", err)
 			return
 		}
+
+		// we need to upload the chart file to the object storage
+		if codehostDetail.Type == setting.SourceFromOther {
+			dirEntry, err := os.ReadDir(path.Join(localBase, path.Base(args.Path)))
+			if err != nil {
+				log.Errorf("Failed to read dir, err: %s", err)
+			}
+			for i, entry := range dirEntry {
+				log.Infof("Entry [%d]: %s", i, entry.Name())
+			}
+		}
 		logger.Debug("Finish to save and upload chart")
 	})
 
