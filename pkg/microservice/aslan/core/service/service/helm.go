@@ -1430,13 +1430,15 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	)
 	// FIXME: use a temporary source, make sure it is correct next time
 	tempSource := args.Source
-	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
-	if err != nil {
-		log.Errorf("failed to get codehost detail, err: %s", err)
-		return nil, err
-	}
-	if ch.Type == setting.SourceFromOther {
-		tempSource = setting.SourceFromOther
+	if args.Source == setting.SourceFromGitRepo {
+		ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
+		if err != nil {
+			log.Errorf("failed to get codehost detail, err: %s", err)
+			return nil, err
+		}
+		if ch.Type == setting.SourceFromOther {
+			tempSource = setting.SourceFromOther
+		}
 	}
 
 	switch tempSource {
