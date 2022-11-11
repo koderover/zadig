@@ -113,7 +113,7 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 }
 
 func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
-	ref, err := commonrepo.NewServiceColl().GetTemplateReference(id)
+	ref, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get service reference for template id: %s, the error is: %s", id, err)
 		return err
@@ -134,7 +134,7 @@ func SyncYamlTemplateReference(userName, id string, logger *zap.SugaredLogger) e
 
 func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.ServiceReference, error) {
 	ret := make([]*template.ServiceReference, 0)
-	referenceList, err := commonrepo.NewServiceColl().GetTemplateReference(id)
+	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
 		return ret, err
