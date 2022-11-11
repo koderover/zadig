@@ -90,6 +90,7 @@ func (c *GrayRollbackJobCtl) Run(ctx context.Context) {
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s replica set to %d", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.TotalReplica))
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s image set to %s", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Image))
+	c.ack()
 
 	_, found, err = getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, c.kubeClient)
 	if err != nil {
