@@ -122,7 +122,7 @@ func (p *BuildTaskPlugin) SetBuildStatusCompleted(status config.Status) {
 	p.Task.BuildStatus.EndTime = time.Now().Unix()
 }
 
-//TODO: Binded Archive File logic
+// TODO: Binded Archive File logic
 func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
 	if p.Task.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
 		pipelineCtx.CacheEnable = true
@@ -179,6 +179,8 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 	}
 	pipelineCtx.DockerHost = dockerHost
+
+	pipelineCtx.UseHostDockerDaemon = p.Task.UseHostDockerDaemon
 
 	if pipelineTask.Type == config.WorkflowType {
 		envName := pipelineTask.WorkflowArgs.Namespace
@@ -350,6 +352,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		jobImage := getReaperImage(pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS, p.Task.ImageFrom)
 
 		//Resource request default value is LOW
+
 		job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)
 		if err != nil {
 			msg := fmt.Sprintf("create build job context error: %v", err)

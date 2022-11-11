@@ -26,11 +26,12 @@ import (
 
 func GetDeployment(ns, name string, cl client.Client) (*appsv1.Deployment, bool, error) {
 	g := &appsv1.Deployment{}
+
 	found, err := GetResourceInCache(ns, name, g, cl)
 	if err != nil || !found {
 		g = nil
 	}
-
+	setDeploymentGVK(g)
 	return g, found, err
 }
 
@@ -43,6 +44,7 @@ func ListDeployments(ns string, selector labels.Selector, cl client.Client) ([]*
 
 	var res []*appsv1.Deployment
 	for i := range ss.Items {
+		setDeploymentGVK(&ss.Items[i])
 		res = append(res, &ss.Items[i])
 	}
 	return res, err
@@ -80,4 +82,16 @@ func GetDeploymentYamlFormat(ns string, name string, cl client.Client) ([]byte, 
 		Version: "v1",
 	}
 	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+}
+
+func setDeploymentGVK(deployment *appsv1.Deployment) {
+	if deployment == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Kind:    "Deployment",
+		Version: "v1",
+	}
+	deployment.SetGroupVersionKind(gvk)
 }

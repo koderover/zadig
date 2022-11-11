@@ -241,9 +241,6 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		// search namespace should also include desired namespace
 		job, err := buildJobWithLinkedNs(
 			p.Type(), p.Task.ImageInfo, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Test.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
-			p.KubeNamespace,
-			// this is a useless field, so we will just leave it empty
-			"",
 		)
 
 		job.Namespace = p.KubeNamespace

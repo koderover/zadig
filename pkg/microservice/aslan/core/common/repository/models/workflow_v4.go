@@ -274,16 +274,17 @@ type JobProperties struct {
 	Namespace       string              `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs"`
 	// log user-defined variables, shows in workflow task detail.
-	CustomEnvs   []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
-	Params       []*Param             `bson:"params"                 json:"params"                yaml:"params"`
-	Paths        string               `bson:"-"                      json:"-"                     yaml:"-"`
-	LogFileName  string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
-	DockerHost   string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
-	Registries   []*RegistryNamespace `bson:"registries"             json:"registries"            yaml:"registries"`
-	Cache        types.Cache          `bson:"cache"                  json:"cache"                 yaml:"cache"`
-	CacheEnable  bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
-	CacheDirType types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
-	CacheUserDir string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
+	CustomEnvs          []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
+	Params              []*Param             `bson:"params"                 json:"params"                yaml:"params"`
+	Paths               string               `bson:"-"                      json:"-"                     yaml:"-"`
+	LogFileName         string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
+	DockerHost          string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
+	Registries          []*RegistryNamespace `bson:"registries"             json:"registries"            yaml:"registries"`
+	Cache               types.Cache          `bson:"cache"                  json:"cache"                 yaml:"cache"`
+	CacheEnable         bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
+	CacheDirType        types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
+	CacheUserDir        string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
+	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
 }
 
 type Step struct {
