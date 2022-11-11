@@ -247,7 +247,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name: "MySQL 变更",
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "Mysql-update",
+							Name:    "mysql-update",
 							JobType: config.JobPlugin,
 							Spec: commonmodels.PluginJobSpec{
 								Properties: &commonmodels.JobProperties{
