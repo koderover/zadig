@@ -218,6 +218,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
+	neverRun := len(tasks) == 0
 	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
 
 	for _, workflowModel := range workflowV4List {
@@ -246,7 +247,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			Description:   workflowModel.Description,
 			BaseRefs:      baseRefs,
 			BaseName:      workflowModel.BaseName,
-			NeverRun:      workflowModel.NeverRun,
+			NeverRun:      neverRun,
 		}
 		getRecentTaskV4Info(workflow, tasks)
 		setWorkflowStat(workflow, workflowStatMap)
@@ -300,7 +301,6 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	recentTask := &commonmodels.WorkflowTask{}
 	recentFailedTask := &commonmodels.WorkflowTask{}
 	recentSucceedTask := &commonmodels.WorkflowTask{}
-	workflow.NeverRun = len(tasks) == 0
 	for _, task := range tasks {
 		if task.WorkflowName != workflow.Name {
 			continue
