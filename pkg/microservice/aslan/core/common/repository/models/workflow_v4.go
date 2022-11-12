@@ -46,6 +46,7 @@ type WorkflowV4 struct {
 	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
 	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
 	BaseName       string             `bson:"base_name"           yaml:"-"            json:"base_name"`
+	NeverRun       bool               `bson:"never_run"           yaml:"-"            json:"never_run"`
 }
 
 type WorkflowStage struct {
