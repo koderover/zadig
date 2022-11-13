@@ -307,6 +307,8 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 		}
 		if task.TaskID > recentTask.TaskID {
 			recentTask = task
+		} else {
+			workflow.NeverRun = true
 		}
 		if task.Status == config.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
 			recentSucceedTask = task
