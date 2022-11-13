@@ -214,12 +214,11 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return nil, err
 	}
-	neverRun := false
 	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList})
 	if err != nil {
-		neverRun = len(tasks) == 0
 		return resp, err
 	}
+	neverRun := len(tasks) == 0
 	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
 
 	for _, workflowModel := range workflowV4List {
