@@ -218,6 +218,8 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
+	errStr := fmt.Sprintf("tasks is [%s]!", tasks)
+	e.ErrUpsertWorkflow.AddDesc(errStr)
 	neverRun := len(tasks) == 0
 	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
 
@@ -305,10 +307,11 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 		if task.WorkflowName != workflow.Name {
 			continue
 		}
+		errStr := fmt.Sprintf("task is [%s]!", task)
+		e.ErrUpsertWorkflow.AddDesc(errStr)
+
 		if task.TaskID > recentTask.TaskID {
 			recentTask = task
-		} else {
-			workflow.NeverRun = true
 		}
 		if task.Status == config.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
 			recentSucceedTask = task
