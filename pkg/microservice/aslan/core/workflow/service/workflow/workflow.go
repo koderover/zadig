@@ -685,6 +685,7 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 			Description:      w.Description,
 			BaseName:         w.BaseName,
 			BaseRefs:         baseRefs,
+			NeverRun:         w.NeverRun,
 		})
 
 		workflowNames = append(workflowNames, w.Name)
