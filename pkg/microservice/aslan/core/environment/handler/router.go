@@ -109,8 +109,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
 
-		kube.GET("/k8s/resources", GetResourceDeployStatus)
-		kube.GET("/helm/releases", GetReleaseDeployStatus)
+		kube.POST("/k8s/resources", GetResourceDeployStatus)
+		kube.POST("/helm/releases", GetReleaseDeployStatus)
 
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 

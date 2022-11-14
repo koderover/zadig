@@ -826,6 +826,7 @@ func GetReleaseDeployStatus(productName string, request *DeployStatusCheckReques
 
 	releaseToServiceMap := make(map[string]*ResourceDeployStatus)
 	for _, svcInfo := range productServices {
+		log.Info("##### serviceName: %s, revision: %v", svcInfo.ServiceName, svcInfo.Revision)
 		releaseName := util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, namespace, envName, svcInfo.ServiceName)
 		deployStatus := &ResourceDeployStatus{
 			Type:   "release",
