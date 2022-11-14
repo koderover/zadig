@@ -299,10 +299,12 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	recentTask := &commonmodels.WorkflowTask{}
 	recentFailedTask := &commonmodels.WorkflowTask{}
 	recentSucceedTask := &commonmodels.WorkflowTask{}
+	workflow.NeverRun = true
 	for _, task := range tasks {
 		if task.WorkflowName != workflow.Name {
 			continue
 		}
+		workflow.NeverRun = false
 		if task.TaskID > recentTask.TaskID {
 			recentTask = task
 		}
