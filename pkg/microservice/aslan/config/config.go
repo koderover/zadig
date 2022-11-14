@@ -116,6 +116,10 @@ func S3StoragePath() string {
 	return "/var/lib/workspace"
 }
 
+func Home() string {
+	return viper.GetString(setting.Home)
+}
+
 func EnableGitCheck() bool {
 	return true
 }

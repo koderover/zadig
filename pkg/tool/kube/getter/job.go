@@ -38,6 +38,7 @@ func ListJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1
 
 	var res []*batchv1.Job
 	for i := range jobs.Items {
+		setJobGVK(&jobs.Items[i])
 		res = append(res, &jobs.Items[i])
 	}
 	return res, err
@@ -49,6 +50,19 @@ func GetJob(ns, name string, cl client.Client) (*batchv1.Job, bool, error) {
 	if err != nil || !found {
 		g = nil
 	}
+	setJobGVK(g)
 
 	return g, found, err
+}
+
+func setJobGVK(job *batchv1.Job) {
+	if job == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "batch",
+		Kind:    "Job",
+		Version: "v1",
+	}
+	job.SetGroupVersionKind(gvk)
 }

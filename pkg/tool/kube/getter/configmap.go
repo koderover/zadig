@@ -44,6 +44,7 @@ func ListConfigMaps(ns string, selector labels.Selector, cl client.Client) ([]*c
 
 	var res []*corev1.ConfigMap
 	for i := range l.Items {
+		setConfigMapGVK(&l.Items[i])
 		res = append(res, &l.Items[i])
 	}
 	return res, err
@@ -55,6 +56,7 @@ func GetConfigMap(ns, name string, cl client.Client) (*corev1.ConfigMap, bool, e
 	if err != nil || !found {
 		g = nil
 	}
+	setConfigMapGVK(g)
 
 	return g, found, err
 }
@@ -69,4 +71,16 @@ func GetConfigMapYaml(ns string, name string, cl client.Client) ([]byte, bool, e
 
 func GetConfigMapYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
 	return GetResourceYamlInCacheFormat(ns, name, ConfigMapGVK, cl)
+}
+
+func setConfigMapGVK(configMap *corev1.ConfigMap) {
+	if configMap == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "ConfigMap",
+		Version: "v1",
+	}
+	configMap.SetGroupVersionKind(gvk)
 }

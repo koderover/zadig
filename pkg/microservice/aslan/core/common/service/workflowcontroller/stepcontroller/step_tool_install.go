@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -104,7 +104,7 @@ func (s *toolInstallCtl) AfterRun(ctx context.Context) error {
 	return nil
 }
 
-//根据用户的配置和BuildStep中步骤的依赖，从系统配置的InstallItems中获取配置项，构建Install Context
+// 根据用户的配置和BuildStep中步骤的依赖，从系统配置的InstallItems中获取配置项，构建Install Context
 func buildInstallCtx(name, version string) (*commonmodels.Install, error) {
 	resp := &commonmodels.Install{}
 	if name == "" || version == "" {

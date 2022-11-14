@@ -449,7 +449,8 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 // "s-job":  pipelinename-taskid-tasktype-servicename,
 // "s-task": pipelinename-taskid,
 // "s-type": tasktype,
-func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx,
+	pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	return buildJobWithLinkedNs(
 		taskType,
 		jobImage,
@@ -462,12 +463,10 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterI
 		ctx,
 		pipelineTask,
 		registries,
-		"",
-		"",
 	)
 }
 
-func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
+func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	var (
 		reaperBootingScript string
 		reaperBinaryFile    = pipelineTask.ConfigPayload.Release.ReaperBinaryFile
@@ -533,27 +532,16 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 					ImagePullSecrets: ImagePullSecrets,
 					Containers: []corev1.Container{
 						{
-							ImagePullPolicy: corev1.PullAlways,
-							Name:            labels["s-type"],
-							Image:           jobImage,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "JOB_CONFIG_FILE",
-									Value: path.Join(ctx.ConfigMapMountDir, "job-config.xml"),
-								},
-								// 连接对应wd上的dockerdeamon
-								{
-									Name:  "DOCKER_HOST",
-									Value: ctx.DockerHost,
-								},
-							},
-							VolumeMounts: getVolumeMounts(ctx),
-							Resources:    getResourceRequirements(resReq, resReqSpec),
-
+							ImagePullPolicy:          corev1.PullAlways,
+							Name:                     labels["s-type"],
+							Image:                    jobImage,
+							Env:                      getEnvs(ctx),
+							VolumeMounts:             getVolumeMounts(ctx),
+							Resources:                getResourceRequirements(resReq, resReqSpec),
 							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						},
 					},
-					Volumes: getVolumes(jobName),
+					Volumes: getVolumes(jobName, ctx.UseHostDockerDaemon),
 				},
 			},
 		},
@@ -724,10 +712,32 @@ func getVolumeMounts(ctx *task.PipelineCtx) []corev1.VolumeMount {
 		MountPath: ctx.ConfigMapMountDir,
 	})
 
+	if ctx.UseHostDockerDaemon {
+		resp = append(resp, corev1.VolumeMount{
+			Name:      "docker-sock",
+			MountPath: setting.DefaultDockSock,
+		})
+	}
 	return resp
 }
 
-func getVolumes(jobName string) []corev1.Volume {
+func getEnvs(ctx *task.PipelineCtx) []corev1.EnvVar {
+	ret := make([]corev1.EnvVar, 0)
+	ret = append(ret, corev1.EnvVar{
+		Name:  setting.JobConfigFile,
+		Value: path.Join(ctx.ConfigMapMountDir, "job-config.xml"),
+	})
+
+	if !ctx.UseHostDockerDaemon {
+		ret = append(ret, corev1.EnvVar{
+			Name:  setting.DockerHost,
+			Value: ctx.DockerHost,
+		})
+	}
+	return ret
+}
+
+func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 	resp := make([]corev1.Volume, 0)
 	resp = append(resp, corev1.Volume{
 		Name: "job-config",
@@ -739,6 +749,18 @@ func getVolumes(jobName string) []corev1.Volume {
 			},
 		},
 	})
+
+	if userHostDockerDaemon {
+		resp = append(resp, corev1.Volume{
+			Name: "docker-sock",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: setting.DefaultDockSock,
+					Type: nil,
+				},
+			},
+		})
+	}
 	return resp
 }
 

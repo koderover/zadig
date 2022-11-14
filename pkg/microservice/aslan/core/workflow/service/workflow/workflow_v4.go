@@ -299,10 +299,12 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	recentTask := &commonmodels.WorkflowTask{}
 	recentFailedTask := &commonmodels.WorkflowTask{}
 	recentSucceedTask := &commonmodels.WorkflowTask{}
+	workflow.NeverRun = true
 	for _, task := range tasks {
 		if task.WorkflowName != workflow.Name {
 			continue
 		}
+		workflow.NeverRun = false
 		if task.TaskID > recentTask.TaskID {
 			recentTask = task
 		}
@@ -457,6 +459,10 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	for _, stage := range workflow.Stages {
+		if err := lintApprovals(stage.Approval); err != nil {
+			logger.Errorf("stage: %s approval info error: %v", stage.Name, err)
+			return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("stage: %s approval info error: %v", stage.Name, err))
+		}
 		if _, ok := stageNameMap[stage.Name]; !ok {
 			stageNameMap[stage.Name] = true
 		} else {
@@ -479,6 +485,19 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 				return e.ErrUpsertWorkflow.AddErr(err)
 			}
 		}
+	}
+	return nil
+}
+
+func lintApprovals(approval *commonmodels.Approval) error {
+	if approval == nil {
+		return nil
+	}
+	if !approval.Enabled {
+		return nil
+	}
+	if len(approval.ApproveUsers) < approval.NeededApprovers {
+		return errors.New("all approve users should not less than needed approvers")
 	}
 	return nil
 }

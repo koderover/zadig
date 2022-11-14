@@ -90,13 +90,14 @@ const (
 	ReleaseImageTimeout = "RELEASE_IMAGE_TIMEOUT"
 
 	// reaper
-	Home          = "HOME"
-	PkgFile       = "PKG_FILE"
-	JobConfigFile = "JOB_CONFIG_FILE"
-	DockerAuthDir = "DOCKER_AUTH_DIR"
-	Path          = "PATH"
-	DockerHost    = "DOCKER_HOST"
-	BuildURL      = "BUILD_URL"
+	Home            = "HOME"
+	PkgFile         = "PKG_FILE"
+	JobConfigFile   = "JOB_CONFIG_FILE"
+	DockerAuthDir   = "DOCKER_AUTH_DIR"
+	Path            = "PATH"
+	DockerHost      = "DOCKER_HOST"
+	BuildURL        = "BUILD_URL"
+	DefaultDockSock = "/var/run/docker.sock"
 
 	// jenkins
 	JenkinsBuildImage = "JENKINS_BUILD_IMAGE"

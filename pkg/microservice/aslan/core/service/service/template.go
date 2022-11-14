@@ -201,7 +201,7 @@ func SyncServiceFromTemplate(userName, source, templateId, templateName string, 
 }
 
 func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.SugaredLogger) error {
-	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionServicesByYamlTemplate(templateId)
+	serviceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(templateId)
 	if err != nil {
 		return err
 	}

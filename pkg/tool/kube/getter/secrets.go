@@ -28,6 +28,7 @@ func GetSecret(ns, name string, cl client.Client) (*corev1.Secret, bool, error) 
 	if err != nil || !found {
 		svc = nil
 	}
+	setSecretGVK(svc)
 
 	return svc, found, err
 }
@@ -47,6 +48,7 @@ func ListSecrets(ns string, cl client.Client) ([]*corev1.Secret, error) {
 
 	var res []*corev1.Secret
 	for i := range l.Items {
+		setSecretGVK(&l.Items[i])
 		res = append(res, &l.Items[i])
 	}
 	return res, err
@@ -68,4 +70,16 @@ func GetSecretYamlFormat(ns string, name string, cl client.Client) ([]byte, bool
 		Version: "v1",
 	}
 	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+}
+
+func setSecretGVK(secret *corev1.Secret) {
+	if secret == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Secret",
+		Version: "v1",
+	}
+	secret.SetGroupVersionKind(gvk)
 }
