@@ -208,9 +208,11 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		{
 			TemplateName: "业务变更及测试",
 			BuildIn:      true,
+			Description:  "支持多个服务并行构建、部署、测试过程",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "构建",
+					Name:     "构建",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "build",
@@ -220,7 +222,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "部署",
+					Name:     "部署",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "deploy",
@@ -233,7 +236,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "测试",
+					Name:     "测试",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "test",
@@ -246,6 +250,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "数据库及业务变更",
+			Description:  "支持自动化执行 MySQL 数据变更以及多服务并行构建、部署过程",
 			BuildIn:      true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
@@ -320,7 +325,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "构建",
+					Name:     "构建",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "build",
@@ -330,7 +336,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "部署",
+					Name:     "部署",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "deploy",
@@ -346,11 +353,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "多阶段灰度",
+			Description:  "支持自动化执行多阶段的灰度发布，结合人工审核，确保灰度过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "灰度20%",
+					Name:     "灰度20%",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "gray-20",
@@ -363,7 +372,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "灰度50%",
+					Name:     "灰度50%",
+					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:         true,
 						Timeout:         60,
@@ -383,7 +393,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "灰度100%",
+					Name:     "灰度100%",
+					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:         true,
 						Timeout:         60,
@@ -406,11 +417,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "蓝绿发布",
+			Description:  "支持自动化执行蓝绿发布，结合人工审核，确保蓝绿过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "蓝绿部署",
+					Name:     "蓝绿部署",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "blue-green-deploy",
@@ -420,7 +433,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "蓝绿发布",
+					Name:     "蓝绿发布",
+					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:         true,
 						Timeout:         60,
@@ -441,11 +455,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "金丝雀发布",
+			Description:  "支持自动化执行金丝雀发布，结合人工审核，确保金丝雀发布过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "金丝雀部署",
+					Name:     "金丝雀部署",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "canary-deploy",
@@ -455,7 +471,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "金丝雀发布",
+					Name:     "金丝雀发布",
+					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:         true,
 						Timeout:         60,
@@ -477,11 +494,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "istio发布",
+			Description:  "结合灰度发布以及更新 istio Virtual Service YAML 配置任务，完成新版本灰度上线过程",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "灰度20%",
+					Name:     "灰度20%",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "gray-20",
@@ -494,7 +513,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "istio流量切换20%",
+					Name:     "istio流量切换20%",
+					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:         true,
 						Timeout:         60,
@@ -545,7 +565,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "istio流量切换100%",
+					Name:     "istio流量切换100%",
+					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:         true,
 						Timeout:         60,
@@ -579,7 +600,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name: "灰度100%",
+					Name:     "灰度100%",
+					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:         true,
 						Timeout:         60,
