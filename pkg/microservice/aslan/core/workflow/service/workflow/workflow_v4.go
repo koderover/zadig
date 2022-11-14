@@ -246,7 +246,6 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			Description:   workflowModel.Description,
 			BaseRefs:      baseRefs,
 			BaseName:      workflowModel.BaseName,
-			NeverRun:      workflowModel.NeverRun,
 		}
 		getRecentTaskV4Info(workflow, tasks)
 		setWorkflowStat(workflow, workflowStatMap)
