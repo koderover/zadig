@@ -721,6 +721,7 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 	recentTask := &commonrepo.TaskPreview{}
 	recentFailedTask := &commonrepo.TaskPreview{}
 	recentSucceedTask := &commonrepo.TaskPreview{}
+	workflow.NeverRun = true
 	for _, task := range tasks {
 		if task.PipelineName != workflow.Name {
 			continue
@@ -736,6 +737,7 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 		}
 	}
 	if recentTask.TaskID > 0 {
+		workflow.NeverRun = false
 		workflow.RecentTask = &TaskInfo{
 			TaskID:       recentTask.TaskID,
 			PipelineName: recentTask.PipelineName,
