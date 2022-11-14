@@ -27,14 +27,9 @@ import (
 	"strings"
 	"time"
 
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	"helm.sh/helm/v3/pkg/storage/driver"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,10 +42,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -58,7 +56,9 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -724,14 +724,20 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 
 	resourcesByType := make(map[string]map[string]*ResourceDeployStatus)
 	addDeployStatus := func(deployStatus *ResourceDeployStatus) {
-		if _, ok := resourcesByType[deployStatus.Type]; ok {
+		if _, ok := resourcesByType[deployStatus.Type]; !ok {
 			resourcesByType[deployStatus.Type] = make(map[string]*ResourceDeployStatus)
 		}
 		resourcesByType[deployStatus.Type][deployStatus.Name] = deployStatus
 	}
 
+	fakeRenderSet := &models.RenderSet{
+		KVs: request.Kvs,
+	}
+
 	for _, svc := range productServices {
-		manifests := releaseutil.SplitManifests(svc.Yaml)
+		rederedYaml := commonservice.RenderValueForString(svc.Yaml, fakeRenderSet)
+		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
+		manifests := releaseutil.SplitManifests(rederedYaml)
 		resources := make([]*ResourceDeployStatus, 0)
 		for _, item := range manifests {
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
@@ -826,7 +832,6 @@ func GetReleaseDeployStatus(productName string, request *DeployStatusCheckReques
 
 	releaseToServiceMap := make(map[string]*ResourceDeployStatus)
 	for _, svcInfo := range productServices {
-		log.Info("##### serviceName: %s, revision: %v", svcInfo.ServiceName, svcInfo.Revision)
 		releaseName := util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, namespace, envName, svcInfo.ServiceName)
 		deployStatus := &ResourceDeployStatus{
 			Type:   "release",
