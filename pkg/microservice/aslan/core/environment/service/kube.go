@@ -18,6 +18,7 @@ package service
 
 import (
 	"archive/tar"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -26,10 +27,18 @@ import (
 	"strings"
 	"time"
 
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"helm.sh/helm/v3/pkg/storage/driver"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,8 +60,9 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/kube/util"
+	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type serviceInfo struct {
@@ -432,7 +442,7 @@ func getModifiedServiceFromObjectMetaList(oms []metav1.Object) []*serviceInfo {
 func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 	ls := om.GetLabels()
 	as := om.GetAnnotations()
-	t, _ := util.ParseTime(as[setting.LastUpdateTimeAnnotation])
+	t, _ := kubeutil.ParseTime(as[setting.LastUpdateTimeAnnotation])
 	return &serviceInfo{
 		Name:           ls[setting.ServiceLabel],
 		ModifiedBy:     as[setting.ModifiedByAnnotation],
@@ -701,4 +711,162 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 		}
 	}
 	return resp, nil
+}
+
+func GetResourceDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+	clusterID, namespace := request.ClusterID, request.Namespace
+	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
+	}
+
+	ret := make([]*ServiceDeployStatus, 0)
+
+	resourcesByType := make(map[string]map[string]*ResourceDeployStatus)
+	addDeployStatus := func(deployStatus *ResourceDeployStatus) {
+		if _, ok := resourcesByType[deployStatus.Type]; ok {
+			resourcesByType[deployStatus.Type] = make(map[string]*ResourceDeployStatus)
+		}
+		resourcesByType[deployStatus.Type][deployStatus.Name] = deployStatus
+	}
+
+	for _, svc := range productServices {
+		manifests := releaseutil.SplitManifests(svc.Yaml)
+		resources := make([]*ResourceDeployStatus, 0)
+		for _, item := range manifests {
+			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+			if err != nil {
+				return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err))
+			}
+			rds := &ResourceDeployStatus{
+				Type:   u.GetKind(),
+				Name:   u.GetName(),
+				Status: UnStatusDeployed,
+			}
+			resources = append(resources, rds)
+			addDeployStatus(rds)
+		}
+		ret = append(ret, &ServiceDeployStatus{
+			ServiceName: svc.ServiceName,
+			Resources:   resources,
+		})
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
+		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
+	}
+
+	err = setResourceDeployStatus(namespace, resourcesByType, kubeClient, clientset)
+	return ret, err
+}
+
+func setResourceDeployStatus(namespace string, resourceMap map[string]map[string]*ResourceDeployStatus, kubeClient client.Client, clientset *kubernetes.Clientset) error {
+	_, exist, _ := getter.GetNamespace(namespace, kubeClient)
+	if !exist {
+		return nil
+	}
+
+	allGvks := map[string]schema.GroupVersionKind{
+		getter.DeploymentGVK.Kind:  getter.DeploymentGVK,
+		getter.StatefulSetGVK.Kind: getter.StatefulSetGVK,
+		getter.ServiceGVK.Kind:     getter.ServiceGVK,
+		getter.IngressGVK.Kind:     getter.IngressGVK,
+		getter.ConfigMapGVK.Kind:   getter.ConfigMapGVK,
+		getter.JobGVK.Kind:         getter.JobGVK,
+		getter.CronJobGVK.Kind:     getter.CronJobGVK,
+		getter.RoleGVK.Kind:        getter.RoleGVK,
+		getter.ClusterRoleGVK.Kind: getter.ClusterRoleGVK,
+	}
+
+	version, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Warnf("Failed to determine server version, error is: %s", err)
+	}
+	if kubeclient.VersionLessThan122(version) {
+		allGvks[getter.IngressGVK.Kind] = getter.IngressBetaGVK
+	}
+
+	relatedGvks := make(map[string]schema.GroupVersionKind)
+	for kind, _ := range resourceMap {
+		relatedGvks[kind] = allGvks[kind]
+	}
+
+	for kind, gvk := range relatedGvks {
+		resources := resourceMap[kind]
+		u := &unstructured.UnstructuredList{}
+		u.SetGroupVersionKind(gvk)
+		err := getter.ListResourceInCache(namespace, nil, nil, u, kubeClient)
+		if err != nil {
+			log.Warnf("failed to get resources with gvk: %s, err: %s", gvk, err)
+			continue
+		}
+		for _, item := range u.Items {
+			if deployStatus, ok := resources[item.GetName()]; ok {
+				deployStatus.Status = StatusDeployed
+			}
+		}
+	}
+	return nil
+}
+
+func GetReleaseDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
+	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
+	}
+
+	ret := make([]*ServiceDeployStatus, 0)
+
+	releaseToServiceMap := make(map[string]*ResourceDeployStatus)
+	for _, svcInfo := range productServices {
+		releaseName := util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, namespace, envName, svcInfo.ServiceName)
+		deployStatus := &ResourceDeployStatus{
+			Type:   "release",
+			Name:   releaseName,
+			Status: UnStatusDeployed,
+		}
+		resources := []*ResourceDeployStatus{deployStatus}
+		releaseToServiceMap[releaseName] = deployStatus
+		ret = append(ret, &ServiceDeployStatus{
+			ServiceName: svcInfo.ServiceName,
+			Resources:   resources,
+		})
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
+	}
+	helmClient, err := helmtool.NewClientFromNamespace(clusterID, namespace)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
+	}
+
+	err = setReleaseDeployStatus(namespace, releaseToServiceMap, kubeClient, helmClient)
+	return ret, err
+}
+
+func setReleaseDeployStatus(namespace string, resourceMap map[string]*ResourceDeployStatus, kubeClient client.Client, helmClient *helmtool.HelmClient) error {
+	_, exist, _ := getter.GetNamespace(namespace, kubeClient)
+	if !exist {
+		return nil
+	}
+	for releaseName, deployStatus := range resourceMap {
+		release, err := helmClient.GetRelease(releaseName)
+		if err != nil && !errors.Is(err, driver.ErrReleaseNotFound) {
+			log.Warnf("failed to get release with name: %s, err: %s", releaseName, err)
+			continue
+		}
+		if release != nil {
+			deployStatus.Status = StatusDeployed
+		}
+	}
+	return nil
 }

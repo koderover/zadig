@@ -40,13 +40,11 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
-	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -431,15 +429,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	// delete projectClusterRelation
 	if err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ProjectName: productName}); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s ProjectClusterRelation err: %s", productName, err)
-	}
-
-	// Delete freestyle workflow
-	cl := configclient.New(configbase.AslanServiceAddress())
-	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
-		collieClient := collie.New(config.CollieAPIAddress())
-		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {
-			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %s", productName, err)
-		}
 	}
 
 	err = templaterepo.NewProductColl().Delete(productName)

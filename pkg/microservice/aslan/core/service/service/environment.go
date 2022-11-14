@@ -33,11 +33,11 @@ import (
 )
 
 // The service can be deployed only in the following situations:
-// 1. All general environments are deployable.
-// 2. All base environments are deployable.
-// 3. If the service has been deployed in the baseline environment, all sub-environments of the baseline environment
-//    can deploy the service.
-//    Otherwise, all sub-environments of the baseline environment cannot deploy the service.
+//  1. All general environments are deployable.
+//  2. All base environments are deployable.
+//  3. If the service has been deployed in the baseline environment, all sub-environments of the baseline environment
+//     can deploy the service.
+//     Otherwise, all sub-environments of the baseline environment cannot deploy the service.
 func GetDeployableEnvs(svcName, projectName string) ([]string, error) {
 	// 1. Get all general environments.
 	envs0, err := getAllGeneralEnvs(projectName)
@@ -274,7 +274,7 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 			Visibility:  params.Visibility,
 			Type:        params.Type,
 			Yaml:        yaml,
-			Source:      "spock",
+			Source:      setting.SourceFromZadig,
 		}
 		_, err := CreateServiceTemplate(username, serviceParam, force, log)
 		if err != nil {

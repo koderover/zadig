@@ -19,8 +19,15 @@ package getter
 import (
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var JobGVK = schema.GroupVersionKind{
+	Group:   "batch",
+	Kind:    "Job",
+	Version: "v1",
+}
 
 func ListJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1.Job, error) {
 	jobs := &batchv1.JobList{}

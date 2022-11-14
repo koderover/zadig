@@ -45,6 +45,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		pvcs.GET("/:envName", ListPvcs)
 	}
+
 	commonEnvCfgs := router.Group("envcfgs")
 	{
 		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
@@ -108,6 +109,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
 
+		kube.GET("/k8s/resources", GetResourceDeployStatus)
+		kube.GET("/helm/releases", GetReleaseDeployStatus)
+
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 
 		kube.GET("/pods/:podName/file", DownloadFileFromPod)
@@ -134,6 +138,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/registry", UpdateProductRegistry)
 		environments.PUT("", UpdateMultiProducts)
 		environments.POST("", CreateProduct)
+
 		environments.GET("/:name", GetProduct)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
 		environments.POST("/:name/estimated-values", EstimatedValues)

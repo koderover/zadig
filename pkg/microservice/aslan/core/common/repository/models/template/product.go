@@ -130,16 +130,10 @@ type RenderChart struct {
 }
 
 type ProductFeature struct {
-	// 方案，CI/CD 或者 k8s 或者 not_k8s
-	KodeScheme string `bson:"kode_scheme"                  json:"kode_scheme"`
 	// 基础设施，kubernetes 或者 cloud_host
 	BasicFacility string `bson:"basic_facility"            json:"basic_facility"`
 	// 部署方式，basic_facility=kubernetes时填写，k8s 或者 helm
 	DeployType string `bson:"deploy_type"                  json:"deploy_type"`
-	// 技术架构，micro_service 或者 monomer_application
-	TechArch string `bson:"tech_arch"                      json:"tech_arch"`
-	// 开发习惯，interface_mode 或者 yaml
-	DevelopHabit string `bson:"develop_habit"              json:"develop_habit"`
 	// 创建环境方式,system/external(系统创建/外部环境)
 	CreateEnvType string `bson:"create_env_type"           json:"create_env_type"`
 }

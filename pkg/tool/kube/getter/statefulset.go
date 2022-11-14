@@ -24,6 +24,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var StatefulSetGVK = schema.GroupVersionKind{
+	Group:   "apps",
+	Kind:    "StatefulSet",
+	Version: "v1",
+}
+
 func GetStatefulSet(ns, name string, cl client.Client) (*appsv1.StatefulSet, bool, error) {
 	ss := &appsv1.StatefulSet{}
 	found, err := GetResourceInCache(ns, name, ss, cl)
@@ -56,28 +62,13 @@ func ListStatefulSetsWithCache(selector labels.Selector, lister informers.Shared
 }
 
 func ListStatefulSetsYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "StatefulSet",
-		Version: "v1",
-	}
-	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
+	return ListResourceYamlInCache(ns, selector, nil, StatefulSetGVK, cl)
 }
 
 func GetStatefulSetYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "StatefulSet",
-		Version: "v1",
-	}
-	return GetResourceYamlInCache(ns, name, gvk, cl)
+	return GetResourceYamlInCache(ns, name, StatefulSetGVK, cl)
 }
 
 func GetStatefulSetYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "StatefulSet",
-		Version: "v1",
-	}
-	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+	return GetResourceYamlInCacheFormat(ns, name, StatefulSetGVK, cl)
 }

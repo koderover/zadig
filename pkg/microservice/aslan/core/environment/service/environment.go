@@ -76,140 +76,6 @@ import (
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
-const (
-	Timeout = 60
-)
-
-const (
-	usageScenarioCreateEnv       = "createEnv"
-	usageScenarioUpdateEnv       = "updateEnv"
-	usageScenarioUpdateRenderSet = "updateRenderSet"
-)
-
-type EnvStatus struct {
-	EnvName    string `json:"env_name,omitempty"`
-	Status     string `json:"status"`
-	ErrMessage string `json:"err_message"`
-}
-
-type EnvResp struct {
-	ProjectName string   `json:"projectName"`
-	Status      string   `json:"status"`
-	Error       string   `json:"error"`
-	Name        string   `json:"name"`
-	UpdateBy    string   `json:"updateBy"`
-	UpdateTime  int64    `json:"updateTime"`
-	IsPublic    bool     `json:"isPublic"`
-	ClusterName string   `json:"clusterName"`
-	ClusterID   string   `json:"cluster_id"`
-	Production  bool     `json:"production"`
-	Source      string   `json:"source"`
-	RegistryID  string   `json:"registry_id"`
-	BaseRefs    []string `json:"base_refs"`
-	BaseName    string   `json:"base_name"`
-	IsExisted   bool     `json:"is_existed"`
-
-	// New Since v1.11.0
-	ShareEnvEnable  bool   `json:"share_env_enable"`
-	ShareEnvIsBase  bool   `json:"share_env_is_base"`
-	ShareEnvBaseEnv string `json:"share_env_base_env"`
-}
-
-type ProductResp struct {
-	ID          string                     `json:"id"`
-	ProductName string                     `json:"product_name"`
-	Namespace   string                     `json:"namespace"`
-	Status      string                     `json:"status"`
-	Error       string                     `json:"error"`
-	EnvName     string                     `json:"env_name"`
-	UpdateBy    string                     `json:"update_by"`
-	UpdateTime  int64                      `json:"update_time"`
-	Services    [][]string                 `json:"services"`
-	Render      *commonmodels.RenderInfo   `json:"render"`
-	Vars        []*templatemodels.RenderKV `json:"vars"`
-	IsPublic    bool                       `json:"isPublic"`
-	ClusterID   string                     `json:"cluster_id,omitempty"`
-	ClusterName string                     `json:"cluster_name,omitempty"`
-	RecycleDay  int                        `json:"recycle_day"`
-	IsProd      bool                       `json:"is_prod"`
-	IsLocal     bool                       `json:"is_local"`
-	IsExisted   bool                       `json:"is_existed"`
-	Source      string                     `json:"source"`
-	RegisterID  string                     `json:"registry_id"`
-
-	// New Since v1.11.0
-	ShareEnvEnable  bool   `json:"share_env_enable"`
-	ShareEnvIsBase  bool   `json:"share_env_is_base"`
-	ShareEnvBaseEnv string `json:"share_env_base_env"`
-}
-
-type ProductParams struct {
-	IsPublic        bool     `json:"isPublic"`
-	EnvName         string   `json:"envName"`
-	RoleID          int      `json:"roleId"`
-	PermissionUUIDs []string `json:"permissionUUIDs"`
-}
-
-type EstimateValuesArg struct {
-	DefaultValues  string                  `json:"defaultValues"`
-	OverrideYaml   string                  `json:"overrideYaml"`
-	OverrideValues []*commonservice.KVPair `json:"overrideValues,omitempty"`
-}
-
-type EnvRenderChartArg struct {
-	ChartValues []*commonservice.RenderChartArg `json:"chartValues"`
-}
-
-type EnvRendersetArg struct {
-	DefaultValues     string                          `json:"defaultValues"`
-	ValuesData        *commonservice.ValuesDataArgs   `json:"valuesData"`
-	ChartValues       []*commonservice.RenderChartArg `json:"chartValues"`
-	UpdateServiceTmpl bool                            `json:"updateServiceTmpl"`
-}
-
-type CreateHelmProductArg struct {
-	ProductName   string                          `json:"productName"`
-	EnvName       string                          `json:"envName"`
-	Namespace     string                          `json:"namespace"`
-	ClusterID     string                          `json:"clusterID"`
-	DefaultValues string                          `json:"defaultValues"`
-	ValuesData    *commonservice.ValuesDataArgs   `json:"valuesData"`
-	RegistryID    string                          `json:"registry_id"`
-	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
-	BaseEnvName   string                          `json:"baseEnvName"`
-	BaseName      string                          `json:"base_name,omitempty"`
-	IsExisted     bool                            `json:"is_existed"`
-	// New Since v1.12.0
-	ShareEnv commonmodels.ProductShareEnv `json:"share_env"`
-	// New Since v1.13.0
-	EnvConfigs []*commonmodels.CreateUpdateCommonEnvCfgArgs `json:"env_configs"`
-}
-
-type UpdateMultiHelmProductArg struct {
-	ProductName     string                          `json:"productName"`
-	EnvNames        []string                        `json:"envNames"`
-	ChartValues     []*commonservice.RenderChartArg `json:"chartValues"`
-	DeletedServices []string                        `json:"deletedServices"`
-	ReplacePolicy   string                          `json:"replacePolicy"` // TODO logic not implemented
-}
-
-type RawYamlResp struct {
-	YamlContent string `json:"yamlContent"`
-}
-
-type ReleaseInstallParam struct {
-	ProductName  string
-	Namespace    string
-	ReleaseName  string
-	MergedValues string
-	RenderChart  *templatemodels.RenderChart
-	serviceObj   *commonmodels.Service
-	DryRun       bool
-}
-
-type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error
-type svcUpgradeFilter func(svc *commonmodels.ProductService) bool
-
 func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
@@ -1115,6 +981,13 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			continue
 		}
 		if product, ok := productMap[item.OldName]; ok {
+			chartValues := make([]*ProductHelmServiceCreationInfo, 0)
+			for _, value := range item.ChartValues {
+				chartValues = append(chartValues, &ProductHelmServiceCreationInfo{
+					RenderChartArg: value,
+					DeployStrategy: "deploy",
+				})
+			}
 			args = append(args, &CreateHelmProductArg{
 				ProductName:   projectName,
 				EnvName:       item.NewName,
@@ -1124,7 +997,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 				RegistryID:    product.RegistryID,
 				BaseEnvName:   product.BaseName,
 				BaseName:      item.BaseName,
-				ChartValues:   item.ChartValues,
+				ChartValues:   chartValues,
 				ValuesData:    item.ValuesData,
 			})
 		} else {
@@ -1210,6 +1083,7 @@ func CopyYamlProduct(user, requestID string, args *commonmodels.Product, log *za
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
 	creator := getCreatorBySource(args.Source)
+	args.UpdateBy = user
 	return creator.Create(user, requestID, args, log)
 }
 
@@ -1235,7 +1109,7 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelm
 			EnvName: arg.BaseName,
 		})
 		if err != nil {
-			errList = multierror.Append(errList, fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName))
+			errList = multierror.Append(errList, fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseName))
 			continue
 		}
 		templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(baseProduct)
@@ -2554,7 +2428,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	rs.KVs = updatedKVs
 	err = commonrepo.NewRenderSetColl().Update(rs)
 	if err != nil {
-		log.Errorf("update renderSet error: %v", err)
+		log.Errorf("failed to update renderSet, error: %v", err)
 		return err
 	}
 

@@ -24,6 +24,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var DeploymentGVK = schema.GroupVersionKind{
+	Group:   "apps",
+	Kind:    "Deployment",
+	Version: "v1",
+}
+
 func GetDeployment(ns, name string, cl client.Client) (*appsv1.Deployment, bool, error) {
 	g := &appsv1.Deployment{}
 	found, err := GetResourceInCache(ns, name, g, cl)
@@ -56,28 +62,13 @@ func ListDeploymentsWithCache(selector labels.Selector, lister informers.SharedI
 }
 
 func ListDeploymentsYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "Deployment",
-		Version: "v1",
-	}
-	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
+	return ListResourceYamlInCache(ns, selector, nil, DeploymentGVK, cl)
 }
 
 func GetDeploymentYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "Deployment",
-		Version: "v1",
-	}
-	return GetResourceYamlInCache(ns, name, gvk, cl)
+	return GetResourceYamlInCache(ns, name, DeploymentGVK, cl)
 }
 
 func GetDeploymentYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "Deployment",
-		Version: "v1",
-	}
-	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+	return GetResourceYamlInCacheFormat(ns, name, DeploymentGVK, cl)
 }
