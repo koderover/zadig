@@ -740,13 +740,11 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 		manifests := releaseutil.SplitManifests(rederedYaml)
 		resources := make([]*ResourceDeployStatus, 0)
 		for _, item := range manifests {
+			log.Infof("####### the content of item is %s", string(item))
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 			if err != nil {
 				return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err))
 			}
-
-			log.Info("####### the content of item is %s", string(item))
-
 			rds := &ResourceDeployStatus{
 				Type:   u.GetKind(),
 				Name:   u.GetName(),
