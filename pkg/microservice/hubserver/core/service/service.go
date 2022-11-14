@@ -234,6 +234,9 @@ func Reset() {
 	}
 
 	for _, cluster := range clusters {
+		if cluster.Type == setting.KubeConfigClusterType {
+			continue
+		}
 		if cluster.Status == config.Normal && !cluster.Local {
 			cluster.Status = config.Abnormal
 			err := mongodb.NewK8sClusterColl().UpdateStatus(cluster)
