@@ -305,6 +305,7 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 		if task.WorkflowName != workflow.Name {
 			continue
 		}
+		workflow.NeverRun = false
 		if task.TaskID > recentTask.TaskID {
 			recentTask = task
 		}
@@ -316,7 +317,6 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 		}
 	}
 	if recentTask.TaskID > 0 {
-		workflow.NeverRun = false
 		workflow.RecentTask = &TaskInfo{
 			TaskID:       recentTask.TaskID,
 			PipelineName: recentTask.WorkflowName,
