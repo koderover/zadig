@@ -147,8 +147,9 @@ type ZadigDistributeImageJobSpec struct {
 	// 当 source 为 fromjob 时需要，指定分发镜像来源是上游哪一个构建任务
 	JobName string `bson:"job_name"                       json:"job_name"                      yaml:"job_name"`
 	// 当 source 为 fromjob 时不需要，直接从上游构建任务信息中获取
-	SourceRegistryID string `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
-	TargetRegistryID string `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
+	SourceRegistryID string              `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
+	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
+	Tatgets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
 }
 
 type DistributeTarget struct {
@@ -157,7 +158,7 @@ type DistributeTarget struct {
 	SourceTag     string `bson:"source_tag,omitempty"      yaml:"-"                json:"source_tag,omitempty"`
 	TargetTag     string `bson:"target_tag,omitempty"      yaml:"-"                json:"target_tag,omitempty"`
 	// if UodateTag was false, use SourceTag as TargetTag.
-	UodateTag bool `bson:"update_tag"                yaml:"-"                json:"update_tag"`
+	UseSourceTag bool `bson:"use_source_tag"                yaml:"-"                json:"use_source_tag"`
 }
 
 type ZadigTestingJobSpec struct {
