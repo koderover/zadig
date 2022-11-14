@@ -744,6 +744,9 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 			if err != nil {
 				return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err))
 			}
+
+			log.Info("####### the content of item is %s", string(item))
+
 			rds := &ResourceDeployStatus{
 				Type:   u.GetKind(),
 				Name:   u.GetName(),
