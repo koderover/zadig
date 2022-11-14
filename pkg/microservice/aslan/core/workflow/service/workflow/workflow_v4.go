@@ -302,12 +302,13 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	recentSucceedTask := &commonmodels.WorkflowTask{}
 	for _, task := range tasks {
 		if task.WorkflowName != workflow.Name {
-			workflow.NeverRun = true
 			continue
 		}
-		workflow.NeverRun = false
 		if task.TaskID > recentTask.TaskID {
 			recentTask = task
+			workflow.NeverRun = false
+		} else {
+			workflow.NeverRun = true
 		}
 		if task.Status == config.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
 			recentSucceedTask = task
