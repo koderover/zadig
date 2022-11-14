@@ -184,14 +184,14 @@ type DeployStatusCheckRequest struct {
 	EnvName   string                     `json:"env_name"`
 	ClusterID string                     `json:"cluster_id"`
 	Namespace string                     `json:"namespace"`
-	Kvs       []*templatemodels.RenderKV `json:"kvs"`
+	Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
 type DeployStatus string
 
 const (
 	StatusDeployed   DeployStatus = "deployed"
-	UnStatusDeployed DeployStatus = "undeployed"
+	StatusUnDeployed DeployStatus = "undeployed"
 )
 
 type ResourceDeployStatus struct {

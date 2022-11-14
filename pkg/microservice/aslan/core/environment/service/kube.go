@@ -731,7 +731,7 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 	}
 
 	fakeRenderSet := &models.RenderSet{
-		KVs: request.Kvs,
+		KVs: request.Vars,
 	}
 
 	for _, svc := range productServices {
@@ -740,7 +740,6 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 		manifests := releaseutil.SplitManifests(rederedYaml)
 		resources := make([]*ResourceDeployStatus, 0)
 		for _, item := range manifests {
-			log.Infof("####### the content of item is %s", string(item))
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 			if err != nil {
 				return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err))
@@ -748,7 +747,7 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 			rds := &ResourceDeployStatus{
 				Type:   u.GetKind(),
 				Name:   u.GetName(),
-				Status: UnStatusDeployed,
+				Status: StatusUnDeployed,
 			}
 			resources = append(resources, rds)
 			addDeployStatus(rds)
@@ -814,7 +813,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 			continue
 		}
 		for _, item := range u.Items {
-			if deployStatus, ok := resources[item.GetName()]; ok {
+			if deployStatus, ok := resources[item.GetName()]; ok && deployStatus.Status == StatusUnDeployed {
 				deployStatus.Status = StatusDeployed
 			}
 		}
@@ -837,7 +836,7 @@ func GetReleaseDeployStatus(productName string, request *DeployStatusCheckReques
 		deployStatus := &ResourceDeployStatus{
 			Type:   "release",
 			Name:   releaseName,
-			Status: UnStatusDeployed,
+			Status: StatusUnDeployed,
 		}
 		resources := []*ResourceDeployStatus{deployStatus}
 		releaseToServiceMap[releaseName] = deployStatus
