@@ -526,6 +526,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "istio-20",
 							JobType: config.JobK8sPatch,
 							Spec: commonmodels.K8sPatchJobSpec{
+								ClusterID: setting.LocalClusterID,
+								Namespace: "default",
 								PatchItems: []*commonmodels.PatchItem{
 									{
 										PatchContent: `spec:
@@ -578,6 +580,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "istio-100",
 							JobType: config.JobK8sPatch,
 							Spec: commonmodels.K8sPatchJobSpec{
+								ClusterID: setting.LocalClusterID,
+								Namespace: "default",
 								PatchItems: []*commonmodels.PatchItem{
 									{
 										PatchContent: `spec:
