@@ -386,6 +386,7 @@ var newPackageDependenciesInV1160 = map[string][]string{
 	"node":   {"16.18.1", "18.12.1"},
 	"php":    {"8.0.25", "8.1.12"},
 	"python": {"3.10.8", "3.11"},
+	"yarn":   {"3.2.0", "3.2.4"},
 }
 
 func createNewPackageDependencies() error {
