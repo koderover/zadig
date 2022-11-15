@@ -21,16 +21,21 @@ import (
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func init() {
@@ -50,6 +55,12 @@ func V1150ToV1160() error {
 	if err := addDisplayNameToWorkflow(); err != nil {
 		log.Errorf("addDisplayNameToWorkflow err:%s", err)
 		return err
+	}
+	if err := removeOldPackageDependencies(); err != nil {
+		log.Errorf("removeOldPackageDependencies err:%s", err)
+	}
+	if err := createNewPackageDependencies(); err != nil {
+		log.Errorf("createNewPackageDependencies err:%s", err)
 	}
 	return nil
 }
@@ -329,6 +340,93 @@ func addDisplayNameToWorkflow() error {
 		log.Infof("update %d workflow tasks", len(mTasks))
 		if _, err := mongodb.NewTaskColl().BulkWrite(context.TODO(), mTasks); err != nil {
 			return fmt.Errorf("udpate workflow tasks error: %s", err)
+		}
+	}
+	return nil
+}
+
+var removedPackageDependenciesInV1160 = map[string][]string{
+	"dep":    {"0.4.1"},
+	"ginkgo": {"1.4.0"},
+	"go":     {"1.8.3", "1.9", "1.10.1", "1.11", "1.12.1"},
+	"node":   {"6.11.2", "8.11.3"},
+	"php":    {"5.5", "7.0", "7.1", "7.2"},
+	"python": {"3.6.1", "3.7.0"},
+}
+
+func removeOldPackageDependencies() error {
+	c := mongodb.NewInstallColl()
+
+	for name, versionList := range removedPackageDependenciesInV1160 {
+		for _, version := range versionList {
+			result, err := c.DeleteOne(context.TODO(), bson.M{
+				"name":      name,
+				"version":   version,
+				"update_by": setting.SystemUser,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to delete %s-%s, error: %v", name, version, err)
+			}
+			if result.DeletedCount > 0 {
+				log.Infof("remove %s-%s success", name, version)
+			}
+		}
+	}
+	return nil
+}
+
+var newPackageDependenciesInV1160 = map[string][]string{
+	"dep":    {"0.5.3", "0.5.4"},
+	"ginkgo": {"2.2.0", "2.3.1", "2.4.0", "2.5.0"},
+	"glide":  {"0.13.3"},
+	"go":     {"1.18.8", "1.19.3"},
+	"jMeter": {"5.4.3", "5.5"},
+	"java":   {"17", "19"},
+	"maven":  {"3.8.6"},
+	"node":   {"16.18.1", "18.12.1"},
+	"php":    {"8.0.25", "8.1.12"},
+	"python": {"3.10.8", "3.11"},
+}
+
+func createNewPackageDependencies() error {
+	c := mongodb.NewInstallColl()
+	installMap := systemservice.InitInstallMap()
+
+	for name, versionList := range newPackageDependenciesInV1160 {
+		for _, version := range versionList {
+			fullName := fmt.Sprintf("%s-%s", name, version)
+			installInfo, ok := installMap[fullName]
+			if !ok {
+				log.Infof("can't find %s install info from install map, skip", fullName)
+				continue
+			}
+			pkgInfo := &models.Install{
+				Name:         installInfo.Name,
+				Version:      installInfo.Version,
+				Scripts:      installInfo.Scripts,
+				UpdateTime:   time.Now().Unix(),
+				UpdateBy:     installInfo.UpdateBy,
+				Envs:         installInfo.Envs,
+				BinPath:      installInfo.BinPath,
+				Enabled:      installInfo.Enabled,
+				DownloadPath: installInfo.DownloadPath,
+			}
+
+			oid, err := primitive.ObjectIDFromHex(installInfo.ObjectIDHex)
+			if err != nil {
+				log.Errorf("failed to get %s ObjectID from hex, skip and err: %v", fullName, err)
+				continue
+			}
+			query := bson.M{"_id": oid}
+			change := bson.M{"$set": pkgInfo}
+
+			result, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
+			if err != nil {
+				return fmt.Errorf("update %s failed, err: %v", fullName, err)
+			}
+			if result.UpsertedCount > 0 {
+				log.Infof("create %s install info success", fullName)
+			}
 		}
 	}
 	return nil
