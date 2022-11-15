@@ -84,6 +84,7 @@ func UpdateMultiProducts(c *gin.Context) {
 		updateMultiHelmEnv(c, ctx)
 		return
 	}
+
 	args := make([]*service.UpdateEnv, 0)
 	data, err := c.GetRawData()
 	if err != nil {

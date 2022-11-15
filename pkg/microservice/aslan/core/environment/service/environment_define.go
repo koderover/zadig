@@ -125,12 +125,12 @@ type ProductHelmServiceCreationInfo struct {
 }
 
 type CreateSingleProductArg struct {
-	ProductName string `json:"productName"`
-	EnvName     string `json:"envName"`
+	ProductName string `json:"product_name"`
+	EnvName     string `json:"env_name"`
 	Namespace   string `json:"namespace"`
-	ClusterID   string `json:"clusterID"`
+	ClusterID   string `json:"cluster_id"`
 	RegistryID  string `json:"registry_id"`
-	BaseEnvName string `json:"baseEnvName"`
+	BaseEnvName string `json:"base_env_name"`
 	BaseName    string `json:"base_name,omitempty"` // for collaboration mode
 
 	// for helm products
