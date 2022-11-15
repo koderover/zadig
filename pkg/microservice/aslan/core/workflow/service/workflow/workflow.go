@@ -66,6 +66,7 @@ type Workflow struct {
 	Description          string                     `json:"description,omitempty"`
 	BaseName             string                     `json:"base_name"`
 	BaseRefs             []string                   `json:"base_refs"`
+	NeverRun             bool                       `json:"never_run"`
 }
 
 type TaskInfo struct {
@@ -720,10 +721,12 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 	recentTask := &commonrepo.TaskPreview{}
 	recentFailedTask := &commonrepo.TaskPreview{}
 	recentSucceedTask := &commonrepo.TaskPreview{}
+	workflow.NeverRun = true
 	for _, task := range tasks {
 		if task.PipelineName != workflow.Name {
 			continue
 		}
+		workflow.NeverRun = false
 		if task.TaskID > recentTask.TaskID {
 			recentTask = task
 		}
