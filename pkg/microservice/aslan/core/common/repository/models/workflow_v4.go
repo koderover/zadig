@@ -157,8 +157,8 @@ type DistributeTarget struct {
 	ServiceModule string `bson:"service_module"            yaml:"service_module"   json:"service_module"`
 	SourceTag     string `bson:"source_tag,omitempty"      yaml:"-"                json:"source_tag,omitempty"`
 	TargetTag     string `bson:"target_tag,omitempty"      yaml:"-"                json:"target_tag,omitempty"`
-	// if UodateTag was false, use SourceTag as TargetTag.
-	UseSourceTag bool `bson:"use_source_tag"                yaml:"-"                json:"use_source_tag"`
+	// if UpdateTag was false, use SourceTag as TargetTag.
+	UpdateTag bool `bson:"update_tag"                yaml:"update_tag"                json:"update_tag"`
 }
 
 type ZadigTestingJobSpec struct {

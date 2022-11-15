@@ -126,6 +126,20 @@ type ImageAndServiceModule struct {
 	Image         string `bson:"image"                              json:"image"                                 yaml:"image"`
 }
 
+type JobTaskImageDistributeSpec struct {
+	SourceRegistryID string                  `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
+	TargetRegistryID string                  `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
+	DistributeTarget []*DistributeTaskTarget `bson:"distribute_target"              json:"distribute_target"             yaml:"distribute_target"`
+}
+
+type DistributeTaskTarget struct {
+	SoureImage    string `bson:"source_image"       yaml:"source_image"     json:"source_image"`
+	TargetImage   string `bson:"target_name"        yaml:"target_name"      json:"target_name"`
+	ServiceName   string `bson:"service_name"       yaml:"service_name"     json:"service_name"`
+	ServiceModule string `bson:"service_module"     yaml:"service_module"   json:"service_module"`
+	UpdateTag     bool   `bson:"update_tag"         yaml:"update_tag"       json:"update_tag"`
+}
+
 type JobTaskFreestyleSpec struct {
 	Properties JobProperties `bson:"properties"          json:"properties"        yaml:"properties"`
 	Steps      []*StepTask   `bson:"steps"               json:"steps"             yaml:"steps"`
