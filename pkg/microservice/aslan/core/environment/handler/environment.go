@@ -175,6 +175,8 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
+	log.Info("####### create product, param: %+v ", *createParam)
+
 	if createParam.ProjectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
@@ -186,12 +188,23 @@ func CreateProduct(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 	}
 
+	//allowedClusters, found := internalhandler.GetResourcesInHeader(c)
+	//if found {
+	//	allowedSet := sets.NewString(allowedClusters...)
+	//}
+	//for _, args := range createArgs {
+	//	if !allowedSet.Has(args.ClusterID) {
+	//		c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+	//		return
+	//	}
+	//}
+
 	createArgs := make([]*service.CreateHelmProductArg, 0)
+	if err = json.Unmarshal(data, &createArgs); err != nil {
+		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+	}
 
 	if createParam.Helm {
-		if err = json.Unmarshal(data, &createArgs); err != nil {
-			log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
-		}
 		if createParam.Scene == "copy" {
 			copyHelmProduct(c, createParam, createArgs, string(data), ctx)
 		} else {
@@ -202,15 +215,6 @@ func CreateProduct(c *gin.Context) {
 		args := new(commonmodels.Product)
 		if err = json.Unmarshal(data, args); err != nil {
 			log.Errorf("CreateProduct json.Unmarshal err : %v", err)
-		}
-
-		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
-		if found {
-			allowedSet := sets.NewString(allowedClusters...)
-			if !allowedSet.Has(args.ClusterID) {
-				c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
-				return
-			}
 		}
 
 		if args.EnvName == "" {

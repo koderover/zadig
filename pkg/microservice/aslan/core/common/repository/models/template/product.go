@@ -218,6 +218,14 @@ func (p *Product) AllServiceInfoMap() map[string]*ServiceInfo {
 	return res
 }
 
+func (p *Product) IsHelmProduct() bool {
+	return p.ProductFeature != nil && p.ProductFeature.DeployType == setting.HelmDeployType && p.ProductFeature.BasicFacility == setting.BasicFacilityK8S
+}
+
+func (p *Product) IsK8sYamlProduct() bool {
+	return p.ProductFeature != nil && p.ProductFeature.DeployType == setting.K8SDeployType && p.ProductFeature.BasicFacility == setting.BasicFacilityK8S
+}
+
 func (r *RenderKV) SetAlias() {
 	r.Alias = "{{." + r.Key + "}}"
 }
