@@ -394,7 +394,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 	installInfoPreset["go-1.19.3"] = &commonmodels.Install{
 		ObjectIDHex:  "63722795351717b8ad70dd01",
 		Name:         "go",
-		Version:      "1.13",
+		Version:      "1.19.3",
 		DownloadPath: "http://42.193.109.248:36777/staticstaticstaticstatic/go1.19.3.linux-amd64.tar.gz",
 		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
 		Envs:         []string{},
