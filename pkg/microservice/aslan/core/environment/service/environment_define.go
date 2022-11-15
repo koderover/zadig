@@ -174,7 +174,7 @@ type ReleaseInstallParam struct {
 
 type CreateEnvRequest struct {
 	Scene       string `from:"scene"`
-	Helm        bool   `form:"helm"`
+	Type        string `form:"type"`
 	ProjectName string `form:"projectName"`
 }
 

@@ -3619,35 +3619,6 @@ func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo 
 	return true
 }
 
-// find related keys of service modules when container image changed in env since imported
-func getImageChangeInvolvedKeys(prodService *commonmodels.ProductService, revisionSvc, latestSvc *commonmodels.Service) sets.String {
-	imageSet := sets.NewString()
-	latestContainer := make(map[string]*commonmodels.Container)
-	revisionSvcMap := make(map[string]*commonmodels.Container)
-	for _, c := range latestSvc.Containers {
-		latestContainer[c.Name] = c
-	}
-	for _, c := range revisionSvc.Containers {
-		revisionSvcMap[c.Name] = c
-	}
-
-	for _, prodContainer := range prodService.Containers {
-		revisionSvcContainer, ok := revisionSvcMap[prodContainer.Name]
-		if !ok {
-			continue
-		}
-		if prodContainer.Image == revisionSvcContainer.Image {
-			continue
-		}
-		lc, ok := latestContainer[prodContainer.Name]
-		if !ok || lc.ImagePath == nil {
-			continue
-		}
-		imageSet.Insert(lc.ImagePath.Image, lc.ImagePath.Tag, lc.ImagePath.Repo)
-	}
-	return imageSet
-}
-
 // for keys exist in both yaml, current values will override the latest values
 // only for images
 func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey sets.String) ([]byte, error) {

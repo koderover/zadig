@@ -225,49 +225,46 @@ func CreateProduct(c *gin.Context) {
 		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
 	}
 
-	if createParam.Helm {
+	if createParam.Type == setting.HelmDeployType {
 		if createParam.Scene == "copy" {
 			copyHelmProduct(c, createParam, createArgs, string(data), ctx)
 		} else {
 			createHelmProduct(c, createParam, createArgs, string(data), ctx)
 		}
 		return
-	} else {
+	} else if createParam.Type == setting.K8SDeployType {
 		if createParam.Scene == "copy" {
 			copyYamlProduct(c, createParam, createArgs, string(data), ctx)
 		} else {
 			createYamlProduct(c, createParam, createArgs, string(data), ctx)
 		}
+	} else {
+		// 'auto = true' only happens in the onboarding progress of pm projects
+		if c.Query("auto") == "true" {
+			ctx.Resp = service.AutoCreateProduct(c.Query("projectName"), c.Query("envType"), ctx.RequestID, ctx.Logger)
+			return
+		}
+
+		args := new(commonmodels.Product)
+		if err = json.Unmarshal(data, args); err != nil {
+			log.Errorf("CreateProduct json.Unmarshal err : %v", err)
+		}
+
+		internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+		if err := c.BindJSON(args); err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		if args.EnvName == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+			return
+		}
+
+		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
 	}
-
-	if c.Query("auto") == "true" {
-		ctx.Resp = service.AutoCreateProduct(c.Query("projectName"), c.Query("envType"), ctx.RequestID, ctx.Logger)
-		return
-	}
-
-	//args := new(commonmodels.Product)
-	//if err = json.Unmarshal(data, args); err != nil {
-	//	log.Errorf("CreateProduct json.Unmarshal err : %v", err)
-	//}
-
-	//internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
-	//c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	//
-	//if err := c.BindJSON(args); err != nil {
-	//	ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-	//	return
-	//}
-
-	//if args.EnvName == "" {
-	//	ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-	//	return
-	//}
-
-	//if c.Query("scene") == "copy" {
-	//	ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
-	//} else {
-	//	ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
-	//}
 }
 
 type UpdateProductParams struct {
