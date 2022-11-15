@@ -116,7 +116,7 @@ func UpdateMultiProducts(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, c.Query("projectName"), ctx.RequestID, force, ctx.Logger)
 }
 
-func createHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateHelmProductArg, requestBody string, ctx *internalhandler.Context) {
+func createHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameList := make([]string, 0)
 	for _, arg := range createArgs {
 		if arg.EnvName == "" {
@@ -132,7 +132,7 @@ func createHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createAr
 	)
 }
 
-func copyHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateHelmProductArg, requestBody string, ctx *internalhandler.Context) {
+func copyHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameCopyList := make([]string, 0)
 	envNames := make([]string, 0)
 	for _, arg := range createArgs {
@@ -145,20 +145,41 @@ func copyHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs
 		envNames = append(envNames, arg.EnvName)
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), requestBody, ctx.Logger, envNames...)
-
 	ctx.Err = service.CopyHelmProduct(
 		param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
 	)
 }
 
-func createYamlProduct(c *gin.Context, param *service.CreateEnvRequest, args *commonmodels.Product, requestBody string, ctx *internalhandler.Context) {
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, requestBody, ctx.Logger, args.EnvName)
-	ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
+func createYamlProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
+	envNameList := make([]string, 0)
+	for _, arg := range createArgs {
+		if arg.EnvName == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envName is empty")
+			return
+		}
+		arg.ProductName = param.ProjectName
+		envNameList = append(envNameList, arg.EnvName)
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, ctx.Logger, envNameList...)
+	ctx.Err = service.CreateK8sProduct(
+		param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
+	)
 }
 
-func copyYamlProduct(c *gin.Context, param *service.CreateEnvRequest, args *commonmodels.Product, requestBody string, ctx *internalhandler.Context) {
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "复制", "环境", args.BaseEnvName+"-->"+args.EnvName, requestBody, ctx.Logger, args.EnvName)
-	ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
+func copyYamlProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
+	envNameCopyList := make([]string, 0)
+	envNames := make([]string, 0)
+	for _, arg := range createArgs {
+		if arg.EnvName == "" || arg.BaseEnvName == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envName or baseEnvName is empty")
+			return
+		}
+		arg.ProductName = param.ProjectName
+		envNameCopyList = append(envNameCopyList, arg.BaseEnvName+"-->"+arg.EnvName)
+		envNames = append(envNames, arg.EnvName)
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), requestBody, ctx.Logger, envNames...)
+	ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, param.ProjectName, createArgs, ctx.Logger)
 }
 
 // CreateProduct creates new product
@@ -199,7 +220,7 @@ func CreateProduct(c *gin.Context) {
 	//	}
 	//}
 
-	createArgs := make([]*service.CreateHelmProductArg, 0)
+	createArgs := make([]*service.CreateSingleProductArg, 0)
 	if err = json.Unmarshal(data, &createArgs); err != nil {
 		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
 	}
@@ -212,20 +233,10 @@ func CreateProduct(c *gin.Context) {
 		}
 		return
 	} else {
-		args := new(commonmodels.Product)
-		if err = json.Unmarshal(data, args); err != nil {
-			log.Errorf("CreateProduct json.Unmarshal err : %v", err)
-		}
-
-		if args.EnvName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-			return
-		}
-
 		if createParam.Scene == "copy" {
-			copyYamlProduct(c, createParam, args, string(data), ctx)
+			copyYamlProduct(c, createParam, createArgs, string(data), ctx)
 		} else {
-			createYamlProduct(c, createParam, args, string(data), ctx)
+			createYamlProduct(c, createParam, createArgs, string(data), ctx)
 		}
 	}
 

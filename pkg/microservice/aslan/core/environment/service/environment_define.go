@@ -124,7 +124,7 @@ type ProductHelmServiceCreationInfo struct {
 	DeployStrategy string `json:"deploy_strategy"`
 }
 
-type CreateHelmProductArg struct {
+type CreateSingleProductArg struct {
 	ProductName string `json:"productName"`
 	EnvName     string `json:"envName"`
 	Namespace   string `json:"namespace"`
@@ -139,8 +139,8 @@ type CreateHelmProductArg struct {
 	ChartValues   []*ProductHelmServiceCreationInfo `json:"chartValues"`
 
 	// for k8s products
-	Vars     []*templatemodels.RenderKV       `json:"vars"`
-	Services []*ProductK8sServiceCreationInfo `json:"services"`
+	Vars     []*templatemodels.RenderKV         `json:"vars"`
+	Services [][]*ProductK8sServiceCreationInfo `json:"services"`
 
 	IsExisted bool `json:"is_existed"`
 
@@ -173,9 +173,9 @@ type ReleaseInstallParam struct {
 }
 
 type CreateEnvRequest struct {
-	Scene       string `json:"scene"`
-	Helm        bool   `json:"helm"`
-	ProjectName string `json:"projectName"`
+	Scene       string `from:"scene"`
+	Helm        bool   `form:"helm"`
+	ProjectName string `form:"projectName"`
 }
 
 // ------------ used for api of getting deploy status of k8s resource/helm release
