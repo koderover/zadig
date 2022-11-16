@@ -195,11 +195,10 @@ func (c *InstallColl) InitInstallData(installInfoPreset map[string]*models.Insta
 			if installs.UpdateBy != setting.SystemUser {
 				continue
 			}
-			//TODO only for debug
-			//err := c.UpdateSystemDefault(installs.Name, installs.Version, installInfoPreset)
-			//if err != nil {
-			//	log.Errorf("failed to initialize package: %s, the error is: %v", installs.Name, err)
-			//}
+			err := c.UpdateSystemDefault(installs.Name, installs.Version, installInfoPreset)
+			if err != nil {
+				log.Errorf("failed to initialize package: %s, the error is: %v", installs.Name, err)
+			}
 		}
 	}
 
