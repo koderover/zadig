@@ -27,7 +27,6 @@ type Install struct {
 	BinPath      string   `bson:"bin_path"               json:"bin_path"`
 	Enabled      bool     `bson:"enabled"                json:"enabled"`
 	DownloadPath string   `bson:"download_path"          json:"download_path"`
-	IsDeleted    *bool    `bson:"is_deleted"             json:"-"`
 }
 
 func (Install) TableName() string {
