@@ -58,7 +58,7 @@ func (j *BuildJob) SetPreset() error {
 
 	newBuilds := []*commonmodels.ServiceAndBuild{}
 	for _, build := range j.spec.ServiceAndBuilds {
-		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		build.HasBuild = true
 		if err != nil {
 			build.HasBuild = false
