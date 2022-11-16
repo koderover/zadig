@@ -44,11 +44,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-const (
-	JobNameRegx  = "^[a-z][a-z0-9-]{0,31}$"
-	WorkflowRegx = "^[a-z0-9-]+$"
-)
-
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	existedWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
 	if err == nil {
@@ -247,6 +242,9 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			BaseRefs:      baseRefs,
 			BaseName:      workflowModel.BaseName,
 		}
+		if workflowModel.Category == setting.ReleaseWorkflow {
+			workflow.WorkflowType = string(setting.ReleaseWorkflow)
+		}
 		getRecentTaskV4Info(workflow, tasks)
 		setWorkflowStat(workflow, workflowStatMap)
 
@@ -423,7 +421,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		logger.Errorf(err.Error())
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
-	match, err := regexp.MatchString(WorkflowRegx, workflow.Name)
+	match, err := regexp.MatchString(setting.WorkflowRegx, workflow.Name)
 	if err != nil {
 		logger.Errorf("reg compile failed: %v", err)
 		return e.ErrUpsertWorkflow.AddErr(err)
@@ -453,7 +451,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 	stageNameMap := make(map[string]bool)
 	jobNameMap := make(map[string]string)
 
-	reg, err := regexp.Compile(JobNameRegx)
+	reg, err := regexp.Compile(setting.JobNameRegx)
 	if err != nil {
 		logger.Errorf("reg compile failed: %v", err)
 		return e.ErrUpsertWorkflow.AddErr(err)
@@ -471,8 +469,8 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		}
 		for _, job := range stage.Jobs {
 			if match := reg.MatchString(job.Name); !match {
-				logger.Errorf("job name [%s] did not match %s", job.Name, JobNameRegx)
-				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, JobNameRegx))
+				logger.Errorf("job name [%s] did not match %s", job.Name, setting.JobNameRegx)
+				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, setting.JobNameRegx))
 			}
 			if _, ok := jobNameMap[job.Name]; !ok {
 				jobNameMap[job.Name] = string(job.JobType)

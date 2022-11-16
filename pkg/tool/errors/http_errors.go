@@ -740,4 +740,14 @@ var (
 	ErrEditVariableSet   = NewHTTPError(6902, "编辑变量集失败")
 	ErrDeleteVariableSet = NewHTTPError(6903, "删除变量集失败")
 	ErrCreateVariableSet = NewHTTPError(6904, "创建变量集失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// workflow template releated errors: 6910-6919
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateWorkflowTemplate = NewHTTPError(6910, "创建工作流模板失败")
+	ErrUpdateWorkflowTemplate = NewHTTPError(6911, "更新工作流模板失败")
+	ErrListWorkflowTemplate   = NewHTTPError(6912, "列出工作流模板失败")
+	ErrGetWorkflowTemplate    = NewHTTPError(6913, "获取工作流模板失败")
+	ErrDeleteWorkflowTemplate = NewHTTPError(6914, "删除工作流模板失败")
+	ErrLintWorkflowTemplate   = NewHTTPError(6915, "检查工作流模板失败")
 )
