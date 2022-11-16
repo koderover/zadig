@@ -127,17 +127,19 @@ type ImageAndServiceModule struct {
 }
 
 type JobTaskImageDistributeSpec struct {
-	SourceRegistryID string                  `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
-	TargetRegistryID string                  `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
+	SourceRegistry   *RegistryNamespace      `bson:"source_registry"                json:"source_registry"               yaml:"source_registry"`
+	TargetRegistry   *RegistryNamespace      `bson:"target_registry"                json:"target_registry"               yaml:"target_registry"`
 	DistributeTarget []*DistributeTaskTarget `bson:"distribute_target"              json:"distribute_target"             yaml:"distribute_target"`
 }
 
 type DistributeTaskTarget struct {
-	SoureImage    string `bson:"source_image"       yaml:"source_image"     json:"source_image"`
-	TargetImage   string `bson:"target_name"        yaml:"target_name"      json:"target_name"`
-	ServiceName   string `bson:"service_name"       yaml:"service_name"     json:"service_name"`
-	ServiceModule string `bson:"service_module"     yaml:"service_module"   json:"service_module"`
-	UpdateTag     bool   `bson:"update_tag"         yaml:"update_tag"       json:"update_tag"`
+	SoureImage    string        `bson:"source_image"       yaml:"source_image"     json:"source_image"`
+	TargetImage   string        `bson:"target_name"        yaml:"target_name"      json:"target_name"`
+	ServiceName   string        `bson:"service_name"       yaml:"service_name"     json:"service_name"`
+	ServiceModule string        `bson:"service_module"     yaml:"service_module"   json:"service_module"`
+	UpdateTag     bool          `bson:"update_tag"         yaml:"update_tag"       json:"update_tag"`
+	Status        config.Status `bson:"status"             yaml:"status"           json:"status"`
+	Error         string        `bson:"error"              yaml:"error"            json:"error"`
 }
 
 type JobTaskFreestyleSpec struct {

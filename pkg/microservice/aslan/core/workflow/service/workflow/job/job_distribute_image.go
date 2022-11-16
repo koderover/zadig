@@ -115,10 +115,6 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		}
 		j.spec.Tatgets = newTargets
 	}
-	jobSpec := &commonmodels.JobTaskImageDistributeSpec{
-		SourceRegistryID: j.spec.SourceRegistryID,
-		TargetRegistryID: j.spec.TargetRegistryID,
-	}
 	sourceReg, _, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("source image registry: %s not found: %v", j.spec.SourceRegistryID, err)
@@ -126,6 +122,10 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	targetReg, _, err := commonservice.FindRegistryById(j.spec.TargetRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
+	}
+	jobSpec := &commonmodels.JobTaskImageDistributeSpec{
+		SourceRegistry: sourceReg,
+		TargetRegistry: targetReg,
 	}
 	jobTask := &commonmodels.JobTask{
 		Name:    j.job.Name,

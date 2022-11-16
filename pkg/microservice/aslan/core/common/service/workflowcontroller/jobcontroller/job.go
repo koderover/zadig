@@ -65,6 +65,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewGrayRollbackJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobK8sPatch):
 		jobCtl = NewK8sPatchJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobZadigDistributeImage):
+		jobCtl = NewDistributeImageJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

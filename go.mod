@@ -15,7 +15,7 @@ require (
 	github.com/buraksezer/consistent v0.9.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cespare/xxhash v1.1.0
-	github.com/chartmuseum/helm-push v0.10.3
+	github.com/chartmuseum/helm-push v0.10.2
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coocood/freecache v1.2.2
 	github.com/coreos/go-oidc/v3 v3.0.0
@@ -115,6 +115,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/docker/libnetwork v0.5.6 // indirect
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
@@ -205,6 +206,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/regclient/regclient v0.4.5 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rubenv/sql-migrate v1.1.1 // indirect
 	github.com/russross/blackfriday v1.5.2 // indirect
