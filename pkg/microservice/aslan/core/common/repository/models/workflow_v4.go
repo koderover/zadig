@@ -46,6 +46,7 @@ type WorkflowV4 struct {
 	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
 	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
 	BaseName       string             `bson:"base_name"           yaml:"-"            json:"base_name"`
+	HasBuild       bool               `bson:"has_build"           yaml:"-"            json:"has_build"`
 }
 
 type WorkflowStage struct {
@@ -122,6 +123,7 @@ type ServiceAndBuild struct {
 	Package       string              `bson:"-"                   yaml:"-"                json:"package"`
 	KeyVals       []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
 	Repos         []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+	HasBuild      bool                `bson:"has_build"           yaml:"has_build"        json:"has_build"`
 }
 
 type ZadigDeployJobSpec struct {

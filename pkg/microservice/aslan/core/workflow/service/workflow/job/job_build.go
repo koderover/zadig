@@ -58,7 +58,9 @@ func (j *BuildJob) SetPreset() error {
 
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+		build.HasBuild = true
 		if err != nil {
+			build.HasBuild = false
 			log.Errorf("find build: %s error: %v", build.BuildName, err)
 			continue
 		}

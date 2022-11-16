@@ -67,6 +67,7 @@ type Workflow struct {
 	BaseName             string                     `json:"base_name"`
 	BaseRefs             []string                   `json:"base_refs"`
 	NeverRun             bool                       `json:"never_run"`
+	HasBuild             bool                       `json:"has_build"`
 }
 
 type TaskInfo struct {
