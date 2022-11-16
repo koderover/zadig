@@ -128,7 +128,7 @@ func (c *InstallColl) UpdateSystemDefault(name, version string, installInfoPrese
 	packageKey := fmt.Sprintf("%s-%s", name, version)
 
 	installInfo := installInfoPreset[packageKey]
-	
+
 	oid, err := primitive.ObjectIDFromHex(installInfo.ObjectIDHex)
 	if err != nil {
 		return err
@@ -195,10 +195,11 @@ func (c *InstallColl) InitInstallData(installInfoPreset map[string]*models.Insta
 			if installs.UpdateBy != setting.SystemUser {
 				continue
 			}
-			err := c.UpdateSystemDefault(installs.Name, installs.Version, installInfoPreset)
-			if err != nil {
-				log.Errorf("failed to initialize package: %s, the error is: %v", installs.Name, err)
-			}
+			//TODO only for debug
+			//err := c.UpdateSystemDefault(installs.Name, installs.Version, installInfoPreset)
+			//if err != nil {
+			//	log.Errorf("failed to initialize package: %s, the error is: %v", installs.Name, err)
+			//}
 		}
 	}
 
