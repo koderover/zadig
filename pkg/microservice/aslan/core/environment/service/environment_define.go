@@ -17,10 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"go.uber.org/zap"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"go.uber.org/zap"
 )
 
 const (
@@ -173,9 +174,11 @@ type ReleaseInstallParam struct {
 }
 
 type CreateEnvRequest struct {
-	Scene       string `from:"scene"`
+	Scene       string `form:"scene"`
 	Type        string `form:"type"`
 	ProjectName string `form:"projectName"`
+	Auto        bool   `form:"auto"`
+	EnvType     string `form:"envType"`
 }
 
 type UpdateEnvRequest struct {

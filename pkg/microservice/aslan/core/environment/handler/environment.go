@@ -80,7 +80,7 @@ func UpdateMultiProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	request := service.UpdateEnvRequest{}
+	request := &service.UpdateEnvRequest{}
 	err := c.ShouldBindQuery(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
@@ -161,7 +161,7 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 }
 
 // CreateProduct creates new product
-// Query param `helm` determines if is helm project
+// Query param `type` determines the type of product
 // Query param `scene` determines if the product is copied from some project
 func CreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -209,8 +209,8 @@ func CreateProduct(c *gin.Context) {
 		return
 	} else {
 		// 'auto = true' only happens in the onboarding progress of pm projects
-		if c.Query("auto") == "true" {
-			ctx.Resp = service.AutoCreateProduct(c.Query("projectName"), c.Query("envType"), ctx.RequestID, ctx.Logger)
+		if createParam.Auto {
+			ctx.Resp = service.AutoCreateProduct(createParam.ProjectName, createParam.EnvType, ctx.RequestID, ctx.Logger)
 			return
 		}
 
