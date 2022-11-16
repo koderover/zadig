@@ -438,6 +438,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}
 
 	resultAddr := ""
+	log.Infof("[DEBUG sonar] start")
 
 	if scanningInfo.ScannerType == "sonarQube" {
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
@@ -460,6 +461,8 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 			return key
 		}(scanningInfo.Parameter)
 
+		log.Infof("[DEBUG sonar] project key: %s", projectKey)
+
 		if projectKey != "" {
 			u, err := url.Parse(resultAddr)
 			if err != nil {
@@ -470,6 +473,8 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 			u.RawQuery = url.Values{"id": {projectKey}}.Encode()
 			resultAddr = u.String()
 		}
+
+		log.Infof("[DEBUG sonar] result addr: %s", resultAddr)
 	}
 
 	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]
