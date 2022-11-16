@@ -779,15 +779,18 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 		}
 	}
 
+	serviceDeployStrategy := make(map[string]string)
 	// build product services
 	productObj.Services = make([][]*commonmodels.ProductService, 0)
 	for _, svcGroup := range arg.Services {
 		sg := make([]*commonmodels.ProductService, 0)
 		for _, svc := range svcGroup {
 			sg = append(sg, svc.ProductService)
+			serviceDeployStrategy[svc.ServiceName] = svc.DeployStrategy
 		}
 		productObj.Services = append(productObj.Services, sg)
 	}
+	productObj.ServiceDeployStrategy = serviceDeployStrategy
 	return nil
 }
 
@@ -805,6 +808,8 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		templateChartInfoMap[tc.ServiceName] = tc
 	}
 
+	serviceDeployStrategy := make(map[string]string)
+
 	// user custom chart values
 	cvMap := make(map[string]*templatemodels.RenderChart)
 	for _, singleCV := range arg.ChartValues {
@@ -817,7 +822,10 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		chartInfo.ValuesYaml = tc.ValuesYaml
 		productObj.ChartInfos = append(productObj.ChartInfos, chartInfo)
 		cvMap[singleCV.ServiceName] = chartInfo
+		serviceDeployStrategy[singleCV.ServiceName] = singleCV.DeployStrategy
 	}
+
+	productObj.ServiceDeployStrategy = serviceDeployStrategy
 
 	// default values
 	defaultValuesYaml := arg.DefaultValues
@@ -1038,7 +1046,7 @@ func CopyYamlProduct(user, requestID, projectName string, args []*CreateSinglePr
 			}
 		}
 
-		err = createSingleK8sProduct(templateProduct, requestID, user, arg, log)
+		err = createSingleYamlProduct(templateProduct, requestID, user, arg, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
@@ -1822,7 +1830,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, renderset *com
 	}
 
 	go func() {
-		err := proceedHelmRelease(productName, envName, productResp, renderset, helmClient, nil, log)
+		err := proceedHelmRelease(productResp, renderset, helmClient, nil, log)
 		if err != nil {
 			log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 			// 发送更新产品失败消息给用户
@@ -2509,8 +2517,9 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	return ret, nil
 }
 
-func createGroups(envName, user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
+func createGroups(user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var err error
+	envName := args.EnvName
 	defer func() {
 		status := setting.ProductStatusSuccess
 		errorMsg := ""
@@ -2543,7 +2552,7 @@ func createGroups(envName, user, requestID string, args *commonmodels.Product, e
 	}
 
 	for _, group := range args.Services {
-		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(envName, args.ProductName, user, group, renderSet, informer, kubeClient)
+		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(user, args, group, renderSet, informer, kubeClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("createGroup error :%+v", err)
@@ -3283,12 +3292,13 @@ func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	return err
 }
 
-func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
+func installProductHelmCharts(user, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
 	kclient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var (
 		err     error
 		errList = &multierror.Error{}
 	)
+	envName := args.EnvName
 
 	defer func() {
 		if err != nil {
@@ -3310,7 +3320,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
 
-	err = proceedHelmRelease(args.ProductName, args.EnvName, args, renderset, helmClient, nil, log)
+	err = proceedHelmRelease(args, renderset, helmClient, nil, log)
 	if err != nil {
 		log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, envName, err)
 		errList = multierror.Append(errList, err)
@@ -3462,7 +3472,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 		return err
 	}
 
-	err = proceedHelmRelease(productName, envName, productResp, renderSet, helmClient, filter, log)
+	err = proceedHelmRelease(productResp, renderSet, helmClient, filter, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err
@@ -3700,6 +3710,9 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 			if _, ok := renderChartMap[service.ServiceName]; !ok {
 				continue
 			}
+			if !installResource(service.ServiceName, productResp.ServiceDeployStrategy) {
+				continue
+			}
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName: service.ServiceName,
 				Type:        service.Type,
@@ -3729,7 +3742,8 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 	return errList.ErrorOrNil()
 }
 
-func proceedHelmRelease(productName, envName string, productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
+func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
+	productName, envName := productResp.ProductName, productResp.EnvName
 	renderChartMap := make(map[string]*templatemodels.RenderChart)
 	for _, renderChart := range productResp.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
@@ -3767,6 +3781,9 @@ func proceedHelmRelease(productName, envName string, productResp *commonmodels.P
 				continue
 			}
 			if filter != nil && !filter(service) {
+				continue
+			}
+			if !installResource(service.ServiceName, productResp.ServiceDeployStrategy) {
 				continue
 			}
 			opt := &commonrepo.ServiceFindOption{

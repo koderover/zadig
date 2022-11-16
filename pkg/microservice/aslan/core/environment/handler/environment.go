@@ -129,7 +129,7 @@ func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs [
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, ctx.Logger, envNameList...)
 	if param.Type == setting.K8SDeployType {
-		ctx.Err = service.CreateK8sProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+		ctx.Err = service.CreateYamlProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	} else {
 		ctx.Err = service.CreateHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	}

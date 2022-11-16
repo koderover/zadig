@@ -210,7 +210,8 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	return resp
 }
 
-func (k *K8sService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
+func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
+	envName, productName := product.EnvName, product.ProductName
 	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 	updatableServiceNameList := make([]string, 0)
 
@@ -249,6 +250,9 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 	for i := range group {
 		// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
 		// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
+		if !installResource(group[i].ServiceName, product.ServiceDeployStrategy) {
+			continue
+		}
 		wg.Add(1)
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
@@ -288,6 +292,5 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 			fmt.Errorf(e.StartPodTimeout+"\n %s", "["+strings.Join(updatableServiceNameList, "], [")+"]"))
 		return err
 	}
-
 	return nil
 }

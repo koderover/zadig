@@ -103,7 +103,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 	return errList.ErrorOrNil()
 }
 
-func createSingleK8sProduct(templateProduct *templatemodels.Product, requestID, userName string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
+func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID, userName string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
 		ProductName:     templateProduct.ProductName,
 		Revision:        templateProduct.Revision,
@@ -134,7 +134,7 @@ func createSingleK8sProduct(templateProduct *templatemodels.Product, requestID, 
 	return CreateProduct(userName, requestID, productObj, log)
 }
 
-func CreateK8sProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
+func CreateYamlProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
 		if err != nil {
@@ -155,7 +155,7 @@ func CreateK8sProduct(productName, userName, requestID string, args []*CreateSin
 
 	errList := new(multierror.Error)
 	for _, arg := range args {
-		err = createSingleK8sProduct(templateProduct, requestID, userName, arg, log)
+		err = createSingleYamlProduct(templateProduct, requestID, userName, arg, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
