@@ -51,7 +51,6 @@ type K8sService struct {
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
 func (k *K8sService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
-	k.log.Infof("queryServiceStatus of service: %s of product: %s in namespace %s", serviceTmpl.ServiceName, productName, namespace)
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
 		return queryPodsStatus(namespace, productName, serviceTmpl.ServiceName, informer, k.log)
