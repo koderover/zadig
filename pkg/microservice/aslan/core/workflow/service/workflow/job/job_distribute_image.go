@@ -133,9 +133,11 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		Spec:    jobSpec,
 	}
 	for _, target := range j.spec.Tatgets {
+		target.SourceImage = getImage(target.SourceTag, sourceReg)
+		target.TargetImage = getImage(target.TargetTag, targetReg)
 		jobSpec.DistributeTarget = append(jobSpec.DistributeTarget, &commonmodels.DistributeTaskTarget{
-			SoureImage:    getImage(target.SourceTag, sourceReg),
-			TargetImage:   getImage(target.TargetTag, targetReg),
+			SoureImage:    target.SourceImage,
+			TargetImage:   target.TargetImage,
 			ServiceName:   target.ServiceName,
 			ServiceModule: target.ServiceModule,
 			UpdateTag:     target.UpdateTag,
@@ -150,6 +152,14 @@ func (j *ImageDistributeJob) LintJob() error {
 	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+	if j.spec.Source != config.SourceFromJob {
+		return nil
+	}
+	jobRankMap := getJobRankMap(j.workflow.Stages)
+	buildJobRank, ok := jobRankMap[j.spec.JobName]
+	if !ok || buildJobRank >= jobRankMap[j.job.Name] {
+		return fmt.Errorf("can not quote job %s in job %s", j.spec.JobName, j.job.Name)
 	}
 	return nil
 }
