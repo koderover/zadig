@@ -19,10 +19,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -444,6 +446,30 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 			return nil, err
 		}
 		resultAddr = sonarInfo.ServerAddress
+
+		projectKey := func(config string) string {
+			v := viper.New()
+			v.SetConfigType("properties")
+			err = v.ReadConfig(strings.NewReader(config))
+			if err != nil {
+				log.Errorf("failed to read scanningInfo.Parameter, error: %s", err)
+				return ""
+			}
+			// 如果 sonar.projectKey 为空，或者该项配置字段不存在，都返回空字符串
+			key, _ := v.Get("sonar.projectKey").(string)
+			return key
+		}(scanningInfo.Parameter)
+
+		if projectKey != "" {
+			u, err := url.Parse(resultAddr)
+			if err != nil {
+				log.Errorf("failed to parse sonar server address, error: %s", err)
+				return nil, err
+			}
+			u = u.JoinPath("dashboard")
+			u.RawQuery = url.Values{"id": {projectKey}}.Encode()
+			resultAddr = u.String()
+		}
 	}
 
 	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]
