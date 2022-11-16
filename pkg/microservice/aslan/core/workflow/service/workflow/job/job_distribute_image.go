@@ -133,8 +133,8 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		Spec:    jobSpec,
 	}
 	for _, target := range j.spec.Tatgets {
-		target.SourceImage = getImage(target.SourceTag, sourceReg)
-		target.TargetImage = getImage(target.TargetTag, targetReg)
+		target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
+		target.TargetImage = getImage(target.ServiceModule, target.TargetTag, targetReg)
 		jobSpec.DistributeTarget = append(jobSpec.DistributeTarget, &commonmodels.DistributeTaskTarget{
 			SoureImage:    target.SourceImage,
 			TargetImage:   target.TargetImage,
@@ -200,8 +200,8 @@ func getTargetTag(serviceName, serviceModule, sourceTag string, tagMap map[strin
 	return targetTag
 }
 
-func getImage(tag string, reg *commonmodels.RegistryNamespace) string {
-	image := fmt.Sprintf("%s/%s/%s", reg.RegAddr, reg.Namespace, tag)
+func getImage(name, tag string, reg *commonmodels.RegistryNamespace) string {
+	image := fmt.Sprintf("%s/%s/%s:%s", reg.RegAddr, reg.Namespace, name, tag)
 	image = strings.TrimPrefix(image, "http://")
 	image = strings.TrimPrefix(image, "https://")
 	return image
