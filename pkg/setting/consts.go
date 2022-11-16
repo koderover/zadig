@@ -90,13 +90,14 @@ const (
 	ReleaseImageTimeout = "RELEASE_IMAGE_TIMEOUT"
 
 	// reaper
-	Home          = "HOME"
-	PkgFile       = "PKG_FILE"
-	JobConfigFile = "JOB_CONFIG_FILE"
-	DockerAuthDir = "DOCKER_AUTH_DIR"
-	Path          = "PATH"
-	DockerHost    = "DOCKER_HOST"
-	BuildURL      = "BUILD_URL"
+	Home            = "HOME"
+	PkgFile         = "PKG_FILE"
+	JobConfigFile   = "JOB_CONFIG_FILE"
+	DockerAuthDir   = "DOCKER_AUTH_DIR"
+	Path            = "PATH"
+	DockerHost      = "DOCKER_HOST"
+	BuildURL        = "BUILD_URL"
+	DefaultDockSock = "/var/run/docker.sock"
 
 	// jenkins
 	JenkinsBuildImage = "JENKINS_BUILD_IMAGE"
@@ -711,4 +712,16 @@ const (
 	NormalSchedule    = "normal"
 	RequiredSchedule  = "required"
 	PreferredSchedule = "preferred"
+)
+
+const (
+	JobNameRegx  = "^[a-z][a-z0-9-]{0,31}$"
+	WorkflowRegx = "^[a-z0-9-]+$"
+)
+
+type WorkflowCategory string
+
+const (
+	CustomWorkflow  WorkflowCategory = ""
+	ReleaseWorkflow WorkflowCategory = "release"
 )

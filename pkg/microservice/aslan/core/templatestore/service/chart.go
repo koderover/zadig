@@ -25,6 +25,9 @@ import (
 	"strings"
 
 	"github.com/27149chen/afero"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -216,7 +219,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		loadErr error
 	)
 	switch ch.Type {
-	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
+	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
 		sha1, loadErr = processChartFromGitRepo(name, args, logger)
 	default:
 		sha1, loadErr = processChartFromSource(name, args, logger)
@@ -269,7 +272,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 	)
 
 	switch ch.Type {
-	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
+	case setting.SourceFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
 		sha1, loadErr = processChartFromGitRepo(name, args, logger)
 	default:
 		sha1, loadErr = processChartFromSource(name, args, logger)
@@ -465,6 +468,20 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 		err  error
 	)
 
+	codehostDetail, err := systemconfig.New().GetCodeHost(args.CodehostID)
+	if err != nil {
+		log.Errorf("Failed to get codeHost by id %d, err: %s", args.CodehostID, err)
+		return "", err
+	}
+
+	if codehostDetail.Type == setting.SourceFromOther {
+		err = command.RunGitCmds(codehostDetail, args.Namespace, args.Namespace, args.Repo, args.Branch, "origin")
+		if err != nil {
+			log.Errorf("Failed to clone the repo, namespace: [%s], name: [%s], branch: [%s], error: %s", args.Namespace, args.Repo, args.Branch, err)
+			return "", err
+		}
+	}
+
 	base := path.Join(config.S3StoragePath(), args.Repo)
 	filePath := strings.TrimLeft(args.Path, "/")
 	currentChartPath := path.Join(base, filePath)
@@ -483,6 +500,7 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			logger.Errorf("Failed to save files to disk, err: %s", err)
 			return
 		}
+
 		logger.Debug("Finish to save and upload chart")
 	})
 
@@ -498,12 +516,53 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			_ = os.RemoveAll(tmpDir)
 		}()
 
-		fileName := fmt.Sprintf("%s.tar.gz", filepath.Base(args.Path))
+		fileName := fmt.Sprintf("%s.tar.gz", name)
 		tarball := filepath.Join(tmpDir, fileName)
+		newFilePath := path.Join(currentChartPath, name)
+		mkdirErr := os.Mkdir(newFilePath, 0755)
+		if mkdirErr != nil {
+			logger.Errorf("Failed to mkdir %s, err: %s", newFilePath, err)
+			err = mkdirErr
+			return
+		}
+		copyErr := copy.Copy(currentChartPath, newFilePath)
+		if copyErr != nil {
+			logger.Errorf("Failed to copy directory, err: %s", copyErr)
+			err = copyErr
+			return
+		}
 		tree := os.DirFS(currentChartPath)
 		if err1 = fsutil.Tar(tree, tarball); err1 != nil {
 			logger.Errorf("Failed to archive files to %s, err: %s", tarball, err1)
 			err = err1
+			return
+		}
+
+		s3Storage, err2 := s3service.FindDefaultS3()
+		if err2 != nil {
+			logger.Errorf("Failed to find default s3, err:%v", err)
+			err = err2
+			return
+		}
+
+		forcedPathStyle := true
+		if s3Storage.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
+		}
+
+		s3Client, err2 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+		if err2 != nil {
+			logger.Errorf("Failed to create s3 client, err: %s", err)
+			err = err2
+			return
+		}
+
+		s3Base := configbase.ObjectStorageChartTemplatePath(name)
+		s3Path := filepath.Join(s3Storage.Subfolder, s3Base, fileName)
+		err2 = s3Client.Upload(s3Storage.Bucket, tarball, s3Path)
+		if err != nil {
+			logger.Errorf("Failed to upload to s3 client, err: %s", err)
+			err = err2
 			return
 		}
 

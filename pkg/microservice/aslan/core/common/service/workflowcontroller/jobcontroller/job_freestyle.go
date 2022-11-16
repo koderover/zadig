@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"

@@ -109,6 +109,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("gray release deployment: %s created", c.jobTaskSpec.GrayWorkloadName))
+		c.ack()
 		if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.GrayWorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
 			c.logger.Error(err)
 			c.job.Status = status
@@ -117,6 +118,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("gray release deployment: %s ready", c.jobTaskSpec.GrayWorkloadName))
+		c.ack()
 		if err := updater.ScaleDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, leftReplica, c.kubeClient); err != nil {
 			c.Errorf("update origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 			return
@@ -161,6 +163,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		}
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s replica set to %d", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.TotalReplica))
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s image set to %s", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Image))
+		c.ack()
 
 		if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, c.kubeClient); err != nil {
 			msg := fmt.Sprintf("delete gray deployment %s error: %v", c.jobTaskSpec.GrayWorkloadName, err)
@@ -184,6 +187,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("gray release deployment: %s replica set to %d", c.jobTaskSpec.GrayWorkloadName, c.jobTaskSpec.GrayReplica))
+	c.ack()
 	if err := updater.ScaleDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, leftReplica, c.kubeClient); err != nil {
 		c.Errorf("update origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 		return

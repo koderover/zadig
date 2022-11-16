@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/27149chen/afero"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -501,9 +502,7 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, force, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, force, logger)
-	case LoadFromGerrit, setting.SourceFromGitee:
-		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
-	case setting.SourceFromGiteeEE:
+	case LoadFromGerrit, setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, logger)
 	case LoadFromChartRepo:
 		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, force, logger)
@@ -781,6 +780,21 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 		return nil, jsonResErr
 	}
 
+	// if the repo type is other, we download the chart
+	codehostDetail, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
+	if err != nil {
+		log.Errorf("failed to get codehost detail to pull the repo, error: %s", err)
+		return nil, err
+	}
+
+	if codehostDetail.Type == setting.SourceFromOther {
+		err = command.RunGitCmds(codehostDetail, createFromRepo.Owner, createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, "origin")
+		if err != nil {
+			log.Errorf("Failed to clone the repo, namespace: [%s], name: [%s], branch: [%s], error: %s", createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, err)
+			return nil, err
+		}
+	}
+
 	filePaths = createFromRepo.Paths
 	base = path.Join(config.S3StoragePath(), createFromRepo.Repo)
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(filePaths))
@@ -948,6 +962,9 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 	if err != nil {
 		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err.Error())
 		return nil, err
+	}
+	if source == setting.SourceFromOther {
+		return CreateOrUpdateHelmServiceFromRepo(projectName, args, force, log)
 	}
 
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
@@ -1318,7 +1335,9 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 		setting.SourceFromGerrit,
 		setting.SourceFromGitee,
 		setting.SourceFromGiteeEE,
-		setting.SourceFromCodeHub:
+		setting.SourceFromCodeHub,
+		// FIXME this is a temporary solution, remove when possible
+		setting.SourceFromGitRepo:
 		return &models.CreateFromRepo{
 			GitRepoConfig: &templatemodels.GitRepoConfig{
 				CodehostID: args.CodehostID,
@@ -1409,11 +1428,24 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 		chartName, chartVersion string
 		err                     error
 	)
-	switch args.Source {
+	// FIXME: use a temporary source, make sure it is correct next time
+	tempSource := args.Source
+	if args.Source == setting.SourceFromGitRepo {
+		ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
+		if err != nil {
+			log.Errorf("failed to get codehost detail, err: %s", err)
+			return nil, err
+		}
+		if ch.Type == setting.SourceFromOther {
+			tempSource = setting.SourceFromOther
+		}
+	}
+
+	switch tempSource {
 	case string(LoadFromGerrit):
 		base := path.Join(config.S3StoragePath(), args.GerritRepoName)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
-	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE, setting.SourceFromOther:
 		base := path.Join(config.S3StoragePath(), args.Repo)
 		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
 	default:
@@ -1517,6 +1549,9 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 			log.Errorf("Failed to create gerrit webhook, err: %s", err)
 			return nil, err
 		}
+	case setting.SourceFromOther:
+		// no webhook is required
+		break
 	default:
 		commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, logger)
 	}
@@ -1627,4 +1662,18 @@ func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, 
 	); err != nil {
 		log.Errorf("helmService.Create CreateHelmRenderSet error: %v", err)
 	}
+
+	newRenderset := &models.RenderSet{
+		Name:        productName,
+		ProductTmpl: productName,
+		UpdateBy:    createdBy,
+		ChartInfos:  mixtureChartInfos,
+		IsDefault:   true,
+	}
+
+	if err := commonservice.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
+		log.Error(fmt.Errorf("failed to create renderset, name: %s, err: %s", newRenderset.Name, err))
+		return
+	}
+
 }

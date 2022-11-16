@@ -72,4 +72,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		build.GET("/:id", GetBuildTemplate)
 		build.DELETE("/:id", RemoveBuildTemplate)
 	}
+
+	workflow := router.Group("workflow")
+	{
+		workflow.POST("", CreateWorkflowTemplate)
+		workflow.PUT("", UpdateWorkflowTemplate)
+		workflow.GET("", ListWorkflowTemplate)
+		workflow.GET("/:id", GetWorkflowTemplateByID)
+		workflow.DELETE("/:id", DeleteWorkflowTemplateByID)
+	}
 }

@@ -56,6 +56,7 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
+	newBuilds := []*commonmodels.ServiceAndBuild{}
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
 		build.HasBuild = true
@@ -75,7 +76,9 @@ func (j *BuildJob) SetPreset() error {
 				break
 			}
 		}
+		newBuilds = append(newBuilds, build)
 	}
+	j.spec.ServiceAndBuilds = newBuilds
 	j.job.Spec = j.spec
 	return nil
 }
@@ -160,7 +163,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	registry, _, err := commonservice.FindRegistryById(j.spec.DockerRegistryID, true, logger)
 	if err != nil {
-		return resp, err
+		return resp, fmt.Errorf("find docker registry: %s error: %v", j.spec.DockerRegistryID, err)
 	}
 	defaultS3, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
@@ -181,16 +184,16 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "tar"))
 
-		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
-			return resp, err
+			return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
 		}
 		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
 			return resp, err
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
 		if err != nil {
-			return resp, err
+			return resp, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
 		}
 		registries, err := commonservice.ListRegistryNamespaces("", true, logger)
 		if err != nil {
@@ -227,6 +230,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, registry, logger)...)
+		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)

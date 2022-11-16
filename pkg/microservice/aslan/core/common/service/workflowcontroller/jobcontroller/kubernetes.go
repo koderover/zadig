@@ -31,7 +31,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -422,18 +422,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 							// 		},
 							// 	},
 							// },
-							Env: []corev1.EnvVar{
-								{
-									Name:  "JOB_CONFIG_FILE",
-									Value: path.Join(workflowCtx.ConfigMapMountDir, "job-config.xml"),
-								},
-								// 连接对应wd上的dockerdeamon
-								{
-									Name:  "DOCKER_HOST",
-									Value: jobTaskSpec.Properties.DockerHost,
-								},
-							},
-							VolumeMounts: getVolumeMounts(workflowCtx.ConfigMapMountDir),
+							Env:          getEnvs(workflowCtx.ConfigMapMountDir, jobTaskSpec),
+							VolumeMounts: getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon),
 							Resources:    getResourceRequirements(resReq, resReqSpec),
 
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
@@ -449,7 +439,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 						// 	Lifecycle:       &corev1.Lifecycle{},
 						// },
 					},
-					Volumes:     getVolumes(jobName),
+					Volumes:     getVolumes(jobName, jobTaskSpec.Properties.UseHostDockerDaemon),
 					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
 					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig),
 				},
@@ -507,7 +497,23 @@ func getImagePullSecrets(registries []*commonmodels.RegistryNamespace) ([]corev1
 	return ImagePullSecrets, nil
 }
 
-func getVolumeMounts(configMapMountDir string) []corev1.VolumeMount {
+func getEnvs(configMapMountDir string, jobTaskSpec *commonmodels.JobTaskFreestyleSpec) []corev1.EnvVar {
+	ret := make([]corev1.EnvVar, 0)
+	ret = append(ret, corev1.EnvVar{
+		Name:  setting.JobConfigFile,
+		Value: path.Join(configMapMountDir, "job-config.xml"),
+	})
+
+	if !jobTaskSpec.Properties.UseHostDockerDaemon {
+		ret = append(ret, corev1.EnvVar{
+			Name:  setting.DockerHost,
+			Value: jobTaskSpec.Properties.DockerHost,
+		})
+	}
+	return ret
+}
+
+func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []corev1.VolumeMount {
 	resp := make([]corev1.VolumeMount, 0)
 
 	resp = append(resp, corev1.VolumeMount{
@@ -518,11 +524,16 @@ func getVolumeMounts(configMapMountDir string) []corev1.VolumeMount {
 		Name:      "zadig-context",
 		MountPath: ZadigContextDir,
 	})
-
+	if userHostDockerDaemon {
+		resp = append(resp, corev1.VolumeMount{
+			Name:      "docker-sock",
+			MountPath: setting.DefaultDockSock,
+		})
+	}
 	return resp
 }
 
-func getVolumes(jobName string) []corev1.Volume {
+func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 	resp := make([]corev1.Volume, 0)
 	resp = append(resp, corev1.Volume{
 		Name: "job-config",
@@ -540,6 +551,19 @@ func getVolumes(jobName string) []corev1.Volume {
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	})
+
+	if userHostDockerDaemon {
+		resp = append(resp, corev1.Volume{
+			Name: "docker-sock",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: setting.DefaultDockSock,
+					Type: nil,
+				},
+			},
+		})
+	}
+
 	return resp
 }
 

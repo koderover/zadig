@@ -29,7 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/fs"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 type TarArchiveStep struct {

@@ -33,6 +33,8 @@ type PipelineCtx struct {
 	CacheEnable  bool
 	CacheDirType types.CacheDirType
 	CacheUserDir string
+
+	UseHostDockerDaemon bool
 }
 
 type JobCtxBuilder struct {

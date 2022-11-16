@@ -38,6 +38,7 @@ func ListPvcs(ns string, selector fields.Selector, cl client.Reader) ([]*corev1.
 
 	var res []*corev1.PersistentVolumeClaim
 	for i := range pvcList.Items {
+		setPVCGVK(&pvcList.Items[i])
 		res = append(res, &pvcList.Items[i])
 	}
 	return res, err
@@ -58,6 +59,8 @@ func GetPvc(ns, name string, cl client.Client) (*corev1.PersistentVolumeClaim, b
 	if err != nil || !found {
 		g = nil
 	}
+	setPVCGVK(g)
+
 	return g, found, err
 }
 
@@ -68,4 +71,16 @@ func GetPVCYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, e
 		Version: "v1",
 	}
 	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+}
+
+func setPVCGVK(pvc *corev1.PersistentVolumeClaim) {
+	if pvc == nil {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "PersistentVolumeClaim",
+		Version: "v1",
+	}
+	pvc.SetGroupVersionKind(gvk)
 }
