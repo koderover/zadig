@@ -133,6 +133,10 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 	return nil
 }
 
+func OpenAPICreateProductWorkflowTask(username string, args *OpenAPICreateProductWorkflowTaskArgs, logger *zap.SugaredLogger) (*CreateTaskResp, error) {
+
+}
+
 func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, error) {
 	switch job.JobType {
 	case config.JobPlugin:
@@ -189,5 +193,23 @@ func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, 
 		return updater, err
 	default:
 		return nil, errors.New("undefined job type of type:" + string(job.JobType))
+	}
+}
+
+func generateProductWorkflowCreationArgs(args *OpenAPICreateProductWorkflowTaskArgs, logger *zap.SugaredLogger) (*commonmodels.WorkflowTaskArgs, error) {
+	workflowCreationArgs, err := PresetWorkflowArgs(args.Input.TargetEnv, args.WorkflowName, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	newTargetList := make([]*commonmodels.TargetArgs, 0)
+
+	// once we get the preset, we do the changes
+	if args.Input.BuildArgs.Enabled {
+		for _, buildInfo := range workflowCreationArgs.Target {
+			for _, inputSvc := range args.Input.BuildArgs {
+
+			}
+		}
 	}
 }

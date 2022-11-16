@@ -251,4 +251,9 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		view.POST("", OpenAPICreateWorkflowView)
 	}
+
+	product := router.Group("product")
+	{
+		product.POST("/task", OpenAPICreateProductWorkflowTask)
+	}
 }

@@ -63,6 +63,48 @@ type CreateCustomTaskJobInput struct {
 	Parameters interface{}    `json:"parameters"`
 }
 
+type OpenAPICreateProductWorkflowTaskArgs struct {
+	WorkflowName string                     `json:"workflow_name"`
+	ProjectName  string                     `json:"project_name"`
+	Input        *CreateProductTaskJobInput `json:"input"`
+}
+
+func (c *OpenAPICreateProductWorkflowTaskArgs) Validate() (bool, error) {
+	if c.WorkflowName == "" {
+		return false, fmt.Errorf("workflow_name cannot be empty")
+	}
+	if c.ProjectName == "" {
+		return false, fmt.Errorf("project_name cannot be empty")
+	}
+
+	if c.Input == nil {
+		return false, fmt.Errorf("input cannot be empty")
+	}
+	return true, nil
+}
+
+type CreateProductTaskJobInput struct {
+	TargetEnv  string              `json:"target_env"`
+	BuildArgs  WorkflowBuildArg    `json:"build"`
+	DeployArgs WorkflowDeployArg   `json:"deploy"`
+	Callback   WorkflowCallbackArg `json:"callback"`
+}
+
+type WorkflowBuildArg struct {
+	Enabled     bool                `json:"enabled"`
+	ServiceList []*ServiceBuildArgs `json:"service_list"`
+}
+
+type WorkflowDeployArg struct {
+	Enabled     string               `json:"enabled"`
+	Source      string               `json:"source"`
+	ServiceList []*ServiceDeployArgs `json:"service_list"`
+}
+
+type WorkflowCallbackArg struct {
+	CallbackUrl string `json:"callback_url"`
+}
+
 type CustomJobInput interface {
 	UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error)
 }
