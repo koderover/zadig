@@ -178,6 +178,12 @@ type CreateEnvRequest struct {
 	ProjectName string `form:"projectName"`
 }
 
+type UpdateEnvRequest struct {
+	Type        string `form:"type"`
+	ProjectName string `form:"projectName"`
+	Force       bool   `form:"force"`
+}
+
 // ------------ used for api of getting deploy status of k8s resource/helm release
 
 type DeployStatusCheckRequest struct {

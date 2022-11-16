@@ -3749,8 +3749,6 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	log.Infof("####### prceedHelmReleases strategy data: %+v ", productResp.ServiceDeployStrategy)
-
 	prodServiceMap := productResp.GetServiceMap()
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) (err error) {
 		defer func() {

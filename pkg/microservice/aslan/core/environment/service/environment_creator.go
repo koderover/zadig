@@ -66,7 +66,7 @@ type IProductCreator interface {
 
 func installResource(serviceName string, strategyMap map[string]string) bool {
 	strategy, ok := strategyMap[serviceName]
-	return ok && strategy == "deploy"
+	return !ok || strategy == "deploy"
 }
 
 func autoCreateProduct(envType, envName, productName, requestId, userName string, log *zap.SugaredLogger) (string, error) {

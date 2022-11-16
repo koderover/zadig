@@ -80,7 +80,14 @@ func UpdateMultiProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("helm") == "true" {
+	request := service.UpdateEnvRequest{}
+	err := c.ShouldBindQuery(request)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if request.Type == setting.HelmDeployType {
 		updateMultiHelmEnv(c, ctx)
 		return
 	}
@@ -111,10 +118,8 @@ func UpdateMultiProducts(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
-
-	force, _ := strconv.ParseBool(c.Query("force"))
-	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, c.Query("projectName"), ctx.RequestID, force, ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
+	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, request.ProjectName, ctx.RequestID, request.Force, ctx.Logger)
 }
 
 func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
@@ -187,7 +192,6 @@ func CreateProduct(c *gin.Context) {
 		}
 
 		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
-		log.Infof("######## resources in header: %+v, %v", allowedClusters, found)
 		if found {
 			allowedSet := sets.NewString(allowedClusters...)
 			for _, args := range createArgs {
