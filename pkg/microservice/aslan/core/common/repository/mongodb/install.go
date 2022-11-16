@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -128,12 +127,8 @@ func (c *InstallColl) Update(name, version string, args *models.Install) error {
 func (c *InstallColl) UpdateSystemDefault(name, version string, installInfoPreset map[string]*models.Install) error {
 	packageKey := fmt.Sprintf("%s-%s", name, version)
 
-	installInfo, ok := installInfoPreset[packageKey]
-	if !ok {
-		fmt.Printf("not found %s", packageKey)
-		os.Exit(-1)
-	}
-
+	installInfo := installInfoPreset[packageKey]
+	
 	oid, err := primitive.ObjectIDFromHex(installInfo.ObjectIDHex)
 	if err != nil {
 		return err
