@@ -122,7 +122,6 @@ func createSingleK8sProduct(templateProduct *templatemodels.Product, requestID, 
 		ShareEnv:        arg.ShareEnv,
 		Vars:            arg.Vars,
 	}
-	log.Infof("###### the args vars length: %v", len(arg.Vars))
 	if len(arg.BaseEnvName) > 0 {
 		productObj.BaseEnvName = arg.BaseEnvName
 	}

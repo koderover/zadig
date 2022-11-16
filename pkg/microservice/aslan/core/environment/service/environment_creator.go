@@ -328,7 +328,6 @@ func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSe
 	errList := &multierror.Error{}
 	for _, group := range args.Services {
 		for _, svc := range group {
-			log.Infof("########### the length of kv is %v", len(renderSet.KVs))
 			_, err := upsertService(false, args, svc, nil, renderSet, informer, kubeClient, nil, log)
 			if err != nil {
 				errList = multierror.Append(errList, fmt.Errorf("failed to dryRun apply service: %s, err: %s", svc.ServiceName, err))

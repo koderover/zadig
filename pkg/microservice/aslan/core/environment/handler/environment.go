@@ -117,7 +117,7 @@ func UpdateMultiProducts(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, c.Query("projectName"), ctx.RequestID, force, ctx.Logger)
 }
 
-func createHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
+func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameList := make([]string, 0)
 	for _, arg := range createArgs {
 		if arg.EnvName == "" {
@@ -128,12 +128,14 @@ func createHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createAr
 		envNameList = append(envNameList, arg.EnvName)
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, ctx.Logger, envNameList...)
-	ctx.Err = service.CreateHelmProduct(
-		param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
-	)
+	if param.Type == setting.K8SDeployType {
+		ctx.Err = service.CreateK8sProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+	} else {
+		ctx.Err = service.CreateHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+	}
 }
 
-func copyHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
+func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameCopyList := make([]string, 0)
 	envNames := make([]string, 0)
 	for _, arg := range createArgs {
@@ -146,41 +148,11 @@ func copyHelmProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs
 		envNames = append(envNames, arg.EnvName)
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), requestBody, ctx.Logger, envNames...)
-	ctx.Err = service.CopyHelmProduct(
-		param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
-	)
-}
-
-func createYamlProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
-	envNameList := make([]string, 0)
-	for _, arg := range createArgs {
-		if arg.EnvName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("envName is empty")
-			return
-		}
-		arg.ProductName = param.ProjectName
-		envNameList = append(envNameList, arg.EnvName)
+	if param.Type == setting.K8SDeployType {
+		ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, param.ProjectName, createArgs, ctx.Logger)
+	} else {
+		ctx.Err = service.CopyHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, ctx.Logger, envNameList...)
-	ctx.Err = service.CreateK8sProduct(
-		param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
-	)
-}
-
-func copyYamlProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
-	envNameCopyList := make([]string, 0)
-	envNames := make([]string, 0)
-	for _, arg := range createArgs {
-		if arg.EnvName == "" || arg.BaseEnvName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("envName or baseEnvName is empty")
-			return
-		}
-		arg.ProductName = param.ProjectName
-		envNameCopyList = append(envNameCopyList, arg.BaseEnvName+"-->"+arg.EnvName)
-		envNames = append(envNames, arg.EnvName)
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), requestBody, ctx.Logger, envNames...)
-	ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, param.ProjectName, createArgs, ctx.Logger)
 }
 
 // CreateProduct creates new product
@@ -197,8 +169,6 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	log.Info("####### create product, param: %+v ", *createParam)
-
 	if createParam.ProjectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
@@ -210,35 +180,29 @@ func CreateProduct(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 	}
 
-	//allowedClusters, found := internalhandler.GetResourcesInHeader(c)
-	//if found {
-	//	allowedSet := sets.NewString(allowedClusters...)
-	//}
-	//for _, args := range createArgs {
-	//	if !allowedSet.Has(args.ClusterID) {
-	//		c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
-	//		return
-	//	}
-	//}
+	if createParam.Type == setting.K8SDeployType || createParam.Type == setting.HelmDeployType {
+		createArgs := make([]*service.CreateSingleProductArg, 0)
+		if err = json.Unmarshal(data, &createArgs); err != nil {
+			log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+		}
 
-	createArgs := make([]*service.CreateSingleProductArg, 0)
-	if err = json.Unmarshal(data, &createArgs); err != nil {
-		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
-	}
-
-	if createParam.Type == setting.HelmDeployType {
+		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
+		log.Infof("######## resources in header: %+v, %v", allowedClusters, found)
+		if found {
+			allowedSet := sets.NewString(allowedClusters...)
+			for _, args := range createArgs {
+				if !allowedSet.Has(args.ClusterID) {
+					c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+					return
+				}
+			}
+		}
 		if createParam.Scene == "copy" {
-			copyHelmProduct(c, createParam, createArgs, string(data), ctx)
+			copyProduct(c, createParam, createArgs, string(data), ctx)
 		} else {
-			createHelmProduct(c, createParam, createArgs, string(data), ctx)
+			createProduct(c, createParam, createArgs, string(data), ctx)
 		}
 		return
-	} else if createParam.Type == setting.K8SDeployType {
-		if createParam.Scene == "copy" {
-			copyYamlProduct(c, createParam, createArgs, string(data), ctx)
-		} else {
-			createYamlProduct(c, createParam, createArgs, string(data), ctx)
-		}
 	} else {
 		// 'auto = true' only happens in the onboarding progress of pm projects
 		if c.Query("auto") == "true" {
