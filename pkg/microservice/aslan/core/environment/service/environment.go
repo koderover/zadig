@@ -271,10 +271,12 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 	errList := &multierror.Error{}
 	for _, arg := range args {
 		strategyMap := make(map[string]string)
+		serviceNames := make([]string, 0)
 		for _, svc := range arg.Services {
 			strategyMap[svc.ServiceName] = svc.DeployStrategy
+			serviceNames = append(serviceNames, svc.ServiceName)
 		}
-		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, strategyMap, force, arg.Vars, log)
+		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, serviceNames, strategyMap, force, arg.Vars, log)
 		if err != nil {
 			log.Errorf("AutoUpdateProduct UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
