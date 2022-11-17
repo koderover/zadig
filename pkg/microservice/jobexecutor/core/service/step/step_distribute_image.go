@@ -56,8 +56,6 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
-	log.Errorf("source registry: %+v", s.spec.SourceRegistry)
-	log.Errorf("target registry: %+v", s.spec.TargetRegistry)
 	sourceHost := config.HostNewName(s.spec.SourceRegistry.RegAddr)
 	sourceHost.User = s.spec.SourceRegistry.AccessKey
 	sourceHost.Pass = s.spec.SourceRegistry.SecretKey
