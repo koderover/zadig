@@ -723,11 +723,14 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 	ret := make([]*ServiceDeployStatus, 0)
 
 	resourcesByType := make(map[string]map[string]*ResourceDeployStatus)
-	addDeployStatus := func(deployStatus *ResourceDeployStatus) {
+	addDeployStatus := func(deployStatus *ResourceDeployStatus) *ResourceDeployStatus {
 		if _, ok := resourcesByType[deployStatus.Type]; !ok {
 			resourcesByType[deployStatus.Type] = make(map[string]*ResourceDeployStatus)
 		}
-		resourcesByType[deployStatus.Type][deployStatus.Name] = deployStatus
+		if _, ok := resourcesByType[deployStatus.Type][deployStatus.Name]; !ok {
+			resourcesByType[deployStatus.Type][deployStatus.Name] = deployStatus
+		}
+		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
 	fakeRenderSet := &models.RenderSet{
@@ -749,8 +752,8 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 				Name:   u.GetName(),
 				Status: StatusUnDeployed,
 			}
+			rds = addDeployStatus(rds)
 			resources = append(resources, rds)
-			addDeployStatus(rds)
 		}
 		ret = append(ret, &ServiceDeployStatus{
 			ServiceName: svc.ServiceName,
