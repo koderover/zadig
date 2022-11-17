@@ -67,6 +67,7 @@ type RenderChartArg struct {
 	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
 	ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
 	YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
+	DeployStrategy string                     `json:"deploy_strategy"` // New since 1.16.0, used to determine if the service will be installed
 }
 
 type RenderChartDiffResult string

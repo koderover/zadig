@@ -233,10 +233,15 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 
 var mutexAutoUpdate sync.RWMutex
 
+type UpdateServiceArg struct {
+	ServiceName    string `json:"service_name"`
+	DeployStrategy string `json:"deploy_strategy"`
+}
+
 type UpdateEnv struct {
 	EnvName      string               `json:"env_name"`
 	ServiceNames []string             `json:"service_names"`
-	UpdateType   string               `json:"update_type,omitempty"`
+	Services     []*UpdateServiceArg  `json:"services"`
 	Vars         []*template.RenderKV `json:"vars,omitempty"`
 }
 
@@ -248,66 +253,27 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 
 	envStatuses := make([]*EnvStatus, 0)
 
-	project, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		return nil, err
-	}
-
-	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
-		modifiedByENV := make(map[string][]*serviceInfo)
-		for _, arg := range args {
-			p, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: arg.EnvName})
-			if err != nil {
-				log.Errorf("Failed to get product %s in %s, error: %v", productName, arg.EnvName, err)
-				continue
-			}
-
-			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), p.ClusterID)
-			if err != nil {
-				log.Errorf("Failed to get kube client for %s, error: %v", productName, err)
-				continue
-			}
-
-			modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(p.Namespace, kubeClient))
-			var specifyModifiedServices []*serviceInfo
-			for _, modifiedService := range modifiedServices {
-				if util.InStringArray(modifiedService.Name, arg.ServiceNames) {
-					specifyModifiedServices = append(specifyModifiedServices, modifiedService)
-				}
-			}
-			if len(specifyModifiedServices) > 0 {
-				modifiedByENV[arg.EnvName] = specifyModifiedServices
-			}
-		}
-		if len(modifiedByENV) > 0 {
-			data, err := json.Marshal(modifiedByENV)
-			if err != nil {
-				log.Errorf("Marshal failure: %v", err)
-			}
-			return envStatuses, fmt.Errorf("the following services are modified since last update: %s", data)
-		}
-	}
-
-	productsRevison, err := ListProductsRevision(productName, "", log)
+	productsRevision, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("AutoUpdateProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
 	}
 	productMap := make(map[string]*ProductRevision)
-	for _, productRevison := range productsRevison {
-		if productRevison.ProductName == productName && sets.NewString(envNames...).Has(productRevison.EnvName) && productRevison.Updatable {
-			productMap[productRevison.EnvName] = productRevison
+	for _, productRevision := range productsRevision {
+		if productRevision.ProductName == productName && sets.NewString(envNames...).Has(productRevision.EnvName) && productRevision.Updatable {
+			productMap[productRevision.EnvName] = productRevision
 			if len(productMap) == len(envNames) {
 				break
 			}
 		}
 	}
 
+	errList := &multierror.Error{}
 	for _, arg := range args {
 		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, force, arg.Vars, log)
 		if err != nil {
 			log.Errorf("AutoUpdateProduct UpdateProductV2 err:%v", err)
-			return envStatuses, err
+			errList = multierror.Append(errList, err)
 		}
 	}
 
@@ -326,7 +292,7 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 		}
 		envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: productResp.Status})
 	}
-	return envStatuses, nil
+	return envStatuses, errList.ErrorOrNil()
 
 }
 
@@ -636,7 +602,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	if err != nil {
 		return err
 	}
-	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
+	if !force && !project.IsCVMProduct() {
 		modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(exitedProd.Namespace, kubeClient))
 		var specifyModifiedServices []*serviceInfo
 		for _, modifiedService := range modifiedServices {
@@ -655,7 +621,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	}
 
 	//TODO:The host update environment cannot remove deleted services
-	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+	if !force && project.IsCVMProduct() {
 		services, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(productName)
 		if err != nil && !commonrepo.IsErrNoDocuments(err) {
 			log.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
@@ -670,7 +636,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 		}
 	}
 
-	if project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
+	if !project.IsCVMProduct() {
 		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, map[string]string{setting.ProductLabel: project.ProductName}, exitedProd.ShareEnv.Enable, kubeClient, log)
 
 		if err != nil {

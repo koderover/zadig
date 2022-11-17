@@ -268,11 +268,11 @@ func UpdateProduct(c *gin.Context) {
 
 	force, _ := strconv.ParseBool(c.Query("force"))
 	serviceNames := sets.String{}
-	for _, kv := range args.Vars {
-		for _, s := range kv.Services {
-			serviceNames.Insert(s)
-		}
-	}
+	//for _, kv := range args.Vars {
+	//	for _, s := range kv.Services {
+	//		serviceNames.Insert(s)
+	//	}
+	//}
 	// update product asynchronously
 	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, serviceNames.List(), force, args.Vars, ctx.Logger)
 	if ctx.Err != nil {

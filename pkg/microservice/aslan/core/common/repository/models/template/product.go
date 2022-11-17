@@ -226,6 +226,10 @@ func (p *Product) IsK8sYamlProduct() bool {
 	return p.ProductFeature != nil && p.ProductFeature.DeployType == setting.K8SDeployType && p.ProductFeature.BasicFacility == setting.BasicFacilityK8S
 }
 
+func (p *Product) IsCVMProduct() bool {
+	return p.ProductFeature != nil && p.ProductFeature.BasicFacility == setting.BasicFacilityCVM
+}
+
 func (r *RenderKV) SetAlias() {
 	r.Alias = "{{." + r.Key + "}}"
 }
