@@ -20,8 +20,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -180,4 +183,26 @@ func PrintSonarConditionTables(conditions []Condition) {
 		fmt.Printf("%-40s|%-10s|%-10s|%-10s|%-20s|\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
 	}
 	fmt.Printf("\n")
+}
+
+func GetSonarProjectKeyFromConfig(config string) string {
+	v := viper.New()
+	v.SetConfigType("properties")
+	err := v.ReadConfig(strings.NewReader(config))
+	if err != nil {
+		return ""
+	}
+	// 如果 sonar.projectKey 为空，或者该项配置字段不存在，都返回空字符串
+	key, _ := v.Get("sonar.projectKey").(string)
+	return key
+}
+
+func GetSonarAddressWithProjectKey(baseAddr, projectKey string) (string, error) {
+	u, err := url.Parse(baseAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse sonar server address, error: %s", err)
+	}
+	u = u.JoinPath("dashboard")
+	u.RawQuery = url.Values{"id": {projectKey}}.Encode()
+	return u.String(), nil
 }
