@@ -80,9 +80,7 @@ func (j *ImageDistributeJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
-		if j.spec.Source == config.SourceRuntime {
-			j.spec.Tatgets = argsSpec.Tatgets
-		}
+		j.spec.Tatgets = argsSpec.Tatgets
 		j.job.Spec = j.spec
 	}
 	return nil
