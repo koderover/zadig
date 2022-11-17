@@ -648,6 +648,19 @@ func (c *ServiceColl) Count(productName string) (int, error) {
 	return cs[0].Count, nil
 }
 
+func (c *ServiceColl) GetChartTemplateReference(templateName string) ([]*models.Service, error) {
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+		"source": setting.SourceFromChartTemplate,
+	}
+
+	postMatch := bson.M{
+		"create_from.template_name": templateName,
+	}
+
+	return c.listMaxRevisions(query, postMatch)
+}
+
 func (c *ServiceColl) GetYamlTemplateReference(templateID string) ([]*models.Service, error) {
 	query := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},

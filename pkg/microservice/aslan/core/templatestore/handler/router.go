@@ -34,6 +34,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		chart.GET("/:name/variables", GetTemplateVariables)
 		chart.POST("", AddChartTemplate)
 		chart.PUT("/:name", UpdateChartTemplate)
+		chart.GET("/:name/reference", GetChartTemplateReference)
 		chart.POST("/:name/reference", SyncChartTemplateReference)
 		chart.PUT("/:name/variables", UpdateChartTemplateVariables)
 		chart.DELETE("/:name", RemoveChartTemplate)
