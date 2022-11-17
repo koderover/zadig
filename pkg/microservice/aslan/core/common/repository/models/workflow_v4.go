@@ -157,12 +157,12 @@ type ZadigDistributeImageJobSpec struct {
 }
 
 type DistributeTarget struct {
-	ServiceName   string `bson:"service_name"              yaml:"service_name"     json:"service_name"`
-	ServiceModule string `bson:"service_module"            yaml:"service_module"   json:"service_module"`
-	SourceTag     string `bson:"source_tag,omitempty"      yaml:"-"                json:"source_tag,omitempty"`
-	TargetTag     string `bson:"target_tag,omitempty"      yaml:"-"                json:"target_tag,omitempty"`
-	SourceImage   string `bson:"source_image,omitempty"    yaml:"-"                json:"source_image,omitempty"`
-	TargetImage   string `bson:"target_image,omitempty"    yaml:"-"                json:"target_image,omitempty"`
+	ServiceName   string `bson:"service_name"              yaml:"service_name"               json:"service_name"`
+	ServiceModule string `bson:"service_module"            yaml:"service_module"             json:"service_module"`
+	SourceTag     string `bson:"source_tag,omitempty"      yaml:"source_tag,omitempty"       json:"source_tag,omitempty"`
+	TargetTag     string `bson:"target_tag,omitempty"      yaml:"target_tag,omitempty"       json:"target_tag,omitempty"`
+	SourceImage   string `bson:"source_image,omitempty"    yaml:"-"                          json:"source_image,omitempty"`
+	TargetImage   string `bson:"target_image,omitempty"    yaml:"-"                          json:"target_image,omitempty"`
 	// if UpdateTag was false, use SourceTag as TargetTag.
 	UpdateTag bool `bson:"update_tag"                yaml:"update_tag"                json:"update_tag"`
 }
