@@ -160,7 +160,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		Properties: commonmodels.JobProperties{
 			Timeout:         j.spec.Timeout,
 			ResourceRequest: setting.MinRequest,
-			ClusterID:       setting.LocalClusterID,
+			ClusterID:       j.spec.ClusterID,
 			BuildOS:         "focal",
 			ImageFrom:       commonmodels.ImageFromKoderover,
 		},
