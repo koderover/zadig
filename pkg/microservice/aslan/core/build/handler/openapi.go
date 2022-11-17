@@ -44,6 +44,7 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 		}
 
 		ctx.Err = buildservice.OpenAPICreateBuildModuleFromTemplate(ctx.UserName, args, ctx.Logger)
+		return
 	}
 
 	args := new(buildservice.OpenAPIBuildCreationReq)
