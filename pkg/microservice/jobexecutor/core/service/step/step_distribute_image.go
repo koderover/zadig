@@ -22,14 +22,14 @@ import (
 	"fmt"
 	"sync"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/regclient/regclient"
 	"github.com/regclient/regclient/config"
 	"github.com/regclient/regclient/types/ref"
+	"gopkg.in/yaml.v2"
+
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type DistributeImageStep struct {
