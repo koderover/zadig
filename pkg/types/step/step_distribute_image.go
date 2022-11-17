@@ -31,7 +31,7 @@ type DistributeTaskTarget struct {
 }
 
 type RegistryNamespace struct {
-	RegAddr string `bson:"reg_addr"            json:"reg_addr"             yaml:"source_image"`
+	RegAddr string `bson:"reg_addr"            json:"reg_addr"             yaml:"reg_addr"`
 	// Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.
 	// use with CAUTION !!!!
 	Namespace string `bson:"namespace,omitempty"      json:"namespace,omitempty"     yaml:"namespace,omitempty"`

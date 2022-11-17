@@ -56,6 +56,8 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
+	log.Errorf("source registry: %+v", s.spec.SourceRegistry)
+	log.Errorf("target registry: %+v", s.spec.TargetRegistry)
 	sourceHost := config.HostNewName(s.spec.SourceRegistry.RegAddr)
 	sourceHost.User = s.spec.SourceRegistry.AccessKey
 	sourceHost.Pass = s.spec.SourceRegistry.SecretKey
@@ -89,18 +91,15 @@ func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) e
 	sourceRef, err := ref.New(target.SoureImage)
 	if err != nil {
 		errMsg := fmt.Sprintf("parse source image: %s error: %v", target.SoureImage, err)
-		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
 	targetRef, err := ref.New(target.TargetImage)
 	if err != nil {
 		errMsg := fmt.Sprintf("parse target image: %s error: %v", target.TargetImage, err)
-		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
 	if err := client.ImageCopy(context.Background(), sourceRef, targetRef); err != nil {
 		errMsg := fmt.Sprintf("copy image failed: %v", err)
-		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
 	log.Infof("copy image from [%s] to [%s] succeed", target.SoureImage, target.SoureImage)
