@@ -100,6 +100,6 @@ func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) e
 		errMsg := fmt.Sprintf("copy image failed: %v", err)
 		return errors.New(errMsg)
 	}
-	log.Infof("copy image from [%s] to [%s] succeed", target.SoureImage, target.SoureImage)
+	log.Infof("copy image from [%s] to [%s] succeed", target.SoureImage, target.TargetImage)
 	return nil
 }
