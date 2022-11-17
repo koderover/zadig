@@ -693,6 +693,7 @@ func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Se
 				"visibility":  bson.M{"$last": "$visibility"},
 				"build_name":  bson.M{"$last": "$build_name"},
 				"template_id": bson.M{"$last": "$template_id"},
+				"create_from": bson.M{"$last": "$create_from"},
 			},
 		},
 	}
