@@ -30,7 +30,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -183,7 +182,7 @@ func (c *InstallColl) initData(installInfoPreset map[string]*models.Install) {
 }
 
 func (c *InstallColl) InitInstallData(installInfoPreset map[string]*models.Install) error {
-	log := log.SugaredLogger()
+	//log := log.SugaredLogger()
 	installData, err := c.List()
 	if err != nil {
 		return err
@@ -195,10 +194,11 @@ func (c *InstallColl) InitInstallData(installInfoPreset map[string]*models.Insta
 			if installs.UpdateBy != setting.SystemUser {
 				continue
 			}
-			err := c.UpdateSystemDefault(installs.Name, installs.Version, installInfoPreset)
-			if err != nil {
-				log.Errorf("failed to initialize package: %s, the error is: %v", installs.Name, err)
-			}
+			// TODO!!!!! only for debug, must clear!!!
+			//err := c.UpdateSystemDefault(installs.Name, installs.Version, installInfoPreset)
+			//if err != nil {
+			//	log.Errorf("failed to initialize package: %s, the error is: %v", installs.Name, err)
+			//}
 		}
 	}
 
