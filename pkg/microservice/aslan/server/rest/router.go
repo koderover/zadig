@@ -84,7 +84,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/openapi/system":     new(systemhandler.OpenAPIRouter),
 		"/openapi/workflows":  new(workflowhandler.OpenAPIRouter),
 		"/openapi/quality":    new(testinghandler.QualityRouter),
-		"/openapi/build":      new(buildhandler.Router),
+		"/openapi/build":      new(buildhandler.OpenAPIRouter),
 	} {
 		r.Inject(router.Group(name))
 	}
