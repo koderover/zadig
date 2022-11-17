@@ -85,7 +85,7 @@ func (c *InstallColl) Create(args *models.Install) error {
 }
 
 func (c *InstallColl) List() ([]*models.Install, error) {
-	query := bson.M{"is_deleted": bson.M{"$ne": true}}
+	query := bson.M{}
 	ctx := context.Background()
 	resp := make([]*models.Install, 0)
 

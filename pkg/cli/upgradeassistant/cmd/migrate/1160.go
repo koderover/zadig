@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
@@ -55,9 +54,6 @@ func V1150ToV1160() error {
 	if err := addDisplayNameToWorkflow(); err != nil {
 		log.Errorf("addDisplayNameToWorkflow err:%s", err)
 		return err
-	}
-	if err := removeOldPackageDependencies(); err != nil {
-		log.Errorf("removeOldPackageDependencies err:%s", err)
 	}
 	if err := createNewPackageDependencies(); err != nil {
 		log.Errorf("createNewPackageDependencies err:%s", err)
@@ -340,41 +336,6 @@ func addDisplayNameToWorkflow() error {
 		log.Infof("update %d workflow tasks", len(mTasks))
 		if _, err := mongodb.NewTaskColl().BulkWrite(context.TODO(), mTasks); err != nil {
 			return fmt.Errorf("udpate workflow tasks error: %s", err)
-		}
-	}
-	return nil
-}
-
-var removedOldPackageDependenciesInV1160 = map[string][]string{
-	"dep":    {"0.4.1"},
-	"ginkgo": {"1.4.0"},
-	"go":     {"1.8.3", "1.9", "1.10.1", "1.11", "1.12.1"},
-	"node":   {"6.11.2", "8.11.3"},
-	"php":    {"5.5", "7.0", "7.1", "7.2"},
-	"python": {"3.6.1", "3.7.0"},
-}
-
-// removeOldPackageDependencies 通过标记停用过时依赖包
-// 为不影响先前使用了过时依赖包的工作流，并未真正在数据库中移除它们，而是添加删除字段标记
-// 获取依赖包列表的接口不再返回被标记的过时依赖信息，同时不影响现有工作流的运行
-func removeOldPackageDependencies() error {
-	c := mongodb.NewInstallColl()
-
-	for name, versionList := range removedOldPackageDependenciesInV1160 {
-		for _, version := range versionList {
-			result, err := c.UpdateOne(context.TODO(), bson.M{
-				"name":      name,
-				"version":   version,
-				"update_by": setting.SystemUser,
-			}, bson.M{
-				"$set": bson.M{"is_deleted": true},
-			})
-			if err != nil {
-				return fmt.Errorf("failed to remove %s-%s, error: %v", name, version, err)
-			}
-			if result.ModifiedCount > 0 {
-				log.Infof("remove old dependencies %s-%s success", name, version)
-			}
 		}
 	}
 	return nil
