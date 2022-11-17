@@ -244,4 +244,9 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		custom.DELETE("/task", OpenAPICancelWorkflowTaskV4)
 		custom.POST("/task/approve", ApproveStage)
 	}
+
+	view := router.Group("view")
+	{
+		view.POST("", OpenAPICreateWorkflowView)
+	}
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -34,7 +36,15 @@ func CreateWorkflowView(c *gin.Context) {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = workflowservice.CreateWorkflowView(req, ctx.UserName, ctx.Logger)
+	if req.Name == "" {
+		ctx.Err = fmt.Errorf("view name cannot be empty")
+		return
+	}
+	if req.ProjectName == "" {
+		ctx.Err = fmt.Errorf("project name cannot be empty")
+		return
+	}
+	ctx.Err = workflowservice.CreateWorkflowView(req.Name, req.ProjectName, req.Workflows, ctx.UserName, ctx.Logger)
 }
 
 func UpdateWorkflowView(c *gin.Context) {
