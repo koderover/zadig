@@ -132,6 +132,7 @@ func GetBuildTemplateReference(id string, logger *zap.SugaredLogger) ([]*templat
 		}
 		ret = append(ret, &template.BuildTemplateReference{
 			BuildName:     reference.Name,
+			ProjectName:   reference.ProductName,
 			ServiceModule: serviceModuleList,
 		})
 	}

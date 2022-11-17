@@ -83,5 +83,6 @@ type ServiceReference struct {
 
 type BuildTemplateReference struct {
 	BuildName     string   `json:"build_name"`
+	ProjectName   string   `json:"project_name"`
 	ServiceModule []string `json:"service_module"`
 }
