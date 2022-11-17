@@ -170,6 +170,7 @@ const (
 	StepHtmlReport        StepType = "html_report"
 	StepTarArchive        StepType = "tar_archive"
 	StepSonarCheck        StepType = "sonar_check"
+	StepDistributeImage   StepType = "distribute_image"
 )
 
 type JobType string

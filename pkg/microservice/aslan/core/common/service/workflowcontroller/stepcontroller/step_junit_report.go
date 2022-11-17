@@ -47,11 +47,11 @@ type junitReportCtl struct {
 func NewJunitReportCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*junitReportCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("marshal git spec error: %v", err)
+		return nil, fmt.Errorf("marshal junit report spec error: %v", err)
 	}
 	junitReportSpec := &step.StepJunitReportSpec{}
 	if err := yaml.Unmarshal(yamlString, &junitReportSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal git spec error: %v", err)
+		return nil, fmt.Errorf("unmarshal junit report spec error: %v", err)
 	}
 	stepTask.Spec = junitReportSpec
 	return &junitReportCtl{junitReportSpec: junitReportSpec, log: log, step: stepTask}, nil

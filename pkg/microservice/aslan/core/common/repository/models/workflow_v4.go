@@ -151,6 +151,8 @@ type ZadigDistributeImageJobSpec struct {
 	SourceRegistryID string              `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
 	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
 	Tatgets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
+	// unit is minute.
+	Timeout int64 `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
 }
 
 type DistributeTarget struct {

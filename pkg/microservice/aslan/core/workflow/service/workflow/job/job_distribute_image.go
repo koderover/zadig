@@ -23,7 +23,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type ImageDistributeJob struct {
@@ -123,25 +125,54 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	if err != nil {
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
 	}
-	jobSpec := &commonmodels.JobTaskImageDistributeSpec{
-		SourceRegistry: sourceReg,
-		TargetRegistry: targetReg,
-	}
-	jobTask := &commonmodels.JobTask{
-		Name:    j.job.Name,
-		JobType: string(config.JobZadigDistributeImage),
-		Spec:    jobSpec,
+
+	stepSpec := &step.StepImageDistributeSpec{
+		SourceRegistry: &step.RegistryNamespace{
+			RegAddr:   sourceReg.RegAddr,
+			Namespace: sourceReg.Namespace,
+			AccessKey: sourceReg.AccessKey,
+			SecretKey: sourceReg.SecretKey,
+		},
+		TargetRegistry: &step.RegistryNamespace{
+			RegAddr:   targetReg.RegAddr,
+			Namespace: targetReg.Namespace,
+			AccessKey: targetReg.AccessKey,
+			SecretKey: targetReg.SecretKey,
+		},
 	}
 	for _, target := range j.spec.Tatgets {
 		target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
 		target.TargetImage = getImage(target.ServiceModule, target.TargetTag, targetReg)
-		jobSpec.DistributeTarget = append(jobSpec.DistributeTarget, &commonmodels.DistributeTaskTarget{
+		stepSpec.DistributeTarget = append(stepSpec.DistributeTarget, &step.DistributeTaskTarget{
 			SoureImage:    target.SourceImage,
 			TargetImage:   target.TargetImage,
 			ServiceName:   target.ServiceName,
 			ServiceModule: target.ServiceModule,
 			UpdateTag:     target.UpdateTag,
 		})
+	}
+
+	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{
+		Properties: commonmodels.JobProperties{
+			Timeout:         j.spec.Timeout,
+			ResourceRequest: setting.MinRequest,
+			ClusterID:       setting.LocalClusterID,
+			BuildOS:         "focal",
+			ImageFrom:       commonmodels.ImageFromKoderover,
+		},
+		Steps: []*commonmodels.StepTask{
+			{
+				Name:     "distribute",
+				StepType: config.StepDistributeImage,
+				Spec:     stepSpec,
+			},
+		},
+	}
+	jobTask := &commonmodels.JobTask{
+		Name:    j.job.Name,
+		JobType: string(config.JobZadigDistributeImage),
+		Spec:    jobTaskSpec,
+		Timeout: int64(j.spec.Timeout),
 	}
 	resp = append(resp, jobTask)
 	j.job.Spec = j.spec
@@ -201,7 +232,10 @@ func getTargetTag(serviceName, serviceModule, sourceTag string, tagMap map[strin
 }
 
 func getImage(name, tag string, reg *commonmodels.RegistryNamespace) string {
-	image := fmt.Sprintf("%s/%s/%s:%s", reg.RegAddr, reg.Namespace, name, tag)
+	image := fmt.Sprintf("%s/%s:%s", reg.RegAddr, name, tag)
+	if len(reg.Namespace) > 0 {
+		image = fmt.Sprintf("%s/%s/%s:%s", reg.RegAddr, reg.Namespace, name, tag)
+	}
 	image = strings.TrimPrefix(image, "http://")
 	image = strings.TrimPrefix(image, "https://")
 	return image
