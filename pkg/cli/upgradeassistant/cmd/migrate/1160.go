@@ -57,6 +57,7 @@ func V1150ToV1160() error {
 	}
 	if err := createNewPackageDependencies(); err != nil {
 		log.Errorf("createNewPackageDependencies err:%s", err)
+		return err
 	}
 	return nil
 }
