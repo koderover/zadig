@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/regclient/regclient"
 	"github.com/regclient/regclient/config"
@@ -51,6 +52,7 @@ func NewDistributeImageStep(spec interface{}, workspace string, envs, secretEnvs
 }
 
 func (s *DistributeImageStep) Run(ctx context.Context) error {
+	log.Info("Start distribute images.")
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
@@ -79,6 +81,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if err := errList.ErrorOrNil(); err != nil {
 		return fmt.Errorf("copy images error: %v", err)
 	}
+	log.Info("Finish distribute images.")
 	return nil
 }
 
@@ -86,23 +89,20 @@ func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) e
 	sourceRef, err := ref.New(target.SoureImage)
 	if err != nil {
 		errMsg := fmt.Sprintf("parse source image: %s error: %v", target.SoureImage, err)
-		target.Status = "failed"
-		target.Error = errMsg
+		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
 	targetRef, err := ref.New(target.TargetImage)
 	if err != nil {
 		errMsg := fmt.Sprintf("parse target image: %s error: %v", target.TargetImage, err)
-		target.Status = "failed"
-		target.Error = errMsg
+		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
 	if err := client.ImageCopy(context.Background(), sourceRef, targetRef); err != nil {
 		errMsg := fmt.Sprintf("copy image failed: %v", err)
-		target.Status = "failed"
-		target.Error = errMsg
+		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	target.Status = "passed"
+	log.Infof("copy image from [%s] to [%s] succeed", target.SoureImage, target.SoureImage)
 	return nil
 }

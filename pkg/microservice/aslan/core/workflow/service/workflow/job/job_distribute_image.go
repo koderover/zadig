@@ -28,6 +28,10 @@ import (
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
+const (
+	DistributeTimeout int64 = 10
+)
+
 type ImageDistributeJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
@@ -172,7 +176,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		Name:    j.job.Name,
 		JobType: string(config.JobZadigDistributeImage),
 		Spec:    jobTaskSpec,
-		Timeout: int64(j.spec.Timeout),
+		Timeout: getTimeout(j.spec.Timeout),
 	}
 	resp = append(resp, jobTask)
 	j.job.Spec = j.spec
@@ -239,4 +243,11 @@ func getImage(name, tag string, reg *commonmodels.RegistryNamespace) string {
 	image = strings.TrimPrefix(image, "http://")
 	image = strings.TrimPrefix(image, "https://")
 	return image
+}
+
+func getTimeout(timeout int64) int64 {
+	if timeout == 0 {
+		return DistributeTimeout
+	}
+	return timeout
 }
