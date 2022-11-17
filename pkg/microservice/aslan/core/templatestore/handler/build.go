@@ -89,3 +89,10 @@ func RemoveBuildTemplate(c *gin.Context) {
 
 	ctx.Err = templateservice.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }
+
+func GetBuildTemplateReference(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateReference(c.Param("id"), ctx.Logger)
+}
