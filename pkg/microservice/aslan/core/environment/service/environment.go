@@ -270,7 +270,11 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 
 	errList := &multierror.Error{}
 	for _, arg := range args {
-		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, force, arg.Vars, log)
+		strategyMap := make(map[string]string)
+		for _, svc := range arg.Services {
+			strategyMap[svc.ServiceName] = svc.DeployStrategy
+		}
+		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, strategyMap, force, arg.Vars, log)
 		if err != nil {
 			log.Errorf("AutoUpdateProduct UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
@@ -339,7 +343,7 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 	return allServices, nil
 }
 
-func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, log *zap.SugaredLogger) (err error) {
+func UpdateProduct(serviceNames []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, log *zap.SugaredLogger) (err error) {
 	// 设置产品新的renderinfo
 	updateProd.Render = &commonmodels.RenderInfo{
 		Name:        renderSet.Name,
@@ -468,8 +472,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 			if !ok {
 				continue
 			}
-			// 服务需要更新，需要upsert
-			// 所有服务全部upsert一遍，确保所有服务起来
+
 			if svcRev.Updatable {
 
 				service := &commonmodels.ProductService{
@@ -488,7 +491,9 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-
+						if !installResource(svcRev.ServiceName, deployStrategy) {
+							return
+						}
 						_, err := upsertService(
 							existedServices[service.ServiceName] != nil,
 							updateProd,
@@ -585,7 +590,7 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	return nil
 }
 
-func UpdateProductV2(envName, productName, user, requestID string, serviceNames []string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) (err error) {
+func UpdateProductV2(envName, productName, user, requestID string, serviceNames []string, deployStrategy map[string]string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) (err error) {
 	// 根据产品名称和产品创建者到数据库中查找已有产品记录
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
@@ -695,7 +700,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	}
 
 	go func() {
-		err := UpdateProduct(serviceNames, exitedProd, updateProd, renderSet, log)
+		err := UpdateProduct(serviceNames, deployStrategy, exitedProd, updateProd, renderSet, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
