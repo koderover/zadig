@@ -53,7 +53,7 @@ type K8sService struct {
 func (k *K8sService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
-		return queryPodsStatus(namespace, productName, serviceTmpl.ServiceName, informer, k.log)
+		return queryPodsStatus(namespace, envName, productName, serviceTmpl.ServiceName, informer, k.log)
 	}
 
 	return setting.PodSucceeded, setting.PodReady, []string{}

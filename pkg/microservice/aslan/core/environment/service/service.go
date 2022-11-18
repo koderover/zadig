@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -36,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -519,7 +523,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	return nil
 }
 
-func queryPodsStatus(namespace, productName, serviceName string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
+func queryPodsStatus(namespace, envName, productName, serviceName string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
 	ls := labels.Set{}
 	if productName != "" {
 		ls[setting.ProductLabel] = productName
@@ -527,7 +531,52 @@ func queryPodsStatus(namespace, productName, serviceName string, informer inform
 	if serviceName != "" {
 		ls[setting.ServiceLabel] = serviceName
 	}
-	return kube.GetSelectedPodsInfo(ls.AsSelector(), informer, log)
+	//return kube.GetSelectedPodsInfo(ls.AsSelector(), informer, log)
+	return collectPodsInfo(namespace, envName, productName, serviceName, log)
+}
+
+func collectPodsInfo(namespace, envName, productName, serviceName string, log *zap.SugaredLogger) (string, string, []string) {
+	svcResp, err := GetService(envName, productName, serviceName, "", log)
+	if err != nil {
+		return setting.PodError, setting.PodNotReady, nil
+	}
+
+	pods := make([]*resource.Pod, 0)
+	for _, svc := range svcResp.Scales {
+		pods = append(pods, svc.Pods...)
+	}
+
+	if len(pods) == 0 {
+		return setting.PodNonStarted, setting.PodNotReady, nil
+	}
+
+	imageSet := sets.String{}
+	for _, pod := range pods {
+		for _, container := range pod.ContainerStatuses {
+			imageSet.Insert(container.Image)
+		}
+	}
+	images := imageSet.List()
+
+	ready := setting.PodReady
+
+	succeededPods := 0
+	for _, pod := range pods {
+		if pod.Succeed {
+			succeededPods++
+			continue
+		}
+		if !pod.Ready {
+			return setting.PodUnstable, setting.PodNotReady, images
+		}
+	}
+
+	if len(pods) == succeededPods {
+		return string(corev1.PodSucceeded), setting.JobReady, images
+	}
+
+	return setting.PodRunning, ready, images
+
 }
 
 // validateServiceContainer validate container with envName like dev
