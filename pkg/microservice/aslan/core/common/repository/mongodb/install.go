@@ -127,7 +127,10 @@ func (c *InstallColl) Update(name, version string, args *models.Install) error {
 func (c *InstallColl) UpdateSystemDefault(name, version string, installInfoPreset map[string]*models.Install) error {
 	packageKey := fmt.Sprintf("%s-%s", name, version)
 
-	installInfo := installInfoPreset[packageKey]
+	installInfo, ok := installInfoPreset[packageKey]
+	if !ok {
+		return nil
+	}
 
 	oid, err := primitive.ObjectIDFromHex(installInfo.ObjectIDHex)
 	if err != nil {
