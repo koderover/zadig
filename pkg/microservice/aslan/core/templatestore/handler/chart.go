@@ -108,6 +108,13 @@ func UpdateChartTemplateVariables(c *gin.Context) {
 	ctx.Err = templateservice.UpdateChartTemplateVariables(c.Param("name"), args, ctx.Logger)
 }
 
+func GetChartTemplateReference(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = templateservice.GetChartTemplateReference(c.Param("name"), ctx.Logger)
+}
+
 func SyncChartTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
