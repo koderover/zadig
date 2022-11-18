@@ -56,22 +56,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
-	sourceHost := config.HostNewName(s.spec.SourceRegistry.RegAddr)
-	sourceHost.User = s.spec.SourceRegistry.AccessKey
-	sourceHost.Pass = s.spec.SourceRegistry.SecretKey
-	sourceHost.RegCert = s.spec.SourceRegistry.TLSCert
-	if !s.spec.SourceRegistry.TLSEnabled {
-		sourceHost.TLS = config.TLSInsecure
-	}
-
-	targetHost := config.HostNewName(s.spec.TargetRegistry.RegAddr)
-	targetHost.User = s.spec.TargetRegistry.AccessKey
-	targetHost.Pass = s.spec.TargetRegistry.SecretKey
-	targetHost.RegCert = s.spec.TargetRegistry.TLSCert
-	if !s.spec.TargetRegistry.TLSEnabled {
-		targetHost.TLS = config.TLSInsecure
-	}
-	hostsOpt := regclient.WithConfigHosts([]config.Host{*sourceHost, *targetHost})
+	hostsOpt := regclient.WithConfigHosts([]config.Host{getDockerHost(s.spec.SourceRegistry), getDockerHost(s.spec.TargetRegistry)})
 	client := regclient.New(hostsOpt)
 
 	errList := new(multierror.Error)
@@ -110,4 +95,16 @@ func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) e
 	}
 	log.Infof("copy image from [%s] to [%s] succeed", target.SoureImage, target.TargetImage)
 	return nil
+}
+
+func getDockerHost(reg *step.RegistryNamespace) config.Host {
+	host := config.HostNewName(reg.RegAddr)
+	host.User = reg.AccessKey
+	host.Pass = reg.SecretKey
+	host.RegCert = reg.TLSCert
+	host.ClientCert = reg.TLSCert
+	if !reg.TLSEnabled {
+		host.TLS = config.TLSInsecure
+	}
+	return *host
 }
