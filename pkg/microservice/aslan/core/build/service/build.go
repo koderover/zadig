@@ -232,14 +232,15 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	if len(build.Name) == 0 {
 		return e.ErrCreateBuildModule.AddDesc("empty name")
 	}
-	if err := commonutil.CheckDefineResourceParam(build.PreBuild.ResReq, build.PreBuild.ResReqSpec); err != nil {
-		return e.ErrCreateBuildModule.AddDesc(err.Error())
-	}
 
 	build.UpdateBy = username
 	err := correctFields(build)
 	if err != nil {
 		return err
+	}
+
+	if err := commonutil.CheckDefineResourceParam(build.PreBuild.ResReq, build.PreBuild.ResReqSpec); err != nil {
+		return e.ErrCreateBuildModule.AddDesc(err.Error())
 	}
 
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
