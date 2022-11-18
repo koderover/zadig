@@ -34,7 +34,9 @@ type RegistryNamespace struct {
 	RegAddr string `bson:"reg_addr"            json:"reg_addr"             yaml:"reg_addr"`
 	// Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.
 	// use with CAUTION !!!!
-	Namespace string `bson:"namespace,omitempty"      json:"namespace,omitempty"     yaml:"namespace,omitempty"`
-	AccessKey string `bson:"access_key"               json:"access_key"              yaml:"access_key"`
-	SecretKey string `bson:"secret_key"               json:"secret_key"              yaml:"secret_key"`
+	TLSEnabled bool   `bson:"tls_enabled"              json:"tls_enabled"             yaml:"tls_enabled"`
+	TLSCert    string `bson:"tls_cert"                 json:"tls_cert"                yaml:"tls_cert"`
+	Namespace  string `bson:"namespace,omitempty"      json:"namespace,omitempty"     yaml:"namespace,omitempty"`
+	AccessKey  string `bson:"access_key"               json:"access_key"              yaml:"access_key"`
+	SecretKey  string `bson:"secret_key"               json:"secret_key"              yaml:"secret_key"`
 }

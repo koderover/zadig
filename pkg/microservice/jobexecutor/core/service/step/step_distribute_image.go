@@ -59,10 +59,18 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	sourceHost := config.HostNewName(s.spec.SourceRegistry.RegAddr)
 	sourceHost.User = s.spec.SourceRegistry.AccessKey
 	sourceHost.Pass = s.spec.SourceRegistry.SecretKey
+	sourceHost.RegCert = s.spec.SourceRegistry.TLSCert
+	if !s.spec.SourceRegistry.TLSEnabled {
+		sourceHost.TLS = config.TLSInsecure
+	}
 
 	targetHost := config.HostNewName(s.spec.TargetRegistry.RegAddr)
 	targetHost.User = s.spec.TargetRegistry.AccessKey
 	targetHost.Pass = s.spec.TargetRegistry.SecretKey
+	targetHost.RegCert = s.spec.TargetRegistry.TLSCert
+	if !s.spec.TargetRegistry.TLSEnabled {
+		targetHost.TLS = config.TLSInsecure
+	}
 	hostsOpt := regclient.WithConfigHosts([]config.Host{*sourceHost, *targetHost})
 	client := regclient.New(hostsOpt)
 

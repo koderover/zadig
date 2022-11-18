@@ -142,6 +142,14 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			SecretKey: targetReg.SecretKey,
 		},
 	}
+	if sourceReg.AdvancedSetting != nil {
+		stepSpec.SourceRegistry.TLSEnabled = sourceReg.AdvancedSetting.TLSEnabled
+		stepSpec.SourceRegistry.TLSCert = sourceReg.AdvancedSetting.TLSCert
+	}
+	if targetReg.AdvancedSetting != nil {
+		stepSpec.TargetRegistry.TLSEnabled = targetReg.AdvancedSetting.TLSEnabled
+		stepSpec.TargetRegistry.TLSCert = targetReg.AdvancedSetting.TLSCert
+	}
 	for _, target := range j.spec.Tatgets {
 		target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
 		target.TargetImage = getImage(target.ServiceModule, target.TargetTag, targetReg)
