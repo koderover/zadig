@@ -269,7 +269,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			var deployment *appsv1.Deployment
 			var found bool
 			deployment, found, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
-			if err != nil || !found {
+			if err != nil {
 				return
 			}
 			if !found {
