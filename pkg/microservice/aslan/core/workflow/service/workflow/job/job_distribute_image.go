@@ -119,6 +119,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		}
 		j.spec.Tatgets = newTargets
 	}
+	
 	sourceReg, _, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("source image registry: %s not found: %v", j.spec.SourceRegistryID, err)
@@ -129,26 +130,8 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	}
 
 	stepSpec := &step.StepImageDistributeSpec{
-		SourceRegistry: &step.RegistryNamespace{
-			RegAddr:   sourceReg.RegAddr,
-			Namespace: sourceReg.Namespace,
-			AccessKey: sourceReg.AccessKey,
-			SecretKey: sourceReg.SecretKey,
-		},
-		TargetRegistry: &step.RegistryNamespace{
-			RegAddr:   targetReg.RegAddr,
-			Namespace: targetReg.Namespace,
-			AccessKey: targetReg.AccessKey,
-			SecretKey: targetReg.SecretKey,
-		},
-	}
-	if sourceReg.AdvancedSetting != nil {
-		stepSpec.SourceRegistry.TLSEnabled = sourceReg.AdvancedSetting.TLSEnabled
-		stepSpec.SourceRegistry.TLSCert = sourceReg.AdvancedSetting.TLSCert
-	}
-	if targetReg.AdvancedSetting != nil {
-		stepSpec.TargetRegistry.TLSEnabled = targetReg.AdvancedSetting.TLSEnabled
-		stepSpec.TargetRegistry.TLSCert = targetReg.AdvancedSetting.TLSCert
+		SourceRegistry: getRegistry(sourceReg),
+		TargetRegistry: getRegistry(targetReg),
 	}
 	for _, target := range j.spec.Tatgets {
 		target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
@@ -249,6 +232,20 @@ func getImage(name, tag string, reg *commonmodels.RegistryNamespace) string {
 	image = strings.TrimPrefix(image, "http://")
 	image = strings.TrimPrefix(image, "https://")
 	return image
+}
+
+func getRegistry(regDetail *commonmodels.RegistryNamespace) *step.RegistryNamespace {
+	reg := &step.RegistryNamespace{
+		RegAddr:   regDetail.RegAddr,
+		Namespace: regDetail.Namespace,
+		AccessKey: regDetail.AccessKey,
+		SecretKey: regDetail.SecretKey,
+	}
+	if regDetail.AdvancedSetting != nil {
+		reg.TLSEnabled = regDetail.AdvancedSetting.TLSEnabled
+		reg.TLSCert = regDetail.AdvancedSetting.TLSCert
+	}
+	return reg
 }
 
 func getTimeout(timeout int64) int64 {
