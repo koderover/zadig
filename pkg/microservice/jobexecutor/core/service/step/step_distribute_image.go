@@ -102,7 +102,6 @@ func getDockerHost(reg *step.RegistryNamespace) config.Host {
 	host.User = reg.AccessKey
 	host.Pass = reg.SecretKey
 	host.RegCert = reg.TLSCert
-	host.ClientCert = reg.TLSCert
 	if !reg.TLSEnabled {
 		host.TLS = config.TLSInsecure
 	}
