@@ -143,11 +143,11 @@ type ServiceAndImage struct {
 }
 
 type ZadigDistributeImageJobSpec struct {
-	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+	// fromjob/runtime, `runtime` means runtime input, `fromjob` means that it is obtained from the upstream build job
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
-	// 当 source 为 fromjob 时需要，指定分发镜像来源是上游哪一个构建任务
+	// required when source is `fromjob`, specify which upstream build job the distribution image source is
 	JobName string `bson:"job_name"                       json:"job_name"                      yaml:"job_name"`
-	// 当 source 为 fromjob 时不需要，直接从上游构建任务信息中获取
+	// not required when source is fromjob, directly obtained from upstream build job information
 	SourceRegistryID string              `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
 	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
 	Tatgets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
