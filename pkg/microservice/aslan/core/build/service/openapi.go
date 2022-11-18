@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -229,6 +230,34 @@ func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFrom
 	}
 
 	ret.TargetRepos = targetRepoInfo
+
+	// for fucking stupid reason, prebuild and postbuild need to be non-empty
+	ret.PreBuild = &commonmodels.PreBuild{
+		CleanWorkspace: false,
+		ResReq:         "low",
+		ResReqSpec: setting.RequestSpec{
+			CpuLimit:    1000,
+			MemoryLimit: 512,
+		},
+		BuildOS:             "focal",
+		ImageFrom:           "koderover",
+		ImageID:             "61af6b575c9beafb9ab130dc",
+		Installs:            nil,
+		Envs:                nil,
+		EnableProxy:         false,
+		Parameters:          nil,
+		UploadPkg:           false,
+		ClusterID:           "0123456789abcdef12345678",
+		UseHostDockerDaemon: false,
+		Namespace:           "",
+	}
+
+	ret.PostBuild = &commonmodels.PostBuild{
+		DockerBuild:         nil,
+		ObjectStorageUpload: nil,
+		FileArchive:         nil,
+		Scripts:             "",
+	}
 
 	return ret, nil
 }
