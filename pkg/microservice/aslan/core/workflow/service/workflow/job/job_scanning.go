@@ -27,6 +27,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/tool/sonar"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
 )
@@ -220,9 +221,16 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				return resp, fmt.Errorf("failed to get sonar integration information to create scanning task, error: %s", err)
 
 			}
+
+			projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
+			resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
+			if err != nil {
+				log.Errorf("failed to get sonar address with project key, error: %s", err)
+			}
+
 			sonarLinkKeyVal := &commonmodels.KeyVal{
 				Key:   "SONAR_LINK",
-				Value: sonarInfo.ServerAddress,
+				Value: resultAddr,
 			}
 			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
 			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
