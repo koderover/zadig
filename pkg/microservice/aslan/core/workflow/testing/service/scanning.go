@@ -446,14 +446,9 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		}
 
 		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
-		resultAddr = sonarInfo.ServerAddress
-		if projectKey != "" {
-			addr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
-			if err == nil {
-				resultAddr = addr
-			} else {
-				log.Errorf("failed to parse sonar server address, error: %s", err)
-			}
+		resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
+		if err != nil {
+			log.Errorf("failed to get sonar address with project key, error: %s", err)
 		}
 	}
 

@@ -197,10 +197,15 @@ func GetSonarProjectKeyFromConfig(config string) string {
 	return key
 }
 
+// GetSonarAddressWithProjectKey 根据 projectKey 返回对应的项目地址
+// 如果传入的 projectKey 为空, 或出现错误，则返回原 baseAddr
 func GetSonarAddressWithProjectKey(baseAddr, projectKey string) (string, error) {
+	if projectKey == "" {
+		return baseAddr, nil
+	}
 	u, err := url.Parse(baseAddr)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse sonar server address, error: %s", err)
+		return baseAddr, fmt.Errorf("failed to parse sonar server address, error: %s", err)
 	}
 	u = u.JoinPath("dashboard")
 	u.RawQuery = url.Values{"id": {projectKey}}.Encode()
