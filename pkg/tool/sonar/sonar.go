@@ -192,13 +192,13 @@ func GetSonarProjectKeyFromConfig(config string) string {
 	if err != nil {
 		return ""
 	}
-	// 如果 sonar.projectKey 为空，或者该项配置字段不存在，都返回空字符串
+	// Returns the empty string if sonar.projectKey is empty or does not exist.
 	key, _ := v.Get("sonar.projectKey").(string)
 	return key
 }
 
-// GetSonarAddressWithProjectKey 根据 projectKey 返回对应的项目地址
-// 如果传入的 projectKey 为空, 或出现错误，则返回原 baseAddr
+// GetSonarAddressWithProjectKey return the corresponding project address according to projectKey
+// If the projectKey is empty or an error occurs, the original baseAddr is returned
 func GetSonarAddressWithProjectKey(baseAddr, projectKey string) (string, error) {
 	if projectKey == "" {
 		return baseAddr, nil
