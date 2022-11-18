@@ -201,6 +201,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			var found bool
 			statefulSet, found, err = getter.GetStatefulSet(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
 			if err != nil {
+				logError(c.job, err.Error(), c.logger)
 				return err
 			}
 			if !found {
@@ -231,6 +232,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			var found bool
 			deployment, found, err = getter.GetDeployment(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
 			if err != nil {
+				logError(c.job, err.Error(), c.logger)
 				return err
 			}
 			if !found {
