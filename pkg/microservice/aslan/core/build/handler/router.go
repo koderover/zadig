@@ -40,3 +40,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		target.GET("/:productName", ListBuildModulesForProduct)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	build := router.Group("")
+	{
+		build.POST("", OpenAPICreateBuildModule)
+	}
+}

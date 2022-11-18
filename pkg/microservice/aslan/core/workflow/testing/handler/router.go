@@ -103,3 +103,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workspace.GET("/workflowv4/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4TestArtifactInfo)
 	}
 }
+
+type QualityRouter struct{}
+
+func (*QualityRouter) Inject(router *gin.RouterGroup) {
+	scan := router.Group("codescan")
+	{
+		scan.POST("", OpenAPICreateScanningModule)
+	}
+}

@@ -44,6 +44,38 @@ type RequestSpec struct {
 	GpuLimit string `bson:"gpu_limit"                     json:"gpu_limit"               yaml:"gpu_limit"`
 }
 
+func (spec RequestSpec) Equal(target RequestSpec) bool {
+	return spec.CpuReq == target.CpuReq && spec.CpuLimit == target.CpuLimit && spec.MemoryLimit == target.MemoryLimit && spec.MemoryReq == target.MemoryReq
+}
+
+func (spec RequestSpec) FindResourceRequestType() Request {
+	if spec.GpuLimit != "" {
+		return DefineRequest
+	}
+
+	if spec.Equal(HighRequestSpec) {
+		return HighRequest
+	}
+
+	if spec.Equal(MediumRequestSpec) {
+		return MediumRequest
+	}
+
+	if spec.Equal(LowRequestSpec) {
+		return LowRequest
+	}
+
+	if spec.Equal(DefaultRequestSpec) {
+		return DefaultRequest
+	}
+
+	if spec.Equal(MinRequestSpec) {
+		return MinRequest
+	}
+
+	return DefineRequest
+}
+
 var (
 	// HighRequestSpec 16 CPU 32 G
 	HighRequestSpec = RequestSpec{

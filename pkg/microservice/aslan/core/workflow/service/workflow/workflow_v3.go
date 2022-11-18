@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -201,20 +202,20 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 		switch param.Type {
 		case "string":
 			resp = append(resp, &WorkflowV3TaskArgs{
-				Type:  string(StringType),
+				Type:  string(types.StringType),
 				Key:   param.Key,
 				Value: param.DefaultValue,
 			})
 		case "choice":
 			resp = append(resp, &WorkflowV3TaskArgs{
-				Type:   string(ChoiceType),
+				Type:   string(types.ChoiceType),
 				Key:    param.Key,
 				Value:  param.DefaultValue,
 				Choice: param.ChoiceOption,
 			})
 		case "external":
 			externalEnv := &WorkflowV3TaskArgs{
-				Type: string(ExternalType),
+				Type: string(types.ExternalType),
 			}
 			for _, kv := range param.ExternalSetting.Params {
 				if kv.Display {

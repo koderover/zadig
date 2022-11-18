@@ -120,6 +120,17 @@ func (c *DockerfileTemplateColl) GetById(idstring string) (*models.DockerfileTem
 	return resp, nil
 }
 
+func (c *DockerfileTemplateColl) GetByName(name string) (*models.DockerfileTemplate, error) {
+	resp := new(models.DockerfileTemplate)
+	query := bson.M{"name": name}
+
+	err := c.FindOne(context.TODO(), query).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *DockerfileTemplateColl) DeleteByID(idstring string) error {
 	id, err := primitive.ObjectIDFromHex(idstring)
 	if err != nil {
