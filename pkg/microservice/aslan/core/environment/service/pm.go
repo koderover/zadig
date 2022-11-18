@@ -55,7 +55,7 @@ func (p *PMService) queryServiceStatus(namespace, envName, productName string, s
 		return setting.PodPending, setting.PodNotReady, []string{}
 	}
 
-	return queryPodsStatus(namespace, "", serviceTmpl.ServiceName, informer, p.log)
+	return queryPodsStatus(namespace, "", productName, serviceTmpl.ServiceName, informer, p.log)
 }
 
 func (p *PMService) updateService(args *SvcOptArgs) error {
