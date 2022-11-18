@@ -94,7 +94,7 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			return resp, errors.New(msg)
 		}
 		if service.Spec.ClusterIP == "None" {
-			msg := fmt.Sprintf("service :%s was a headless service, which canry deployment do not suppoort", err)
+			msg := fmt.Sprintf("service :%s was a headless service, which canry deployment do not support", err)
 			logger.Error(msg)
 			return resp, errors.New(msg)
 		}

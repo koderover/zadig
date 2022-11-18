@@ -164,6 +164,12 @@ type K8sBlueGreenReleaseJobSpec struct {
 	Events         *commonmodels.Events `bson:"events"                       json:"events"`
 }
 
+type DistributeImageJobSpec struct {
+	SourceRegistryID string                       `bson:"source_registry_id"           json:"source_registry_id"`
+	TargetRegistryID string                       `bson:"target_registry_id"           json:"target_registry_id"`
+	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
+}
+
 func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
@@ -435,6 +441,22 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Repos = stepSpec.Repos
 					continue
+				}
+			}
+			jobPreview.Spec = spec
+		case string(config.JobZadigDistributeImage):
+			spec := &DistributeImageJobSpec{}
+			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+
+			for _, step := range taskJobSpec.Steps {
+				if step.StepType == config.StepDistributeImage {
+					stepSpec := &stepspec.StepImageDistributeSpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					spec.DistributeTarget = stepSpec.DistributeTarget
+					break
 				}
 			}
 			jobPreview.Spec = spec
