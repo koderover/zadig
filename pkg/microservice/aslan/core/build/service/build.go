@@ -239,7 +239,7 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		return err
 	}
 
-	if build.TemplateID != "" {
+	if build.TemplateID == "" {
 		if err := commonutil.CheckDefineResourceParam(build.PreBuild.ResReq, build.PreBuild.ResReqSpec); err != nil {
 			return e.ErrCreateBuildModule.AddDesc(err.Error())
 		}
