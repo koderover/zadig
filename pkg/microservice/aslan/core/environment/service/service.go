@@ -61,49 +61,6 @@ func GetServiceContainer(envName, productName, serviceName, container string, lo
 	return nil
 }
 
-// ScaleService 增加或者缩减服务的deployment或者stafefulset的副本数量
-func ScaleService(envName, productName, serviceName string, number int, log *zap.SugaredLogger) (err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return e.ErrScaleService.AddErr(err)
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
-	if err != nil {
-		return e.ErrScaleService.AddErr(err)
-	}
-
-	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-	ds, err := getter.ListDeployments(prod.Namespace, selector, kubeClient)
-	if err != nil {
-		log.Error(err)
-		return e.ErrScaleService.AddDesc("伸缩Deployment失败")
-	}
-	for _, d := range ds {
-		err := updater.ScaleDeployment(d.Namespace, d.Name, number, kubeClient)
-		if err != nil {
-			log.Error(err)
-			return e.ErrScaleService.AddDesc("伸缩Deployment失败")
-		}
-	}
-
-	ss, err := getter.ListStatefulSets(prod.Namespace, selector, kubeClient)
-	if err != nil {
-		log.Error(err)
-		return e.ErrScaleService.AddDesc("伸缩StatefulSet失败")
-	}
-	for _, s := range ss {
-		err := updater.ScaleStatefulSet(s.Namespace, s.Name, number, kubeClient)
-		if err != nil {
-			log.Error(err)
-			return e.ErrScaleService.AddDesc("伸缩StatefulSet失败")
-		}
-	}
-
-	return nil
-}
-
 func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	prod, err := commonrepo.NewProductColl().Find(opt)

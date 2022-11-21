@@ -68,7 +68,7 @@ type Service struct {
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
 	CreateFrom       interface{}      `bson:"create_from,omitempty"          json:"create_from,omitempty"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
-	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
+	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"` // WorkloadType is set in host projects
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 	TemplateID       string           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
 	AutoSync         bool             `bson:"auto_sync"                      json:"auto_sync"`

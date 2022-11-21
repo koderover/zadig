@@ -746,8 +746,6 @@ metas:
           - method: POST
             endpoint: '/api/aslan/environment/environments/:name/services/?*/restartNew'
           - method: POST
-            endpoint: '/api/aslan/environment/environments/:name/services/?*/scale'
-          - method: POST
             endpoint: '/api/aslan/environment/environments/:name/services/?*/scaleNew'
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/services/?*'
