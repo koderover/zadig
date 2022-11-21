@@ -198,9 +198,16 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		switch serviceInfo.WorkloadType {
 		case setting.StatefulSet:
 			var statefulSet *appsv1.StatefulSet
-			statefulSet, _, err = getter.GetStatefulSet(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
+			var found bool
+			statefulSet, found, err = getter.GetStatefulSet(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
 			if err != nil {
+				logError(c.job, err.Error(), c.logger)
 				return err
+			}
+			if !found {
+				msg := fmt.Sprintf("statefulset %s not found", c.jobTaskSpec.ServiceName)
+				logError(c.job, msg, c.logger)
+				return errors.New(msg)
 			}
 			for _, container := range statefulSet.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.ServiceModule {
@@ -222,9 +229,16 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			}
 		case setting.Deployment:
 			var deployment *appsv1.Deployment
-			deployment, _, err = getter.GetDeployment(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
+			var found bool
+			deployment, found, err = getter.GetDeployment(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
 			if err != nil {
+				logError(c.job, err.Error(), c.logger)
 				return err
+			}
+			if !found {
+				msg := fmt.Sprintf("deployment %s not found", c.jobTaskSpec.ServiceName)
+				logError(c.job, msg, c.logger)
+				return errors.New(msg)
 			}
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.ServiceModule {
