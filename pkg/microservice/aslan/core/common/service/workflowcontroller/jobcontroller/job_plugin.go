@@ -19,7 +19,6 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
@@ -156,15 +155,9 @@ func (c *PluginJobCtl) complete(ctx context.Context) {
 	}()
 
 	// get job outputs info from pod terminate message.
-	outputs, err := getJobOutput(c.jobTaskSpec.Properties.Namespace, c.job.Name, jobLabel, c.kubeclient)
-	if err != nil {
+	if err := getJobOutput(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.kubeclient); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
-	}
-
-	// write jobs output info to globalcontext so other job can use like this $(workflow.jobName.outputName)
-	for _, output := range outputs {
-		c.workflowCtx.GlobalContextSet(strings.Join([]string{"workflow", c.job.Name, output.Name}, "."), output.Value)
 	}
 
 	if err := saveContainerLog(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {

@@ -156,6 +156,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(testing.Name + "-" + j.job.Name + "-" + rand.String(5)),
+			Key:     strings.Join([]string{j.job.Name, testing.Name}, "."),
 			JobType: string(config.JobZadigTesting),
 			Spec:    jobTaskSpec,
 			Timeout: int64(testingInfo.Timeout),

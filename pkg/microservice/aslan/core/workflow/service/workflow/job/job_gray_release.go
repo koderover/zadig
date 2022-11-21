@@ -16,6 +16,7 @@ package job
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -123,7 +124,8 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	for _, target := range j.spec.Targets {
 		grayReplica := math.Ceil(float64(*&target.Replica) * (float64(j.spec.GrayScale) / 100))
 		jobTask := &commonmodels.JobTask{
-			Name:    j.job.Name,
+			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
+			Key:     strings.Join([]string{j.job.Name, target.WorkloadName}, "."),
 			JobType: string(config.JobK8sGrayRelease),
 			Spec: &commonmodels.JobTaskGrayReleaseSpec{
 				ClusterID:        j.spec.ClusterID,

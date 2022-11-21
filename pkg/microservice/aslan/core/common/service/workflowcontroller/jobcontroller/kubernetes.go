@@ -817,32 +817,40 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 	}
 }
 
-func getJobOutput(namespace, containerName string, jobLabel *JobLabel, kubeClient crClient.Client) ([]*job.JobOutput, error) {
-	resp := []*job.JobOutput{}
+func getJobOutput(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, kubeClient crClient.Client) error {
+	jobLabel := &JobLabel{
+		JobType: string(jobTask.JobType),
+		JobName: jobTask.K8sJobName,
+	}
+	outputs := []*job.JobOutput{}
 	ls := getJobLabels(jobLabel)
 	pods, err := getter.ListPods(namespace, labels.Set(ls).AsSelector(), kubeClient)
 	if err != nil {
-		return resp, err
+		return err
 	}
 	for _, pod := range pods {
 		ipod := wrapper.Pod(pod)
 		// only collect succeeed job outputs.
 		if !ipod.Succeeded() {
-			return resp, nil
+			return nil
 		}
 		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.Name != ls[containerName] {
+			if containerStatus.Name != containerName {
 				continue
 			}
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) != 0 {
-				if err := json.Unmarshal([]byte(containerStatus.State.Terminated.Message), &resp); err != nil {
-					return resp, err
+				if err := json.Unmarshal([]byte(containerStatus.State.Terminated.Message), &outputs); err != nil {
+					return err
 				}
-				return resp, nil
+				return nil
 			}
 		}
 	}
-	return resp, nil
+	// write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
+	for _, output := range outputs {
+		workflowCtx.GlobalContextSet(strings.Join([]string{"job", jobTask.Key, "output", output.Name}, "."), output.Value)
+	}
+	return  nil
 }
 
 func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID int64, jobLabel *JobLabel, kubeClient crClient.Client) error {

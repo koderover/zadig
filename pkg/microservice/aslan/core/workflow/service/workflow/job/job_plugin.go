@@ -81,6 +81,7 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	jobTask := &commonmodels.JobTask{
 		Name:    j.job.Name,
+		Key:     j.job.Name,
 		JobType: string(config.JobPlugin),
 		Spec:    jobTaskSpec,
 		Outputs: j.spec.Plugin.Outputs,
