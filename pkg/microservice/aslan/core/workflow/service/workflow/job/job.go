@@ -382,7 +382,7 @@ func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
 func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
 	resp := []string{}
 	for _, output := range outputs {
-		resp = append(resp, strings.Join([]string{"job", jobKey, "output", output.Name}, "."))
+		resp = append(resp, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", jobKey, "output", output.Name}, ".")))
 	}
 	return resp
 }
