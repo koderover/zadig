@@ -277,6 +277,7 @@ func (j *FreeStyleJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	}
 
 	jobKey := j.job.Name
+	log.Errorf("@@@@@@%+v", j.spec.Outputs)
 	resp = append(resp, getOutputKey(jobKey, j.spec.Outputs)...)
 	return resp
 }
