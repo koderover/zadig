@@ -45,6 +45,8 @@ type Product struct {
 	RecycleDay  int              `bson:"recycle_day"               json:"recycle_day"`
 	Source      string           `bson:"source"                    json:"source"`
 
+	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
+
 	// used for cache
 	//KubeClient kubecli.Client `bson:"-" json:"-"`
 	//HelmClient helmclient.Client `bson:"-" json:"-"`

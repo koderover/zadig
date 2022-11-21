@@ -1921,6 +1921,7 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 		return prod, nil
 	}
 	prod.ChartInfos = renderSet.ChartInfos
+	prod.Vars = renderSet.KVs
 
 	return prod, nil
 }

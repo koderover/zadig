@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -163,6 +165,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		serviceInfo *types.ServiceTmpl
 		selector    labels.Selector
 	)
+	// TODO FIXME: the revision of the service info should be the value of product service
 	serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 	if err != nil {
 		// Maybe it is a share service, the entity is not under the project
@@ -184,6 +187,14 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		statefulSets, err = getter.ListStatefulSets(p.Task.Namespace, selector, p.kubeClient)
 		if err != nil {
 			return
+		}
+
+		// for services not deployed but only imported, we can't find workloads by 's-product' and 's-service'
+		if len(deployments) == 0 && len(statefulSets) == 0 {
+			deployments, statefulSets, err = p.fetchWorkloadsForImportedService(ctx, p.Task.EnvName, p.Task.ProductName, p.Task.ServiceName)
+			if err != nil {
+				return
+			}
 		}
 
 	L:
@@ -307,6 +318,74 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 		return nil, err
 	}
 	return s, nil
+}
+
+func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, envName, productName string) (*types.Product, error) {
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", envName)
+	prod := &types.Product{}
+	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", productName), httpclient.SetQueryParam("ifPassFilter", "true"))
+	if err != nil {
+		return nil, err
+	}
+	return prod, nil
+}
+
+func (p *DeployTaskPlugin) getRenderedManifests(ctx context.Context, envName, productName string, serviceName string) ([]string, error) {
+	url := "/api/environment/export/services"
+	prod := make([]string, 0)
+	_, err := p.httpClient.Get(url, httpclient.SetResult(&prod),
+		httpclient.SetQueryParam("projectName", productName),
+		httpclient.SetQueryParam("envName", envName),
+		httpclient.SetQueryParam("serviceName", serviceName),
+		httpclient.SetQueryParam("ifPassFilter", "true"))
+	if err != nil {
+		return nil, err
+	}
+	return prod, nil
+}
+
+func (p *DeployTaskPlugin) fetchWorkloadsForImportedService(ctx context.Context, envName, productName string, serviceName string) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
+	p.Log.Infof("######## start fetchWorkloadsForImportedService")
+	productInfo, err := p.getProductInfo(ctx, envName, productName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find product info: %s/%s", productName, envName)
+	}
+
+	if productInfo.ServiceDeployStrategy == nil || productInfo.ServiceDeployStrategy[serviceName] != setting.ServiceDeployStrategyImport {
+		return nil, nil, nil
+	}
+
+	manifests, err := p.getRenderedManifests(ctx, envName, productName, serviceName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	p.Log.Infof("######### get service manifests, data: %v", manifests)
+
+	deploys, stss := make([]*appsv1.Deployment, 0), make([]*appsv1.StatefulSet, 0)
+	for _, manifest := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
+		if err != nil {
+			p.Log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", manifest, err)
+			continue
+		}
+		if u.GetKind() == setting.Deployment {
+			deployment, exist, err := getter.GetDeployment(p.Task.Namespace, u.GetName(), p.kubeClient)
+			if err != nil || !exist {
+				p.Log.Errorf("failed to find deployment with name: %s", u.GetName())
+				continue
+			}
+			deploys = append(deploys, deployment)
+		} else if u.GetKind() == setting.StatefulSet {
+			sts, exist, err := getter.GetStatefulSet(p.Task.Namespace, u.GetName(), p.kubeClient)
+			if err != nil || !exist {
+				p.Log.Errorf("failed to find sts with name: %s", u.GetName())
+				continue
+			}
+			stss = append(stss, sts)
+		}
+	}
+	return deploys, stss, nil
 }
 
 // Wait ...

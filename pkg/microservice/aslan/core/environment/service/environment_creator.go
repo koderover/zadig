@@ -69,7 +69,7 @@ func installResource(serviceName string, strategyMap map[string]string) bool {
 		return true
 	}
 	strategy, ok := strategyMap[serviceName]
-	return !ok || strategy != "import"
+	return !ok || strategy != setting.ServiceDeployStrategyImport
 }
 
 func autoCreateProduct(envType, envName, productName, requestId, userName string, log *zap.SugaredLogger) (string, error) {

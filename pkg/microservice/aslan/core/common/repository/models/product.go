@@ -66,7 +66,7 @@ type Product struct {
 	EnvConfigs []*CreateUpdateCommonEnvCfgArgs `bson:"-"   json:"env_configs,omitempty"`
 
 	// New Since v1.16.0, used to determine whether to install resources
-	ServiceDeployStrategy map[string]string `bson:"-" json:"-"`
+	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 }
 
 type CreateUpdateCommonEnvCfgArgs struct {
