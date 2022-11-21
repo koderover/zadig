@@ -76,11 +76,10 @@ func ValidateConfigurationManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var args commonmodels.ConfigurationManagement
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	b, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-
-	ctx.Err = service.ValidateConfigurationManagement(&args, ctx.Logger)
+	ctx.Err = service.ValidateConfigurationManagement(string(b), ctx.Logger)
 }

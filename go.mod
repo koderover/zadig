@@ -63,6 +63,7 @@ require (
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
 	github.com/swaggo/gin-swagger v1.5.3
 	github.com/swaggo/swag v1.8.5
+	github.com/tidwall/gjson v1.14.3
 	github.com/xanzy/go-gitlab v0.73.1
 	go.mongodb.org/mongo-driver v1.10.2
 	go.uber.org/zap v1.21.0
@@ -230,6 +231,8 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/trivago/tgo v1.0.7 // indirect
