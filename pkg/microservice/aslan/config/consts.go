@@ -170,28 +170,30 @@ const (
 	StepHtmlReport        StepType = "html_report"
 	StepTarArchive        StepType = "tar_archive"
 	StepSonarCheck        StepType = "sonar_check"
+	StepDistributeImage   StepType = "distribute_image"
 )
 
 type JobType string
 
 const (
-	JobBuild               JobType = "build"
-	JobDeploy              JobType = "deploy"
-	JobZadigBuild          JobType = "zadig-build"
-	JobZadigTesting        JobType = "zadig-test"
-	JobZadigScanning       JobType = "zadig-scanning"
-	JobCustomDeploy        JobType = "custom-deploy"
-	JobZadigDeploy         JobType = "zadig-deploy"
-	JobZadigHelmDeploy     JobType = "zadig-helm-deploy"
-	JobFreestyle           JobType = "freestyle"
-	JobPlugin              JobType = "plugin"
-	JobK8sBlueGreenDeploy  JobType = "k8s-blue-green-deploy"
-	JobK8sBlueGreenRelease JobType = "k8s-blue-green-release"
-	JobK8sCanaryDeploy     JobType = "k8s-canary-deploy"
-	JobK8sCanaryRelease    JobType = "k8s-canary-release"
-	JobK8sGrayRelease      JobType = "k8s-gray-release"
-	JobK8sGrayRollback     JobType = "k8s-gray-rollback"
-	JobK8sPatch            JobType = "k8s-resource-patch"
+	JobBuild                JobType = "build"
+	JobDeploy               JobType = "deploy"
+	JobZadigBuild           JobType = "zadig-build"
+	JobZadigDistributeImage JobType = "zadig-distribute-image"
+	JobZadigTesting         JobType = "zadig-test"
+	JobZadigScanning        JobType = "zadig-scanning"
+	JobCustomDeploy         JobType = "custom-deploy"
+	JobZadigDeploy          JobType = "zadig-deploy"
+	JobZadigHelmDeploy      JobType = "zadig-helm-deploy"
+	JobFreestyle            JobType = "freestyle"
+	JobPlugin               JobType = "plugin"
+	JobK8sBlueGreenDeploy   JobType = "k8s-blue-green-deploy"
+	JobK8sBlueGreenRelease  JobType = "k8s-blue-green-release"
+	JobK8sCanaryDeploy      JobType = "k8s-canary-deploy"
+	JobK8sCanaryRelease     JobType = "k8s-canary-release"
+	JobK8sGrayRelease       JobType = "k8s-gray-release"
+	JobK8sGrayRollback      JobType = "k8s-gray-rollback"
+	JobK8sPatch             JobType = "k8s-resource-patch"
 )
 
 type ApproveOrReject string

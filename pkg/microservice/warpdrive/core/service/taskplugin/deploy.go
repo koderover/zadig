@@ -236,8 +236,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		switch serviceInfo.WorkloadType {
 		case setting.StatefulSet:
 			var statefulSet *appsv1.StatefulSet
-			statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+			var found bool
+			statefulSet, found, err = getter.GetStatefulSet(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
 			if err != nil {
+				return
+			}
+			if !found {
+				err = fmt.Errorf("statefulset: %s not found", p.Task.ServiceName)
 				return
 			}
 			for _, container := range statefulSet.Spec.Template.Spec.Containers {
@@ -262,8 +267,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		case setting.Deployment:
 			var deployment *appsv1.Deployment
-			deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+			var found bool
+			deployment, found, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
 			if err != nil {
+				return
+			}
+			if !found {
+				err = fmt.Errorf("deployment: %s not found", p.Task.ServiceName)
 				return
 			}
 			for _, container := range deployment.Spec.Template.Spec.Containers {

@@ -37,11 +37,11 @@ type archiveCtl struct {
 func NewArchiveCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*archiveCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("marshal tool install spec error: %v", err)
+		return nil, fmt.Errorf("marshal archive spec error: %v", err)
 	}
 	archiveSpec := &step.StepArchiveSpec{}
 	if err := yaml.Unmarshal(yamlString, &archiveSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal git spec error: %v", err)
+		return nil, fmt.Errorf("unmarshal archive spec error: %v", err)
 	}
 	stepTask.Spec = archiveSpec
 	return &archiveCtl{archiveSpec: archiveSpec, log: log, step: stepTask}, nil

@@ -53,6 +53,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/otiai10/copy v1.7.0
 	github.com/pkg/errors v0.9.1
+	github.com/regclient/regclient v0.4.5
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/shirou/gopsutil/v3 v3.22.8
@@ -119,6 +120,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/docker/libnetwork v0.5.6 // indirect
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.8.0 // indirect

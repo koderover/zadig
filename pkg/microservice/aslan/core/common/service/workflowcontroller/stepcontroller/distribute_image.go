@@ -27,29 +27,29 @@ import (
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
-type sonarCheckCtl struct {
-	step           *commonmodels.StepTask
-	sonarCheckSpec *step.StepSonarCheckSpec
-	log            *zap.SugaredLogger
+type distributeImageCtl struct {
+	step                *commonmodels.StepTask
+	distributeImageSpec *step.StepImageDistributeSpec
+	log                 *zap.SugaredLogger
 }
 
-func NewSonarCheckCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*sonarCheckCtl, error) {
+func NewDistributeCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*distributeImageCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("marshal sonar check spec error: %v", err)
+		return nil, fmt.Errorf("marshal image distribute spec error: %v", err)
 	}
-	sonarCheckSpec := &step.StepSonarCheckSpec{}
-	if err := yaml.Unmarshal(yamlString, &sonarCheckSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal sonar check error: %v", err)
+	distributeSpec := &step.StepImageDistributeSpec{}
+	if err := yaml.Unmarshal(yamlString, &distributeSpec); err != nil {
+		return nil, fmt.Errorf("unmarshal image distribute error: %v", err)
 	}
-	stepTask.Spec = sonarCheckSpec
-	return &sonarCheckCtl{sonarCheckSpec: sonarCheckSpec, log: log, step: stepTask}, nil
+	stepTask.Spec = distributeSpec
+	return &distributeImageCtl{distributeImageSpec: distributeSpec, log: log, step: stepTask}, nil
 }
 
-func (s *sonarCheckCtl) PreRun(ctx context.Context) error {
+func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 	return nil
 }
 
-func (s *sonarCheckCtl) AfterRun(ctx context.Context) error {
+func (s *distributeImageCtl) AfterRun(ctx context.Context) error {
 	return nil
 }

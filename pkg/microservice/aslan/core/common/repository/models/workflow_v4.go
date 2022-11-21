@@ -142,6 +142,31 @@ type ServiceAndImage struct {
 	Image         string `bson:"image"               yaml:"image"            json:"image"`
 }
 
+type ZadigDistributeImageJobSpec struct {
+	// fromjob/runtime, `runtime` means runtime input, `fromjob` means that it is obtained from the upstream build job
+	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	// required when source is `fromjob`, specify which upstream build job the distribution image source is
+	JobName string `bson:"job_name"                       json:"job_name"                      yaml:"job_name"`
+	// not required when source is fromjob, directly obtained from upstream build job information
+	SourceRegistryID string              `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
+	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
+	Tatgets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
+	// unit is minute.
+	Timeout   int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
+	ClusterID string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
+}
+
+type DistributeTarget struct {
+	ServiceName   string `bson:"service_name"              yaml:"service_name"               json:"service_name"`
+	ServiceModule string `bson:"service_module"            yaml:"service_module"             json:"service_module"`
+	SourceTag     string `bson:"source_tag,omitempty"      yaml:"source_tag,omitempty"       json:"source_tag,omitempty"`
+	TargetTag     string `bson:"target_tag,omitempty"      yaml:"target_tag,omitempty"       json:"target_tag,omitempty"`
+	SourceImage   string `bson:"source_image,omitempty"    yaml:"-"                          json:"source_image,omitempty"`
+	TargetImage   string `bson:"target_image,omitempty"    yaml:"-"                          json:"target_image,omitempty"`
+	// if UpdateTag was false, use SourceTag as TargetTag.
+	UpdateTag bool `bson:"update_tag"                yaml:"update_tag"                json:"update_tag"`
+}
+
 type ZadigTestingJobSpec struct {
 	TestModules []*TestModule `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
 }
