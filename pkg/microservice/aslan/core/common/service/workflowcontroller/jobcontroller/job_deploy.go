@@ -22,6 +22,12 @@ import (
 	"strings"
 	"time"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+
+	"github.com/koderover/zadig/pkg/util"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,7 +41,9 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/pkg/errors"
 )
 
@@ -152,6 +160,16 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			return err
 		}
 
+		// for services not deployed but only imported, we can't find workloads by 's-product' and 's-service'
+		if len(deployments) == 0 && len(statefulSets) == 0 {
+			if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) {
+				deployments, statefulSets, err = c.fetchWorkloadsForImportedService(env, env.GetServiceMap()[c.jobTaskSpec.ServiceName])
+				if err != nil {
+					logError(c.job, err.Error(), c.logger)
+				}
+			}
+		}
+
 	L:
 		for _, deploy := range deployments {
 			for _, container := range deploy.Spec.Template.Spec.Containers {
@@ -253,6 +271,51 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	}
 	c.job.Spec = c.jobTaskSpec
 	return nil
+}
+
+func (c *DeployJobCtl) fetchWorkloadsForImportedService(productInfo *commonmodels.Product, productService *commonmodels.ProductService) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
+	if productService == nil {
+		return nil, nil, nil
+	}
+	opt := &commonrepo.RenderSetFindOption{
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+		EnvName:     productInfo.EnvName,
+		ProductTmpl: productInfo.ProductName,
+	}
+	renderset, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil || !exists {
+		log.Errorf("failed to find renderset for env: %s, err: %v", productInfo.EnvName, err)
+		return nil, nil, fmt.Errorf("failed to find renderset for env: %s/%s, err: %v", productInfo.ProductName, productInfo.EnvName, err)
+	}
+	rederedYaml, err := kube.RenderService(productInfo, renderset, productService)
+	if err != nil {
+		log.Errorf("failed to render service yaml, err: %s", err)
+		return nil, nil, fmt.Errorf("failed to render service yaml, err: %s", err)
+	}
+
+	deploys, stss := make([]*appsv1.Deployment, 0), make([]*appsv1.StatefulSet, 0)
+	manifests := util.SplitManifests(*rederedYaml)
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", item, err)
+			continue
+		}
+		switch u.GetKind() {
+		case setting.Deployment:
+			deploy, deployExists, err := getter.GetDeployment(c.namespace, u.GetName(), c.kubeClient)
+			if deployExists && err == nil {
+				deploys = append(deploys, deploy)
+			}
+		case setting.StatefulSet:
+			sts, stsExists, err := getter.GetStatefulSet(c.namespace, u.GetName(), c.kubeClient)
+			if stsExists && err == nil {
+				stss = append(stss, sts)
+			}
+		}
+	}
+	return deploys, stss, nil
 }
 
 func (c *DeployJobCtl) wait(ctx context.Context) {

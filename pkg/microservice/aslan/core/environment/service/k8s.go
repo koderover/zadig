@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -249,7 +251,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 	for i := range group {
 		// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
 		// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
-		if !installResource(group[i].ServiceName, product.ServiceDeployStrategy) {
+		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
 			continue
 		}
 		wg.Add(1)

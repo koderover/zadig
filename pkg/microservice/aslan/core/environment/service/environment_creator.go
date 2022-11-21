@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -62,14 +64,6 @@ type AutoCreator struct {
 
 type IProductCreator interface {
 	Create(string, string, *models.Product, *zap.SugaredLogger) error
-}
-
-func installResource(serviceName string, strategyMap map[string]string) bool {
-	if strategyMap == nil {
-		return true
-	}
-	strategy, ok := strategyMap[serviceName]
-	return !ok || strategy != setting.ServiceDeployStrategyImport
 }
 
 func autoCreateProduct(envType, envName, productName, requestId, userName string, log *zap.SugaredLogger) (string, error) {
@@ -336,7 +330,7 @@ func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSe
 	errList := &multierror.Error{}
 	for _, group := range args.Services {
 		for _, svc := range group {
-			if !installResource(svc.ServiceName, args.ServiceDeployStrategy) {
+			if !commonutil.ServiceDeployed(svc.ServiceName, args.ServiceDeployStrategy) {
 				continue
 			}
 			_, err := upsertService(false, args, svc, nil, renderSet, informer, kubeClient, nil, log)

@@ -21,10 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
@@ -493,7 +494,7 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						if !installResource(svcRev.ServiceName, deployStrategy) {
+						if !commonutil.ServiceDeployed(svcRev.ServiceName, deployStrategy) {
 							return
 						}
 						_, err := upsertService(
@@ -2604,7 +2605,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 	namespace := env.Namespace
 
 	// 获取服务模板
-	parsedYaml, err := renderService(env, renderSet, service)
+	parsedYaml, err := kube.RenderService(env, renderSet, service)
 
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
@@ -2877,7 +2878,7 @@ func removeOldResources(
 		return err
 	}
 
-	parsedYaml, err := renderService(env, resp, oldService)
+	parsedYaml, err := kube.RenderService(env, resp, oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return err
@@ -2925,48 +2926,6 @@ func removeOldResources(
 	}
 
 	return nil
-}
-
-func renderService(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService) (yaml *string, err error) {
-	// 获取服务模板
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName: service.ServiceName,
-		ProductName: service.ProductName,
-		Type:        service.Type,
-		Revision:    service.Revision,
-		//ExcludeStatus: product.ProductStatusDeleting,
-	}
-	svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
-	if err != nil {
-		return nil, err
-	}
-
-	// 渲染配置集
-	parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, render)
-	// 渲染系统变量键值
-	parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
-	// 替换服务模板容器镜像为用户指定镜像
-	parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
-
-	return &parsedYaml, nil
-}
-
-func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) string {
-
-	replaceMap := make(map[string]string)
-	for _, container := range replace {
-		replaceMap[container.Name] = container.Image
-	}
-
-	for _, container := range ori {
-		imageRex := regexp.MustCompile("image:\\s*" + container.Image)
-		if _, ok := replaceMap[container.Name]; !ok {
-			continue
-		}
-		tmpl = imageRex.ReplaceAllLiteralString(tmpl, fmt.Sprintf("image: %s", replaceMap[container.Name]))
-	}
-
-	return tmpl
 }
 
 func waitResourceRunning(
@@ -3684,7 +3643,7 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 			if _, ok := renderChartMap[service.ServiceName]; !ok {
 				continue
 			}
-			if !installResource(service.ServiceName, productResp.ServiceDeployStrategy) {
+			if !commonutil.ServiceDeployed(service.ServiceName, productResp.ServiceDeployStrategy) {
 				continue
 			}
 			opt := &commonrepo.ServiceFindOption{
@@ -3757,7 +3716,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 			if filter != nil && !filter(service) {
 				continue
 			}
-			if !installResource(service.ServiceName, productResp.ServiceDeployStrategy) {
+			if !commonutil.ServiceDeployed(service.ServiceName, productResp.ServiceDeployStrategy) {
 				continue
 			}
 			opt := &commonrepo.ServiceFindOption{

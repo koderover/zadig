@@ -355,7 +355,6 @@ func serviceDeployed(strategy map[string]string, serviceName string) bool {
 }
 
 func (p *DeployTaskPlugin) fetchWorkloadsForImportedService(ctx context.Context, envName, productName string, serviceName string) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
-	p.Log.Infof("######## start fetchWorkloadsForImportedService")
 	productInfo, err := p.getProductInfo(ctx, envName, productName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find product info: %s/%s", productName, envName)
@@ -369,8 +368,6 @@ func (p *DeployTaskPlugin) fetchWorkloadsForImportedService(ctx context.Context,
 	if err != nil {
 		return nil, nil, err
 	}
-
-	p.Log.Infof("######### get service manifests, data: %v", manifests)
 
 	deploys, stss := make([]*appsv1.Deployment, 0), make([]*appsv1.StatefulSet, 0)
 	for _, manifest := range manifests {

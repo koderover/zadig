@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -56,7 +58,7 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 	yamls = append(yamls, getStatefulSetYaml(kubeClient, namespace, selector, log)...)
 
 	// for services just import not deployed, workloads can't be queried by labels
-	if len(yamls) == 0 && !installResource(serviceName, env.ServiceDeployStrategy) {
+	if len(yamls) == 0 && !commonutil.ServiceDeployed(serviceName, env.ServiceDeployStrategy) {
 		productService, ok := env.GetServiceMap()[serviceName]
 		if !ok {
 			log.Errorf("failed to find product service: %s", serviceName)
@@ -73,9 +75,9 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 			log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
 			return res
 		}
-		rederedYaml, err := renderService(env, renderset, productService)
+		rederedYaml, err := kube.RenderService(env, renderset, productService)
 		if err != nil {
-			log.Errorf("failed to render serice yaml, err: %s", err)
+			log.Errorf("failed to render service yaml, err: %s", err)
 			return res
 		}
 
