@@ -79,7 +79,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	export := router.Group("export")
 	{
 		export.GET("/service", ExportYaml)
-		// export.GET("/pipelines/:name", ExportBuildYaml)
 	}
 
 	// ---------------------------------------------------------------------------------------

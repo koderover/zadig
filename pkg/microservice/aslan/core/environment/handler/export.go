@@ -33,27 +33,3 @@ func ExportYaml(c *gin.Context) {
 
 	ctx.Resp = service.ExportYaml(envName, productName, serviceName, ctx.Logger)
 }
-
-//func ExportBuildYaml(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//
-//	pipeName := c.Param("name")
-//
-//	if len(pipeName) == 0 {
-//		c.JSON(e.ErrorMessage(e.ErrInvalidParam.AddDesc("empty pipeline name")))
-//		c.Abort()
-//		return
-//	}
-//
-//	resp, err := service.ExportBuildYaml(pipeName, ctx.Logger)
-//	if err != nil {
-//		c.JSON(e.ErrorMessage(e.ErrInvalidParam.AddDesc("empty file")))
-//		c.Abort()
-//		return
-//	}
-//
-//	c.Writer.Header().Add("Content-Disposition", "attachment; filename=\"build.yaml\"")
-//
-//	c.YAML(200, resp)
-//	return
-//}
