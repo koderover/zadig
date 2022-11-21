@@ -24,6 +24,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"go.uber.org/zap"
 )
 
 type PluginJob struct {
@@ -118,4 +119,16 @@ func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Pa
 
 func (j *PluginJob) LintJob() error {
 	return nil
+}
+
+func (j *PluginJob) GetOutPuts(log *zap.SugaredLogger) []string {
+	resp := []string{}
+	j.spec = &commonmodels.PluginJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return resp
+	}
+
+	jobKey := j.job.Name
+	resp = append(resp, getOutputKey(jobKey, j.spec.Plugin.Outputs)...)
+	return resp
 }

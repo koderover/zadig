@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
+	"go.uber.org/zap"
 )
 
 type JobCtl interface {
@@ -139,6 +140,40 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 		}
 	}
 	return nil
+}
+
+func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
+	resp := []string{}
+	jobRankMap := getJobRankMap(workflow.Stages)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			// we only need to get the outputs from job runs before the current job
+			if jobRankMap[job.Name] >= jobRankMap[currentJobName] {
+				return resp
+			}
+			if job.JobType == config.JobZadigBuild {
+				jobCtl := &BuildJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobFreestyle {
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobZadigTesting {
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobZadigScanning {
+				jobCtl := &ScanningJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobPlugin {
+				jobCtl := &PluginJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+		}
+	}
+	return resp
 }
 
 func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
@@ -340,6 +375,14 @@ func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
 			resp[job.Name] = index
 		}
 		index++
+	}
+	return resp
+}
+
+func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
+	resp := []string{}
+	for _, output := range outputs {
+		resp = append(resp, strings.Join([]string{"job", jobKey, "output", output.Name}, "."))
 	}
 	return resp
 }

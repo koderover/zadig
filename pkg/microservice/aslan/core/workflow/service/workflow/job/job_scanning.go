@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/sonar"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
+	"go.uber.org/zap"
 )
 
 type ScanningJob struct {
@@ -281,4 +282,26 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 func (j *ScanningJob) LintJob() error {
 	return nil
+}
+
+func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
+	resp := []string{}
+	j.spec = &commonmodels.ZadigScanningJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return resp
+	}
+	scanningNames := []string{}
+	for _, scanning := range j.spec.Scannings {
+		scanningNames = append(scanningNames, scanning.Name)
+	}
+	scanningInfos, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{ScanningNames: scanningNames, ProjectName: j.workflow.Project}, 0, 0)
+	if err != nil {
+		log.Errorf("list scanning info failed: %v", err)
+		return resp
+	}
+	for _, scanningInfo := range scanningInfos {
+		jobKey := strings.Join([]string{j.job.Name, scanningInfo.Name}, ".")
+		resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
+	}
+	return resp
 }

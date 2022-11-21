@@ -524,3 +524,30 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 func (j *BuildJob) LintJob() error {
 	return nil
 }
+
+func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
+	resp := []string{}
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return resp
+	}
+	for _, build := range j.spec.ServiceAndBuilds {
+		jobKey := strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, ".")
+		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+		if err != nil {
+			log.Errorf("found build %s failed, err: %s", build.BuildName, err)
+			continue
+		}
+		if buildInfo.TemplateID == "" {
+			resp = append(resp, getOutputKey(jobKey, buildInfo.Outputs)...)
+			continue
+		}
+		buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: buildInfo.TemplateID})
+		if err != nil {
+			log.Errorf("found build template %s failed, err: %s", buildInfo.TemplateID, err)
+			continue
+		}
+		resp = append(resp, getOutputKey(jobKey, buildTemplate.Outputs)...)
+	}
+	return resp
+}

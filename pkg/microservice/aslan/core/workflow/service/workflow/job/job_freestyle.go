@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
+	"go.uber.org/zap"
 )
 
 type FreeStyleJob struct {
@@ -266,4 +267,16 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 
 func (j *FreeStyleJob) LintJob() error {
 	return nil
+}
+
+func (j *FreeStyleJob) GetOutPuts(log *zap.SugaredLogger) []string {
+	resp := []string{}
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return resp
+	}
+
+	jobKey := j.job.Name
+	resp = append(resp, getOutputKey(jobKey, j.spec.Outputs)...)
+	return resp
 }

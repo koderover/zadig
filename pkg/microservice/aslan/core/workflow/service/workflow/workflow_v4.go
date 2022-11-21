@@ -872,3 +872,7 @@ func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger
 	}
 	return resp, nil
 }
+
+func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
+	return jobctl.GetWorkflowOutputs(workflow, currentJobName, log)
+}
