@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -37,6 +38,9 @@ func CreateConfigurationManagement(args *commonmodels.ConfigurationManagement, l
 		log.Errorf("marshal configuration management error: %v", err)
 		return e.ErrCreateConfigurationManagement.AddErr(err)
 	}
+	if err := validateType(args); err != nil {
+		return e.ErrCreateConfigurationManagement.AddErr(err)
+	}
 
 	err := mongodb.NewConfigurationManagementColl().Create(context.Background(), args)
 	if err != nil {
@@ -64,6 +68,10 @@ func UpdateConfigurationManagement(id string, args *commonmodels.ConfigurationMa
 		log.Errorf("marshal configuration management error: %v", err)
 		return e.ErrUpdateConfigurationManagement.AddErr(err)
 	}
+	if err := validateType(args); err != nil {
+		return e.ErrUpdateConfigurationManagement.AddErr(err)
+	}
+
 	err := mongodb.NewConfigurationManagementColl().Update(context.Background(), id, args)
 	if err != nil {
 		log.Errorf("update configuration management error: %v", err)
@@ -108,7 +116,7 @@ func validateApolloAuthConfig(config *commonmodels.ApolloConfig) error {
 		return e.ErrValidateConfigurationManagement.AddErr(err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return e.ErrValidateConfigurationManagement.AddDesc(fmt.Sprintf("unexpected HTTP status code %d", resp.StatusCode))
+		return e.ErrValidateConfigurationManagement.AddDesc(fmt.Sprintf("unexpected HTTP status code %d when connecting to apollo", resp.StatusCode))
 	}
 	return nil
 }
@@ -130,14 +138,14 @@ func GetNacosConfig(serverAddr string, authConfigString string) *commonmodels.Na
 
 func getApolloConfigFromRaw(raw string) *commonmodels.ApolloConfig {
 	return &commonmodels.ApolloConfig{
-		ServerAddress: gjson.Get(raw, "server_addr").String(),
+		ServerAddress: gjson.Get(raw, "server_address").String(),
 		Token:         gjson.Get(raw, "auth_config.token").String(),
 	}
 }
 
 func getNacosConfigFromRaw(raw string) *commonmodels.NacosConfig {
 	return &commonmodels.NacosConfig{
-		ServerAddress: gjson.Get(raw, "server_addr").String(),
+		ServerAddress: gjson.Get(raw, "server_address").String(),
 		UserName:      gjson.Get(raw, "auth_config.user_name").String(),
 		Password:      gjson.Get(raw, "auth_config.password").String(),
 	}
@@ -154,4 +162,11 @@ func marshalAuthConfig(management *commonmodels.ConfigurationManagement) error {
 
 func unmarshalAuthConfig(management *commonmodels.ConfigurationManagement) error {
 	return json.Unmarshal([]byte(management.AuthConfigString), &management.AuthConfig)
+}
+
+func validateType(management *commonmodels.ConfigurationManagement) error {
+	if management.Type != setting.SourceFromApollo && management.Type != setting.SourceFromNacos {
+		return errors.New("invalid type")
+	}
+	return nil
 }
