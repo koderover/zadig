@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 )
@@ -382,6 +383,7 @@ func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
 func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
 	resp := []string{}
 	for _, output := range outputs {
+		log.Errorf("@@@@@@%+v", output.Name)
 		resp = append(resp, strings.Join([]string{"job", jobKey, "output", output.Name}, "."))
 	}
 	return resp
