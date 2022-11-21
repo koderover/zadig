@@ -331,7 +331,7 @@ func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, envName, productN
 }
 
 func (p *DeployTaskPlugin) getRenderedManifests(ctx context.Context, envName, productName string, serviceName string) ([]string, error) {
-	url := "/api/environment/export/services"
+	url := "/api/environment/export/service"
 	prod := make([]string, 0)
 	_, err := p.httpClient.Get(url, httpclient.SetResult(&prod),
 		httpclient.SetQueryParam("projectName", productName),
