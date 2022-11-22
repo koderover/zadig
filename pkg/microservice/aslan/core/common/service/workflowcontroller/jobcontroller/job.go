@@ -75,7 +75,9 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
 		logger.Errorf("@@@@@ read output: %s,%s", k, v)
+		logger.Errorf("@@@@@ replace before: %s", b)
 		replacedString := strings.ReplaceAll(string(b), k, v)
+		logger.Errorf("@@@@@ replace after: %s", replacedString)
 		json.Unmarshal([]byte(replacedString), &job)
 		return true
 	})
