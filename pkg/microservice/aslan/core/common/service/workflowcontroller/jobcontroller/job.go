@@ -76,6 +76,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		b, _ := json.Marshal(job)
 		logger.Errorf("@@@@@ read output: %s,%s", k, v)
 		logger.Errorf("@@@@@ replace before: %s", b)
+		v = strings.Trim(v, "\n")
 		replacedString := strings.ReplaceAll(string(b), k, v)
 		logger.Errorf("@@@@@ replace after: %s", replacedString)
 		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {
