@@ -234,9 +234,9 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	// 清理用户取消和超时的任务
 	defer func() {
 		go func() {
-			if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
-				c.logger.Error(err)
-			}
+			// if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+			// 	c.logger.Error(err)
+			// }
 			if err := ensureDeleteConfigMap(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
 				c.logger.Error(err)
 			}
