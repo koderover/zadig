@@ -74,11 +74,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	// render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
-		logger.Errorf("@@@@@ read output: %s,%s", k, v)
-		logger.Errorf("@@@@@ replace before: %s", b)
 		v = strings.Trim(v, "\n")
 		replacedString := strings.ReplaceAll(string(b), k, v)
-		logger.Errorf("@@@@@ replace after: %s", replacedString)
 		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {
 			logger.Errorf("unmarshal job error: %v", err)
 		}
