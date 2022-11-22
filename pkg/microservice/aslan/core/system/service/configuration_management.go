@@ -94,8 +94,7 @@ func ValidateConfigurationManagement(rawData string, log *zap.SugaredLogger) err
 	case setting.SourceFromApollo:
 		return validateApolloAuthConfig(getApolloConfigFromRaw(rawData))
 	case setting.SourceFromNacos:
-		// todo
-		return nil
+		return validateNacosAuthConfig(getNacosConfigFromRaw(rawData))
 	default:
 		return e.ErrInvalidParam.AddDesc("invalid type")
 	}
@@ -112,6 +111,24 @@ func validateApolloAuthConfig(config *commonmodels.ApolloConfig) error {
 		SetContentType("application/json;charset=UTF-8").
 		Get(u.String())
 
+	if err != nil {
+		return e.ErrValidateConfigurationManagement.AddErr(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return e.ErrValidateConfigurationManagement.AddDesc(fmt.Sprintf("unexpected HTTP status code %d when connecting to apollo", resp.StatusCode))
+	}
+	return nil
+}
+
+func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
+	u, err := url.Parse(config.ServerAddress)
+	if err != nil {
+		return e.ErrInvalidParam.AddErr(err)
+	}
+	u = u.JoinPath("/nacos/v1/auth/login")
+	resp, err := req.R().AddQueryParam("username", config.UserName).
+		AddQueryParam("password", config.Password).
+		Post(u.String())
 	if err != nil {
 		return e.ErrValidateConfigurationManagement.AddErr(err)
 	}
