@@ -842,7 +842,6 @@ func getJobOutput(namespace, containerName string, jobTask *commonmodels.JobTask
 				if err := json.Unmarshal([]byte(containerStatus.State.Terminated.Message), &outputs); err != nil {
 					return err
 				}
-				return nil
 			}
 		}
 	}
