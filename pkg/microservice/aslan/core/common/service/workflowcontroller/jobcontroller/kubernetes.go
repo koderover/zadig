@@ -848,7 +848,7 @@ func getJobOutput(namespace, containerName string, jobTask *commonmodels.JobTask
 	// write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
 	for _, output := range outputs {
 		log.Errorf("@@@@@ write output: %s", output.Name)
-		workflowCtx.GlobalContextSet(strings.Join([]string{"job", jobTask.Key, "output", output.Name}, "."), output.Value)
+		workflowCtx.GlobalContextSet(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", jobTask.Key, "output", output.Name}, ".")), output.Value)
 	}
 	return nil
 }
