@@ -160,6 +160,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobType: string(config.JobZadigTesting),
 			Spec:    jobTaskSpec,
 			Timeout: int64(testingInfo.Timeout),
+			Outputs: testingInfo.Outputs,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(testingInfo.Timeout),
@@ -221,7 +222,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobName:  jobTask.Name,
 			StepType: config.StepShell,
 			Spec: &step.StepShellSpec{
-				Scripts: strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"),
+				Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)

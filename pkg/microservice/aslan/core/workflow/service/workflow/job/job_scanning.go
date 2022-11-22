@@ -156,6 +156,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobType: string(config.JobZadigScanning),
 			Spec:    jobTaskSpec,
 			Timeout: timeout,
+			Outputs: scanningInfo.Outputs,
 		}
 		scanningNameKV := &commonmodels.KeyVal{
 			Key:   "SCANNING_NAME",
@@ -212,7 +213,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepShell,
 				Spec: &step.StepShellSpec{
-					Scripts:     strings.Split(replaceWrapLine(scanningInfo.PreScript), "\n"),
+					Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.PreScript), "\n"), outputScript(scanningInfo.Outputs)...),
 					SkipPrepare: true,
 				},
 			}
@@ -269,7 +270,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepShell,
 				Spec: &step.StepShellSpec{
-					Scripts: strings.Split(replaceWrapLine(scanningInfo.Script), "\n"),
+					Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)

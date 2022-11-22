@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/types/job"
 	"go.uber.org/zap"
 )
 
@@ -383,6 +385,14 @@ func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
 	resp := []string{}
 	for _, output := range outputs {
 		resp = append(resp, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", jobKey, "output", output.Name}, ".")))
+	}
+	return resp
+}
+
+func outputScript(outputs []*commonmodels.Output) []string {
+	resp := []string{"set +ex"}
+	for _, output := range outputs {
+		resp = append(resp, fmt.Sprintf("echo $%s > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
 	}
 	return resp
 }

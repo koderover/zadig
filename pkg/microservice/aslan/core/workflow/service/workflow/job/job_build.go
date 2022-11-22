@@ -204,6 +204,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobType: string(config.JobZadigBuild),
 			Spec:    jobTaskSpec,
 			Timeout: int64(buildInfo.Timeout),
+			Outputs: buildInfo.Outputs,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(buildInfo.Timeout),
@@ -263,6 +264,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
 		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
+		scripts = append(scripts, outputScript(buildInfo.Outputs)...)
 		shellStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-shell",
 			JobName:  jobTask.Name,
@@ -466,6 +468,7 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	moduleBuild.CacheDirType = buildTemplate.CacheDirType
 	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
 	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+	moduleBuild.Outputs = buildTemplate.Outputs
 
 	// repos are configured by service modules
 	for _, serviceConfig := range moduleBuild.Targets {
