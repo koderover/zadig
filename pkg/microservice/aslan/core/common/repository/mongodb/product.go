@@ -410,6 +410,21 @@ func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, g
 	return err
 }
 
+func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deployStrategy map[string]string) error {
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+	}
+	change := bson.M{
+		"update_time":             time.Now().Unix(),
+		"service_deploy_strategy": deployStrategy,
+	}
+
+	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})
+
+	return err
+}
+
 func (c *ProductColl) UpdateProductRecycleDay(envName, productName string, recycleDay int) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 

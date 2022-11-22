@@ -565,6 +565,23 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 		}
 	}
 
+	// store deploy strategy
+	if deployStrategy != nil {
+		if existedProd.ServiceDeployStrategy == nil {
+			existedProd.ServiceDeployStrategy = deployStrategy
+		} else {
+			for k, v := range deployStrategy {
+				existedProd.ServiceDeployStrategy[k] = v
+			}
+		}
+		err = commonrepo.NewProductColl().UpdateDeployStrategy(envName, productName, existedProd.ServiceDeployStrategy)
+		if err != nil {
+			log.Errorf("Failed to update deploy strategy data, error: %v", err)
+			err = e.ErrUpdateEnv.AddDesc(err.Error())
+			return
+		}
+	}
+
 	return nil
 }
 
