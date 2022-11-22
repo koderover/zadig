@@ -389,6 +389,7 @@ func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
 	return resp
 }
 
+// generate script to save outputs variable to file
 func outputScript(outputs []*commonmodels.Output) []string {
 	resp := []string{"set +ex"}
 	for _, output := range outputs {

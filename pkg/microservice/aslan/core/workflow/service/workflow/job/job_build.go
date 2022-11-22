@@ -34,6 +34,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	IMAGEKEY   = "IMAGE"
+	PKGFILEKEY = "PKG_FILE"
+)
+
 type BuildJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
@@ -197,6 +202,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, err
 		}
+		outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
@@ -204,7 +210,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobType: string(config.JobZadigBuild),
 			Spec:    jobTaskSpec,
 			Timeout: int64(buildInfo.Timeout),
-			Outputs: buildInfo.Outputs,
+			Outputs: outputs,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(buildInfo.Timeout),
@@ -264,7 +270,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
 		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
-		scripts = append(scripts, outputScript(buildInfo.Outputs)...)
+		scripts = append(scripts, outputScript(outputs)...)
 		shellStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-shell",
 			JobName:  jobTask.Name,
@@ -542,7 +548,7 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 			continue
 		}
 		if buildInfo.TemplateID == "" {
-			resp = append(resp, getOutputKey(jobKey, buildInfo.Outputs)...)
+			resp = append(resp, getOutputKey(jobKey, ensureBuildInOutputs(buildInfo.Outputs))...)
 			continue
 		}
 		buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: buildInfo.TemplateID})
@@ -550,7 +556,25 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 			log.Errorf("found build template %s failed, err: %s", buildInfo.TemplateID, err)
 			continue
 		}
-		resp = append(resp, getOutputKey(jobKey, buildTemplate.Outputs)...)
+		resp = append(resp, getOutputKey(jobKey, ensureBuildInOutputs(buildTemplate.Outputs))...)
 	}
 	return resp
+}
+
+func ensureBuildInOutputs(outputs []*commonmodels.Output) []*commonmodels.Output {
+	keyMap := map[string]struct{}{}
+	for _, output := range outputs {
+		keyMap[output.Name] = struct{}{}
+	}
+	if _, ok := keyMap[IMAGEKEY]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: IMAGEKEY,
+		})
+	}
+	if _, ok := keyMap[PKGFILEKEY]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: PKGFILEKEY,
+		})
+	}
+	return outputs
 }
