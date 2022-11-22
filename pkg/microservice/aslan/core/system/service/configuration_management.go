@@ -75,7 +75,7 @@ func UpdateConfigurationManagement(id string, args *commonmodels.ConfigurationMa
 	err := mongodb.NewConfigurationManagementColl().Update(context.Background(), id, args)
 	if err != nil {
 		log.Errorf("update configuration management error: %v", err)
-		return e.ErrUpdateConfigurationManagement.AddDesc(err.Error())
+		return e.ErrUpdateConfigurationManagement.AddErr(err)
 	}
 	return nil
 }
@@ -126,6 +126,7 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 		return e.ErrInvalidParam.AddErr(err)
 	}
 	u = u.JoinPath("/nacos/v1/auth/login")
+
 	resp, err := req.R().AddQueryParam("username", config.UserName).
 		AddQueryParam("password", config.Password).
 		Post(u.String())
@@ -138,14 +139,14 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 	return nil
 }
 
-func GetApolloConfig(serverAddr string, authConfigString string) *commonmodels.ApolloConfig {
+func GetApolloConfigFromAuthConfig(serverAddr string, authConfigString string) *commonmodels.ApolloConfig {
 	return &commonmodels.ApolloConfig{
 		ServerAddress: serverAddr,
 		Token:         gjson.Get(authConfigString, "token").String(),
 	}
 }
 
-func GetNacosConfig(serverAddr string, authConfigString string) *commonmodels.NacosConfig {
+func GetNacosConfigFromAuthConfig(serverAddr string, authConfigString string) *commonmodels.NacosConfig {
 	return &commonmodels.NacosConfig{
 		ServerAddress: serverAddr,
 		UserName:      gjson.Get(authConfigString, "user_name").String(),

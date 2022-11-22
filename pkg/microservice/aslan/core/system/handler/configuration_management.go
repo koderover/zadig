@@ -22,7 +22,7 @@ func CreateConfigurationManagement(c *gin.Context) {
 
 	var args commonmodels.ConfigurationManagement
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	ctx.Err = service.CreateConfigurationManagement(&args, ctx.Logger)
@@ -32,44 +32,26 @@ func GetConfigurationManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.GetConfigurationManagement(id, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetConfigurationManagement(c.Param("id"), ctx.Logger)
 }
 
 func UpdateConfigurationManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
-
 	var args commonmodels.ConfigurationManagement
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Err = service.UpdateConfigurationManagement(id, &args, ctx.Logger)
+	ctx.Err = service.UpdateConfigurationManagement(c.Param("id"), &args, ctx.Logger)
 }
 
 func DeleteConfigurationManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
-
-	ctx.Err = service.DeleteConfigurationManagement(id, ctx.Logger)
+	ctx.Err = service.DeleteConfigurationManagement(c.Param("id"), ctx.Logger)
 }
 
 func ValidateConfigurationManagement(c *gin.Context) {

@@ -81,11 +81,7 @@ func (c *ConfigurationManagementColl) List(ctx context.Context) ([]*models.Confi
 		return nil, err
 	}
 
-	err = cursor.All(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return resp, cursor.All(ctx, &resp)
 }
 
 func (c *ConfigurationManagementColl) GetByID(ctx context.Context, idString string) (*models.ConfigurationManagement, error) {
