@@ -103,6 +103,7 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
+	c.ack()
 	return nil
 }
 
