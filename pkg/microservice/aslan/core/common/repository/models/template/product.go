@@ -230,6 +230,10 @@ func (p *Product) IsCVMProduct() bool {
 	return p.ProductFeature != nil && p.ProductFeature.BasicFacility == setting.BasicFacilityCVM
 }
 
+func (p *Product) IsHostProduct() bool {
+	return p.ProductFeature != nil && p.ProductFeature.BasicFacility == setting.BasicFacilityK8S && p.ProductFeature.CreateEnvType == setting.SourceFromExternal
+}
+
 func (r *RenderKV) SetAlias() {
 	r.Alias = "{{." + r.Key + "}}"
 }
