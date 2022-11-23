@@ -119,10 +119,9 @@ func (c *CounterColl) SetToNumber(counterName string, number int64) error {
 
 	counter.Seq = number
 	change := bson.M{"$set": counter}
-	singleResult := c.FindOneAndUpdate(context.TODO(), query, change)
-	if singleResult != nil && singleResult.Err() != nil {
-		return fmt.Errorf(" [%s] ResetToNumber %v error: %v", counterName, number, singleResult.Err())
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return fmt.Errorf(" [%s] ResetToNumber %v error: %v", counterName, number, err)
 	}
-
 	return nil
 }

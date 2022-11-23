@@ -289,7 +289,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 
 	projectInfo.ProductFeature.CreateEnvType = "system"
 
-	if err = saveServices(projectName, user); err != nil {
+	if err = saveServices(projectName, user, services); err != nil {
 		return err
 	}
 	if err = saveProducts(products); err != nil {
@@ -317,7 +317,15 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 	return templateServices, nil
 }
 
-func saveServices(projectName, username string) error {
+func saveServices(projectName, username string, services []*commonmodels.Service) error {
+	for _, svc := range services {
+		serviceTemplateCounter := fmt.Sprintf(setting.ServiceTemplateCounterName, svc.ServiceName, svc.ProductName)
+		err := commonrepo.NewCounterColl().SetToNumber(serviceTemplateCounter, svc.Revision)
+		if err != nil {
+			log.Errorf("failed to set service counter: %s, err: %s", serviceTemplateCounter, err)
+		}
+	}
+
 	return commonrepo.NewServiceColl().TransferServiceSource(projectName, setting.SourceFromExternal, setting.SourceFromZadig, username)
 }
 
@@ -399,6 +407,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		product.Services = [][]*commonmodels.ProductService{productServices}
 		product.Source = setting.SourceFromZadig
 		product.UpdateBy = user
+		product.Revision = 1
 	}
 
 	return products, nil
