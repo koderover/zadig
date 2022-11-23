@@ -28,6 +28,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -176,14 +177,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	for _, build := range j.spec.ServiceAndBuilds {
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "image")
 
+		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 		if len(registry.Namespace) > 0 {
-			build.Image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
-		} else {
-			build.Image = fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
+			image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
 		}
 
-		build.Image = strings.TrimPrefix(build.Image, "http://")
-		build.Image = strings.TrimPrefix(build.Image, "https://")
+		image = strings.TrimPrefix(image, "http://")
+		image = strings.TrimPrefix(image, "https://")
 
 		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "tar"))
 
@@ -235,13 +235,16 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
 			jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, registry, logger)...)
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, image, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
 			jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
 		}
+
+		// for other job refer current latest image.
+		build.Image = fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", jobTask.Key, "output", "IMAGE"}, "."))
 
 		// init tools install step
 		tools := []*step.Tool{}
@@ -298,7 +301,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					Source:                buildInfo.PostBuild.DockerBuild.Source,
 					WorkDir:               buildInfo.PostBuild.DockerBuild.WorkDir,
 					DockerFile:            buildInfo.PostBuild.DockerBuild.DockerFile,
-					ImageName:             build.Image,
+					ImageName:             "$IMAGE",
 					ImageReleaseTag:       imageTag,
 					BuildArgs:             buildInfo.PostBuild.DockerBuild.BuildArgs,
 					DockerTemplateContent: dockefileContent,
@@ -415,7 +418,7 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, image string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	ret = append(ret, getReposVariables(build.Repos)...)
 	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_HOST", Value: registry.RegAddr, IsCredential: false})
@@ -427,7 +430,7 @@ func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, pro
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: build.ServiceModule, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PROJECT", Value: project, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: build.Image, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: image, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "ZADIG", Value: "true", IsCredential: false})
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)

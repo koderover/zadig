@@ -19,6 +19,7 @@ package stepcontroller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -47,9 +48,30 @@ func NewDistributeCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (
 }
 
 func (s *distributeImageCtl) PreRun(ctx context.Context) error {
+	for _, target := range s.distributeImageSpec.DistributeTarget {
+		target.TargetImage = getImage(target.ServiceModule, target.TargetTag, s.distributeImageSpec.TargetRegistry)
+		if !target.UpdateTag {
+			target.TargetImage = getImage(target.ServiceModule, getImageTag(target.SoureImage), s.distributeImageSpec.TargetRegistry)
+		}
+	}
 	return nil
 }
 
 func (s *distributeImageCtl) AfterRun(ctx context.Context) error {
 	return nil
+}
+
+func getImageTag(image string) string {
+	strs := strings.Split(image, ":")
+	return strs[len(strs)-1]
+}
+
+func getImage(name, tag string, reg *step.RegistryNamespace) string {
+	image := fmt.Sprintf("%s/%s:%s", reg.RegAddr, name, tag)
+	if len(reg.Namespace) > 0 {
+		image = fmt.Sprintf("%s/%s/%s:%s", reg.RegAddr, reg.Namespace, name, tag)
+	}
+	image = strings.TrimPrefix(image, "http://")
+	image = strings.TrimPrefix(image, "https://")
+	return image
 }

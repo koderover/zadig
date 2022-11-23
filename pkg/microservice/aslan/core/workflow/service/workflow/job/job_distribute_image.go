@@ -94,6 +94,16 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
+
+	sourceReg, _, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
+	if err != nil {
+		return resp, fmt.Errorf("source image registry: %s not found: %v", j.spec.SourceRegistryID, err)
+	}
+	targetReg, _, err := commonservice.FindRegistryById(j.spec.TargetRegistryID, true, logger)
+	if err != nil {
+		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
+	}
+
 	// get distribute targets from previous build job.
 	if j.spec.Source == config.SourceFromJob {
 		refJobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
@@ -113,20 +123,18 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			newTargets = append(newTargets, &commonmodels.DistributeTarget{
 				ServiceName:   svc.ServiceName,
 				ServiceModule: svc.ServiceModule,
-				SourceTag:     getImageTag(svc.Image),
-				TargetTag:     getTargetTag(svc.ServiceName, svc.ServiceModule, getImageTag(svc.Image), targetTagMap),
+				SourceImage:   svc.Image,
+				TargetTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)],
 			})
 		}
 		j.spec.Tatgets = newTargets
 	}
 
-	sourceReg, _, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
-	if err != nil {
-		return resp, fmt.Errorf("source image registry: %s not found: %v", j.spec.SourceRegistryID, err)
-	}
-	targetReg, _, err := commonservice.FindRegistryById(j.spec.TargetRegistryID, true, logger)
-	if err != nil {
-		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
+	if j.spec.Source == config.SourceRuntime {
+		for _, target := range j.spec.Tatgets {
+			target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
+			target.UpdateTag = true
+		}
 	}
 
 	stepSpec := &step.StepImageDistributeSpec{
@@ -134,13 +142,11 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		TargetRegistry: getRegistry(targetReg),
 	}
 	for _, target := range j.spec.Tatgets {
-		target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
-		target.TargetImage = getImage(target.ServiceModule, target.TargetTag, targetReg)
 		stepSpec.DistributeTarget = append(stepSpec.DistributeTarget, &step.DistributeTaskTarget{
 			SoureImage:    target.SourceImage,
-			TargetImage:   target.TargetImage,
 			ServiceName:   target.ServiceName,
 			ServiceModule: target.ServiceModule,
+			TargetTag:     target.TargetTag,
 			UpdateTag:     target.UpdateTag,
 		})
 	}
@@ -210,19 +216,6 @@ func getQuoteBuildJobSpec(jobName string, workflow *commonmodels.WorkflowV4) (*c
 
 func getServiceKey(serviceName, serviceModule string) string {
 	return fmt.Sprintf("%s/%s", serviceName, serviceModule)
-}
-
-func getImageTag(image string) string {
-	strs := strings.Split(image, ":")
-	return strs[len(strs)-1]
-}
-
-func getTargetTag(serviceName, serviceModule, sourceTag string, tagMap map[string]string) string {
-	targetTag := sourceTag
-	if tag, ok := tagMap[getServiceKey(serviceName, serviceModule)]; ok {
-		targetTag = tag
-	}
-	return targetTag
 }
 
 func getImage(name, tag string, reg *commonmodels.RegistryNamespace) string {
