@@ -114,11 +114,9 @@ func (c *CounterColl) Find(name string) (*models.Counter, error) {
 
 func (c *CounterColl) SetToNumber(counterName string, number int64) error {
 	query := bson.M{"_id": counterName}
-
-	var counter *models.Counter
-
-	counter.Seq = number
-	change := bson.M{"$set": counter}
+	change := bson.M{"$set": bson.M{
+		"seq": number,
+	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	if err != nil {
 		return fmt.Errorf(" [%s] ResetToNumber %v error: %v", counterName, number, err)
