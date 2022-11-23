@@ -134,7 +134,7 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 		return e.ErrValidateConfigurationManagement.AddErr(err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return e.ErrValidateConfigurationManagement.AddDesc(fmt.Sprintf("unexpected HTTP status code %d when connecting to apollo", resp.StatusCode))
+		return e.ErrValidateConfigurationManagement.AddDesc(fmt.Sprintf("unexpected HTTP status code %d when connecting to nacos", resp.StatusCode))
 	}
 	return nil
 }
