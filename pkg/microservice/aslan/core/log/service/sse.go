@@ -227,6 +227,8 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 				fallthrough
 			case string(config.JobZadigScanning):
 				fallthrough
+			case string(config.JobZadigDistributeImage):
+				fallthrough
 			case string(config.JobBuild):
 				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {

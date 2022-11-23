@@ -25,9 +25,6 @@ import (
 	"strings"
 
 	"github.com/27149chen/afero"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
-	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -40,12 +37,15 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -320,6 +320,22 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 	})
 
 	return err
+}
+
+func GetChartTemplateReference(name string, logger *zap.SugaredLogger) ([]*template.ServiceReference, error) {
+	ret := make([]*template.ServiceReference, 0)
+	referenceList, err := commonrepo.NewServiceColl().GetChartTemplateReference(name)
+	if err != nil {
+		logger.Errorf("Failed to get chart reference for template name: %s, the error is: %s", name, err)
+		return ret, err
+	}
+	for _, reference := range referenceList {
+		ret = append(ret, &template.ServiceReference{
+			ServiceName: reference.ServiceName,
+			ProjectName: reference.ProductName,
+		})
+	}
+	return ret, nil
 }
 
 func SyncHelmTemplateReference(userName, name string, logger *zap.SugaredLogger) error {

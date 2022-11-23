@@ -79,6 +79,14 @@ func (c *BasicImageColl) Find(id string) (*models.BasicImage, error) {
 	return res, err
 }
 
+func (c *BasicImageColl) FindByImageName(name string) (*models.BasicImage, error) {
+	res := &models.BasicImage{}
+	query := bson.M{"label": name}
+	err := c.FindOne(context.TODO(), query).Decode(res)
+
+	return res, err
+}
+
 func (c *BasicImageColl) List(opt *BasicImageOpt) ([]*models.BasicImage, error) {
 	query := bson.M{}
 	if opt != nil && opt.ImageFrom != "" {

@@ -87,6 +87,8 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 		stepCtl, err = NewTarArchiveCtl(step, logger)
 	case config.StepSonarCheck:
 		stepCtl, err = NewSonarCheckCtl(step, logger)
+	case config.StepDistributeImage:
+		stepCtl, err = NewDistributeCtl(step, logger)
 	default:
 		logger.Errorf("unknown step type: %s", step.StepType)
 		return stepCtl, fmt.Errorf("unknown step type: %s", step.StepType)

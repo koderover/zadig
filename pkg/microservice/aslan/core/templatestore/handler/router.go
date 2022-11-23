@@ -34,6 +34,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		chart.GET("/:name/variables", GetTemplateVariables)
 		chart.POST("", AddChartTemplate)
 		chart.PUT("/:name", UpdateChartTemplate)
+		chart.GET("/:name/reference", GetChartTemplateReference)
 		chart.POST("/:name/reference", SyncChartTemplateReference)
 		chart.PUT("/:name/variables", UpdateChartTemplateVariables)
 		chart.DELETE("/:name", RemoveChartTemplate)
@@ -71,6 +72,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		build.GET("", ListBuildTemplates)
 		build.GET("/:id", GetBuildTemplate)
 		build.DELETE("/:id", RemoveBuildTemplate)
+		build.GET("/:id/reference", GetBuildTemplateReference)
 	}
 
 	workflow := router.Group("workflow")

@@ -39,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/sonar"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -443,7 +444,12 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 			log.Errorf("failed to get sonar integration info, error: %s", err)
 			return nil, err
 		}
-		resultAddr = sonarInfo.ServerAddress
+
+		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
+		resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
+		if err != nil {
+			log.Errorf("failed to get sonar address with project key, error: %s", err)
+		}
 	}
 
 	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]

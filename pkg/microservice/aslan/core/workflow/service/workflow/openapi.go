@@ -63,6 +63,15 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 	return CreateWorkflowTaskV4(username, workflow, log)
 }
 
+func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*commonmodels.WorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
+	// the list we got in openAPI is slightly different from the normal version, adding the missing field for workflowList
+	for _, workflowInfo := range workflowList {
+		workflowInfo.Enabled = true
+	}
+
+	return CreateWorkflowView(name, projectName, workflowList, username, logger)
+}
+
 func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {

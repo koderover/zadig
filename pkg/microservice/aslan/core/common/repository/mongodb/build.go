@@ -285,3 +285,21 @@ func (c *BuildColl) GetDockerfileTemplateReference(templateID string) ([]*models
 	}
 	return ret, nil
 }
+
+func (c *BuildColl) GetBuildTemplateReference(templateID string) ([]*models.Build, error) {
+	query := bson.M{
+		"template_id": templateID,
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*models.Build, 0)
+	err = cursor.All(context.TODO(), &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}

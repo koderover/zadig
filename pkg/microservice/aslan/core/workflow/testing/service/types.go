@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -40,6 +42,39 @@ type Scanning struct {
 	Script           string                         `json:"script"`
 	AdvancedSetting  *types.ScanningAdvancedSetting `json:"advanced_settings"`
 	CheckQualityGate bool                           `json:"check_quality_gate"`
+}
+
+type OpenAPICreateScanningReq struct {
+	Name        string                    `json:"name"`
+	ProjectName string                    `json:"project_name"`
+	Description string                    `json:"description"`
+	ScannerType string                    `json:"scanner_type"`
+	ImageName   string                    `json:"image_name"`
+	RepoInfo    []*types.OpenAPIRepoInput `json:"repo_info"`
+	// FIMXE: currently only one sonar system is required, so we just fill in the default sonar ID.
+	Addons            []*commonmodels.Item          `json:"addons"`
+	PrelaunchScript   string                        `json:"prelaunch_script"`
+	SonarParameter    string                        `json:"sonar_parameter"`
+	Script            string                        `json:"script"`
+	EnableQualityGate bool                          `json:"enable_quality_gate"`
+	AdvancedSetting   *types.OpenAPIAdvancedSetting `json:"advanced_settings"`
+}
+
+func (req *OpenAPICreateScanningReq) Validate() (bool, error) {
+	if req.Name == "" {
+		return false, fmt.Errorf("scanning name cannot be empty")
+	}
+	if req.ProjectName == "" {
+		return false, fmt.Errorf("project name cannot be empty")
+	}
+	if req.ImageName == "" {
+		return false, fmt.Errorf("image name cannot be empty")
+	}
+	if req.ScannerType != "sonarQube" && req.ScannerType != "other" {
+		return false, fmt.Errorf("scanner_type can only be sonarQube or other")
+	}
+
+	return true, nil
 }
 
 type ListScanningRespItem struct {

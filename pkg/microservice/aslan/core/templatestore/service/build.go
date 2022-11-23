@@ -24,6 +24,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -115,4 +116,25 @@ func UpdateBuildTemplate(id string, buildTemplate *commonmodels.BuildTemplate, l
 		return err
 	}
 	return commonrepo.NewBuildTemplateColl().Update(id, buildTemplate)
+}
+
+func GetBuildTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.BuildTemplateReference, error) {
+	ret := make([]*template.BuildTemplateReference, 0)
+	referenceList, err := commonrepo.NewBuildColl().GetBuildTemplateReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get build template reference for template id: %s, the error is: %s", id, err)
+		return ret, err
+	}
+	for _, reference := range referenceList {
+		var serviceModuleList []string
+		for _, target := range reference.Targets {
+			serviceModuleList = append(serviceModuleList, target.ServiceModule)
+		}
+		ret = append(ret, &template.BuildTemplateReference{
+			BuildName:     reference.Name,
+			ProjectName:   reference.ProductName,
+			ServiceModule: serviceModuleList,
+		})
+	}
+	return ret, nil
 }

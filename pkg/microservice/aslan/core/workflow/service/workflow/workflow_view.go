@@ -28,16 +28,18 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func CreateWorkflowView(input *commonmodels.WorkflowView, userName string, logger *zap.SugaredLogger) error {
-	if input.Name == "" || input.ProjectName == "" {
-		msg := ("create workflow view error: invalid params")
-		log.Error(msg)
-		return e.ErrCreateView.AddDesc(msg)
+func CreateWorkflowView(name, projectName string, workflowList []*commonmodels.WorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
+	workflowView := &commonmodels.WorkflowView{
+		Name:        name,
+		ProjectName: projectName,
+		Workflows:   workflowList,
+		UpdateBy:    username,
 	}
-	input.UpdateBy = userName
-	if err := commonrepo.NewWorkflowViewColl().Create(input); err != nil {
+
+	err := commonrepo.NewWorkflowViewColl().Create(workflowView)
+	if err != nil {
 		msg := fmt.Sprintf("create workflow view error: %v", err)
-		log.Error(msg)
+		logger.Errorf(msg)
 		return e.ErrCreateView.AddDesc(msg)
 	}
 	return nil
