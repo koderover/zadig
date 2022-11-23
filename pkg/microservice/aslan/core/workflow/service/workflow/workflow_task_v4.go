@@ -412,7 +412,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 			JobType:   job.JobType,
 		}
 		switch job.JobType {
-		case string(config.FreestyleType):
+		case string(config.JobFreestyle):
 			fallthrough
 		case string(config.JobZadigBuild):
 			spec := ZadigBuildJobSpec{}
