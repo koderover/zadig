@@ -321,7 +321,7 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 	for _, svc := range services {
 		serviceTemplateCounter := fmt.Sprintf(setting.ServiceTemplateCounterName, svc.ServiceName, svc.ProductName)
 		log.Infof("###### setting service counter: %s", serviceTemplateCounter)
-		err := commonrepo.NewCounterColl().SetToNumber(serviceTemplateCounter, svc.Revision)
+		err := commonrepo.NewCounterColl().UpsertCounter(serviceTemplateCounter, svc.Revision)
 		if err != nil {
 			log.Errorf("failed to set service counter: %s, err: %s", serviceTemplateCounter, err)
 		}
