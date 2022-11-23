@@ -431,7 +431,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 				}
 			}
 			// get image from global context
-			imageContextKey := workflowcontroller.GetContextKey(strings.Join([]string{"job", job.Key, "output", "IMAGE"}, "."))
+			imageContextKey := workflowcontroller.GetContextKey(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", job.Key, "output", "IMAGE"}, ".")))
 			if context != nil {
 				spec.Image = context[imageContextKey]
 			}
