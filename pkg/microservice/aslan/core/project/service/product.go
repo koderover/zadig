@@ -295,7 +295,9 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 	if err = saveProducts(products); err != nil {
 		return err
 	}
-
+	if err = saveProject(projectInfo); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -327,6 +329,10 @@ func saveProducts(products []*commonmodels.Product) error {
 		}
 	}
 	return nil
+}
+
+func saveProject(projectInfo *template.Product) error {
+	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProjectName, projectInfo.ProductFeature, projectInfo.UpdateBy)
 }
 
 // build service and env data

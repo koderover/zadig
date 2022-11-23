@@ -337,14 +337,14 @@ func (c *ServiceColl) TransferServiceSource(productName, source, newSource, user
 	query := bson.M{"product_name": productName, "source": source}
 
 	changeMap := bson.M{
-		"create_by":   username,
-		"create_time": time.Now().Unix(),
+		"create_by":     username,
+		"visibility":    setting.PrivateVisibility,
+		"source":        newSource,
+		"env_name":      "",
+		"workload_type": "",
 	}
-	changeMap["source"] = newSource
-	changeMap["source"] = ""
-	changeMap["workload_type"] = ""
 	change := bson.M{"$set": changeMap}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
 }
 
