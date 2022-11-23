@@ -19,6 +19,10 @@ package kube
 import (
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	crClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
@@ -26,9 +30,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func FetchRelatedWorkloads(namespace, serviceName string,

@@ -25,8 +25,6 @@ import (
 	"sync"
 	"time"
 
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
@@ -60,6 +58,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -937,7 +936,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			for _, value := range item.ChartValues {
 				chartValues = append(chartValues, &ProductHelmServiceCreationInfo{
 					RenderChartArg: value,
-					DeployStrategy: "deploy",
+					DeployStrategy: setting.ServiceDeployStrategyDeploy,
 				})
 			}
 			args = append(args, &CreateSingleProductArg{
