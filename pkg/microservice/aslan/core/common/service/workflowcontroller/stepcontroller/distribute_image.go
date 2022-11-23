@@ -25,16 +25,19 @@ import (
 	"gopkg.in/yaml.v2"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type distributeImageCtl struct {
 	step                *commonmodels.StepTask
+	workflowCtx         *commonmodels.WorkflowTaskCtx
+	jobName             string
 	distributeImageSpec *step.StepImageDistributeSpec
 	log                 *zap.SugaredLogger
 }
 
-func NewDistributeCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*distributeImageCtl, error) {
+func NewDistributeCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, log *zap.SugaredLogger) (*distributeImageCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal image distribute spec error: %v", err)
@@ -44,7 +47,7 @@ func NewDistributeCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (
 		return nil, fmt.Errorf("unmarshal image distribute error: %v", err)
 	}
 	stepTask.Spec = distributeSpec
-	return &distributeImageCtl{distributeImageSpec: distributeSpec, log: log, step: stepTask}, nil
+	return &distributeImageCtl{distributeImageSpec: distributeSpec, workflowCtx: workflowCtx, jobName: jobName, log: log, step: stepTask}, nil
 }
 
 func (s *distributeImageCtl) PreRun(ctx context.Context) error {
@@ -58,6 +61,10 @@ func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 }
 
 func (s *distributeImageCtl) AfterRun(ctx context.Context) error {
+	for _, target := range s.distributeImageSpec.DistributeTarget {
+		targetKey := strings.Join([]string{s.jobName, target.ServiceName, target.ServiceModule}, ".")
+		s.workflowCtx.GlobalContextSet(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", targetKey, "output", "IMAGE"}, ".")), target.TargetImage)
+	}
 	return nil
 }
 
