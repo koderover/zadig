@@ -49,6 +49,7 @@ func NewCustomDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
+	job.Spec = jobTaskSpec
 	return &CustomDeployJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,

@@ -55,6 +55,7 @@ func NewDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workfl
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
+	job.Spec = jobTaskSpec
 	return &DeployJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,

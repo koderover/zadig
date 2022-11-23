@@ -61,6 +61,7 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
+	job.Spec = jobTaskSpec
 	return &FreestyleJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
@@ -102,8 +103,6 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
-	// remove it.
-	c.ack()
 	return nil
 }
 

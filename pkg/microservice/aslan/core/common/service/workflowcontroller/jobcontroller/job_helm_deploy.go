@@ -72,6 +72,7 @@ func NewHelmDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wo
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
+	job.Spec = jobTaskSpec
 	return &HelmDeployJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
