@@ -320,6 +320,7 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 func saveServices(projectName, username string, services []*commonmodels.Service) error {
 	for _, svc := range services {
 		serviceTemplateCounter := fmt.Sprintf(setting.ServiceTemplateCounterName, svc.ServiceName, svc.ProductName)
+		log.Infof("###### setting service counter: %s", serviceTemplateCounter)
 		err := commonrepo.NewCounterColl().SetToNumber(serviceTemplateCounter, svc.Revision)
 		if err != nil {
 			log.Errorf("failed to set service counter: %s, err: %s", serviceTemplateCounter, err)
@@ -366,7 +367,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			UpdateBy:    user,
 			IsDefault:   false,
 		}
-		err = commonservice.CreateRenderSet(rendersetInfo, logger)
+		err = commonservice.ForceCreateReaderSet(rendersetInfo, logger)
 		if err != nil {
 			return nil, err
 		}

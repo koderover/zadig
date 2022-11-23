@@ -316,6 +316,10 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return createRenderset(args, log)
 }
 
+func ForceCreateReaderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	return createRenderset(args, log)
+}
+
 // CreateHelmRenderSet 添加renderSet
 func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.RenderSetFindOption{
@@ -333,7 +337,7 @@ func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) e
 			return nil
 		}
 	}
-	return createRenderset(args, log)
+	return ForceCreateReaderSet(args, log)
 }
 
 func CreateDefaultHelmRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
