@@ -102,6 +102,8 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
+	// remove it.
+	c.ack()
 	return nil
 }
 
