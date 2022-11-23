@@ -112,12 +112,9 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			log.Error(err)
 		}
 		j.spec.SourceRegistryID = refJobSpec.DockerRegistryID
-		targetTagMap := map[string]string{}
+		targetTagMap := map[string]commonmodels.DistributeTarget{}
 		for _, target := range j.spec.Tatgets {
-			if !target.UpdateTag {
-				continue
-			}
-			targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)] = target.TargetTag
+			targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)] = *target
 		}
 		newTargets := []*commonmodels.DistributeTarget{}
 		for _, svc := range refJobSpec.ServiceAndBuilds {
@@ -125,7 +122,8 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 				ServiceName:   svc.ServiceName,
 				ServiceModule: svc.ServiceModule,
 				SourceImage:   svc.Image,
-				TargetTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)],
+				TargetTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].TargetTag,
+				UpdateTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].UpdateTag,
 			})
 		}
 		j.spec.Tatgets = newTargets
