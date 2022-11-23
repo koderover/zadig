@@ -132,7 +132,7 @@ func TransferProject(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productName := c.Param("name")
-	ctx.Err = projectservice.UpdateProject(productName, ctx.Logger)
+	ctx.Err = projectservice.TransferHostProject(ctx.UserName, productName, ctx.Logger)
 }
 
 func UpdateProject(c *gin.Context) {
