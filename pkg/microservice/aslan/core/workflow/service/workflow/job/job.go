@@ -169,6 +169,10 @@ func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string
 				jobCtl := &ScanningJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
 			}
+			if job.JobType == config.JobZadigDistributeImage {
+				jobCtl := &ImageDistributeJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
 			if job.JobType == config.JobPlugin {
 				jobCtl := &PluginJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)

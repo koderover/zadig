@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
+	"go.uber.org/zap"
 )
 
 const (
@@ -145,7 +146,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		// for other job refer current latest image.
 		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
 		target.TargetImage = fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", targetKey, "output", "IMAGE"}, "."))
-		
+
 		stepSpec.DistributeTarget = append(stepSpec.DistributeTarget, &step.DistributeTaskTarget{
 			SoureImage:    target.SourceImage,
 			ServiceName:   target.ServiceName,
@@ -251,4 +252,17 @@ func getTimeout(timeout int64) int64 {
 		return DistributeTimeout
 	}
 	return timeout
+}
+
+func (j *ImageDistributeJob) GetOutPuts(log *zap.SugaredLogger) []string {
+	resp := []string{}
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return resp
+	}
+	for _, target := range j.spec.Tatgets {
+		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
+		resp = append(resp, getOutputKey(targetKey, ensureBuildInOutputs([]*commonmodels.Output{{Name: "IMAGE"}}))...)
+	}
+	return resp
 }
