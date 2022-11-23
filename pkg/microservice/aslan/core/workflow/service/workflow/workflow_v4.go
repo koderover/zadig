@@ -25,6 +25,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -215,6 +216,15 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	}
 	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
 
+	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowType)})
+	if err != nil {
+		log.Warnf("Failed to list favorites, err: %s", err)
+	}
+	favoriteSet := sets.NewString()
+	for _, f := range favorites {
+		favoriteSet.Insert(f.Name)
+	}
+
 	for _, workflowModel := range workflowV4List {
 		stages := []string{}
 		for _, stage := range workflowModel.Stages {
@@ -247,7 +257,9 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		}
 		getRecentTaskV4Info(workflow, tasks)
 		setWorkflowStat(workflow, workflowStatMap)
-
+		if favoriteSet.Has(workflow.Name) {
+			workflow.IsFavorite = true
+		}
 		resp = append(resp, workflow)
 	}
 	return resp, nil
