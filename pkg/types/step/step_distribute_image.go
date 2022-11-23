@@ -24,7 +24,7 @@ type StepImageDistributeSpec struct {
 
 type DistributeTaskTarget struct {
 	SoureImage    string `bson:"source_image"       yaml:"source_image"     json:"source_image"`
-	TargetImage   string `bson:"target_name"        yaml:"target_name"      json:"target_name"`
+	TargetImage   string `bson:"target_image"       yaml:"target_image"     json:"target_image"`
 	TargetTag     string `bson:"target_tag"         yaml:"target_tag"       json:"target_tag"`
 	ServiceName   string `bson:"service_name"       yaml:"service_name"     json:"service_name"`
 	ServiceModule string `bson:"service_module"     yaml:"service_module"   json:"service_module"`
