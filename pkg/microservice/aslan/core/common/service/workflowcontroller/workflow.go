@@ -249,17 +249,15 @@ const (
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()	
-	key = strings.Join(strings.Split(key, "."), split)
-	v, existed := c.workflowTask.GlobalContext[key]
+	defer c.globalContextMutex.RUnlock()
+	v, existed := c.workflowTask.GlobalContext[GetContextKey(key)]
 	return v, existed
 }
 
 func (c *workflowCtl) setGlobalContext(key, value string) {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
-	key = strings.Join(strings.Split(key, "."), split)
-	c.workflowTask.GlobalContext[key] = value
+	c.workflowTask.GlobalContext[GetContextKey(key)] = value
 }
 
 func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
@@ -271,4 +269,8 @@ func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
 			return
 		}
 	}
+}
+
+func GetContextKey(key string) string {
+	return strings.Join(strings.Split(key, "."), split)
 }
