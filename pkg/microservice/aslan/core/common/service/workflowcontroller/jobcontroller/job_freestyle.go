@@ -222,8 +222,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 }
 
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
-	// status := waitJobEndWithFile(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
-	status := waitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	status := waitJobEndWithFile(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
 	c.job.Status = status
 }
 
@@ -246,7 +245,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	}()
 
 	// get job outputs info from pod terminate message.
-	if err := getJobOutput(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.kubeclient); err != nil {
+	if err := getJobOutputFromRunningPod(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.kubeclient, c.clientset, c.restConfig); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 	}

@@ -817,7 +817,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 	}
 }
 
-func getJobOutput(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, kubeClient crClient.Client) error {
+func getJobOutputFromTerminalMsg(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, kubeClient crClient.Client) error {
 	jobLabel := &JobLabel{
 		JobType: string(jobTask.JobType),
 		JobName: jobTask.K8sJobName,
@@ -845,11 +845,48 @@ func getJobOutput(namespace, containerName string, jobTask *commonmodels.JobTask
 			}
 		}
 	}
+	writeOutputs(outputs, jobTask.Key, workflowCtx)
+	return nil
+}
+
+func getJobOutputFromRunningPod(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config) error {
+	jobLabel := &JobLabel{
+		JobType: string(jobTask.JobType),
+		JobName: jobTask.K8sJobName,
+	}
+	outputs := []*job.JobOutput{}
+	ls := getJobLabels(jobLabel)
+	pods, err := getter.ListPods(namespace, labels.Set(ls).AsSelector(), kubeClient)
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods {
+		stdout, _, success, err := podexec.KubeExec(clientset, restConfig, podexec.ExecOptions{
+			Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", job.JobTerminationFile)},
+			Namespace:     namespace,
+			PodName:       pod.Name,
+			ContainerName: containerName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to exec pod: %v", err)
+		}
+		if !success {
+			return nil
+		}
+		if err := json.Unmarshal([]byte(stdout), &outputs); err != nil {
+			return err
+		}
+		break
+	}
+	writeOutputs(outputs, jobTask.Key, workflowCtx)
+	return nil
+}
+
+func writeOutputs(outputs []*job.JobOutput, outputKey string, workflowCtx *commonmodels.WorkflowTaskCtx) {
 	// write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
 	for _, output := range outputs {
-		workflowCtx.GlobalContextSet(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", jobTask.Key, "output", output.Name}, ".")), output.Value)
+		workflowCtx.GlobalContextSet(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", outputKey, "output", output.Name}, ".")), output.Value)
 	}
-	return nil
 }
 
 func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID int64, jobLabel *JobLabel, kubeClient crClient.Client) error {

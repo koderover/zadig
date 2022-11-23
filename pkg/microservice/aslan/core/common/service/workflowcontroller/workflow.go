@@ -242,13 +242,14 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 }
 
+// mongo do not support dot in keys.
 const (
 	split = "@?"
 )
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()
+	defer c.globalContextMutex.RUnlock()	
 	key = strings.Join(strings.Split(key, "."), split)
 	v, existed := c.workflowTask.GlobalContext[key]
 	return v, existed
