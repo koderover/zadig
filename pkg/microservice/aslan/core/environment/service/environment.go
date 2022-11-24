@@ -353,6 +353,9 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 		ProductTmpl: renderSet.ProductTmpl,
 		Description: renderSet.Description,
 	}
+
+	log.Infof("######## UpdateProduct with renderset revision: %d", renderSet.Revision)
+
 	productName := existedProd.ProductName
 	envName := existedProd.EnvName
 	namespace := existedProd.Namespace
@@ -695,7 +698,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
-	log.Infof("[%s][P:%s] UpdateProduct", envName, productName)
+	log.Infof("[%s][P:%s] UpdateProduct, services: %v", envName, productName, serviceNames)
 
 	// 查找产品模板
 	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
