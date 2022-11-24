@@ -118,7 +118,11 @@ func renderPlugin(plugin *commonmodels.PluginTemplate, inputs []*commonmodels.Pa
 }
 
 func (j *PluginJob) LintJob() error {
-	return nil
+	j.spec = &commonmodels.PluginJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	return checkOutputNames(j.spec.Plugin.Outputs)
 }
 
 func (j *PluginJob) GetOutPuts(log *zap.SugaredLogger) []string {

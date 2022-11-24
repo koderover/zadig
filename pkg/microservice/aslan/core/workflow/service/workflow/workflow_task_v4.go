@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
+	jobspec "github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 	stepspec "github.com/koderover/zadig/pkg/types/step"
 	"go.uber.org/zap"
@@ -431,7 +432,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 				}
 			}
 			// get image from global context
-			imageContextKey := workflowcontroller.GetContextKey(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", job.Key, "output", "IMAGE"}, ".")))
+			imageContextKey := workflowcontroller.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
 			if context != nil {
 				spec.Image = context[imageContextKey]
 			}

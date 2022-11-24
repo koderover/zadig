@@ -885,7 +885,7 @@ func getJobOutputFromRunningPod(namespace, containerName string, jobTask *common
 func writeOutputs(outputs []*job.JobOutput, outputKey string, workflowCtx *commonmodels.WorkflowTaskCtx) {
 	// write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
 	for _, output := range outputs {
-		workflowCtx.GlobalContextSet(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", outputKey, "output", output.Name}, ".")), output.Value)
+		workflowCtx.GlobalContextSet(job.GetJobOutputKey(outputKey, output.Name), output.Value)
 	}
 }
 

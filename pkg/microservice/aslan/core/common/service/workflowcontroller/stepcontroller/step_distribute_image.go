@@ -25,8 +25,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
@@ -66,7 +66,7 @@ func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 func (s *distributeImageCtl) AfterRun(ctx context.Context) error {
 	for _, target := range s.distributeImageSpec.DistributeTarget {
 		targetKey := strings.Join([]string{s.jobName, target.ServiceName, target.ServiceModule}, ".")
-		s.workflowCtx.GlobalContextSet(fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", targetKey, "output", "IMAGE"}, ".")), target.TargetImage)
+		s.workflowCtx.GlobalContextSet(job.GetJobOutputKey(targetKey, "IMAGE"), target.TargetImage)
 	}
 	return nil
 }

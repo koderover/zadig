@@ -28,9 +28,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 	"go.uber.org/zap"
 )
@@ -244,7 +244,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		// for other job refer current latest image.
-		build.Image = fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", jobTask.Key, "output", "IMAGE"}, "."))
+		build.Image = job.GetJobOutputKey(jobTask.Key, "IMAGE")
 
 		// init tools install step
 		tools := []*step.Tool{}

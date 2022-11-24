@@ -278,7 +278,11 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 }
 
 func (j *FreeStyleJob) LintJob() error {
-	return nil
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	return checkOutputNames(j.spec.Outputs)
 }
 
 func (j *FreeStyleJob) GetOutPuts(log *zap.SugaredLogger) []string {

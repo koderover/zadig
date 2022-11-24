@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,14 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
 	"go.uber.org/zap"
+)
+
+const (
+	OutputNameRegexString = "^[a-zA-Z0-9_]{1,64}$"
+)
+
+var (
+	OutputNameRegex = regexp.MustCompile(OutputNameRegexString)
 )
 
 type JobCtl interface {
@@ -388,7 +397,7 @@ func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
 func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
 	resp := []string{}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", jobKey, "output", output.Name}, ".")))
+		resp = append(resp, job.GetJobOutputKey(jobKey, output.Name))
 	}
 	return resp
 }
@@ -400,4 +409,13 @@ func outputScript(outputs []*commonmodels.Output) []string {
 		resp = append(resp, fmt.Sprintf("echo $%s > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
 	}
 	return resp
+}
+
+func checkOutputNames(outputs []*commonmodels.Output) error {
+	for _, output := range outputs {
+		if match := OutputNameRegex.MatchString(output.Name); !match {
+			return fmt.Errorf("output name must match %s", OutputNameRegexString)
+		}
+	}
+	return nil
 }

@@ -16,6 +16,13 @@ limitations under the License.
 
 package job
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/koderover/zadig/pkg/setting"
+)
+
 const (
 	JobOutputDir       = "/zadig/results/"
 	JobTerminationFile = "/zadig/termination"
@@ -24,4 +31,8 @@ const (
 type JobOutput struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+func GetJobOutputKey(key, outputName string) string {
+	return fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", key, "output", outputName}, "."))
 }

@@ -25,6 +25,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 	"go.uber.org/zap"
 )
@@ -143,7 +144,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	for _, target := range j.spec.Tatgets {
 		// for other job refer current latest image.
 		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
-		target.TargetImage = fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", targetKey, "output", "IMAGE"}, "."))
+		target.TargetImage = job.GetJobOutputKey(targetKey, "IMAGE")
 
 		stepSpec.DistributeTarget = append(stepSpec.DistributeTarget, &step.DistributeTaskTarget{
 			SoureImage:    target.SourceImage,
