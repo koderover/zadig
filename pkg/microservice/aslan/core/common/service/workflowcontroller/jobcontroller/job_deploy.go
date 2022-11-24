@@ -205,9 +205,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 				return err
 			}
 			if !found {
-				msg := fmt.Sprintf("statefulset %s not found", c.jobTaskSpec.ServiceName)
-				logError(c.job, msg, c.logger)
-				return errors.New(msg)
+				// msg := fmt.Sprintf("statefulset %s not found", c.jobTaskSpec.ServiceName)
+				// logError(c.job, msg, c.logger)
+				// return errors.New(msg)
 			}
 			for _, container := range statefulSet.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.ServiceModule {
@@ -236,9 +236,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 				return err
 			}
 			if !found {
-				msg := fmt.Sprintf("deployment %s not found", c.jobTaskSpec.ServiceName)
-				logError(c.job, msg, c.logger)
-				return errors.New(msg)
+				// msg := fmt.Sprintf("deployment %s not found", c.jobTaskSpec.ServiceName)
+				// logError(c.job, msg, c.logger)
+				// return errors.New(msg)
 			}
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.ServiceModule {
