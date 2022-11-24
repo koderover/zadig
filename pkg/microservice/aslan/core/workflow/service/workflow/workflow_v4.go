@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -873,6 +874,18 @@ func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger
 	return resp, nil
 }
 
-func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
-	return jobctl.GetWorkflowOutputs(workflow, currentJobName, log)
+func GetWorkflowGlabalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
+	return append(getDefaultVars(workflow), jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...)
+}
+
+func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
+	vars := []string{}
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "project"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.name"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.creator"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.timestamp"))
+	for _, param := range workflow.Params {
+		vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"workflow", "params", param.Name}, ".")))
+	}
+	return vars
 }

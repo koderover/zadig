@@ -267,7 +267,7 @@ func GetPatchParams(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.GetPatchParams(req, ctx.Logger)
 }
 
-func GetWorkflowOutputs(c *gin.Context) {
+func GetWorkflowGlabalVars(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -277,5 +277,5 @@ func GetWorkflowOutputs(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp = workflow.GetWorkflowOutputs(args, c.Param("jobName"), ctx.Logger)
+	ctx.Resp = workflow.GetWorkflowGlabalVars(args, c.Param("jobName"), ctx.Logger)
 }
