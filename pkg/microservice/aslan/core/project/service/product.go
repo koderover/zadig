@@ -406,6 +406,15 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			})
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
+
+		// mark service as only import
+		if product.ServiceDeployStrategy == nil {
+			product.ServiceDeployStrategy = make(map[string]string)
+		}
+		for _, svc := range product.GetServiceMap() {
+			product.ServiceDeployStrategy[svc.ServiceName] = setting.ServiceDeployStrategyImport
+		}
+
 		product.Source = setting.SourceFromZadig
 		product.UpdateBy = user
 		product.Revision = 1
