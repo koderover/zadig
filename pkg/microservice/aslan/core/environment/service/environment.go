@@ -453,6 +453,8 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
+	log.Infof("###### serviceNames is %v, envName: %s", serviceNames, envName)
+
 	existedServices := existedProd.GetServiceMap()
 
 	// 按照产品模板的顺序来创建或者更新服务
@@ -477,6 +479,8 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 			if !ok {
 				continue
 			}
+
+			log.Infof("***********  svcName: %s, updatable: %v, type %v", prodService.ServiceName, svcRev.Updatable, svcRev.Type)
 
 			if svcRev.Updatable {
 
