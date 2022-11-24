@@ -24,21 +24,16 @@ func ListConfigurationManagement(log *zap.SugaredLogger) ([]*commonmodels.Config
 		log.Errorf("list configuration management error: %v", err)
 		return nil, e.ErrListConfigurationManagement
 	}
-	for _, management := range resp {
-		if err := unmarshalAuthConfig(management); err != nil {
-			log.Errorf("unmarshal configuration management error: %v", err)
-			return nil, e.ErrListConfigurationManagement.AddErr(err)
-		}
-	}
+
 	return resp, nil
 }
 
 func CreateConfigurationManagement(args *commonmodels.ConfigurationManagement, log *zap.SugaredLogger) error {
-	if err := marshalAuthConfig(args); err != nil {
-		log.Errorf("marshal configuration management error: %v", err)
+	if err := validateType(args); err != nil {
 		return e.ErrCreateConfigurationManagement.AddErr(err)
 	}
-	if err := validateType(args); err != nil {
+	if err := marshalAuthConfig(args); err != nil {
+		log.Errorf("marshal configuration management error: %v", err)
 		return e.ErrCreateConfigurationManagement.AddErr(err)
 	}
 
@@ -56,19 +51,16 @@ func GetConfigurationManagement(id string, log *zap.SugaredLogger) (*commonmodel
 		log.Errorf("get configuration management error: %v", err)
 		return nil, e.ErrGetConfigurationManagement.AddErr(err)
 	}
-	if err = unmarshalAuthConfig(resp); err != nil {
-		log.Errorf("unmarshal configuration management error: %v", err)
-		return nil, e.ErrGetConfigurationManagement.AddErr(err)
-	}
+
 	return resp, nil
 }
 
 func UpdateConfigurationManagement(id string, args *commonmodels.ConfigurationManagement, log *zap.SugaredLogger) error {
-	if err := marshalAuthConfig(args); err != nil {
-		log.Errorf("marshal configuration management error: %v", err)
+	if err := validateType(args); err != nil {
 		return e.ErrUpdateConfigurationManagement.AddErr(err)
 	}
-	if err := validateType(args); err != nil {
+	if err := marshalAuthConfig(args); err != nil {
+		log.Errorf("marshal configuration management error: %v", err)
 		return e.ErrUpdateConfigurationManagement.AddErr(err)
 	}
 
@@ -139,47 +131,46 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 	return nil
 }
 
-func GetApolloConfigFromAuthConfig(serverAddr string, authConfigString string) *commonmodels.ApolloConfig {
-	return &commonmodels.ApolloConfig{
-		ServerAddress: serverAddr,
-		Token:         gjson.Get(authConfigString, "token").String(),
-	}
-}
-
-func GetNacosConfigFromAuthConfig(serverAddr string, authConfigString string) *commonmodels.NacosConfig {
-	return &commonmodels.NacosConfig{
-		ServerAddress: serverAddr,
-		UserName:      gjson.Get(authConfigString, "user_name").String(),
-		Password:      gjson.Get(authConfigString, "password").String(),
-	}
-}
-
 func getApolloConfigFromRaw(raw string) *commonmodels.ApolloConfig {
 	return &commonmodels.ApolloConfig{
 		ServerAddress: gjson.Get(raw, "server_address").String(),
-		Token:         gjson.Get(raw, "auth_config.token").String(),
+		ApolloAuthConfig: &commonmodels.ApolloAuthConfig{
+			Token: gjson.Get(raw, "auth_config.token").String(),
+		},
 	}
 }
 
 func getNacosConfigFromRaw(raw string) *commonmodels.NacosConfig {
 	return &commonmodels.NacosConfig{
 		ServerAddress: gjson.Get(raw, "server_address").String(),
-		UserName:      gjson.Get(raw, "auth_config.user_name").String(),
-		Password:      gjson.Get(raw, "auth_config.password").String(),
+		NacosAuthConfig: &commonmodels.NacosAuthConfig{
+			UserName: gjson.Get(raw, "auth_config.user_name").String(),
+			Password: gjson.Get(raw, "auth_config.password").String(),
+		},
 	}
 }
 
 func marshalAuthConfig(management *commonmodels.ConfigurationManagement) error {
-	authConfig, err := json.Marshal(management.AuthConfig)
+	rawData, err := json.Marshal(management.AuthConfig)
 	if err != nil {
 		return err
 	}
-	management.AuthConfigString = string(authConfig)
-	return nil
-}
 
-func unmarshalAuthConfig(management *commonmodels.ConfigurationManagement) error {
-	return json.Unmarshal([]byte(management.AuthConfigString), &management.AuthConfig)
+	rawJson := string(rawData)
+	switch management.Type {
+	case setting.SourceFromApollo:
+		management.AuthConfig = &commonmodels.ApolloAuthConfig{
+			Token: gjson.Get(rawJson, "token").String(),
+		}
+	case setting.SourceFromNacos:
+		management.AuthConfig = &commonmodels.NacosAuthConfig{
+			UserName: gjson.Get(rawJson, "user_name").String(),
+			Password: gjson.Get(rawJson, "password").String(),
+		}
+	default:
+		return errors.New("marshal auth config: invalid type")
+	}
+	return nil
 }
 
 func validateType(management *commonmodels.ConfigurationManagement) error {
