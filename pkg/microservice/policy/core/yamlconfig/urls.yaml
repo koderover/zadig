@@ -285,6 +285,13 @@ exemption_urls:
     - endpoint: api/aslan/system/announcement/?*
       methods:
         - DELETE
+    - endpoint: api/aslan/system/configuration
+      methods:
+        - POST
+    - endpoint: api/aslan/system/configuration/?*
+      methods:
+        - PUT
+        - DELETE
     - endpoint: api/aslan/system/operation
       methods:
         - GET
