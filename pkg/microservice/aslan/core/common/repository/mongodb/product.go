@@ -366,13 +366,14 @@ func (c *ProductColl) Delete(owner, productName string) error {
 func (c *ProductColl) Update(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
 	change := bson.M{"$set": bson.M{
-		"update_time": time.Now().Unix(),
-		"services":    args.Services,
-		"status":      args.Status,
-		"revision":    args.Revision,
-		"render":      args.Render,
-		"error":       args.Error,
-		"share_env":   args.ShareEnv,
+		"update_time":             time.Now().Unix(),
+		"services":                args.Services,
+		"status":                  args.Status,
+		"revision":                args.Revision,
+		"render":                  args.Render,
+		"error":                   args.Error,
+		"share_env":               args.ShareEnv,
+		"service_deploy_strategy": args.ServiceDeployStrategy,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

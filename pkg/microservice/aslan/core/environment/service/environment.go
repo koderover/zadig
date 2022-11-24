@@ -3416,6 +3416,13 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 	}
 
 	productResp.Render.Revision = renderSet.Revision
+
+	if productResp.ServiceDeployStrategy != nil {
+		for _, chart := range overrideCharts {
+			productResp.ServiceDeployStrategy[chart.ServiceName] = setting.ServiceDeployStrategyDeploy
+		}
+	}
+
 	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
 		log.Errorf("Failed to update env, err: %s", err)
 		return err
