@@ -213,6 +213,7 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	}
 
 	var err error
+	log.Infof("---------- productName  :%s", productInfo.EnvName)
 	for _, singleTmp := range allServiceTmpls {
 		log.Infof("######## service template %s revision %v", singleTmp.ServiceName, singleTmp.Revision)
 	}
@@ -224,6 +225,10 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	if err != nil {
 		log.Errorf("Failed to compare service revision, %s:%s, Error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return serviceRev, e.ErrListProductsRevision.AddDesc(err.Error())
+	}
+
+	for _, svc := range serviceRev {
+		log.Infof("######## svc %s data is +%v", svc.ServiceName, *svc)
 	}
 
 	return serviceRev, nil
