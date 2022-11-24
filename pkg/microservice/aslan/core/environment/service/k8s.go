@@ -150,6 +150,10 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 	}
 
+	if exitedProd.ServiceDeployStrategy != nil {
+		exitedProd.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
+	}
+
 	if err := commonrepo.NewProductColl().Update(exitedProd); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrUpdateProduct
