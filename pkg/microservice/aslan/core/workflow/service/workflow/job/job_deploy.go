@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -181,6 +182,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			jobTask := &commonmodels.JobTask{
 				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + "-" + j.job.Name),
+				Key:     strings.Join([]string{j.job.Name, deploy.ServiceName, deploy.ServiceModule}, "."),
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
 			}
@@ -227,6 +229,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			jobTask := &commonmodels.JobTask{
 				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
+				Key:     strings.Join([]string{j.job.Name, serviceName}, "."),
 				JobType: string(config.JobZadigHelmDeploy),
 				Spec:    jobTaskSpec,
 			}

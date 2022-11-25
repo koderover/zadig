@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -121,6 +122,7 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		canaryReplica := math.Ceil(float64(*deployment.Spec.Replicas) * (float64(target.CanaryPercentage) / 100))
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
+			Key:     strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
 			JobType: string(config.JobK8sCanaryDeploy),
 			Spec: &commonmodels.JobTaskCanaryDeploySpec{
 				Namespace:        j.spec.Namespace,

@@ -33,10 +33,10 @@ type StepCtl interface {
 	AfterRun(ctx context.Context) error
 }
 
-func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
+func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobName string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, logger)
+		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, jobName, logger)
 		if err != nil {
 			return err
 		}
@@ -50,10 +50,10 @@ func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx
 	return nil
 }
 
-func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
+func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobName string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, logger)
+		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, jobName, logger)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskC
 	return nil
 }
 
-func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, logger *zap.SugaredLogger) (StepCtl, error) {
+func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobName string, logger *zap.SugaredLogger) (StepCtl, error) {
 	var stepCtl StepCtl
 	var err error
 	switch step.StepType {
@@ -88,7 +88,7 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 	case config.StepSonarCheck:
 		stepCtl, err = NewSonarCheckCtl(step, logger)
 	case config.StepDistributeImage:
-		stepCtl, err = NewDistributeCtl(step, logger)
+		stepCtl, err = NewDistributeCtl(step, workflowCtx, jobName, logger)
 	default:
 		logger.Errorf("unknown step type: %s", step.StepType)
 		return stepCtl, fmt.Errorf("unknown step type: %s", step.StepType)

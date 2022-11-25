@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
+	jobspec "github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 	stepspec "github.com/koderover/zadig/pkg/types/step"
 	"go.uber.org/zap"
@@ -381,7 +382,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			EndTime:   stage.EndTime,
 			Parallel:  stage.Parallel,
 			Approval:  stage.Approval,
-			Jobs:      jobsToJobPreviews(stage.Jobs),
+			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext),
 		})
 	}
 	return resp, nil
@@ -400,7 +401,7 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return nil
 }
 
-func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
+func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) []*JobTaskPreview {
 	resp := []*JobTaskPreview{}
 	for _, job := range jobs {
 		jobPreview := &JobTaskPreview{
@@ -412,7 +413,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 			JobType:   job.JobType,
 		}
 		switch job.JobType {
-		case string(config.FreestyleType):
+		case string(config.JobFreestyle):
 			fallthrough
 		case string(config.JobZadigBuild):
 			spec := ZadigBuildJobSpec{}
@@ -421,10 +422,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 				continue
 			}
 			for _, arg := range taskJobSpec.Properties.Envs {
-				if arg.Key == "IMAGE" {
-					spec.Image = arg.Value
-					continue
-				}
 				if arg.Key == "SERVICE" {
 					spec.ServiceName = arg.Value
 					continue
@@ -434,6 +431,12 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask) []*JobTaskPreview {
 					continue
 				}
 			}
+			// get image from global context
+			imageContextKey := workflowcontroller.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
+			if context != nil {
+				spec.Image = context[imageContextKey]
+			}
+
 			spec.Envs = taskJobSpec.Properties.CustomEnvs
 			for _, step := range taskJobSpec.Steps {
 				if step.StepType == config.StepGit {

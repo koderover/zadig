@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +30,16 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/types/job"
+	"go.uber.org/zap"
+)
+
+const (
+	OutputNameRegexString = "^[a-zA-Z0-9_]{1,64}$"
+)
+
+var (
+	OutputNameRegex = regexp.MustCompile(OutputNameRegexString)
 )
 
 type JobCtl interface {
@@ -139,6 +151,44 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 		}
 	}
 	return nil
+}
+
+func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
+	resp := []string{}
+	jobRankMap := getJobRankMap(workflow.Stages)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			// we only need to get the outputs from job runs before the current job
+			if jobRankMap[job.Name] >= jobRankMap[currentJobName] {
+				return resp
+			}
+			if job.JobType == config.JobZadigBuild {
+				jobCtl := &BuildJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobFreestyle {
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobZadigTesting {
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobZadigScanning {
+				jobCtl := &ScanningJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobZadigDistributeImage {
+				jobCtl := &ImageDistributeJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+			if job.JobType == config.JobPlugin {
+				jobCtl := &PluginJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+		}
+	}
+	return resp
 }
 
 func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
@@ -342,4 +392,30 @@ func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
 		index++
 	}
 	return resp
+}
+
+func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
+	resp := []string{}
+	for _, output := range outputs {
+		resp = append(resp, job.GetJobOutputKey(jobKey, output.Name))
+	}
+	return resp
+}
+
+// generate script to save outputs variable to file
+func outputScript(outputs []*commonmodels.Output) []string {
+	resp := []string{"set +ex"}
+	for _, output := range outputs {
+		resp = append(resp, fmt.Sprintf("echo $%s > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
+	}
+	return resp
+}
+
+func checkOutputNames(outputs []*commonmodels.Output) error {
+	for _, output := range outputs {
+		if match := OutputNameRegex.MatchString(output.Name); !match {
+			return fmt.Errorf("output name must match %s", OutputNameRegexString)
+		}
+	}
+	return nil
 }

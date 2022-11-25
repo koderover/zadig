@@ -20,11 +20,14 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
@@ -94,32 +97,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
-	// get distribute targets from previous build job.
-	if j.spec.Source == config.SourceFromJob {
-		refJobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
-		if err != nil {
-			log.Error(err)
-		}
-		j.spec.SourceRegistryID = refJobSpec.DockerRegistryID
-		targetTagMap := map[string]string{}
-		for _, target := range j.spec.Tatgets {
-			if !target.UpdateTag {
-				continue
-			}
-			targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)] = target.TargetTag
-		}
-		newTargets := []*commonmodels.DistributeTarget{}
-		for _, svc := range refJobSpec.ServiceAndBuilds {
-			newTargets = append(newTargets, &commonmodels.DistributeTarget{
-				ServiceName:   svc.ServiceName,
-				ServiceModule: svc.ServiceModule,
-				SourceTag:     getImageTag(svc.Image),
-				TargetTag:     getTargetTag(svc.ServiceName, svc.ServiceModule, getImageTag(svc.Image), targetTagMap),
-			})
-		}
-		j.spec.Tatgets = newTargets
-	}
-	
+
 	sourceReg, _, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("source image registry: %s not found: %v", j.spec.SourceRegistryID, err)
@@ -129,18 +107,51 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
 	}
 
+	// get distribute targets from previous build job.
+	if j.spec.Source == config.SourceFromJob {
+		refJobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
+		if err != nil {
+			log.Error(err)
+		}
+		j.spec.SourceRegistryID = refJobSpec.DockerRegistryID
+		targetTagMap := map[string]commonmodels.DistributeTarget{}
+		for _, target := range j.spec.Tatgets {
+			targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)] = *target
+		}
+		newTargets := []*commonmodels.DistributeTarget{}
+		for _, svc := range refJobSpec.ServiceAndBuilds {
+			newTargets = append(newTargets, &commonmodels.DistributeTarget{
+				ServiceName:   svc.ServiceName,
+				ServiceModule: svc.ServiceModule,
+				SourceImage:   svc.Image,
+				TargetTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].TargetTag,
+				UpdateTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].UpdateTag,
+			})
+		}
+		j.spec.Tatgets = newTargets
+	}
+
+	if j.spec.Source == config.SourceRuntime {
+		for _, target := range j.spec.Tatgets {
+			target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
+			target.UpdateTag = true
+		}
+	}
+
 	stepSpec := &step.StepImageDistributeSpec{
 		SourceRegistry: getRegistry(sourceReg),
 		TargetRegistry: getRegistry(targetReg),
 	}
 	for _, target := range j.spec.Tatgets {
-		target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
-		target.TargetImage = getImage(target.ServiceModule, target.TargetTag, targetReg)
+		// for other job refer current latest image.
+		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
+		target.TargetImage = job.GetJobOutputKey(targetKey, "IMAGE")
+
 		stepSpec.DistributeTarget = append(stepSpec.DistributeTarget, &step.DistributeTaskTarget{
 			SoureImage:    target.SourceImage,
-			TargetImage:   target.TargetImage,
 			ServiceName:   target.ServiceName,
 			ServiceModule: target.ServiceModule,
+			TargetTag:     target.TargetTag,
 			UpdateTag:     target.UpdateTag,
 		})
 	}
@@ -163,6 +174,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	}
 	jobTask := &commonmodels.JobTask{
 		Name:    j.job.Name,
+		Key:     j.job.Name,
 		JobType: string(config.JobZadigDistributeImage),
 		Spec:    jobTaskSpec,
 		Timeout: getTimeout(j.spec.Timeout),
@@ -211,19 +223,6 @@ func getServiceKey(serviceName, serviceModule string) string {
 	return fmt.Sprintf("%s/%s", serviceName, serviceModule)
 }
 
-func getImageTag(image string) string {
-	strs := strings.Split(image, ":")
-	return strs[len(strs)-1]
-}
-
-func getTargetTag(serviceName, serviceModule, sourceTag string, tagMap map[string]string) string {
-	targetTag := sourceTag
-	if tag, ok := tagMap[getServiceKey(serviceName, serviceModule)]; ok {
-		targetTag = tag
-	}
-	return targetTag
-}
-
 func getImage(name, tag string, reg *commonmodels.RegistryNamespace) string {
 	image := fmt.Sprintf("%s/%s:%s", reg.RegAddr, name, tag)
 	if len(reg.Namespace) > 0 {
@@ -253,4 +252,17 @@ func getTimeout(timeout int64) int64 {
 		return DistributeTimeout
 	}
 	return timeout
+}
+
+func (j *ImageDistributeJob) GetOutPuts(log *zap.SugaredLogger) []string {
+	resp := []string{}
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return resp
+	}
+	for _, target := range j.spec.Tatgets {
+		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
+		resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
+	}
+	return resp
 }
