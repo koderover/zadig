@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -82,6 +83,7 @@ func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 		}
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
+			Key:     strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
 			JobType: string(config.JobK8sCanaryRelease),
 			Spec: &commonmodels.JobTaskCanaryReleaseSpec{
 				Namespace:      deployJobSpec.Namespace,

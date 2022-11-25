@@ -33,7 +33,8 @@ import (
 )
 
 type ScanningListOption struct {
-	ProjectName string
+	ProjectName   string
+	ScanningNames []string
 }
 
 type ScanningColl struct {
@@ -114,6 +115,9 @@ func (c *ScanningColl) List(listOption *ScanningListOption, pageNum, pageSize in
 
 	if listOption != nil {
 		query["project_name"] = listOption.ProjectName
+		if len(listOption.ScanningNames) > 0 {
+			query["name"] = bson.M{"$in": listOption.ScanningNames}
+		}
 	}
 
 	cursor, err := c.Collection.Find(ctx, query, opt)

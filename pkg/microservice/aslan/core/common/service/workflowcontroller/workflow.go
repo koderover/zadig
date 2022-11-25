@@ -19,6 +19,7 @@ package workflowcontroller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -241,25 +242,35 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 }
 
+// mongo do not support dot in keys.
+const (
+	split = "@?"
+)
+
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 	c.globalContextMutex.RLock()
 	defer c.globalContextMutex.RUnlock()
-	v, existed := c.workflowTask.GlobalContext[key]
+	v, existed := c.workflowTask.GlobalContext[GetContextKey(key)]
 	return v, existed
 }
 
 func (c *workflowCtl) setGlobalContext(key, value string) {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
-	c.workflowTask.GlobalContext[key] = value
+	c.workflowTask.GlobalContext[GetContextKey(key)] = value
 }
 
 func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
 	c.globalContextMutex.RLock()
 	defer c.globalContextMutex.RUnlock()
 	for k, v := range c.workflowTask.GlobalContext {
+		k = strings.Join(strings.Split(k, split), ".")
 		if !f(k, v) {
 			return
 		}
 	}
+}
+
+func GetContextKey(key string) string {
+	return strings.Join(strings.Split(key, "."), split)
 }

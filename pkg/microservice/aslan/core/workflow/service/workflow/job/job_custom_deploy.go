@@ -94,6 +94,7 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		}
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + workloadType + "-" + workloadName + "-" + containerName),
+			Key:     strings.Join([]string{j.job.Name, workloadType, workloadName, containerName}, "."),
 			JobType: string(config.JobCustomDeploy),
 			Spec:    jobTaskSpec,
 		}

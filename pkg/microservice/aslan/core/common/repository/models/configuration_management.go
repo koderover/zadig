@@ -35,7 +35,7 @@ type ApolloConfig struct {
 	*ApolloAuthConfig
 }
 type ApolloAuthConfig struct {
-	Token string `json:"token"`
+	Token string `json:"token" bson:"token"`
 }
 
 type NacosConfig struct {
@@ -43,6 +43,6 @@ type NacosConfig struct {
 	*NacosAuthConfig
 }
 type NacosAuthConfig struct {
-	UserName string `json:"user_name"`
-	Password string `json:"password"`
+	UserName string `json:"user_name" bson:"user_name"`
+	Password string `json:"password" bson:"password"`
 }

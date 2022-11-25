@@ -35,6 +35,7 @@ import (
 type ListTestOption struct {
 	ProductName  string
 	ProductNames []string
+	TestNames    []string
 	TestType     string
 	IsSort       bool
 	BuildOS      string
@@ -75,6 +76,9 @@ func (c *TestingColl) List(opt *ListTestOption) ([]*models.Testing, error) {
 	}
 	if len(opt.ProductNames) > 0 {
 		query["product_name"] = bson.M{"$in": opt.ProductNames}
+	}
+	if len(opt.TestNames) > 0 {
+		query["name"] = bson.M{"$in": opt.TestNames}
 	}
 	if len(opt.TestType) > 0 {
 		query["test_type"] = opt.TestType

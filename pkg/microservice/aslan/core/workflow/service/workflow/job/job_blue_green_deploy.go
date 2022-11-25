@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -121,6 +122,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		target.BlueWorkloadName = getBlueWorkloadName(deployment.Name, version)
 		task := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
+			Key:     strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
 			JobType: string(config.JobK8sBlueGreenDeploy),
 			Spec: &commonmodels.JobTaskBlueGreenDeploySpec{
 				Namespace:          j.spec.Namespace,

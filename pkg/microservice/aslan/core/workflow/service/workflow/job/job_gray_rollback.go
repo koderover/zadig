@@ -16,6 +16,7 @@ package job
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -114,7 +115,8 @@ func (j *GrayRollbackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			return resp, fmt.Errorf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
 		}
 		jobTask := &commonmodels.JobTask{
-			Name:    j.job.Name,
+			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
+			Key:     strings.Join([]string{j.job.Name, target.WorkloadName}, "."),
 			JobType: string(config.JobK8sGrayRollback),
 			Spec: &commonmodels.JobTaskGrayRollbackSpec{
 				ClusterID:        j.spec.ClusterID,
