@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -472,6 +474,13 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 			if err != nil {
 				log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
 				return
+			}
+			if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {
+				productObj.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
+				errUpdate := commonrepo.NewProductColl().UpdateDeployStrategy(productObj.EnvName, productObj.ProductName, productObj.ServiceDeployStrategy)
+				if errUpdate != nil {
+					log.Errorf("failed to update serviceDeployStrategy for env: %s:%s, err: %s", productObj.ProductName, productObj.EnvName, errUpdate)
+				}
 			}
 		}
 	}
