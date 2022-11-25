@@ -47,6 +47,7 @@ type WorkflowTask struct {
 	Error               string             `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool               `bson:"is_restart"                json:"is_restart"`
 	MultiRun            bool               `bson:"multi_run"                 json:"multi_run"`
+	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
 }
 
 func (WorkflowTask) TableName() string {
