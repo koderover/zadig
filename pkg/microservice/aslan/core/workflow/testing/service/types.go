@@ -84,6 +84,7 @@ type ListScanningRespItem struct {
 	CreatedAt  int64               `json:"created_at"`
 	UpdatedAt  int64               `json:"updated_at"`
 	Repos      []*types.Repository `json:"repos"`
+	ClusterID  string              `json:"cluster_id"`
 }
 
 type ScanningRepoInfo struct {

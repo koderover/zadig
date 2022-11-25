@@ -70,6 +70,7 @@ type K8SCluster struct {
 	Provider               int8                     `json:"provider"`
 	Local                  bool                     `json:"local"`
 	Cache                  types.Cache              `json:"cache"`
+	ShareStorage           types.ShareStorage       `json:"share_storage"`
 	LastConnectionTime     int64                    `json:"last_connection_time"`
 	UpdateHubagentErrorMsg string                   `json:"update_hubagent_error_msg"`
 	DindCfg                *commonmodels.DindCfg    `json:"dind_cfg"`
@@ -806,4 +807,15 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	return err
+}
+
+func CheckShareStorage(id string, logger *zap.SugaredLogger) (bool, error) {
+	cluster, err := GetCluster(id, logger)
+	if err != nil {
+		return false, nil
+	}
+	if cluster.ShareStorage.MediumType == types.NFSMedium {
+		return true, nil
+	}
+	return false, nil
 }
