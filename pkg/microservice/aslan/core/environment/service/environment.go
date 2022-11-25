@@ -2338,6 +2338,9 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 					return
 				}
 				log.Infof("uninstall release for service: %s", serviceName)
+				if !commonutil.ServiceDeployed(serviceName, productInfo.ServiceDeployStrategy) {
+					return
+				}
 				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
 					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)
@@ -3402,6 +3405,9 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 
 	// uninstall services
 	for serviceName, serviceRevision := range deletedSvcRevision {
+		if !commonutil.ServiceDeployed(serviceName, productResp.ServiceDeployStrategy) {
+			continue
+		}
 		if err = UninstallServiceByName(helmClient, serviceName, productResp, serviceRevision, true); err != nil {
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
