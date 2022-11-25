@@ -262,7 +262,7 @@ func (j *ImageDistributeJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	}
 	for _, target := range j.spec.Tatgets {
 		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
-		resp = append(resp, getOutputKey(targetKey, ensureBuildInOutputs([]*commonmodels.Output{{Name: "IMAGE"}}))...)
+		resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
 	}
 	return resp
 }
