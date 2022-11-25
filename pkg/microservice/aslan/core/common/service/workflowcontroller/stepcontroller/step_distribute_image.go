@@ -25,7 +25,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 )
@@ -57,7 +56,6 @@ func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 		if !target.UpdateTag {
 			target.TargetImage = getImage(target.ServiceModule, getImageTag(target.SoureImage), s.distributeImageSpec.TargetRegistry)
 		}
-		log.Errorf("@@@ target iamge: %s", target.TargetImage)
 	}
 	s.step.Spec = s.distributeImageSpec
 	return nil
