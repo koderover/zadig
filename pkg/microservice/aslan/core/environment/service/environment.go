@@ -354,8 +354,6 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 		Description: renderSet.Description,
 	}
 
-	log.Infof("######## UpdateProduct with renderset revision: %d", renderSet.Revision)
-
 	productName := existedProd.ProductName
 	envName := existedProd.EnvName
 	namespace := existedProd.Namespace
@@ -453,8 +451,6 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
-	log.Infof("###### serviceNames is %v, envName: %s", serviceNames, envName)
-
 	existedServices := existedProd.GetServiceMap()
 
 	// 按照产品模板的顺序来创建或者更新服务
@@ -479,8 +475,6 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 			if !ok {
 				continue
 			}
-
-			log.Infof("***********  svcName: %s, updatable: %v, type %v", prodService.ServiceName, svcRev.Updatable, svcRev.Type)
 
 			if svcRev.Updatable {
 
@@ -2113,6 +2107,9 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 			if isDelete {
 				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
+						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
+							continue
+						}
 						if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
 							log.Warnf("UninstallRelease for service %s err:%s", service.ServiceName, err)
 							errList = multierror.Append(errList, err)
@@ -2216,6 +2213,13 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 
+				// Delete the namespace-scope resources
+				err = commonservice.DeleteNamespacedResource(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), productInfo.ClusterID, log)
+				if err != nil {
+					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
+					return
+				}
+
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
 				if err != nil {
@@ -2225,8 +2229,8 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 
 				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-				if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
-					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
+				if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}
 			}
