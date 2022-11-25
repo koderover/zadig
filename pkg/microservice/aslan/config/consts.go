@@ -194,6 +194,8 @@ const (
 	JobK8sGrayRelease       JobType = "k8s-gray-release"
 	JobK8sGrayRollback      JobType = "k8s-gray-rollback"
 	JobK8sPatch             JobType = "k8s-resource-patch"
+	JobIstioRelease         JobType = "istio-release"
+	JobIstioRollback        JobType = "istio-rollback"
 )
 
 type ApproveOrReject string

@@ -291,6 +291,30 @@ type GrayRollbackTarget struct {
 	OriginReplica int    `bson:"-"                         json:"origin_replica"           yaml:"origin_replica,omitempty"`
 }
 
+type IstioJobSpec struct {
+	ClusterID  string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
+	FromJob    string            `bson:"from_job"    json:"from_job"    yaml:"from_job"`
+	RegistryID string            `bson:"registry_id" json:"registry_id" yaml:"registry_id"`
+	Namespace  string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
+	Timeout    int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
+	Replicas   int64             `bson:"replicas"    json:"replicas"    yaml:"replicas"`
+	Weight     int64             `bson:"weight"      json:"weight"      yaml:"weight"`
+	Services   []*IstioJobTarget `bson:"services"    json:"services"    yaml:"services"`
+}
+
+type IstioRollBackJobSpec struct {
+	ClusterID string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
+	Namespace string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
+	Timeout   int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
+	Services  []*IstioJobTarget `bson:"services"    json:"services"    yaml:"services"`
+}
+
+type IstioJobTarget struct {
+	WorkloadName       string `bson:"workload_name"        json:"workload_name"        yaml:"workload_name"`
+	ContainerName      string `bson:"container_name"       json:"container_name"       yaml:"container_name"`
+	VirtualServiceName string `bson:"virtual_service_name" json:"virtual_service_name" yaml:"virtual_service_name"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`

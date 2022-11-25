@@ -83,6 +83,10 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &ScanningJob{job: job, workflow: workflow}
 	case config.JobZadigDistributeImage:
 		resp = &ImageDistributeJob{job: job, workflow: workflow}
+	case config.JobIstioRelease:
+		resp = &IstioReleaseJob{job: job, workflow: workflow}
+	case config.JobIstioRollback:
+		resp = &IstioRollBackJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}
