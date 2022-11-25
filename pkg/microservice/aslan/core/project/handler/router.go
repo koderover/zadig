@@ -44,7 +44,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.PUT("/:name/:status", UpdateProductTmplStatus)
 		product.PATCH("/:name", UpdateServiceOrchestration)
 		product.PUT("", UpdateProject)
-		product.PUT("/:name/type", TransferProject)
+		product.PUT("/:name/createEnvType", TransferProject)
 		product.DELETE("/:name", DeleteProductTemplate)
 	}
 
