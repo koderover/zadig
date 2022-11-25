@@ -83,7 +83,7 @@ func UpdateService(c *gin.Context) {
 	ctx.Err = service.UpdateService(args, ctx.Logger)
 }
 
-func RestartNewService(c *gin.Context) {
+func RestartWorkload(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 

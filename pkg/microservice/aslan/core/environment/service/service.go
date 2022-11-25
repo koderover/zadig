@@ -460,20 +460,19 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 			}
 		}
 		if serviceTmpl != nil && newRender != nil && productService != nil {
-			go func() {
-				log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
-				_, err := upsertService(
-					true,
-					productObj,
-					productService,
-					productService,
-					newRender, inf, kubeClient, istioClient, log)
+			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
+			_, err = upsertService(
+				true,
+				productObj,
+				productService,
+				productService,
+				newRender, inf, kubeClient, istioClient, log)
 
-				// 如果创建依赖服务组有返回错误, 停止等待
-				if err != nil {
-					log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
-				}
-			}()
+			// 如果创建依赖服务组有返回错误, 停止等待
+			if err != nil {
+				log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+				return
+			}
 		}
 	}
 
