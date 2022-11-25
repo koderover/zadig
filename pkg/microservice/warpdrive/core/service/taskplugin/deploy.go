@@ -349,7 +349,6 @@ func serviceDeployed(strategy map[string]string, serviceName string) bool {
 }
 
 func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
-	log.Infof("####### start featch fetchRelatedWorkloads")
 	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 
 	deployments, err := getter.ListDeployments(namespace, selector, kubeclient)
@@ -363,7 +362,6 @@ func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName,
 	}
 
 	if len(deployments) > 0 || len(statefulSets) > 0 {
-		log.Infof("####### found related workloads")
 		return deployments, statefulSets, nil
 	}
 	// for services not deployed but only imported, we can't find workloads by 's-product' and 's-service'
@@ -371,14 +369,12 @@ func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName,
 }
 
 func fetchWorkloadsForImportedService(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
-	log.Infof("####### start featch fetchWorkloadsForImportedService")
 	productInfo, err := getProductInfo(ctx, httpClient, envName, productName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find product info: %s/%s", productName, envName)
 	}
 
 	if serviceDeployed(productInfo.ServiceDeployStrategy, serviceName) {
-		log.Infof("####### start featch fetchWorkloadsForImportedService, service is deployed")
 		return nil, nil, nil
 	}
 
@@ -410,7 +406,6 @@ func fetchWorkloadsForImportedService(ctx context.Context, envName, namespace, p
 			stss = append(stss, sts)
 		}
 	}
-	log.Infof("####### fetchWorkloadsForImportedService result, deploys: %v, sts: %v ", len(deploys), len(stss))
 	return deploys, stss, nil
 }
 
