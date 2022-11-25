@@ -18,7 +18,7 @@ package util
 
 import "github.com/koderover/zadig/pkg/setting"
 
-func GetServiceStrategy(serviceName string, strategyMap map[string]string) string {
+func GetServiceDeployStrategy(serviceName string, strategyMap map[string]string) string {
 	if strategyMap == nil {
 		return setting.ServiceDeployStrategyDeploy
 	}
@@ -30,5 +30,5 @@ func GetServiceStrategy(serviceName string, strategyMap map[string]string) strin
 }
 
 func ServiceDeployed(serviceName string, strategyMap map[string]string) bool {
-	return GetServiceStrategy(serviceName, strategyMap) == setting.ServiceDeployStrategyDeploy
+	return GetServiceDeployStrategy(serviceName, strategyMap) == setting.ServiceDeployStrategyDeploy
 }

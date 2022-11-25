@@ -164,7 +164,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 
 	//set service deploy strategy info
 	for _, svc := range prodRev.ServiceRevisions {
-		svc.DeployStrategy = commonutil.GetServiceStrategy(svc.ServiceName, product.ServiceDeployStrategy)
+		svc.DeployStrategy = commonutil.GetServiceDeployStrategy(svc.ServiceName, product.ServiceDeployStrategy)
 	}
 
 	if !prodRev.Updatable {
