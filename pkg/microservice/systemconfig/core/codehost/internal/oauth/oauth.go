@@ -63,6 +63,7 @@ func (o *OAuth) LoginURL(state string) string {
 
 func (o *OAuth) HandleCallback(r *http.Request, c *models.CodeHost) (*oauth2.Token, error) {
 	q := r.URL.Query()
+	log.Infof("##### the url query data is +%v", q)
 	if errType := q.Get("error"); errType != "" {
 		return nil, &OAuth2Error{errType, q.Get("error_description")}
 	}
