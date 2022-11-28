@@ -193,7 +193,7 @@ func GetResourceDeployStatus(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetResourceDeployStatus(c.Query("projectName"), c.Query("services"), request, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetResourceDeployStatus(c.Query("projectName"), request, ctx.Logger)
 }
 
 func GetReleaseDeployStatus(c *gin.Context) {
@@ -207,5 +207,5 @@ func GetReleaseDeployStatus(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), c.Query("services"), request, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), request, ctx.Logger)
 }
