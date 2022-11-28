@@ -292,14 +292,14 @@ type GrayRollbackTarget struct {
 }
 
 type IstioJobSpec struct {
-	ClusterID  string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
-	FromJob    string            `bson:"from_job"    json:"from_job"    yaml:"from_job"`
-	RegistryID string            `bson:"registry_id" json:"registry_id" yaml:"registry_id"`
-	Namespace  string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
-	Timeout    int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
-	Replicas   int64             `bson:"replicas"    json:"replicas"    yaml:"replicas"`
-	Weight     int64             `bson:"weight"      json:"weight"      yaml:"weight"`
-	Services   []*IstioJobTarget `bson:"services"    json:"services"    yaml:"services"`
+	ClusterID         string            `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
+	FromJob           string            `bson:"from_job"           json:"from_job"           yaml:"from_job"`
+	RegistryID        string            `bson:"registry_id"        json:"registry_id"        yaml:"registry_id"`
+	Namespace         string            `bson:"namespace"          json:"namespace"          yaml:"namespace"`
+	Timeout           int64             `bson:"timeout"            json:"timeout"            yaml:"timeout"`
+	ReplicaPercentage int64             `bson:"replica_percentage" json:"replica_percentage" yaml:"replica_percentage"`
+	Weight            int64             `bson:"weight"             json:"weight"             yaml:"weight"`
+	Services          []*IstioJobTarget `bson:"services"           json:"services"           yaml:"services"`
 }
 
 type IstioRollBackJobSpec struct {
@@ -310,9 +310,11 @@ type IstioRollBackJobSpec struct {
 }
 
 type IstioJobTarget struct {
-	WorkloadName       string `bson:"workload_name"        json:"workload_name"        yaml:"workload_name"`
-	ContainerName      string `bson:"container_name"       json:"container_name"       yaml:"container_name"`
-	VirtualServiceName string `bson:"virtual_service_name" json:"virtual_service_name" yaml:"virtual_service_name"`
+	WorkloadName       string `bson:"workload_name"             json:"workload_name"             yaml:"workload_name"`
+	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`
+	VirtualServiceName string `bson:"virtual_service_name"      json:"virtual_service_name"      yaml:"virtual_service_name"`
+	CurrentReplica     int    `bson:"current_replica,omitempty" json:"current_replica,omitempty" yaml:"-"`
+	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"-"`
 }
 
 type JobProperties struct {
