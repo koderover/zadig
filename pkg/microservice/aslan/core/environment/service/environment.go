@@ -3408,6 +3408,9 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 		if !commonutil.ServiceDeployed(serviceName, productResp.ServiceDeployStrategy) {
 			continue
 		}
+		if productResp.ServiceDeployStrategy != nil {
+			delete(productResp.ServiceDeployStrategy, serviceName)
+		}
 		if err = UninstallServiceByName(helmClient, serviceName, productResp, serviceRevision, true); err != nil {
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
