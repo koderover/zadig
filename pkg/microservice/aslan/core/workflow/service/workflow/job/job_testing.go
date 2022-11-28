@@ -163,14 +163,15 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Outputs: testingInfo.Outputs,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
-			Timeout:         int64(testingInfo.Timeout),
-			ResourceRequest: testingInfo.PreTest.ResReq,
-			ResReqSpec:      testingInfo.PreTest.ResReqSpec,
-			CustomEnvs:      renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs),
-			ClusterID:       testingInfo.PreTest.ClusterID,
-			BuildOS:         basicImage.Value,
-			ImageFrom:       testingInfo.PreTest.ImageFrom,
-			Registries:      registries,
+			Timeout:             int64(testingInfo.Timeout),
+			ResourceRequest:     testingInfo.PreTest.ResReq,
+			ResReqSpec:          testingInfo.PreTest.ResReqSpec,
+			CustomEnvs:          renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs),
+			ClusterID:           testingInfo.PreTest.ClusterID,
+			BuildOS:             basicImage.Value,
+			ImageFrom:           testingInfo.PreTest.ImageFrom,
+			Registries:          registries,
+			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, testingInfo.PreTest.ClusterID, taskID),
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
 		if err != nil {

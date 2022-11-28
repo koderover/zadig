@@ -167,14 +167,15 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", basicImage.Value)
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
-			Timeout:         timeout,
-			ResourceRequest: scanningInfo.AdvancedSetting.ResReq,
-			ResReqSpec:      scanningInfo.AdvancedSetting.ResReqSpec,
-			ClusterID:       scanningInfo.AdvancedSetting.ClusterID,
-			BuildOS:         scanningImage,
-			ImageFrom:       setting.ImageFromCustom,
-			Envs:            []*commonmodels.KeyVal{scanningNameKV},
-			Registries:      registries,
+			Timeout:             timeout,
+			ResourceRequest:     scanningInfo.AdvancedSetting.ResReq,
+			ResReqSpec:          scanningInfo.AdvancedSetting.ResReqSpec,
+			ClusterID:           scanningInfo.AdvancedSetting.ClusterID,
+			BuildOS:             scanningImage,
+			ImageFrom:           setting.ImageFromCustom,
+			Envs:                []*commonmodels.KeyVal{scanningNameKV},
+			Registries:          registries,
+			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, scanningInfo.AdvancedSetting.ClusterID, taskID),
 		}
 
 		// init tools install step

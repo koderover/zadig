@@ -313,7 +313,8 @@ type JobProperties struct {
 	CacheEnable         bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
 	CacheDirType        types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
 	CacheUserDir        string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
-	ShareStorageInfo    *ShareStorageInfo    `bson:"share_storage_info"   json:"share_storage_info"   yaml:"share_storage_info"`
+	ShareStorageInfo    *ShareStorageInfo    `bson:"share_storage_info"     json:"share_storage_info"    yaml:"share_storage_info"`
+	ShareStorageDetails []*StorageDetail     `bson:"share_storage_details"  json:"share_storage_details" yaml:"-"`
 	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
 }
 
@@ -357,8 +358,16 @@ type ShareStorage struct {
 }
 
 type ShareStorageInfo struct {
-	Enabled       string          `bson:"enabled"             json:"enabled"             yaml:"enabled"`
+	Enabled       bool            `bson:"enabled"             json:"enabled"             yaml:"enabled"`
 	ShareStorages []*ShareStorage `bson:"share_storages"      json:"share_storages"      yaml:"share_storages"`
+}
+
+type StorageDetail struct {
+	Type      types.MediumType `bson:"type"             json:"type"             yaml:"type"`
+	Name      string           `bson:"name"             json:"name"             yaml:"name"`
+	SubPath   string           `bson:"sub_path"         json:"sub_path"         yaml:"sub_path"`
+	MountPath string           `bson:"mount_path"       json:"mount_path"       yaml:"mount_path"`
+	PVCName   string           `bson:"pvc_name"         json:"pvc_name"         yaml:"pvc_name"`
 }
 
 func IToiYaml(before interface{}, after interface{}) error {

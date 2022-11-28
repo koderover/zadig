@@ -213,14 +213,15 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Outputs: outputs,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
-			Timeout:         int64(buildInfo.Timeout),
-			ResourceRequest: buildInfo.PreBuild.ResReq,
-			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
-			CustomEnvs:      renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
-			ClusterID:       buildInfo.PreBuild.ClusterID,
-			BuildOS:         basicImage.Value,
-			ImageFrom:       buildInfo.PreBuild.ImageFrom,
-			Registries:      registries,
+			Timeout:             int64(buildInfo.Timeout),
+			ResourceRequest:     buildInfo.PreBuild.ResReq,
+			ResReqSpec:          buildInfo.PreBuild.ResReqSpec,
+			CustomEnvs:          renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
+			ClusterID:           buildInfo.PreBuild.ClusterID,
+			BuildOS:             basicImage.Value,
+			ImageFrom:           buildInfo.PreBuild.ImageFrom,
+			Registries:          registries,
+			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, build.ShareStorageInfo, j.workflow.Name, buildInfo.PreBuild.ClusterID, taskID),
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
 		if err != nil {

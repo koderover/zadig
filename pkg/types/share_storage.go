@@ -16,7 +16,24 @@ limitations under the License.
 
 package types
 
+import (
+	"fmt"
+	"path"
+)
+
+const (
+	pathPrefix = "zadig-share-storage"
+)
+
 type ShareStorage struct {
 	MediumType    MediumType    `json:"medium_type"       bson:"medium_type"           yaml:"medium_type"`
 	NFSProperties NFSProperties `json:"nfs_properties"    bson:"nfs_properties"        yaml:"nfs_properties"`
+}
+
+func GetShareStorageSubPath(workflowName, storageName string, taskID int64) string {
+	return path.Join(pathPrefix, fmt.Sprintf("%s-%d", workflowName, taskID), storageName)
+}
+
+func GetShareStorageSubPathPrefix(workflowName string, taskID int64) string {
+	return path.Join(pathPrefix, fmt.Sprintf("%s-%d", workflowName, taskID))
 }
