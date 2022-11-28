@@ -20,15 +20,14 @@ import (
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -37,6 +36,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -460,20 +460,26 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 			}
 		}
 		if serviceTmpl != nil && newRender != nil && productService != nil {
-			go func() {
-				log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
-				_, err := upsertService(
-					true,
-					productObj,
-					productService,
-					productService,
-					newRender, inf, kubeClient, istioClient, log)
+			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
+			_, err = upsertService(
+				true,
+				productObj,
+				productService,
+				productService,
+				newRender, inf, kubeClient, istioClient, log)
 
-				// 如果创建依赖服务组有返回错误, 停止等待
-				if err != nil {
-					log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+			// 如果创建依赖服务组有返回错误, 停止等待
+			if err != nil {
+				log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+				return
+			}
+			if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {
+				productObj.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
+				errUpdate := commonrepo.NewProductColl().UpdateDeployStrategy(productObj.EnvName, productObj.ProductName, productObj.ServiceDeployStrategy)
+				if errUpdate != nil {
+					log.Errorf("failed to update serviceDeployStrategy for env: %s:%s, err: %s", productObj.ProductName, productObj.EnvName, errUpdate)
 				}
-			}()
+			}
 		}
 	}
 

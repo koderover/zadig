@@ -349,7 +349,7 @@ func serviceDeployed(strategy map[string]string, serviceName string) bool {
 }
 
 func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
-	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: productName}.AsSelector()
+	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 
 	deployments, err := getter.ListDeployments(namespace, selector, kubeclient)
 	if err != nil {

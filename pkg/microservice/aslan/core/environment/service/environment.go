@@ -353,6 +353,7 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 		ProductTmpl: renderSet.ProductTmpl,
 		Description: renderSet.Description,
 	}
+
 	productName := existedProd.ProductName
 	envName := existedProd.EnvName
 	namespace := existedProd.Namespace
@@ -695,7 +696,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
-	log.Infof("[%s][P:%s] UpdateProduct", envName, productName)
+	log.Infof("[%s][P:%s] UpdateProduct, services: %v", envName, productName, serviceNames)
 
 	// 查找产品模板
 	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
@@ -2106,6 +2107,9 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 			if isDelete {
 				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
+						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
+							continue
+						}
 						if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
 							log.Warnf("UninstallRelease for service %s err:%s", service.ServiceName, err)
 							errList = multierror.Append(errList, err)
@@ -2209,6 +2213,13 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 
+				// Delete the namespace-scope resources
+				err = commonservice.DeleteNamespacedResource(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), productInfo.ClusterID, log)
+				if err != nil {
+					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
+					return
+				}
+
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
 				if err != nil {
@@ -2218,8 +2229,8 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 
 				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-				if err1 := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
-					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
+				if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}
 			}
@@ -2327,6 +2338,9 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 					return
 				}
 				log.Infof("uninstall release for service: %s", serviceName)
+				if !commonutil.ServiceDeployed(serviceName, productInfo.ServiceDeployStrategy) {
+					return
+				}
 				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
 					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)
@@ -3391,6 +3405,12 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 
 	// uninstall services
 	for serviceName, serviceRevision := range deletedSvcRevision {
+		if !commonutil.ServiceDeployed(serviceName, productResp.ServiceDeployStrategy) {
+			continue
+		}
+		if productResp.ServiceDeployStrategy != nil {
+			delete(productResp.ServiceDeployStrategy, serviceName)
+		}
 		if err = UninstallServiceByName(helmClient, serviceName, productResp, serviceRevision, true); err != nil {
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
@@ -3419,7 +3439,7 @@ func updateProductGroup(username, productName, envName string, productResp *comm
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, chart := range overrideCharts {
-			productResp.ServiceDeployStrategy[chart.ServiceName] = setting.ServiceDeployStrategyDeploy
+			productResp.ServiceDeployStrategy[chart.ServiceName] = chart.DeployStrategy
 		}
 	}
 

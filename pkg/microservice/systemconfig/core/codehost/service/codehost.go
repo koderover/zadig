@@ -222,6 +222,7 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		Host:   redirectParsedURL.Host,
 		Path:   callback,
 	}
+
 	o, err := newOAuth(codehost.Type, callbackURL.String(), codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		logger.Errorf("newOAuth err:%s", err)

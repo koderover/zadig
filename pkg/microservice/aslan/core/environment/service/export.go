@@ -50,15 +50,15 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 		return res
 	}
 
-	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-	yamls = append(yamls, getConfigMapYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getIngressYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getServiceYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getDeploymentYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getStatefulSetYaml(kubeClient, namespace, selector, log)...)
-
-	// for services just import not deployed, workloads can't be queried by labels
-	if len(yamls) == 0 && !commonutil.ServiceDeployed(serviceName, env.ServiceDeployStrategy) {
+	if commonutil.ServiceDeployed(serviceName, env.ServiceDeployStrategy) {
+		selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
+		yamls = append(yamls, getConfigMapYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getIngressYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getServiceYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getDeploymentYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getStatefulSetYaml(kubeClient, namespace, selector, log)...)
+	} else {
+		// for services just import not deployed, workloads can't be queried by labels
 		productService, ok := env.GetServiceMap()[serviceName]
 		if !ok {
 			log.Errorf("failed to find product service: %s", serviceName)
