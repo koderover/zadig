@@ -48,6 +48,7 @@ type DeployableEnvResp struct {
 //     can deploy the service.
 //     Otherwise, all sub-environments of the baseline environment cannot deploy the service.
 func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) {
+	resp := &DeployableEnvResp{Envs: make([]*DeployableEnv, 0)}
 	// 1. Get all general environments.
 	envs0, err := getAllGeneralEnvs(projectName)
 	if err != nil {
@@ -60,11 +61,8 @@ func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) 
 		return nil, err
 	}
 
-	resp := &DeployableEnvResp{Envs: make([]*DeployableEnv, 0)}
-	resp.Envs = append(resp.Envs)
-
-	envs0 = append(envs0, envs1...)
-
+	resp.Envs = envs0
+	resp.Envs = append(resp.Envs, envs1...)
 	return resp, nil
 }
 
