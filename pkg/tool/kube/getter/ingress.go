@@ -29,6 +29,18 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 )
 
+var IngressGVK = schema.GroupVersionKind{
+	Group:   "networking.k8s.io",
+	Kind:    "Ingress",
+	Version: "v1",
+}
+
+var IngressBetaGVK = schema.GroupVersionKind{
+	Group:   "extensions",
+	Kind:    "Ingress",
+	Version: "v1beta1",
+}
+
 func GetExtensionsV1Beta1Ingress(namespace, name string, lister informers.SharedInformerFactory) (*extensionsv1beta1.Ingress, bool, error) {
 	ret, err := lister.Extensions().V1beta1().Ingresses().Lister().Ingresses(namespace).Get(name)
 	if err == nil {
@@ -46,17 +58,9 @@ func GetUnstructuredIngress(namespace, name string, cl client.Client, clientset 
 	if err != nil {
 		return nil, false, err
 	}
-	gvk := schema.GroupVersionKind{
-		Group:   "extensions",
-		Kind:    "Ingress",
-		Version: "v1beta1",
-	}
+	gvk := IngressBetaGVK
 	if !kubeclient.VersionLessThan122(version) {
-		gvk = schema.GroupVersionKind{
-			Group:   "networking.k8s.io",
-			Kind:    "Ingress",
-			Version: "v1",
-		}
+		gvk = IngressGVK
 	}
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(gvk)
@@ -83,26 +87,14 @@ func ListNetworkingV1Ingress(selector labels.Selector, lister informers.SharedIn
 }
 
 func ListIngressesYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "extensions",
-		Kind:    "Ingress",
-		Version: "v1beta1",
-	}
+	gvk := IngressBetaGVK
 	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
 }
 
 func ListIngresses(namespace string, cl client.Client, lessThan122 bool) (*unstructured.UnstructuredList, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "extensions",
-		Kind:    "Ingress",
-		Version: "v1beta1",
-	}
+	gvk := IngressBetaGVK
 	if !lessThan122 {
-		gvk = schema.GroupVersionKind{
-			Group:   "networking.k8s.io",
-			Kind:    "Ingress",
-			Version: "v1",
-		}
+		gvk = IngressGVK
 	}
 	u := &unstructured.UnstructuredList{}
 	u.SetGroupVersionKind(gvk)
@@ -115,11 +107,7 @@ func ListIngresses(namespace string, cl client.Client, lessThan122 bool) (*unstr
 }
 
 func GetIngressYaml(ns string, name string, cl client.Client, lessThan122 bool) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "networking.k8s.io",
-		Kind:    "Ingress",
-		Version: "v1",
-	}
+	gvk := IngressGVK
 	bs, exist, err := GetResourceYamlInCache(ns, name, gvk, cl)
 	if !lessThan122 {
 		return bs, exist, err
@@ -127,19 +115,11 @@ func GetIngressYaml(ns string, name string, cl client.Client, lessThan122 bool) 
 	if exist && err == nil {
 		return bs, exist, err
 	}
-	gvk = schema.GroupVersionKind{
-		Group:   "extensions",
-		Kind:    "Ingress",
-		Version: "v1beta1",
-	}
+	gvk = IngressBetaGVK
 	return GetResourceYamlInCache(ns, name, gvk, cl)
 }
 
 func GetIngressYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "extensions",
-		Kind:    "Ingress",
-		Version: "v1beta1",
-	}
+	gvk := IngressBetaGVK
 	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
 }

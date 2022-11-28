@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -31,12 +32,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/pkg/errors"
 )
 
 type DeployJobCtl struct {
@@ -112,7 +113,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	// get servcie info
 	var (
 		serviceInfo *commonmodels.Service
-		selector    labels.Selector
 	)
 	serviceInfo, err = commonrepo.NewServiceColl().Find(
 		&commonrepo.ServiceFindOption{
@@ -137,17 +137,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	}
 
 	if serviceInfo.WorkloadType == "" {
-		selector = labels.Set{setting.ProductLabel: c.workflowCtx.ProjectName, setting.ServiceLabel: c.jobTaskSpec.ServiceName}.AsSelector()
-
 		var deployments []*appsv1.Deployment
-		deployments, err = getter.ListDeployments(env.Namespace, selector, c.kubeClient)
-		if err != nil {
-			logError(c.job, err.Error(), c.logger)
-			return err
-		}
-
 		var statefulSets []*appsv1.StatefulSet
-		statefulSets, err = getter.ListStatefulSets(env.Namespace, selector, c.kubeClient)
+		deployments, statefulSets, err = kube.FetchRelatedWorkloads(env.Namespace, c.jobTaskSpec.ServiceName, env, c.kubeClient)
 		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
@@ -170,6 +162,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 						Name:      deploy.Name,
 					})
 					replaced = true
+					c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, deploy.Spec.Template.Labels)
 					break L
 				}
 			}
@@ -191,6 +184,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 						Name:      sts.Name,
 					})
 					replaced = true
+					c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, sts.Spec.Template.Labels)
 					break Loop
 				}
 			}
@@ -273,8 +267,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 func (c *DeployJobCtl) wait(ctx context.Context) {
 	timeout := time.After(time.Duration(c.timeout()) * time.Second)
 
-	selector := labels.Set{setting.ProductLabel: c.workflowCtx.ProjectName, setting.ServiceLabel: c.jobTaskSpec.ServiceName}.AsSelector()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -282,28 +274,30 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			return
 
 		case <-timeout:
-			pods, err := getter.ListPods(c.namespace, selector, c.kubeClient)
-			if err != nil {
-				msg := fmt.Sprintf("list pods error: %v", err)
-				logError(c.job, msg, c.logger)
-				return
-			}
-
 			var msg []string
-			for _, pod := range pods {
-				podResource := wrapper.Pod(pod).Resource()
-				if podResource.Status != setting.StatusRunning && podResource.Status != setting.StatusSucceeded {
-					for _, cs := range podResource.ContainerStatuses {
-						// message为空不认为是错误状态，有可能还在waiting
-						if cs.Message != "" {
-							msg = append(msg, fmt.Sprintf("Status: %s, Reason: %s, Message: %s", cs.Status, cs.Reason, cs.Message))
+			for _, label := range c.jobTaskSpec.RelatedPodLabels {
+				selector := labels.Set(label).AsSelector()
+				pods, err := getter.ListPods(c.namespace, selector, c.kubeClient)
+				if err != nil {
+					msg := fmt.Sprintf("list pods error: %v", err)
+					logError(c.job, msg, c.logger)
+					return
+				}
+				for _, pod := range pods {
+					podResource := wrapper.Pod(pod).Resource()
+					if podResource.Status != setting.StatusRunning && podResource.Status != setting.StatusSucceeded {
+						for _, cs := range podResource.ContainerStatuses {
+							// message为空不认为是错误状态，有可能还在waiting
+							if cs.Message != "" {
+								msg = append(msg, fmt.Sprintf("Status: %s, Reason: %s, Message: %s", cs.Status, cs.Reason, cs.Message))
+							}
 						}
 					}
 				}
 			}
 
 			if len(msg) != 0 {
-				err = errors.New(strings.Join(msg, "\n"))
+				err := errors.New(strings.Join(msg, "\n"))
 				logError(c.job, err.Error(), c.logger)
 				return
 			}

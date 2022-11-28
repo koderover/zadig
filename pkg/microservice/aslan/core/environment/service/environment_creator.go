@@ -36,6 +36,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -118,9 +119,9 @@ func getCreatorBySource(source string) IProductCreator {
 	switch source {
 	case setting.SourceFromExternal:
 		return newExternalProductCreator()
-	case setting.HelmDeployType:
+	case setting.SourceFromHelm:
 		return newHelmProductCreator()
-	case setting.PMDeployType:
+	case setting.SourceFromPM:
 		return newPMProductCreator()
 	default:
 		return newDefaultProductCreator()
@@ -257,7 +258,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		}
 	}
 
-	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
+	go installProductHelmCharts(user, requestID, args, renderSet, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
 	return nil
 }
 
@@ -313,7 +314,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, time.Now().Unix(), nil, nil, nil, nil, log)
+	go createGroups(user, requestID, args, time.Now().Unix(), nil, nil, nil, nil, log)
 	return nil
 }
 
@@ -328,6 +329,9 @@ func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSe
 	errList := &multierror.Error{}
 	for _, group := range args.Services {
 		for _, svc := range group {
+			if !commonutil.ServiceDeployed(svc.ServiceName, args.ServiceDeployStrategy) {
+				continue
+			}
 			_, err := upsertService(false, args, svc, nil, renderSet, informer, kubeClient, nil, log)
 			if err != nil {
 				errList = multierror.Append(errList, fmt.Errorf("failed to dryRun apply service: %s, err: %s", svc.ServiceName, err))
@@ -430,7 +434,7 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	go createGroups(args.EnvName, user, requestID, args, time.Now().Unix(), renderSet, inf, kubeClient, istioClient, log)
+	go createGroups(user, requestID, args, time.Now().Unix(), renderSet, inf, kubeClient, istioClient, log)
 	return nil
 }
 

@@ -41,6 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -161,8 +162,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	// get servcie info
 	var (
 		serviceInfo *types.ServiceTmpl
-		selector    labels.Selector
 	)
+	// TODO FIXME: the revision of the service info should be the value in product service
 	serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 	if err != nil {
 		// Maybe it is a share service, the entity is not under the project
@@ -172,20 +173,12 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 	}
 	if serviceInfo.WorkloadType == "" {
-		selector = labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
-
 		var deployments []*appsv1.Deployment
-		deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)
-		if err != nil {
-			return
-		}
-
 		var statefulSets []*appsv1.StatefulSet
-		statefulSets, err = getter.ListStatefulSets(p.Task.Namespace, selector, p.kubeClient)
+		deployments, statefulSets, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, p.httpClient, p.Log)
 		if err != nil {
 			return
 		}
-
 	L:
 		for _, deploy := range deployments {
 			for _, container := range deploy.Spec.Template.Spec.Containers {
@@ -205,6 +198,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 						Name:      deploy.Name,
 					})
 					replaced = true
+					p.Task.RelatedPodLabels = append(p.Task.RelatedPodLabels, deploy.Spec.Template.Labels)
 					break L
 				}
 			}
@@ -228,6 +222,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 						Name:      sts.Name,
 					})
 					replaced = true
+					p.Task.RelatedPodLabels = append(p.Task.RelatedPodLabels, sts.Spec.Template.Labels)
 					break Loop
 				}
 			}
@@ -300,7 +295,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	}
 	if !replaced {
 		err = errors.Errorf(
-			"container %s is not found in resources with label %s", containerName, selector)
+			"container %s is not found in resources ", containerName)
 		return
 	}
 }
@@ -319,6 +314,101 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 	return s, nil
 }
 
+func getProductInfo(ctx context.Context, httpClient *httpclient.Client, envName, productName string) (*types.Product, error) {
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", envName)
+	prod := &types.Product{}
+	_, err := httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", productName), httpclient.SetQueryParam("ifPassFilter", "true"))
+	if err != nil {
+		return nil, err
+	}
+	return prod, nil
+}
+
+func getRenderedManifests(ctx context.Context, httpClient *httpclient.Client, envName, productName string, serviceName string) ([]string, error) {
+	url := "/api/environment/export/service"
+	prod := make([]string, 0)
+	_, err := httpClient.Get(url, httpclient.SetResult(&prod),
+		httpclient.SetQueryParam("projectName", productName),
+		httpclient.SetQueryParam("envName", envName),
+		httpclient.SetQueryParam("serviceName", serviceName),
+		httpclient.SetQueryParam("ifPassFilter", "true"))
+	if err != nil {
+		return nil, err
+	}
+	return prod, nil
+}
+
+func serviceDeployed(strategy map[string]string, serviceName string) bool {
+	if strategy == nil {
+		return true
+	}
+	if strategy[serviceName] == setting.ServiceDeployStrategyImport {
+		return false
+	}
+	return true
+}
+
+func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
+	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
+
+	deployments, err := getter.ListDeployments(namespace, selector, kubeclient)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	statefulSets, err := getter.ListStatefulSets(namespace, selector, kubeclient)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(deployments) > 0 || len(statefulSets) > 0 {
+		return deployments, statefulSets, nil
+	}
+	// for services not deployed but only imported, we can't find workloads by 's-product' and 's-service'
+	return fetchWorkloadsForImportedService(ctx, envName, namespace, productName, serviceName, kubeclient, httpClient, log)
+}
+
+func fetchWorkloadsForImportedService(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
+	productInfo, err := getProductInfo(ctx, httpClient, envName, productName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find product info: %s/%s", productName, envName)
+	}
+
+	if serviceDeployed(productInfo.ServiceDeployStrategy, serviceName) {
+		return nil, nil, nil
+	}
+
+	manifests, err := getRenderedManifests(ctx, httpClient, envName, productName, serviceName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	deploys, stss := make([]*appsv1.Deployment, 0), make([]*appsv1.StatefulSet, 0)
+	for _, manifest := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
+		if err != nil {
+			log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", manifest, err)
+			continue
+		}
+		if u.GetKind() == setting.Deployment {
+			deployment, exist, err := getter.GetDeployment(namespace, u.GetName(), kubeclient)
+			if err != nil || !exist {
+				log.Errorf("failed to find deployment with name: %s", u.GetName())
+				continue
+			}
+			deploys = append(deploys, deployment)
+		} else if u.GetKind() == setting.StatefulSet {
+			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kubeclient)
+			if err != nil || !exist {
+				log.Errorf("failed to find sts with name: %s", u.GetName())
+				continue
+			}
+			stss = append(stss, sts)
+		}
+	}
+	return deploys, stss, nil
+}
+
 // Wait ...
 func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 	// skip waiting for reset image task
@@ -329,8 +419,6 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 
 	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
 
-	selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -340,20 +428,23 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 		case <-timeout:
 			p.Task.TaskStatus = config.StatusTimeout
 
-			pods, err := getter.ListPods(p.Task.Namespace, selector, p.kubeClient)
-			if err != nil {
-				p.Task.Error = err.Error()
-				return
-			}
-
 			var msg []string
-			for _, pod := range pods {
-				podResource := wrapper.Pod(pod).Resource()
-				if podResource.Status != setting.StatusRunning && podResource.Status != setting.StatusSucceeded {
-					for _, cs := range podResource.ContainerStatuses {
-						// message为空不认为是错误状态，有可能还在waiting
-						if cs.Message != "" {
-							msg = append(msg, fmt.Sprintf("Status: %s, Reason: %s, Message: %s", cs.Status, cs.Reason, cs.Message))
+			for _, label := range p.Task.RelatedPodLabels {
+				selector := labels.Set(label).AsSelector()
+				pods, err := getter.ListPods(p.Task.Namespace, selector, p.kubeClient)
+				if err != nil {
+					p.Task.Error = err.Error()
+					return
+				}
+
+				for _, pod := range pods {
+					podResource := wrapper.Pod(pod).Resource()
+					if podResource.Status != setting.StatusRunning && podResource.Status != setting.StatusSucceeded {
+						for _, cs := range podResource.ContainerStatuses {
+							// message为空不认为是错误状态，有可能还在waiting
+							if cs.Message != "" {
+								msg = append(msg, fmt.Sprintf("Status: %s, Reason: %s, Message: %s", cs.Status, cs.Reason, cs.Message))
+							}
 						}
 					}
 				}

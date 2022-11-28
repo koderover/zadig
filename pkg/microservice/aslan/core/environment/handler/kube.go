@@ -181,3 +181,31 @@ func ListAllK8sResourcesInNamespace(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListAllK8sResourcesInNamespace(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
+
+func GetResourceDeployStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	request := &service.DeployStatusCheckRequest{}
+	err := c.BindJSON(request)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetResourceDeployStatus(c.Query("projectName"), request, ctx.Logger)
+}
+
+func GetReleaseDeployStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	request := &service.DeployStatusCheckRequest{}
+	err := c.BindJSON(request)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), request, ctx.Logger)
+}

@@ -729,3 +729,8 @@ const (
 	CustomWorkflow  WorkflowCategory = ""
 	ReleaseWorkflow WorkflowCategory = "release"
 )
+
+const (
+	ServiceDeployStrategyImport = "import"
+	ServiceDeployStrategyDeploy = "deploy"
+)

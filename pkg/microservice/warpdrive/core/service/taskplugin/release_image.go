@@ -319,9 +319,16 @@ DistributeLoop:
 				}
 			}
 			if serviceInfo.WorkloadType == "" {
-				selector = labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: distribute.DeployServiceName}.AsSelector()
 
 				var deployments []*appsv1.Deployment
+				var statefulSets []*appsv1.StatefulSet
+				deployments, statefulSets, err = fetchRelatedWorkloads(ctx, distribute.DeployEnv, distribute.DeployNamespace, p.Task.ProductName, distribute.DeployServiceName, p.kubeClient, p.httpClient, p.Log)
+				if err != nil {
+					return
+				}
+
+				selector = labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: distribute.DeployServiceName}.AsSelector()
+
 				deployments, err = getter.ListDeployments(distribute.DeployNamespace, selector, p.kubeClient)
 				if err != nil {
 					err = errors.WithMessage(err, "failed to get deployment")
@@ -330,7 +337,6 @@ DistributeLoop:
 					continue
 				}
 
-				var statefulSets []*appsv1.StatefulSet
 				statefulSets, err = getter.ListStatefulSets(distribute.DeployNamespace, selector, p.kubeClient)
 				if err != nil {
 					err = errors.WithMessage(err, "failed to get statefulset")

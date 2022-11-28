@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -97,69 +96,6 @@ func RecoverWorkload(ctx context.Context, projectName, envName, serviceName stri
 	log.Infof("workloadType: %s", workloadType)
 
 	return recoverWorkload(ctx, kclient, selector, ns, workloadType)
-}
-
-func scaleAndWaitService(ctx context.Context, envName, projectName, serviceName, ns string, workloadType types.WorkloadType, kclient client.Client, selector labels.Selector) error {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		return err
-	}
-
-	err = ScaleService(envName, projectName, serviceName, 1, logger.Sugar())
-	if err != nil {
-		return err
-	}
-
-	return wait.PollImmediate(2*time.Second, 3*time.Minute, func() (done bool, err error) {
-		switch workloadType {
-		case types.DeploymentWorkload:
-			objs := &appsv1.DeploymentList{}
-			err := kclient.List(ctx, objs, &client.ListOptions{
-				Namespace:     ns,
-				LabelSelector: selector,
-			})
-			if err != nil {
-				// Don't return error to continue polling.
-				log.Warnf("Failed to list deployments: %s", err)
-				return false, nil
-			}
-
-			if len(objs.Items) != 1 {
-				return false, fmt.Errorf("invalid number of deployments: %d", len(objs.Items))
-			}
-
-			obj := objs.Items[0]
-			if obj.Status.Replicas == 1 && obj.Status.ReadyReplicas == 1 {
-				return true, nil
-			}
-
-			return false, nil
-		case types.StatefulSetWorkload:
-			objs := &appsv1.StatefulSetList{}
-			err := kclient.List(ctx, objs, &client.ListOptions{
-				Namespace:     ns,
-				LabelSelector: selector,
-			})
-			if err != nil {
-				// Don't return error to continue polling.
-				log.Warnf("Failed to list statefulsets: %s", err)
-				return false, nil
-			}
-
-			if len(objs.Items) != 1 {
-				return false, fmt.Errorf("invalid number of statefulsets: %d", len(objs.Items))
-			}
-
-			obj := objs.Items[0]
-			if obj.Status.Replicas == 1 && obj.Status.ReadyReplicas == 1 {
-				return true, nil
-			}
-
-			return false, nil
-		default:
-			return false, fmt.Errorf("unsupported workload type: %s", workloadType)
-		}
-	})
 }
 
 func getWorkloadType(ctx context.Context, kclient client.Client, selector labels.Selector, ns string) (types.WorkloadType, error) {

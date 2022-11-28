@@ -18,14 +18,18 @@ package service
 
 import (
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 )
 
 // ExportYaml 查询使用到服务模板的服务组模板
@@ -46,12 +50,58 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 		return res
 	}
 
-	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-	yamls = append(yamls, getConfigMapYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getIngressYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getServiceYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getDeploymentYaml(kubeClient, namespace, selector, log)...)
-	yamls = append(yamls, getStatefulSetYaml(kubeClient, namespace, selector, log)...)
+	if commonutil.ServiceDeployed(serviceName, env.ServiceDeployStrategy) {
+		selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
+		yamls = append(yamls, getConfigMapYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getIngressYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getServiceYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getDeploymentYaml(kubeClient, namespace, selector, log)...)
+		yamls = append(yamls, getStatefulSetYaml(kubeClient, namespace, selector, log)...)
+	} else {
+		// for services just import not deployed, workloads can't be queried by labels
+		productService, ok := env.GetServiceMap()[serviceName]
+		if !ok {
+			log.Errorf("failed to find product service: %s", serviceName)
+			return res
+		}
+		opt := &commonrepo.RenderSetFindOption{
+			Name:        env.Render.Name,
+			Revision:    env.Render.Revision,
+			EnvName:     env.EnvName,
+			ProductTmpl: env.ProductName,
+		}
+		renderset, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+		if err != nil || !exists {
+			log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
+			return res
+		}
+		rederedYaml, err := kube.RenderService(env, renderset, productService)
+		if err != nil {
+			log.Errorf("failed to render service yaml, err: %s", err)
+			return res
+		}
+
+		manifests := releaseutil.SplitManifests(*rederedYaml)
+		for _, item := range manifests {
+			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+			if err != nil {
+				log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", item, err)
+				continue
+			}
+			switch u.GetKind() {
+			case setting.Deployment, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress:
+				resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
+				if err != nil {
+					log.Errorf("failed to get resource yaml, err: %s", err)
+					continue
+				}
+				if !exists {
+					continue
+				}
+				yamls = append(yamls, resource)
+			}
+		}
+	}
 
 	for _, y := range yamls {
 		res = append(res, string(y))
@@ -67,6 +117,15 @@ func getConfigMapYaml(kubeClient client.Client, namespace string, selector label
 	}
 
 	return resources
+}
+
+func getConfigMapYamlByName(kubeClient client.Client, namespace string, name string, log *zap.SugaredLogger) []byte {
+	resource, _, err := getter.GetDeploymentYaml(namespace, name, kubeClient)
+	if err != nil {
+		log.Errorf("getConfigMapYamlByName error: %v", err)
+		return nil
+	}
+	return resource
 }
 
 func getIngressYaml(kubeClient client.Client, namespace string, selector labels.Selector, log *zap.SugaredLogger) [][]byte {
@@ -108,31 +167,3 @@ func getStatefulSetYaml(kubeClient client.Client, namespace string, selector lab
 
 	return resources
 }
-
-//func ExportBuildYaml(pipelineName string, log *zap.SugaredLogger) (string, error) {
-//
-//	resp, err := commonrepo.NewPipelineColl().Find(&commonrepo.PipelineFindOption{Name: pipelineName})
-//	if err != nil {
-//		log.Error(err)
-//		return "", err
-//	}
-//
-//	for _, sub := range resp.SubTasks {
-//		pre, err := sub.ToPreview()
-//		if err != nil {
-//			return "", errors.New(e.InterfaceToTaskErrMsg)
-//		}
-//
-//		if pre.TaskType == task.TaskBuild {
-//			build, err := sub.ToBuildTask()
-//			if err != nil {
-//				return "", err
-//			}
-//			fmtBuildsTask(build, log)
-//
-//			return build.ToYaml()
-//		}
-//	}
-//
-//	return "", errors.New("no build task found")
-//}

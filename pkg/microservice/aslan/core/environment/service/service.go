@@ -25,7 +25,9 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,8 +36,10 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -54,49 +58,6 @@ func GetServiceContainer(envName, productName, serviceName, container string, lo
 		log.Error(errMsg)
 		return e.ErrGetServiceContainer.AddDesc(errMsg)
 	}
-	return nil
-}
-
-// ScaleService 增加或者缩减服务的deployment或者stafefulset的副本数量
-func ScaleService(envName, productName, serviceName string, number int, log *zap.SugaredLogger) (err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return e.ErrScaleService.AddErr(err)
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
-	if err != nil {
-		return e.ErrScaleService.AddErr(err)
-	}
-
-	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-	ds, err := getter.ListDeployments(prod.Namespace, selector, kubeClient)
-	if err != nil {
-		log.Error(err)
-		return e.ErrScaleService.AddDesc("伸缩Deployment失败")
-	}
-	for _, d := range ds {
-		err := updater.ScaleDeployment(d.Namespace, d.Name, number, kubeClient)
-		if err != nil {
-			log.Error(err)
-			return e.ErrScaleService.AddDesc("伸缩Deployment失败")
-		}
-	}
-
-	ss, err := getter.ListStatefulSets(prod.Namespace, selector, kubeClient)
-	if err != nil {
-		log.Error(err)
-		return e.ErrScaleService.AddDesc("伸缩StatefulSet失败")
-	}
-	for _, s := range ss {
-		err := updater.ScaleStatefulSet(s.Namespace, s.Name, number, kubeClient)
-		if err != nil {
-			log.Error(err)
-			return e.ErrScaleService.AddDesc("伸缩StatefulSet失败")
-		}
-	}
-
 	return nil
 }
 
@@ -499,27 +460,33 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 			}
 		}
 		if serviceTmpl != nil && newRender != nil && productService != nil {
-			go func() {
-				log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
-				_, err := upsertService(
-					true,
-					productObj,
-					productService,
-					productService,
-					newRender, inf, kubeClient, istioClient, log)
+			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
+			_, err = upsertService(
+				true,
+				productObj,
+				productService,
+				productService,
+				newRender, inf, kubeClient, istioClient, log)
 
-				// 如果创建依赖服务组有返回错误, 停止等待
-				if err != nil {
-					log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+			// 如果创建依赖服务组有返回错误, 停止等待
+			if err != nil {
+				log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+				return
+			}
+			if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {
+				productObj.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
+				errUpdate := commonrepo.NewProductColl().UpdateDeployStrategy(productObj.EnvName, productObj.ProductName, productObj.ServiceDeployStrategy)
+				if errUpdate != nil {
+					log.Errorf("failed to update serviceDeployStrategy for env: %s:%s, err: %s", productObj.ProductName, productObj.EnvName, errUpdate)
 				}
-			}()
+			}
 		}
 	}
 
 	return nil
 }
 
-func queryPodsStatus(namespace, productName, serviceName string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
+func queryPodsStatus(namespace, envName, productName, serviceName string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
 	ls := labels.Set{}
 	if productName != "" {
 		ls[setting.ProductLabel] = productName
@@ -527,7 +494,52 @@ func queryPodsStatus(namespace, productName, serviceName string, informer inform
 	if serviceName != "" {
 		ls[setting.ServiceLabel] = serviceName
 	}
-	return kube.GetSelectedPodsInfo(ls.AsSelector(), informer, log)
+	//return kube.GetSelectedPodsInfo(ls.AsSelector(), informer, log)
+	return collectPodsInfo(namespace, envName, productName, serviceName, log)
+}
+
+func collectPodsInfo(namespace, envName, productName, serviceName string, log *zap.SugaredLogger) (string, string, []string) {
+	svcResp, err := GetService(envName, productName, serviceName, "", log)
+	if err != nil {
+		return setting.PodError, setting.PodNotReady, nil
+	}
+
+	pods := make([]*resource.Pod, 0)
+	for _, svc := range svcResp.Scales {
+		pods = append(pods, svc.Pods...)
+	}
+
+	if len(pods) == 0 {
+		return setting.PodNonStarted, setting.PodNotReady, nil
+	}
+
+	imageSet := sets.String{}
+	for _, pod := range pods {
+		for _, container := range pod.ContainerStatuses {
+			imageSet.Insert(container.Image)
+		}
+	}
+	images := imageSet.List()
+
+	ready := setting.PodReady
+
+	succeededPods := 0
+	for _, pod := range pods {
+		if pod.Succeed {
+			succeededPods++
+			continue
+		}
+		if !pod.Ready {
+			return setting.PodUnstable, setting.PodNotReady, images
+		}
+	}
+
+	if len(pods) == succeededPods {
+		return string(corev1.PodSucceeded), setting.JobReady, images
+	}
+
+	return setting.PodRunning, ready, images
+
 }
 
 // validateServiceContainer validate container with envName like dev

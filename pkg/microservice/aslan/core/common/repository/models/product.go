@@ -56,7 +56,7 @@ type Product struct {
 	BaseName     string                        `bson:"base_name"                 json:"base_name"`
 	// IsExisted is true if this environment is created from an existing one
 	IsExisted bool `bson:"is_existed"                json:"is_existed"`
-	// TODO: temp flag
+	// TODO: Deprecated: temp flag
 	IsForkedProduct bool `bson:"-" json:"-"`
 
 	// New Since v1.11.0.
@@ -64,6 +64,9 @@ type Product struct {
 
 	// New Since v1.13.0.
 	EnvConfigs []*CreateUpdateCommonEnvCfgArgs `bson:"-"   json:"env_configs,omitempty"`
+
+	// New Since v1.16.0, used to determine whether to install resources
+	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 }
 
 type CreateUpdateCommonEnvCfgArgs struct {
@@ -145,5 +148,15 @@ func (p *Product) GetServiceMap() map[string]*ProductService {
 		}
 	}
 
+	return ret
+}
+
+func (p *Product) GetProductSvcNames() []string {
+	ret := make([]string, 0)
+	for _, group := range p.Services {
+		for _, svc := range group {
+			ret = append(ret, svc.ServiceName)
+		}
+	}
 	return ret
 }

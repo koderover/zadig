@@ -35,6 +35,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -51,10 +52,9 @@ type K8sService struct {
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
 func (k *K8sService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
-	k.log.Infof("queryServiceStatus of service: %s of product: %s in namespace %s", serviceTmpl.ServiceName, productName, namespace)
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
-		return queryPodsStatus(namespace, productName, serviceTmpl.ServiceName, informer, k.log)
+		return queryPodsStatus(namespace, envName, productName, serviceTmpl.ServiceName, informer, k.log)
 	}
 
 	return setting.PodSucceeded, setting.PodReady, []string{}
@@ -150,6 +150,10 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 	}
 
+	if exitedProd.ServiceDeployStrategy != nil {
+		exitedProd.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
+	}
+
 	if err := commonrepo.NewProductColl().Update(exitedProd); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrUpdateProduct
@@ -210,7 +214,8 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	return resp
 }
 
-func (k *K8sService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
+func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
+	envName, productName := product.EnvName, product.ProductName
 	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 	updatableServiceNameList := make([]string, 0)
 
@@ -249,6 +254,9 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 	for i := range group {
 		// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
 		// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
+		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
+			continue
+		}
 		wg.Add(1)
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
@@ -288,6 +296,5 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 			fmt.Errorf(e.StartPodTimeout+"\n %s", "["+strings.Join(updatableServiceNameList, "], [")+"]"))
 		return err
 	}
-
 	return nil
 }

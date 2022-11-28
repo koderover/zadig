@@ -23,6 +23,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var ConfigMapGVK = schema.GroupVersionKind{
+	Group:   "",
+	Kind:    "ConfigMap",
+	Version: "v1",
+}
+
 func ListConfigMaps(ns string, selector labels.Selector, cl client.Client) ([]*corev1.ConfigMap, error) {
 	l := &corev1.ConfigMapList{}
 	gvk := schema.GroupVersionKind{
@@ -56,30 +62,15 @@ func GetConfigMap(ns, name string, cl client.Client) (*corev1.ConfigMap, bool, e
 }
 
 func ListConfigMapsYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Kind:    "ConfigMap",
-		Version: "v1",
-	}
-	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
+	return ListResourceYamlInCache(ns, selector, nil, ConfigMapGVK, cl)
 }
 
 func GetConfigMapYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Kind:    "ConfigMap",
-		Version: "v1",
-	}
-	return GetResourceYamlInCache(ns, name, gvk, cl)
+	return GetResourceYamlInCache(ns, name, ConfigMapGVK, cl)
 }
 
 func GetConfigMapYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Kind:    "ConfigMap",
-		Version: "v1",
-	}
-	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+	return GetResourceYamlInCacheFormat(ns, name, ConfigMapGVK, cl)
 }
 
 func setConfigMapGVK(configMap *corev1.ConfigMap) {

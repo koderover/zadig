@@ -135,8 +135,8 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	}
 	createArgs.initDefaultWorkflows()
 
-	// helm project may have customized products, use the real created products
-	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.DeployType == setting.HelmDeployType {
+	// helm/k8syaml project may have customized products, use the real created products
+	if productTmpl.IsHelmProduct() || productTmpl.IsK8sYamlProduct() {
 		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name: productName,
 		})

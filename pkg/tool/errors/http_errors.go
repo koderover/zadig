@@ -201,6 +201,8 @@ var (
 	ErrDeleteResource = NewHTTPError(6096, "删除对象资源失败")
 	//ErrGetPodFile
 	ErrGetPodFile = NewHTTPError(6097, "下载Pod文件失败")
+	//ErrGetResourceDeploy
+	ErrGetResourceDeployInfo = NewHTTPError(6098, "获取资源部署状态失败")
 	// ErrLoginPm ...
 	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
 
