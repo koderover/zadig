@@ -30,7 +30,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util/rand"
 )
 
@@ -75,8 +74,11 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	// render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
-		replacedString := strings.ReplaceAll(string(b), fmt.Sprintf(setting.RenderValueTemplate, k), v)
-		json.Unmarshal([]byte(replacedString), &job)
+		v = strings.Trim(v, "\n")
+		replacedString := strings.ReplaceAll(string(b), k, v)
+		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {
+			logger.Errorf("unmarshal job error: %v", err)
+		}
 		return true
 	})
 	job.Status = config.StatusRunning
@@ -86,6 +88,12 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
+		if err := recover(); err != nil {
+			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
+			logger.Error(errMsg)
+			job.Status = config.StatusFailed
+			job.Error = errMsg
+		}
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()

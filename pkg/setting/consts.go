@@ -277,6 +277,10 @@ const (
 	ServiceSourceTemplate = "template"
 	SourceFromPM          = "pm"
 	SourceFromGitRepo     = "repo"
+	// SourceFromApollo is the configuration_management type of apollo
+	SourceFromApollo = "apollo"
+	// SourceFromNacos is the configuration_management type of nacos
+	SourceFromNacos = "nacos"
 
 	ProdENV = "prod"
 	TestENV = "test"

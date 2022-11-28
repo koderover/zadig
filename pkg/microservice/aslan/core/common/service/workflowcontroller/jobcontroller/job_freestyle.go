@@ -61,6 +61,7 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
+	job.Spec = jobTaskSpec
 	return &FreestyleJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
@@ -98,10 +99,11 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
 	}
 	// init step configration.
-	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Name, c.jobTaskSpec.Steps, c.logger); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
+	c.ack()
 	return nil
 }
 
@@ -243,15 +245,8 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	}()
 
 	// get job outputs info from pod terminate message.
-	outputs, err := getJobOutput(c.jobTaskSpec.Properties.Namespace, c.job.Name, jobLabel, c.kubeclient)
-	if err != nil {
+	if err := getJobOutputFromRunningPod(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.kubeclient, c.clientset, c.restConfig); err != nil {
 		c.logger.Error(err)
-		c.job.Error = err.Error()
-	}
-
-	// write jobs output info to globalcontext so other job can use like this $(jobName.outputName)
-	for _, output := range outputs {
-		c.workflowCtx.GlobalContextSet(strings.Join([]string{"workflow", c.job.Name, output.Name}, "."), output.Value)
 	}
 
 	if err := saveContainerLog(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {
@@ -259,7 +254,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		c.job.Error = err.Error()
 		return
 	}
-	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Name, c.jobTaskSpec.Steps, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 		return

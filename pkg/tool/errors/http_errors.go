@@ -752,4 +752,14 @@ var (
 	ErrGetWorkflowTemplate    = NewHTTPError(6913, "获取工作流模板失败")
 	ErrDeleteWorkflowTemplate = NewHTTPError(6914, "删除工作流模板失败")
 	ErrLintWorkflowTemplate   = NewHTTPError(6915, "检查工作流模板失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// configuration management releated errors: 6920-6929
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateConfigurationManagement   = NewHTTPError(6920, "创建配置管理失败")
+	ErrUpdateConfigurationManagement   = NewHTTPError(6921, "更新配置管理失败")
+	ErrListConfigurationManagement     = NewHTTPError(6922, "列出配置管理失败")
+	ErrGetConfigurationManagement      = NewHTTPError(6923, "获取配置管理失败")
+	ErrDeleteConfigurationManagement   = NewHTTPError(6924, "删除配置管理失败")
+	ErrValidateConfigurationManagement = NewHTTPError(6925, "校验配置管理失败")
 )

@@ -158,11 +158,10 @@ func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache bo
 }
 
 func dockerPush(fullImage string) *exec.Cmd {
-	args := []string{
-		"push",
-		fullImage,
-	}
-	return exec.Command(dockerExe, args...)
+	args := []string{"-c"}
+	dockerPushCommand := "docker push " + fullImage
+	args = append(args, dockerPushCommand)
+	return exec.Command("sh", args...)
 }
 
 func dockerLogin(user, password, registry string) *exec.Cmd {

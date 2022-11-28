@@ -65,7 +65,9 @@ type StageTask struct {
 }
 
 type JobTask struct {
-	Name       string        `bson:"name"                json:"name"`
+	Name string `bson:"name"                json:"name"`
+	// jobTask unique id, unique in the workflow
+	Key        string        `bson:"key"                 json:"key"`
 	K8sJobName string        `bson:"k8s_job_name"        json:"k8s_job_name"`
 	JobType    string        `bson:"type"                json:"type"`
 	Status     config.Status `bson:"status"              json:"status"`

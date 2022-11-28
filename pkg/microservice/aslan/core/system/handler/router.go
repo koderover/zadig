@@ -245,6 +245,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sonar.DELETE("/integration/:id", DeleteSonarIntegration)
 		sonar.POST("/validate", ValidateSonarInformation)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// configuration management integration API
+	// ---------------------------------------------------------------------------------------
+	configuration := router.Group("configuration")
+	{
+		configuration.GET("", ListConfigurationManagement)
+		configuration.POST("", CreateConfigurationManagement)
+		configuration.PUT("/:id", UpdateConfigurationManagement)
+		configuration.GET("/:id", GetConfigurationManagement)
+		configuration.DELETE("/:id", DeleteConfigurationManagement)
+		configuration.POST("/validate", ValidateConfigurationManagement)
+	}
 }
 
 type OpenAPIRouter struct{}

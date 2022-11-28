@@ -39,6 +39,7 @@ type Scanning struct {
 	Script           string                         `bson:"script"                json:"script"`
 	AdvancedSetting  *types.ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
 	CheckQualityGate bool                           `bson:"check_quality_gate"    json:"check_quality_gate"`
+	Outputs          []*Output                      `bson:"outputs"               json:"outputs"`
 
 	CreatedAt int64  `bson:"created_at" json:"created_at"`
 	UpdatedAt int64  `bson:"updated_at" json:"updated_at"`

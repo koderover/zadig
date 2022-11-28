@@ -817,32 +817,76 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 	}
 }
 
-func getJobOutput(namespace, containerName string, jobLabel *JobLabel, kubeClient crClient.Client) ([]*job.JobOutput, error) {
-	resp := []*job.JobOutput{}
+func getJobOutputFromTerminalMsg(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, kubeClient crClient.Client) error {
+	jobLabel := &JobLabel{
+		JobType: string(jobTask.JobType),
+		JobName: jobTask.K8sJobName,
+	}
+	outputs := []*job.JobOutput{}
 	ls := getJobLabels(jobLabel)
 	pods, err := getter.ListPods(namespace, labels.Set(ls).AsSelector(), kubeClient)
 	if err != nil {
-		return resp, err
+		return err
 	}
 	for _, pod := range pods {
 		ipod := wrapper.Pod(pod)
 		// only collect succeeed job outputs.
 		if !ipod.Succeeded() {
-			return resp, nil
+			return nil
 		}
 		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.Name != ls[containerName] {
+			if containerStatus.Name != containerName {
 				continue
 			}
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) != 0 {
-				if err := json.Unmarshal([]byte(containerStatus.State.Terminated.Message), &resp); err != nil {
-					return resp, err
+				if err := json.Unmarshal([]byte(containerStatus.State.Terminated.Message), &outputs); err != nil {
+					return err
 				}
-				return resp, nil
 			}
 		}
 	}
-	return resp, nil
+	writeOutputs(outputs, jobTask.Key, workflowCtx)
+	return nil
+}
+
+func getJobOutputFromRunningPod(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config) error {
+	jobLabel := &JobLabel{
+		JobType: string(jobTask.JobType),
+		JobName: jobTask.K8sJobName,
+	}
+	outputs := []*job.JobOutput{}
+	ls := getJobLabels(jobLabel)
+	pods, err := getter.ListPods(namespace, labels.Set(ls).AsSelector(), kubeClient)
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods {
+		stdout, _, success, err := podexec.KubeExec(clientset, restConfig, podexec.ExecOptions{
+			Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", job.JobTerminationFile)},
+			Namespace:     namespace,
+			PodName:       pod.Name,
+			ContainerName: containerName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to exec pod: %v", err)
+		}
+		if !success {
+			return nil
+		}
+		if err := json.Unmarshal([]byte(stdout), &outputs); err != nil {
+			return err
+		}
+		break
+	}
+	writeOutputs(outputs, jobTask.Key, workflowCtx)
+	return nil
+}
+
+func writeOutputs(outputs []*job.JobOutput, outputKey string, workflowCtx *commonmodels.WorkflowTaskCtx) {
+	// write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
+	for _, output := range outputs {
+		workflowCtx.GlobalContextSet(job.GetJobOutputKey(outputKey, output.Name), output.Value)
+	}
 }
 
 func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID int64, jobLabel *JobLabel, kubeClient crClient.Client) error {

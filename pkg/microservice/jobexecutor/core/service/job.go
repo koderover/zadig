@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
 	"gopkg.in/yaml.v3"
 )
@@ -118,6 +119,14 @@ func (j *Job) getUserEnvs() []string {
 	envs = append(envs, fmt.Sprintf("DOCKER_HOST=%s", config.DockerHost()))
 	envs = append(envs, j.Ctx.Envs...)
 	envs = append(envs, j.Ctx.SecretEnvs...)
+	// share output var between steps.
+	outputs, err := j.getJobOutputVars(context.Background())
+	if err != nil {
+		log.Errorf("get job output vars error: %v", err)
+	}
+	for _, output := range outputs {
+		envs = append(envs, fmt.Sprintf("%s=%s", output.Name, output.Value))
+	}
 
 	return envs
 }
@@ -136,15 +145,9 @@ func (j *Job) AfterRun(ctx context.Context) error {
 }
 
 func (j *Job) collectJobResult(ctx context.Context) error {
-	outputs := []*job.JobOutput{}
-	for _, outputName := range j.Ctx.Outputs {
-		fileContents, err := ioutil.ReadFile(filepath.Join(job.JobOutputDir, outputName))
-		if os.IsNotExist(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
-		outputs = append(outputs, &job.JobOutput{Name: outputName, Value: string(fileContents)})
+	outputs, err := j.getJobOutputVars(ctx)
+	if err != nil {
+		return fmt.Errorf("get job output vars error: %v", err)
 	}
 	jsonOutput, err := json.Marshal(outputs)
 	if err != nil {
@@ -165,4 +168,19 @@ func (j *Job) collectJobResult(ctx context.Context) error {
 		return err
 	}
 	return f.Sync()
+}
+
+func (j *Job) getJobOutputVars(ctx context.Context) ([]*job.JobOutput, error) {
+	outputs := []*job.JobOutput{}
+	for _, outputName := range j.Ctx.Outputs {
+		fileContents, err := ioutil.ReadFile(filepath.Join(job.JobOutputDir, outputName))
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return outputs, err
+		}
+		value := strings.Trim(string(fileContents), "\n")
+		outputs = append(outputs, &job.JobOutput{Name: outputName, Value: value})
+	}
+	return outputs, nil
 }

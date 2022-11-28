@@ -26,6 +26,9 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -56,8 +59,6 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
 	"github.com/koderover/zadig/pkg/types"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -237,6 +238,7 @@ func initDatabase() {
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
 		commonrepo.NewCallbackRequestColl(),
+		commonrepo.NewConfigurationManagementColl(),
 		commonrepo.NewCounterColl(),
 		commonrepo.NewCronjobColl(),
 		commonrepo.NewDeliveryActivityColl(),
