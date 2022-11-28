@@ -195,6 +195,16 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
 }
 
+func TestOAuthCallback() {
+	o, err := newOAuth("gitlab", "http://zadig-ee-test.8slan.com/api/directory/codehosts/callback ", "1f3a423f55ba26040a82434ac6bc139b7a82e517d7dc5a5bed303b4f4ba14186",
+		"b8861cd94e8c9083e8a4706f944a691e26e25a9d94e79cbf0f8316138925297d", "https://gitlab.com")
+	if err != nil {
+		fmt.Printf("newOAuth err:%s\n", err)
+		return
+	}
+	o.TestCallback("4614018f414b5911e3006aadd557e96bee851e1e4558d779face283cef091c9d")
+}
+
 func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
 	// TODO：validate the code
 	// https://www.jianshu.com/p/c7c8f51713b6

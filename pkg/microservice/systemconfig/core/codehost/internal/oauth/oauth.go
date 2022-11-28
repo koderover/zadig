@@ -87,5 +87,17 @@ func (o *OAuth) HandleCallback(r *http.Request, c *models.CodeHost) (*oauth2.Tok
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
-	return o.oauth2Config.Exchange(ctx, q.Get("code"))
+	return nil, fmt.Errorf("use by self")
+	//return o.oauth2Config.Exchange(ctx, q.Get("code"))
+}
+
+func (o *OAuth) TestCallback(code string) (*oauth2.Token, error) {
+	httpClient := http.DefaultClient
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
+	token, err := o.oauth2Config.Exchange(ctx, code)
+	if err != nil {
+		fmt.Printf("err:%s\n", err)
+	}
+	return token, err
 }
