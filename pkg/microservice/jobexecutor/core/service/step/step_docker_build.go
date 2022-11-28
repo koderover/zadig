@@ -154,6 +154,7 @@ func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache bo
 	}
 	dockerCommand = dockerCommand + " -t " + fullImage + " -f " + dockerfile + " " + ctx
 	args = append(args, dockerCommand)
+	log.Errorf("@@@@ docker build command: %v", args)
 	return exec.Command("sh", args...)
 }
 
@@ -162,6 +163,7 @@ func dockerPush(fullImage string) *exec.Cmd {
 		"push",
 		fullImage,
 	}
+	log.Errorf("@@@@ docker build command: %v", args)
 	return exec.Command(dockerExe, args...)
 }
 
