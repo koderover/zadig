@@ -150,3 +150,13 @@ func (p *Product) GetServiceMap() map[string]*ProductService {
 
 	return ret
 }
+
+func (p *Product) GetProductSvcNames() []string {
+	ret := make([]string, 0)
+	for _, group := range p.Services {
+		for _, svc := range group {
+			ret = append(ret, svc.ServiceName)
+		}
+	}
+	return ret
+}

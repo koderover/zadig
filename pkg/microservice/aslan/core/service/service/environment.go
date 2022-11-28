@@ -32,13 +32,22 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-// The service can be deployed only in the following situations:
+type DeployableEnv struct {
+	EnvName  string   `json:"env_name"`
+	Services []string `json:"services"`
+}
+
+type DeployableEnvResp struct {
+	Envs []*DeployableEnv `json:"envs"`
+}
+
+// GetDeployableEnvs The service can be deployed only in the following situations:
 //  1. All general environments are deployable.
 //  2. All base environments are deployable.
 //  3. If the service has been deployed in the baseline environment, all sub-environments of the baseline environment
 //     can deploy the service.
 //     Otherwise, all sub-environments of the baseline environment cannot deploy the service.
-func GetDeployableEnvs(svcName, projectName string) ([]string, error) {
+func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) {
 	// 1. Get all general environments.
 	envs0, err := getAllGeneralEnvs(projectName)
 	if err != nil {
@@ -51,9 +60,12 @@ func GetDeployableEnvs(svcName, projectName string) ([]string, error) {
 		return nil, err
 	}
 
+	resp := &DeployableEnvResp{Envs: make([]*DeployableEnv, 0)}
+	resp.Envs = append(resp.Envs)
+
 	envs0 = append(envs0, envs1...)
 
-	return envs0, nil
+	return resp, nil
 }
 
 type GetKubeWorkloadsResp struct {
@@ -286,7 +298,7 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 	return nil
 }
 
-func getAllGeneralEnvs(projectName string) ([]string, error) {
+func getAllGeneralEnvs(projectName string) ([]*DeployableEnv, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           projectName,
 		ShareEnvEnable: util.GetBoolPointer(false),
@@ -295,15 +307,18 @@ func getAllGeneralEnvs(projectName string) ([]string, error) {
 		return nil, err
 	}
 
+	ret := make([]*DeployableEnv, len(envs))
+
 	envNames := make([]string, len(envs))
 	for i, env := range envs {
 		envNames[i] = env.EnvName
+		ret[i] = &DeployableEnv{EnvName: env.EnvName, Services: env.GetProductSvcNames()}
 	}
 
-	return envNames, nil
+	return ret, nil
 }
 
-func getDeployableShareEnvs(svcName, projectName string) ([]string, error) {
+func getDeployableShareEnvs(svcName, projectName string) ([]*DeployableEnv, error) {
 	baseEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           projectName,
 		ShareEnvEnable: util.GetBoolPointer(true),
@@ -313,9 +328,9 @@ func getDeployableShareEnvs(svcName, projectName string) ([]string, error) {
 		return nil, err
 	}
 
-	ret := []string{}
+	ret := make([]*DeployableEnv, 0)
 	for _, baseEnv := range baseEnvs {
-		ret = append(ret, baseEnv.EnvName)
+		ret = append(ret, &DeployableEnv{EnvName: baseEnv.EnvName, Services: baseEnv.GetProductSvcNames()})
 
 		if !hasSvcInEnv(svcName, baseEnv) {
 			continue
@@ -332,7 +347,7 @@ func getDeployableShareEnvs(svcName, projectName string) ([]string, error) {
 	return ret, nil
 }
 
-func getSubEnvs(baseEnvName, projectName string) ([]string, error) {
+func getSubEnvs(baseEnvName, projectName string) ([]*DeployableEnv, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:            projectName,
 		ShareEnvEnable:  util.GetBoolPointer(true),
@@ -343,12 +358,12 @@ func getSubEnvs(baseEnvName, projectName string) ([]string, error) {
 		return nil, err
 	}
 
-	envNames := make([]string, len(envs))
+	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
-		envNames[i] = env.EnvName
+		ret[i] = &DeployableEnv{EnvName: env.EnvName, Services: env.GetProductSvcNames()}
 	}
 
-	return envNames, nil
+	return ret, nil
 }
 
 func hasSvcInEnv(svcName string, env *commonmodels.Product) bool {
