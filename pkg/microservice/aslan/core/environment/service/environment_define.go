@@ -191,6 +191,7 @@ type UpdateEnvRequest struct {
 
 type DeployStatusCheckRequest struct {
 	EnvName   string                     `json:"env_name"`
+	Services  []string                   `json:"services"`
 	ClusterID string                     `json:"cluster_id"`
 	Namespace string                     `json:"namespace"`
 	Vars      []*templatemodels.RenderKV `json:"vars"`

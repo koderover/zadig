@@ -713,19 +713,14 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 	return resp, nil
 }
 
-func GetResourceDeployStatus(productName, svcs string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetResourceDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
 
-	svcSet := sets.NewString()
-	if len(svcs) > 0 {
-		svcs := strings.Split(svcs, ",")
-		svcSet.Insert(svcs...)
-	}
-
+	svcSet := sets.NewString(request.Services...)
 	ret := make([]*ServiceDeployStatus, 0)
 
 	resourcesByType := make(map[string]map[string]*ResourceDeployStatus)
@@ -835,7 +830,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	return nil
 }
 
-func GetReleaseDeployStatus(productName, svcs string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetReleaseDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
@@ -843,11 +838,7 @@ func GetReleaseDeployStatus(productName, svcs string, request *DeployStatusCheck
 	}
 
 	ret := make([]*ServiceDeployStatus, 0)
-	svcSet := sets.NewString()
-	if len(svcs) > 0 {
-		svcs := strings.Split(svcs, ",")
-		svcSet.Insert(svcs...)
-	}
+	svcSet := sets.NewString(request.Services...)
 
 	releaseToServiceMap := make(map[string]*ResourceDeployStatus)
 	for _, svcInfo := range productServices {
