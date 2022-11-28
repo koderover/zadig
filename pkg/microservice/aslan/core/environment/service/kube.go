@@ -713,11 +713,17 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 	return resp, nil
 }
 
-func GetResourceDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetResourceDeployStatus(productName, svcs string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
+	}
+
+	svcSet := sets.NewString()
+	if len(svcs) > 0 {
+		svcs := strings.Split(svcs, ",")
+		svcSet.Insert(svcs...)
 	}
 
 	ret := make([]*ServiceDeployStatus, 0)
@@ -738,6 +744,9 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 	}
 
 	for _, svc := range productServices {
+		if len(svcSet) > 0 && !svcSet.Has(svc.ServiceName) {
+			continue
+		}
 		rederedYaml := commonservice.RenderValueForString(svc.Yaml, fakeRenderSet)
 		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
 		manifests := releaseutil.SplitManifests(rederedYaml)
@@ -826,7 +835,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	return nil
 }
 
-func GetReleaseDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetReleaseDeployStatus(productName, svcs string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
@@ -834,9 +843,17 @@ func GetReleaseDeployStatus(productName string, request *DeployStatusCheckReques
 	}
 
 	ret := make([]*ServiceDeployStatus, 0)
+	svcSet := sets.NewString()
+	if len(svcs) > 0 {
+		svcs := strings.Split(svcs, ",")
+		svcSet.Insert(svcs...)
+	}
 
 	releaseToServiceMap := make(map[string]*ResourceDeployStatus)
 	for _, svcInfo := range productServices {
+		if svcSet.Len() > 0 && !svcSet.Has(svcInfo.ServiceName) {
+			continue
+		}
 		releaseName := util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, namespace, envName, svcInfo.ServiceName)
 		deployStatus := &ResourceDeployStatus{
 			Type:   "release",
