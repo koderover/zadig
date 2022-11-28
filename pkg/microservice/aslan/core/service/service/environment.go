@@ -33,8 +33,10 @@ import (
 )
 
 type DeployableEnv struct {
-	EnvName  string   `json:"env_name"`
-	Services []string `json:"services"`
+	EnvName   string   `json:"env_name"`
+	Namespace string   `json:"namespace"`
+	ClusterID string   `json:"cluster_id"`
+	Services  []string `json:"services"`
 }
 
 type DeployableEnvResp struct {
@@ -310,7 +312,12 @@ func getAllGeneralEnvs(projectName string) ([]*DeployableEnv, error) {
 	envNames := make([]string, len(envs))
 	for i, env := range envs {
 		envNames[i] = env.EnvName
-		ret[i] = &DeployableEnv{EnvName: env.EnvName, Services: env.GetProductSvcNames()}
+		ret[i] = &DeployableEnv{
+			EnvName:   env.EnvName,
+			Namespace: env.Namespace,
+			ClusterID: env.ClusterID,
+			Services:  env.GetProductSvcNames(),
+		}
 	}
 
 	return ret, nil
@@ -328,7 +335,12 @@ func getDeployableShareEnvs(svcName, projectName string) ([]*DeployableEnv, erro
 
 	ret := make([]*DeployableEnv, 0)
 	for _, baseEnv := range baseEnvs {
-		ret = append(ret, &DeployableEnv{EnvName: baseEnv.EnvName, Services: baseEnv.GetProductSvcNames()})
+		ret = append(ret, &DeployableEnv{
+			EnvName:   baseEnv.EnvName,
+			Namespace: baseEnv.Namespace,
+			ClusterID: baseEnv.ClusterID,
+			Services:  baseEnv.GetProductSvcNames(),
+		})
 
 		if !hasSvcInEnv(svcName, baseEnv) {
 			continue
@@ -358,7 +370,12 @@ func getSubEnvs(baseEnvName, projectName string) ([]*DeployableEnv, error) {
 
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
-		ret[i] = &DeployableEnv{EnvName: env.EnvName, Services: env.GetProductSvcNames()}
+		ret[i] = &DeployableEnv{
+			EnvName:   env.EnvName,
+			Namespace: env.Namespace,
+			ClusterID: env.ClusterID,
+			Services:  env.GetProductSvcNames(),
+		}
 	}
 
 	return ret, nil
