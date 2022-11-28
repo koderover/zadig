@@ -368,7 +368,7 @@ exemption_urls:
     - endpoint: api/aslan/project/products
       methods:
         - PUT
-    - endpoint: /api/aslan/project/products/?*/createEnvType
+    - endpoint: /api/aslan/project/products/?*/type
       methods:
         - PUT
     - endpoint: api/v1/picket/projects/?*
