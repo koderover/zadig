@@ -69,7 +69,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	c.Infof("job started, this is a test")
+	c.Errorf("job started, this is a test")
 
 	c.job.Status = config.StatusPassed
 }
