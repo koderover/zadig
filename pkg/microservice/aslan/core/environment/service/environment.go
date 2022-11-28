@@ -1195,6 +1195,10 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 
+	if productResp.ServiceDeployStrategy == nil {
+		productResp.ServiceDeployStrategy = make(map[string]string)
+	}
+
 	// set image and render to the value used on current environment
 	deletedSvcSet := sets.NewString(deletedServices...)
 	deletedSvcRevision := make(map[string]int64)
@@ -1202,6 +1206,9 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 	serviceNeedUpdateOrCreate := sets.NewString()
 	for _, chart := range overrideCharts {
 		serviceNeedUpdateOrCreate.Insert(chart.ServiceName)
+		if len(chart.DeployStrategy) > 0 {
+			productResp.ServiceDeployStrategy[chart.ServiceName] = chart.DeployStrategy
+		}
 	}
 
 	productServiceMap := productResp.GetServiceMap()
