@@ -313,6 +313,7 @@ type IstioJobTarget struct {
 	WorkloadName       string `bson:"workload_name"             json:"workload_name"             yaml:"workload_name"`
 	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`
 	VirtualServiceName string `bson:"virtual_service_name"      json:"virtual_service_name"      yaml:"virtual_service_name"`
+	Image              string `bson:"image"                     json:"image"                     yaml:"-"`
 	CurrentReplica     int    `bson:"current_replica,omitempty" json:"current_replica,omitempty" yaml:"-"`
 	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"-"`
 }
