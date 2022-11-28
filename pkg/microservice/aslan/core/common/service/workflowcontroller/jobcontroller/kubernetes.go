@@ -873,7 +873,6 @@ func getJobOutputFromRunningPod(namespace, containerName string, jobTask *common
 		if !success {
 			return nil
 		}
-		log.Errorf("@@@@ output msg was: %s", stdout)
 		if err := json.Unmarshal([]byte(stdout), &outputs); err != nil {
 			return err
 		}

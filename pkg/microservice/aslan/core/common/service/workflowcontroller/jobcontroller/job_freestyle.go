@@ -247,7 +247,6 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	// get job outputs info from pod terminate message.
 	if err := getJobOutputFromRunningPod(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.kubeclient, c.clientset, c.restConfig); err != nil {
 		c.logger.Error(err)
-		c.job.Error = err.Error()
 	}
 
 	if err := saveContainerLog(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {
