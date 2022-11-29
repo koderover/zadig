@@ -252,17 +252,17 @@ func buildGitCommands(repo *Repo, hostNames sets.String) []*Command {
 					DisableTrace: true,
 				})
 			}
-		} else {
-			// github
-			cmd := RemoteAdd(repo.RemoteName, fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", repo.OauthToken, "github.com", repo.Owner, repo.Name))
-			if repo.OauthToken == "" {
-				cmd = RemoteAdd(repo.RemoteName, repo.Address)
-			}
-			cmds = append(cmds, &Command{
-				Cmd:          cmd,
-				DisableTrace: true,
-			})
 		}
+	} else {
+		// github
+		cmd := RemoteAdd(repo.RemoteName, fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", repo.OauthToken, "github.com", repo.Owner, repo.Name))
+		if repo.OauthToken == "" {
+			cmd = RemoteAdd(repo.RemoteName, repo.Address)
+		}
+		cmds = append(cmds, &Command{
+			Cmd:          cmd,
+			DisableTrace: true,
+		})
 	}
 
 	cmds = append(cmds, &Command{Cmd: Fetch(repo.RemoteName, repo.BranchRef())})
