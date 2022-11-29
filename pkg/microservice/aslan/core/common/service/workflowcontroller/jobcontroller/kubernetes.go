@@ -335,6 +335,7 @@ echo $result > %s
 		},
 	}
 	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
+	ensureVolumeMounts(job)
 	return job, nil
 }
 
@@ -472,6 +473,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			SubPath:   jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
 		})
 	}
+	ensureVolumeMounts(job)
 	return job, nil
 }
 
@@ -562,6 +564,20 @@ func setJobShareStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTas
 			MountPath: storageDetail.MountPath,
 			SubPath:   storageDetail.SubPath,
 		})
+	}
+}
+
+func ensureVolumeMounts(job *batchv1.Job) {
+	for i := range job.Spec.Template.Spec.Containers {
+		mountPathMap := make(map[string]bool)
+		volumeMounts := []corev1.VolumeMount{}
+		for _, volumeMount := range job.Spec.Template.Spec.Containers[i].VolumeMounts {
+			if _, ok := mountPathMap[volumeMount.MountPath]; !ok {
+				volumeMounts = append(volumeMounts, volumeMount)
+				mountPathMap[volumeMount.MountPath] = true
+			}
+		}
+		job.Spec.Template.Spec.Containers[i].VolumeMounts = volumeMounts
 	}
 }
 
