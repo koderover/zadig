@@ -550,7 +550,6 @@ func ListLatestEnvResources(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 }
 
 func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
-	log.Infof("####### start sync env resource")
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -569,11 +568,8 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 	}
 
 	if !envResource.AutoSync {
-		log.Infof("####### not auto sync")
 		return nil
 	}
-
-	log.Infof("####### start fetch source yaml")
 
 	if envResource.SourceDetail == nil || envResource.SourceDetail.GitRepoConfig == nil {
 		return e.ErrUpdateResource.AddErr(fmt.Errorf("failed to parse gitops config for resource: %s:%s of env: %s:%s", args.Type, args.Name, args.ProductName, args.EnvName))
@@ -592,8 +588,6 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	log.Infof("####### fetch remote resource: %s", sourceYaml)
-
 	js, err := yaml.YAMLToJSON(sourceYaml)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
@@ -604,14 +598,10 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	log.Infof("####### resName %s yamlData %s", resName, yamlData)
-
 	// asset resource name be the same
 	if resName != envResource.Name {
 		return e.ErrUpdateResource.AddDesc(fmt.Sprintf("resource name not match, expect: %s while parsed: %s", envResource.Name, resName))
 	}
-
-	log.Infof("envResource.YamlData %s", envResource.YamlData)
 
 	equal, err := yamlutil.Equal(yamlData, envResource.YamlData)
 	if err != nil {
@@ -619,7 +609,6 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 	}
 
 	if equal {
-		log.Infof("equal data")
 		return nil
 	}
 
