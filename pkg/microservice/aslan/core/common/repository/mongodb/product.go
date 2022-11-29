@@ -365,19 +365,23 @@ func (c *ProductColl) Delete(owner, productName string) error {
 // Update  Cannot update owner & product name
 func (c *ProductColl) Update(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
-	change := bson.M{"$set": bson.M{
-		"update_time":             time.Now().Unix(),
-		"services":                args.Services,
-		"status":                  args.Status,
-		"revision":                args.Revision,
-		"render":                  args.Render,
-		"error":                   args.Error,
-		"share_env":               args.ShareEnv,
-		"service_deploy_strategy": args.ServiceDeployStrategy,
-	}}
-
+	changePayload := bson.M{
+		"update_time": time.Now().Unix(),
+		"services":    args.Services,
+		"status":      args.Status,
+		"revision":    args.Revision,
+		"render":      args.Render,
+		"error":       args.Error,
+		"share_env":   args.ShareEnv,
+	}
+	if len(args.Source) > 0 {
+		changePayload["source"] = args.Source
+	}
+	if len(args.ServiceDeployStrategy) > 0 {
+		changePayload["service_deploy_strategy"] = args.ServiceDeployStrategy
+	}
+	change := bson.M{"$set": changePayload}
 	_, err := c.UpdateOne(context.TODO(), query, change)
-
 	return err
 }
 

@@ -266,6 +266,162 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 	return nil
 }
 
+func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err error) {
+	projectInfo, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		return e.ErrUpdateProduct.AddDesc(err.Error())
+	}
+
+	if !projectInfo.IsHostProduct() {
+		return e.ErrUpdateProduct.AddDesc("invalid project type")
+	}
+
+	services, err := transferServices(user, projectInfo, log)
+	if err != nil {
+		return err
+	}
+
+	// transfer host project type to k8s yaml project
+	products, err := transferProducts(user, projectInfo, services, log)
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
+	}
+
+	projectInfo.ProductFeature.CreateEnvType = "system"
+
+	if err = saveServices(projectName, user, services); err != nil {
+		return err
+	}
+	if err = saveProducts(products); err != nil {
+		return err
+	}
+	if err = saveProject(projectInfo); err != nil {
+		return err
+	}
+	return nil
+}
+
+// transferServices transfer service from external to zadig-host(spock)
+func transferServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
+	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProjectName)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, svc := range templateServices {
+		svc.Source = setting.SourceFromZadig
+		svc.CreateBy = user
+		svc.EnvName = ""
+		svc.WorkloadType = ""
+	}
+	return templateServices, nil
+}
+
+func saveServices(projectName, username string, services []*commonmodels.Service) error {
+	for _, svc := range services {
+		serviceTemplateCounter := fmt.Sprintf(setting.ServiceTemplateCounterName, svc.ServiceName, svc.ProductName)
+		err := commonrepo.NewCounterColl().UpsertCounter(serviceTemplateCounter, svc.Revision)
+		if err != nil {
+			log.Errorf("failed to set service counter: %s, err: %s", serviceTemplateCounter, err)
+		}
+	}
+
+	return commonrepo.NewServiceColl().TransferServiceSource(projectName, setting.SourceFromExternal, setting.SourceFromZadig, username)
+}
+
+func saveProducts(products []*commonmodels.Product) error {
+	for _, product := range products {
+		err := commonrepo.NewProductColl().Update(product)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func saveProject(projectInfo *template.Product) error {
+	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProjectName, projectInfo.ProductFeature, projectInfo.UpdateBy)
+}
+
+// build service and env data
+func transferProducts(user string, projectInfo *template.Product, templateServices []*commonmodels.Service, logger *zap.SugaredLogger) ([]*commonmodels.Product, error) {
+	templateSvcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range templateServices {
+		templateSvcMap[svc.ServiceName] = svc
+	}
+
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name: projectInfo.ProjectName,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// build rendersets and services, set necessary attributes
+	for _, product := range products {
+		rendersetInfo := &commonmodels.RenderSet{
+			Name:        product.Namespace,
+			EnvName:     product.EnvName,
+			ProductTmpl: product.ProductName,
+			UpdateBy:    user,
+			IsDefault:   false,
+		}
+		err = commonservice.ForceCreateReaderSet(rendersetInfo, logger)
+		if err != nil {
+			return nil, err
+		}
+
+		product.Render = &commonmodels.RenderInfo{
+			Name:        rendersetInfo.Name,
+			Revision:    rendersetInfo.Revision,
+			ProductTmpl: rendersetInfo.ProductTmpl,
+			Description: rendersetInfo.Description,
+		}
+
+		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProjectName, product.EnvName, logger)
+		if err != nil {
+			return nil, err
+		}
+
+		// for transferred services, only support one group
+		productServices := make([]*commonmodels.ProductService, 0)
+		for _, workload := range currentWorkloads.Data {
+			svcTemplate, ok := templateSvcMap[workload.Service]
+			if !ok {
+				log.Errorf("failed to find service: %s in template", workload.Service)
+			}
+			productServices = append(productServices, &commonmodels.ProductService{
+				ServiceName: workload.Service,
+				ProductName: product.ProductName,
+				Type:        svcTemplate.Type,
+				Revision:    svcTemplate.Revision,
+				Containers:  svcTemplate.Containers,
+				Render: &commonmodels.RenderInfo{
+					Name:        rendersetInfo.Name,
+					Revision:    rendersetInfo.Revision,
+					ProductTmpl: rendersetInfo.ProductTmpl,
+					Description: rendersetInfo.Description,
+				},
+			})
+		}
+		product.Services = [][]*commonmodels.ProductService{productServices}
+
+		// mark service as only import
+		if product.ServiceDeployStrategy == nil {
+			product.ServiceDeployStrategy = make(map[string]string)
+		}
+		for _, svc := range product.GetServiceMap() {
+			product.ServiceDeployStrategy[svc.ServiceName] = setting.ServiceDeployStrategyImport
+		}
+
+		product.Source = setting.SourceFromZadig
+		product.UpdateBy = user
+		product.Revision = 1
+	}
+
+	return products, nil
+}
+
 // UpdateProject 更新项目
 func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
 	err = validateRule(args.CustomImageRule, args.CustomTarRule)

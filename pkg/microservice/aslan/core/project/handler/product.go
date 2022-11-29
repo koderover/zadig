@@ -127,6 +127,14 @@ func UpdateProductTmplStatus(c *gin.Context) {
 	ctx.Err = projectservice.UpdateProductTmplStatus(productName, onboardingStatus, ctx.Logger)
 }
 
+func TransferProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	productName := c.Param("name")
+	ctx.Err = projectservice.TransferHostProject(ctx.UserName, productName, ctx.Logger)
+}
+
 func UpdateProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
