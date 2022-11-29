@@ -123,6 +123,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace,
 	}
 
 	for _, c := range cmds {
+		log.Errorf("@@@RunGitCmds: %s", c.Cmd.Args)
 		cmdOutReader, err := c.Cmd.StdoutPipe()
 		if err != nil {
 			return err
