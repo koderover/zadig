@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
@@ -64,6 +63,7 @@ func ensureDisableBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Produ
 }
 
 func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.Product) error {
+	log.Infof("####### ensureDeleteAssociatedEnvs, base product name: %s", baseProduct.EnvName)
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:            baseProduct.ProductName,
 		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
@@ -71,17 +71,16 @@ func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.P
 		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseProduct.EnvName),
 	})
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 
-	logger, err := zap.NewProduction()
-	if err != nil {
-		return err
-	}
-
+	logger := log.SugaredLogger()
 	for _, env := range envs {
-		err := DeleteProduct("system", env.EnvName, env.ProductName, "", true, logger.Sugar())
+		log.Errorf("######### deleting sub namespace %s", env.EnvName)
+		err := DeleteProduct("system", env.EnvName, env.ProductName, "", true, logger)
 		if err != nil {
+			log.Error(err)
 			return err
 		}
 	}
