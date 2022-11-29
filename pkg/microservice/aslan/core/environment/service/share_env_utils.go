@@ -118,6 +118,7 @@ func ensureCleanRoutesInBase(ctx context.Context, grayEnv *commonmodels.Product,
 		EnvName: grayEnv.ShareEnv.BaseEnv,
 	})
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 

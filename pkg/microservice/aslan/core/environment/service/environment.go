@@ -2223,7 +2223,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
 				if err != nil {
-					log.Errorf("Failed to delete share env config: %s", err)
+					log.Errorf("Failed to delete share env config: %s, env: %s/%s", err, productInfo.ProductName, productInfo.EnvName)
 					err = e.ErrDeleteProduct.AddDesc(e.DeleteVirtualServiceErrMsg + ": " + err.Error())
 					return
 				}

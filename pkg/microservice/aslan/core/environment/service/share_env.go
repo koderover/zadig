@@ -1179,6 +1179,7 @@ func EnsureDeleteShareEnvConfig(ctx context.Context, env *commonmodels.Product, 
 	}
 
 	// Updated the VirtualService configuration in the base environment.
+	log.Infof("####### EnsureDeleteShareEnvConfig %s", env.EnvName)
 	return ensureCleanRoutesInBase(ctx, env, istioClient)
 }
 
