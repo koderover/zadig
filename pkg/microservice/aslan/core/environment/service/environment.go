@@ -2194,6 +2194,10 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	default:
 		go func() {
 			var err error
+			err = commonrepo.NewProductColl().Delete(envName, productName)
+			if err != nil {
+				log.Errorf("Product.Delete error: %v", err)
+			}
 			defer func() {
 				if err != nil {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
@@ -2223,7 +2227,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
 				if err != nil {
-					log.Errorf("Failed to delete share env config: %s", err)
+					log.Errorf("Failed to delete share env config: %s, env: %s/%s", err, productInfo.ProductName, productInfo.EnvName)
 					err = e.ErrDeleteProduct.AddDesc(e.DeleteVirtualServiceErrMsg + ": " + err.Error())
 					return
 				}
@@ -2233,10 +2237,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}
-			}
-			err = commonrepo.NewProductColl().Delete(envName, productName)
-			if err != nil {
-				log.Errorf("Product.Delete error: %v", err)
 			}
 		}()
 	}
