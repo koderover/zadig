@@ -766,17 +766,6 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	return err
 }
 
-func CheckShareStorage(id string, logger *zap.SugaredLogger) (bool, error) {
-	cluster, err := GetCluster(id, logger)
-	if err != nil {
-		return false, nil
-	}
-	if cluster.ShareStorage.MediumType == types.NFSMedium {
-		return true, nil
-	}
-	return false, nil
-}
-
 func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperties, logger *zap.SugaredLogger) error {
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {

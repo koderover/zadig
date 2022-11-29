@@ -56,5 +56,4 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	router.GET("/:id/:namespace/pvcs", ListPVCs)
 
 	router.GET("/:id/check/ephemeralcontainers", CheckEphemeralContainers)
-	router.GET("/sharestorage/:id", CheckShareStorage)
 }

@@ -158,9 +158,3 @@ func CheckEphemeralContainers(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.CheckEphemeralContainers(c, c.Param("id"))
 }
 
-func CheckShareStorage(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.CheckShareStorage(c.Param("id"), ctx.Logger)
-}
