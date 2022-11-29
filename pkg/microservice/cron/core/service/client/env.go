@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -52,7 +53,7 @@ func (c *Client) ListEnvs(log *zap.SugaredLogger, option *EvnListOption) ([]*ser
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()
 		var body []byte
-		body, err = ioutil.ReadAll(ret.Body)
+		body, err = io.ReadAll(ret.Body)
 		if err == nil {
 			if err = json.Unmarshal(body, &resp); err == nil {
 				return resp, nil
