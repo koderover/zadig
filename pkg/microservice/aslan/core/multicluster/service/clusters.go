@@ -321,7 +321,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		}
 	}
 	if args.ShareStorage.MediumType == types.NFSMedium && args.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
-		if err := createDynamicPVC(id, "share-storage", &args.Cache.NFSProperties, logger); err != nil {
+		if err := createDynamicPVC(id, "share-storage", &args.ShareStorage.NFSProperties, logger); err != nil {
 			return nil, err
 		}
 	}
