@@ -170,6 +170,7 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			DindCfg:                c.DindCfg,
 			KubeConfig:             c.KubeConfig,
 			Type:                   c.Type,
+			ShareStorage:           c.ShareStorage,
 		}
 
 		// compatibility for the data before 1.14, since type is a new field since 1.14
