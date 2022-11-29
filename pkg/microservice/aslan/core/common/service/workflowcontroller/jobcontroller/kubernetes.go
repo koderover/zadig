@@ -448,6 +448,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		},
 	}
 
+	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
+
 	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
 		volumeName := "build-cache"
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
@@ -470,9 +472,6 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			SubPath:   jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
 		})
 	}
-
-	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
-
 	return job, nil
 }
 
