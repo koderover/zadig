@@ -154,6 +154,12 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 		servicesResp := make([]*commonmodels.ProductService, 0)
 
 		for _, serviceName := range names {
+
+			// TODO fixme: for case `envType == types.ShareEnv`, should use the service data in product service
+			if _, ok := allServiceInfoMap[serviceName]; !ok {
+				continue
+			}
+
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName:   serviceName,
 				ProductName:   allServiceInfoMap[serviceName].Owner,
