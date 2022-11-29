@@ -175,7 +175,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ImageFrom:           setting.ImageFromCustom,
 			Envs:                []*commonmodels.KeyVal{scanningNameKV},
 			Registries:          registries,
-			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, scanningInfo.AdvancedSetting.ClusterID, taskID),
+			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		}
 
 		// init tools install step

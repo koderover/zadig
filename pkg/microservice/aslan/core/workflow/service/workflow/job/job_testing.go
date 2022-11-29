@@ -171,7 +171,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			BuildOS:             basicImage.Value,
 			ImageFrom:           testingInfo.PreTest.ImageFrom,
 			Registries:          registries,
-			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, testingInfo.PreTest.ClusterID, taskID),
+			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, taskID),
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
 		if err != nil {

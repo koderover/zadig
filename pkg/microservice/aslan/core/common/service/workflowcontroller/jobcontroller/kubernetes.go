@@ -334,7 +334,7 @@ echo $result > %s
 			},
 		},
 	}
-	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, clusterID)
+	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
 	return job, nil
 }
 
@@ -471,7 +471,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		})
 	}
 
-	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, clusterID)
+	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
 
 	return job, nil
 }
@@ -535,17 +535,26 @@ func BuildCleanJob(jobName, clusterID, workflowName string, taskID int64) (*batc
 	return job, nil
 }
 
-func setJobShareStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTaskCtx, storageDetails []*commonmodels.StorageDetail, clusterID string) {
+func setJobShareStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTaskCtx, storageDetails []*commonmodels.StorageDetail, cluster *commonmodels.K8SCluster) {
+	if cluster == nil {
+		return
+	}
+	if cluster.ShareStorage.MediumType != commontypes.NFSMedium {
+		return
+	}
+	if cluster.ShareStorage.NFSProperties.PVC == "" {
+		return
+	}
 	// save cluster id so we can clean
 	if len(storageDetails) > 0 {
-		workflowCtx.ClusterIDAdd(clusterID)
+		workflowCtx.ClusterIDAdd(cluster.ID.Hex())
 	}
 	for _, storageDetail := range storageDetails {
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
 			Name: storageDetail.Name,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: storageDetail.PVCName,
+					ClaimName: cluster.ShareStorage.NFSProperties.PVC,
 				},
 			},
 		})

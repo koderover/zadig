@@ -367,7 +367,6 @@ type StorageDetail struct {
 	Name      string           `bson:"name"             json:"name"             yaml:"name"`
 	SubPath   string           `bson:"sub_path"         json:"sub_path"         yaml:"sub_path"`
 	MountPath string           `bson:"mount_path"       json:"mount_path"       yaml:"mount_path"`
-	PVCName   string           `bson:"pvc_name"         json:"pvc_name"         yaml:"pvc_name"`
 }
 
 func IToiYaml(before interface{}, after interface{}) error {

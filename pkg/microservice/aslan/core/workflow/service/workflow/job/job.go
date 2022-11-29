@@ -28,9 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
 	"go.uber.org/zap"
@@ -422,7 +420,7 @@ func checkOutputNames(outputs []*commonmodels.Output) error {
 	return nil
 }
 
-func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStorageInfo *commonmodels.ShareStorageInfo, workflowName, clusterID string, taskID int64) []*commonmodels.StorageDetail {
+func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStorageInfo *commonmodels.ShareStorageInfo, workflowName string, taskID int64) []*commonmodels.StorageDetail {
 	resp := []*commonmodels.StorageDetail{}
 	if shareStorageInfo == nil {
 		return resp
@@ -431,17 +429,6 @@ func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStor
 		return resp
 	}
 	if len(shareStorages) == 0 || len(shareStorageInfo.ShareStorages) == 0 {
-		return resp
-	}
-	if clusterID == "" {
-		clusterID = setting.LocalClusterID
-	}
-	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(clusterID)
-	if err != nil {
-		log.Errorf("get cluster %s info error: %v", clusterID, err)
-		return resp
-	}
-	if clusterInfo.ShareStorage.MediumType != types.NFSMedium {
 		return resp
 	}
 	storageMap := make(map[string]*commonmodels.ShareStorage, len(shareStorages))
@@ -458,7 +445,6 @@ func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStor
 			Type:      types.NFSMedium,
 			SubPath:   types.GetShareStorageSubPath(workflowName, storageInfo.Name, taskID),
 			MountPath: storage.Path,
-			PVCName:   clusterInfo.ShareStorage.NFSProperties.PVC,
 		}
 		resp = append(resp, storageDetail)
 	}
