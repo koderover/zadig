@@ -102,9 +102,6 @@ func AuthCodeHost(c *gin.Context) {
 		return
 	}
 
-	ctx.Logger.Infof("######### the redirect_url query param is %s ", c.Query("redirect_url"))
-	ctx.Logger.Infof("######### the total query param is %+v ", c.Request.URL.Query())
-
 	url, err := service.AuthCodeHost(c.Query("redirect_url"), idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
