@@ -63,7 +63,6 @@ func ensureDisableBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Produ
 }
 
 func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.Product) error {
-	log.Infof("####### ensureDeleteAssociatedEnvs, base product name: %s", baseProduct.EnvName)
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:            baseProduct.ProductName,
 		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
@@ -77,7 +76,6 @@ func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.P
 
 	logger := log.SugaredLogger()
 	for _, env := range envs {
-		log.Errorf("######### deleting sub namespace %s", env.EnvName)
 		err := DeleteProduct("system", env.EnvName, env.ProductName, "", true, logger)
 		if err != nil {
 			log.Error(err)
