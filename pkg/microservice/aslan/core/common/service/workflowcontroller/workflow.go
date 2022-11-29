@@ -112,6 +112,9 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if c.workflowTask.GlobalContext == nil {
 		c.workflowTask.GlobalContext = make(map[string]string)
 	}
+	if c.workflowTask.ClusterIDMap == nil {
+		c.workflowTask.ClusterIDMap = make(map[string]bool)
+	}
 	c.workflowTask.Status = config.StatusRunning
 	c.workflowTask.StartTime = time.Now().Unix()
 	c.ack()
