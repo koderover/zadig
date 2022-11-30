@@ -55,7 +55,7 @@ func (p *PMService) queryServiceStatus(namespace, envName, productName string, s
 		return setting.PodPending, setting.PodNotReady, []string{}
 	}
 
-	return queryPodsStatus(namespace, "", serviceTmpl.ServiceName, informer, p.log)
+	return queryPodsStatus(namespace, "", productName, serviceTmpl.ServiceName, informer, p.log)
 }
 
 func (p *PMService) updateService(args *SvcOptArgs) error {
@@ -163,7 +163,8 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 	return resp
 }
 
-func (p *PMService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+func (p *PMService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+	envName, productName := product.EnvName, product.ProductName
 	p.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 
 	// 异步创建无依赖的服务

@@ -24,6 +24,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var ServiceGVK = schema.GroupVersionKind{
+	Group:   "",
+	Kind:    "Service",
+	Version: "v1",
+}
+
 func GetService(ns, name string, cl client.Client) (*corev1.Service, bool, error) {
 	svc := &corev1.Service{}
 	found, err := GetResourceInCache(ns, name, svc, cl)
@@ -58,30 +64,15 @@ func ListServicesWithCache(selector labels.Selector, lister informers.SharedInfo
 }
 
 func ListServicesYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Kind:    "Service",
-		Version: "v1",
-	}
-	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
+	return ListResourceYamlInCache(ns, selector, nil, ServiceGVK, cl)
 }
 
 func GetServiceYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Kind:    "Service",
-		Version: "v1",
-	}
-	return GetResourceYamlInCache(ns, name, gvk, cl)
+	return GetResourceYamlInCache(ns, name, ServiceGVK, cl)
 }
 
 func GetServiceYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Kind:    "Service",
-		Version: "v1",
-	}
-	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+	return GetResourceYamlInCacheFormat(ns, name, ServiceGVK, cl)
 }
 
 func setServiceGVK(service *corev1.Service) {

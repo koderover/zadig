@@ -31,6 +31,8 @@ type Pod struct {
 	PodReady             bool              `json:"pod_ready"`
 	ContainersReady      bool              `json:"containers_ready"`
 	ContainersMessage    string            `json:"containers_message"`
+	Succeed              bool              `json:"-"`
+	Ready                bool              `json:"-"`
 }
 
 type Container struct {

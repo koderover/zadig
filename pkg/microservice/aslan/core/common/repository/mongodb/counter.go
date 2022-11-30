@@ -112,17 +112,16 @@ func (c *CounterColl) Find(name string) (*models.Counter, error) {
 	return counter, err
 }
 
-func (c *CounterColl) SetToNumber(counterName string, number int64) error {
+func (c *CounterColl) UpsertCounter(counterName string, number int64) error {
 	query := bson.M{"_id": counterName}
-
-	var counter *models.Counter
-
-	counter.Seq = number
-	change := bson.M{"$set": counter}
-	singleResult := c.FindOneAndUpdate(context.TODO(), query, change)
-	if singleResult != nil && singleResult.Err() != nil {
-		return fmt.Errorf(" [%s] ResetToNumber %v error: %v", counterName, number, singleResult.Err())
+	change := bson.M{"$set": bson.M{
+		"seq": number,
+	}}
+	opts := options.Update()
+	opts.SetUpsert(true)
+	_, err := c.UpdateOne(context.TODO(), query, change, opts)
+	if err != nil {
+		return fmt.Errorf(" [%s] UpsertCounter %v error: %v", counterName, number, err)
 	}
-
 	return nil
 }

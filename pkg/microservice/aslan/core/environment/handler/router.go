@@ -45,6 +45,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		pvcs.GET("/:envName", ListPvcs)
 	}
+
 	commonEnvCfgs := router.Group("envcfgs")
 	{
 		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
@@ -78,7 +79,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	export := router.Group("export")
 	{
 		export.GET("/service", ExportYaml)
-		// export.GET("/pipelines/:name", ExportBuildYaml)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -108,6 +108,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
 
+		kube.POST("/k8s/resources", GetResourceDeployStatus)
+		kube.POST("/helm/releases", GetReleaseDeployStatus)
+
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 
 		kube.GET("/pods/:podName/file", DownloadFileFromPod)
@@ -134,6 +137,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/registry", UpdateProductRegistry)
 		environments.PUT("", UpdateMultiProducts)
 		environments.POST("", CreateProduct)
+
 		environments.GET("/:name", GetProduct)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
 		environments.POST("/:name/estimated-values", EstimatedValues)
@@ -156,8 +160,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
-		environments.POST("/:name/services/:serviceName/restartNew", RestartNewService)
-		environments.POST("/:name/services/:serviceName/scale", ScaleService)
+		environments.POST("/:name/services/:serviceName/restartNew", RestartWorkload)
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)
 		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 

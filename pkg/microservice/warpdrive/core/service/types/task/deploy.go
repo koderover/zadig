@@ -50,6 +50,7 @@ type Deploy struct {
 	EndTime          int64                        `bson:"end_time,omitempty"            json:"end_time,omitempty"`
 	ClusterID        string                       `bson:"cluster_id,omitempty"          json:"cluster_id,omitempty"`
 	ReplaceResources []Resource                   `bson:"replace_resources"             json:"replace_resources"`
+	RelatedPodLabels []map[string]string          `bson:"-"                             json:"-"`
 	SkipWaiting      bool                         `bson:"skipWaiting"                   json:"skipWaiting"`
 	IsRestart        bool                         `bson:"is_restart"                    json:"is_restart"`
 	ResetImage       bool                         `bson:"reset_image"                   json:"reset_image"`

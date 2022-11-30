@@ -365,7 +365,7 @@ func (c *ProductColl) Delete(owner, productName string) error {
 // Update  Cannot update owner & product name
 func (c *ProductColl) Update(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
-	change := bson.M{"$set": bson.M{
+	changePayload := bson.M{
 		"update_time": time.Now().Unix(),
 		"services":    args.Services,
 		"status":      args.Status,
@@ -373,10 +373,15 @@ func (c *ProductColl) Update(args *models.Product) error {
 		"render":      args.Render,
 		"error":       args.Error,
 		"share_env":   args.ShareEnv,
-	}}
-
+	}
+	if len(args.Source) > 0 {
+		changePayload["source"] = args.Source
+	}
+	if len(args.ServiceDeployStrategy) > 0 {
+		changePayload["service_deploy_strategy"] = args.ServiceDeployStrategy
+	}
+	change := bson.M{"$set": changePayload}
 	_, err := c.UpdateOne(context.TODO(), query, change)
-
 	return err
 }
 
@@ -403,6 +408,21 @@ func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, g
 	change := bson.M{
 		"update_time": time.Now().Unix(),
 		serviceGroup:  group,
+	}
+
+	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})
+
+	return err
+}
+
+func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deployStrategy map[string]string) error {
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+	}
+	change := bson.M{
+		"update_time":             time.Now().Unix(),
+		"service_deploy_strategy": deployStrategy,
 	}
 
 	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})

@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
@@ -161,6 +162,11 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
 	}
 
+	//set service deploy strategy info
+	for _, svc := range prodRev.ServiceRevisions {
+		svc.DeployStrategy = commonutil.GetServiceDeployStrategy(svc.ServiceName, product.ServiceDeployStrategy)
+	}
+
 	if !prodRev.Updatable {
 		prodRev.Updatable = prodRev.GroupsUpdated()
 	}
@@ -218,7 +224,6 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 		log.Errorf("Failed to compare service revision, %s:%s, Error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return serviceRev, e.ErrListProductsRevision.AddDesc(err.Error())
 	}
-
 	return serviceRev, nil
 }
 

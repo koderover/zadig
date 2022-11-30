@@ -80,10 +80,18 @@ func UpdateMultiProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("helm") == "true" {
+	request := &service.UpdateEnvRequest{}
+	err := c.ShouldBindQuery(request)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if request.Type == setting.HelmDeployType {
 		updateMultiHelmEnv(c, ctx)
 		return
 	}
+
 	args := make([]*service.UpdateEnv, 0)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -110,65 +118,29 @@ func UpdateMultiProducts(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
-
-	force, _ := strconv.ParseBool(c.Query("force"))
-	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, c.Query("projectName"), ctx.RequestID, force, ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
+	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, request.ProjectName, ctx.RequestID, request.Force, ctx.Logger)
 }
 
-func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
-		return
-	}
-	createArgs := make([]*service.CreateHelmProductArg, 0)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateHelmProduct c.GetRawData() err : %v", err)
-	} else if err = json.Unmarshal(data, &createArgs); err != nil {
-		log.Errorf("CreateHelmProduct json.Unmarshal err : %v", err)
-	}
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
+func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameList := make([]string, 0)
 	for _, arg := range createArgs {
 		if arg.EnvName == "" {
 			ctx.Err = e.ErrInvalidParam.AddDesc("envName is empty")
 			return
 		}
-		arg.ProductName = projectName
+		arg.ProductName = param.ProjectName
 		envNameList = append(envNameList, arg.EnvName)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), string(data), ctx.Logger, envNameList...)
-
-	ctx.Err = service.CreateHelmProduct(
-		projectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
-	)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, ctx.Logger, envNameList...)
+	if param.Type == setting.K8SDeployType {
+		ctx.Err = service.CreateYamlProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+	} else {
+		ctx.Err = service.CreateHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+	}
 }
 
-func copyHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
-		return
-	}
-
-	createArgs := make([]*service.CreateHelmProductArg, 0)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("copyHelmProduct c.GetRawData() err : %s", err)
-	} else if err = json.Unmarshal(data, &createArgs); err != nil {
-		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
-	}
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
+func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameCopyList := make([]string, 0)
 	envNames := make([]string, 0)
 	for _, arg := range createArgs {
@@ -176,74 +148,90 @@ func copyHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 			ctx.Err = e.ErrInvalidParam.AddDesc("envName or baseEnvName is empty")
 			return
 		}
-		arg.ProductName = projectName
+		arg.ProductName = param.ProjectName
 		envNameCopyList = append(envNameCopyList, arg.BaseEnvName+"-->"+arg.EnvName)
 		envNames = append(envNames, arg.EnvName)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), string(data), ctx.Logger, envNames...)
-
-	ctx.Err = service.CopyHelmProduct(
-		projectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
-	)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), requestBody, ctx.Logger, envNames...)
+	if param.Type == setting.K8SDeployType {
+		ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, param.ProjectName, createArgs, ctx.Logger)
+	} else {
+		ctx.Err = service.CopyHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+	}
 }
 
 // CreateProduct creates new product
-// Query param `auto` determines if create in onBoarding progress
-// Query param `helm` determines if is helm project
+// Query param `type` determines the type of product
 // Query param `scene` determines if the product is copied from some project
 func CreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("auto") == "true" {
-		ctx.Resp = service.AutoCreateProduct(c.Query("projectName"), c.Query("envType"), ctx.RequestID, ctx.Logger)
+	createParam := &service.CreateEnvRequest{}
+	err := c.ShouldBindQuery(createParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	if c.Query("helm") == "true" {
-		if c.Query("scene") == "copy" {
-			copyHelmProduct(c, ctx)
-			return
-		}
-		createHelmProduct(c, ctx)
+	if createParam.ProjectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
 
-	args := new(commonmodels.Product)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
+		log.Infof("CreateProduct failed to get request data, err: %s", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 	}
 
-	allowedClusters, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedClusters...)
-		if !allowedSet.Has(args.ClusterID) {
-			c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+	if createParam.Type == setting.K8SDeployType || createParam.Type == setting.HelmDeployType {
+		createArgs := make([]*service.CreateSingleProductArg, 0)
+		if err = json.Unmarshal(data, &createArgs); err != nil {
+			log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+		}
+
+		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
+		if found {
+			allowedSet := sets.NewString(allowedClusters...)
+			for _, args := range createArgs {
+				if !allowedSet.Has(args.ClusterID) {
+					c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+					return
+				}
+			}
+		}
+		if createParam.Scene == "copy" {
+			copyProduct(c, createParam, createArgs, string(data), ctx)
+		} else {
+			createProduct(c, createParam, createArgs, string(data), ctx)
+		}
+		return
+	} else {
+		// 'auto = true' only happens in the onboarding progress of pm projects
+		if createParam.Auto {
+			ctx.Resp = service.AutoCreateProduct(createParam.ProjectName, createParam.EnvType, ctx.RequestID, ctx.Logger)
 			return
 		}
-	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+		args := new(commonmodels.Product)
+		if err = json.Unmarshal(data, args); err != nil {
+			log.Errorf("CreateProduct json.Unmarshal err : %v", err)
+		}
 
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
+		internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
-	if args.EnvName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-		return
-	}
+		if err := c.BindJSON(args); err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
 
-	args.UpdateBy = ctx.UserName
-	if c.Query("scene") == "copy" {
-		ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
-	} else {
+		if args.EnvName == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+			return
+		}
+
 		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
 	}
 }
@@ -286,7 +274,8 @@ func UpdateProduct(c *gin.Context) {
 		}
 	}
 	// update product asynchronously
-	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, serviceNames.List(), force, args.Vars, ctx.Logger)
+	// TODO FIXME currently update vars will make related service update to latest revision which doesn't work as expected
+	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, serviceNames.List(), nil, force, args.Vars, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)
 	}

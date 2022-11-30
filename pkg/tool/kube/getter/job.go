@@ -23,6 +23,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var JobGVK = schema.GroupVersionKind{
+	Group:   "batch",
+	Kind:    "Job",
+	Version: "v1",
+}
+
 func ListJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1.Job, error) {
 	jobs := &batchv1.JobList{}
 	err := ListResourceInCache(ns, selector, nil, jobs, cl)

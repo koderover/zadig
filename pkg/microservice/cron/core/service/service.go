@@ -25,24 +25,14 @@ import (
 )
 
 type SvcRevision struct {
-	ServiceName     string            `json:"service_name"`
-	Type            string            `json:"type"`
-	CurrentRevision int64             `json:"current_revision"`
-	NextRevision    int64             `json:"next_revision"`
-	Updatable       bool              `json:"updatable"`
-	Deleted         bool              `json:"deleted"`
-	New             bool              `json:"new"`
-	ConfigRevisions []*ConfigRevision `json:"configs,omitempty"`
-	Containers      []*Container      `json:"containers,omitempty"`
-}
-
-type ConfigRevision struct {
-	ConfigName      string `json:"config_name"`
-	CurrentRevision int64  `json:"current_revision"`
-	NextRevision    int64  `json:"next_revision"`
-	Updatable       bool   `json:"updatable"`
-	Deleted         bool   `json:"deleted"`
-	New             bool   `json:"new"`
+	ServiceName     string       `json:"service_name"`
+	Type            string       `json:"type"`
+	CurrentRevision int64        `json:"current_revision"`
+	NextRevision    int64        `json:"next_revision"`
+	Updatable       bool         `json:"updatable"`
+	Deleted         bool         `json:"deleted"`
+	New             bool         `json:"new"`
+	Containers      []*Container `json:"containers,omitempty"`
 }
 
 type ProductRevision struct {

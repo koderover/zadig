@@ -333,6 +333,21 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	return err
 }
 
+func (c *ServiceColl) TransferServiceSource(productName, source, newSource, username string) error {
+	query := bson.M{"product_name": productName, "source": source}
+
+	changeMap := bson.M{
+		"create_by":     username,
+		"visibility":    setting.PrivateVisibility,
+		"source":        newSource,
+		"env_name":      "",
+		"workload_type": "",
+	}
+	change := bson.M{"$set": changeMap}
+	_, err := c.UpdateMany(context.TODO(), query, change)
+	return err
+}
+
 // ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
 func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string, serviceNames ...string) ([]*models.Service, error) {
 	services := make([]*models.Service, 0)
