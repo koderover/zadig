@@ -28,25 +28,26 @@ import (
 )
 
 type WorkflowV4 struct {
-	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"            json:"id"`
-	Name           string                   `bson:"name"                yaml:"name"         json:"name"`
-	DisplayName    string                   `bson:"display_name"        yaml:"display_name" json:"display_name"`
-	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"     json:"category"`
-	KeyVals        []*KeyVal                `bson:"key_vals"            yaml:"key_vals"     json:"key_vals"`
-	Params         []*Param                 `bson:"params"              yaml:"params"       json:"params"`
-	Stages         []*WorkflowStage         `bson:"stages"              yaml:"stages"       json:"stages"`
-	Project        string                   `bson:"project"             yaml:"project"      json:"project"`
-	Description    string                   `bson:"description"         yaml:"description"  json:"description"`
-	CreatedBy      string                   `bson:"created_by"          yaml:"created_by"   json:"created_by"`
-	CreateTime     int64                    `bson:"create_time"         yaml:"create_time"  json:"create_time"`
-	UpdatedBy      string                   `bson:"updated_by"          yaml:"updated_by"   json:"updated_by"`
-	UpdateTime     int64                    `bson:"update_time"         yaml:"update_time"  json:"update_time"`
-	MultiRun       bool                     `bson:"multi_run"           yaml:"multi_run"    json:"multi_run"`
-	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"  json:"notify_ctls"`
-	HookCtls       []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"            json:"hook_ctl"`
-	NotificationID string                   `bson:"notification_id"     yaml:"-"            json:"notification_id"`
-	HookPayload    *HookPayload             `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
-	BaseName       string                   `bson:"base_name"           yaml:"-"            json:"base_name"`
+	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
+	Name           string                   `bson:"name"                yaml:"name"                json:"name"`
+	DisplayName    string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
+	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
+	KeyVals        []*KeyVal                `bson:"key_vals"            yaml:"key_vals"            json:"key_vals"`
+	Params         []*Param                 `bson:"params"              yaml:"params"              json:"params"`
+	Stages         []*WorkflowStage         `bson:"stages"              yaml:"stages"              json:"stages"`
+	Project        string                   `bson:"project"             yaml:"project"             json:"project"`
+	Description    string                   `bson:"description"         yaml:"description"         json:"description"`
+	CreatedBy      string                   `bson:"created_by"          yaml:"created_by"          json:"created_by"`
+	CreateTime     int64                    `bson:"create_time"         yaml:"create_time"         json:"create_time"`
+	UpdatedBy      string                   `bson:"updated_by"          yaml:"updated_by"          json:"updated_by"`
+	UpdateTime     int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
+	MultiRun       bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
+	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
+	HookCtls       []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
+	NotificationID string                   `bson:"notification_id"     yaml:"-"                   json:"notification_id"`
+	HookPayload    *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
+	BaseName       string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
+	ShareStorages  []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
 }
 
 type WorkflowStage struct {
@@ -116,13 +117,14 @@ type ZadigBuildJobSpec struct {
 }
 
 type ServiceAndBuild struct {
-	ServiceName   string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
-	BuildName     string              `bson:"build_name"          yaml:"build_name"       json:"build_name"`
-	Image         string              `bson:"-"                   yaml:"-"                json:"image"`
-	Package       string              `bson:"-"                   yaml:"-"                json:"package"`
-	KeyVals       []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	Repos         []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+	ServiceName      string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule    string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	BuildName        string              `bson:"build_name"          yaml:"build_name"       json:"build_name"`
+	Image            string              `bson:"-"                   yaml:"-"                json:"image"`
+	Package          string              `bson:"-"                   yaml:"-"                json:"package"`
+	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	Repos            []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"   yaml:"share_storage_info"   json:"share_storage_info"`
 }
 
 type ZadigDeployJobSpec struct {
@@ -172,10 +174,11 @@ type ZadigTestingJobSpec struct {
 }
 
 type TestModule struct {
-	Name        string              `bson:"name"                yaml:"name"             json:"name"`
-	ProjectName string              `bson:"project_name"        yaml:"project_name"     json:"project_name"`
-	KeyVals     []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	Repos       []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+	Name             string              `bson:"name"                yaml:"name"             json:"name"`
+	ProjectName      string              `bson:"project_name"        yaml:"project_name"     json:"project_name"`
+	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	Repos            []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"   yaml:"share_storage_info"   json:"share_storage_info"`
 }
 
 type ZadigScanningJobSpec struct {
@@ -183,9 +186,10 @@ type ZadigScanningJobSpec struct {
 }
 
 type ScanningModule struct {
-	Name        string              `bson:"name"                yaml:"name"             json:"name"`
-	ProjectName string              `bson:"project_name"        yaml:"project_name"     json:"project_name"`
-	Repos       []*types.Repository `bson:"repos"                yaml:"repos"           json:"repos"`
+	Name             string              `bson:"name"                yaml:"name"             json:"name"`
+	ProjectName      string              `bson:"project_name"        yaml:"project_name"     json:"project_name"`
+	Repos            []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
+	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"   yaml:"share_storage_info"   json:"share_storage_info"`
 }
 
 type BlueGreenDeployJobSpec struct {
@@ -309,6 +313,8 @@ type JobProperties struct {
 	CacheEnable         bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
 	CacheDirType        types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
 	CacheUserDir        string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
+	ShareStorageInfo    *ShareStorageInfo    `bson:"share_storage_info"     json:"share_storage_info"    yaml:"share_storage_info"`
+	ShareStorageDetails []*StorageDetail     `bson:"share_storage_details"  json:"share_storage_details" yaml:"-"`
 	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
 }
 
@@ -344,6 +350,23 @@ type Param struct {
 	ChoiceOption []string `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
 	Default      string   `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool     `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+}
+
+type ShareStorage struct {
+	Name string `bson:"name"             json:"name"             yaml:"name"`
+	Path string `bson:"path"             json:"path"             yaml:"path"`
+}
+
+type ShareStorageInfo struct {
+	Enabled       bool            `bson:"enabled"             json:"enabled"             yaml:"enabled"`
+	ShareStorages []*ShareStorage `bson:"share_storages"      json:"share_storages"      yaml:"share_storages"`
+}
+
+type StorageDetail struct {
+	Type      types.MediumType `bson:"type"             json:"type"             yaml:"type"`
+	Name      string           `bson:"name"             json:"name"             yaml:"name"`
+	SubPath   string           `bson:"sub_path"         json:"sub_path"         yaml:"sub_path"`
+	MountPath string           `bson:"mount_path"       json:"mount_path"       yaml:"mount_path"`
 }
 
 func IToiYaml(before interface{}, after interface{}) error {

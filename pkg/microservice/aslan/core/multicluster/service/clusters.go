@@ -70,6 +70,7 @@ type K8SCluster struct {
 	Provider               int8                     `json:"provider"`
 	Local                  bool                     `json:"local"`
 	Cache                  types.Cache              `json:"cache"`
+	ShareStorage           types.ShareStorage       `json:"share_storage"`
 	LastConnectionTime     int64                    `json:"last_connection_time"`
 	UpdateHubagentErrorMsg string                   `json:"update_hubagent_error_msg"`
 	DindCfg                *commonmodels.DindCfg    `json:"dind_cfg"`
@@ -169,6 +170,7 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			DindCfg:                c.DindCfg,
 			KubeConfig:             c.KubeConfig,
 			Type:                   c.Type,
+			ShareStorage:           c.ShareStorage,
 		}
 
 		// compatibility for the data before 1.14, since type is a new field since 1.14
@@ -266,6 +268,7 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		DindCfg:        args.DindCfg,
 		Type:           args.Type,
 		KubeConfig:     args.KubeConfig,
+		ShareStorage:   args.ShareStorage,
 	}
 
 	return s.CreateCluster(cluster, args.ID, logger)
@@ -308,64 +311,18 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
 	//       Depends on product design.
 	if args.Cache.MediumType == types.NFSMedium && args.Cache.NFSProperties.ProvisionType == types.DynamicProvision {
-		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kube client: %s", err)
-		}
 
-		var namespace string
-		switch id {
-		case setting.LocalClusterID:
-			namespace = config.Namespace()
+		if id == setting.LocalClusterID {
 			args.DindCfg = nil
-		default:
-			namespace = setting.AttachedClusterNamespace
 		}
 
-		pvcName := fmt.Sprintf("cache-%s-%d", args.Cache.NFSProperties.StorageClass, args.Cache.NFSProperties.StorageSizeInGiB)
-		pvc := &corev1.PersistentVolumeClaim{}
-		err = kclient.Get(context.TODO(), client.ObjectKey{
-			Name:      pvcName,
-			Namespace: namespace,
-		}, pvc)
-		if err == nil {
-			logger.Infof("PVC %s eixsts in %s", pvcName, namespace)
-			args.Cache.NFSProperties.PVC = pvcName
-		} else if !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to find PVC %s in %s: %s", pvcName, namespace, err)
-		} else {
-			filesystemVolume := corev1.PersistentVolumeFilesystem
-			storageQuantity, err := resource.ParseQuantity(fmt.Sprintf("%dGi", args.Cache.NFSProperties.StorageSizeInGiB))
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse storage size: %d. err: %s", args.Cache.NFSProperties.StorageSizeInGiB, err)
-			}
-
-			pvc = &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pvcName,
-					Namespace: namespace,
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					StorageClassName: &args.Cache.NFSProperties.StorageClass,
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteMany,
-					},
-					VolumeMode: &filesystemVolume,
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: storageQuantity,
-						},
-					},
-				},
-			}
-
-			err = kclient.Create(context.TODO(), pvc)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create PVC %s in %s: %s", pvcName, namespace, err)
-			}
-
-			logger.Infof("Successfully create PVC %s in %s", pvcName, namespace)
-			args.Cache.NFSProperties.PVC = pvcName
+		if err := createDynamicPVC(id, "cache", &args.Cache.NFSProperties, logger); err != nil {
+			return nil, err
+		}
+	}
+	if args.ShareStorage.MediumType == types.NFSMedium && args.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
+		if err := createDynamicPVC(id, "share-storage", &args.ShareStorage.NFSProperties, logger); err != nil {
+			return nil, err
 		}
 	}
 
@@ -378,6 +335,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		DindCfg:        args.DindCfg,
 		Type:           args.Type,
 		KubeConfig:     args.KubeConfig,
+		ShareStorage:   args.ShareStorage,
 	}
 
 	cluster, err = s.UpdateCluster(id, cluster, logger)
@@ -806,4 +764,65 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	return err
+}
+
+func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperties, logger *zap.SugaredLogger) error {
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	var namespace string
+	switch clusterID {
+	case setting.LocalClusterID:
+		namespace = config.Namespace()
+	default:
+		namespace = setting.AttachedClusterNamespace
+	}
+
+	pvcName := fmt.Sprintf("%s-%s-%d", prefix, nfsProperties.StorageClass, nfsProperties.StorageSizeInGiB)
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = kclient.Get(context.TODO(), client.ObjectKey{
+		Name:      pvcName,
+		Namespace: namespace,
+	}, pvc)
+	if err == nil {
+		logger.Infof("PVC %s eixsts in %s", pvcName, namespace)
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to find PVC %s in %s: %s", pvcName, namespace, err)
+	} else {
+		filesystemVolume := corev1.PersistentVolumeFilesystem
+		storageQuantity, err := resource.ParseQuantity(fmt.Sprintf("%dGi", nfsProperties.StorageSizeInGiB))
+		if err != nil {
+			return fmt.Errorf("failed to parse storage size: %d. err: %s", nfsProperties.StorageSizeInGiB, err)
+		}
+
+		pvc = &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pvcName,
+				Namespace: namespace,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				StorageClassName: &nfsProperties.StorageClass,
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteMany,
+				},
+				VolumeMode: &filesystemVolume,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: storageQuantity,
+					},
+				},
+			},
+		}
+
+		err = kclient.Create(context.TODO(), pvc)
+		if err != nil {
+			return fmt.Errorf("failed to create PVC %s in %s: %s", pvcName, namespace, err)
+		}
+
+		logger.Infof("Successfully create PVC %s in %s", pvcName, namespace)
+	}
+	nfsProperties.PVC = pvcName
+	return nil
 }

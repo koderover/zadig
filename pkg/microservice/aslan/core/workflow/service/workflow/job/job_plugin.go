@@ -93,6 +93,7 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	jobTaskSpec.Properties.Registries = registries
+	jobTaskSpec.Properties.ShareStorageDetails = getShareStorageDetail(j.workflow.ShareStorages, j.spec.Properties.ShareStorageInfo, j.workflow.Name, taskID)
 
 	renderedParams := []*commonmodels.Param{}
 	for _, param := range j.spec.Plugin.Inputs {

@@ -42,6 +42,7 @@ type K8SCluster struct {
 	Provider               int8                     `json:"provider"                  bson:"provider"`
 	Local                  bool                     `json:"local"                     bson:"local"`
 	Cache                  types.Cache              `json:"cache"                     bson:"cache"`
+	ShareStorage           types.ShareStorage       `json:"share_storage"             bson:"share_storage"`
 	LastConnectionTime     int64                    `json:"last_connection_time"      bson:"last_connection_time"`
 	UpdateHubagentErrorMsg string                   `json:"update_hubagent_error_msg" bson:"update_hubagent_error_msg"`
 	DindCfg                *DindCfg                 `json:"dind_cfg"                  bson:"dind_cfg"`

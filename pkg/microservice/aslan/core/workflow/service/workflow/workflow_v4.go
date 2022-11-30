@@ -889,3 +889,56 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
 	}
 	return vars
 }
+
+func CheckShareStorageEnabled(clusterID, jobType, identifyName, project string, logger *zap.SugaredLogger) (bool, error) {
+	// if cluster id was set, we just check if the cluster has share storage enabled
+	if clusterID != "" {
+		return checkClusterShareStorage(clusterID)
+	}
+	
+	switch jobType {
+	case string(config.JobZadigBuild):
+		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: identifyName, ProductName: project})
+		if err != nil {
+			return false, fmt.Errorf("find build error: %v", err)
+		}
+		if build.TemplateID == "" {
+			clusterID = build.PreBuild.ClusterID
+			break
+		}
+		template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: build.TemplateID})
+		if err != nil {
+			return false, fmt.Errorf("find build template error: %v", err)
+		}
+		clusterID = template.PreBuild.ClusterID
+	case string(config.JobZadigTesting):
+		testing, err := commonrepo.NewTestingColl().Find(identifyName, "")
+		if err != nil {
+			return false, fmt.Errorf("find testing error: %v", err)
+		}
+		clusterID = testing.PreTest.ClusterID
+	case string(config.JobZadigScanning):
+		scanning, err := commonrepo.NewScanningColl().Find(project, identifyName)
+		if err != nil {
+			return false, fmt.Errorf("find scanning error: %v", err)
+		}
+		clusterID = scanning.AdvancedSetting.ClusterID
+	default:
+		return false, fmt.Errorf("job type %s is not supported", jobType)
+	}
+	if clusterID == "" {
+		clusterID = setting.LocalClusterID
+	}
+	return checkClusterShareStorage(clusterID)
+}
+
+func checkClusterShareStorage(id string) (bool, error) {
+	cluster, err := commonrepo.NewK8SClusterColl().Get(id)
+	if err != nil {
+		return false, fmt.Errorf("find cluter error: %v", err)
+	}
+	if cluster.ShareStorage.NFSProperties.PVC != "" {
+		return true, nil
+	}
+	return false, nil
+}

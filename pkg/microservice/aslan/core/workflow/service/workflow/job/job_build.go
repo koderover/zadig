@@ -213,14 +213,15 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Outputs: outputs,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
-			Timeout:         int64(buildInfo.Timeout),
-			ResourceRequest: buildInfo.PreBuild.ResReq,
-			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
-			CustomEnvs:      renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
-			ClusterID:       buildInfo.PreBuild.ClusterID,
-			BuildOS:         basicImage.Value,
-			ImageFrom:       buildInfo.PreBuild.ImageFrom,
-			Registries:      registries,
+			Timeout:             int64(buildInfo.Timeout),
+			ResourceRequest:     buildInfo.PreBuild.ResReq,
+			ResReqSpec:          buildInfo.PreBuild.ResReqSpec,
+			CustomEnvs:          renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
+			ClusterID:           buildInfo.PreBuild.ClusterID,
+			BuildOS:             basicImage.Value,
+			ImageFrom:           buildInfo.PreBuild.ImageFrom,
+			Registries:          registries,
+			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, build.ShareStorageInfo, j.workflow.Name, taskID),
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
 		if err != nil {
@@ -266,7 +267,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name:     build.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos)},
+			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 
@@ -398,10 +399,11 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 	return origin
 }
 
-func renderRepos(input, origin []*types.Repository) []*types.Repository {
+func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) []*types.Repository {
 	for i, originRepo := range origin {
 		for _, inputRepo := range input {
 			if originRepo.RepoName == inputRepo.RepoName && originRepo.RepoOwner == inputRepo.RepoOwner {
+				inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
 				origin[i] = inputRepo
 			}
 		}

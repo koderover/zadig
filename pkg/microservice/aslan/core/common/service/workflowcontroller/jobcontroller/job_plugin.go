@@ -135,7 +135,7 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 }
 
 func (c *PluginJobCtl) wait(ctx context.Context) {
-	status := waitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	status := WaitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
 	c.job.Status = status
 
 }
