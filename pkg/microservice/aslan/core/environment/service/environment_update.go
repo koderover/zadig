@@ -334,7 +334,12 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 			for _, _renderChart := range renderInfo.ChartInfos {
 				if _renderChart.ServiceName == templateSvc.ServiceName {
 					renderChart = _renderChart
+					break
 				}
+			}
+			if renderChart == nil {
+				log.Errorf("failed to find render chart info, serviceName: %s, renderset: %s", templateSvc.ServiceName, product.Render.Name)
+				continue
 			}
 
 			chartArg := &commonservice.RenderChartArg{
