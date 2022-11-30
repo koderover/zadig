@@ -392,7 +392,7 @@ DistributeLoop:
 					var found bool
 					statefulSet, found, err = getter.GetStatefulSet(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
 					if !found {
-						err = errors.New("statefulset not found")
+						err = fmt.Errorf("statefulset %s not found", distribute.DeployServiceName)
 					}
 					if err != nil {
 						err = errors.WithMessage(err, "failed to get statefulset")
@@ -421,7 +421,7 @@ DistributeLoop:
 					var found bool
 					deployment, found, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
 					if !found {
-						err = errors.New("deployment not found")
+						err = fmt.Errorf("deployment %s not found", distribute.DeployServiceName)
 					}
 					if err != nil {
 						err = errors.WithMessage(err, "failed to get deployment")
