@@ -198,7 +198,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name:     scanning.Name + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(scanning.Repos, scanningInfo.Repos)},
+			Spec:     step.StepGitSpec{Repos: renderRepos(scanning.Repos, scanningInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 		repoName := ""

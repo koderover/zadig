@@ -550,17 +550,18 @@ func setJobShareStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTas
 	if len(storageDetails) > 0 {
 		workflowCtx.ClusterIDAdd(cluster.ID.Hex())
 	}
-	for _, storageDetail := range storageDetails {
-		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: storageDetail.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: cluster.ShareStorage.NFSProperties.PVC,
-				},
+	volumeName := "share-storage"
+	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cluster.ShareStorage.NFSProperties.PVC,
 			},
-		})
+		},
+	})
+	for _, storageDetail := range storageDetails {
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-			Name:      storageDetail.Name,
+			Name:      volumeName,
 			MountPath: storageDetail.MountPath,
 			SubPath:   storageDetail.SubPath,
 		})

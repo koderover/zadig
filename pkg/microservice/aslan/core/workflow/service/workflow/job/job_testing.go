@@ -213,7 +213,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name:     testing.Name + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos)},
+			Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 
