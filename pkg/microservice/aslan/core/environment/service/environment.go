@@ -1759,6 +1759,24 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 	}
 	productResp.ChartInfos = updatedRcs
 
+	if productResp.ServiceDeployStrategy == nil {
+		productResp.ServiceDeployStrategy = make(map[string]string)
+	}
+	needUpdateStrategy := false
+	for _, rc := range updatedRcs {
+		if !commonutil.ServiceDeployed(rc.ServiceName, productResp.ServiceDeployStrategy) {
+			needUpdateStrategy = true
+			productResp.ServiceDeployStrategy[rc.ServiceName] = setting.ServiceDeployStrategyDeploy
+		}
+	}
+	if needUpdateStrategy {
+		err = commonrepo.NewProductColl().UpdateDeployStrategy(envName, productResp.ProductName, productResp.ServiceDeployStrategy)
+		if err != nil {
+			log.Errorf("[%s][P:%s] failed to update product deploy strategy: %s", productResp.EnvName, productResp.ProductName, err)
+			return e.ErrUpdateEnv.AddErr(err)
+		}
+	}
+
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:          productResp.Namespace,
