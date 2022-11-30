@@ -26,6 +26,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -38,7 +39,6 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var cancelChannelMap sync.Map
