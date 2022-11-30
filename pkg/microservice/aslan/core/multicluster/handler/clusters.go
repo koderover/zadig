@@ -157,3 +157,4 @@ func CheckEphemeralContainers(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.CheckEphemeralContainers(c, c.Param("id"))
 }
+

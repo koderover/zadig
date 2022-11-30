@@ -147,6 +147,7 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 			Repos:     scanning.Repos,
 			CreatedAt: scanning.CreatedAt,
 			UpdatedAt: scanning.UpdatedAt,
+			ClusterID: scanning.AdvancedSetting.ClusterID,
 		})
 	}
 	return resp, total, nil

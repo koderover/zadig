@@ -34,6 +34,7 @@ type WorkflowTask struct {
 	OriginWorkflowArgs  *WorkflowV4        `bson:"origin_workflow_args"      json:"origin_workflow_args"`
 	KeyVals             []*KeyVal          `bson:"key_vals"                  json:"key_vals"`
 	GlobalContext       map[string]string  `bson:"global_context"            json:"global_context"`
+	ClusterIDMap        map[string]bool    `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status      `bson:"status"                    json:"status,omitempty"`
 	TaskCreator         string             `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskRevoker         string             `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
@@ -47,6 +48,7 @@ type WorkflowTask struct {
 	Error               string             `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool               `bson:"is_restart"                json:"is_restart"`
 	MultiRun            bool               `bson:"multi_run"                 json:"multi_run"`
+	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
 }
 
 func (WorkflowTask) TableName() string {
@@ -304,4 +306,5 @@ type WorkflowTaskCtx struct {
 	GlobalContextGet  func(key string) (string, bool)
 	GlobalContextSet  func(key, value string)
 	GlobalContextEach func(f func(k, v string) bool)
+	ClusterIDAdd      func(clusterID string)
 }

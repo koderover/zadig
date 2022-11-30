@@ -22,19 +22,20 @@ import (
 )
 
 type WorkflowV4Template struct {
-	ID           primitive.ObjectID       `bson:"_id,omitempty"       yaml:"id"                  json:"id"`
-	TemplateName string                   `bson:"template_name"       yaml:"template_name"      json:"template_name"`
-	Category     setting.WorkflowCategory `bson:"category"            yaml:"category"           json:"category"`
-	KeyVals      []*KeyVal                `bson:"key_vals"            yaml:"key_vals"           json:"key_vals"`
-	Params       []*Param                 `bson:"params"              yaml:"params"             json:"params"`
-	Stages       []*WorkflowStage         `bson:"stages"              yaml:"stages"             json:"stages"`
-	Description  string                   `bson:"description"         yaml:"description"        json:"description"`
-	CreatedBy    string                   `bson:"created_by"          yaml:"created_by"         json:"created_by"`
-	CreateTime   int64                    `bson:"create_time"         yaml:"create_time"        json:"create_time"`
-	UpdatedBy    string                   `bson:"updated_by"          yaml:"updated_by"         json:"updated_by"`
-	UpdateTime   int64                    `bson:"update_time"         yaml:"update_time"        json:"update_time"`
-	MultiRun     bool                     `bson:"multi_run"           yaml:"multi_run"          json:"multi_run"`
-	BuildIn      bool                     `bson:"build_in"            yaml:"build_in"           json:"build_in"`
+	ID            primitive.ObjectID       `bson:"_id,omitempty"       yaml:"id"                  json:"id"`
+	TemplateName  string                   `bson:"template_name"       yaml:"template_name"      json:"template_name"`
+	Category      setting.WorkflowCategory `bson:"category"            yaml:"category"           json:"category"`
+	KeyVals       []*KeyVal                `bson:"key_vals"            yaml:"key_vals"           json:"key_vals"`
+	Params        []*Param                 `bson:"params"              yaml:"params"             json:"params"`
+	Stages        []*WorkflowStage         `bson:"stages"              yaml:"stages"             json:"stages"`
+	Description   string                   `bson:"description"         yaml:"description"        json:"description"`
+	CreatedBy     string                   `bson:"created_by"          yaml:"created_by"         json:"created_by"`
+	CreateTime    int64                    `bson:"create_time"         yaml:"create_time"        json:"create_time"`
+	UpdatedBy     string                   `bson:"updated_by"          yaml:"updated_by"         json:"updated_by"`
+	UpdateTime    int64                    `bson:"update_time"         yaml:"update_time"        json:"update_time"`
+	MultiRun      bool                     `bson:"multi_run"           yaml:"multi_run"          json:"multi_run"`
+	BuildIn       bool                     `bson:"build_in"            yaml:"build_in"           json:"build_in"`
+	ShareStorages []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"     json:"share_storages"`
 }
 
 func (WorkflowV4Template) TableName() string {
