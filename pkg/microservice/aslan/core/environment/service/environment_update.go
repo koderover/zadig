@@ -303,14 +303,59 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
 	}
 	retErr := &multierror.Error{}
+
+	updateArgs := &UpdateMultiHelmProductArg{
+		ProductName: productName,
+		EnvNames:    nil,
+		ChartValues: nil,
+	}
+
 	for _, product := range products {
+		updateArgs.EnvNames = append(updateArgs.EnvNames, product.EnvName)
+
+		productSvcMap := product.GetServiceMap()
+		renderInfo, errFindRender := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			ProductTmpl: product.ProductName,
+			EnvName:     product.EnvName,
+			Name:        product.Render.Name,
+			Revision:    product.Render.Revision})
+		if errFindRender != nil {
+			err = fmt.Errorf("failed to find renderset, %s:%d, err: %s", product.Render.Name, product.Render.Revision, errFindRender)
+			return err
+		}
+
 		for _, templateSvc := range templateSvcs {
-			err := updateHelmServiceInEnv(userName, product, templateSvc)
-			if err != nil {
-				retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+			// only update services
+			if _, ok := productSvcMap[templateSvc.ServiceName]; !ok {
+				continue
 			}
+
+			var renderChart *templatemodels.RenderChart
+			for _, _renderChart := range renderInfo.ChartInfos {
+				if _renderChart.ServiceName == templateSvc.ServiceName {
+					renderChart = _renderChart
+				}
+			}
+
+			chartArg := &commonservice.RenderChartArg{
+				EnvName:     product.EnvName,
+				ServiceName: templateSvc.ServiceName,
+			}
+			chartArg.LoadFromRenderChartModel(renderChart)
+			updateArgs.ChartValues = append(updateArgs.ChartValues, chartArg)
+
+			//err := updateHelmServiceInEnv(userName, product, templateSvc)
+			//if err != nil {
+			//	retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+			//}
 		}
 	}
+
+	_, err = UpdateMultipleHelmEnv("", userName, updateArgs, log.SugaredLogger())
+	if err != nil {
+		return err
+	}
+
 	return retErr.ErrorOrNil()
 }
 
