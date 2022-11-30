@@ -255,3 +255,19 @@ func updateProductImageByNs(namespace, productName, serviceName string, targets 
 
 	return nil
 }
+
+func getMatchedRegistries(image string, registries []*commonmodels.RegistryNamespace) []*commonmodels.RegistryNamespace {
+	resp := []*commonmodels.RegistryNamespace{}
+	for _, registry := range registries {
+		registryPrefix := registry.RegAddr
+		if len(registry.Namespace) > 0 {
+			registryPrefix = fmt.Sprintf("%s/%s", registry.RegAddr, registry.Namespace)
+		}
+		registryPrefix = strings.TrimPrefix(registryPrefix, "http://")
+		registryPrefix = strings.TrimPrefix(registryPrefix, "https://")
+		if strings.HasPrefix(image, registryPrefix) {
+			resp = append(resp, registry)
+		}
+	}
+	return resp
+}
