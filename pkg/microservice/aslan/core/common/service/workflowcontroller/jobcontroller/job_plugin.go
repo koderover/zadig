@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -111,6 +112,7 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 		JobType: string(c.job.JobType),
 		JobName: c.job.K8sJobName,
 	}
+	c.jobTaskSpec.Properties.Registries = getMatchedRegistries(c.jobTaskSpec.Plugin.Image, c.jobTaskSpec.Properties.Registries)
 	job, err := buildPlainJob(c.job.K8sJobName, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
@@ -125,6 +127,13 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return err
 	}
+
+	if err := createOrUpdateRegistrySecrets(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.Registries, c.kubeclient); err != nil {
+		msg := fmt.Sprintf("create secret error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
 	if err := updater.CreateJob(job, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
 		logError(c.job, msg, c.logger)
