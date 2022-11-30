@@ -170,7 +170,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ClusterID:       testingInfo.PreTest.ClusterID,
 			BuildOS:         basicImage.Value,
 			ImageFrom:       testingInfo.PreTest.ImageFrom,
-			Registries:      registries,
+			Registries:      getMatchedRegistries(testingInfo.PreTest.ImageFrom, basicImage.Value, registries),
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
 		if err != nil {

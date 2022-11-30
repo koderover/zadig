@@ -197,12 +197,12 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err != nil {
 		return resp, err
 	}
-	jobTaskSpec.Properties.Registries = registries
 	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTaskSpec.Properties.ImageID)
 	if err != nil {
 		return resp, err
 	}
 	jobTaskSpec.Properties.BuildOS = basicImage.Value
+	jobTaskSpec.Properties.Registries = getMatchedRegistries(jobTaskSpec.Properties.ImageFrom, basicImage.Value, registries)
 	// save user defined variables.
 	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
 	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name)...)

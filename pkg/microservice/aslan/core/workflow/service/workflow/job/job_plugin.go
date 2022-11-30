@@ -92,7 +92,7 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err != nil {
 		return resp, err
 	}
-	jobTaskSpec.Properties.Registries = registries
+	jobTaskSpec.Properties.Registries = getMatchedRegistries(setting.ImageFromCustom, j.spec.Plugin.Image, registries)
 
 	renderedParams := []*commonmodels.Param{}
 	for _, param := range j.spec.Plugin.Inputs {

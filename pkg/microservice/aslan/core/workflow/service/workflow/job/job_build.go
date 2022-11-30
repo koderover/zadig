@@ -174,6 +174,11 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 
+	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+	if err != nil {
+		return resp, err
+	}
+
 	for _, build := range j.spec.ServiceAndBuilds {
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "image")
 
@@ -198,10 +203,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
 		}
-		registries, err := commonservice.ListRegistryNamespaces("", true, logger)
-		if err != nil {
-			return resp, err
-		}
+
 		outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
@@ -220,7 +222,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ClusterID:       buildInfo.PreBuild.ClusterID,
 			BuildOS:         basicImage.Value,
 			ImageFrom:       buildInfo.PreBuild.ImageFrom,
-			Registries:      registries,
+			Registries:      getMatchedRegistries(buildInfo.PreBuild.ImageFrom, basicImage.Value, registries),
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
 		if err != nil {

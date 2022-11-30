@@ -174,7 +174,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			BuildOS:         scanningImage,
 			ImageFrom:       setting.ImageFromCustom,
 			Envs:            []*commonmodels.KeyVal{scanningNameKV},
-			Registries:      registries,
+			Registries:      getMatchedRegistries(setting.ImageFromCustom, scanningImage, registries),
 		}
 
 		// init tools install step
