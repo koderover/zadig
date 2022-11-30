@@ -389,7 +389,11 @@ DistributeLoop:
 				switch serviceInfo.WorkloadType {
 				case setting.StatefulSet:
 					var statefulSet *appsv1.StatefulSet
-					statefulSet, _, err = getter.GetStatefulSet(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					var found bool
+					statefulSet, found, err = getter.GetStatefulSet(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					if !found {
+						err = fmt.Errorf("statefulset %s not found", distribute.DeployServiceName)
+					}
 					if err != nil {
 						err = errors.WithMessage(err, "failed to get statefulset")
 						distribute.DeployStatus = string(config.StatusFailed)
@@ -414,7 +418,11 @@ DistributeLoop:
 					}
 				case setting.Deployment:
 					var deployment *appsv1.Deployment
-					deployment, _, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					var found bool
+					deployment, found, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					if !found {
+						err = fmt.Errorf("deployment %s not found", distribute.DeployServiceName)
+					}
 					if err != nil {
 						err = errors.WithMessage(err, "failed to get deployment")
 						distribute.DeployStatus = string(config.StatusFailed)
