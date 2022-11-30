@@ -391,7 +391,10 @@ DistributeLoop:
 					var statefulSet *appsv1.StatefulSet
 					var found bool
 					statefulSet, found, err = getter.GetStatefulSet(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
-					if err != nil || !found {
+					if !found {
+						err = errors.New("statefulset not found")
+					}
+					if err != nil {
 						err = errors.WithMessage(err, "failed to get statefulset")
 						distribute.DeployStatus = string(config.StatusFailed)
 						distribute.DeployEndTime = time.Now().Unix()
@@ -417,7 +420,10 @@ DistributeLoop:
 					var deployment *appsv1.Deployment
 					var found bool
 					deployment, found, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
-					if err != nil || found {
+					if !found {
+						err = errors.New("statefulset not found")
+					}
+					if err != nil {
 						err = errors.WithMessage(err, "failed to get deployment")
 						distribute.DeployStatus = string(config.StatusFailed)
 						distribute.DeployEndTime = time.Now().Unix()
