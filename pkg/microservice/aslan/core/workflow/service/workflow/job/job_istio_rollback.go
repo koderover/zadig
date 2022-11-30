@@ -13,7 +13,13 @@ limitations under the License.
 
 package job
 
-import commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+import (
+	"fmt"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+)
 
 type IstioRollBackJob struct {
 	job      *commonmodels.Job
@@ -57,6 +63,32 @@ func (j *IstioRollBackJob) MergeArgs(args *commonmodels.Job) error {
 
 func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
+	j.spec = &commonmodels.IstioRollBackJobSpec{}
+
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+
+	cluster, err := commonrepo.NewK8SClusterColl().Get(j.spec.ClusterID)
+	if err != nil {
+		return resp, fmt.Errorf("cluster id: %s not found", j.spec.ClusterID)
+	}
+
+	for _, target := range j.spec.Services {
+		jobTask := &commonmodels.JobTask{
+			Name:    j.job.Name,
+			JobType: string(config.JobIstioRollback),
+			Spec: &commonmodels.JobIstioRollbackSpec{
+				Namespace:   j.spec.Namespace,
+				ClusterID:   j.spec.ClusterID,
+				ClusterName: cluster.Name,
+				Image:       target.Image,
+				Service:     target,
+			},
+		}
+		resp = append(resp, jobTask)
+	}
+
 	return resp, nil
 }
 
