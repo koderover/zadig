@@ -40,11 +40,11 @@ type ObjectProperties struct {
 }
 
 type NFSProperties struct {
-	ProvisionType    ProvisionType `json:"provision_type"      bson:"provision_type"`
-	StorageClass     string        `json:"storage_class"       bson:"storage_class"`
-	StorageSizeInGiB int64         `json:"storage_size_in_gib" bson:"storage_size_in_gib"`
-	PVC              string        `json:"pvc"                 bson:"pvc"`
-	Subpath          string        `json:"subpath"             bson:"subpath"`
+	ProvisionType    ProvisionType `json:"provision_type"      bson:"provision_type"         yaml:"provision_type"`
+	StorageClass     string        `json:"storage_class"       bson:"storage_class"          yaml:"storage_class"`
+	StorageSizeInGiB int64         `json:"storage_size_in_gib" bson:"storage_size_in_gib"    yaml:"storage_size_in_gib"`
+	PVC              string        `json:"pvc"                 bson:"pvc"                    yaml:"pvc"`
+	Subpath          string        `json:"subpath"             bson:"subpath"                yaml:"subpath"`
 }
 
 type Cache struct {

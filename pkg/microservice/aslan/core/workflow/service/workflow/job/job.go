@@ -419,3 +419,34 @@ func checkOutputNames(outputs []*commonmodels.Output) error {
 	}
 	return nil
 }
+
+func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStorageInfo *commonmodels.ShareStorageInfo, workflowName string, taskID int64) []*commonmodels.StorageDetail {
+	resp := []*commonmodels.StorageDetail{}
+	if shareStorageInfo == nil {
+		return resp
+	}
+	if !shareStorageInfo.Enabled {
+		return resp
+	}
+	if len(shareStorages) == 0 || len(shareStorageInfo.ShareStorages) == 0 {
+		return resp
+	}
+	storageMap := make(map[string]*commonmodels.ShareStorage, len(shareStorages))
+	for _, shareStorage := range shareStorages {
+		storageMap[shareStorage.Name] = shareStorage
+	}
+	for _, storageInfo := range shareStorageInfo.ShareStorages {
+		storage, ok := storageMap[storageInfo.Name]
+		if !ok {
+			continue
+		}
+		storageDetail := &commonmodels.StorageDetail{
+			Name:      storageInfo.Name,
+			Type:      types.NFSMedium,
+			SubPath:   types.GetShareStorageSubPath(workflowName, storageInfo.Name, taskID),
+			MountPath: storage.Path,
+		}
+		resp = append(resp, storageDetail)
+	}
+	return resp
+}

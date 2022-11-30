@@ -25,6 +25,8 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -33,6 +35,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowstat"
+	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -41,6 +46,7 @@ var cancelChannelMap sync.Map
 type workflowCtl struct {
 	workflowTask       *commonmodels.WorkflowTask
 	globalContextMutex sync.RWMutex
+	clusterIDMutex     sync.RWMutex
 	logger             *zap.SugaredLogger
 	ack                func()
 }
@@ -106,6 +112,9 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if c.workflowTask.GlobalContext == nil {
 		c.workflowTask.GlobalContext = make(map[string]string)
 	}
+	if c.workflowTask.ClusterIDMap == nil {
+		c.workflowTask.ClusterIDMap = make(map[string]bool)
+	}
 	c.workflowTask.Status = config.StatusRunning
 	c.workflowTask.StartTime = time.Now().Unix()
 	c.ack()
@@ -114,6 +123,8 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		c.workflowTask.EndTime = time.Now().Unix()
 		c.logger.Infof("finish workflow: %s,status: %s", c.workflowTask.WorkflowName, c.workflowTask.Status)
 		c.ack()
+		// clean share storage after workflow finished
+		go c.CleanShareStorage()
 	}()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -133,6 +144,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		GlobalContextGet:  c.getGlobalContext,
 		GlobalContextSet:  c.setGlobalContext,
 		GlobalContextEach: c.globalContextEach,
+		ClusterIDAdd:      c.addCluterID,
 	}
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {
@@ -238,8 +250,45 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := workflowstat.UpdateWorkflowStat(c.workflowTask.WorkflowName, string(config.WorkflowTypeV4), string(c.workflowTask.Status), c.workflowTask.ProjectName, c.workflowTask.EndTime-c.workflowTask.StartTime, c.workflowTask.IsRestart); err != nil {
 			log.Warnf("Failed to update workflow stat for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
-
 	}
+}
+
+func (c *workflowCtl) CleanShareStorage() {
+	for clusterID := range c.workflowTask.ClusterIDMap {
+		cleanJobName := fmt.Sprintf("clean-%s", rand.String(8))
+		namespace := setting.AttachedClusterNamespace
+		if clusterID == setting.LocalClusterID || clusterID == "" {
+			namespace = config.Namespace()
+		}
+		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		if err != nil {
+			c.logger.Errorf("can't init k8s client: %v", err)
+			continue
+		}
+		job, err := jobcontroller.BuildCleanJob(cleanJobName, clusterID, c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+		if err != nil {
+			c.logger.Errorf("build clean job error: %v", err)
+			continue
+		}
+		job.Namespace = namespace
+		if err := updater.CreateJob(job, kubeClient); err != nil {
+			c.logger.Errorf("create job error: %v", err)
+			continue
+		}
+		defer func(client client.Client, name, namespace string) {
+			if err := updater.DeleteJobAndWait(namespace, name, client); err != nil {
+				c.logger.Errorf("delete job error: %v", err)
+			}
+		}(kubeClient, cleanJobName, namespace)
+		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, c.logger)
+		c.logger.Infof("clean job %s finished, status: %s", cleanJobName, status)
+	}
+}
+
+func (c *workflowCtl) addCluterID(clusterID string) {
+	c.clusterIDMutex.Lock()
+	defer c.clusterIDMutex.Unlock()
+	c.workflowTask.ClusterIDMap[clusterID] = true
 }
 
 // mongo do not support dot in keys.
