@@ -1258,7 +1258,7 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 
 	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
-		err := updateProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, log)
+		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -3395,7 +3395,7 @@ func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, 
 	return errList
 }
 
-func updateProductGroup(username, productName, envName string, productResp *commonmodels.Product,
+func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
 	overrideCharts []*commonservice.RenderChartArg, deletedSvcRevision map[string]int64, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
