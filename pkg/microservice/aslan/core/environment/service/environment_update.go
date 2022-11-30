@@ -199,74 +199,6 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 	return
 }
 
-func updateHelmServiceInEnv(userName string, productInfo *commonmodels.Product, templateSvc *commonmodels.Service) (finalError error) {
-	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
-	// service not applied in this environment
-	if _, ok := productSvcMap[serviceName]; !ok {
-		return nil
-	}
-
-	var err error
-	defer func() {
-		finalError = setProductServiceError(productInfo, templateSvc.ServiceName, err)
-	}()
-
-	renderInfo, errFindRender := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productInfo.ProductName,
-		EnvName:     productInfo.EnvName,
-		Name:        productInfo.Render.Name,
-		Revision:    productInfo.Render.Revision})
-	if errFindRender != nil {
-		err = fmt.Errorf("failed to find renderset, %s:%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, errFindRender)
-		return
-	}
-
-	var renderChart *templatemodels.RenderChart
-	for _, _renderChart := range renderInfo.ChartInfos {
-		if _renderChart.ServiceName == serviceName {
-			renderChart = _renderChart
-		}
-	}
-	if renderChart == nil {
-		err = fmt.Errorf("failed to find renderchart for service: %s", renderChart.ServiceName)
-		return
-	}
-
-	chartArg := &commonservice.RenderChartArg{}
-	chartArg.FillRenderChartModel(renderChart, renderChart.ChartVersion)
-	newRenderSet, errDiffRender := diffRenderSet(userName, productInfo.ProductName, productInfo.EnvName, productInfo, []*commonservice.RenderChartArg{chartArg}, log.SugaredLogger())
-	if errDiffRender != nil {
-		err = fmt.Errorf("failed to build renderset for service: %s, err: %s", renderChart.ServiceName, errDiffRender)
-		return
-	}
-
-	// update renderChart
-	for _, _renderChart := range newRenderSet.ChartInfos {
-		if _renderChart.ServiceName == serviceName {
-			renderChart = _renderChart
-		}
-	}
-
-	helmClient, errCreateClient := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
-	if errCreateClient != nil {
-		err = fmt.Errorf("failed to create helm client, err: %s", errCreateClient)
-		return
-	}
-
-	param, errBuildParam := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc)
-	if err != nil {
-		return fmt.Errorf("failed to generate install param, service: %s err: %s", templateSvc.ServiceName, errBuildParam)
-	}
-
-	err = InstallService(helmClient, param)
-	if err != nil {
-		return fmt.Errorf("fauled to install release for service: %s, err: %s", templateSvc.ServiceName, err)
-	}
-
-	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
-	return
-}
-
 func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) error {
 	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
 	// service not applied in this environment
@@ -303,14 +235,63 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
 	}
 	retErr := &multierror.Error{}
+
+	updateArgs := &UpdateMultiHelmProductArg{
+		ProductName: productName,
+		EnvNames:    nil,
+		ChartValues: nil,
+	}
+
 	for _, product := range products {
+
+		envAffected := false
+		productSvcMap := product.GetServiceMap()
+		renderInfo, errFindRender := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			ProductTmpl: product.ProductName,
+			EnvName:     product.EnvName,
+			Name:        product.Render.Name,
+			Revision:    product.Render.Revision})
+		if errFindRender != nil {
+			err = fmt.Errorf("failed to find renderset, %s:%d, err: %s", product.Render.Name, product.Render.Revision, errFindRender)
+			return err
+		}
+
 		for _, templateSvc := range templateSvcs {
-			err := updateHelmServiceInEnv(userName, product, templateSvc)
-			if err != nil {
-				retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+			// only update services
+			if _, ok := productSvcMap[templateSvc.ServiceName]; !ok {
+				continue
 			}
+
+			var renderChart *templatemodels.RenderChart
+			for _, _renderChart := range renderInfo.ChartInfos {
+				if _renderChart.ServiceName == templateSvc.ServiceName {
+					renderChart = _renderChart
+					break
+				}
+			}
+			if renderChart == nil {
+				//log.Errorf("failed to find render chart info, serviceName: %s, renderset: %s", templateSvc.ServiceName, product.Render.Name)
+				continue
+			}
+
+			chartArg := &commonservice.RenderChartArg{
+				EnvName:     product.EnvName,
+				ServiceName: templateSvc.ServiceName,
+			}
+			chartArg.LoadFromRenderChartModel(renderChart)
+			updateArgs.ChartValues = append(updateArgs.ChartValues, chartArg)
+			envAffected = true
+		}
+		if envAffected {
+			updateArgs.EnvNames = append(updateArgs.EnvNames, product.EnvName)
 		}
 	}
+
+	_, err = UpdateMultipleHelmEnv("", userName, updateArgs, log.SugaredLogger())
+	if err != nil {
+		return err
+	}
+
 	return retErr.ErrorOrNil()
 }
 
