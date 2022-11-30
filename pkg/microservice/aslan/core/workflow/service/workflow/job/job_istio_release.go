@@ -131,6 +131,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				ClusterName:       cluster.Name,
 				Namespace:         j.spec.Namespace,
 				Weight:            j.spec.Weight,
+				Timeout:           j.spec.Timeout,
 				ReplicaPercentage: j.spec.ReplicaPercentage,
 				Replicas:          int64(newReplicaCount),
 				Service:           target,

@@ -226,6 +226,7 @@ type JobTaskGrayReleaseSpec struct {
 
 type JobIstioReleaseSpec struct {
 	FirstJob          bool            `bson:"first_job"          json:"first_job"          yaml:"first_job"`
+	Timeout           int64           `bson:"timeout"            json:"timeout"            yaml:"timeout"`
 	ClusterID         string          `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
 	ClusterName       string          `bson:"cluster_name"       json:"cluster_name"       yaml:"cluster_name"`
 	Namespace         string          `bson:"namespace"          json:"namespace"          yaml:"namespace"`
