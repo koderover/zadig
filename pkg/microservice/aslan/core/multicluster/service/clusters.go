@@ -822,7 +822,7 @@ func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 		}
 
 		logger.Infof("Successfully create PVC %s in %s", pvcName, namespace)
-		nfsProperties.PVC = pvcName
 	}
+	nfsProperties.PVC = pvcName
 	return nil
 }
