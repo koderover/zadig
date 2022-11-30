@@ -415,7 +415,7 @@ DistributeLoop:
 					var found bool
 					deployment, found, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
 					if !found {
-						err = errors.New("statefulset not found")
+						err = errors.New("deployment not found")
 					}
 					if err != nil {
 						err = errors.WithMessage(err, "failed to get deployment")
