@@ -24,19 +24,24 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
 
 type DeployableEnv struct {
-	EnvName   string   `json:"env_name"`
-	Namespace string   `json:"namespace"`
-	ClusterID string   `json:"cluster_id"`
-	Services  []string `json:"services"`
+	EnvName   string               `json:"env_name"`
+	Namespace string               `json:"namespace"`
+	ClusterID string               `json:"cluster_id"`
+	Services  []string             `json:"services"`
+	Vars      []*template.RenderKV `json:"vars"`
 }
 
 type DeployableEnvResp struct {
@@ -50,15 +55,21 @@ type DeployableEnvResp struct {
 //     can deploy the service.
 //     Otherwise, all sub-environments of the baseline environment cannot deploy the service.
 func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) {
+
+	product, err := templatemodels.NewProductColl().Find(projectName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find template product %s, err: %s ", projectName, err)
+	}
+
 	resp := &DeployableEnvResp{Envs: make([]*DeployableEnv, 0)}
 	// 1. Get all general environments.
-	envs0, err := getAllGeneralEnvs(projectName)
+	envs0, err := getAllGeneralEnvs(product)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Get all deployable environments in the context of environment sharing..
-	envs1, err := getDeployableShareEnvs(svcName, projectName)
+	envs1, err := getDeployableShareEnvs(svcName, product)
 	if err != nil {
 		return nil, err
 	}
@@ -298,13 +309,21 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 	return nil
 }
 
-func getAllGeneralEnvs(projectName string) ([]*DeployableEnv, error) {
+func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, error) {
+	projectName := templateProduct.ProjectName
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           projectName,
 		ShareEnvEnable: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if templateProduct.IsK8sYamlProduct() {
+		err = service.FillProductVars(envs, log.SugaredLogger())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ret := make([]*DeployableEnv, len(envs))
@@ -317,13 +336,15 @@ func getAllGeneralEnvs(projectName string) ([]*DeployableEnv, error) {
 			Namespace: env.Namespace,
 			ClusterID: env.ClusterID,
 			Services:  env.GetProductSvcNames(),
+			Vars:      env.Vars,
 		}
 	}
 
 	return ret, nil
 }
 
-func getDeployableShareEnvs(svcName, projectName string) ([]*DeployableEnv, error) {
+func getDeployableShareEnvs(svcName string, templateProduct *template.Product) ([]*DeployableEnv, error) {
+	projectName := templateProduct.ProjectName
 	baseEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           projectName,
 		ShareEnvEnable: util.GetBoolPointer(true),
@@ -333,6 +354,13 @@ func getDeployableShareEnvs(svcName, projectName string) ([]*DeployableEnv, erro
 		return nil, err
 	}
 
+	if templateProduct.IsK8sYamlProduct() {
+		err = service.FillProductVars(baseEnvs, log.SugaredLogger())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	ret := make([]*DeployableEnv, 0)
 	for _, baseEnv := range baseEnvs {
 		ret = append(ret, &DeployableEnv{
@@ -340,13 +368,14 @@ func getDeployableShareEnvs(svcName, projectName string) ([]*DeployableEnv, erro
 			Namespace: baseEnv.Namespace,
 			ClusterID: baseEnv.ClusterID,
 			Services:  baseEnv.GetProductSvcNames(),
+			Vars:      baseEnv.Vars,
 		})
 
 		if !hasSvcInEnv(svcName, baseEnv) {
 			continue
 		}
 
-		subEnvs, err := getSubEnvs(baseEnv.EnvName, projectName)
+		subEnvs, err := getSubEnvs(baseEnv.EnvName, templateProduct)
 		if err != nil {
 			return nil, err
 		}
@@ -357,7 +386,8 @@ func getDeployableShareEnvs(svcName, projectName string) ([]*DeployableEnv, erro
 	return ret, nil
 }
 
-func getSubEnvs(baseEnvName, projectName string) ([]*DeployableEnv, error) {
+func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*DeployableEnv, error) {
+	projectName := templateProduct.ProjectName
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:            projectName,
 		ShareEnvEnable:  util.GetBoolPointer(true),
@@ -368,6 +398,13 @@ func getSubEnvs(baseEnvName, projectName string) ([]*DeployableEnv, error) {
 		return nil, err
 	}
 
+	if templateProduct.IsK8sYamlProduct() {
+		err = service.FillProductVars(envs, log.SugaredLogger())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
 		ret[i] = &DeployableEnv{
@@ -375,6 +412,7 @@ func getSubEnvs(baseEnvName, projectName string) ([]*DeployableEnv, error) {
 			Namespace: env.Namespace,
 			ClusterID: env.ClusterID,
 			Services:  env.GetProductSvcNames(),
+			Vars:      env.Vars,
 		}
 	}
 
