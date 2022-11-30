@@ -358,6 +358,16 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		MaxHistory:  10,
 	}
 	c.logger.Infof("start to upgrade helm chart, release name: %s, chart name: %s, version: %s", chartSpec.ReleaseName, chartSpec.ChartName, chartSpec.Version)
+	deploytargets := map[string]string{}
+	for _, target := range c.jobTaskSpec.ImageAndModules {
+		deploytargets[target.ServiceModule] = target.Image
+	}
+	// update product images even if delpoy failed.
+	defer func() {
+		if err := updateProductImageByNs(env.Namespace, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, deploytargets, c.logger); err != nil {
+			c.logger.Error(err)
+		}
+	}()
 	done := make(chan bool)
 	go func(chan bool) {
 		if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec, nil); err != nil {

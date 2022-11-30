@@ -260,6 +260,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
+	if err := updateProductImageByNs(env.Namespace, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, map[string]string{c.jobTaskSpec.ServiceModule: c.jobTaskSpec.Image}, c.logger); err != nil {
+		c.logger.Error(err)
+	}
 	c.job.Spec = c.jobTaskSpec
 	return nil
 }
