@@ -476,15 +476,13 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 				continue
 			}
 
-			if svcRev.Updatable {
-
+			if svcRev.Updatable || commonutil.DeployStrategyChanged(svcRev.ServiceName, existedProd.ServiceDeployStrategy, deployStrategy) {
 				service := &commonmodels.ProductService{
 					ServiceName: svcRev.ServiceName,
 					ProductName: prodService.ProductName,
 					Type:        svcRev.Type,
 					Revision:    svcRev.NextRevision,
 				}
-
 				service.Containers = svcRev.Containers
 				service.Render = updateProd.Render
 
