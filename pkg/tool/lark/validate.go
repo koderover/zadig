@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"github.com/imroc/req/v3"
+	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 )
 
@@ -38,9 +39,12 @@ func Validate(appID, secret string) error {
 		return fmt.Errorf("unexpected status code %d", resp.GetStatusCode())
 	}
 
-	msg := gjson.Get(resp.String(), "msg").String()
-	if msg != "success" {
-		return fmt.Errorf("unexpected response message: %s", msg)
+	code := gjson.Get(resp.String(), "code")
+	if !code.Exists() {
+		return errors.New("invalid lark response")
+	}
+	if code.Int() != 0 {
+		return fmt.Errorf("unexpected lark response code: %d", code.Int())
 	}
 	return nil
 }
