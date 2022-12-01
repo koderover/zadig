@@ -16,12 +16,12 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"istio.io/api/meta/v1alpha1"
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"time"
 
 	"go.uber.org/zap"
+	"istio.io/api/meta/v1alpha1"
+	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -196,7 +196,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			Name: newDestinationRuleName,
 		},
 		Spec: networkingv1alpha3.DestinationRule{
-			Host:    "my-host",
+			Host:    c.jobTaskSpec.Service.Host,
 			Subsets: subsetList,
 		},
 	}
@@ -217,10 +217,21 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 
+		found := false
+		for _, host := range vs.Spec.Hosts {
+			if host == c.jobTaskSpec.Service.Host {
+				found = true
+			}
+			break
+		}
+		if !found {
+			vs.Spec.Hosts = append(vs.Spec.Hosts, c.jobTaskSpec.Service.Host)
+		}
+
 		newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
 		newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
 			Destination: &networkingv1alpha3.Destination{
-				Host:   "my-host",
+				Host:   c.jobTaskSpec.Service.Host,
 				Subset: ZadigIstioLabelOriginal,
 				Port:   vs.Spec.Http[0].Route[0].Destination.Port,
 			},
@@ -228,7 +239,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		})
 		newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
 			Destination: &networkingv1alpha3.Destination{
-				Host:   "my-host",
+				Host:   c.jobTaskSpec.Service.Host,
 				Subset: ZadigIstioLabelOriginal,
 				Port:   vs.Spec.Http[0].Route[0].Destination.Port,
 			},
