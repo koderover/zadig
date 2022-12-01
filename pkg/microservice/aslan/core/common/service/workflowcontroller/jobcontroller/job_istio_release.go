@@ -22,6 +22,7 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -107,8 +108,6 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 	//                     Deployment modification
 	// ==================================================================
 
-	newDeployment := deployment.DeepCopy()
-
 	// if an original VS is provided, put a label into the label, so we could find it during the rollback
 	if c.jobTaskSpec.Service.VirtualServiceName != "" {
 		deployment.Labels[ZadigIstioOriginalVSLabel] = c.jobTaskSpec.Service.VirtualServiceName
@@ -134,7 +133,15 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 	}
 
 	// create a new deployment called <deployment-name>-zadig-copy
-	newDeployment.Name = fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix)
+	newDeployment := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix),
+			Labels:      deployment.ObjectMeta.Labels,
+			Annotations: deployment.ObjectMeta.Annotations,
+		},
+		Spec: deployment.Spec,
+	}
+
 	// edit the label of the new deployment so we could find it
 	newDeployment.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
 	newDeployment.Spec.Selector.MatchLabels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
@@ -142,7 +149,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 	// edit the image of the new deployment
 	for _, container := range newDeployment.Spec.Template.Spec.Containers {
 		if container.Name == c.jobTaskSpec.Service.ContainerName {
-			container.Image = c.jobTaskSpec.Service.Image
+			container.Image = "docker.io/istio/examples-bookinfo-reviews-v3:1.17.0"
 		}
 	}
 
