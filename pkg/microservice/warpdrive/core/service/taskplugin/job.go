@@ -523,6 +523,8 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 			Completions:  int32Ptr(1),
 			Parallelism:  int32Ptr(1),
 			BackoffLimit: int32Ptr(0),
+			// in case finished zombie job not cleaned up by zadig
+			TTLSecondsAfterFinished: int32Ptr(3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
