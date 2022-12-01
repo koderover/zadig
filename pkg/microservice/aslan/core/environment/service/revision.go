@@ -171,6 +171,15 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		prodRev.Updatable = prodRev.GroupsUpdated()
 	}
 
+	if !prodRev.Updatable {
+		for _, svc := range product.GetServiceMap() {
+			if !commonutil.ServiceDeployed(svc.ServiceName, product.ServiceDeployStrategy) {
+				prodRev.Updatable = true
+				break
+			}
+		}
+	}
+
 	return prodRev, nil
 }
 
