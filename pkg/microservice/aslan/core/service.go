@@ -251,6 +251,7 @@ func initDatabase() {
 		commonrepo.NewDeliveryVersionColl(),
 		commonrepo.NewDiffNoteColl(),
 		commonrepo.NewDindCleanColl(),
+		commonrepo.NewExternalApprovalColl(),
 		commonrepo.NewFavoriteColl(),
 		commonrepo.NewGithubAppColl(),
 		commonrepo.NewHelmRepoColl(),
