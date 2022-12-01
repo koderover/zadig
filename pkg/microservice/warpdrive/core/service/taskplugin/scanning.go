@@ -238,6 +238,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	if !jobExist {
 		p.Log.Infof("Job %s:%d does not exist. Create.", pipelineTask.PipelineName, pipelineTask.TaskID)
 
+		p.Task.Registries = getMatchedRegistries(p.Task.ImageInfo, p.Task.Registries)
 		// search namespace should also include desired namespace
 		job, err := buildJobWithLinkedNs(
 			p.Type(), p.Task.ImageInfo, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Test.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
