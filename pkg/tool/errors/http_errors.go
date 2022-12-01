@@ -762,4 +762,14 @@ var (
 	ErrGetConfigurationManagement      = NewHTTPError(6923, "获取配置管理失败")
 	ErrDeleteConfigurationManagement   = NewHTTPError(6924, "删除配置管理失败")
 	ErrValidateConfigurationManagement = NewHTTPError(6925, "校验配置管理失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// external approval releated errors: 6930-6939
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateExternalApproval   = NewHTTPError(6920, "创建外部审批失败")
+	ErrUpdateExternalApproval   = NewHTTPError(6921, "更新外部审批失败")
+	ErrListExternalApproval     = NewHTTPError(6922, "列出外部审批失败")
+	ErrGetExternalApproval      = NewHTTPError(6923, "获取外部审批失败")
+	ErrDeleteExternalApproval   = NewHTTPError(6924, "删除外部审批失败")
+	ErrValidateExternalApproval = NewHTTPError(6925, "校验外部审批失败")
 )

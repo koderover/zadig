@@ -32,28 +32,29 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type LarkAppColl struct {
+type ExternalApprovalColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewLarkAppColl() *LarkAppColl {
-	name := models.LarkApp{}.TableName()
-	return &LarkAppColl{
+func NewExternalApprovalColl() *ExternalApprovalColl {
+	name := models.ExternalApproval{}.TableName()
+	return &ExternalApprovalColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *LarkAppColl) GetCollectionName() string {
+func (c *ExternalApprovalColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *LarkAppColl) EnsureIndex(ctx context.Context) error {
+func (c *ExternalApprovalColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "app_id", Value: 1},
+			bson.E{Key: "name", Value: 1},
 		},
 		Options: options.Index().SetUnique(true),
 	}
@@ -62,9 +63,9 @@ func (c *LarkAppColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *LarkAppColl) Create(ctx context.Context, args *models.LarkApp) error {
+func (c *ExternalApprovalColl) Create(ctx context.Context, args *models.ExternalApproval) error {
 	if args == nil {
-		return errors.New("lark app is nil")
+		return errors.New("approval is nil")
 	}
 	args.UpdateTime = time.Now().Unix()
 
@@ -72,9 +73,9 @@ func (c *LarkAppColl) Create(ctx context.Context, args *models.LarkApp) error {
 	return err
 }
 
-func (c *LarkAppColl) List(ctx context.Context) ([]*models.LarkApp, error) {
+func (c *ExternalApprovalColl) List(ctx context.Context) ([]*models.ExternalApproval, error) {
 	query := bson.M{}
-	resp := make([]*models.LarkApp, 0)
+	resp := make([]*models.ExternalApproval, 0)
 
 	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
@@ -84,18 +85,18 @@ func (c *LarkAppColl) List(ctx context.Context) ([]*models.LarkApp, error) {
 	return resp, cursor.All(ctx, &resp)
 }
 
-func (c *LarkAppColl) GetByID(ctx context.Context, idString string) (*models.LarkApp, error) {
+func (c *ExternalApprovalColl) GetByID(ctx context.Context, idString string) (*models.ExternalApproval, error) {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return nil, err
 	}
 	query := bson.M{"_id": id}
 
-	resp := new(models.LarkApp)
+	resp := new(models.ExternalApproval)
 	return resp, c.FindOne(ctx, query).Decode(resp)
 }
 
-func (c *LarkAppColl) Update(ctx context.Context, idString string, arg *models.LarkApp) error {
+func (c *ExternalApprovalColl) Update(ctx context.Context, idString string, arg *models.ExternalApproval) error {
 	if arg == nil {
 		return fmt.Errorf("nil app")
 	}
@@ -112,7 +113,7 @@ func (c *LarkAppColl) Update(ctx context.Context, idString string, arg *models.L
 	return err
 }
 
-func (c *LarkAppColl) DeleteByID(ctx context.Context, idString string) error {
+func (c *ExternalApprovalColl) DeleteByID(ctx context.Context, idString string) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return err

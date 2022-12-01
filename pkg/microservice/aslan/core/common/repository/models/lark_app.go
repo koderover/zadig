@@ -18,13 +18,18 @@ package models
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-type LarkApp struct {
-	ID         primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	AppID      string             `json:"app_id" bson:"app_id"`
-	AppSecret  string             `json:"app_secret" bson:"app_secret"`
-	UpdateTime int64              `json:"update_time" bson:"update_time"`
+type ExternalApproval struct {
+	ID   primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	Type string             `json:"type" bson:"type"`
+	Name string             `json:"name" bson:"name"`
+	// Lark fields
+	AppID      string `json:"app_id" bson:"app_id"`
+	AppSecret  string `json:"app_secret" bson:"app_secret"`
+	EncryptKey string `json:"encrypt_key" bson:"encrypt_key"`
+
+	UpdateTime int64 `json:"update_time" bson:"update_time"`
 }
 
-func (LarkApp) TableName() string {
-	return "lark_app"
+func (ExternalApproval) TableName() string {
+	return "external_approval"
 }

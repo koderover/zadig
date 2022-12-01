@@ -258,6 +258,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.DELETE("/:id", DeleteConfigurationManagement)
 		configuration.POST("/validate", ValidateConfigurationManagement)
 	}
+
+	approval := router.Group("approval")
+	{
+		approval.GET("", ListApproval)
+		approval.POST("", CreateApproval)
+		approval.PUT("/:id", UpdateApproval)
+		approval.DELETE("/:id", DeleteApproval)
+		approval.POST("/validate", ValidateApproval)
+	}
 }
 
 type OpenAPIRouter struct{}
