@@ -16,7 +16,7 @@ require (
 	github.com/buraksezer/consistent v0.9.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cespare/xxhash v1.1.0
-	github.com/chartmuseum/helm-push v0.10.2
+	github.com/chartmuseum/helm-push v0.10.3
 	github.com/containers/image v3.0.2+incompatible
 	github.com/coocood/freecache v1.2.2
 	github.com/coreos/go-oidc/v3 v3.0.0
@@ -45,7 +45,7 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/jinzhu/now v1.1.5
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/mittwald/go-helm-client v0.8.5
+	github.com/mittwald/go-helm-client v0.11.3
 	github.com/moby/buildkit v0.10.4
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/onsi/ginkgo v1.16.5
@@ -77,13 +77,13 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.3.6
 	gorm.io/gorm v1.23.8
-	helm.sh/helm/v3 v3.7.2
-	istio.io/api v0.0.0-20221128172210-2df01fb1b9e4
-	istio.io/client-go v1.12.0-alpha.5.0.20221128172910-b5c402f34c08
-	k8s.io/api v0.25.3
+	helm.sh/helm/v3 v3.9.4
+	istio.io/api v0.0.0-20221109202042-b9e5d446a83d
+	istio.io/client-go v1.16.0
+	k8s.io/api v0.25.0
 	k8s.io/apiextensions-apiserver v0.25.0
-	k8s.io/apimachinery v0.25.3
-	k8s.io/client-go v0.25.3
+	k8s.io/apimachinery v0.25.0
+	k8s.io/client-go v0.25.0
 	k8s.io/kubectl v0.25.0
 	k8s.io/utils v0.0.0-20220823124924-e9cbc92d1a73
 	sigs.k8s.io/controller-runtime v0.13.0
@@ -261,8 +261,8 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/api v0.61.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221018160656-63c7b68cfc55 // indirect
-	google.golang.org/grpc v1.50.1 // indirect
+	google.golang.org/genproto v0.0.0-20220628213854-d9e0b6570c03 // indirect
+	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

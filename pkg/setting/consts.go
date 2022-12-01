@@ -673,7 +673,8 @@ const (
 )
 
 const (
-	InformerNamingConvention = "%s-%s"
+	InformerNamingConvention      = "%s-%s"
+	IstioInformerNamingConvention = "%s-%s-istio"
 )
 
 type ResourceType string
