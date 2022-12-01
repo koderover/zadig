@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,12 +63,14 @@ import (
 )
 
 const (
-	BusyBoxImage       = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir    = "/zadig/"
-	ZadigLogFile       = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
-	JobExecutorFile    = "http://resource-server/jobexecutor"
-	ResourceServer     = "resource-server"
+	BusyBoxImage         = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir      = "/zadig/"
+	ZadigLogFile         = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile   = ZadigContextDir + "lifecycle"
+	JobExecutorFile      = "http://resource-server/jobexecutor"
+	ResourceServer       = "resource-server"
+	defaultSecretEmail   = "bot@koderover.com"
+	registrySecretSuffix = "-registry-secret"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
@@ -1116,4 +1119,81 @@ func waitDeploymentReady(ctx context.Context, deploymentName, namespace string, 
 			}
 		}
 	}
+}
+
+func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.RegistryNamespace, kubeClient crClient.Client) error {
+	for _, reg := range registries {
+		if reg.AccessKey == "" {
+			continue
+		}
+
+		secretName, err := genRegistrySecretName(reg)
+		if err != nil {
+			return fmt.Errorf("failed to generate registry secret name: %s", err)
+		}
+
+		data := make(map[string][]byte)
+		dockerConfig := fmt.Sprintf(
+			`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
+			reg.RegAddr,
+			reg.AccessKey,
+			reg.SecretKey,
+			defaultSecretEmail,
+		)
+		data[".dockercfg"] = []byte(dockerConfig)
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      secretName,
+			},
+			Data: data,
+			Type: corev1.SecretTypeDockercfg,
+		}
+		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func genRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
+	if reg.IsDefault {
+		return setting.DefaultImagePullSecret, nil
+	}
+
+	arr := strings.Split(reg.Namespace, "/")
+	namespaceInRegistry := arr[len(arr)-1]
+
+	// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+	if namespaceInRegistry == "" {
+		uriDecipher := strings.Split(reg.RegAddr, ".")
+		namespaceInRegistry = uriDecipher[0]
+	}
+
+	filteredName, err := formatRegistryName(namespaceInRegistry)
+	if err != nil {
+		return "", err
+	}
+
+	secretName := filteredName + registrySecretSuffix
+	if reg.RegType != "" {
+		secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
+	}
+
+	return secretName, nil
+}
+
+func formatRegistryName(namespaceInRegistry string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
+	if err != nil {
+		return "", err
+	}
+	processedName := reg.ReplaceAllString(namespaceInRegistry, "")
+	processedName = strings.ToLower(processedName)
+	if len(processedName) > 237 {
+		processedName = processedName[:237]
+	}
+	return processedName, nil
 }

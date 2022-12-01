@@ -250,6 +250,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	jobImage := getReaperImage(pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS, p.Task.ImageFrom)
 
+	p.Task.Registries = getMatchedRegistries(jobImage, p.Task.Registries)
 	// search namespace should also include desired namespace
 	job, err := buildJobWithLinkedNs(
 		p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Test.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,

@@ -350,6 +350,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Log.Infof("Job %s:%d does not exist. Create.", pipelineTask.PipelineName, pipelineTask.TaskID)
 
 		jobImage := getReaperImage(pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS, p.Task.ImageFrom)
+		p.Task.Registries = getMatchedRegistries(jobImage, p.Task.Registries)
 
 		//Resource request default value is LOW
 

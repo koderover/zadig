@@ -182,11 +182,9 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	c.logger.Infof("succeed to create cm for job %s", c.job.K8sJobName)
 
-	// TODO: do not use default image
 	jobImage := getBaseImage(c.jobTaskSpec.Properties.BuildOS, c.jobTaskSpec.Properties.ImageFrom)
-	// jobImage := "koderover.tencentcloudcr.com/test/job-excutor:guoyu-test2"
-	// jobImage := getReaperImage(config.ReaperImage(), c.job.Properties.BuildOS)
 
+	c.jobTaskSpec.Properties.Registries = getMatchedRegistries(jobImage, c.jobTaskSpec.Properties.Registries)
 	//Resource request default value is LOW
 	job, err := buildJob(c.job.JobType, jobImage, c.job.K8sJobName, c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx, nil)
 	if err != nil {
@@ -203,15 +201,12 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	// 将集成到KodeRover的私有镜像仓库的访问权限设置到namespace中
-	// if err := createOrUpdateRegistrySecrets(p.KubeNamespace, pipelineTask.ConfigPayload.RegistryID, p.Task.Registries, p.kubeClient); err != nil {
-	// 	msg := fmt.Sprintf("create secret error: %v", err)
-	// 	p.Log.Error(msg)
-	// 	p.Task.TaskStatus = config.StatusFailed
-	// 	p.Task.Error = msg
-	// 	p.SetBuildStatusCompleted(config.StatusFailed)
-	// 	return
-	// }
+	if err := createOrUpdateRegistrySecrets(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.Registries, c.kubeclient); err != nil {
+		msg := fmt.Sprintf("create secret error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+	
 	if err := updater.CreateJob(job, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
 		logError(c.job, msg, c.logger)
