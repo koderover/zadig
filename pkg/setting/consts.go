@@ -734,3 +734,15 @@ const (
 	ServiceDeployStrategyImport = "import"
 	ServiceDeployStrategyDeploy = "deploy"
 )
+
+// Instant Message System types
+const (
+	IMLark     = "lark"
+	IMDingding = "dingding"
+)
+
+// lark app
+const (
+	LarkUserOpenID       = "open_id"
+	LarkDepartmentOpenID = "open_department_id"
+)
