@@ -32,8 +32,10 @@ const (
 	approvalFormNameI18NKey    = `@i18n@formname`
 	approvalFormValueI18NKey   = `@i18n@formvalue`
 
-	defaultFormHintValue    = `用于 Zadig Workflow 审批`
-	defaultNodeApproveValue = `审批`
+	approvalFormNameI18NValue = `详情`
+
+	defaultFormValueI18NValue = `用于 Zadig Workflow 审批`
+	defaultNodeApproveValue   = `审批`
 
 	defaultPageSize = 50
 )

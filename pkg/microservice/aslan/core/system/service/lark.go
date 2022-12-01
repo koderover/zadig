@@ -28,8 +28,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/lark"
 )
 
-func ListExternalApproval(log *zap.SugaredLogger) ([]*commonmodels.ExternalApproval, error) {
-	resp, err := mongodb.NewExternalApprovalColl().List(context.Background())
+func ListExternalApproval(_type string, log *zap.SugaredLogger) ([]*commonmodels.ExternalApproval, error) {
+	resp, err := mongodb.NewExternalApprovalColl().List(context.Background(), _type)
 	if err != nil {
 		log.Errorf("list external approval error: %v", err)
 		return nil, e.ErrListConfigurationManagement

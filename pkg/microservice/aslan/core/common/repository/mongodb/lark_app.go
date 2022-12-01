@@ -73,10 +73,13 @@ func (c *ExternalApprovalColl) Create(ctx context.Context, args *models.External
 	return err
 }
 
-func (c *ExternalApprovalColl) List(ctx context.Context) ([]*models.ExternalApproval, error) {
+func (c *ExternalApprovalColl) List(ctx context.Context, _type string) ([]*models.ExternalApproval, error) {
 	query := bson.M{}
 	resp := make([]*models.ExternalApproval, 0)
 
+	if _type != "" {
+		query["type"] = _type
+	}
 	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err

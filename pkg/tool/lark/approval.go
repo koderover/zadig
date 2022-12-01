@@ -18,6 +18,7 @@ package lark
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	larkapproval "github.com/larksuite/oapi-sdk-go/v3/service/approval/v4"
@@ -45,7 +46,7 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 					Build(),
 			}).
 			Form(larkapproval.NewApprovalFormBuilder().
-				FormContent(fmt.Sprintf(`[{"id":"1","name":"%s","type":"text","required":false,"value":"%s"}]`, approvalFormNameI18NKey, approvalFormValueI18NKey)).
+				FormContent(fmt.Sprintf(`[{"id":"1","name":"%s","type":"textarea","required":false,"value":"%s"}]`, approvalFormNameI18NKey, approvalFormValueI18NKey)).
 				Build()).
 			NodeList([]*larkapproval.ApprovalNode{
 				larkapproval.NewApprovalNodeBuilder().Id(`START`).Build(),
@@ -70,11 +71,11 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 							Build(),
 						larkapproval.NewI18nResourceTextBuilder().
 							Key(approvalFormNameI18NKey).
-							Value("hint").
+							Value(approvalFormNameI18NValue).
 							Build(),
 						larkapproval.NewI18nResourceTextBuilder().
 							Key(approvalFormValueI18NKey).
-							Value(defaultFormHintValue).
+							Value(defaultFormValueI18NValue).
 							Build(),
 						larkapproval.NewI18nResourceTextBuilder().
 							Key(approvalNodeApproveI18NKey).
@@ -110,11 +111,20 @@ type CreateApprovalInstanceArgs struct {
 }
 
 func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (string, error) {
+	formContent, err := json.Marshal([]formData{{
+		ID:    "1",
+		Type:  "textarea",
+		Value: args.FormContent,
+	}})
+	if err != nil {
+		return "", errors.Wrap(err, "marshal form data")
+	}
+
 	req := larkapproval.NewCreateInstanceReqBuilder().
 		InstanceCreate(larkapproval.NewInstanceCreateBuilder().
 			ApprovalCode(args.ApprovalCode).
 			OpenId(args.UserOpenID).
-			Form(`[]`).
+			Form(string(formContent)).
 			NodeApproverOpenIdList([]*larkapproval.NodeApprover{
 				larkapproval.NewNodeApproverBuilder().
 					Key(`APPROVE`).

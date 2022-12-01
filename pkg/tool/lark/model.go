@@ -36,3 +36,9 @@ type pageInfo struct {
 	token   string
 	hasMore bool
 }
+
+type formData struct {
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
