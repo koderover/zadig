@@ -52,13 +52,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		istio.GET("/check/:id", CheckIstiod)
 	}
 
-	resources := router.Group("resources")
-	{
-		resources.GET("/:id/deployments")
-		resources.GET("/:id/deployments/:deploymentName/containers")
-		resources.GET("/:id/virtualservices")
-	}
-
 	router.GET("/:id/storageclasses", ListStorageClasses)
 	router.GET("/:id/:namespace/pvcs", ListPVCs)
 	router.GET("/:id/:namespace/deployments", ListDeployments)
