@@ -786,12 +786,11 @@ func (p *ReleaseImagePlugin) Complete(ctx context.Context, pipelineTask *task.Ta
 
 	// 清理用户取消和超时的任务
 	defer func() {
-		if p.Task.TaskStatus == config.StatusCancelled || p.Task.TaskStatus == config.StatusTimeout {
-			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-				p.Log.Error(err)
-				p.Task.Error = err.Error()
-			}
-			return
+		if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
+		}
+		if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
 		}
 	}()
 
