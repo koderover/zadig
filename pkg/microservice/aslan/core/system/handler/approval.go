@@ -29,7 +29,7 @@ func ListApproval(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListExternalApproval(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListExternalApproval(c.Query("type"), ctx.Logger)
 }
 
 func CreateApproval(c *gin.Context) {
