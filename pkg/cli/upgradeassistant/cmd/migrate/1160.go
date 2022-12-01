@@ -30,8 +30,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
@@ -43,6 +47,10 @@ func init() {
 }
 
 func V1150ToV1160() error {
+	if err := migrateReleaseCenter(); err != nil {
+		log.Errorf("migrateReleaseCenter err:%s", err)
+		return err
+	}
 	if err := initWorkflowV4TaskStats(); err != nil {
 		log.Errorf("initWorkflowV4TaskStats err:%s", err)
 		return err
@@ -426,4 +434,66 @@ func setPRs(repo *types.Repository) {
 	if repo.PR > 0 {
 		repo.PRs = []int{repo.PR}
 	}
+}
+
+func migrateReleaseCenter() error {
+	logger := log.SugaredLogger()
+	_, err := templaterepo.NewProductColl().Find("release-center")
+	if err == nil {
+		logger.Info("project release-center already exists")
+		return nil
+	}
+	workflows, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{ProjectName: setting.EnterpriseProject}, 0, 0)
+	if err != nil {
+		return err
+	}
+	if len(workflows) <= 0 {
+		logger.Infof("no workflow found in project %s", setting.EnterpriseProject)
+		return nil
+	}
+	product := &template.Product{
+		ProjectName: "发布中心",
+		ProductName: "release-center",
+		Description: "migrate from deploy center",
+		Enabled:     true,
+		ProductFeature: &template.ProductFeature{
+			BasicFacility: "kubernetes",
+			CreateEnvType: "system",
+			DeployType:    "k8s",
+		},
+		Public: false,
+	}
+	clusters, err := mongodb.NewK8SClusterColl().List(&mongodb.ClusterListOpts{})
+	if err != nil {
+		return err
+	}
+	for _, cluster := range clusters {
+		product.ClusterIDs = append(product.ClusterIDs, cluster.ID.Hex())
+	}
+	if err := projectservice.CreateProductTemplate(product, logger); err != nil {
+		return err
+	}
+	if err := projectservice.UpdateProductTmplStatus(product.ProductName, "0", logger); err != nil {
+		return err
+	}
+	var mWorkflow []mongo.WriteModel
+	for _, workflow := range workflows {
+		mWorkflow = append(mWorkflow,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", workflow.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"project", "release-center"},
+						{"category", setting.ReleaseWorkflow},
+					}},
+				}),
+		)
+	}
+	if len(mWorkflow) > 0 {
+		log.Infof("migrate %d workflows", len(mWorkflow))
+		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), mWorkflow); err != nil {
+			return fmt.Errorf("migrate workflow error: %s", err)
+		}
+	}
+	return nil
 }
