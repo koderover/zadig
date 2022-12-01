@@ -18,12 +18,12 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
 )
 
 type IstioRollbackJobCtl struct {
@@ -58,15 +58,28 @@ func (c *IstioRollbackJobCtl) Clean(ctx context.Context) {
 
 func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 	var err error
+
+	// initialize istio client
+	// NOTE that the only supported version is v1alpha3 right now
+	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		c.logger.Errorf("failed to prepare istio client to do the resource update")
+		return
+	}
+
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		logError(c.job, fmt.Sprintf("can't init k8s client: %v", err), c.logger)
 		return
 	}
-	_, found, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.Service.WorkloadName, c.kubeClient)
-	if err != nil || !found {
-		logError(c.job, fmt.Sprintf("deployment: %s not found: %v", c.jobTaskSpec.Service.WorkloadName, err), c.logger)
-		return
+	// first we need to delete the destination rule created by zadig
+	newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Service.WorkloadName)
+	c.logger.Infof("deleting zadig's destination rule: %s", newDestinationRuleName)
+
+	err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDestinationRuleName, v1.DeleteOptions{})
+	if err != nil {
+		// since this is not a fatal error, we simply print an error message and move on
+		c.logger.Errorf("failed to delete destination rule: %s, error is: %s", newDestinationRuleName, err)
 	}
 
 	c.job.Status = config.StatusPassed

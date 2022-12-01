@@ -292,6 +292,7 @@ type GrayRollbackTarget struct {
 }
 
 type IstioJobSpec struct {
+	First             bool              `bson:"first"              json:"first"              yaml:"first"`
 	ClusterID         string            `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
 	FromJob           string            `bson:"from_job"           json:"from_job"           yaml:"from_job"`
 	RegistryID        string            `bson:"registry_id"        json:"registry_id"        yaml:"registry_id"`

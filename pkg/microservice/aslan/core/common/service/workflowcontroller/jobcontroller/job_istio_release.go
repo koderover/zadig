@@ -15,11 +15,11 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"go.uber.org/zap"
-	"istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -42,8 +42,10 @@ const (
 
 // label definition
 const (
-	ZadigIstioIdentifierLabel = "zadig-istio-release-version"
-	ZadigIstioOriginalVSLabel = "last-applied-virtual-service"
+	ZadigIstioIdentifierLabel                 = "zadig-istio-release-version"
+	ZadigIstioOriginalVSLabel                 = "last-applied-virtual-service"
+	ZadigIstioVirtualServiceLastAppliedRoutes = "last-applied-routes"
+	ZadigLastAppliedImage                     = "last-applied-image"
 )
 
 // naming conventions
@@ -110,7 +112,9 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 
 	// if an original VS is provided, put a label into the label, so we could find it during the rollback
 	if c.jobTaskSpec.Service.VirtualServiceName != "" {
-		deployment.Labels[ZadigIstioOriginalVSLabel] = c.jobTaskSpec.Service.VirtualServiceName
+		deployment.Annotations[ZadigIstioOriginalVSLabel] = c.jobTaskSpec.Service.VirtualServiceName
+	} else {
+		deployment.Annotations[ZadigIstioOriginalVSLabel] = "none"
 	}
 
 	if value, ok := deployment.Spec.Template.Labels[ZadigIstioIdentifierLabel]; ok {
@@ -125,114 +129,208 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	c.Infof("Adding annotation to original deployment: %s", c.jobTaskSpec.Service.WorkloadName)
-	c.ack()
-	if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
-		c.Errorf("add annotations to origin deployment: %s failed: %v", c.jobTaskSpec.Service.WorkloadName, err)
-		return
-	}
-
-	// create a new deployment called <deployment-name>-zadig-copy
-	newDeployment := &appsv1.Deployment{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix),
-			Labels:      deployment.ObjectMeta.Labels,
-			Annotations: deployment.ObjectMeta.Annotations,
-		},
-		Spec: deployment.Spec,
-	}
-
-	// edit the label of the new deployment so we could find it
-	newDeployment.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
-	newDeployment.Spec.Selector.MatchLabels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
-	newDeployment.Spec.Template.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
-	// edit the image of the new deployment
-	for _, container := range newDeployment.Spec.Template.Spec.Containers {
-		if container.Name == c.jobTaskSpec.Service.ContainerName {
-			container.Image = "docker.io/istio/examples-bookinfo-reviews-v3:1.17.0"
+	// The logic below will only be applied when this is the first deployment job
+	if c.jobTaskSpec.FirstJob {
+		c.Infof("Adding annotation to original deployment: %s", c.jobTaskSpec.Service.WorkloadName)
+		c.ack()
+		if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
+			c.Errorf("add annotations to origin deployment: %s failed: %v", c.jobTaskSpec.Service.WorkloadName, err)
+			return
 		}
-	}
 
-	c.Infof("Creating deployment copy for deployment: %s", c.jobTaskSpec.Service.WorkloadName)
-	c.ack()
-	if err := updater.CreateOrPatchDeployment(newDeployment, c.kubeClient); err != nil {
-		c.Errorf("creating deployment copy: %s failed: %v", fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix), err)
-		return
-	}
+		// create a new deployment called <deployment-name>-zadig-copy
+		newDeployment := &appsv1.Deployment{
+			ObjectMeta: v1.ObjectMeta{
+				Name:        fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix),
+				Labels:      deployment.ObjectMeta.Labels,
+				Annotations: deployment.ObjectMeta.Annotations,
+			},
+			Spec: deployment.Spec,
+		}
 
-	// waiting for original deployment to run
-	c.Infof("Waiting for deployment: %s to start", c.jobTaskSpec.Service.WorkloadName)
-	c.ack()
-	if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.Service.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
-		c.Errorf("Timout waiting for deployment: %s", c.jobTaskSpec.Service.WorkloadName)
-		c.job.Status = status
-		return
-	}
+		// edit the label of the new deployment so we could find it
+		newDeployment.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
+		newDeployment.Spec.Selector.MatchLabels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
+		newDeployment.Spec.Template.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
+		// edit the image of the new deployment
+		for _, container := range newDeployment.Spec.Template.Spec.Containers {
+			if container.Name == c.jobTaskSpec.Service.ContainerName {
+				container.Image = "docker.io/istio/examples-bookinfo-reviews-v3:1.17.0"
+			}
+		}
 
-	// waiting for the deployment copy to run
-	c.Infof("Waiting for the duplicate deployment: %s to start", c.jobTaskSpec.Service.WorkloadName)
-	c.ack()
-	if status, err := waitDeploymentReady(ctx, fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix), c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
-		c.Errorf("Timout waiting for deployment: %s", fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix))
-		c.job.Status = status
-		return
-	}
+		c.Infof("Creating deployment copy for deployment: %s", c.jobTaskSpec.Service.WorkloadName)
+		c.ack()
+		if err := updater.CreateOrPatchDeployment(newDeployment, c.kubeClient); err != nil {
+			c.Errorf("creating deployment copy: %s failed: %v", fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix), err)
+			return
+		}
 
-	// =====================================================================================================
-	//                     Istio Virtual service & Destination Rule modification
-	// =====================================================================================================
+		// waiting for original deployment to run
+		c.Infof("Waiting for deployment: %s to start", c.jobTaskSpec.Service.WorkloadName)
+		c.ack()
+		if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.Service.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
+			c.Errorf("Timout waiting for deployment: %s", c.jobTaskSpec.Service.WorkloadName)
+			c.job.Status = status
+			return
+		}
 
-	// creating a destination rule that covers both deployment pods with different subset
-	subsetList := make([]*networkingv1alpha3.Subset, 0)
+		// waiting for the deployment copy to run
+		c.Infof("Waiting for the duplicate deployment: %s to start", c.jobTaskSpec.Service.WorkloadName)
+		c.ack()
+		if status, err := waitDeploymentReady(ctx, fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix), c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
+			c.Errorf("Timout waiting for deployment: %s", fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix))
+			c.job.Status = status
+			return
+		}
 
-	// appending the subset for original deployment
-	subsetList = append(subsetList, &networkingv1alpha3.Subset{
-		Name:   ZadigIstioLabelOriginal,
-		Labels: deployment.Spec.Template.Labels,
-	})
+		// =====================================================================================================
+		//                     Istio Virtual service & Destination Rule modification
+		// =====================================================================================================
 
-	// appending the subset for duplicate deployment
-	subsetList = append(subsetList, &networkingv1alpha3.Subset{
-		Name:   ZadigIstioLabelDuplicate,
-		Labels: newDeployment.Spec.Template.Labels,
-	})
+		// creating a destination rule that covers both deployment pods with different subset
+		subsetList := make([]*networkingv1alpha3.Subset, 0)
 
-	newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Service.WorkloadName)
-	targetDestinationRule := &v1alpha3.DestinationRule{
-		ObjectMeta: v1.ObjectMeta{
-			Name: newDestinationRuleName,
-		},
-		Spec: networkingv1alpha3.DestinationRule{
-			Host:    c.jobTaskSpec.Service.Host,
-			Subsets: subsetList,
-		},
-	}
+		// appending the subset for original deployment
+		subsetList = append(subsetList, &networkingv1alpha3.Subset{
+			Name:   ZadigIstioLabelOriginal,
+			Labels: deployment.Spec.Template.Labels,
+		})
 
-	c.Infof("Creating new Destination Rule: %s", newDestinationRuleName)
-	c.ack()
-	_, err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Create(context.TODO(), targetDestinationRule, v1.CreateOptions{})
-	if err != nil {
-		c.Errorf("failed to create new destination rule: %s", newDestinationRuleName)
-		return
-	}
+		// appending the subset for duplicate deployment
+		subsetList = append(subsetList, &networkingv1alpha3.Subset{
+			Name:   ZadigIstioLabelDuplicate,
+			Labels: newDeployment.Spec.Template.Labels,
+		})
 
-	// if a virtual service is provided, we simply get it and take its host information
-	if c.jobTaskSpec.Service.VirtualServiceName != "" {
+		newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Service.WorkloadName)
+		targetDestinationRule := &v1alpha3.DestinationRule{
+			ObjectMeta: v1.ObjectMeta{
+				Name: newDestinationRuleName,
+			},
+			Spec: networkingv1alpha3.DestinationRule{
+				Host:    c.jobTaskSpec.Service.Host,
+				Subsets: subsetList,
+			},
+		}
+
+		c.Infof("Creating new Destination Rule: %s", newDestinationRuleName)
+		c.ack()
+		_, err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Create(context.TODO(), targetDestinationRule, v1.CreateOptions{})
+		if err != nil {
+			c.Errorf("failed to create new destination rule: %s", newDestinationRuleName)
+			return
+		}
+
+		// if a virtual service is provided, we simply get it and take its host information
+		if c.jobTaskSpec.Service.VirtualServiceName != "" {
+			vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), c.jobTaskSpec.Service.VirtualServiceName, v1.GetOptions{})
+			if err != nil {
+				c.Errorf("failed to find virtual service of name: %s, error is: %s", c.jobTaskSpec.Service.VirtualServiceName, err)
+				return
+			}
+
+			found := false
+			for _, host := range vs.Spec.Hosts {
+				if host == c.jobTaskSpec.Service.Host {
+					found = true
+				}
+				break
+			}
+			if !found {
+				vs.Spec.Hosts = append(vs.Spec.Hosts, c.jobTaskSpec.Service.Host)
+			}
+
+			newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
+			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host:   c.jobTaskSpec.Service.Host,
+					Subset: ZadigIstioLabelOriginal,
+					Port:   vs.Spec.Http[0].Route[0].Destination.Port,
+				},
+				Weight: 100 - int32(c.jobTaskSpec.Weight),
+			})
+			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host:   c.jobTaskSpec.Service.Host,
+					Subset: ZadigIstioLabelOriginal,
+					Port:   vs.Spec.Http[0].Route[0].Destination.Port,
+				},
+				Weight: int32(c.jobTaskSpec.Weight),
+			})
+			routeByte, err := json.Marshal(vs.Spec.Http[0].Route)
+			if err != nil {
+				c.Errorf("failed to parse route information in virtual service, error: %s", err)
+				return
+			}
+			vs.Annotations[ZadigIstioVirtualServiceLastAppliedRoutes] = string(routeByte)
+
+			vs.Spec.Http[0].Route = newHTTPRoutingRules
+			c.Infof("Modifying Virtual Service: %s", c.jobTaskSpec.Service.VirtualServiceName)
+			c.ack()
+			_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+			if err != nil {
+				c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Service.VirtualServiceName, err)
+				return
+			}
+		} else {
+			vsName := fmt.Sprintf(VirtualServiceNameTemplate, c.jobTaskSpec.Service.WorkloadName)
+			// prepare the route destination
+			newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
+			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host:   c.jobTaskSpec.Service.Host,
+					Subset: ZadigIstioLabelOriginal,
+				},
+				Weight: 100 - int32(c.jobTaskSpec.Weight),
+			})
+			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host:   c.jobTaskSpec.Service.Host,
+					Subset: ZadigIstioLabelOriginal,
+				},
+				Weight: int32(c.jobTaskSpec.Weight),
+			})
+
+			// prepare exactly 2 httpRouteDestination for the vs
+			httpRoutes := make([]*networkingv1alpha3.HTTPRoute, 0)
+
+			httpRoutes = append(httpRoutes, &networkingv1alpha3.HTTPRoute{
+				Route: newHTTPRoutingRules,
+			})
+
+			// create zadig's own virtual service
+			zadigVirtualService := &v1alpha3.VirtualService{
+				ObjectMeta: v1.ObjectMeta{
+					Name: vsName,
+				},
+				Spec: networkingv1alpha3.VirtualService{
+					Hosts: []string{c.jobTaskSpec.Service.Host},
+					Http:  httpRoutes,
+				},
+			}
+
+			c.Infof("Creating virtual service: %s")
+			c.ack()
+
+			_, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Create(context.TODO(), zadigVirtualService, v1.CreateOptions{})
+			if err != nil {
+				c.Errorf("failed to create virtual service: %s, err: %", vsName, err)
+				return
+			}
+		}
+	} else {
+		// Otherwise there are 2 cases, either this is a finishing move, or not.
+		// When it is NOT a finishing move, simply modify the weight of the vs destination rule, and we are done
+		vsName := c.jobTaskSpec.Service.VirtualServiceName
+		if vsName == "" {
+			vsName = fmt.Sprintf(VirtualServiceNameTemplate, c.jobTaskSpec.Service.WorkloadName)
+		}
+
 		vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), c.jobTaskSpec.Service.VirtualServiceName, v1.GetOptions{})
 		if err != nil {
 			c.Errorf("failed to find virtual service of name: %s, error is: %s", c.jobTaskSpec.Service.VirtualServiceName, err)
 			return
-		}
-
-		found := false
-		for _, host := range vs.Spec.Hosts {
-			if host == c.jobTaskSpec.Service.Host {
-				found = true
-			}
-			break
-		}
-		if !found {
-			vs.Spec.Hosts = append(vs.Spec.Hosts, c.jobTaskSpec.Service.Host)
 		}
 
 		newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
@@ -260,25 +358,84 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Service.VirtualServiceName, err)
 			return
 		}
-	} else {
-		vsName := fmt.Sprintf(VirtualServiceNameTemplate, c.jobTaskSpec.Service.WorkloadName)
-		// create zadig's own virtual service
-		_ = &v1alpha3.VirtualService{
-			ObjectMeta: v1.ObjectMeta{
-				Name: vsName,
-			},
-			Spec: networkingv1alpha3.VirtualService{
-				Hosts:    []string{"my-host"},
-				Http:     nil,
-				Tls:      nil,
-				Tcp:      nil,
-				ExportTo: nil,
-			},
-			Status: v1alpha1.IstioStatus{},
+
+		// If this is a finishing move, following additional steps will have to be done
+		// 1. edit the old deployment
+		//   a. change the image to the new one
+		//   b. adding the old image info to the annotation
+		// 2. wait for the old deployment to be ready.
+		// 3. revert the virtual service back to normal, so all the queries goes back to the original workload
+		// 4. delete the destination rule created by zadig.
+
+		oldImage := ""
+		if c.jobTaskSpec.Weight == 100 {
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if container.Name == c.jobTaskSpec.Service.ContainerName {
+					oldImage = container.Image
+					container.Image = c.jobTaskSpec.Service.Image
+				}
+			}
+
+			deployment.Annotations[ZadigLastAppliedImage] = oldImage
+
+			c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Service.Image)
+			c.ack()
+
+			if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
+				c.Errorf("update origin deployment: %s failed: %v", deployment.Name, err)
+				return
+			}
+
+			// waiting for original deployment to run
+			c.Infof("Waiting for deployment: %s to start", c.jobTaskSpec.Service.WorkloadName)
+			c.ack()
+			if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.Service.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
+				c.Errorf("Timout waiting for deployment: %s", c.jobTaskSpec.Service.WorkloadName)
+				c.job.Status = status
+				return
+			}
+
+			// restore the vs to before
+			if c.jobTaskSpec.Service.VirtualServiceName != "" {
+				// if there was a configuration before, then we roll it back
+				lastAppliedRouteInfo := vs.Annotations[ZadigIstioVirtualServiceLastAppliedRoutes]
+				route := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
+				err := json.Unmarshal([]byte(lastAppliedRouteInfo), &route)
+				if err != nil {
+					c.Errorf("failed to get the last applied virtualservice info, error: %s", err)
+					return
+				}
+				vs.Spec.Http[0].Route = route
+				c.Infof("switching the queries back to the original workload on virtual service: %s", vs.Name)
+				c.ack()
+				_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+				if err != nil {
+					c.Errorf("virtual service update failed, error: %s", err)
+					return
+				}
+			} else {
+				c.Infof("deleteing the virtual service created by zadig: %s", vs.Name)
+				c.ack()
+				// else we simply delete
+				err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Delete(context.TODO(), vs.Name, v1.DeleteOptions{})
+				if err != nil {
+					c.Errorf("virtual service deletion failed, error: %s", err)
+					return
+				}
+			}
+
+			newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Service.WorkloadName)
+			// delete the destination rule created by zadig
+			c.Infof("deleteing the destination rule created by zadig: %s", newDestinationRuleName)
+			c.ack()
+
+			err := istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), vs.Name, v1.DeleteOptions{})
+			if err != nil {
+				c.Errorf("destination rule deletion failed, error: %s", err)
+				return
+			}
 		}
 
-		c.Infof("Creating virtual service: %s")
-		c.ack()
 	}
 
 	c.job.Status = config.StatusPassed
