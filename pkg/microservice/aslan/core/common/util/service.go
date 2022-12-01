@@ -32,3 +32,7 @@ func GetServiceDeployStrategy(serviceName string, strategyMap map[string]string)
 func ServiceDeployed(serviceName string, strategyMap map[string]string) bool {
 	return GetServiceDeployStrategy(serviceName, strategyMap) == setting.ServiceDeployStrategyDeploy
 }
+
+func DeployStrategyChanged(serviceName string, strategyMapOld map[string]string, strategyMapNew map[string]string) bool {
+	return ServiceDeployed(serviceName, strategyMapOld) != ServiceDeployed(serviceName, strategyMapNew)
+}
