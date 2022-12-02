@@ -159,26 +159,26 @@ func (j *IstioReleaseJob) LintJob() error {
 	//	return nil
 	//}
 
-	var quoteJobSpec *commonmodels.IstioJobSpec
-	for _, stage := range j.workflow.Stages {
-		for _, job := range stage.Jobs {
-			if job.JobType != config.JobIstioRelease || job.Name != j.spec.FromJob {
-				continue
-			}
-			quoteJobSpec = &commonmodels.IstioJobSpec{}
-			if err := commonmodels.IToiYaml(job.Spec, quoteJobSpec); err != nil {
-				return err
-			}
-			break
-		}
-	}
-
-	if quoteJobSpec == nil {
-		return fmt.Errorf("[%s] quote istio relase job: [%s] not found", j.job.Name, j.spec.FromJob)
-	}
-	if quoteJobSpec.FromJob != "" {
-		return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
-	}
+	//var quoteJobSpec *commonmodels.IstioJobSpec
+	//for _, stage := range j.workflow.Stages {
+	//	for _, job := range stage.Jobs {
+	//		if job.JobType != config.JobIstioRelease || job.Name != j.spec.FromJob {
+	//			continue
+	//		}
+	//		quoteJobSpec = &commonmodels.IstioJobSpec{}
+	//		if err := commonmodels.IToiYaml(job.Spec, quoteJobSpec); err != nil {
+	//			return err
+	//		}
+	//		break
+	//	}
+	//}
+	//
+	//if quoteJobSpec == nil {
+	//	return fmt.Errorf("[%s] quote istio relase job: [%s] not found", j.job.Name, j.spec.FromJob)
+	//}
+	//if quoteJobSpec.FromJob != "" {
+	//	return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
+	//}
 
 	return nil
 }
