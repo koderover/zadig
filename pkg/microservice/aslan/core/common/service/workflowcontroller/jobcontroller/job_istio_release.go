@@ -24,6 +24,7 @@ import (
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -378,17 +379,21 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 
 		oldImage := ""
 		if c.jobTaskSpec.Weight == 100 {
+			containerList := make([]corev1.Container, 0)
 			for _, container := range deployment.Spec.Template.Spec.Containers {
+				newContainer := container.DeepCopy()
 				if container.Name == c.jobTaskSpec.Targets.ContainerName {
 					oldImage = container.Image
-					container.Image = "koderover.tencentcloudcr.com/test/examples-bookinfo-reviews-v2:1.17.0-actual-v3"
+					newContainer.Image = "koderover.tencentcloudcr.com/test/examples-bookinfo-reviews-v2:1.17.0-actual-v3"
 				}
+				containerList = append(containerList, *newContainer)
 			}
 
 			oldReplicas := strconv.Itoa(int(*deployment.Spec.Replicas))
 			deployment.Annotations[config.ZadigLastAppliedReplicas] = oldReplicas
 
 			deployment.Annotations[config.ZadigLastAppliedImage] = oldImage
+			deployment.Spec.Template.Spec.Containers = containerList
 
 			c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Targets.Image)
 			c.ack()
