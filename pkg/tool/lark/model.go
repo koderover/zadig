@@ -17,13 +17,13 @@
 package lark
 
 type UserInfo struct {
-	ID   string
-	Name string
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type DepartmentInfo struct {
-	ID   string
-	Name string
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type ContactRange struct {

@@ -267,6 +267,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		approval.DELETE("/:id", DeleteApproval)
 		approval.POST("/validate", ValidateApproval)
 	}
+
+	lark := router.Group("lark")
+	{
+		lark.GET("/:id/department/:department_id", GetLarkDepartment)
+		lark.GET("/:id/user", GetLarkUserID)
+		lark.POST("/webhook")
+	}
 }
 
 type OpenAPIRouter struct{}

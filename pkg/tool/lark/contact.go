@@ -21,7 +21,6 @@ import (
 
 	larkcontact "github.com/larksuite/oapi-sdk-go/v3/service/contact/v3"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -50,7 +49,7 @@ func (client *Client) GetUserOpenIDByEmail(email string) (string, error) {
 }
 
 // ListAppContactRange get users, departments, groups open id authorized by the lark app
-func (client *Client) ListAppContactRange(_ *zap.SugaredLogger) (*ContactRange, error) {
+func (client *Client) ListAppContactRange() (*ContactRange, error) {
 	cr := &ContactRange{}
 	pageToken := ""
 	for {
@@ -186,4 +185,48 @@ func (client *Client) listUserFromDepartmentWithPage(departmentID, pageToken str
 		})
 	}
 	return list, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
+}
+
+func (client *Client) GetUserInfoByID(id string) (*UserInfo, error) {
+	req := larkcontact.NewGetUserReqBuilder().
+		UserId(id).
+		UserIdType(setting.LarkUserOpenID).
+		DepartmentIdType(setting.LarkDepartmentOpenID).
+		Build()
+
+	resp, err := client.Contact.User.Get(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Success() {
+		return nil, resp.CodeError
+	}
+
+	return &UserInfo{
+		ID:   id,
+		Name: getStringFromPointer(resp.Data.User.Name),
+	}, nil
+}
+
+func (client *Client) GetDepartmentInfoByID(id string) (*DepartmentInfo, error) {
+	req := larkcontact.NewGetDepartmentReqBuilder().
+		DepartmentId(id).
+		UserIdType(setting.LarkUserOpenID).
+		DepartmentIdType(setting.LarkDepartmentOpenID).
+		Build()
+
+	resp, err := client.Contact.Department.Get(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Success() {
+		return nil, resp.CodeError
+	}
+
+	return &DepartmentInfo{
+		ID:   id,
+		Name: getStringFromPointer(resp.Data.Department.Name),
+	}, nil
 }
