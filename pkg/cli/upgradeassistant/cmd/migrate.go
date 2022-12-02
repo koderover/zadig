@@ -136,8 +136,6 @@ func run() error {
 		versionSets.Insert(to)
 	}
 
-	versionSets.Insert(from, to)
-
 	for _, verStr := range versionSets.List() {
 		semVersion, err := semver.Make(verStr)
 		if err != nil {
