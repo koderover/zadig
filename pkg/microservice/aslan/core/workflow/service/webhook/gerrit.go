@@ -182,7 +182,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 				errs = multierror.Append(errs, err)
 			}
 		} else {
-			log.Infof("Target template %s from gerrit %s is not affected, no sync", service.ServiceName, service.LoadPath)
+			log.Infof("Service template %s from gerrit %s is not affected, no sync", service.ServiceName, service.LoadPath)
 		}
 	}
 
@@ -201,11 +201,11 @@ func GetGerritServiceTemplates() ([]*commonmodels.Service, error) {
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
-// SyncServiceTemplateFromGerrit Force to sync Target Template to the latest commit and content,
+// SyncServiceTemplateFromGerrit Force to sync Service Template to the latest commit and content,
 // Notes: if remains the same, quit sync; if updates, revision +1
 func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.SugaredLogger) error {
 	if service.Source != setting.SourceFromGerrit {
-		return fmt.Errorf("SyncServiceTemplateFromGerrit Target template is not from gerrit")
+		return fmt.Errorf("SyncServiceTemplateFromGerrit Service template is not from gerrit")
 	}
 
 	// Sync commit information

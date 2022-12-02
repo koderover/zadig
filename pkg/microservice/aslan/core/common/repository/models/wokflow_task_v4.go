@@ -233,7 +233,7 @@ type JobIstioReleaseSpec struct {
 	Weight            int64           `bson:"weight"             json:"weight"             yaml:"weight"`
 	ReplicaPercentage int64           `bson:"replica_percentage" json:"replica_percentage" yaml:"replica_percentage"`
 	Replicas          int64           `bson:"replicas"           json:"replicas"           yaml:"replicas"`
-	Target            *IstioJobTarget `bson:"targets"            json:"targets"            yaml:"targets"`
+	Service           *IstioJobTarget `bson:"service"            json:"service"            yaml:"service"`
 	Event             []*Event        `bson:"event"              json:"event"              yaml:"event"`
 }
 
@@ -243,7 +243,7 @@ type JobIstioRollbackSpec struct {
 	ClusterName string          `json:"cluster_name" bson:"cluster_name" yaml:"cluster_name"`
 	Image       string          `json:"image"        bson:"image"        yaml:"image"`
 	Replicas    int             `json:"replicas"     bson:"replicas"     yaml:"replicas"`
-	Target      *IstioJobTarget `json:"targets"      bson:"targets"      yaml:"targets"`
+	Service     *IstioJobTarget `json:"service"      bson:"service"      yaml:"service"`
 }
 
 type JobTaskGrayRollbackSpec struct {

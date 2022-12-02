@@ -341,14 +341,14 @@ func handleWorkflowTaskV4Retention(dryRun bool, batch int, option *commonrepo.Li
 	return len(removeIds), nil
 }
 
-//	func (s *Target) logInfo(format string, args ...interface{}) {
-//		s.logger.Infof("[%v]: %v", logTag, fmt.Sprintf(format, args...))
-//	}
+//
+//func (s *Service) logInfo(format string, args ...interface{}) {
+//	s.logger.Infof("[%v]: %v", logTag, fmt.Sprintf(format, args...))
+//}
 //
 // cleanStaleTasks will mark stale tasks as deleted, and remove their relevant S3 files.
 // returns:
-//
-//	[]bson.ObjectId, task ides to be marked as deleted
+//   []bson.ObjectId, task ides to be marked as deleted
 func cleanStaleTasks(tasks []*task.Task, s3Server *s3.S3, dryRun bool) []string {
 	ids := make([]string, len(tasks))
 	paths := make([]string, len(tasks))

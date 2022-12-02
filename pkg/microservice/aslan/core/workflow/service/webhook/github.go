@@ -622,7 +622,7 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 				errs = multierror.Append(errs, err)
 			}
 		} else {
-			log.Infof("Target template %s from github %s is not affected, no sync", service.ServiceName, service.SrcPath)
+			log.Infof("Service template %s from github %s is not affected, no sync", service.ServiceName, service.SrcPath)
 		}
 	}
 	return errs.ErrorOrNil()
@@ -680,12 +680,12 @@ func GetAddress(URL string) (string, error) {
 	return fmt.Sprintf("%s://%s", uri.Scheme, uri.Host), nil
 }
 
-// SyncServiceTemplateFromGithub Force to sync Target Template to latest commit and content,
+// SyncServiceTemplateFromGithub Force to sync Service Template to latest commit and content,
 // Notes: if remains the same, quit sync; if updates, revision +1
 func SyncServiceTemplateFromGithub(service *commonmodels.Service, latestCommitID, latestCommitMessage string, log *zap.SugaredLogger) error {
 	// 判断一下Source字段，如果Source字段不是github，直接返回
 	if service.Source != setting.SourceFromGithub {
-		log.Error("Target template is not from github")
+		log.Error("Service template is not from github")
 		return errors.New("service template is not from github")
 	}
 	// 获取当前Commit的SHA

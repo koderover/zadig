@@ -73,7 +73,7 @@ const (
 	FindProductServiceErrMsg = "不包含任何服务"
 )
 
-// Target & Containers
+// Service & Containers
 const (
 	DeleteNamespaceErrMsg = "删除命名空间失败"
 

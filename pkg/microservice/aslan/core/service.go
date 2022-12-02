@@ -178,7 +178,7 @@ func initService() {
 
 	defer func() {
 		if err := errors.ErrorOrNil(); err != nil {
-			errMsg := fmt.Sprintf("New Aslan Target error: %v", err)
+			errMsg := fmt.Sprintf("New Aslan Service error: %v", err)
 			log.Fatal(errMsg)
 		}
 	}()

@@ -294,7 +294,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 		} else {
 			maxServiceTmpl, err := getMaxServiceRevision(allServiceTmpls, service.ServiceName, service.ProductName)
 			if err != nil {
-				log.Errorf("Failed to get max service revision. Target: %s; Prodcut: %s; Error: %v",
+				log.Errorf("Failed to get max service revision. Service: %s; Prodcut: %s; Error: %v",
 					service.ServiceName, service.ProductName, err)
 				return serviceRevs, err
 			}
@@ -306,7 +306,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 				Type:        service.Type,
 			})
 			if err != nil {
-				log.Errorf("Failed to get service by revision. Target: %s; Product: %s; Type: %s; Revision: %d; Error: %v",
+				log.Errorf("Failed to get service by revision. Service: %s; Product: %s; Type: %s; Revision: %d; Error: %v",
 					service.ServiceName, service.ProductName, service.Type, service.Revision, err)
 				return serviceRevs, err
 			}
@@ -349,7 +349,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 				if service.Render != nil && service.Render.Name != "" {
 					oldRender, err = getRenderByRevision(allRenders, service.Render.Name, service.Render.Revision)
 					if err != nil {
-						log.Errorf("Failed to get current render of service by revision. Target: %s, Render: %s, RenderRevision: %d, Error: %v",
+						log.Errorf("Failed to get current render of service by revision. Service: %s, Render: %s, RenderRevision: %d, Error: %v",
 							service.ServiceName, service.Render.Name, service.Render.Revision, err)
 						return serviceRevs, e.ErrListProductsRevision.AddDesc(err.Error())
 					}

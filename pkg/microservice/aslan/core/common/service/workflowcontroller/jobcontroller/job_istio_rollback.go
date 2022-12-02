@@ -73,7 +73,7 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 		return
 	}
 	// first we need to delete the destination rule created by zadig
-	newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Target.WorkloadName)
+	newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Service.WorkloadName)
 	c.logger.Infof("deleting zadig's destination rule: %s", newDestinationRuleName)
 
 	err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDestinationRuleName, v1.DeleteOptions{})

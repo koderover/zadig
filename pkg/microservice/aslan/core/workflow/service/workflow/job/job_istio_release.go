@@ -91,7 +91,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				j.spec.ClusterID = fromJobSpec.ClusterID
 				j.spec.Namespace = fromJobSpec.Namespace
 				j.spec.RegistryID = fromJobSpec.RegistryID
-				j.spec.Targets = fromJobSpec.Targets
+				j.spec.Services = fromJobSpec.Services
 			}
 		}
 		if !found {
@@ -106,7 +106,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		if err != nil {
 			return resp, fmt.Errorf("Failed to get kube client, err: %v", err)
 		}
-		for _, target := range j.spec.Targets {
+		for _, target := range j.spec.Services {
 			deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
 			if err != nil || !found {
 				return resp, fmt.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.spec.Namespace)
@@ -120,7 +120,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		return resp, fmt.Errorf("cluster id: %s not found", j.spec.ClusterID)
 	}
 
-	for _, target := range j.spec.Targets {
+	for _, target := range j.spec.Services {
 		newReplicaCount := math.Ceil(float64(*&target.CurrentReplica) * (float64(j.spec.ReplicaPercentage) / 100))
 		jobTask := &commonmodels.JobTask{
 			Name:    j.job.Name,
@@ -134,7 +134,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				Timeout:           j.spec.Timeout,
 				ReplicaPercentage: j.spec.ReplicaPercentage,
 				Replicas:          int64(newReplicaCount),
-				Target:            target,
+				Service:           target,
 			},
 		}
 		resp = append(resp, jobTask)

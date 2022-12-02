@@ -694,7 +694,7 @@ rules:
 ---
 
 apiVersion: v1
-kind: Target
+kind: Service
 metadata:
   name: hub-agent
   namespace: koderover-agent
@@ -813,7 +813,7 @@ spec:
 ---
 
 apiVersion: v1
-kind: Target
+kind: Service
 metadata:
   name: resource-server
   namespace: koderover-agent
@@ -895,7 +895,7 @@ spec:
 ---
 
 apiVersion: v1
-kind: Target
+kind: Service
 metadata:
   name: dind
   namespace: koderover-agent
@@ -957,7 +957,7 @@ rules:
 ---
 
 apiVersion: v1
-kind: Target
+kind: Service
 metadata:
   name: hub-agent
   namespace: {{.Namespace}}
@@ -1076,7 +1076,7 @@ spec:
 ---
 
 apiVersion: v1
-kind: Target
+kind: Service
 metadata:
   name: resource-server
   namespace: {{.Namespace}}
@@ -1159,7 +1159,7 @@ spec:
 ---
 
 apiVersion: v1
-kind: Target
+kind: Service
 metadata:
   name: dind
   namespace: {{.Namespace}}

@@ -22,7 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// TODO: move Revision out of Target.
+// TODO: move Revision out of Service.
 
 // Service : service template struct
 // Service template config has 3 types mainly.

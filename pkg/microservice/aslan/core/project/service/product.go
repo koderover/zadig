@@ -662,7 +662,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 	}
 
 	prodTmpl.ChartInfos = args.ValuesYamls
-	// Load Target
+	// Load Service
 	var svcs [][]*commonmodels.ProductService
 	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
 	for _, names := range prodTmpl.Services {

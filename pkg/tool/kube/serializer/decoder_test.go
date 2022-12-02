@@ -52,7 +52,7 @@ spec:
 
 var testService = `
 apiVersion: v1
-kind: Target
+kind: Service
 metadata:
   labels:
     app: postgres
@@ -92,10 +92,10 @@ var _ = Describe("Testing decoder", func() {
 			Expect(u.GetName()).To(Equal("test"))
 		})
 
-		It("should work for Target", func() {
+		It("should work for Service", func() {
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(testService))
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(u.GetKind()).To(Equal("Target"))
+			Expect(u.GetKind()).To(Equal("Service"))
 			Expect(u.GetName()).To(Equal("test"))
 		})
 

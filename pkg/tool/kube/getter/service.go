@@ -26,7 +26,7 @@ import (
 
 var ServiceGVK = schema.GroupVersionKind{
 	Group:   "",
-	Kind:    "Target",
+	Kind:    "Service",
 	Version: "v1",
 }
 
@@ -81,8 +81,9 @@ func setServiceGVK(service *corev1.Service) {
 	}
 	gvk := schema.GroupVersionKind{
 		Group:   "",
-		Kind:    "Target",
+		Kind:    "Service",
 		Version: "v1",
 	}
 	service.SetGroupVersionKind(gvk)
 }
+

@@ -494,7 +494,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "istio发布",
-			Description:  "结合灰度发布以及更新 istio Virtual Target YAML 配置任务，完成新版本灰度上线过程",
+			Description:  "结合灰度发布以及更新 istio Virtual Service YAML 配置任务，完成新版本灰度上线过程",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
