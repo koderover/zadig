@@ -76,6 +76,7 @@ func (j *IstioRollBackJob) SetPreset() error {
 				log.Errorf("failed to get the replicas from annotation")
 			}
 			target.TargetReplica = replicas
+			newTargets = append(newTargets, target)
 		} else {
 			target.TargetReplica = int(*deployment.Spec.Replicas)
 			for _, container := range deployment.Spec.Template.Spec.Containers {
@@ -83,6 +84,7 @@ func (j *IstioRollBackJob) SetPreset() error {
 					target.Image = container.Image
 				}
 			}
+			newTargets = append(newTargets, target)
 		}
 
 	}
