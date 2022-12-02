@@ -441,7 +441,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			c.Infof("deleteing the destination rule created by zadig: %s", newDestinationRuleName)
 			c.ack()
 
-			err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), vs.Name, v1.DeleteOptions{})
+			err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDestinationRuleName, v1.DeleteOptions{})
 			if err != nil {
 				c.Errorf("destination rule deletion failed, error: %s", err)
 				return
