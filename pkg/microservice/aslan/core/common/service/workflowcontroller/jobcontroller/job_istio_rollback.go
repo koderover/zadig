@@ -17,8 +17,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,6 +68,12 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 	// initialize istio client
 	// NOTE that the only supported version is v1alpha3 right now
 	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		logError(c.job, fmt.Sprintf("failed to prepare istio client to do the resource update"), c.logger)
+		return
+	}
+
+	cli, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
 		logError(c.job, fmt.Sprintf("failed to prepare istio client to do the resource update"), c.logger)
 		return
@@ -130,5 +139,59 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 		}
 	}
 
+	// Finally we deal with the deployment
+	// If there are certain annotations, then the previous release is completed, thus we do a deployment update
+	if image, ok := deployment.Annotations[config.ZadigLastAppliedImage]; ok {
+		if replicaString, ok := deployment.Annotations[config.ZadigLastAppliedReplicas]; ok {
+			replica, err := strconv.Atoi(replicaString)
+			if err != nil {
+				logError(c.job, fmt.Sprintf("cannot convert replicas: [%s] into valid replica, error: %s", replicaString, err), c.logger)
+				return
+			}
+			replicas := int32(replica)
+			delete(deployment.Annotations, config.ZadigLastAppliedReplicas)
+			delete(deployment.Annotations, config.ZadigLastAppliedImage)
+			deployment.Spec.Replicas = &replicas
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if container.Name == c.jobTaskSpec.Targets.ContainerName {
+					container.Image = image
+				}
+			}
+			c.logger.Infof("reverting deployment: %s", deployment.Name)
+			if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
+				logError(c.job, fmt.Sprintf("creating deployment copy: %s failed: %v", fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix), err), c.logger)
+				return
+			}
+			c.logger.Infof("waiting for deployment: %s to start", deployment.Name)
+			if status, err := waitDeploymentReady(ctx, c.jobTaskSpec.Targets.WorkloadName, c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
+				logError(c.job, fmt.Sprintf("Timout waiting for deployment: %s", c.jobTaskSpec.Targets.WorkloadName), c.logger)
+				c.job.Status = status
+				return
+			}
+		} else {
+			// something wrong about this deployment, we will stop here
+			logError(c.job, fmt.Sprintf("failed to find last applied replicas when the last applied image is found"), c.logger)
+			return
+		}
+	} else {
+		// if no annotations is found, the previous release is not finished, we simply delete the new deployment
+		newDeploymentName := fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix)
+		c.logger.Infof("deleting the deployment created by zadig: %s", newDeploymentName)
+		err := cli.AppsV1().Deployments(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDeploymentName, v1.DeleteOptions{})
+		if err != nil {
+			// not fatal so we just log it
+			c.logger.Errorf("failed to delete the deployment: %s created by zadig, error: %s", newDeploymentName, err)
+		}
+	}
+
 	c.job.Status = config.StatusPassed
+}
+
+func (c *IstioRollbackJobCtl) timeout() int64 {
+	if c.jobTaskSpec.Timeout == 0 {
+		c.jobTaskSpec.Timeout = setting.DeployTimeout
+	} else {
+		c.jobTaskSpec.Timeout = c.jobTaskSpec.Timeout * 60
+	}
+	return c.jobTaskSpec.Timeout
 }

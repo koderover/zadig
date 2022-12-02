@@ -244,6 +244,7 @@ type JobIstioRollbackSpec struct {
 	Image       string          `json:"image"        bson:"image"        yaml:"image"`
 	Replicas    int             `json:"replicas"     bson:"replicas"     yaml:"replicas"`
 	Targets     *IstioJobTarget `json:"targets"      bson:"targets"      yaml:"targets"`
+	Timeout     int64           `json:"timeout"      bson:"timeout"      yaml:"timeout"`
 }
 
 type JobTaskGrayRollbackSpec struct {

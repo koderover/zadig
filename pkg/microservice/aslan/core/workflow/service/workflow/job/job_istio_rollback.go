@@ -132,6 +132,7 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 				ClusterName: cluster.Name,
 				Image:       target.Image,
 				Targets:     target,
+				Timeout:     j.spec.Timeout,
 			},
 		}
 		resp = append(resp, jobTask)
