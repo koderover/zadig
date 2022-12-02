@@ -90,7 +90,7 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 
 	resp, err := client.Approval.Approval.Create(context.Background(), req)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "lark client")
 	}
 
 	if !resp.Success() {

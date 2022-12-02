@@ -23,9 +23,10 @@ type ExternalApproval struct {
 	Type string             `json:"type" bson:"type"`
 	Name string             `json:"name" bson:"name"`
 	// Lark fields
-	AppID      string `json:"app_id" bson:"app_id"`
-	AppSecret  string `json:"app_secret" bson:"app_secret"`
-	EncryptKey string `json:"encrypt_key" bson:"encrypt_key"`
+	AppID                   string `json:"app_id" bson:"app_id"`
+	AppSecret               string `json:"app_secret" bson:"app_secret"`
+	EncryptKey              string `json:"encrypt_key" bson:"encrypt_key"`
+	LarkDefaultApprovalCode string `json:"-" bson:"lark_default_approval_code"`
 
 	UpdateTime int64 `json:"update_time" bson:"update_time"`
 }

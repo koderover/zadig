@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -32,14 +33,20 @@ func ListExternalApproval(_type string, log *zap.SugaredLogger) ([]*commonmodels
 	resp, err := mongodb.NewExternalApprovalColl().List(context.Background(), _type)
 	if err != nil {
 		log.Errorf("list external approval error: %v", err)
-		return nil, e.ErrListConfigurationManagement
+		return nil, e.ErrListExternalApproval.AddErr(err)
 	}
 
 	return resp, nil
 }
 
 func CreateExternalApproval(args *commonmodels.ExternalApproval, log *zap.SugaredLogger) error {
-	err := mongodb.NewExternalApprovalColl().Create(context.Background(), args)
+	approvalCode, err := createLarkDefaultApprovalDefinition(lark.NewClient(args.AppID, args.AppSecret))
+	if err != nil {
+		return e.ErrCreateExternalApproval.AddErr(err)
+	}
+	args.LarkDefaultApprovalCode = approvalCode
+
+	err = mongodb.NewExternalApprovalColl().Create(context.Background(), args)
 	if err != nil {
 		log.Errorf("create external approval error: %v", err)
 		return e.ErrCreateExternalApproval.AddErr(err)
@@ -74,4 +81,13 @@ func ValidateExternalApproval(approval *commonmodels.ExternalApproval, log *zap.
 		return e.ErrValidateExternalApproval.AddDesc("invalid type")
 	}
 	return nil
+}
+
+func createLarkDefaultApprovalDefinition(client *lark.Client) (string, error) {
+	code, err := client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
+		Name:        "Zadig 默认审批定义-OR",
+		Description: "Zadig 默认审批定义-OR",
+		Type:        lark.ApproveTypeOr,
+	})
+	return code, errors.Wrap(err, "create approval definition")
 }
