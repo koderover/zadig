@@ -15,9 +15,12 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"go.uber.org/zap"
+	"istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -63,7 +66,7 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 	// NOTE that the only supported version is v1alpha3 right now
 	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
-		c.logger.Errorf("failed to prepare istio client to do the resource update")
+		logError(c.job, fmt.Sprintf("failed to prepare istio client to do the resource update"), c.logger)
 		return
 	}
 
@@ -72,6 +75,13 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 		logError(c.job, fmt.Sprintf("can't init k8s client: %v", err), c.logger)
 		return
 	}
+
+	deployment, found, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.Targets.WorkloadName, c.kubeClient)
+	if err != nil || !found {
+		logError(c.job, fmt.Sprintf("deployment: %s not found: %v", c.jobTaskSpec.Targets.WorkloadName, err), c.logger)
+		return
+	}
+
 	// first we need to delete the destination rule created by zadig
 	newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Targets.WorkloadName)
 	c.logger.Infof("deleting zadig's destination rule: %s", newDestinationRuleName)
@@ -80,6 +90,44 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 	if err != nil {
 		// since this is not a fatal error, we simply print an error message and move on
 		c.logger.Errorf("failed to delete destination rule: %s, error is: %s", newDestinationRuleName, err)
+	}
+
+	// reverting the virtualservice is the second thing to do
+	vsName := deployment.Annotations[ZadigIstioOriginalVSLabel]
+	// if no vs is provided in the deployment stage, we simply delete the vs created by zadig
+	if vsName == "" || vsName == "none" {
+		vsName = fmt.Sprintf(VirtualServiceNameTemplate, c.jobTaskSpec.Targets.WorkloadName)
+		c.logger.Infof("deleteing virtual service: %s created by zadig", vsName)
+
+		err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Delete(context.TODO(), vsName, v1.DeleteOptions{})
+		if err != nil {
+			// still, not a fatal error, only error log will be printed
+			c.logger.Errorf("failed to delete virtual service: %s, error is: %s", vsName, err)
+		}
+	} else {
+		// otherwise we find the routing information from the annotation
+		vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), vsName, v1.GetOptions{})
+		if err != nil {
+			logError(c.job, fmt.Sprintf("failed to get virtual service: %s, error is: %s", vsName, err), c.logger)
+			// this is a fatal error, we will stop here
+			return
+		}
+
+		routeInfoString := vs.Annotations[ZadigIstioVirtualServiceLastAppliedRoutes]
+		route := make([]*v1alpha3.HTTPRouteDestination, 0)
+		err = json.Unmarshal([]byte(routeInfoString), &route)
+		if err != nil {
+			logError(c.job, fmt.Sprintf("failed to unmarshal original route information, error: %s", err), c.logger)
+			return
+		}
+
+		c.logger.Infof("rolling back virtual service: %s", vs.Name)
+		vs.Spec.Http[0].Route = route
+		_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+		if err != nil {
+			logError(c.job, fmt.Sprintf("update virtual service: %s failed, error: %s", vs.Name, err), c.logger)
+			return
+		}
 	}
 
 	c.job.Status = config.StatusPassed
