@@ -157,7 +157,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		// edit the image of the new deployment
 		for _, container := range newDeployment.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.Targets.ContainerName {
-				container.Image = c.jobTaskSpec.Targets.Image
+				container.Image = "koderover.tencentcloudcr.com/test/examples-bookinfo-reviews-v2:1.17.0-actual-v3"
 			}
 		}
 
@@ -374,7 +374,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.Targets.ContainerName {
 					oldImage = container.Image
-					container.Image = c.jobTaskSpec.Targets.Image
+					container.Image = "koderover.tencentcloudcr.com/test/examples-bookinfo-reviews-v2:1.17.0-actual-v3"
 				}
 			}
 
