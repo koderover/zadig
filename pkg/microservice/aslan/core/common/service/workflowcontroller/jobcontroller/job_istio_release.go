@@ -143,6 +143,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				Name:        fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix),
 				Labels:      deployment.ObjectMeta.Labels,
 				Annotations: deployment.ObjectMeta.Annotations,
+				Namespace:   c.jobTaskSpec.Namespace,
 			},
 			Spec: deployment.Spec,
 		}
