@@ -198,6 +198,12 @@ const (
 	JobIstioRollback        JobType = "istio-rollback"
 )
 
+const (
+	ZadigIstioCopySuffix     = "zadig-copy"
+	ZadigLastAppliedImage    = "last-applied-image"
+	ZadigLastAppliedReplicas = "last-applied-replicas"
+)
+
 type ApproveOrReject string
 
 const (

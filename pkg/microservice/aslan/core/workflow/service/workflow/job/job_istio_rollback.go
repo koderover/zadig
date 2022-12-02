@@ -15,10 +15,14 @@ package job
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type IstioRollBackJob struct {
@@ -41,6 +45,48 @@ func (j *IstioRollBackJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client, err: %v", err)
+	}
+	newTargets := make([]*commonmodels.IstioJobTarget, 0)
+	for _, target := range j.spec.Targets {
+		deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
+		if err != nil || !found {
+			log.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.spec.Namespace)
+			continue
+		}
+		zadigNewDeploymentName := fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix)
+		_, zadigFound, err := getter.GetDeployment(j.spec.Namespace, zadigNewDeploymentName, kubeClient)
+		if err != nil {
+			log.Errorf("deployment %s not found in namespace: %s", zadigNewDeploymentName, j.spec.Namespace)
+			continue
+		}
+
+		if !zadigFound {
+			if _, ok := deployment.Annotations[config.ZadigLastAppliedImage]; !ok {
+				if _, ok := deployment.Annotations[config.ZadigLastAppliedReplicas]; !ok {
+					// if no annotation and no new deployment was found, it cannot be selected
+					continue
+				}
+			}
+			target.Image = deployment.Annotations[config.ZadigLastAppliedImage]
+			replicas, err := strconv.Atoi(deployment.Annotations[config.ZadigLastAppliedReplicas])
+			if err != nil {
+				log.Errorf("failed to get the replicas from annotation")
+			}
+			target.TargetReplica = replicas
+		} else {
+			target.TargetReplica = int(*deployment.Spec.Replicas)
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if container.Name == target.ContainerName {
+					target.Image = container.Image
+				}
+			}
+		}
+
+	}
+	j.spec.Targets = newTargets
 	j.job.Spec = j.spec
 	return nil
 }

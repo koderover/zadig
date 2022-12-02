@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -35,7 +36,6 @@ import (
 )
 
 const (
-	ZadigIstioCopySuffix     = "zadig-copy"
 	ZadigIstioLabelOriginal  = "original"
 	ZadigIstioLabelDuplicate = "duplicate"
 )
@@ -45,14 +45,13 @@ const (
 	ZadigIstioIdentifierLabel                 = "zadig-istio-release-version"
 	ZadigIstioOriginalVSLabel                 = "last-applied-virtual-service"
 	ZadigIstioVirtualServiceLastAppliedRoutes = "last-applied-routes"
-	ZadigLastAppliedImage                     = "last-applied-image"
+	WorkloadCreator                           = "workload-creator"
 )
 
 // naming conventions
 const (
-	VirtualServiceNameTemplate            = "%s-vs-zadig"
-	ServiceDestinationRuleTemplate        = "%s-zadig"
-	VirtualServiceHttpRoutingNameTemplate = "%s-routing-zadig"
+	VirtualServiceNameTemplate     = "%s-vs-zadig"
+	ServiceDestinationRuleTemplate = "%s-zadig"
 )
 
 type IstioReleaseJobCtl struct {
@@ -141,12 +140,15 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		// create a new deployment called <deployment-name>-zadig-copy
 		newDeployment := &appsv1.Deployment{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix),
+				Name:        fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix),
 				Labels:      deployment.ObjectMeta.Labels,
 				Annotations: deployment.ObjectMeta.Annotations,
 			},
 			Spec: deployment.Spec,
 		}
+
+		// Add an annotation for filter purpose
+		newDeployment.Annotations[WorkloadCreator] = "zadig-istio-release"
 
 		// edit the label of the new deployment so we could find it
 		newDeployment.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
@@ -155,14 +157,14 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		// edit the image of the new deployment
 		for _, container := range newDeployment.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.Targets.ContainerName {
-				container.Image = "docker.io/istio/examples-bookinfo-reviews-v3:1.17.0"
+				container.Image = c.jobTaskSpec.Targets.Image
 			}
 		}
 
 		c.Infof("Creating deployment copy for deployment: %s", c.jobTaskSpec.Targets.WorkloadName)
 		c.ack()
 		if err := updater.CreateOrPatchDeployment(newDeployment, c.kubeClient); err != nil {
-			c.Errorf("creating deployment copy: %s failed: %v", fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix), err)
+			c.Errorf("creating deployment copy: %s failed: %v", fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix), err)
 			return
 		}
 
@@ -178,8 +180,8 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		// waiting for the deployment copy to run
 		c.Infof("Waiting for the duplicate deployment: %s to start", c.jobTaskSpec.Targets.WorkloadName)
 		c.ack()
-		if status, err := waitDeploymentReady(ctx, fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix), c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
-			c.Errorf("Timout waiting for deployment: %s", fmt.Sprintf("%s-%s", deployment.Name, ZadigIstioCopySuffix))
+		if status, err := waitDeploymentReady(ctx, fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix), c.jobTaskSpec.Namespace, c.timeout(), c.kubeClient, c.logger); err != nil {
+			c.Errorf("Timout waiting for deployment: %s", fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix))
 			c.job.Status = status
 			return
 		}
@@ -376,7 +378,10 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				}
 			}
 
-			deployment.Annotations[ZadigLastAppliedImage] = oldImage
+			oldReplicas := strconv.Itoa(int(*deployment.Spec.Replicas))
+			deployment.Annotations[config.ZadigLastAppliedReplicas] = oldReplicas
+
+			deployment.Annotations[config.ZadigLastAppliedImage] = oldImage
 
 			c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Targets.Image)
 			c.ack()
@@ -414,7 +419,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 					return
 				}
 			} else {
-				c.Infof("deleteing the virtual service created by zadig: %s", vs.Name)
+				c.Infof("deleting the virtual service created by zadig: %s", vs.Name)
 				c.ack()
 				// else we simply delete
 				err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Delete(context.TODO(), vs.Name, v1.DeleteOptions{})
