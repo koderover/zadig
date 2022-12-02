@@ -300,14 +300,14 @@ type IstioJobSpec struct {
 	Timeout           int64             `bson:"timeout"            json:"timeout"            yaml:"timeout"`
 	ReplicaPercentage int64             `bson:"replica_percentage" json:"replica_percentage" yaml:"replica_percentage"`
 	Weight            int64             `bson:"weight"             json:"weight"             yaml:"weight"`
-	Services          []*IstioJobTarget `bson:"services"           json:"services"           yaml:"services"`
+	Targets           []*IstioJobTarget `bson:"targets"            json:"targets"            yaml:"targets"`
 }
 
 type IstioRollBackJobSpec struct {
 	ClusterID string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
 	Namespace string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
 	Timeout   int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
-	Services  []*IstioJobTarget `bson:"services"    json:"services"    yaml:"services"`
+	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
 }
 
 type IstioJobTarget struct {
