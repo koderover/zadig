@@ -151,6 +151,14 @@ func (j *IstioReleaseJob) LintJob() error {
 		return fmt.Errorf("istio release job: [%s] weight cannot be more than 100", j.job.Name)
 	}
 
+	// from job was empty means it is the first deploy job.
+	//if j.spec.FromJob == "" {
+	//	if err := lintFirstGrayReleaseJob(j.job.Name, j.workflow.Stages); err != nil {
+	//		return err
+	//	}
+	//	return nil
+	//}
+
 	var quoteJobSpec *commonmodels.IstioJobSpec
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -172,5 +180,45 @@ func (j *IstioReleaseJob) LintJob() error {
 		return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
 	}
 
+	return nil
+}
+
+type lintIstioReleaseJob struct {
+	jobName string
+	weight  int
+}
+
+func lintFirstIstioReleaseJob(jobName string, stages []*commonmodels.WorkflowStage) error {
+	jobRankmap := getJobRankMap(stages)
+	releaseJobs := []*lintIstioReleaseJob{}
+	for _, stage := range stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobIstioRelease {
+				continue
+			}
+			jobSpec := &commonmodels.IstioJobSpec{}
+			if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
+				return err
+			}
+			if jobSpec.FromJob != jobName {
+				continue
+			}
+			releaseJobs = append(releaseJobs, &lintIstioReleaseJob{jobName: job.Name, weight: jobSpec.Weight})
+		}
+	}
+	if len(releaseJobs) == 0 {
+		return fmt.Errorf("no release job found for job [%s]", jobName)
+	}
+	for i, releaseJob := range releaseJobs {
+		if jobRankmap[jobName] >= jobRankmap[releaseJob.jobName] {
+			return fmt.Errorf("istio release job: [%s] must be run before [%s]", jobName, releaseJob.jobName)
+		}
+		if i < len(releaseJobs)-1 && releaseJob.weight >= 100 {
+			return fmt.Errorf("istio release job: [%s] cannot full release in the middle", releaseJob.jobName)
+		}
+		if i == len(releaseJobs)-1 && releaseJob.weight != 100 {
+			return fmt.Errorf("istio last release job: [%s] must be full released", releaseJob.jobName)
+		}
+	}
 	return nil
 }
