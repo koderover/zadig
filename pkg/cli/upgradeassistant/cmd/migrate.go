@@ -63,7 +63,7 @@ var migrateCmd = &cobra.Command{
 	},
 }
 
-func isOfficialVersion(versionStr string) bool {
+func isReleaseVersion(versionStr string) bool {
 	version, _ := semver.Make(versionStr)
 	return len(version.Pre) == 0 && len(version.Build) == 0
 }
@@ -108,7 +108,6 @@ func run() error {
 		return fmt.Errorf("target version not assigned")
 	}
 
-	//semver.Sort(upgradepath.VersionDatas)
 	var versions semver.Versions
 	for _, verStr := range versionSets.List() {
 		semVersion, err := semver.Make(verStr)
@@ -119,16 +118,18 @@ func run() error {
 	}
 	semver.Sort(versions)
 
+	// for pre-release versions, find the closest previous release version
 	if !versionSets.Has(from) {
-		if !isOfficialVersion(from) {
+		if !isReleaseVersion(from) {
 			fromVersion, _ := semver.Make(from)
 			from = findPreVersionFromList(fromVersion, versions)
 			versions = append(versions, fromVersion)
 		}
 		versionSets.Insert(from)
 	}
+	// for pre-release versions, find the closest next release version
 	if !versionSets.Has(to) {
-		if !isOfficialVersion(to) {
+		if !isReleaseVersion(to) {
 			toVersion, _ := semver.Make(to)
 			to = nextVersionFromList(toVersion, versions)
 			versions = append(versions, toVersion)
