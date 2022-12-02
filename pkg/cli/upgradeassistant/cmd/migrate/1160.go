@@ -398,7 +398,11 @@ func createNewPackageDependencies() error {
 
 			result, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
 			if err != nil {
-				return fmt.Errorf("update %s failed, err: %v", fullName, err)
+				if !mongo.IsDuplicateKeyError(err) {
+					return fmt.Errorf("update %s failed, err: %v", fullName, err)
+				}
+				log.Warnf("find %s has been existed, skip install", fullName)
+				continue
 			}
 			if result.UpsertedCount > 0 {
 				log.Infof("create %s install info success", fullName)
