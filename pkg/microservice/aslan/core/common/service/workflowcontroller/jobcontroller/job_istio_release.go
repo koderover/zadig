@@ -336,32 +336,30 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 
-		if c.jobTaskSpec.Weight != 100 {
-			newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
-			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
-				Destination: &networkingv1alpha3.Destination{
-					Host:   c.jobTaskSpec.Targets.Host,
-					Subset: ZadigIstioLabelOriginal,
-					Port:   vs.Spec.Http[0].Route[0].Destination.Port,
-				},
-				Weight: 100 - int32(c.jobTaskSpec.Weight),
-			})
-			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
-				Destination: &networkingv1alpha3.Destination{
-					Host:   c.jobTaskSpec.Targets.Host,
-					Subset: ZadigIstioLabelOriginal,
-					Port:   vs.Spec.Http[0].Route[0].Destination.Port,
-				},
-				Weight: int32(c.jobTaskSpec.Weight),
-			})
-			vs.Spec.Http[0].Route = newHTTPRoutingRules
-			c.Infof("Modifying Virtual Service: %s", c.jobTaskSpec.Targets.VirtualServiceName)
-			c.ack()
-			_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
-			if err != nil {
-				c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
-				return
-			}
+		newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
+		newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+			Destination: &networkingv1alpha3.Destination{
+				Host:   c.jobTaskSpec.Targets.Host,
+				Subset: ZadigIstioLabelOriginal,
+				Port:   vs.Spec.Http[0].Route[0].Destination.Port,
+			},
+			Weight: 100 - int32(c.jobTaskSpec.Weight),
+		})
+		newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+			Destination: &networkingv1alpha3.Destination{
+				Host:   c.jobTaskSpec.Targets.Host,
+				Subset: ZadigIstioLabelOriginal,
+				Port:   vs.Spec.Http[0].Route[0].Destination.Port,
+			},
+			Weight: int32(c.jobTaskSpec.Weight),
+		})
+		vs.Spec.Http[0].Route = newHTTPRoutingRules
+		c.Infof("Modifying Virtual Service: %s", c.jobTaskSpec.Targets.VirtualServiceName)
+		c.ack()
+		_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+		if err != nil {
+			c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
+			return
 		}
 
 		// If this is a finishing move, following additional steps will have to be done
@@ -403,20 +401,26 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				return
 			}
 
+			modifiedVS, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), c.jobTaskSpec.Targets.VirtualServiceName, v1.GetOptions{})
+			if err != nil {
+				c.Errorf("failed to find virtual service of name: %s, error is: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
+				return
+			}
+
 			// restore the vs to before
 			if c.jobTaskSpec.Targets.VirtualServiceName != "" {
 				// if there was a configuration before, then we roll it back
-				lastAppliedRouteInfo := vs.Annotations[ZadigIstioVirtualServiceLastAppliedRoutes]
+				lastAppliedRouteInfo := modifiedVS.Annotations[ZadigIstioVirtualServiceLastAppliedRoutes]
 				route := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
 				err := json.Unmarshal([]byte(lastAppliedRouteInfo), &route)
 				if err != nil {
 					c.Errorf("failed to get the last applied virtualservice info, error: %s", err)
 					return
 				}
-				vs.Spec.Http[0].Route = route
+				modifiedVS.Spec.Http[0].Route = route
 				c.Infof("switching the queries back to the original workload on virtual service: %s", vs.Name)
 				c.ack()
-				_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+				_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), modifiedVS, v1.UpdateOptions{})
 				if err != nil {
 					c.Errorf("virtual service update failed, error: %s", err)
 					return
@@ -425,7 +429,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				c.Infof("deleting the virtual service created by zadig: %s", vs.Name)
 				c.ack()
 				// else we simply delete
-				err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Delete(context.TODO(), vs.Name, v1.DeleteOptions{})
+				err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Delete(context.TODO(), modifiedVS.Name, v1.DeleteOptions{})
 				if err != nil {
 					c.Errorf("virtual service deletion failed, error: %s", err)
 					return
@@ -437,7 +441,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			c.Infof("deleteing the destination rule created by zadig: %s", newDestinationRuleName)
 			c.ack()
 
-			err := istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), vs.Name, v1.DeleteOptions{})
+			err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), vs.Name, v1.DeleteOptions{})
 			if err != nil {
 				c.Errorf("destination rule deletion failed, error: %s", err)
 				return
