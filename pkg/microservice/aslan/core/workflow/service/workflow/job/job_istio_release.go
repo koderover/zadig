@@ -123,7 +123,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	for _, target := range j.spec.Targets {
 		newReplicaCount := math.Ceil(float64(*&target.CurrentReplica) * (float64(j.spec.ReplicaPercentage) / 100))
 		jobTask := &commonmodels.JobTask{
-			Name:    j.job.Name,
+			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
 			JobType: string(config.JobIstioRelease),
 			Spec: &commonmodels.JobIstioReleaseSpec{
 				FirstJob:          firstJob,

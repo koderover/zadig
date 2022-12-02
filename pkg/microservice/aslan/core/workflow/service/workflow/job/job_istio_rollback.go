@@ -122,7 +122,7 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 
 	for _, target := range j.spec.Targets {
 		jobTask := &commonmodels.JobTask{
-			Name:    j.job.Name,
+			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
 			JobType: string(config.JobIstioRollback),
 			Spec: &commonmodels.JobIstioRollbackSpec{
 				Namespace:   j.spec.Namespace,
