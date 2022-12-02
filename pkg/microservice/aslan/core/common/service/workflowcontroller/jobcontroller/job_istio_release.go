@@ -336,30 +336,32 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 
-		newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
-		newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
-			Destination: &networkingv1alpha3.Destination{
-				Host:   c.jobTaskSpec.Targets.Host,
-				Subset: ZadigIstioLabelOriginal,
-				Port:   vs.Spec.Http[0].Route[0].Destination.Port,
-			},
-			Weight: 100 - int32(c.jobTaskSpec.Weight),
-		})
-		newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
-			Destination: &networkingv1alpha3.Destination{
-				Host:   c.jobTaskSpec.Targets.Host,
-				Subset: ZadigIstioLabelOriginal,
-				Port:   vs.Spec.Http[0].Route[0].Destination.Port,
-			},
-			Weight: int32(c.jobTaskSpec.Weight),
-		})
-		vs.Spec.Http[0].Route = newHTTPRoutingRules
-		c.Infof("Modifying Virtual Service: %s", c.jobTaskSpec.Targets.VirtualServiceName)
-		c.ack()
-		_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
-		if err != nil {
-			c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
-			return
+		if c.jobTaskSpec.Weight != 100 {
+			newHTTPRoutingRules := make([]*networkingv1alpha3.HTTPRouteDestination, 0)
+			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host:   c.jobTaskSpec.Targets.Host,
+					Subset: ZadigIstioLabelOriginal,
+					Port:   vs.Spec.Http[0].Route[0].Destination.Port,
+				},
+				Weight: 100 - int32(c.jobTaskSpec.Weight),
+			})
+			newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host:   c.jobTaskSpec.Targets.Host,
+					Subset: ZadigIstioLabelOriginal,
+					Port:   vs.Spec.Http[0].Route[0].Destination.Port,
+				},
+				Weight: int32(c.jobTaskSpec.Weight),
+			})
+			vs.Spec.Http[0].Route = newHTTPRoutingRules
+			c.Infof("Modifying Virtual Service: %s", c.jobTaskSpec.Targets.VirtualServiceName)
+			c.ack()
+			_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+			if err != nil {
+				c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
+				return
+			}
 		}
 
 		// If this is a finishing move, following additional steps will have to be done
