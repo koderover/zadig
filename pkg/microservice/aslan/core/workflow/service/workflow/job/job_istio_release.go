@@ -185,7 +185,7 @@ func (j *IstioReleaseJob) LintJob() error {
 
 type lintIstioReleaseJob struct {
 	jobName string
-	weight  int
+	weight  int64
 }
 
 func lintFirstIstioReleaseJob(jobName string, stages []*commonmodels.WorkflowStage) error {
