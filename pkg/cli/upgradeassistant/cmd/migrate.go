@@ -63,6 +63,33 @@ var migrateCmd = &cobra.Command{
 	},
 }
 
+func isOfficialVersion(versionStr string) bool {
+	version, _ := semver.Make(versionStr)
+	return len(version.Pre) == 0 && len(version.Build) == 0
+}
+
+func findPreVersionFromList(targetVersion semver.Version, versionList semver.Versions) string {
+	semver.Sort(versionList)
+	curVersion := versionList[0]
+	for _, version := range versionList {
+		if version.Compare(targetVersion) >= 0 {
+			return curVersion.FinalizeVersion()
+		}
+		curVersion = version
+	}
+	return targetVersion.FinalizeVersion()
+}
+
+func nextVersionFromList(targetVersion semver.Version, versionList semver.Versions) string {
+	semver.Sort(versionList)
+	for _, version := range versionList {
+		if version.Compare(targetVersion) >= 0 {
+			return version.FinalizeVersion()
+		}
+	}
+	return targetVersion.FinalizeVersion()
+}
+
 func run() error {
 	from := viper.GetString("fromVersion")
 	to := viper.GetString("toVersion")
@@ -80,6 +107,35 @@ func run() error {
 	if len(to) == 0 {
 		return fmt.Errorf("target version not assigned")
 	}
+
+	//semver.Sort(upgradepath.VersionDatas)
+	var versions semver.Versions
+	for _, verStr := range versionSets.List() {
+		semVersion, err := semver.Make(verStr)
+		if err != nil {
+			return fmt.Errorf("failed to parse version: %s, err: %s", verStr, err)
+		}
+		versions = append(versions, semVersion)
+	}
+	semver.Sort(versions)
+
+	if !versionSets.Has(from) {
+		if !isOfficialVersion(from) {
+			fromVersion, _ := semver.Make(from)
+			from = findPreVersionFromList(fromVersion, versions)
+			versions = append(versions, fromVersion)
+		}
+		versionSets.Insert(from)
+	}
+	if !versionSets.Has(to) {
+		if !isOfficialVersion(to) {
+			toVersion, _ := semver.Make(to)
+			to = nextVersionFromList(toVersion, versions)
+			versions = append(versions, toVersion)
+		}
+		versionSets.Insert(to)
+	}
+
 	versionSets.Insert(from, to)
 
 	for _, verStr := range versionSets.List() {
