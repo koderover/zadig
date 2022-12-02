@@ -91,6 +91,12 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		c.Errorf("can't init k8s client: %v", err)
 		return
 	}
+
+	cli, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	if err != nil {
+		logError(c.job, fmt.Sprintf("failed to prepare istio client to do the resource update"), c.logger)
+		return
+	}
 	// initialize istio client
 	// NOTE that the only supported version is v1alpha3 right now
 	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
@@ -446,8 +452,16 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				c.Errorf("destination rule deletion failed, error: %s", err)
 				return
 			}
-		}
 
+			// finally delete the new deployment created by us
+			newDeploymentName := fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix)
+			c.Infof("Deleting the temporary deployment created by zadig: %s", newDeploymentName)
+			err = cli.AppsV1().Deployments(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDeploymentName, v1.DeleteOptions{})
+			if err != nil {
+				c.Errorf("failed to delete deployment: %s, error: %s", newDeploymentName, err)
+				return
+			}
+		}
 	}
 
 	c.job.Status = config.StatusPassed
