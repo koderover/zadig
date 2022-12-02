@@ -221,7 +221,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		c.ack()
 		_, err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Create(context.TODO(), targetDestinationRule, v1.CreateOptions{})
 		if err != nil {
-			c.Errorf("failed to create new destination rule: %s", newDestinationRuleName)
+			c.Errorf("failed to create new destination rule: %s, error: %s", newDestinationRuleName, err)
 			return
 		}
 
