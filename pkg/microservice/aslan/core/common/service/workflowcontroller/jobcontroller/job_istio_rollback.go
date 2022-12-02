@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"istio.io/api/networking/v1alpha3"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -152,11 +153,15 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 			delete(deployment.Annotations, config.ZadigLastAppliedReplicas)
 			delete(deployment.Annotations, config.ZadigLastAppliedImage)
 			deployment.Spec.Replicas = &replicas
+			containerList := make([]corev1.Container, 0)
 			for _, container := range deployment.Spec.Template.Spec.Containers {
+				newContainer := container.DeepCopy()
 				if container.Name == c.jobTaskSpec.Targets.ContainerName {
-					container.Image = image
+					newContainer.Image = image
 				}
+				containerList = append(containerList, *newContainer)
 			}
+			deployment.Spec.Template.Spec.Containers = containerList
 			c.logger.Infof("reverting deployment: %s", deployment.Name)
 			if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
 				logError(c.job, fmt.Sprintf("creating deployment copy: %s failed: %v", fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix), err), c.logger)
