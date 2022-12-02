@@ -1,6 +1,6 @@
 <p><a href="https://github.com/koderover/zadig-doc" target="_blank" rel="noopener noreferrer"><img height="50" src="https://docs.koderover.com/zadig/img/zadig.png" alt="Zadig logo"></a></p>
 
-<h3 align="left">Developer-oriented Continuous Delivery Product</h3>
+<h3 align="left">Developer-oriented Continuous Delivery Product jinyz1</h3>
 
 <span align="left">
 
