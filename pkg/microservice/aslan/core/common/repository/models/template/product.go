@@ -199,7 +199,7 @@ func (p *Product) SharedServiceInfoMap() map[string]*ServiceInfo {
 }
 
 // AllServiceInfoMap returns all services which are bound to this product, including the shared ones.
-// note that p.Services contains all services names including the shared ones, so we need to override their owner.
+// note that p.Targets contains all services names including the shared ones, so we need to override their owner.
 func (p *Product) AllServiceInfoMap() map[string]*ServiceInfo {
 	res := make(map[string]*ServiceInfo)
 	for _, sg := range p.Services {

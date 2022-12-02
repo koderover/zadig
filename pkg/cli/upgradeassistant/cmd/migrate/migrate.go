@@ -37,7 +37,7 @@ func init() {
 
 // V130ToV131 migrates data from v1.3.0 to v1.3.1 with the following tasks:
 // 1. Add field `SharedServices` for all projects
-// 2. Add field `ProductName` in field `Services` for all envs
+// 2. Add field `ProductName` in field `Targets` for all envs
 // 3. Change the ServiceTemplateCounterName format
 func V130ToV131() error {
 	log.Info("Migrating data from 1.3.0 to 1.3.1")
@@ -101,7 +101,7 @@ func V130ToV131() error {
 
 	}
 
-	// add field `ProductName` in field `Services` for all envs
+	// add field `ProductName` in field `Targets` for all envs
 	for _, env := range allEnvs {
 		for _, group := range env.Services {
 			for _, s := range group {
@@ -136,7 +136,7 @@ func V130ToV131() error {
 
 // V131ToV130 rollbacks the changes from v1.3.1 to v1.3.0 with the following tasks:
 // 1. Remove field `SharedServices` for all projects
-// 2. Remove field `ProductName` in field `Services` for all envs
+// 2. Remove field `ProductName` in field `Targets` for all envs
 // 3. Revert the ServiceTemplateCounterName format
 func V131ToV130() error {
 	log.Info("Rollback data from 1.3.1 to 1.3.0")
@@ -174,7 +174,7 @@ func V131ToV130() error {
 		}
 	}
 
-	// clear field `ProductName` in field `Services` for all envs
+	// clear field `ProductName` in field `Targets` for all envs
 	for _, env := range allEnvs {
 		for _, group := range env.Services {
 			for _, s := range group {

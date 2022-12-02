@@ -343,7 +343,7 @@ func updateServiceTemplateByPushEvent(diffs []string, pathWithNamespace string, 
 				errs = multierror.Append(errs, err)
 			}
 		} else {
-			log.Infof("Service template %s from gitlab %s is not affected, no sync", service.ServiceName, service.SrcPath)
+			log.Infof("Target template %s from gitlab %s is not affected, no sync", service.ServiceName, service.SrcPath)
 		}
 
 	}
@@ -357,7 +357,7 @@ func GetGitlabServiceTemplates() ([]*commonmodels.Service, error) {
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
-// SyncServiceTemplateFromGitlab Force to sync Service Template to latest commit and content,
+// SyncServiceTemplateFromGitlab Force to sync Target Template to latest commit and content,
 // Notes: if remains the same, quit sync; if updates, revision +1
 func SyncServiceTemplateFromGitlab(service *commonmodels.Service, log *zap.SugaredLogger) error {
 	// 判断一下Source字段，如果Source字段不是gitlab，直接返回

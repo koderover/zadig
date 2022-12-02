@@ -74,7 +74,7 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 		return resp, fmt.Errorf("cluster id: %s not found", j.spec.ClusterID)
 	}
 
-	for _, target := range j.spec.Services {
+	for _, target := range j.spec.Targets {
 		jobTask := &commonmodels.JobTask{
 			Name:    j.job.Name,
 			JobType: string(config.JobIstioRollback),
@@ -83,7 +83,7 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 				ClusterID:   j.spec.ClusterID,
 				ClusterName: cluster.Name,
 				Image:       target.Image,
-				Service:     target,
+				Target:      target,
 			},
 		}
 		resp = append(resp, jobTask)

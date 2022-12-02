@@ -122,7 +122,7 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 	if err := ensurePipelineTask(&task.TaskOpt{
 		Task: pt,
 	}, log); err != nil {
-		log.Errorf("Service.ensurePipelineTask failed %v %s", args, err)
+		log.Errorf("Target.ensurePipelineTask failed %v %s", args, err)
 		if err, ok := err.(*ContainerNotFound); ok {
 			return nil, e.NewWithExtras(
 				e.ErrCreateTaskFailed,

@@ -253,7 +253,7 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 				errs = multierror.Append(errs, err)
 			}
 		} else {
-			log.Infof("Service template %s from gitee %s is not affected, no sync", service.ServiceName, service.LoadPath)
+			log.Infof("Target template %s from gitee %s is not affected, no sync", service.ServiceName, service.LoadPath)
 		}
 	}
 

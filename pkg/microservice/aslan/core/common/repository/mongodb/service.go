@@ -272,7 +272,7 @@ func (c *ServiceColl) Delete(serviceName, serviceType, productName, status strin
 func (c *ServiceColl) Create(args *models.Service) error {
 	//avoid panic issue
 	if args == nil {
-		return errors.New("nil Service")
+		return errors.New("nil Target")
 	}
 
 	args.ServiceName = strings.TrimSpace(args.ServiceName)

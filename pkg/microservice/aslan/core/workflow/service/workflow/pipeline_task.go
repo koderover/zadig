@@ -246,7 +246,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		Task:    pt,
 		EnvName: pt.TaskArgs.Deploy.Namespace,
 	}, log); err != nil {
-		log.Errorf("Service.ensurePipelineTask failed %v %v", args, err)
+		log.Errorf("Target.ensurePipelineTask failed %v %v", args, err)
 		if err, ok := err.(*ContainerNotFound); ok {
 			return nil, e.NewWithExtras(
 				e.ErrCreateTaskFailed,

@@ -37,7 +37,7 @@ var StopChanMap sync.Map
 // Current list:
 // - Deployment
 // - StatefulSet
-// - Service
+// - Target
 // - Pod
 // - Ingress (extentions/v1beta1) <- as of version 1.9.0, this is the resource we watch
 func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (informers.SharedInformerFactory, error) {

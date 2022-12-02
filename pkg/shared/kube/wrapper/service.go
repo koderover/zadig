@@ -23,7 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-// service is the wrapper for corev1.Service type.
+// service is the wrapper for corev1.Target type.
 type service struct {
 	*corev1.Service
 }
@@ -38,7 +38,7 @@ func Service(w *corev1.Service) *service {
 	}
 }
 
-// Unwrap returns the corev1.Service object.
+// Unwrap returns the corev1.Target object.
 func (w *service) Unwrap() *corev1.Service {
 	return w.Service
 }

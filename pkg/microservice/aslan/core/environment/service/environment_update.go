@@ -53,7 +53,7 @@ func UninstallService(helmClient helmclient.Client, env *commonmodels.Product, r
 
 	err := EnsureDeleteZadigServiceByHelmRelease(context.TODO(), env, releaseName, helmClient)
 	if err != nil {
-		return fmt.Errorf("failed to ensure delete Zadig Service by helm release: %s", err)
+		return fmt.Errorf("failed to ensure delete Zadig Target by helm release: %s", err)
 	}
 
 	return helmClient.UninstallRelease(&helmclient.ChartSpec{

@@ -363,7 +363,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 			if description, ok := messageMap["description"]; ok {
 				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
 			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			return e.ErrLoadServiceTemplate.AddDesc("Load Target Error for unknown reason")
 		}
 		return nil
 	}
@@ -435,7 +435,7 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 		if description, ok := messageMap["description"]; ok {
 			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
 		} else {
-			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			err = e.ErrLoadServiceTemplate.AddDesc("Load Target Error for unknown reason")
 		}
 	}
 	return err
@@ -485,7 +485,7 @@ func loadCodehubService(username string, ch *systemconfig.CodeHost, repoOwner, r
 			if description, ok := messageMap["description"]; ok {
 				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
 			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			return e.ErrLoadServiceTemplate.AddDesc("Load Target Error for unknown reason")
 		}
 	}
 	treeNodes, err := codeHubClient.FileTree(repoUUID, branchName, args.LoadPath)
@@ -562,7 +562,7 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 		if description, ok := messageMap["description"]; ok {
 			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
 		} else {
-			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			err = e.ErrLoadServiceTemplate.AddDesc("Load Target Error for unknown reason")
 		}
 	}
 	return err
@@ -628,7 +628,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 			if description, ok := messageMap["description"]; ok {
 				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
 			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			return e.ErrLoadServiceTemplate.AddDesc("Load Target Error for unknown reason")
 		}
 		return nil
 	}
@@ -698,7 +698,7 @@ func loadServiceFromGitee(tree []os.FileInfo, ch *systemconfig.CodeHost, usernam
 		if description, ok := messageMap["description"]; ok {
 			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
 		} else {
-			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			err = e.ErrLoadServiceTemplate.AddDesc("Load Target Error for unknown reason")
 		}
 	}
 	return err

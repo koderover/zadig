@@ -228,10 +228,10 @@ func CheckShareEnvReady(ctx context.Context, envName, op, productName string) (*
 		return nil, fmt.Errorf("failed to check whether namespace `%s` has labeled `istio-injection=enabled`: %s", ns, err)
 	}
 
-	// 2. Check whether all workloads have K8s Service.
+	// 2. Check whether all workloads have K8s Target.
 	workloadsHaveNoK8sService, err := checkWorkloadsHaveK8sService(ctx, kclient, ns)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check whether all workloads in ns `%s` have K8s Service: %s", ns, err)
+		return nil, fmt.Errorf("failed to check whether all workloads in ns `%s` have K8s Target: %s", ns, err)
 	}
 
 	isWorkloadsHaveNoK8sService := true
@@ -312,7 +312,7 @@ func getWorkloads(ctx context.Context, kclient client.Client, namespace string) 
 
 // map structure:
 // - key: `<sic name>`, e.g.: zadig
-// - value: a map[string]string, which is Service's selector
+// - value: a map[string]string, which is Target's selector
 func getSvcs(ctx context.Context, kclient client.Client, namespace string) (map[string]map[string]string, error) {
 	svcs := &corev1.ServiceList{}
 	err := kclient.List(ctx, svcs, client.InNamespace(namespace))
@@ -890,10 +890,10 @@ func EnsureGrayEnvConfig(ctx context.Context, env *commonmodels.Product, kclient
 		return fmt.Errorf("failed to ensure workloads VirtualService: %s", err)
 	}
 
-	// 2. Deploy K8s Services and VirtualServices of all workloads in the base environment to the gray environment.
+	// 2. Deploy K8s Targets and VirtualServices of all workloads in the base environment to the gray environment.
 	err = ensureDefaultK8sServiceAndVirtualServicesInGray(ctx, env, baseNS, kclient, istioClient)
 	if err != nil {
-		return fmt.Errorf("failed to ensure K8s Services and VirtualServices: %s", err)
+		return fmt.Errorf("failed to ensure K8s Targets and VirtualServices: %s", err)
 	}
 
 	return nil
@@ -1187,7 +1187,7 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return nil
 	}
 
-	// Note: A Service may not be queried immediately after it is created.
+	// Note: A Target may not be queried immediately after it is created.
 	var err error
 	svc := &corev1.Service{}
 	for i := 0; i < 3; i++ {
@@ -1199,11 +1199,11 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 			break
 		}
 
-		log.Warnf("Failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
+		log.Warnf("Failed to query Target %s in ns %s: %s", svcName, env.Namespace, err)
 		time.Sleep(1 * time.Second)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
+		return fmt.Errorf("failed to query Target %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
 	return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
@@ -1306,7 +1306,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 
 	svcNames, err := util.GetSvcNamesFromManifest(manifest)
 	if err != nil {
-		return fmt.Errorf("failed to get Service names from manifest: %s", err)
+		return fmt.Errorf("failed to get Target names from manifest: %s", err)
 	}
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
@@ -1327,7 +1327,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 	for _, svcName := range svcNames {
 		err := EnsureUpdateZadigService(ctx, env, svcName, kclient, istioClient)
 		if err != nil {
-			return fmt.Errorf("failed to ensure Zadig Service for K8s Service %q in env %q of product %q: %s", svcName, env.EnvName, env.ProductName, err)
+			return fmt.Errorf("failed to ensure Zadig Target for K8s Target %q in env %q of product %q: %s", svcName, env.EnvName, env.ProductName, err)
 		}
 	}
 
@@ -1346,7 +1346,7 @@ func EnsureDeleteZadigServiceByHelmRelease(ctx context.Context, env *commonmodel
 
 	svcNames, err := util.GetSvcNamesFromManifest(release.Manifest)
 	if err != nil {
-		return fmt.Errorf("failed to get Service names from manifest: %s", err)
+		return fmt.Errorf("failed to get Target names from manifest: %s", err)
 	}
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
@@ -1381,7 +1381,7 @@ func ensureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 		Namespace: env.Namespace,
 	}, svc)
 	if err != nil {
-		return fmt.Errorf("failed to find Service %q in namespace %q: %s", svcName, env.Namespace, err)
+		return fmt.Errorf("failed to find Target %q in namespace %q: %s", svcName, env.Namespace, err)
 	}
 
 	return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
@@ -1407,7 +1407,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 
 	svcNames, err := util.GetSvcNamesFromManifest(string(manifestBytes))
 	if err != nil {
-		return fmt.Errorf("failed to get Service names from manifest: %s", err)
+		return fmt.Errorf("failed to get Target names from manifest: %s", err)
 	}
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
@@ -1418,7 +1418,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 	for _, svcName := range svcNames {
 		err := ensureDeleteK8sService(ctx, namespace, svcName, kclient, true)
 		if err != nil {
-			return fmt.Errorf("failed to ensure delete existing K8s Service %q in namespace %q: %s", svcName, namespace, err)
+			return fmt.Errorf("failed to ensure delete existing K8s Target %q in namespace %q: %s", svcName, namespace, err)
 		}
 	}
 

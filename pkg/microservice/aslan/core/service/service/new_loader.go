@@ -201,7 +201,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 			if description, ok := messageMap["description"]; ok {
 				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
 			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			return e.ErrLoadServiceTemplate.AddDesc("Load Target Error for unknown reason")
 		}
 	}
 

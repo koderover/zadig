@@ -122,7 +122,7 @@ func updateServiceTemplateByCodehubPushEvent(event *codehub.PushEvent, log *zap.
 				errs = multierror.Append(errs, err)
 			}
 		} else {
-			log.Infof("Service template %s from codehub %s is not affected, no sync", service.ServiceName, service.SrcPath)
+			log.Infof("Target template %s from codehub %s is not affected, no sync", service.ServiceName, service.SrcPath)
 		}
 
 	}
@@ -137,7 +137,7 @@ func GetCodehubServiceTemplates() ([]*commonmodels.Service, error) {
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
-// SyncServiceTemplateFromCodehub Force to sync Service Template to latest commit and content,
+// SyncServiceTemplateFromCodehub Force to sync Target Template to latest commit and content,
 // Notes: if remains the same, quit sync; if updates, revision +1
 func SyncServiceTemplateFromCodehub(service *commonmodels.Service, log *zap.SugaredLogger) error {
 	// 判断一下Source字段，如果Source字段不是gitlab，直接返回

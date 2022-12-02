@@ -405,7 +405,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 				resp.GUIConfig.Deployment = result
 			case "Ingress":
 				resp.GUIConfig.Ingress = result
-			case "Service":
+			case "Target":
 				resp.GUIConfig.Service = result
 			}
 		}

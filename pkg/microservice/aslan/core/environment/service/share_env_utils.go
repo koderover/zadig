@@ -222,7 +222,7 @@ func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, 
 
 	vsName := genVirtualServiceName(svc)
 	for _, env := range envs {
-		log.Infof("Begin to ensure Services in subenv %s of prouduct %s.", env.EnvName, env.ProductName)
+		log.Infof("Begin to ensure Targets in subenv %s of prouduct %s.", env.EnvName, env.ProductName)
 
 		err = ensureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
 		if err != nil {
@@ -260,7 +260,7 @@ func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.
 		return err
 	}
 
-	// Note: Don't delete VirtualService and K8s Service if there's selected pods.
+	// Note: Don't delete VirtualService and K8s Target if there's selected pods.
 	vsName := genVirtualServiceName(svc)
 	workloadSelector := labels.SelectorFromSet(labels.Set(svc.Spec.Selector))
 	for _, env := range envs {
@@ -279,7 +279,7 @@ func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.
 
 		err = ensureDeleteK8sService(ctx, env.Namespace, svc.Name, kclient, true)
 		if err != nil {
-			return fmt.Errorf("failed to delete K8s Service %s in env %s of product: %s: %s", svc.Name, env.EnvName, env.ProductName, err)
+			return fmt.Errorf("failed to delete K8s Target %s in env %s of product: %s: %s", svc.Name, env.EnvName, env.ProductName, err)
 		}
 	}
 
@@ -389,7 +389,7 @@ func ensureDeleteZadigService(ctx context.Context, env *commonmodels.Product, sv
 	}
 
 	if env.ShareEnv.IsBase {
-		// Delete VirtualService and K8s Service in all of the sub environments if there're no specific workloads.
+		// Delete VirtualService and K8s Target in all of the sub environments if there're no specific workloads.
 		return ensureDeleteServiceInAllSubEnvs(ctx, env, svc, kclient, istioClient)
 	}
 

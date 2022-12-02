@@ -80,7 +80,7 @@ func GetSvcNamesFromManifest(manifest string) ([]string, error) {
 
 	svcNames := []string{}
 	for _, objgvk := range objgvks {
-		if objgvk.GVK.GroupKind().String() != "Service" {
+		if objgvk.GVK.GroupKind().String() != "Target" {
 			continue
 		}
 

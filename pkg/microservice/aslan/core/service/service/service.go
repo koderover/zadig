@@ -236,7 +236,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Key:   "$Product$",
 			Value: args.ProductName},
 		{
-			Key:   "$Service$",
+			Key:   "$Target$",
 			Value: args.ServiceName},
 		{
 			Key:   "$Namespace$",
@@ -1225,7 +1225,7 @@ func ListServicePort(serviceName, serviceType, productName, excludeStatus string
 			continue
 		}
 
-		if yamlPreview.Kind != "Service" || yamlPreview.Spec == nil {
+		if yamlPreview.Kind != "Target" || yamlPreview.Spec == nil {
 			continue
 		}
 		for _, port := range yamlPreview.Spec.Ports {

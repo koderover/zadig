@@ -136,7 +136,7 @@ const (
 	ConfigMap             = "ConfigMap"
 	Ingress               = "Ingress"
 	PersistentVolumeClaim = "PersistentVolumeClaim"
-	Service               = "Service"
+	Service               = "Target"
 	Deployment            = "Deployment"
 	StatefulSet           = "StatefulSet"
 	Pod                   = "Pod"
@@ -586,7 +586,7 @@ const (
 const (
 	TemplateVariableProduct            = "$T-Project$"
 	TemplateVariableProductDescription = "项目名称"
-	TemplateVariableService            = "$T-Service$"
+	TemplateVariableService            = "$T-Target$"
 	TemplateVariableServiceDescription = "服务名称"
 )
 
@@ -691,8 +691,8 @@ const AttachedClusterNamespace = "koderover-agent"
 const ArtifactResultOut = "artifactResultOut.tar.gz"
 
 const (
-	DefaultReleaseNaming     = "$Service$"
-	ReleaseNamingPlaceholder = "$Namespace$-$Service$"
+	DefaultReleaseNaming     = "$Target$"
+	ReleaseNamingPlaceholder = "$Namespace$-$Target$"
 )
 
 // custom workflow constants for variables
