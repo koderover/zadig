@@ -355,7 +355,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		newHTTPRoutingRules = append(newHTTPRoutingRules, &networkingv1alpha3.HTTPRouteDestination{
 			Destination: &networkingv1alpha3.Destination{
 				Host:   c.jobTaskSpec.Targets.Host,
-				Subset: ZadigIstioLabelOriginal,
+				Subset: ZadigIstioLabelDuplicate,
 				Port:   vs.Spec.Http[0].Route[0].Destination.Port,
 			},
 			Weight: int32(c.jobTaskSpec.Weight),
