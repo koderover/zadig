@@ -153,7 +153,7 @@ func (j *IstioReleaseJob) LintJob() error {
 
 	//from job was empty means it is the first deploy job.
 	if j.spec.FromJob == "" {
-		if err := lintFirstGrayReleaseJob(j.job.Name, j.workflow.Stages); err != nil {
+		if err := lintFirstIstioReleaseJob(j.job.Name, j.workflow.Stages); err != nil {
 			return err
 		}
 		return nil
