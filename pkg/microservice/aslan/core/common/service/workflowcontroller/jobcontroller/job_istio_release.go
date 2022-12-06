@@ -168,11 +168,17 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		newDeployment.Spec.Selector.MatchLabels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
 		newDeployment.Spec.Template.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
 		// edit the image of the new deployment
+		containerList := make([]corev1.Container, 0)
 		for _, container := range newDeployment.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.Targets.ContainerName {
-				container.Image = c.jobTaskSpec.Targets.Image
+				newContainer := container.DeepCopy()
+				if container.Name == c.jobTaskSpec.Targets.ContainerName {
+					newContainer.Image = c.jobTaskSpec.Targets.Image
+				}
+				containerList = append(containerList, *newContainer)
 			}
 		}
+		newDeployment.Spec.Template.Spec.Containers = containerList
 
 		c.Infof("Creating deployment copy for deployment: %s", c.jobTaskSpec.Targets.WorkloadName)
 		c.ack()
