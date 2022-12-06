@@ -209,6 +209,9 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		}
 	}
 
+	defer func() {
+		larkservice.GetLarkApprovalManager(approval.ApprovalID).RemoveInstance(instance)
+	}()
 	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
 	for {
 		time.Sleep(1 * time.Second)
