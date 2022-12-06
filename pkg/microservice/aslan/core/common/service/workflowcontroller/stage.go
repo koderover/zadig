@@ -30,7 +30,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service/lark"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -217,16 +217,16 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			cancelApproval()
 			return fmt.Errorf("workflow timeout")
 		default:
-			status := service.GetLarkApprovalManager(approval.ApprovalID).GetInstanceStatus(instance)
+			status := larkservice.GetLarkApprovalManager(approval.ApprovalID).GetInstanceStatus(instance)
 			switch status {
-			case service.LarkApprovalStatusApproved:
+			case larkservice.LarkApprovalStatusApproved:
 				return nil
-			case service.LarkApprovalStatusRejected:
+			case larkservice.LarkApprovalStatusRejected:
 				stage.Status = config.StatusReject
 				return errors.New("Approval has been rejected")
-			case service.LarkApprovalStatusCanceled:
+			case larkservice.LarkApprovalStatusCanceled:
 				return errors.New("Approval has been canceled")
-			case service.LarkApprovalStatusDeleted:
+			case larkservice.LarkApprovalStatusDeleted:
 				return errors.New("Approval has been deleted")
 			}
 		}

@@ -19,7 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service/lark"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -29,9 +29,9 @@ func GetLarkDepartment(c *gin.Context) {
 
 	approvalID, departmentID := c.Param("id"), c.Param("department_id")
 	if departmentID == "root" {
-		ctx.Resp, ctx.Err = service.GetLarkAppContactRange(approvalID)
+		ctx.Resp, ctx.Err = lark.GetLarkAppContactRange(approvalID)
 	} else {
-		ctx.Resp, ctx.Err = service.GetLarkDepartment(approvalID, departmentID)
+		ctx.Resp, ctx.Err = lark.GetLarkDepartment(approvalID, departmentID)
 	}
 }
 
@@ -39,7 +39,7 @@ func GetLarkUserID(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetLarkUserID(c.Param("id"), c.Query("type"), c.Query("value"))
+	ctx.Resp, ctx.Err = lark.GetLarkUserID(c.Param("id"), c.Query("type"), c.Query("value"))
 }
 
 func LarkEventHandler(c *gin.Context) {
@@ -51,7 +51,7 @@ func LarkEventHandler(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.LarkEventHandler(
+	ctx.Resp, ctx.Err = lark.LarkEventHandler(
 		c.Param("id"),
 		c.GetHeader("X-Lark-Signature"),
 		c.GetHeader("X-Lark-Request-Timestamp"),
