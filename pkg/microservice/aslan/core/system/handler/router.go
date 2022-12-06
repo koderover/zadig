@@ -272,7 +272,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		lark.GET("/:id/department/:department_id", GetLarkDepartment)
 		lark.GET("/:id/user", GetLarkUserID)
-		lark.POST("/webhook")
+		lark.POST("/:id/webhook", LarkEventHandler)
 	}
 }
 
