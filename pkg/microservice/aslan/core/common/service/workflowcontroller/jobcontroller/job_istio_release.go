@@ -145,7 +145,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		}
 
 		originalLabels := make(map[string]string)
-		for k, v := range deployment.ObjectMeta.Labels {
+		for k, v := range deployment.Spec.Template.Labels {
 			originalLabels[k] = v
 		}
 
