@@ -58,11 +58,11 @@ type WorkflowStage struct {
 }
 
 type Approval struct {
-	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                    json:"enabled"`
-	Type           config.ApprovalType `bson:"type"                        yaml:"type"                       json:"type"`
-	Description    string              `bson:"description"                 yaml:"description"                json:"description"`
-	NativeApproval *NativeApproval     `bson:"native_approval"             yaml:"native_approval"            json:"native_approval"`
-	LarkApproval   *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval"              json:"lark_approval"`
+	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
+	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
+	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
+	NativeApproval *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
+	LarkApproval   *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
 }
 
 type NativeApproval struct {

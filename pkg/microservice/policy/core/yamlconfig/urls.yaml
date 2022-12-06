@@ -67,6 +67,9 @@ exemption_urls:
     - endpoint: api/aslan/system/registry
       methods:
         - GET
+    - endpoint: api/aslan/system/lark/?*/webhook
+      methods:
+        - POST
     - endpoint: api/aslan/testing/report
       methods:
         - GET
