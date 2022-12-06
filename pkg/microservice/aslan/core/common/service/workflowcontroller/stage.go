@@ -18,6 +18,7 @@ package workflowcontroller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -35,7 +36,7 @@ type approveMap struct {
 }
 
 type approveWithLock struct {
-	approval *commonmodels.Approval
+	approval *commonmodels.NativeApproval
 	sync.RWMutex
 }
 
@@ -54,7 +55,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	stage.StartTime = time.Now().Unix()
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
-	if err := waitiForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
+	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
 		stage.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
@@ -91,18 +92,33 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return approveWithL.doApproval(userName, userID, comment, approve)
 }
 
-func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
 	if stage.Approval == nil {
 		return nil
 	}
 	if !stage.Approval.Enabled {
 		return nil
 	}
-	if stage.Approval.Timeout == 0 {
-		stage.Approval.Timeout = 60
+	switch stage.Approval.Type {
+	case config.NativeApproval:
+		return waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
+	case config.LarkApproval:
+		return waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
+	default:
+		return errors.New("invalid approval type")
+	}
+}
+
+func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	approval := stage.Approval.NativeApproval
+	if approval == nil {
+		return errors.New("waitForApprove: approval not found")
+	}
+	if approval.Timeout == 0 {
+		approval.Timeout = 60
 	}
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
-	approveWithL := &approveWithLock{approval: stage.Approval}
+	approveWithL := &approveWithLock{approval: approval}
 	globalApproveMap.setApproval(approveKey, approveWithL)
 	defer func() {
 		globalApproveMap.deleteApproval(approveKey)
@@ -112,7 +128,7 @@ func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflo
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 
-	timeout := time.After(time.Duration(stage.Approval.Timeout) * time.Minute)
+	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
 	latestApproveCount := 0
 	for {
 		time.Sleep(1 * time.Second)
@@ -139,6 +155,11 @@ func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflo
 			}
 		}
 	}
+}
+
+func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	// TODO
+	return nil
 }
 
 func statusFailed(status config.Status) bool {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -58,10 +59,23 @@ type WorkflowStage struct {
 
 type Approval struct {
 	Enabled         bool                   `bson:"enabled"                     yaml:"enabled"                    json:"enabled"`
-	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	Timeout         int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
+	Type            config.ApprovalType    `bson:"type"                        yaml:"type"                       json:"type"`
 	Description     string                 `bson:"description"                 yaml:"description"                json:"description"`
+	NativeApproval  *NativeApproval        `bson:"native_approval"             yaml:"native_approval"            json:"native_approval"`
+	LarkApproval    *LarkApproval          `bson:"lark_approval"               yaml:"lark_approval"              json:"lark_approval"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+}
+
+type NativeApproval struct {
+	Timeout         int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+}
+
+type LarkApproval struct {
+	Timeout         int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApproveUsers    []*lark.UserInfo       `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 

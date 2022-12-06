@@ -19,6 +19,11 @@ package lark
 type ApprovalType string
 
 const (
+	ApproveTypeAnd ApprovalType = "AND"
+	ApproveTypeOr  ApprovalType = "OR"
+)
+
+const (
 	// ApproverSelectionMethodFree is the approver selection method in the definition of approval
 	// Free means the approval sponsor can choose the approver freely
 	ApproverSelectionMethodFree = "Free"
@@ -35,9 +40,4 @@ const (
 	defaultNodeApproveValue   = `审批`
 
 	defaultPageSize = 50
-)
-
-var (
-	ApproveTypeAnd ApprovalType = "AND"
-	ApproveTypeOr  ApprovalType = "OR"
 )

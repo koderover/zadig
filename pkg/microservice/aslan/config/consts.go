@@ -196,6 +196,13 @@ const (
 	JobK8sPatch             JobType = "k8s-resource-patch"
 )
 
+type ApprovalType string
+
+const (
+	NativeApproval ApprovalType = "native"
+	LarkApproval   ApprovalType = "lark"
+)
+
 type ApproveOrReject string
 
 const (
