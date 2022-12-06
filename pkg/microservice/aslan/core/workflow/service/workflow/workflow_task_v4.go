@@ -238,14 +238,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("RemoveFixedValueMarks error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
-	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, user); err != nil {
+	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, args.Name); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
 	workflowTask.TaskID = nextTaskID
-	workflowTask.TaskCreator = user
-	workflowTask.TaskRevoker = user
+	workflowTask.TaskCreator = args.Name
+	workflowTask.TaskRevoker = args.Name
 	workflowTask.CreateTime = time.Now().Unix()
 	workflowTask.WorkflowName = workflow.Name
 	workflowTask.WorkflowDisplayName = workflow.DisplayName
