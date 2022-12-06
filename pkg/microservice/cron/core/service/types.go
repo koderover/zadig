@@ -93,7 +93,7 @@ type Schedule struct {
 	Enabled bool `bson:"enabled"                       json:"enabled"`
 }
 
-//Validate validate schedule setting
+// Validate validate schedule setting
 func (schedule *Schedule) Validate() error {
 	switch schedule.Type {
 	case TimingSchedule:
@@ -456,6 +456,7 @@ type ScheduleCtrl struct {
 type WorkflowV4 struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"            json:"id"`
 	Name           string             `bson:"name"                yaml:"name"         json:"name"`
+	DisplayName    string             `bson:"display_name"        yaml:"display_name" json:"display_name"`
 	KeyVals        []*KeyVal          `bson:"key_vals"            yaml:"key_vals"     json:"key_vals"`
 	Params         []*Param           `bson:"params"              yaml:"params"       json:"params"`
 	Stages         []*WorkflowStage   `bson:"stages"              yaml:"stages"       json:"stages"`
@@ -468,7 +469,13 @@ type WorkflowV4 struct {
 	MultiRun       bool               `bson:"multi_run"           yaml:"multi_run"    json:"multi_run"`
 	NotificationID string             `bson:"notification_id"     yaml:"-"            json:"notification_id"`
 	HookPayload    *HookPayload       `bson:"hook_payload"        yaml:"-"            json:"hook_payload,omitempty"`
-	BaseName       string             `bson:"base_name"           yaml:"-"            json:"base_name"`
+	BaseName       string             `bson:"base_name"           yaml:"-"                   json:"base_name"`
+	ShareStorages  []*ShareStorage    `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
+}
+
+type ShareStorage struct {
+	Name string `bson:"name"             json:"name"             yaml:"name"`
+	Path string `bson:"path"             json:"path"             yaml:"path"`
 }
 
 type WorkflowStage struct {
