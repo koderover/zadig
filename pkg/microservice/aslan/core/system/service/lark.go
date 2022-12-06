@@ -31,7 +31,6 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -47,13 +46,13 @@ const (
 	LarkApprovalStatusDeleted  = "DELETED"
 )
 
-type DepartmentInfo struct {
-	UserList          []*lark.UserInfo
-	SubDepartmentList []*lark.DepartmentInfo
+type LarkDepartmentInfo struct {
+	UserList          []*lark.UserInfo       `json:"user_list"`
+	SubDepartmentList []*lark.DepartmentInfo `json:"sub_department_list"`
 }
 
-func GetLarkDepartment(approvalID, openID string) (*DepartmentInfo, error) {
-	cli, err := getLarkClientByExternalApprovalID(approvalID)
+func GetLarkDepartment(approvalID, openID string) (*LarkDepartmentInfo, error) {
+	cli, err := lark.GetLarkClientByExternalApprovalID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
@@ -65,14 +64,14 @@ func GetLarkDepartment(approvalID, openID string) (*DepartmentInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get sub-department list")
 	}
-	return &DepartmentInfo{
+	return &LarkDepartmentInfo{
 		UserList:          userList,
 		SubDepartmentList: departmentList,
 	}, nil
 }
 
-func GetLarkAppContactRange(approvalID string) (*DepartmentInfo, error) {
-	cli, err := getLarkClientByExternalApprovalID(approvalID)
+func GetLarkAppContactRange(approvalID string) (*LarkDepartmentInfo, error) {
+	cli, err := lark.GetLarkClientByExternalApprovalID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
@@ -93,21 +92,10 @@ func GetLarkAppContactRange(approvalID string) (*DepartmentInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get department info")
 	}
-	return &DepartmentInfo{
+	return &LarkDepartmentInfo{
 		UserList:          userList,
 		SubDepartmentList: departmentList,
 	}, nil
-}
-
-func getLarkClientByExternalApprovalID(id string) (*lark.Client, error) {
-	approval, err := mongodb.NewExternalApprovalColl().GetByID(context.Background(), id)
-	if err != nil {
-		return nil, errors.Wrap(err, "get external approval data")
-	}
-	if approval.Type != setting.IMLark {
-		return nil, errors.Errorf("unexpected approval type %s", approval.Type)
-	}
-	return lark.NewClient(approval.AppID, approval.AppSecret), nil
 }
 
 func getLarkDepartmentInfoConcurrently(client *lark.Client, idList []string, concurrentNum int) ([]*lark.DepartmentInfo, error) {
@@ -153,7 +141,7 @@ func GetLarkUserID(approvalID, queryType, queryValue string) (string, error) {
 		return "", errors.New("invalid query type")
 	}
 
-	cli, err := getLarkClientByExternalApprovalID(approvalID)
+	cli, err := lark.GetLarkClientByExternalApprovalID(approvalID)
 	if err != nil {
 		return "", errors.Wrap(err, "get client")
 	}

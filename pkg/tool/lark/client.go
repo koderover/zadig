@@ -17,10 +17,15 @@
 package lark
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
+	"github.com/pkg/errors"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Client struct {
@@ -35,4 +40,15 @@ func NewClient(appID, secret string) *Client {
 			lark.WithHttpClient(&http.Client{}),
 		),
 	}
+}
+
+func GetLarkClientByExternalApprovalID(id string) (*Client, error) {
+	approval, err := mongodb.NewExternalApprovalColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get external approval data")
+	}
+	if approval.Type != setting.IMLark {
+		return nil, errors.Errorf("unexpected approval type %s", approval.Type)
+	}
+	return NewClient(approval.AppID, approval.AppSecret), nil
 }
