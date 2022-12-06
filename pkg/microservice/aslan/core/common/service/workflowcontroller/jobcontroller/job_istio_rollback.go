@@ -178,15 +178,14 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 			logError(c.job, fmt.Sprintf("failed to find last applied replicas when the last applied image is found"), c.logger)
 			return
 		}
-	} else {
-		// if no annotations is found, the previous release is not finished, we simply delete the new deployment
-		newDeploymentName := fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix)
-		c.logger.Infof("deleting the deployment created by zadig: %s", newDeploymentName)
-		err := cli.AppsV1().Deployments(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDeploymentName, v1.DeleteOptions{})
-		if err != nil {
-			// not fatal so we just log it
-			c.logger.Errorf("failed to delete the deployment: %s created by zadig, error: %s", newDeploymentName, err)
-		}
+	}
+	// we try to delete the temporary deployment no matter what the situation is
+	newDeploymentName := fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix)
+	c.logger.Infof("deleting the deployment created by zadig: %s", newDeploymentName)
+	err = cli.AppsV1().Deployments(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDeploymentName, v1.DeleteOptions{})
+	if err != nil {
+		// not fatal so we just log it
+		c.logger.Errorf("failed to delete the deployment: %s created by zadig, error: %s", newDeploymentName, err)
 	}
 
 	c.job.Status = config.StatusPassed

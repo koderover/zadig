@@ -74,7 +74,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	// if from job is empty, it was the first deploy Job.
 	firstJob := false
 	if j.spec.FromJob != "" {
-		if j.spec.ReplicaPercentage > 100 {
+		if j.spec.Weight > 100 {
 			return resp, fmt.Errorf("istio release job: %s release percentage cannot largger than 100%", j.job.Name)
 		}
 		found := false
@@ -99,7 +99,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		}
 	} else {
 		firstJob = true
-		if j.spec.ReplicaPercentage >= 100 {
+		if j.spec.Weight >= 100 {
 			return resp, fmt.Errorf("the first istio release job: %s cannot be released in full", j.job.Name)
 		}
 		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
