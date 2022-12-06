@@ -46,6 +46,7 @@ type BuildResp struct {
 	UpdateBy    string                              `json:"update_by"`
 	Pipelines   []string                            `json:"pipelines"`
 	ProductName string                              `json:"productName"`
+	ClusterID   string                              `json:"cluster_id"`
 }
 
 type ServiceModuleAndBuildResp struct {
@@ -134,10 +135,11 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 				continue
 			}
 			build := &BuildResp{
-				ID:      buildModule.ID.Hex(),
-				Name:    buildModule.Name,
-				KeyVals: buildModule.PreBuild.Envs,
-				Repos:   buildModule.Repos,
+				ID:        buildModule.ID.Hex(),
+				Name:      buildModule.Name,
+				KeyVals:   buildModule.PreBuild.Envs,
+				Repos:     buildModule.Repos,
+				ClusterID: buildModule.PreBuild.ClusterID,
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
 				ServiceName:   serviceTmpl.ServiceName,
@@ -183,16 +185,18 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 							build.Repos = target.Repos
 						}
 					}
+					build.PreBuild.ClusterID = buildTemplate.PreBuild.ClusterID
 					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs, build.PreBuild.Envs)
 				}
 				if err := commonservice.EncryptKeyVals(encryptedKey, build.PreBuild.Envs, log); err != nil {
 					return serviceModuleAndBuildResp, err
 				}
 				resp = append(resp, &BuildResp{
-					ID:      build.ID.Hex(),
-					Name:    build.Name,
-					KeyVals: build.PreBuild.Envs,
-					Repos:   build.Repos,
+					ID:        build.ID.Hex(),
+					Name:      build.Name,
+					KeyVals:   build.PreBuild.Envs,
+					Repos:     build.Repos,
+					ClusterID: build.PreBuild.ClusterID,
 				})
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{

@@ -344,7 +344,7 @@ metas:
           - method: POST
             endpoint: api/aslan/stat/quality/testTrend
   - resource: Template
-    alias: 模版库
+    alias: 模板库
     description: ''
     rules:
       - action: create_template

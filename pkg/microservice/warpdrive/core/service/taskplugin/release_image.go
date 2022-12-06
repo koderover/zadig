@@ -389,7 +389,11 @@ DistributeLoop:
 				switch serviceInfo.WorkloadType {
 				case setting.StatefulSet:
 					var statefulSet *appsv1.StatefulSet
-					statefulSet, _, err = getter.GetStatefulSet(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					var found bool
+					statefulSet, found, err = getter.GetStatefulSet(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					if !found {
+						err = fmt.Errorf("statefulset %s not found", distribute.DeployServiceName)
+					}
 					if err != nil {
 						err = errors.WithMessage(err, "failed to get statefulset")
 						distribute.DeployStatus = string(config.StatusFailed)
@@ -414,7 +418,11 @@ DistributeLoop:
 					}
 				case setting.Deployment:
 					var deployment *appsv1.Deployment
-					deployment, _, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					var found bool
+					deployment, found, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					if !found {
+						err = fmt.Errorf("deployment %s not found", distribute.DeployServiceName)
+					}
 					if err != nil {
 						err = errors.WithMessage(err, "failed to get deployment")
 						distribute.DeployStatus = string(config.StatusFailed)
@@ -778,12 +786,11 @@ func (p *ReleaseImagePlugin) Complete(ctx context.Context, pipelineTask *task.Ta
 
 	// 清理用户取消和超时的任务
 	defer func() {
-		if p.Task.TaskStatus == config.StatusCancelled || p.Task.TaskStatus == config.StatusTimeout {
-			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-				p.Log.Error(err)
-				p.Task.Error = err.Error()
-			}
-			return
+		if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
+		}
+		if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
 		}
 	}()
 

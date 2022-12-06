@@ -229,6 +229,7 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 	p.Log.Infof("succeed to create cm for build job %s", p.JobName)
 
 	jobImage := getReaperImage(pipelineTask.ConfigPayload.Release.ReaperImage, p.Task.BuildOS, p.Task.ImageFrom)
+	p.Task.Registries = getMatchedRegistries(jobImage, p.Task.Registries)
 
 	//Resource request default value is LOW
 	job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, "", pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)

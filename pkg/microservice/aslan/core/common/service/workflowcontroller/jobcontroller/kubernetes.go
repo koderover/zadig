@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,12 +63,14 @@ import (
 )
 
 const (
-	BusyBoxImage       = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir    = "/zadig/"
-	ZadigLogFile       = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
-	JobExecutorFile    = "http://resource-server/jobexecutor"
-	ResourceServer     = "resource-server"
+	BusyBoxImage         = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir      = "/zadig/"
+	ZadigLogFile         = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile   = ZadigContextDir + "lifecycle"
+	JobExecutorFile      = "http://resource-server/jobexecutor"
+	ResourceServer       = "resource-server"
+	defaultSecretEmail   = "bot@koderover.com"
+	registrySecretSuffix = "-registry-secret"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
@@ -334,6 +337,8 @@ echo $result > %s
 			},
 		},
 	}
+	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
+	ensureVolumeMounts(job)
 	return job, nil
 }
 
@@ -447,6 +452,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		},
 	}
 
+	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
+
 	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
 		volumeName := "build-cache"
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
@@ -469,12 +476,113 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			SubPath:   jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
 		})
 	}
-
-	// if affinity := addNodeAffinity(clusterID, pipelineTask.ConfigPayload.K8SClusters); affinity != nil {
-	// 	job.Spec.Template.Spec.Affinity = affinity
-	// }
-
+	ensureVolumeMounts(job)
 	return job, nil
+}
+
+func BuildCleanJob(jobName, clusterID, workflowName string, taskID int64) (*batchv1.Job, error) {
+	workspace := "/workspace"
+	shareStorageDir := commontypes.GetShareStorageSubPathPrefix(workflowName, taskID)
+	image := strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", "focal")
+	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
+	if err != nil {
+		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
+	}
+
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: jobName,
+		},
+		Spec: batchv1.JobSpec{
+			Completions:  int32Ptr(1),
+			Parallelism:  int32Ptr(1),
+			BackoffLimit: int32Ptr(0),
+			// in case finished zombie job not cleaned up by zadig
+			TTLSecondsAfterFinished: int32Ptr(3600),
+			// in case zombie job never stop
+			ActiveDeadlineSeconds: int64Ptr(3600),
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyNever,
+					Containers: []corev1.Container{
+						{
+							ImagePullPolicy: corev1.PullAlways,
+							Name:            jobName,
+							Image:           image,
+							WorkingDir:      workspace,
+							Command:         []string{"/bin/sh", "-c"},
+							Args:            []string{fmt.Sprintf("rm -rf %s", shareStorageDir)},
+
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePath:   job.JobTerminationFile,
+						},
+					},
+					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
+					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig),
+				},
+			},
+		},
+	}
+	shareStorageName := "share-storage"
+	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+		Name: shareStorageName,
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: targetCluster.ShareStorage.NFSProperties.PVC,
+			},
+		},
+	})
+	job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		Name:      shareStorageName,
+		MountPath: workspace,
+	})
+	return job, nil
+}
+
+func setJobShareStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTaskCtx, storageDetails []*commonmodels.StorageDetail, cluster *commonmodels.K8SCluster) {
+	if cluster == nil {
+		return
+	}
+	if cluster.ShareStorage.MediumType != commontypes.NFSMedium {
+		return
+	}
+	if cluster.ShareStorage.NFSProperties.PVC == "" {
+		return
+	}
+	// save cluster id so we can clean
+	if len(storageDetails) > 0 {
+		workflowCtx.ClusterIDAdd(cluster.ID.Hex())
+	}
+	volumeName := "share-storage"
+	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cluster.ShareStorage.NFSProperties.PVC,
+			},
+		},
+	})
+	for _, storageDetail := range storageDetails {
+		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: storageDetail.MountPath,
+			SubPath:   storageDetail.SubPath,
+		})
+	}
+}
+
+func ensureVolumeMounts(job *batchv1.Job) {
+	for i := range job.Spec.Template.Spec.Containers {
+		mountPathMap := make(map[string]bool)
+		volumeMounts := []corev1.VolumeMount{}
+		for _, volumeMount := range job.Spec.Template.Spec.Containers[i].VolumeMounts {
+			if _, ok := mountPathMap[volumeMount.MountPath]; !ok {
+				volumeMounts = append(volumeMounts, volumeMount)
+				mountPathMap[volumeMount.MountPath] = true
+			}
+		}
+		job.Spec.Template.Spec.Containers[i].VolumeMounts = volumeMounts
+	}
 }
 
 func getImagePullSecrets(registries []*commonmodels.RegistryNamespace) ([]corev1.LocalObjectReference, error) {
@@ -650,7 +758,7 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 func int32Ptr(i int32) *int32 { return &i }
 func int64Ptr(i int64) *int64 { return &i }
 
-func waitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
+func WaitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
 	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
 	podTimeout := time.After(120 * time.Second)
@@ -1011,4 +1119,81 @@ func waitDeploymentReady(ctx context.Context, deploymentName, namespace string, 
 			}
 		}
 	}
+}
+
+func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.RegistryNamespace, kubeClient crClient.Client) error {
+	for _, reg := range registries {
+		if reg.AccessKey == "" {
+			continue
+		}
+
+		secretName, err := genRegistrySecretName(reg)
+		if err != nil {
+			return fmt.Errorf("failed to generate registry secret name: %s", err)
+		}
+
+		data := make(map[string][]byte)
+		dockerConfig := fmt.Sprintf(
+			`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
+			reg.RegAddr,
+			reg.AccessKey,
+			reg.SecretKey,
+			defaultSecretEmail,
+		)
+		data[".dockercfg"] = []byte(dockerConfig)
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      secretName,
+			},
+			Data: data,
+			Type: corev1.SecretTypeDockercfg,
+		}
+		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func genRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
+	if reg.IsDefault {
+		return setting.DefaultImagePullSecret, nil
+	}
+
+	arr := strings.Split(reg.Namespace, "/")
+	namespaceInRegistry := arr[len(arr)-1]
+
+	// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+	if namespaceInRegistry == "" {
+		uriDecipher := strings.Split(reg.RegAddr, ".")
+		namespaceInRegistry = uriDecipher[0]
+	}
+
+	filteredName, err := formatRegistryName(namespaceInRegistry)
+	if err != nil {
+		return "", err
+	}
+
+	secretName := filteredName + registrySecretSuffix
+	if reg.RegType != "" {
+		secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
+	}
+
+	return secretName, nil
+}
+
+func formatRegistryName(namespaceInRegistry string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
+	if err != nil {
+		return "", err
+	}
+	processedName := reg.ReplaceAllString(namespaceInRegistry, "")
+	processedName = strings.ToLower(processedName)
+	if len(processedName) > 237 {
+		processedName = processedName[:237]
+	}
+	return processedName, nil
 }

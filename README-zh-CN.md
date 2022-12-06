@@ -63,7 +63,7 @@ Zadig 是 KodeRover 公司基于 Kubernetes 自主设计、研发的开源分布
 
   <details>
   <summary><b>强大免运维的模板库</b></summary>
-  跨项目共享 K8s YAML 模版、Helm Chart 模版、构建模版等，实现配置的统一化管理。基于一套模板可创建数百微服务，开发工程师少量配置可自助使用，大幅降低运维管理负担。
+  跨项目共享 K8s YAML 模板、Helm Chart 模板、构建模板等，实现配置的统一化管理。基于一套模板可创建数百微服务，开发工程师少量配置可自助使用，大幅降低运维管理负担。
   </details>
 
   <details>

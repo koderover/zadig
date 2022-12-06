@@ -178,6 +178,8 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 		return "", err
 	}
 	redirectParsedURL.Path = callback
+	// we need to ignore query parameters to keep grant valid
+	redirectParsedURL.RawQuery = ""
 	oauth, err := newOAuth(codeHost.Type, redirectParsedURL.String(), codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("NewOAuth:%s err:%s", codeHost.Type, err)

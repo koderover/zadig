@@ -476,15 +476,13 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 				continue
 			}
 
-			if svcRev.Updatable {
-
+			if svcRev.Updatable || commonutil.DeployStrategyChanged(svcRev.ServiceName, existedProd.ServiceDeployStrategy, deployStrategy) {
 				service := &commonmodels.ProductService{
 					ServiceName: svcRev.ServiceName,
 					ProductName: prodService.ProductName,
 					Type:        svcRev.Type,
 					Revision:    svcRev.NextRevision,
 				}
-
 				service.Containers = svcRev.Containers
 				service.Render = updateProd.Render
 
@@ -1258,7 +1256,7 @@ func UpdateHelmProduct(productName, envName, username, requestID string, overrid
 
 	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
-		err := updateProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, log)
+		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -1759,6 +1757,24 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 	}
 	productResp.ChartInfos = updatedRcs
 
+	if productResp.ServiceDeployStrategy == nil {
+		productResp.ServiceDeployStrategy = make(map[string]string)
+	}
+	needUpdateStrategy := false
+	for _, rc := range updatedRcs {
+		if !commonutil.ServiceDeployed(rc.ServiceName, productResp.ServiceDeployStrategy) {
+			needUpdateStrategy = true
+			productResp.ServiceDeployStrategy[rc.ServiceName] = setting.ServiceDeployStrategyDeploy
+		}
+	}
+	if needUpdateStrategy {
+		err = commonrepo.NewProductColl().UpdateDeployStrategy(envName, productResp.ProductName, productResp.ServiceDeployStrategy)
+		if err != nil {
+			log.Errorf("[%s][P:%s] failed to update product deploy strategy: %s", productResp.EnvName, productResp.ProductName, err)
+			return e.ErrUpdateEnv.AddErr(err)
+		}
+	}
+
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:          productResp.Namespace,
@@ -2194,6 +2210,10 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	default:
 		go func() {
 			var err error
+			err = commonrepo.NewProductColl().Delete(envName, productName)
+			if err != nil {
+				log.Errorf("Product.Delete error: %v", err)
+			}
 			defer func() {
 				if err != nil {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
@@ -2223,7 +2243,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
 				if err != nil {
-					log.Errorf("Failed to delete share env config: %s", err)
+					log.Errorf("Failed to delete share env config: %s, env: %s/%s", err, productInfo.ProductName, productInfo.EnvName)
 					err = e.ErrDeleteProduct.AddDesc(e.DeleteVirtualServiceErrMsg + ": " + err.Error())
 					return
 				}
@@ -2233,10 +2253,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}
-			}
-			err = commonrepo.NewProductColl().Delete(envName, productName)
-			if err != nil {
-				log.Errorf("Product.Delete error: %v", err)
 			}
 		}()
 	}
@@ -3395,7 +3411,7 @@ func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, 
 	return errList
 }
 
-func updateProductGroup(username, productName, envName string, productResp *commonmodels.Product,
+func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
 	overrideCharts []*commonservice.RenderChartArg, deletedSvcRevision map[string]int64, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)

@@ -253,6 +253,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.Params = workflow.Params
 	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.MultiRun = workflow.MultiRun
+	workflowTask.ShareStorages = workflow.ShareStorages
 
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
