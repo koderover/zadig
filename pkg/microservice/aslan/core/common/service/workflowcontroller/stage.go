@@ -178,9 +178,14 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 
 	client := lark.NewClient(data.AppID, data.AppSecret)
 
+	userID, err := client.GetUserOpenIDByEmail(workflowCtx.WorkflowTaskCreatorEmail)
+	if err != nil {
+		return errors.Wrapf(err, "get user lark id by email-%s", workflowCtx.WorkflowTaskCreatorEmail)
+	}
+
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
 		ApprovalCode: data.LarkDefaultApprovalCode,
-		UserOpenID:   approval.ApprovalCreatorID,
+		UserOpenID:   userID,
 		ApproverIDList: func() (list []string) {
 			for _, user := range approval.ApproveUsers {
 				list = append(list, user.ID)
@@ -197,7 +202,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		err := client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{
 			ApprovalID: data.LarkDefaultApprovalCode,
 			InstanceID: instance,
-			UserID:     approval.ApprovalCreatorID,
+			UserID:     userID,
 		})
 		if err != nil {
 			log.Errorf("cancel approval %s error: %v", instance, err)

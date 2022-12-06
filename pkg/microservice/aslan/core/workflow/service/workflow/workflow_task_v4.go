@@ -23,6 +23,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -30,6 +33,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	"github.com/koderover/zadig/pkg/microservice/user/core"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -38,7 +43,6 @@ import (
 	jobspec "github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 	stepspec "github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
 )
 
 type CreateTaskV4Resp struct {
@@ -191,7 +195,12 @@ func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogg
 	return workflow, nil
 }
 
-func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
+type CreateWorkflowTaskV4Args struct {
+	Name   string
+	UserID string
+}
+
+func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
 	resp := &CreateTaskV4Resp{
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
@@ -199,7 +208,18 @@ func CreateWorkflowTaskV4(user string, workflow *commonmodels.WorkflowV4, log *z
 	if err := LintWorkflowV4(workflow, log); err != nil {
 		return resp, err
 	}
+
 	workflowTask := &commonmodels.WorkflowTask{}
+
+	// if user info exists, get user email and put it to workflow task info
+	if args.UserID != "" {
+		userInfo, err := orm.GetUserByUid(args.UserID, core.DB)
+		if err != nil || userInfo == nil {
+			return resp, errors.New("failed to get user info by uid")
+		}
+		workflowTask.TaskCreatorEmail = userInfo.Email
+	}
+
 	// save workflow original workflow task args.
 	originTaskArgs := &commonmodels.WorkflowV4{}
 	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
