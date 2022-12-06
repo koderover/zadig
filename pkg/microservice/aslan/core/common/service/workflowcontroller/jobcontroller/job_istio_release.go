@@ -179,6 +179,8 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			}
 		}
 		newDeployment.Spec.Template.Spec.Containers = containerList
+		targetReplica := int32(c.jobTaskSpec.Replicas)
+		deployment.Spec.Replicas = &targetReplica
 
 		c.Infof("Creating deployment copy for deployment: %s", c.jobTaskSpec.Targets.WorkloadName)
 		c.ack()
@@ -405,6 +407,8 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 
 			deployment.Annotations[config.ZadigLastAppliedImage] = oldImage
 			deployment.Spec.Template.Spec.Containers = containerList
+			targetReplica := int32(c.jobTaskSpec.Replicas)
+			deployment.Spec.Replicas = &targetReplica
 
 			c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Targets.Image)
 			c.ack()

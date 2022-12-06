@@ -151,34 +151,34 @@ func (j *IstioReleaseJob) LintJob() error {
 		return fmt.Errorf("istio release job: [%s] weight cannot be more than 100", j.job.Name)
 	}
 
-	// from job was empty means it is the first deploy job.
-	//if j.spec.FromJob == "" {
-	//	if err := lintFirstGrayReleaseJob(j.job.Name, j.workflow.Stages); err != nil {
-	//		return err
-	//	}
-	//	return nil
-	//}
+	//from job was empty means it is the first deploy job.
+	if j.spec.FromJob == "" {
+		if err := lintFirstGrayReleaseJob(j.job.Name, j.workflow.Stages); err != nil {
+			return err
+		}
+		return nil
+	}
 
-	//var quoteJobSpec *commonmodels.IstioJobSpec
-	//for _, stage := range j.workflow.Stages {
-	//	for _, job := range stage.Jobs {
-	//		if job.JobType != config.JobIstioRelease || job.Name != j.spec.FromJob {
-	//			continue
-	//		}
-	//		quoteJobSpec = &commonmodels.IstioJobSpec{}
-	//		if err := commonmodels.IToiYaml(job.Spec, quoteJobSpec); err != nil {
-	//			return err
-	//		}
-	//		break
-	//	}
-	//}
-	//
-	//if quoteJobSpec == nil {
-	//	return fmt.Errorf("[%s] quote istio relase job: [%s] not found", j.job.Name, j.spec.FromJob)
-	//}
-	//if quoteJobSpec.FromJob != "" {
-	//	return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
-	//}
+	var quoteJobSpec *commonmodels.IstioJobSpec
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobIstioRelease || job.Name != j.spec.FromJob {
+				continue
+			}
+			quoteJobSpec = &commonmodels.IstioJobSpec{}
+			if err := commonmodels.IToiYaml(job.Spec, quoteJobSpec); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	if quoteJobSpec == nil {
+		return fmt.Errorf("[%s] quote istio relase job: [%s] not found", j.job.Name, j.spec.FromJob)
+	}
+	if quoteJobSpec.FromJob != "" {
+		return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.job.Name, j.spec.FromJob)
+	}
 
 	return nil
 }
