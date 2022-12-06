@@ -31,6 +31,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -52,7 +53,7 @@ type LarkDepartmentInfo struct {
 }
 
 func GetLarkDepartment(approvalID, openID string) (*LarkDepartmentInfo, error) {
-	cli, err := lark.GetLarkClientByExternalApprovalID(approvalID)
+	cli, err := GetLarkClientByExternalApprovalID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
@@ -71,7 +72,7 @@ func GetLarkDepartment(approvalID, openID string) (*LarkDepartmentInfo, error) {
 }
 
 func GetLarkAppContactRange(approvalID string) (*LarkDepartmentInfo, error) {
-	cli, err := lark.GetLarkClientByExternalApprovalID(approvalID)
+	cli, err := GetLarkClientByExternalApprovalID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
@@ -141,7 +142,7 @@ func GetLarkUserID(approvalID, queryType, queryValue string) (string, error) {
 		return "", errors.New("invalid query type")
 	}
 
-	cli, err := lark.GetLarkClientByExternalApprovalID(approvalID)
+	cli, err := GetLarkClientByExternalApprovalID(approvalID)
 	if err != nil {
 		return "", errors.Wrap(err, "get client")
 	}
@@ -325,4 +326,15 @@ func larkCalculateSignature(timestamp, nonce, encryptKey, bodystring string) str
 	bs = h.Sum(nil)
 	sig := fmt.Sprintf("%x", bs)
 	return sig
+}
+
+func GetLarkClientByExternalApprovalID(id string) (*lark.Client, error) {
+	approval, err := mongodb.NewExternalApprovalColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get external approval data")
+	}
+	if approval.Type != setting.IMLark {
+		return nil, errors.Errorf("unexpected approval type %s", approval.Type)
+	}
+	return lark.NewClient(approval.AppID, approval.AppSecret), nil
 }
