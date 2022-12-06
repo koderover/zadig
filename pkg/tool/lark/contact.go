@@ -180,8 +180,9 @@ func (client *Client) listUserFromDepartmentWithPage(departmentID, pageToken str
 	var list []*UserInfo
 	for _, item := range resp.Data.Items {
 		list = append(list, &UserInfo{
-			ID:   getStringFromPointer(item.UserId),
-			Name: getStringFromPointer(item.Name),
+			ID:     getStringFromPointer(item.UserId),
+			Name:   getStringFromPointer(item.Name),
+			Avatar: getStringFromPointer(item.Avatar.Avatar240),
 		})
 	}
 	return list, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
@@ -204,8 +205,9 @@ func (client *Client) GetUserInfoByID(id string) (*UserInfo, error) {
 	}
 
 	return &UserInfo{
-		ID:   id,
-		Name: getStringFromPointer(resp.Data.User.Name),
+		ID:     id,
+		Name:   getStringFromPointer(resp.Data.User.Name),
+		Avatar: getStringFromPointer(resp.Data.User.Avatar.Avatar240),
 	}, nil
 }
 
