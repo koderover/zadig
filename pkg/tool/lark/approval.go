@@ -148,3 +148,30 @@ func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (
 
 	return *resp.Data.InstanceCode, nil
 }
+
+type CancelApprovalInstanceArgs struct {
+	ApprovalID string
+	InstanceID string
+	UserID     string
+}
+
+func (client *Client) CancelApprovalInstance(args *CancelApprovalInstanceArgs) error {
+	req := larkapproval.NewCancelInstanceReqBuilder().
+		UserIdType(setting.LarkUserOpenID).
+		InstanceCancel(larkapproval.NewInstanceCancelBuilder().
+			ApprovalCode(args.ApprovalID).
+			InstanceCode(args.InstanceID).
+			UserId(args.UserID).
+			Build()).
+		Build()
+
+	resp, err := client.Approval.Instance.Cancel(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	if !resp.Success() {
+		return resp.CodeError
+	}
+	return nil
+}

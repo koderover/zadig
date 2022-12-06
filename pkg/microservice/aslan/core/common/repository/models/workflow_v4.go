@@ -58,12 +58,11 @@ type WorkflowStage struct {
 }
 
 type Approval struct {
-	Enabled         bool                   `bson:"enabled"                     yaml:"enabled"                    json:"enabled"`
-	Type            config.ApprovalType    `bson:"type"                        yaml:"type"                       json:"type"`
-	Description     string                 `bson:"description"                 yaml:"description"                json:"description"`
-	NativeApproval  *NativeApproval        `bson:"native_approval"             yaml:"native_approval"            json:"native_approval"`
-	LarkApproval    *LarkApproval          `bson:"lark_approval"               yaml:"lark_approval"              json:"lark_approval"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
+	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
+	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
+	NativeApproval *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
+	LarkApproval   *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
 }
 
 type NativeApproval struct {
@@ -74,9 +73,9 @@ type NativeApproval struct {
 }
 
 type LarkApproval struct {
-	Timeout         int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApproveUsers    []*lark.UserInfo       `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Timeout      int              `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApprovalID   string           `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	ApproveUsers []*lark.UserInfo `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 }
 
 type User struct {

@@ -63,14 +63,17 @@ func (c *ExternalApprovalColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ExternalApprovalColl) Create(ctx context.Context, args *models.ExternalApproval) error {
+func (c *ExternalApprovalColl) Create(ctx context.Context, args *models.ExternalApproval) (string, error) {
 	if args == nil {
-		return errors.New("approval is nil")
+		return "", errors.New("approval is nil")
 	}
 	args.UpdateTime = time.Now().Unix()
 
-	_, err := c.InsertOne(ctx, args)
-	return err
+	res, err := c.InsertOne(ctx, args)
+	if err != nil {
+		return "", nil
+	}
+	return res.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
 func (c *ExternalApprovalColl) List(ctx context.Context, _type string) ([]*models.ExternalApproval, error) {

@@ -36,6 +36,7 @@ type WorkflowTask struct {
 	GlobalContext       map[string]string  `bson:"global_context"            json:"global_context"`
 	Status              config.Status      `bson:"status"                    json:"status,omitempty"`
 	TaskCreator         string             `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskCreatorEmail    string             `bson:"task_creator_email"        json:"task_creator_email"`
 	TaskRevoker         string             `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
 	CreateTime          int64              `bson:"create_time"               json:"create_time,omitempty"`
 	StartTime           int64              `bson:"start_time"                json:"start_time,omitempty"`
@@ -292,16 +293,17 @@ type StepTask struct {
 }
 
 type WorkflowTaskCtx struct {
-	WorkflowName      string
-	ProjectName       string
-	TaskID            int64
-	DockerHost        string
-	Workspace         string
-	DistDir           string
-	DockerMountDir    string
-	ConfigMapMountDir string
-	WorkflowKeyVals   []*KeyVal
-	GlobalContextGet  func(key string) (string, bool)
-	GlobalContextSet  func(key, value string)
-	GlobalContextEach func(f func(k, v string) bool)
+	WorkflowName             string
+	ProjectName              string
+	TaskID                   int64
+	DockerHost               string
+	Workspace                string
+	DistDir                  string
+	DockerMountDir           string
+	ConfigMapMountDir        string
+	WorkflowTaskCreatorEmail string
+	WorkflowKeyVals          []*KeyVal
+	GlobalContextGet         func(key string) (string, bool)
+	GlobalContextSet         func(key, value string)
+	GlobalContextEach        func(f func(k, v string) bool)
 }

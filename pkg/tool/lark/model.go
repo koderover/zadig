@@ -17,19 +17,20 @@
 package lark
 
 type UserInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID     string `json:"id" yaml:"id" bson:"id"`
+	Name   string `json:"name" yaml:"name" bson:"name"`
+	Avatar string `json:"avatar" yaml:"-" bson:"avatar"`
 }
 
 type DepartmentInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID   string `json:"id" yaml:"id" bson:"id"`
+	Name string `json:"name" yaml:"name" bson:"name"`
 }
 
 type ContactRange struct {
-	UserIDs       []string
-	DepartmentIDs []string
-	GroupIDs      []string
+	UserIDs       []string `json:"user_id_list"`
+	DepartmentIDs []string `json:"department_id_list"`
+	GroupIDs      []string `json:"group_id_list,omitempty"`
 }
 
 type pageInfo struct {

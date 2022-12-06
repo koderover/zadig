@@ -3,13 +3,14 @@ package workflow
 import (
 	"errors"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"go.uber.org/zap"
 )
 
 // CreateCustomWorkflowTask creates a task for custom workflow with user-friendly inputs, this is currently
@@ -60,7 +61,9 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 		stage.Jobs = jobList
 	}
 
-	return CreateWorkflowTaskV4(username, workflow, log)
+	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
+		Name: username,
+	}, workflow, log)
 }
 
 func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*commonmodels.WorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
