@@ -144,6 +144,11 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 
+		originalLabels := make(map[string]string)
+		for k, v := range deployment.ObjectMeta.Labels {
+			originalLabels[k] = v
+		}
+
 		// create a new deployment called <deployment-name>-zadig-copy
 		newDeployment := &appsv1.Deployment{
 			ObjectMeta: v1.ObjectMeta{
@@ -204,7 +209,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		// appending the subset for original deployment
 		subsetList = append(subsetList, &networkingv1alpha3.Subset{
 			Name:   ZadigIstioLabelOriginal,
-			Labels: deployment.Spec.Template.Labels,
+			Labels: originalLabels,
 		})
 
 		// appending the subset for duplicate deployment
