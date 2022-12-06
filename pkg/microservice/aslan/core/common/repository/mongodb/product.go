@@ -399,6 +399,8 @@ func (c *ProductColl) Create(args *models.Product) error {
 	return err
 }
 
+// UpdateGroup TODO UpdateGroup needs to be optimized
+// Service info may be override when updating multiple services in same group at the sametime
 func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, group []*models.ProductService) error {
 	serviceGroup := fmt.Sprintf("services.%d", groupIndex)
 	query := bson.M{
