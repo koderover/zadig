@@ -396,6 +396,11 @@ func writeSSHFile(sshKey, hostName string) error {
 		return fmt.Errorf("hostName cannot be empty")
 	}
 
+	dir := path.Join(config.Home(), "/.ssh")
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return err
+	}
+
 	hostName = strings.Replace(hostName, ".", "", -1)
 	hostName = strings.Replace(hostName, ":", "", -1)
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
