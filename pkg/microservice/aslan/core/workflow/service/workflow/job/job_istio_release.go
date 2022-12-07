@@ -68,6 +68,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.IstioJobSpec{}
 
+	var currentReplica int
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
@@ -112,6 +113,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				return resp, fmt.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.spec.Namespace)
 			}
 			target.CurrentReplica = int(*deployment.Spec.Replicas)
+			currentReplica = int(*deployment.Spec.Replicas)
 		}
 	}
 
@@ -121,7 +123,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	}
 
 	for _, target := range j.spec.Targets {
-		newReplicaCount := math.Ceil(float64(*&target.CurrentReplica) * (float64(j.spec.ReplicaPercentage) / 100))
+		newReplicaCount := math.Ceil(float64(currentReplica) * (float64(j.spec.ReplicaPercentage) / 100))
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
 			JobType: string(config.JobIstioRelease),
