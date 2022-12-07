@@ -346,7 +346,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		// Otherwise there are 2 cases, either this is a finishing move, or not.
 		// When it is NOT a finishing move, simply modify the weight of the vs destination rule, and we are done
 		vsName := c.jobTaskSpec.Targets.VirtualServiceName
-		if vsName == "" {
+		if len(vsName) == 0 {
 			vsName = fmt.Sprintf(VirtualServiceNameTemplate, c.jobTaskSpec.Targets.WorkloadName)
 		}
 
