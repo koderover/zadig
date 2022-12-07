@@ -201,7 +201,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.Sugare
 			}
 			_, err = cli.GetUserOpenIDByEmail(userInfo.Email)
 			if err != nil {
-				return nil, e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info by email, lark app id: %s", stage.Approval.LarkApproval.ApprovalID))
+				return nil, e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, email: %s", stage.Approval.LarkApproval.ApprovalID, userInfo.Email))
 			}
 		}
 	}
