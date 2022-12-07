@@ -85,8 +85,8 @@ func ListBasicImages(imageFrom string, imageType string, log *zap.SugaredLogger)
 			if image.ImageType == "sonar" {
 				continue
 			}
-			resp = append(resp, image)
 		}
+		resp = append(resp, image)
 	}
 
 	return resp, nil
