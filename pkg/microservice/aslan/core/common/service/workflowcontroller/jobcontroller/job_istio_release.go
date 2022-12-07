@@ -345,16 +345,16 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 	} else {
 		// Otherwise there are 2 cases, either this is a finishing move, or not.
 		// When it is NOT a finishing move, simply modify the weight of the vs destination rule, and we are done
-		vsName := c.jobTaskSpec.Targets.VirtualServiceName
-		fmt.Println("========================== vsName:", vsName)
-		if len(vsName) == 0 {
-			vsName = fmt.Sprintf(VirtualServiceNameTemplate, c.jobTaskSpec.Targets.WorkloadName)
+		var newVSName string
+		if c.jobTaskSpec.Targets.VirtualServiceName == "" {
+			newVSName = fmt.Sprintf(VirtualServiceNameTemplate, c.jobTaskSpec.Targets.WorkloadName)
+		} else {
+			newVSName = c.jobTaskSpec.Targets.VirtualServiceName
 		}
-		fmt.Println("++++++++++++++++++++++++++ vsName:", vsName)
 
-		vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), vsName, v1.GetOptions{})
+		vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), newVSName, v1.GetOptions{})
 		if err != nil {
-			c.Errorf("failed to find virtual service of name: %s, error is: %s", vsName, err)
+			c.Errorf("failed to find virtual service of name: %s, error is: %s", newVSName, err)
 			return
 		}
 
