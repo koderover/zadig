@@ -117,6 +117,8 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		}
 	}
 
+	fmt.Printf(">>>>>>>>>>>>>>>current replica is: %d<<<<<<<<<<<<<<<<\n", currentReplica)
+
 	cluster, err := commonrepo.NewK8SClusterColl().Get(j.spec.ClusterID)
 	if err != nil {
 		return resp, fmt.Errorf("cluster id: %s not found", j.spec.ClusterID)
@@ -124,6 +126,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 
 	for _, target := range j.spec.Targets {
 		newReplicaCount := math.Ceil(float64(currentReplica) * (float64(j.spec.ReplicaPercentage) / 100))
+		fmt.Println("replica count for job", j.job.Name, "is: ", currentReplica)
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
 			JobType: string(config.JobIstioRelease),
