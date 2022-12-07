@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
@@ -175,12 +176,17 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
-func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
+	userInfo, err := orm.GetUserByUid(uid, core.DB)
+	if err != nil || userInfo == nil {
+		return nil, errors.New("failed to get user info by id")
+	}
+
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if err := jobctl.SetPreset(job, workflow); err != nil {
@@ -188,7 +194,18 @@ func GetWorkflowv4Preset(encryptedKey, workflowName string, log *zap.SugaredLogg
 				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 			}
 		}
+		if stage.Approval != nil && stage.Approval.Type == config.LarkApproval && stage.Approval.Enabled && stage.Approval.LarkApproval != nil {
+			cli, err := lark.GetLarkClientByExternalApprovalID(stage.Approval.LarkApproval.ApprovalID)
+			if err != nil {
+				return nil, errors.Errorf("failed to get lark app by id-%s", stage.Approval.LarkApproval.ApprovalID)
+			}
+			_, err = cli.GetUserOpenIDByEmail(userInfo.Email)
+			if err != nil {
+				return nil, e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info by email, lark app id: %s", stage.Approval.LarkApproval.ApprovalID))
+			}
+		}
 	}
+
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}

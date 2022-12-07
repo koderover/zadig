@@ -26,6 +26,9 @@ import (
 )
 
 func (client *Client) GetUserOpenIDByEmail(email string) (string, error) {
+	if email == "" {
+		return "", errors.New("empty email")
+	}
 	req := larkcontact.NewBatchGetIdUserReqBuilder().
 		UserIdType(setting.LarkUserOpenID).
 		Body(larkcontact.NewBatchGetIdUserReqBodyBuilder().

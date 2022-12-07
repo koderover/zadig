@@ -162,7 +162,7 @@ func GetWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
 func GetWebhookForWorkflowV4Preset(c *gin.Context) {

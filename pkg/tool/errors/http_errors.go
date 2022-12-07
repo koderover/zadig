@@ -766,10 +766,15 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	// external approval releated errors: 6930-6939
 	//-----------------------------------------------------------------------------------------------
-	ErrCreateExternalApproval   = NewHTTPError(6920, "创建外部审批失败")
-	ErrUpdateExternalApproval   = NewHTTPError(6921, "更新外部审批失败")
-	ErrListExternalApproval     = NewHTTPError(6922, "列出外部审批失败")
-	ErrGetExternalApproval      = NewHTTPError(6923, "获取外部审批失败")
-	ErrDeleteExternalApproval   = NewHTTPError(6924, "删除外部审批失败")
-	ErrValidateExternalApproval = NewHTTPError(6925, "校验外部审批失败")
+	ErrCreateExternalApproval   = NewHTTPError(6930, "创建外部审批失败")
+	ErrUpdateExternalApproval   = NewHTTPError(6931, "更新外部审批失败")
+	ErrListExternalApproval     = NewHTTPError(6932, "列出外部审批失败")
+	ErrGetExternalApproval      = NewHTTPError(6933, "获取外部审批失败")
+	ErrDeleteExternalApproval   = NewHTTPError(6934, "删除外部审批失败")
+	ErrValidateExternalApproval = NewHTTPError(6935, "校验外部审批失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// check workflow task lark approval available releated errors: 6940-6949
+	//-----------------------------------------------------------------------------------------------
+	ErrCheckLarkApprovalCreator = NewHTTPError(6940, "获取飞书账号信息失败")
 )
