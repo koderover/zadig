@@ -291,6 +291,35 @@ type GrayRollbackTarget struct {
 	OriginReplica int    `bson:"-"                         json:"origin_replica"           yaml:"origin_replica,omitempty"`
 }
 
+type IstioJobSpec struct {
+	First             bool              `bson:"first"              json:"first"              yaml:"first"`
+	ClusterID         string            `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
+	FromJob           string            `bson:"from_job"           json:"from_job"           yaml:"from_job"`
+	RegistryID        string            `bson:"registry_id"        json:"registry_id"        yaml:"registry_id"`
+	Namespace         string            `bson:"namespace"          json:"namespace"          yaml:"namespace"`
+	Timeout           int64             `bson:"timeout"            json:"timeout"            yaml:"timeout"`
+	ReplicaPercentage int64             `bson:"replica_percentage" json:"replica_percentage" yaml:"replica_percentage"`
+	Weight            int64             `bson:"weight"             json:"weight"             yaml:"weight"`
+	Targets           []*IstioJobTarget `bson:"targets"            json:"targets"            yaml:"targets"`
+}
+
+type IstioRollBackJobSpec struct {
+	ClusterID string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
+	Namespace string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
+	Timeout   int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
+	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
+}
+
+type IstioJobTarget struct {
+	WorkloadName       string `bson:"workload_name"             json:"workload_name"             yaml:"workload_name"`
+	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`
+	VirtualServiceName string `bson:"virtual_service_name"      json:"virtual_service_name"      yaml:"virtual_service_name"`
+	Host               string `bson:"host"                      json:"host"                      yaml:"host"`
+	Image              string `bson:"image"                     json:"image"                     yaml:"-"`
+	CurrentReplica     int    `bson:"current_replica,omitempty" json:"current_replica,omitempty" yaml:"-"`
+	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"-"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`

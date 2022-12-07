@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
-	types "github.com/gogo/protobuf/types"
+	types "github.com/golang/protobuf/ptypes/struct"
 	helmclient "github.com/mittwald/go-helm-client"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
