@@ -51,15 +51,22 @@ func (c *ExternalApprovalColl) GetCollectionName() string {
 }
 
 func (c *ExternalApprovalColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "app_id", Value: 1},
-			bson.E{Key: "name", Value: 1},
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "app_id", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
 		},
-		Options: options.Index().SetUnique(true),
+		{
+			Keys: bson.D{
+				bson.E{Key: "name", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mod)
 	return err
 }
 
