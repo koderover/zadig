@@ -90,8 +90,8 @@ type CreateProductTaskJobInput struct {
 }
 
 type WorkflowBuildArg struct {
-	Enabled     bool                `json:"enabled"`
-	ServiceList []*ServiceBuildArgs `json:"service_list"`
+	Enabled     bool                             `json:"enabled"`
+	ServiceList []*types.OpenAPIServiceBuildArgs `json:"service_list"`
 }
 
 type WorkflowDeployArg struct {
