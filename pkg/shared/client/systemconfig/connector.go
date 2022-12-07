@@ -17,11 +17,8 @@ limitations under the License.
 package systemconfig
 
 import (
-	"encoding/json"
-
-	"github.com/dexidp/dex/connector/ldap"
-
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	connectorservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/service"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Connector struct {
@@ -32,36 +29,31 @@ type Connector struct {
 }
 
 func (c *Client) GetLDAPConnector(id string) (*Connector, error) {
-	url := "/connectors/" + id
-
-	res := &Connector{}
-	_, err := c.Get(url, httpclient.SetResult(res))
+	resp, err := connectorservice.GetConnector(id, log.SugaredLogger())
 	if err != nil {
 		return nil, err
 	}
-
-	configData, err := json.Marshal(res.Config)
-	if err != nil {
-		return nil, err
+	res := &Connector{
+		Type:   string(resp.Type),
+		ID:     resp.ID,
+		Name:   resp.Name,
+		Config: resp.Config,
 	}
 
-	ldapConfig := &ldap.Config{}
-	if err = json.Unmarshal(configData, ldapConfig); err != nil {
-		return nil, err
-	}
-
-	res.Config = ldapConfig
-
-	return res, err
+	return res, nil
 }
 
 func (c *Client) ListConnectorsInternal() ([]*Connector, error) {
-	url := "/connectors/internal"
-
 	res := make([]*Connector, 0)
-	_, err := c.Get(url, httpclient.SetResult(&res))
-	if err != nil {
-		return nil, err
+
+	resp, err := connectorservice.ListConnectorsInternal(log.SugaredLogger())
+	for _, connector := range resp {
+		res = append(res, &Connector{
+			Type:   string(connector.Type),
+			ID:     connector.ID,
+			Name:   connector.Name,
+			Config: connector.Config,
+		})
 	}
 
 	return res, err
