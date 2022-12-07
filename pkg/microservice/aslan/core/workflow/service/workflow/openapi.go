@@ -134,7 +134,7 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 }
 
 func OpenAPICreateProductWorkflowTask(username string, args *OpenAPICreateProductWorkflowTaskArgs, logger *zap.SugaredLogger) (*CreateTaskResp, error) {
-
+	return nil, nil
 }
 
 func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, error) {

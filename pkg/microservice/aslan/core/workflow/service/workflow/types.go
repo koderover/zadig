@@ -84,10 +84,9 @@ func (c *OpenAPICreateProductWorkflowTaskArgs) Validate() (bool, error) {
 }
 
 type CreateProductTaskJobInput struct {
-	TargetEnv  string              `json:"target_env"`
-	BuildArgs  WorkflowBuildArg    `json:"build"`
-	DeployArgs WorkflowDeployArg   `json:"deploy"`
-	Callback   WorkflowCallbackArg `json:"callback"`
+	TargetEnv  string            `json:"target_env"`
+	BuildArgs  WorkflowBuildArg  `json:"build"`
+	DeployArgs WorkflowDeployArg `json:"deploy"`
 }
 
 type WorkflowBuildArg struct {
@@ -99,10 +98,6 @@ type WorkflowDeployArg struct {
 	Enabled     string               `json:"enabled"`
 	Source      string               `json:"source"`
 	ServiceList []*ServiceDeployArgs `json:"service_list"`
-}
-
-type WorkflowCallbackArg struct {
-	CallbackUrl string `json:"callback_url"`
 }
 
 type CustomJobInput interface {
