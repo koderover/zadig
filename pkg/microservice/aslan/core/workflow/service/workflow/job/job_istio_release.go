@@ -68,7 +68,6 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.IstioJobSpec{}
 
-	var currentReplica int
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
@@ -103,21 +102,18 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		if j.spec.Weight >= 100 {
 			return resp, fmt.Errorf("the first istio release job: %s cannot be released in full", j.job.Name)
 		}
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
-		if err != nil {
-			return resp, fmt.Errorf("Failed to get kube client, err: %v", err)
-		}
-		for _, target := range j.spec.Targets {
-			deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
-			if err != nil || !found {
-				return resp, fmt.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.spec.Namespace)
-			}
-			target.CurrentReplica = int(*deployment.Spec.Replicas)
-			currentReplica = int(*deployment.Spec.Replicas)
-		}
 	}
-
-	fmt.Printf(">>>>>>>>>>>>>>>current replica is: %d<<<<<<<<<<<<<<<<\n", currentReplica)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	if err != nil {
+		return resp, fmt.Errorf("Failed to get kube client, err: %v", err)
+	}
+	for _, target := range j.spec.Targets {
+		deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
+		if err != nil || !found {
+			return resp, fmt.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.spec.Namespace)
+		}
+		target.CurrentReplica = int(*deployment.Spec.Replicas)
+	}
 
 	cluster, err := commonrepo.NewK8SClusterColl().Get(j.spec.ClusterID)
 	if err != nil {
@@ -125,8 +121,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	}
 
 	for _, target := range j.spec.Targets {
-		newReplicaCount := math.Ceil(float64(currentReplica) * (float64(j.spec.ReplicaPercentage) / 100))
-		fmt.Println("replica count for job", j.job.Name, "is: ", currentReplica)
+		newReplicaCount := math.Ceil(float64(target.CurrentReplica) * (float64(j.spec.ReplicaPercentage) / 100))
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
 			JobType: string(config.JobIstioRelease),
