@@ -54,6 +54,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	router.GET("/:id/storageclasses", ListStorageClasses)
 	router.GET("/:id/:namespace/pvcs", ListPVCs)
+	router.GET("/:id/:namespace/deployments", ListDeployments)
+	router.GET("/:id/:namespace/istio/virtualservices", ListIstioVirtualServices)
 
 	router.GET("/:id/check/ephemeralcontainers", CheckEphemeralContainers)
 }

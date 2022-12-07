@@ -37,3 +37,17 @@ func ListPVCs(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListPVCs(c, c.Param("id"), c.Param("namespace"))
 }
+
+func ListDeployments(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListDeployments(c, c.Param("id"), c.Param("namespace"))
+}
+
+func ListIstioVirtualServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListIstioVirtualServices(c, c.Param("id"), c.Param("namespace"))
+}
