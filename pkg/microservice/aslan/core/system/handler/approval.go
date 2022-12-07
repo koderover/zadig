@@ -41,7 +41,12 @@ func CreateApproval(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Err = service.CreateExternalApproval(&args, ctx.Logger)
+	oid, err := service.CreateExternalApproval(&args, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = map[string]string{"id": oid}
 }
 
 func UpdateApproval(c *gin.Context) {

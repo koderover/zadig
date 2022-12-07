@@ -39,23 +39,23 @@ func ListExternalApproval(_type string, log *zap.SugaredLogger) ([]*commonmodels
 	return resp, nil
 }
 
-func CreateExternalApproval(args *commonmodels.ExternalApproval, log *zap.SugaredLogger) error {
+func CreateExternalApproval(args *commonmodels.ExternalApproval, log *zap.SugaredLogger) (string, error) {
 	oid, err := mongodb.NewExternalApprovalColl().Create(context.Background(), args)
 	if err != nil {
 		log.Errorf("create external approval error: %v", err)
-		return e.ErrCreateExternalApproval.AddErr(err)
+		return "", e.ErrCreateExternalApproval.AddErr(err)
 	}
 
 	approvalCode, err := createLarkDefaultApprovalDefinition(lark.NewClient(args.AppID, args.AppSecret))
 	if err != nil {
-		return e.ErrCreateExternalApproval.AddErr(err)
+		return "", e.ErrCreateExternalApproval.AddErr(err)
 	}
 	args.LarkDefaultApprovalCode = approvalCode
 	err = mongodb.NewExternalApprovalColl().Update(context.Background(), oid, args)
 	if err != nil {
-		return errors.Wrap(err, "update approval with approval code")
+		return "", errors.Wrap(err, "update approval with approval code")
 	}
-	return nil
+	return "", nil
 }
 
 func UpdateExternalApproval(id string, args *commonmodels.ExternalApproval, log *zap.SugaredLogger) error {

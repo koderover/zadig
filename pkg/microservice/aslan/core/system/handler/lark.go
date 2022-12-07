@@ -20,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service/lark"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
