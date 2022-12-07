@@ -180,7 +180,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		}
 		newDeployment.Spec.Template.Spec.Containers = containerList
 		targetReplica := int32(c.jobTaskSpec.Replicas)
-		deployment.Spec.Replicas = &targetReplica
+		newDeployment.Spec.Replicas = &targetReplica
 
 		c.Infof("Creating deployment copy for deployment: %s", c.jobTaskSpec.Targets.WorkloadName)
 		c.ack()
