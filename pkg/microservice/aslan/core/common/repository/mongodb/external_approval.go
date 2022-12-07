@@ -71,7 +71,7 @@ func (c *ExternalApprovalColl) Create(ctx context.Context, args *models.External
 
 	res, err := c.InsertOne(ctx, args)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return res.InsertedID.(primitive.ObjectID).Hex(), nil
 }
