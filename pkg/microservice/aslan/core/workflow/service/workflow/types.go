@@ -95,7 +95,7 @@ type WorkflowBuildArg struct {
 }
 
 type WorkflowDeployArg struct {
-	Enabled     string               `json:"enabled"`
+	Enabled     bool                 `json:"enabled"`
 	Source      string               `json:"source"`
 	ServiceList []*ServiceDeployArgs `json:"service_list"`
 }
