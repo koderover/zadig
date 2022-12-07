@@ -429,9 +429,9 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				return
 			}
 
-			modifiedVS, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), c.jobTaskSpec.Targets.VirtualServiceName, v1.GetOptions{})
+			modifiedVS, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), newVSName, v1.GetOptions{})
 			if err != nil {
-				c.Errorf("failed to find virtual service of name: %s, error is: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
+				c.Errorf("failed to find virtual service of name: %s, error is: %s", newVSName, err)
 				return
 			}
 
