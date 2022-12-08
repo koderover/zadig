@@ -121,5 +121,5 @@ func OpenAPICreateProductWorkflowTask(c *gin.Context) {
 		return
 	}
 
-	_, ctx.Err = workflowservice.OpenAPICreateProductWorkflowTask(ctx.UserName, args, ctx.Logger)
+	ctx.Resp, ctx.Err = workflowservice.OpenAPICreateProductWorkflowTask(ctx.UserName, args, ctx.Logger)
 }
