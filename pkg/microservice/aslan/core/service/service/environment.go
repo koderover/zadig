@@ -310,9 +310,8 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 }
 
 func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, error) {
-	projectName := templateProduct.ProjectName
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:           projectName,
+		Name:           templateProduct.ProductName,
 		ShareEnvEnable: util.GetBoolPointer(false),
 	})
 	if err != nil {
