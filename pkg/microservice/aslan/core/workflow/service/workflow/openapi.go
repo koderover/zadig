@@ -2,12 +2,14 @@ package workflow
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"go.uber.org/zap"
 )
@@ -131,6 +133,89 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		}
 	}
 	return nil
+}
+
+func OpenAPICreateProductWorkflowTask(username string, args *OpenAPICreateProductWorkflowTaskArgs, logger *zap.SugaredLogger) (*CreateTaskResp, error) {
+	// first get the preset info from the workflow itself
+	createArgs, err := PresetWorkflowArgs(args.Input.TargetEnv, args.WorkflowName, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// if build is enabled, we change the information in the target section
+	if args.Input.BuildArgs.Enabled {
+		targetList := make([]*commonmodels.TargetArgs, 0)
+		for _, targetInfo := range createArgs.Target {
+			for _, inputTarget := range args.Input.BuildArgs.ServiceList {
+				// if the 2 are the same
+				if targetInfo.Name == inputTarget.ServiceModule && targetInfo.ServiceName == inputTarget.ServiceName {
+					// update build repo info with input build info
+					for _, inputRepo := range inputTarget.RepoInfo {
+						repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+						if err != nil {
+							return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+						}
+
+						for _, buildRepo := range targetInfo.Build.Repos {
+							if buildRepo.CodehostID == repoInfo.ID {
+								if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
+									buildRepo.Branch = inputRepo.Branch
+									buildRepo.PR = inputRepo.PR
+									buildRepo.PRs = inputRepo.PRs
+								}
+							}
+						}
+					}
+
+					// update the build kv
+					kvMap := make(map[string]string)
+					for _, kv := range inputTarget.Inputs {
+						kvMap[kv.Key] = kv.Value
+					}
+
+					for _, buildParam := range targetInfo.Envs {
+						if val, ok := kvMap[buildParam.Key]; ok {
+							buildParam.Value = val
+						}
+					}
+
+					targetList = append(targetList, targetInfo)
+				}
+			}
+		}
+
+		// if it has a build stage and does not have a deployment stage, we simply remove all the deployment info in the parameter
+		if !args.Input.DeployArgs.Enabled {
+			for _, target := range targetList {
+				target.Deploy = make([]commonmodels.DeployEnv, 0)
+			}
+		} else if args.Input.DeployArgs.Source != "zadig" {
+			return nil, fmt.Errorf("deploy source must be zadig when there is a build stage")
+		}
+
+		createArgs.Target = targetList
+	} else if args.Input.DeployArgs.Enabled {
+		// otherwise if only deploy is enabled
+		targetList := make([]*commonmodels.TargetArgs, 0)
+		deployList := make([]*commonmodels.ArtifactArgs, 0)
+		for _, target := range createArgs.Target {
+			for _, deployTarget := range args.Input.DeployArgs.ServiceList {
+				if deployTarget.ServiceModule == target.Name && deployTarget.ServiceName == target.ServiceName {
+					deployList = append(deployList, &commonmodels.ArtifactArgs{
+						Name:        deployTarget.ServiceModule,
+						ImageName:   deployTarget.ServiceModule,
+						ServiceName: deployTarget.ServiceName,
+						Image:       deployTarget.ImageName,
+						Deploy:      target.Deploy,
+					})
+				}
+			}
+		}
+		createArgs.Target = targetList
+		createArgs.Artifact = deployList
+	}
+
+	return CreateWorkflowTask(createArgs, username, logger)
 }
 
 func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, error) {
