@@ -183,7 +183,7 @@ func (client *Client) listUserFromDepartmentWithPage(departmentID, pageToken str
 	var list []*UserInfo
 	for _, item := range resp.Data.Items {
 		list = append(list, &UserInfo{
-			ID:     getStringFromPointer(item.UserId),
+			ID:     getStringFromPointer(item.OpenId),
 			Name:   getStringFromPointer(item.Name),
 			Avatar: getStringFromPointer(item.Avatar.Avatar240),
 		})
