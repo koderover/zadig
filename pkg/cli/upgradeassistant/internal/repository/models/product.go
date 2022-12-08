@@ -104,30 +104,3 @@ type ServiceConfig struct {
 func (Product) TableName() string {
 	return "product"
 }
-
-func (p *Product) GetNamespace() string {
-	return p.ProductName + "-env-" + p.EnvName
-}
-
-func (p *Product) GetGroupServiceNames() [][]string {
-	var resp [][]string
-	for _, group := range p.Services {
-		services := make([]string, 0, len(group))
-		for _, service := range group {
-			services = append(services, service.ServiceName)
-		}
-		resp = append(resp, services)
-	}
-	return resp
-}
-
-func (p *Product) GetServiceMap() map[string]*ProductService {
-	ret := make(map[string]*ProductService)
-	for _, group := range p.Services {
-		for _, svc := range group {
-			ret[svc.ServiceName] = svc
-		}
-	}
-
-	return ret
-}

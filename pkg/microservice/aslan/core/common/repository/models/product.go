@@ -103,7 +103,7 @@ type ProductService struct {
 	Type        string       `bson:"type"                       json:"type"`
 	Revision    int64        `bson:"revision"                   json:"revision"`
 	Containers  []*Container `bson:"containers"                 json:"containers,omitempty"`
-	Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
+	Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // this filed should be deprecated, use product.renderset
 	Error       string       `bson:"error,omitempty"            json:"error,omitempty"`
 	EnvConfigs  []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
 }

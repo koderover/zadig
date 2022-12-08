@@ -49,16 +49,6 @@ type ProductListOptions struct {
 	InEnvs              []string
 }
 
-type projectEnvs struct {
-	ID          projectID `bson:"_id"`
-	ProjectName string    `bson:"project_name"`
-	Envs        []string  `bson:"envs"`
-}
-
-type projectID struct {
-	ProductName string `bson:"product_name"`
-}
-
 type ProductColl struct {
 	*mongo.Collection
 
@@ -72,67 +62,6 @@ func NewProductColl() *ProductColl {
 
 func (c *ProductColl) GetCollectionName() string {
 	return c.coll
-}
-
-func (c *ProductColl) EnsureIndex(ctx context.Context) error {
-	mod := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				bson.E{Key: "env_name", Value: 1},
-				bson.E{Key: "product_name", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
-		{
-			Keys: bson.D{
-				bson.E{Key: "env_name", Value: 1},
-				bson.E{Key: "product_name", Value: 1},
-				bson.E{Key: "update_time", Value: 1},
-			},
-			Options: options.Index().SetUnique(false),
-		},
-	}
-
-	_, err := c.Indexes().CreateMany(ctx, mod)
-
-	return err
-}
-
-type ProductEnvFindOptions struct {
-	Name      string
-	Namespace string
-}
-
-func (c *ProductColl) FindEnv(opt *ProductEnvFindOptions) (*models.Product, error) {
-	query := bson.M{}
-	if opt.Name != "" {
-		query["product_name"] = opt.Name
-	}
-
-	if opt.Namespace != "" {
-		query["namespace"] = opt.Namespace
-	}
-
-	ret := new(models.Product)
-	err := c.FindOne(context.TODO(), query).Decode(ret)
-	return ret, err
-}
-
-func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
-	res := &models.Product{}
-	query := bson.M{}
-	if opt.Name != "" {
-		query["product_name"] = opt.Name
-	}
-	if opt.EnvName != "" {
-		query["env_name"] = opt.EnvName
-	}
-	if opt.Namespace != "" {
-		query["namespace"] = opt.Namespace
-	}
-
-	err := c.FindOne(context.TODO(), query).Decode(res)
-	return res, err
 }
 
 func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
@@ -208,5 +137,14 @@ func (c *ProductColl) UpdateAllRegistry(envs []*models.Product) error {
 	}
 	_, err := c.BulkWrite(context.TODO(), ms)
 
+	return err
+}
+
+func (c *ProductColl) UpdateProductRender(product *models.Product) error {
+	query := bson.M{"_id": product.ID}
+	change := bson.M{"$set": bson.M{
+		"render": product.Render,
+	}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	return err
 }

@@ -173,3 +173,16 @@ func ValidateTemplateVariables(c *gin.Context) {
 
 	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml)
 }
+
+func ExtractTemplateVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &getYamlTemplateVariablesReq{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml)
+}

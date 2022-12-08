@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -65,6 +67,10 @@ func V1150ToV1160() error {
 	}
 	if err := createNewPackageDependencies(); err != nil {
 		log.Errorf("createNewPackageDependencies err:%s", err)
+		return err
+	}
+	if err := adjustProductRenderInfo(); err != nil {
+		log.Errorf("adjustProductRenderInfo err:%s", err)
 		return err
 	}
 	return nil
@@ -500,4 +506,54 @@ func migrateReleaseCenter() error {
 		}
 	}
 	return nil
+}
+
+func adjustProductRenderInfo() error {
+	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
+		DeployType: setting.K8SDeployType,
+	})
+	if err != nil {
+		log.Errorf("adjustProductRenderInfo list projects error: %s", err)
+		return fmt.Errorf("adjustProductRenderInfo list projects error: %s", err)
+	}
+	projectNames := make([]string, 0)
+	for _, v := range temProducts {
+		projectNames = append(projectNames, v.ProductName)
+	}
+
+	products, err := uamongo.NewProductColl().List(&uamongo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InProjects: projectNames})
+	if err != nil {
+		log.Errorf("adjustProductRenderInfo list product error: %s", err)
+		return fmt.Errorf("adjustProductRenderInfo list product error: %s", err)
+	}
+
+	for _, product := range products {
+		err = adjustSingleProductRender(product)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// used product.render instead of product.service[].render
+func adjustSingleProductRender(product *models.Product) error {
+	var maxVersionRender *models.RenderInfo = nil
+	for _, svc := range product.GetServiceMap() {
+		if svc.Render != nil && (maxVersionRender == nil || svc.Render.Revision > maxVersionRender.Revision) {
+			maxVersionRender = svc.Render
+		}
+	}
+	if product.Render != nil && (maxVersionRender == nil || product.Render.Revision > maxVersionRender.Revision) {
+		maxVersionRender = product.Render
+	}
+	// revisions of product.render and product.service[].render are the same
+	if product.Render != nil && maxVersionRender != nil {
+		if product.Render.Revision == maxVersionRender.Revision {
+			return nil
+		}
+	}
+	product.Render = maxVersionRender
+
+	return uamongo.NewProductColl().UpdateProductRender(product)
 }

@@ -77,6 +77,10 @@ func getParameterKey(parameter string) string {
 	return strings.TrimSuffix(a, "}}")
 }
 
+// GetYamlVariables extract variables from go template yaml to Zadig-defined vars
+// use regex to search {{.rar}} and turn to {key: var}
+// NOTE this function DOES NOT support full go-template grammar, like {{- range }} / {{- eq }} / {{- if }} / nested data
+// technically this function should be deprecated
 func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*models.ChartVariable, error) {
 	resp := make([]*models.ChartVariable, 0)
 	regex, err := regexp.Compile(setting.RegExpParameter)
@@ -96,4 +100,11 @@ func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*models.ChartVaria
 		}
 	}
 	return resp, nil
+}
+
+// FetchTemplateVariableYaml extract variables from go template yaml and package them into yaml
+// supports most standard go-template grammar, but can't deal with complex situation like range in range / local vars using $
+// NOTE the return value should not be fully trusted
+func FetchTemplateVariableYaml(source string, logger *zap.SugaredLogger) (string, error) {
+	return "", nil
 }

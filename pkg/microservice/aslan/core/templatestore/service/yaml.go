@@ -67,6 +67,8 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 }
 
 func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
+	// technically the content of variable yaml should be validated
+	// but the service is not rendered before applied to yaml, we ignore the validation on template
 	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml)
 	if err != nil {
 		logger.Errorf("update yaml template variable error: %s", err)
@@ -160,6 +162,35 @@ func GetSystemDefaultVariables() []*models.ChartVariable {
 }
 
 func ValidateVariable(content, variable string) error {
+	if len(content) == 0 || len(variable) == 0 {
+		return nil
+	}
+	variable, _, err := template.SafeMergeVariableYaml(variable)
+	if err != nil {
+		return err
+	}
+	valuesMap := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(variable), &valuesMap); err != nil {
+		return fmt.Errorf("failed to unmarshal yaml: %s", err)
+	}
+
+	tmpl, err := gotemplate.New("").Parse(content)
+	if err != nil {
+		return fmt.Errorf("failed to build template, err: %s", err)
+	}
+
+	for k := range DefaultSystemVariable {
+		valuesMap[k] = k
+	}
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, valuesMap)
+	if err != nil {
+		return fmt.Errorf("template validate err: %s", err)
+	}
+	return nil
+}
+
+func ExtractVariable(content, variable string) error {
 	if len(content) == 0 || len(variable) == 0 {
 		return nil
 	}
