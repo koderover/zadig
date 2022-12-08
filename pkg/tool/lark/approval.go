@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type CreateApprovalDefinitionArgs struct {
@@ -111,6 +112,7 @@ type CreateApprovalInstanceArgs struct {
 }
 
 func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (string, error) {
+	log.Infof("create approval instance: approver id list %v", args.ApproverIDList)
 	formContent, err := json.Marshal([]formData{{
 		ID:    "1",
 		Type:  "textarea",

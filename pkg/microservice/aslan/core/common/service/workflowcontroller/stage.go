@@ -183,7 +183,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	if err != nil {
 		return errors.Wrapf(err, "get user lark id by email-%s", workflowCtx.WorkflowTaskCreatorEmail)
 	}
-	
+
 	log.Infof("waitForLarkApprove: ApproveUsers num %d", len(approval.ApproveUsers))
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
 		ApprovalCode: data.LarkDefaultApprovalCode,
