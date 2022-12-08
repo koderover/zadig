@@ -81,22 +81,68 @@ func GetLarkAppContactRange(approvalID string) (*LarkDepartmentInfo, error) {
 		return nil, errors.Wrap(err, "list range")
 	}
 
-	var userList []*lark.UserInfo
-	for _, userID := range reply.UserIDs {
-		info, err := cli.GetUserInfoByID(userID)
-		if err != nil {
-			return nil, errors.Wrap(err, "get user info")
-		}
-		userList = append(userList, info)
+	var (
+		userList       []*lark.UserInfo
+		departmentList []*lark.DepartmentInfo
+		err1, err2     error
+		wg             sync.WaitGroup
+	)
+	wg.Add(2)
+	go func() {
+		userList, err1 = getLarkUserInfoConcurrently(cli, reply.UserIDs, 10)
+		wg.Done()
+	}()
+	go func() {
+		departmentList, err2 = getLarkDepartmentInfoConcurrently(cli, reply.DepartmentIDs, 10)
+		wg.Done()
+	}()
+	wg.Wait()
+	if err1 != nil {
+		return nil, errors.Wrap(err, "get user info")
 	}
-	departmentList, err := getLarkDepartmentInfoConcurrently(cli, reply.DepartmentIDs, 10)
-	if err != nil {
+	if err2 != nil {
 		return nil, errors.Wrap(err, "get department info")
 	}
 	return &LarkDepartmentInfo{
 		UserList:          userList,
 		SubDepartmentList: departmentList,
 	}, nil
+}
+
+func getLarkUserInfoConcurrently(client *lark.Client, idList []string, concurrentNum int) ([]*lark.UserInfo, error) {
+	var reply []*lark.UserInfo
+	idNum := len(idList)
+
+	type result struct {
+		*lark.UserInfo
+		Err error
+	}
+	argCh := make(chan string, 100)
+	resultCh := make(chan *result, 100)
+	for i := 0; i < concurrentNum; i++ {
+		go func() {
+			for arg := range argCh {
+				info, err := client.GetUserInfoByID(arg)
+				resultCh <- &result{
+					UserInfo: info,
+					Err:      err,
+				}
+			}
+		}()
+	}
+	for _, s := range idList {
+		argCh <- s
+	}
+	close(argCh)
+
+	for i := 0; i < idNum; i++ {
+		re := <-resultCh
+		if re.Err != nil {
+			return nil, re.Err
+		}
+		reply = append(reply, re.UserInfo)
+	}
+	return reply, nil
 }
 
 func getLarkDepartmentInfoConcurrently(client *lark.Client, idList []string, concurrentNum int) ([]*lark.DepartmentInfo, error) {
@@ -128,7 +174,7 @@ func getLarkDepartmentInfoConcurrently(client *lark.Client, idList []string, con
 	for i := 0; i < idNum; i++ {
 		re := <-resultCh
 		if re.Err != nil {
-			return nil, errors.Wrap(re.Err, "get department id list concurrently")
+			return nil, re.Err
 		}
 		reply = append(reply, re.DepartmentInfo)
 	}
