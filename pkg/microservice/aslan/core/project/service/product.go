@@ -396,12 +396,6 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 				Type:        svcTemplate.Type,
 				Revision:    svcTemplate.Revision,
 				Containers:  svcTemplate.Containers,
-				Render: &commonmodels.RenderInfo{
-					Name:        rendersetInfo.Name,
-					Revision:    rendersetInfo.Revision,
-					ProductTmpl: rendersetInfo.ProductTmpl,
-					Description: rendersetInfo.Description,
-				},
 			})
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}

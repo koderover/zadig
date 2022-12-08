@@ -20,9 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -31,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
+	"go.uber.org/zap"
 )
 
 func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (prodRevs []*ProductRevision, err error) {
@@ -117,6 +115,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	prodRev.ServiceRevisions = make([]*SvcRevision, 0)
 	prodRev.IsPublic = product.IsPublic
 
+	product.EnsureRenderInfo()
 	if product.Source == setting.SourceFromExternal {
 		return prodRev, nil
 	}
@@ -125,38 +124,22 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		prodRev.Updatable = true
 	}
 
-	var allRenders []*commonmodels.RenderSet
-	var newRender *commonmodels.RenderSet
+	var newRender, oldRender *commonmodels.RenderSet
 	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
-		rendersetName := ""
-		if product.Render != nil {
-			rendersetName = product.Render.Name
-			newRender, err = commonservice.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
-			if err != nil {
-				return prodRev, err
-			}
+		// TODO is it the right way to fetch new product?
+		newRender, err = commonservice.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
+		if err != nil {
+			return prodRev, err
 		}
 
-		// get all rendersets used by product services
-		renderRevision := sets.NewInt64()
-		for _, productService := range product.GetServiceMap() {
-			if productService.Render != nil {
-				renderRevision.Insert(productService.Render.Revision)
-			}
-		}
-		allRenders, err = commonrepo.NewRenderSetColl().ListRendersets(&commonrepo.RenderSetListOption{
-			Revisions:     renderRevision.List(),
-			ProductTmpl:   productTemplateName,
-			RendersetName: rendersetName,
-		})
+		oldRender, err = commonservice.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log)
 		if err != nil {
-			log.Errorf("ListAllRevisions error: %s", err)
-			return prodRev, e.ErrListProducts.AddDesc(err.Error())
+			return prodRev, err
 		}
 	}
 
 	// 交叉对比已创建的服务组和服务组模板
-	prodRev.ServiceRevisions, err = compareGroupServicesRev(prodTmpl.Services, product, allServiceTmpls, allRenders, newRender, log)
+	prodRev.ServiceRevisions, err = compareGroupServicesRev(prodTmpl.Services, product, allServiceTmpls, newRender, oldRender, log)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
@@ -189,7 +172,8 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 // - product: the product environment instance
 // - maxServices: distinted service and max revision
 // - maxConfigs: distincted service config and max revision
-func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.Product, allServiceTmpls []*commonmodels.Service, allRender []*commonmodels.RenderSet, newRender *commonmodels.RenderSet, log *zap.SugaredLogger) ([]*SvcRevision, error) {
+func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.Product, allServiceTmpls []*commonmodels.Service,
+	newRender *commonmodels.RenderSet, oldRender *commonmodels.RenderSet, log *zap.SugaredLogger) ([]*SvcRevision, error) {
 
 	var serviceRev []*SvcRevision
 	svcList := make([]*commonmodels.ProductService, 0)
@@ -228,7 +212,7 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	}
 
 	var err error
-	serviceRev, err = compareServicesRev(svcTmplNameList, svcList, allServiceTmpls, allRender, newRender, log)
+	serviceRev, err = compareServicesRev(svcTmplNameList, svcList, allServiceTmpls, newRender, oldRender, log)
 	if err != nil {
 		log.Errorf("Failed to compare service revision, %s:%s, Error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return serviceRev, e.ErrListProductsRevision.AddDesc(err.Error())
@@ -242,7 +226,8 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 // - services: service list of product environment instance
 // - maxServices: distinted service and max revision
 // - maxConfigs: distincted service config and max revision
-func compareServicesRev(serviceTmplNames []string, services []*commonmodels.ProductService, allServiceTmpls []*commonmodels.Service, allRenders []*commonmodels.RenderSet, newRender *commonmodels.RenderSet, log *zap.SugaredLogger) ([]*SvcRevision, error) {
+func compareServicesRev(serviceTmplNames []string, services []*commonmodels.ProductService, allServiceTmpls []*commonmodels.Service,
+	newRender *commonmodels.RenderSet, oldRender *commonmodels.RenderSet, log *zap.SugaredLogger) ([]*SvcRevision, error) {
 
 	serviceRevs := make([]*SvcRevision, 0)
 
@@ -350,19 +335,9 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 							break
 						}
 					}
-
 					serviceRev.Containers = append(serviceRev.Containers, c)
 				}
 
-				oldRender := &commonmodels.RenderSet{}
-				if service.Render != nil && service.Render.Name != "" {
-					oldRender, err = getRenderByRevision(allRenders, service.Render.Name, service.Render.Revision)
-					if err != nil {
-						log.Errorf("Failed to get current render of service by revision. Service: %s, Render: %s, RenderRevision: %d, Error: %v",
-							service.ServiceName, service.Render.Name, service.Render.Revision, err)
-						return serviceRevs, e.ErrListProductsRevision.AddDesc(err.Error())
-					}
-				}
 				// 交叉对比已创建的配置和待更新配置模板
 				// 检查模板yaml渲染后是否有变化
 				if isRenderedStringUpdateble(currentServiceTmpl.Yaml, maxServiceTmpl.Yaml, oldRender, newRender) {
@@ -424,19 +399,6 @@ func getMaxServiceRevision(services []*commonmodels.Service, serviceName, produc
 	}
 	if resp.ServiceName == "" {
 		return resp, fmt.Errorf("[%s] no service found", serviceName)
-	}
-	return resp, nil
-}
-
-func getRenderByRevision(renders []*commonmodels.RenderSet, renderName string, revision int64) (*commonmodels.RenderSet, error) {
-	var resp *commonmodels.RenderSet
-	for _, render := range renders {
-		if render.Name == renderName && render.Revision == revision {
-			resp = render
-		}
-	}
-	if resp == nil {
-		return resp, fmt.Errorf("[%s][%d] no renderset found", renderName, revision)
 	}
 	return resp, nil
 }

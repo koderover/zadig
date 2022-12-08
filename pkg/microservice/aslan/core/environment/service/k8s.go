@@ -116,24 +116,23 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddDesc(e.EnvCantUpdatedMsg)
 	}
 
-	// 适配老的产品没有renderset为空的情况
-	if exitedProd.Render == nil {
-		exitedProd.Render = &commonmodels.RenderInfo{ProductTmpl: exitedProd.ProductName}
-	}
-	// 检查renderset是否覆盖服务所有key
+	exitedProd.EnsureRenderInfo()
+
+	// generate new renderset
 	newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
 	if err != nil {
 		k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
-	svc.Render = &commonmodels.RenderInfo{Name: newRender.Name, Revision: newRender.Revision, ProductTmpl: newRender.ProductTmpl}
+	preRevision := exitedProd.Render
+	exitedProd.Render = &commonmodels.RenderInfo{Name: newRender.Name, Revision: newRender.Revision, ProductTmpl: newRender.ProductTmpl}
 
 	_, err = upsertService(
 		true,
 		exitedProd,
 		svc,
 		exitedProd.GetServiceMap()[svc.ServiceName],
-		newRender, inf, kubeClient, istioClient, k.log)
+		newRender, preRevision, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
@@ -261,7 +260,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(false, prod, svc, nil, renderSet, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(false, prod, svc, nil, renderSet, nil, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

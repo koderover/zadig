@@ -156,16 +156,7 @@ func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) e
 		// if the environment is backtracking, render.name will be different with product.Namespace
 		if product.Render != nil {
 			revision = product.Render.Revision
-			if product.Render.Name != renderName {
-				renderName = product.Render.Name
-			} else {
-				for _, productSvc := range product.GetServiceMap() {
-					if productSvc.Render != nil {
-						revision = productSvc.Render.Revision
-						break
-					}
-				}
-			}
+			renderName = product.Render.Name
 		}
 
 		renderSet, err := commonservice.GetRenderSet(renderName, revision, false, product.EnvName, log)
@@ -346,7 +337,8 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 }
 
 func UpdateProduct(serviceNames []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, log *zap.SugaredLogger) (err error) {
-	// 设置产品新的renderinfo
+	oldProductRender := existedProd.Render
+	// set new render info to product
 	updateProd.Render = &commonmodels.RenderInfo{
 		Name:        renderSet.Name,
 		Revision:    renderSet.Revision,
@@ -484,7 +476,6 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 					Revision:    svcRev.NextRevision,
 				}
 				service.Containers = svcRev.Containers
-				service.Render = updateProd.Render
 
 				if svcRev.Type == setting.K8SDeployType && util.InStringArray(service.ServiceName, serviceNames) {
 					log.Infof("[Namespace:%s][Product:%s][Service:%s][IsNew:%v] upsert service",
@@ -500,7 +491,7 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 							updateProd,
 							service,
 							existedServices[service.ServiceName],
-							renderSet, inf, kubeClient, istioClient, log)
+							renderSet, oldProductRender, inf, kubeClient, istioClient, log)
 						if err != nil {
 							lock.Lock()
 							switch e := err.(type) {
@@ -516,7 +507,6 @@ func UpdateProduct(serviceNames []string, deployStrategy map[string]string, exis
 				groupServices = append(groupServices, service)
 			} else {
 				prodService.Containers = svcRev.Containers
-				prodService.Render = updateProd.Render
 				groupServices = append(groupServices, prodService)
 			}
 		}
@@ -682,12 +672,8 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 		}
 	}
 
-	// 检查renderinfo是否为空(适配历史product)
-	if exitedProd.Render == nil {
-		exitedProd.Render = &commonmodels.RenderInfo{ProductTmpl: exitedProd.ProductName}
-	}
+	exitedProd.EnsureRenderInfo()
 
-	// 检查renderset是否覆盖产品所有key
 	renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
@@ -1144,7 +1130,6 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 
 	// clear render info
 	productInfo.Render = nil
-	setServiceRender(productInfo)
 
 	// insert renderset info into db
 	if len(productInfo.ChartInfos) > 0 {
@@ -2619,7 +2604,7 @@ func getProjectType(productName string) string {
 // upsertService 创建或者更新服务, 更新服务之前先创建服务需要的配置
 func upsertService(isUpdate bool, env *commonmodels.Product,
 	service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
-	renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
+	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {
@@ -2673,8 +2658,8 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 	}
 
 	// compatibility: prevSvc.Render could be null when prev update failed
-	if prevSvc != nil && prevSvc.Render != nil {
-		err = removeOldResources(resources, env, prevSvc, kubeClient, log)
+	if prevSvc != nil && preRenderInfo != nil {
+		err = removeOldResources(resources, env, prevSvc, preRenderInfo, kubeClient, log)
 		if err != nil {
 			log.Errorf("Failed to remove old resources, error: %v", err)
 			errList = multierror.Append(errList, err)
@@ -2909,22 +2894,23 @@ func removeOldResources(
 	items []*unstructured.Unstructured,
 	env *commonmodels.Product,
 	oldService *commonmodels.ProductService,
+	oldRenderInfo *commonmodels.RenderInfo,
 	kubeClient client.Client,
 	log *zap.SugaredLogger,
 ) error {
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        oldService.Render.Name,
-		Revision:    oldService.Render.Revision,
+		Name:        oldRenderInfo.Name,
+		Revision:    oldRenderInfo.Revision,
 		EnvName:     env.EnvName,
 		ProductTmpl: env.ProductName,
 	}
-	resp, err := commonrepo.NewRenderSetColl().Find(opt)
+	oldRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		log.Errorf("find renderset[%s/%d] error: %v", opt.Name, opt.Revision, err)
 		return err
 	}
 
-	parsedYaml, err := kube.RenderService(env, resp, oldService)
+	parsedYaml, err := kube.RenderService(env, oldRenderset, oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return err
@@ -3316,16 +3302,6 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 	err = errList.ErrorOrNil()
 }
 
-func setServiceRender(args *commonmodels.Product) {
-	for _, serviceGroup := range args.Services {
-		for _, service := range serviceGroup {
-			if service.Type == setting.K8SDeployType || service.Type == setting.HelmDeployType {
-				service.Render = args.Render
-			}
-		}
-	}
-}
-
 func getServiceRevisionMap(serviceRevisionList []*SvcRevision) map[string]*SvcRevision {
 	serviceRevisionMap := make(map[string]*SvcRevision)
 	for _, revision := range serviceRevisionList {
@@ -3351,7 +3327,6 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 				//找不到 service revision
 				continue
 			}
-			// 已知：进入到这里的服务，serviceRevision.Deleted=False
 			if serviceRevision.New {
 				// 新的服务，创建新的service with revision, 并append到updatedGroups中
 				// 新的服务的revision，默认Revision为0
@@ -3360,7 +3335,6 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 					ProductName: service.ProductName,
 					Type:        service.Type,
 					Revision:    0,
-					Render:      updateProduct.Render,
 				}
 				updatedGroups = append(updatedGroups, newService)
 				continue

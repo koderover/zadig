@@ -23,8 +23,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -56,7 +56,7 @@ type ProductColl struct {
 }
 
 func NewProductColl() *ProductColl {
-	name := models.Product{}.TableName()
+	name := (&models.Product{}).TableName()
 	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 

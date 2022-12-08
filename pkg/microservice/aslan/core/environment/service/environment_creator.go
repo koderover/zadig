@@ -237,7 +237,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	args.Render.Revision = renderSet.Revision
-	setServiceRender(args)
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
 	args.ClusterID = clusterID
@@ -332,7 +331,7 @@ func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSe
 			if !commonutil.ServiceDeployed(svc.ServiceName, args.ServiceDeployStrategy) {
 				continue
 			}
-			_, err := upsertService(false, args, svc, nil, renderSet, informer, kubeClient, nil, log)
+			_, err := upsertService(false, args, svc, nil, renderSet, args.Render, informer, kubeClient, nil, log)
 			if err != nil {
 				errList = multierror.Append(errList, fmt.Errorf("failed to dryRun apply service: %s, err: %s", svc.ServiceName, err))
 			}
@@ -410,7 +409,6 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
 		args.Render.Revision = renderSet.Revision
-		setServiceRender(args)
 	}
 
 	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early

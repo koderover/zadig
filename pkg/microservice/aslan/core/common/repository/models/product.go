@@ -103,9 +103,9 @@ type ProductService struct {
 	Type        string       `bson:"type"                       json:"type"`
 	Revision    int64        `bson:"revision"                   json:"revision"`
 	Containers  []*Container `bson:"containers"                 json:"containers,omitempty"`
-	Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // this filed should be deprecated, use product.renderset
-	Error       string       `bson:"error,omitempty"            json:"error,omitempty"`
-	EnvConfigs  []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
+	//Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // Deprecated
+	Error      string       `bson:"error,omitempty"            json:"error,omitempty"`
+	EnvConfigs []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
 }
 
 type ServiceConfig struct {
@@ -123,7 +123,7 @@ func (Product) TableName() string {
 	return "product"
 }
 
-// TODO: LOU: what namespace is it??
+// GetNamespace returns the default name of namespace created by zadig
 func (p *Product) GetNamespace() string {
 	return p.ProductName + "-env-" + p.EnvName
 }
@@ -159,4 +159,12 @@ func (p *Product) GetProductSvcNames() []string {
 		}
 	}
 	return ret
+}
+
+// EnsureRenderInfo For some old data, the render data mayby nil
+func (p *Product) EnsureRenderInfo() {
+	if p.Render != nil {
+		return
+	}
+	p.Render = &RenderInfo{ProductTmpl: p.ProductName}
 }

@@ -246,14 +246,14 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 
 		renderSetFindOpt := &commonrepo.RenderSetFindOption{
 			Name:        env.Render.Name,
-			Revision:    service.Render.Revision,
+			Revision:    env.Render.Revision,
 			ProductTmpl: env.ProductName,
 			EnvName:     envName,
 		}
 		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
 		if err != nil {
-			log.Errorf("find renderset[%s] error: %v", service.Render.Name, err)
-			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", service.Render.Name))
+			log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
 		}
 
 		// 渲染配置集
@@ -431,34 +431,32 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	default:
 		var serviceTmpl *commonmodels.Service
 		var newRender *commonmodels.RenderSet
+		productObj.EnsureRenderInfo()
+		oldRenderInfo := productObj.Render
 		var productService *commonmodels.ProductService
-		for _, group := range productObj.Services {
-			for _, serviceObj := range group {
-				if serviceObj.ServiceName == args.ServiceName {
-					productService = serviceObj
-					serviceTmpl, err = commonservice.GetServiceTemplate(
-						serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, setting.ProductStatusDeleting, serviceObj.Revision, log,
-					)
-					if err != nil {
-						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-						return
-					}
-					opt := &commonrepo.RenderSetFindOption{
-						Name:        serviceObj.Render.Name,
-						Revision:    serviceObj.Render.Revision,
-						ProductTmpl: productObj.ProductName,
-						EnvName:     productObj.EnvName,
-					}
-					newRender, err = commonrepo.NewRenderSetColl().Find(opt)
-					if err != nil {
-						log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
-						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-						return
-					}
-					break
-				}
+
+		if serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]; ok {
+			productService = serviceObj
+			serviceTmpl, err = commonservice.GetServiceTemplate(serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, "", serviceObj.Revision, log)
+			if err != nil {
+				err = e.ErrRestartService.AddErr(err)
+				return
 			}
+			opt := &commonrepo.RenderSetFindOption{
+				Name:        oldRenderInfo.Name,
+				Revision:    oldRenderInfo.Revision,
+				ProductTmpl: productObj.ProductName,
+				EnvName:     productObj.EnvName,
+			}
+			newRender, err = commonrepo.NewRenderSetColl().Find(opt)
+			if err != nil {
+				log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
+				err = e.ErrRestartService.AddErr(err)
+				return
+			}
+			break
 		}
+
 		if serviceTmpl != nil && newRender != nil && productService != nil {
 			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 			_, err = upsertService(
@@ -466,11 +464,12 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				productObj,
 				productService,
 				productService,
-				newRender, inf, kubeClient, istioClient, log)
+				newRender, oldRenderInfo, inf, kubeClient, istioClient, log)
 
 			// 如果创建依赖服务组有返回错误, 停止等待
 			if err != nil {
-				log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+				log.Errorf("failed to upsert service, err:%v", err)
+				err = e.ErrRestartService.AddErr(err)
 				return
 			}
 			if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {

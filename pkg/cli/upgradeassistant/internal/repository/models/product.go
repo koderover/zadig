@@ -101,6 +101,17 @@ type ServiceConfig struct {
 	Revision   int64  `bson:"revision"              json:"revision"`
 }
 
-func (Product) TableName() string {
+func (*Product) TableName() string {
 	return "product"
+}
+
+func (p *Product) GetServiceMap() map[string]*ProductService {
+	ret := make(map[string]*ProductService)
+	for _, group := range p.Services {
+		for _, svc := range group {
+			ret[svc.ServiceName] = svc
+		}
+	}
+
+	return ret
 }

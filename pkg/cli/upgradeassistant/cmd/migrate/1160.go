@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"time"
 
-	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	uamodel "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -45,7 +45,7 @@ import (
 
 func init() {
 	upgradepath.RegisterHandler("1.15.0", "1.16.0", V1150ToV1160)
-	upgradepath.RegisterHandler("1.16.0", "1.15.0", V1150ToV1140)
+	upgradepath.RegisterHandler("1.16.0", "1.15.0", V1160ToV1150)
 }
 
 func V1150ToV1160() error {
@@ -537,8 +537,8 @@ func adjustProductRenderInfo() error {
 }
 
 // used product.render instead of product.service[].render
-func adjustSingleProductRender(product *models.Product) error {
-	var maxVersionRender *models.RenderInfo = nil
+func adjustSingleProductRender(product *uamodel.Product) error {
+	var maxVersionRender *uamodel.RenderInfo = nil
 	for _, svc := range product.GetServiceMap() {
 		if svc.Render != nil && (maxVersionRender == nil || svc.Render.Revision > maxVersionRender.Revision) {
 			maxVersionRender = svc.Render
