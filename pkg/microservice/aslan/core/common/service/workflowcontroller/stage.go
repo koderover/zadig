@@ -163,6 +163,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 }
 
 func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	log.Infof("waitForLarkApprove start")
 	approval := stage.Approval.LarkApproval
 	if approval == nil {
 		return errors.New("waitForApprove: lark approval data not found")
@@ -195,8 +196,10 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		FormContent: fmt.Sprintf("工作流名称: %s\n工作流 ID:%d\n阶段名称: %s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name),
 	})
 	if err != nil {
+		log.Errorf("waitForLarkApprove: create instance failed: %v", err)
 		return errors.Wrap(err, "create approval instance")
 	}
+	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
 
 	cancelApproval := func() {
 		err := client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{
