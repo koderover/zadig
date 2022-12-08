@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -67,6 +69,8 @@ func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info("###### the length if envs0 is %v", len(envs0))
 
 	// 2. Get all deployable environments in the context of environment sharing..
 	envs1, err := getDeployableShareEnvs(svcName, product)
@@ -309,8 +313,13 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 	return nil
 }
 
+<<<<<<< Updated upstream
 func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, error) {
 	projectName := templateProduct.ProjectName
+=======
+func getAllGeneralEnvs(projectName string) ([]*DeployableEnv, error) {
+	log.Infof("###### getting general envs: %s", projectName)
+>>>>>>> Stashed changes
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           projectName,
 		ShareEnvEnable: util.GetBoolPointer(false),
@@ -319,12 +328,16 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 		return nil, err
 	}
 
+<<<<<<< Updated upstream
 	if templateProduct.IsK8sYamlProduct() {
 		err = service.FillProductVars(envs, log.SugaredLogger())
 		if err != nil {
 			return nil, err
 		}
 	}
+=======
+	log.Infof("######### the length of envs is %d", len(envs))
+>>>>>>> Stashed changes
 
 	ret := make([]*DeployableEnv, len(envs))
 
