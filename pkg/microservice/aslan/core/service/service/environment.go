@@ -68,8 +68,6 @@ func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) 
 		return nil, err
 	}
 
-	log.Infof("###### the length of envs0 is %v", len(envs0))
-
 	// 2. Get all deployable environments in the context of environment sharing..
 	envs1, err := getDeployableShareEnvs(svcName, product)
 	if err != nil {
@@ -312,7 +310,6 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 }
 
 func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, error) {
-	log.Infof("###### getting general envs: %s", templateProduct.ProductName)
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           templateProduct.ProductName,
 		ShareEnvEnable: util.GetBoolPointer(false),
@@ -327,7 +324,6 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 			return nil, err
 		}
 	}
-	log.Infof("######### the length of envs is %d", len(envs))
 
 	ret := make([]*DeployableEnv, len(envs))
 
