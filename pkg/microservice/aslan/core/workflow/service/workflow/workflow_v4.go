@@ -146,6 +146,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 }
 
 func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreWorkflow, ignoreWorkflowV4 bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
+	startTime := time.Now().UnixMilli()
 	resp := make([]*Workflow, 0)
 	var err error
 	workflowV4List := []*commonmodels.WorkflowV4{}
@@ -159,6 +160,7 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 			return resp, err
 		}
 	}
+	log.Errorf("## projectName:%s list workflowv4 cost: %v ms", projectName, time.Now().UnixMilli()-startTime)
 
 	workflow := []*Workflow{}
 
@@ -169,6 +171,7 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 			return resp, err
 		}
 	}
+	log.Errorf("## projectName:%s list workflow cost: %v ms", projectName, time.Now().UnixMilli()-startTime)
 
 	workflowList := []string{}
 	for _, wV4 := range workflowV4List {
@@ -179,10 +182,13 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 	if err != nil {
 		return nil, err
 	}
+	log.Errorf("## projectName:%s get collaboration cost: %v ms", projectName, time.Now().UnixMilli()-startTime)
+
 	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList})
 	if err != nil {
 		return resp, err
 	}
+	log.Errorf("## projectName:%s list workflowv4 task cost: %v ms", projectName, time.Now().UnixMilli()-startTime)
 
 	for _, workflowModel := range workflowV4List {
 		stages := []string{}
@@ -211,6 +217,7 @@ func ListWorkflowV4(projectName, userID string, names, v4Names []string, ignoreW
 
 		resp = append(resp, workflow)
 	}
+	log.Errorf("## projectName:%s total cost: %v ms", projectName, time.Now().UnixMilli()-startTime)
 	return resp, nil
 }
 
