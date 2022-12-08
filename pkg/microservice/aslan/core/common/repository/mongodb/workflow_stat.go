@@ -107,7 +107,7 @@ func (c *WorkflowStatColl) FindWorkflowStat(args *WorkflowStatArgs) ([]*models.W
 	if args.Type != "" {
 		query["type"] = args.Type
 	}
-	if len(args.Names) > 0 {
+	if args.Names != nil {
 		query["name"] = bson.M{"$in": args.Names}
 	}
 
