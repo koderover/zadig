@@ -36,6 +36,10 @@ func (c *Client) GetJiraInfo() (*JiraInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	// since in some case, db will return no error even if it does not have anything, we simply do a compatibility change
+	if resp == nil {
+		return nil, nil
+	}
 
 	jira := &JiraInfo{
 		Host:        resp.Host,
