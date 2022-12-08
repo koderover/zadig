@@ -72,13 +72,23 @@ func GetBasicImage(id string, log *zap.SugaredLogger) (*commonmodels.BasicImage,
 func ListBasicImages(imageFrom string, imageType string, log *zap.SugaredLogger) ([]*commonmodels.BasicImage, error) {
 	opt := &commonrepo.BasicImageOpt{
 		ImageFrom: imageFrom,
-		ImageType: imageType,
 	}
-	resp, err := commonrepo.NewBasicImageColl().List(opt)
+	imageList, err := commonrepo.NewBasicImageColl().List(opt)
 	if err != nil {
 		log.Errorf("BasicImage.List error: %v", err)
-		return resp, e.ErrListBasicImages
+		return nil, e.ErrListBasicImages
 	}
+
+	resp := make([]*commonmodels.BasicImage, 0)
+	for _, image := range imageList {
+		if imageType != "sonar" {
+			if image.ImageType == "sonar" {
+				continue
+			}
+		}
+		resp = append(resp, image)
+	}
+
 	return resp, nil
 }
 

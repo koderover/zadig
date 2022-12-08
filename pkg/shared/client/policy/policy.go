@@ -17,10 +17,9 @@ limitations under the License.
 package policy
 
 import (
-	"fmt"
-
+	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
+	policyservice "github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -42,76 +41,137 @@ type PolicyBinding struct {
 }
 
 func (c *Client) CreatePolicyBinding(projectName string, policyBindings []*PolicyBinding) error {
-	url := fmt.Sprintf("/policybindings?projectName=%s", projectName)
-	_, err := c.Post(url, httpclient.SetBody(policyBindings))
+	policyBindingList := make([]*policyservice.PolicyBinding, 0)
+	for _, binding := range policyBindings {
+		policyBindingList = append(policyBindingList, &policyservice.PolicyBinding{
+			Name:   binding.Name,
+			UID:    binding.UID,
+			Policy: binding.Policy,
+			Preset: binding.Preset,
+			Type:   binding.Type,
+		})
+	}
+	err := policyservice.CreatePolicyBindings(projectName, policyBindingList, log.SugaredLogger())
 	return err
 }
 
 func (c *Client) CreatePolicies(ns string, request CreatePoliciesArgs) error {
-	url := fmt.Sprintf("/policies?projectName=%s", ns)
-
-	_, err := c.Post(url, httpclient.SetBody(request))
-	if err != nil {
-		log.Errorf("Failed to createPolicies, error: %s", err)
-		return err
+	policyList := make([]*policyservice.Policy, 0)
+	for _, policy := range request.Policies {
+		ruleList := make([]*policyservice.Rule, 0)
+		for _, rule := range policy.Rules {
+			attributeList := make([]models.MatchAttribute, 0)
+			for _, attr := range rule.MatchAttributes {
+				attributeList = append(attributeList, models.MatchAttribute{
+					Key:   attr.Key,
+					Value: attr.Value,
+				})
+			}
+			ruleList = append(ruleList, &policyservice.Rule{
+				Verbs:           rule.Verbs,
+				Resources:       rule.Resources,
+				Kind:            rule.Kind,
+				MatchAttributes: attributeList,
+			})
+		}
+		policyList = append(policyList, &policyservice.Policy{
+			Name:        policy.Name,
+			Description: policy.Description,
+			UpdateTime:  policy.UpdateTime,
+			Rules:       ruleList,
+		})
 	}
 
-	return nil
+	err := policyservice.CreatePolicies(ns, policyList, log.SugaredLogger())
+
+	return err
 }
 
 func (c *Client) DeletePolicies(ns string, request DeletePoliciesArgs) error {
-	url := fmt.Sprintf("/policies/bulk-delete?projectName=%s", ns)
-
-	_, err := c.Post(url, httpclient.SetBody(request))
-	if err != nil {
-		log.Errorf("Failed to deletePolicies, error: %s", err)
-		return err
-	}
-
-	return nil
+	return policyservice.DeletePolicies(request.Names, ns, log.SugaredLogger())
 }
 
 func (c *Client) DeletePolicyBindings(names []string, projectName string) error {
-	url := fmt.Sprintf("/policybindings/bulk-delete?projectName=%s", projectName)
-	nameArgs := &NameArgs{}
-	for _, v := range names {
-		nameArgs.Names = append(nameArgs.Names, v)
-	}
-	_, err := c.Post(url, httpclient.SetBody(nameArgs))
-	return err
+	return policyservice.DeletePolicyBindings(names, projectName, "", log.SugaredLogger())
 }
 
 func (c *Client) UpdatePolicy(ns string, policy *types.Policy) error {
-	url := fmt.Sprintf("/policies/%s?projectName=%s", policy.Name, ns)
-	_, err := c.Put(url, httpclient.SetBody(policy))
-	return err
-}
-
-type ResourcePermissionReq struct {
-	ProjectName  string   `json:"project_name"      form:"project_name"`
-	Uid          string   `json:"uid"               form:"uid"`
-	Resources    []string `json:"resources"         form:"resources"`
-	ResourceType string   `json:"resource_type"     form:"resource_type"`
-}
-
-func (c *Client) GetResourcePermission(req *ResourcePermissionReq) (map[string][]string, error) {
-	url := fmt.Sprintf("/permission/resources")
-	result := make(map[string][]string)
-	_, err := c.Post(url, httpclient.SetResult(req), httpclient.SetResult(&result))
-	if err != nil {
-		log.Errorf("Failed to get resourcePermission,err: %s", err)
-		return nil, err
+	ruleList := make([]*policyservice.Rule, 0)
+	for _, rule := range policy.Rules {
+		attributeList := make([]models.MatchAttribute, 0)
+		for _, attr := range rule.MatchAttributes {
+			attributeList = append(attributeList, models.MatchAttribute{
+				Key:   attr.Key,
+				Value: attr.Value,
+			})
+		}
+		ruleList = append(ruleList, &policyservice.Rule{
+			Verbs:           rule.Verbs,
+			Resources:       rule.Resources,
+			Kind:            rule.Kind,
+			MatchAttributes: attributeList,
+		})
 	}
-	return result, nil
+
+	policyNew := &policyservice.Policy{
+		Name:        policy.Name,
+		Description: policy.Description,
+		UpdateTime:  policy.UpdateTime,
+		Rules:       ruleList,
+	}
+
+	return policyservice.UpdateOrCreatePolicy(ns, policyNew, log.SugaredLogger())
 }
+
+// TODO: Seems like this is a deprecated api
+//type ResourcePermissionReq struct {
+//	ProjectName  string   `json:"project_name"      form:"project_name"`
+//	Uid          string   `json:"uid"               form:"uid"`
+//	Resources    []string `json:"resources"         form:"resources"`
+//	ResourceType string   `json:"resource_type"     form:"resource_type"`
+//}
+//
+//func (c *Client) GetResourcePermission(req *ResourcePermissionReq) (map[string][]string, error) {
+//	url := fmt.Sprintf("/permission/resources")
+//	result := make(map[string][]string)
+//	_, err := c.Post(url, httpclient.SetResult(req), httpclient.SetResult(&result))
+//	if err != nil {
+//		log.Errorf("Failed to get resourcePermission,err: %s", err)
+//		return nil, err
+//	}
+//	return result, nil
+//}
 
 func (c *Client) GetPolicies(names string) ([]*types.Policy, error) {
-	url := fmt.Sprintf("/policies/bulk")
-	res := make([]*types.Policy, 0)
-	_, err := c.Get(url, httpclient.SetQueryParam("names", names), httpclient.SetResult(&res))
+	resp, err := policyservice.GetPolicies(names, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("Failed to getPolicies,err: %s", err)
 		return nil, err
+	}
+	res := make([]*types.Policy, 0)
+	for _, policy := range resp {
+		ruleList := make([]*types.Rule, 0)
+		for _, rule := range policy.Rules {
+			attributeList := make([]types.MatchAttribute, 0)
+			for _, attr := range rule.MatchAttributes {
+				attributeList = append(attributeList, types.MatchAttribute{
+					Key:   attr.Key,
+					Value: attr.Value,
+				})
+			}
+			ruleList = append(ruleList, &types.Rule{
+				Verbs:           rule.Verbs,
+				Resources:       rule.Resources,
+				Kind:            rule.Kind,
+				MatchAttributes: attributeList,
+			})
+		}
+		res = append(res, &types.Policy{
+			Name:        policy.Name,
+			Description: policy.Description,
+			UpdateTime:  policy.UpdateTime,
+			Rules:       ruleList,
+		})
 	}
 	return res, nil
 }

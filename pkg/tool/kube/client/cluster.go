@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -65,6 +66,14 @@ func NewDynamicClient() (dynamic.Interface, error) {
 		return nil, err
 	}
 	return dynamic.NewForConfig(config)
+}
+
+func NewIstioV1Alpha3Client() (*v1alpha3.NetworkingV1alpha3Client, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	return v1alpha3.NewForConfig(config)
 }
 
 func NewDiscoveryClient() (*discovery.DiscoveryClient, error) {

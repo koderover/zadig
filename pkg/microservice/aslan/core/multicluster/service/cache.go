@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -104,4 +106,72 @@ func ListPVCs(ctx context.Context, clusterID, namespace string) ([]PVC, error) {
 	}
 
 	return pvcs, nil
+}
+
+type DeploymentResp struct {
+	Name       string           `json:"name"`
+	Containers []*ContainerResp `json:"containers"`
+}
+
+type ContainerResp struct {
+	Name  string `json:"name"`
+	Image string `json:"image"`
+}
+
+func ListDeployments(ctx context.Context, clusterID, namespace string) ([]*DeploymentResp, error) {
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	deploymentList := &appsv1.DeploymentList{}
+	err = kclient.List(ctx, deploymentList, client.InNamespace(namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*DeploymentResp, 0)
+	for _, deployment := range deploymentList.Items {
+		containerList := make([]*ContainerResp, 0)
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			containerList = append(containerList, &ContainerResp{
+				Name:  container.Name,
+				Image: container.Image,
+			})
+		}
+		resp = append(resp, &DeploymentResp{
+			Name:       deployment.Name,
+			Containers: containerList,
+		})
+	}
+
+	return resp, nil
+}
+
+type IstioVirtualServiceResp struct {
+	Name  string   `json:"name"`
+	Hosts []string `json:"hosts"`
+}
+
+func ListIstioVirtualServices(ctx context.Context, clusterID, namespace string) ([]*IstioVirtualServiceResp, error) {
+	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	vsList, err := istioClient.VirtualServices(namespace).List(ctx, v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*IstioVirtualServiceResp, 0)
+
+	for _, vs := range vsList.Items {
+		resp = append(resp, &IstioVirtualServiceResp{
+			Name:  vs.Name,
+			Hosts: vs.Spec.Hosts,
+		})
+	}
+
+	return resp, nil
 }

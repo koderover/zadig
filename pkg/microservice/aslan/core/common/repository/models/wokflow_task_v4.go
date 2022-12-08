@@ -224,6 +224,29 @@ type JobTaskGrayReleaseSpec struct {
 	Events        *Events `bson:"events"                json:"events"               yaml:"events"`
 }
 
+type JobIstioReleaseSpec struct {
+	FirstJob          bool            `bson:"first_job"          json:"first_job"          yaml:"first_job"`
+	Timeout           int64           `bson:"timeout"            json:"timeout"            yaml:"timeout"`
+	ClusterID         string          `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
+	ClusterName       string          `bson:"cluster_name"       json:"cluster_name"       yaml:"cluster_name"`
+	Namespace         string          `bson:"namespace"          json:"namespace"          yaml:"namespace"`
+	Weight            int64           `bson:"weight"             json:"weight"             yaml:"weight"`
+	ReplicaPercentage int64           `bson:"replica_percentage" json:"replica_percentage" yaml:"replica_percentage"`
+	Replicas          int64           `bson:"replicas"           json:"replicas"           yaml:"replicas"`
+	Targets           *IstioJobTarget `bson:"targets"            json:"targets"            yaml:"targets"`
+	Event             []*Event        `bson:"event"              json:"event"              yaml:"event"`
+}
+
+type JobIstioRollbackSpec struct {
+	Namespace   string          `json:"namespace"    bson:"namespace"    yaml:"namespace"`
+	ClusterID   string          `json:"cluster_id"   bson:"cluster_id"   yaml:"cluster_id"`
+	ClusterName string          `json:"cluster_name" bson:"cluster_name" yaml:"cluster_name"`
+	Image       string          `json:"image"        bson:"image"        yaml:"image"`
+	Replicas    int             `json:"replicas"     bson:"replicas"     yaml:"replicas"`
+	Targets     *IstioJobTarget `json:"targets"      bson:"targets"      yaml:"targets"`
+	Timeout     int64           `json:"timeout"      bson:"timeout"      yaml:"timeout"`
+}
+
 type JobTaskGrayRollbackSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
 	ClusterName      string `bson:"cluster_name"           json:"cluster_name"           yaml:"cluster_name"`

@@ -34,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
@@ -247,17 +246,17 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 
 func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
 	switch provider {
-	case systemconfig.GitHubProvider:
+	case setting.SourceFromGithub:
 		return oauth.New(callbackURL, clientID, clientSecret, []string{"repo", "user"}, oauth2.Endpoint{
 			AuthURL:  address + "/login/oauth/authorize",
 			TokenURL: address + "/login/oauth/access_token",
 		}), nil
-	case systemconfig.GitLabProvider:
+	case setting.SourceFromGitlab:
 		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"}, oauth2.Endpoint{
 			AuthURL:  address + "/oauth/authorize",
 			TokenURL: address + "/oauth/token",
 		}), nil
-	case systemconfig.GiteeProvider, systemconfig.GiteeEEProvider:
+	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return oauth.New(callbackURL, clientID, clientSecret, []string{"projects", "pull_requests", "hook", "groups"}, oauth2.Endpoint{
 			AuthURL:  address + "/oauth/authorize",
 			TokenURL: address + "/oauth/token",

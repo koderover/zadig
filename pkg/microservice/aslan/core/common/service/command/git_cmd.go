@@ -111,6 +111,13 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace,
 	tokens = append(tokens, repo.OauthToken)
 	cmds = append(cmds, buildGitCommands(repo, hostNames)...)
 
+	// write ssh key
+	if len(hostNames.List()) > 0 {
+		if err := writeSSHConfigFile(hostNames); err != nil {
+			return err
+		}
+	}
+
 	if codehostDetail.EnableProxy {
 		httpsProxy := config.ProxyHTTPSAddr()
 		httpProxy := config.ProxyHTTPAddr()
@@ -396,9 +403,25 @@ func writeSSHFile(sshKey, hostName string) error {
 		return fmt.Errorf("hostName cannot be empty")
 	}
 
+	dir := path.Join(config.Home(), "/.ssh")
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return err
+	}
+
 	hostName = strings.Replace(hostName, ".", "", -1)
 	hostName = strings.Replace(hostName, ":", "", -1)
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
 	file := path.Join(config.Home(), pathName)
 	return ioutil.WriteFile(file, []byte(sshKey), 0400)
+}
+
+func writeSSHConfigFile(hostNames sets.String) error {
+	out := "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
+	for _, hostName := range hostNames.List() {
+		name := strings.Replace(hostName, ".", "", -1)
+		name = strings.Replace(name, ":", "", -1)
+		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, name)
+	}
+	file := path.Join(config.Home(), "/.ssh/config")
+	return ioutil.WriteFile(file, []byte(out), 0600)
 }

@@ -19,6 +19,7 @@ package multicluster
 import (
 	"fmt"
 	"io/ioutil"
+	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"net/http"
 	"os"
 
@@ -104,6 +105,29 @@ func GetDynamicKubeclientFromKubeConfig(clusterID, kubeConfig string) (dynamic.I
 	}
 
 	return dynamic.NewForConfig(cfg)
+}
+
+func GetIstioV1Alpha3Client(hubServerAddr, clusterID string) (*v1alpha3.NetworkingV1alpha3Client, error) {
+	if clusterID == "" {
+		return krkubeclient.NewIstioV1Alpha3Client()
+	}
+
+	clusterService, err := NewAgent(hubServerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clusterService: %v", err)
+	}
+
+	return clusterService.GetIstioV1Alpha3Client(clusterID)
+}
+
+func GetIstioV1Alpha3ClientFromKubeConfig(clusterID, kubeConfig string) (*v1alpha3.NetworkingV1alpha3Client, error) {
+	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
+	if err != nil {
+		log.Errorf("failed to get kubeconfig from file, error: %s", err)
+		return nil, err
+	}
+
+	return v1alpha3.NewForConfig(cfg)
 }
 
 func GetDiscoveryClient(hubServerAddr, clusterID string) (*discovery.DiscoveryClient, error) {
@@ -253,6 +277,11 @@ func (s *Agent) GetClientGoKubeClient(clusterID string) (*kubernetes.Clientset, 
 func (s *Agent) GetDynamicKubeClient(clusterID string) (dynamic.Interface, error) {
 	config := generateRestConfig(clusterID, s.hubServerAddr)
 	return dynamic.NewForConfig(config)
+}
+
+func (s *Agent) GetIstioV1Alpha3Client(clusterID string) (*v1alpha3.NetworkingV1alpha3Client, error) {
+	config := generateRestConfig(clusterID, s.hubServerAddr)
+	return v1alpha3.NewForConfig(config)
 }
 
 func (s *Agent) GetDisCoveryClient(clusterID string) (*discovery.DiscoveryClient, error) {

@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/config"
+	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -96,6 +97,28 @@ func GetDynamicKubeClient(hubserverAddr, clusterID string) (dynamic.Interface, e
 		return multicluster.GetDynamicKubeclient(hubserverAddr, clusterID)
 	case setting.KubeConfigClusterType:
 		return multicluster.GetDynamicKubeclientFromKubeConfig(clusterID, cluster.KubeConfig)
+	default:
+		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+	}
+}
+
+func GetIstioClientV1Alpha3Client(hubserverAddr, clusterID string) (*v1alpha3.NetworkingV1alpha3Client, error) {
+	if clusterID == setting.LocalClusterID || clusterID == "" {
+		if clusterID == setting.LocalClusterID {
+			clusterID = ""
+		}
+
+		return multicluster.GetIstioV1Alpha3Client(hubserverAddr, clusterID)
+	}
+	cluster, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
+	if err != nil {
+		return nil, err
+	}
+	switch cluster.Type {
+	case setting.AgentClusterType, "":
+		return multicluster.GetIstioV1Alpha3Client(hubserverAddr, clusterID)
+	case setting.KubeConfigClusterType:
+		return multicluster.GetIstioV1Alpha3ClientFromKubeConfig(clusterID, cluster.KubeConfig)
 	default:
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
 	}
