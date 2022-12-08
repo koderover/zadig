@@ -109,6 +109,13 @@ func (c *ExternalApprovalColl) GetByID(ctx context.Context, idString string) (*m
 	return resp, c.FindOne(ctx, query).Decode(resp)
 }
 
+func (c *ExternalApprovalColl) GetByAppID(ctx context.Context, appID string) (*models.ExternalApproval, error) {
+	query := bson.M{"app_id": appID}
+
+	resp := new(models.ExternalApproval)
+	return resp, c.FindOne(ctx, query).Decode(resp)
+}
+
 func (c *ExternalApprovalColl) Update(ctx context.Context, idString string, arg *models.ExternalApproval) error {
 	if arg == nil {
 		return fmt.Errorf("nil app")

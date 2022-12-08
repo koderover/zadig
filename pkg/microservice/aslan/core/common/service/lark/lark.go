@@ -240,12 +240,14 @@ type LarkEventHandlerResponse struct {
 	Challenge string `json:"challenge"`
 }
 
-func LarkEventHandler(approvalID, sign, ts, nonce, body string) (*LarkEventHandlerResponse, error) {
-	approval, err := mongodb.NewExternalApprovalColl().GetByID(context.Background(), approvalID)
+func LarkEventHandler(appID, sign, ts, nonce, body string) (*LarkEventHandlerResponse, error) {
+	approval, err := mongodb.NewExternalApprovalColl().GetByAppID(context.Background(), appID)
 	if err != nil {
-		return nil, errors.Wrap(err, "get approval by id")
+		return nil, errors.Wrap(err, "get approval by appID")
 	}
 	key := approval.EncryptKey
+	approvalID := approval.ID.Hex()
+	log.Infof("LarkEventHandler: new request approval ID %s", approvalID)
 
 	raw, err := larkDecrypt(gjson.Get(body, "encrypt").String(), key)
 	if err != nil {
