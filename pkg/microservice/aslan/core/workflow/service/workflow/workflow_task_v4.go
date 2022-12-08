@@ -182,10 +182,6 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.Sugare
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
-	userInfo, err := orm.GetUserByUid(uid, core.DB)
-	if err != nil || userInfo == nil {
-		return nil, errors.New("failed to get user info by id")
-	}
 
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -194,22 +190,38 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.Sugare
 				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 			}
 		}
-		if stage.Approval != nil && stage.Approval.Enabled && stage.Approval.Type == config.LarkApproval && stage.Approval.LarkApproval != nil {
-			cli, err := lark.GetLarkClientByExternalApprovalID(stage.Approval.LarkApproval.ApprovalID)
-			if err != nil {
-				return nil, errors.Errorf("failed to get lark app by id-%s", stage.Approval.LarkApproval.ApprovalID)
-			}
-			_, err = cli.GetUserOpenIDByEmail(userInfo.Email)
-			if err != nil {
-				return nil, e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, email: %s", stage.Approval.LarkApproval.ApprovalID, userInfo.Email))
-			}
-		}
 	}
 
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
 	return workflow, nil
+}
+
+func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
+		return e.ErrFindWorkflow.AddErr(err)
+	}
+	userInfo, err := orm.GetUserByUid(uid, core.DB)
+	if err != nil || userInfo == nil {
+		return errors.New("failed to get user info by id")
+	}
+
+	for _, stage := range workflow.Stages {
+		if stage.Approval != nil && stage.Approval.Enabled && stage.Approval.Type == config.LarkApproval && stage.Approval.LarkApproval != nil {
+			cli, err := lark.GetLarkClientByExternalApprovalID(stage.Approval.LarkApproval.ApprovalID)
+			if err != nil {
+				return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
+			}
+			_, err = cli.GetUserOpenIDByEmail(userInfo.Email)
+			if err != nil {
+				return e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, email: %s", stage.Approval.LarkApproval.ApprovalID, userInfo.Email))
+			}
+		}
+	}
+	return nil
 }
 
 type CreateWorkflowTaskV4Args struct {
