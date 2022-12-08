@@ -194,7 +194,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.Sugare
 				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 			}
 		}
-		if stage.Approval != nil && stage.Approval.Type == config.LarkApproval && stage.Approval.Enabled && stage.Approval.LarkApproval != nil {
+		if stage.Approval != nil && stage.Approval.Enabled && stage.Approval.Type == config.LarkApproval && stage.Approval.LarkApproval != nil {
 			cli, err := lark.GetLarkClientByExternalApprovalID(stage.Approval.LarkApproval.ApprovalID)
 			if err != nil {
 				return nil, errors.Errorf("failed to get lark app by id-%s", stage.Approval.LarkApproval.ApprovalID)
