@@ -310,6 +310,9 @@ func LarkEventHandler(appID, sign, ts, nonce, body string) (*LarkEventHandlerRes
 	}
 
 	callback := &LarkCallbackData{}
+	//TODO debug
+	log.Infof("lark handler: %s", raw)
+
 	err = json.Unmarshal([]byte(raw), callback)
 	if err != nil {
 		log.Errorf("unmarshal callback data failed: %v", err)
