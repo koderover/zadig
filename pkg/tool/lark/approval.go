@@ -192,6 +192,7 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 				return nil, errors.Wrap(err, "get user")
 			}
 			ts, _ := strconv.ParseInt(getStringFromPointer(timeline.CreateTime), 10, 64)
+			ts /= 1000
 			if ts == 0 {
 				ts = time.Now().Unix()
 			}
