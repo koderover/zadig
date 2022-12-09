@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -39,7 +38,6 @@ import (
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
 )
@@ -68,6 +66,22 @@ func V1150ToV1160() error {
 	}
 	if err := createNewPackageDependencies(); err != nil {
 		log.Errorf("createNewPackageDependencies err:%s", err)
+		return err
+	}
+	if err := updateWorkflowApproval(); err != nil {
+		log.Errorf("updateWorkflowApproval err:%s", err)
+		return err
+	}
+	if err := updateWorkflowTaskApproval(); err != nil {
+		log.Errorf("updateWorkflowTaskApproval err:%s", err)
+		return err
+	}
+	if err := updateCronjobApproval(); err != nil {
+		log.Errorf("updateCronjobApproval err:%s", err)
+		return err
+	}
+	if err := updateWorkflowTemplateApproval(); err != nil {
+		log.Errorf("updateWorkflowTemplateApproval err:%s", err)
 		return err
 	}
 	return nil
@@ -558,77 +572,6 @@ type ApprovalV1160CompatibleV1150 struct {
 	LarkApproval   *models.LarkApproval   `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
 }
 
-func updateApproval() {
-	viper.Set(setting.ENVAslanDBName, "")
-	mongotool.Init(context.Background(), "mongodb://127.0.0.1:27017")
-
-}
-
-//func updateWorkflowV4Approval() error {
-//	cursor, err := mongodb.NewWorkflowV4Coll().Collection.Find(context.TODO(), bson.M{})
-//	if err != nil {
-//		return errors.Wrap(err, "get cursor")
-//	}
-//
-//	var workflowV4V1150List []*WorkflowV4V1150
-//	err = cursor.All(context.TODO(), &workflowV4V1150List)
-//	if err != nil {
-//		return err
-//	}
-//
-//	var newStages []*WorkflowStageV1160CompatibleV1150
-//	var dataList []*UpdateStageV1160
-//	for _, wf := range workflowV4V1150List {
-//	NEXT:
-//		for _, stage := range wf.Stages {
-//			var updateApprove *ApprovalV1160CompatibleV1150
-//			if stage.ApprovalV1150 != nil {
-//				// If type field exists, the workflow data is not earlier than V1160, skip
-//				if stage.ApprovalV1150.Type != "" {
-//					//todo
-//					fmt.Printf("update WorkflowV4: found V1160 version approval data, id: %s type: %s, skip", wf.ID.Hex(), stage.ApprovalV1150.Type)
-//					break NEXT
-//				}
-//				stage.ApprovalV1150.Type = config.NativeApproval
-//
-//				updateApprove = &ApprovalV1160CompatibleV1150{
-//					ApprovalV1150: stage.ApprovalV1150,
-//					NativeApproval: &models.NativeApproval{
-//						Timeout:         stage.ApprovalV1150.Timeout,
-//						ApproveUsers:    stage.ApprovalV1150.ApproveUsers,
-//						NeededApprovers: stage.ApprovalV1150.NeededApprovers,
-//						RejectOrApprove: stage.ApprovalV1150.RejectOrApprove,
-//					},
-//					LarkApproval: nil,
-//				}
-//			}
-//			newStages = append(newStages, &WorkflowStageV1160CompatibleV1150{
-//				Name:     stage.Name,
-//				Parallel: stage.Parallel,
-//				Jobs:     stage.Jobs,
-//				Approval: updateApprove,
-//			})
-//		}
-//		dataList = append(dataList, &UpdateStageV1160{
-//			ID:     wf.ID,
-//			Stages: newStages,
-//		})
-//	}
-//
-//	for _, data := range dataList {
-//		re, err := mongodb.NewWorkflowV4Coll().UpdateOne(context.Background(),
-//			bson.M{"_id": data.ID},
-//			bson.M{"$set": bson.M{"stages": newStages}},
-//			options.Update().SetUpsert(false))
-//		if err != nil {
-//			panic(err)
-//		}
-//
-//		fmt.Printf("upsert %d, modify %d\n", re.UpsertedCount, re.ModifiedCount)
-//	}
-//	return nil
-//}
-
 func updateWorkflowApproval() error {
 	coll := mongodb.NewWorkflowV4Coll()
 	cursor, err := coll.Collection.Find(context.TODO(), bson.M{})
@@ -637,7 +580,6 @@ func updateWorkflowApproval() error {
 	}
 
 	var ms []mongo.WriteModel
-NEXT:
 	for cursor.Next(context.Background()) {
 		var workflow WorkflowV4V1150
 		if err := cursor.Decode(&workflow); err != nil {
@@ -646,48 +588,28 @@ NEXT:
 		if workflow.Stages == nil {
 			continue
 		}
-		var newStages []*WorkflowStageV1160CompatibleV1150
-		for _, stage := range workflow.Stages {
-			// If type field exists, the workflow data is not earlier than V1160, skip
-			if stage.ApprovalV1150 != nil && stage.ApprovalV1150.Type != "" {
-				log.Infof("update workflow: found V1160 version approval data, id: %s type: %s, skip", workflow.ID.Hex(), stage.ApprovalV1150.Type)
-				continue NEXT
-			}
-
-			var updateApprove *ApprovalV1160CompatibleV1150
-			if stage.ApprovalV1150 != nil {
-				updateApprove = &ApprovalV1160CompatibleV1150{
-					ApprovalV1150: stage.ApprovalV1150,
-					NativeApproval: &models.NativeApproval{
-						Timeout:         stage.ApprovalV1150.Timeout,
-						ApproveUsers:    stage.ApprovalV1150.ApproveUsers,
-						NeededApprovers: stage.ApprovalV1150.NeededApprovers,
-						RejectOrApprove: stage.ApprovalV1150.RejectOrApprove,
-					},
-				}
-				updateApprove.Type = config.NativeApproval
-			}
-			newStages = append(newStages, &WorkflowStageV1160CompatibleV1150{
-				Name:     stage.Name,
-				Parallel: stage.Parallel,
-				Jobs:     stage.Jobs,
-				Approval: updateApprove,
-			})
+		newStages := UpdateStages(workflow.Stages)
+		if newStages == nil {
+			continue
 		}
 		ms = append(ms, mongo.NewUpdateOneModel().
 			SetFilter(bson.M{"_id": workflow.ID}).
 			SetUpdate(bson.M{"$set": bson.M{"stages": newStages}}).SetUpsert(false),
 		)
 		if len(ms) >= 100 {
-			if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+			if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 				return errors.Wrap(err, "bulk write")
+			} else {
+				log.Infof("updateWorkflowApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 			}
 			ms = []mongo.WriteModel{}
 		}
 	}
 	if len(ms) > 0 {
-		if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+		if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 			return errors.Wrap(err, "bulk write")
+		} else {
+			log.Infof("updateWorkflowApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 		}
 	}
 	return nil
@@ -702,7 +624,6 @@ func updateWorkflowTemplateApproval() error {
 
 	var ms []mongo.WriteModel
 	for cursor.Next(context.Background()) {
-	NEXT:
 		var tpl WorkflowV4TemplateV1150
 		if err := cursor.Decode(&tpl); err != nil {
 			return err
@@ -710,48 +631,28 @@ func updateWorkflowTemplateApproval() error {
 		if tpl.Stages == nil {
 			continue
 		}
-		var newStages []*WorkflowStageV1160CompatibleV1150
-		for _, stage := range tpl.Stages {
-			// If type field exists, the workflow data is not earlier than V1160, skip
-			if stage.ApprovalV1150 != nil && stage.ApprovalV1150.Type != "" {
-				log.Infof("update Template: found V1160 version approval data, id: %s type: %s, skip", tpl.ID.Hex(), stage.ApprovalV1150.Type)
-				continue NEXT
-			}
-
-			var updateApprove *ApprovalV1160CompatibleV1150
-			if stage.ApprovalV1150 != nil {
-				updateApprove = &ApprovalV1160CompatibleV1150{
-					ApprovalV1150: stage.ApprovalV1150,
-					NativeApproval: &models.NativeApproval{
-						Timeout:         stage.ApprovalV1150.Timeout,
-						ApproveUsers:    stage.ApprovalV1150.ApproveUsers,
-						NeededApprovers: stage.ApprovalV1150.NeededApprovers,
-						RejectOrApprove: stage.ApprovalV1150.RejectOrApprove,
-					},
-				}
-				updateApprove.Type = config.NativeApproval
-			}
-			newStages = append(newStages, &WorkflowStageV1160CompatibleV1150{
-				Name:     stage.Name,
-				Parallel: stage.Parallel,
-				Jobs:     stage.Jobs,
-				Approval: updateApprove,
-			})
+		newStages := UpdateStages(tpl.Stages)
+		if newStages == nil {
+			continue
 		}
 		ms = append(ms, mongo.NewUpdateOneModel().
 			SetFilter(bson.M{"_id": tpl.ID}).
 			SetUpdate(bson.M{"$set": bson.M{"stages": newStages}}).SetUpsert(false),
 		)
 		if len(ms) >= 100 {
-			if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+			if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 				return errors.Wrap(err, "bulk write")
+			} else {
+				log.Infof("updateWorkflowTemplateApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 			}
 			ms = []mongo.WriteModel{}
 		}
 	}
 	if len(ms) > 0 {
-		if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+		if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 			return errors.Wrap(err, "bulk write")
+		} else {
+			log.Infof("updateWorkflowTemplateApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 		}
 	}
 	return nil
@@ -765,7 +666,6 @@ func updateWorkflowTaskApproval() error {
 	}
 
 	var ms []mongo.WriteModel
-NEXT:
 	for cursor.Next(context.Background()) {
 		var task WorkflowTaskV1150
 		if err := cursor.Decode(&task); err != nil {
@@ -774,48 +674,28 @@ NEXT:
 		if task.OriginWorkflowArgs == nil || task.OriginWorkflowArgs.Stages == nil {
 			continue
 		}
-		var newStages []*WorkflowStageV1160CompatibleV1150
-		for _, stage := range task.OriginWorkflowArgs.Stages {
-			// If type field exists, the workflow data is not earlier than V1160, skip
-			if stage.ApprovalV1150 != nil && stage.ApprovalV1150.Type != "" {
-				log.Infof("update workflow task: found V1160 version approval data, id: %s type: %s, skip", workflow.ID.Hex(), stage.ApprovalV1150.Type)
-				continue NEXT
-			}
-
-			var updateApprove *ApprovalV1160CompatibleV1150
-			if stage.ApprovalV1150 != nil {
-				updateApprove = &ApprovalV1160CompatibleV1150{
-					ApprovalV1150: stage.ApprovalV1150,
-					NativeApproval: &models.NativeApproval{
-						Timeout:         stage.ApprovalV1150.Timeout,
-						ApproveUsers:    stage.ApprovalV1150.ApproveUsers,
-						NeededApprovers: stage.ApprovalV1150.NeededApprovers,
-						RejectOrApprove: stage.ApprovalV1150.RejectOrApprove,
-					},
-				}
-				updateApprove.Type = config.NativeApproval
-			}
-			newStages = append(newStages, &WorkflowStageV1160CompatibleV1150{
-				Name:     stage.Name,
-				Parallel: stage.Parallel,
-				Jobs:     stage.Jobs,
-				Approval: updateApprove,
-			})
+		newStages := UpdateStages(task.OriginWorkflowArgs.Stages)
+		if newStages == nil {
+			continue
 		}
 		ms = append(ms, mongo.NewUpdateOneModel().
 			SetFilter(bson.M{"_id": task.ID}).
 			SetUpdate(bson.M{"$set": bson.M{"origin_workflow_args.stages": newStages}}).SetUpsert(false),
 		)
 		if len(ms) >= 100 {
-			if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+			if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 				return errors.Wrap(err, "bulk write")
+			} else {
+				log.Infof("updateWorkflowTaskApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 			}
 			ms = []mongo.WriteModel{}
 		}
 	}
 	if len(ms) > 0 {
-		if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+		if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 			return errors.Wrap(err, "bulk write")
+		} else {
+			log.Infof("updateWorkflowTaskApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 		}
 	}
 	return nil
@@ -829,7 +709,6 @@ func updateCronjobApproval() error {
 	}
 
 	var ms []mongo.WriteModel
-NEXT:
 	for cursor.Next(context.Background()) {
 		var cron CronjobV1150
 		if err := cursor.Decode(&cron); err != nil {
@@ -838,49 +717,60 @@ NEXT:
 		if cron.WorkflowV4Args == nil || cron.WorkflowV4Args.Stages == nil {
 			continue
 		}
-		var newStages []*WorkflowStageV1160CompatibleV1150
-		for _, stage := range cron.WorkflowV4Args.Stages {
-			// If type field exists, the workflow data is not earlier than V1160, skip
-			if stage.ApprovalV1150 != nil && stage.ApprovalV1150.Type != "" {
-				log.Infof("update cronjob: found V1160 version approval data, id: %s type: %s, skip", workflow.ID.Hex(), stage.ApprovalV1150.Type)
-				continue NEXT
-			}
-
-			var updateApprove *ApprovalV1160CompatibleV1150
-			if stage.ApprovalV1150 != nil {
-				updateApprove = &ApprovalV1160CompatibleV1150{
-					ApprovalV1150: stage.ApprovalV1150,
-					NativeApproval: &models.NativeApproval{
-						Timeout:         stage.ApprovalV1150.Timeout,
-						ApproveUsers:    stage.ApprovalV1150.ApproveUsers,
-						NeededApprovers: stage.ApprovalV1150.NeededApprovers,
-						RejectOrApprove: stage.ApprovalV1150.RejectOrApprove,
-					},
-				}
-				updateApprove.Type = config.NativeApproval
-			}
-			newStages = append(newStages, &WorkflowStageV1160CompatibleV1150{
-				Name:     stage.Name,
-				Parallel: stage.Parallel,
-				Jobs:     stage.Jobs,
-				Approval: updateApprove,
-			})
+		newStages := UpdateStages(cron.WorkflowV4Args.Stages)
+		if newStages == nil {
+			continue
 		}
 		ms = append(ms, mongo.NewUpdateOneModel().
 			SetFilter(bson.M{"_id": cron.ID}).
 			SetUpdate(bson.M{"$set": bson.M{"workflow_v4_args.stages": newStages}}).SetUpsert(false),
 		)
 		if len(ms) >= 100 {
-			if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+			if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 				return errors.Wrap(err, "bulk write")
+			} else {
+				log.Infof("updateWorkflowCronjobApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 			}
 			ms = []mongo.WriteModel{}
 		}
 	}
 	if len(ms) > 0 {
-		if _, err := coll.BulkWrite(context.TODO(), ms); err != nil {
+		if re, err := coll.BulkWrite(context.TODO(), ms); err != nil {
 			return errors.Wrap(err, "bulk write")
+		} else {
+			log.Infof("updateWorkflowCronjobApproval ModifiedNum: %d UpsertNum: %d", re.ModifiedCount, re.UpsertedCount)
 		}
 	}
 	return nil
+}
+
+func UpdateStages(list []*WorkflowStageV1150) []*WorkflowStageV1160CompatibleV1150 {
+	var newStages []*WorkflowStageV1160CompatibleV1150
+	for _, stage := range list {
+		// If type field exists, the workflow data is not earlier than V1160, skip
+		if stage.ApprovalV1150 != nil && stage.ApprovalV1150.Type != "" {
+			return nil
+		}
+
+		var updateApprove *ApprovalV1160CompatibleV1150
+		if stage.ApprovalV1150 != nil {
+			updateApprove = &ApprovalV1160CompatibleV1150{
+				ApprovalV1150: stage.ApprovalV1150,
+				NativeApproval: &models.NativeApproval{
+					Timeout:         stage.ApprovalV1150.Timeout,
+					ApproveUsers:    stage.ApprovalV1150.ApproveUsers,
+					NeededApprovers: stage.ApprovalV1150.NeededApprovers,
+					RejectOrApprove: stage.ApprovalV1150.RejectOrApprove,
+				},
+			}
+			updateApprove.Type = config.NativeApproval
+		}
+		newStages = append(newStages, &WorkflowStageV1160CompatibleV1150{
+			Name:     stage.Name,
+			Parallel: stage.Parallel,
+			Jobs:     stage.Jobs,
+			Approval: updateApprove,
+		})
+	}
+	return newStages
 }
