@@ -19,7 +19,7 @@ package lark
 type UserInfo struct {
 	ID     string `json:"id" yaml:"id" bson:"id"`
 	Name   string `json:"name" yaml:"name" bson:"name"`
-	Avatar string `json:"avatar" yaml:"-" bson:"avatar"`
+	Avatar string `json:"avatar" yaml:"avatar" bson:"avatar"`
 }
 
 type DepartmentInfo struct {
