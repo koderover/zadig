@@ -177,3 +177,23 @@ func (client *Client) CancelApprovalInstance(args *CancelApprovalInstanceArgs) e
 	}
 	return nil
 }
+
+type SubscribeApprovalDefinitionArgs struct {
+	ApprovalID string
+}
+
+func (client *Client) SubscribeApprovalDefinition(args *SubscribeApprovalDefinitionArgs) error {
+	req := larkapproval.NewSubscribeApprovalReqBuilder().
+		ApprovalCode(args.ApprovalID).
+		Build()
+
+	resp, err := client.Approval.Approval.Subscribe(context.Background(), req)
+	if err != nil {
+		return errors.Wrap(err, "send request")
+	}
+
+	if !resp.Success() {
+		return resp.CodeError
+	}
+	return nil
+}

@@ -46,10 +46,19 @@ func CreateExternalApproval(args *commonmodels.ExternalApproval, log *zap.Sugare
 		return "", e.ErrCreateExternalApproval.AddErr(err)
 	}
 
-	approvalCode, err := createLarkDefaultApprovalDefinition(lark.NewClient(args.AppID, args.AppSecret))
+	client := lark.NewClient(args.AppID, args.AppSecret)
+
+	approvalCode, err := createLarkDefaultApprovalDefinition(client)
 	if err != nil {
-		return "", e.ErrCreateExternalApproval.AddErr(err)
+		return "", e.ErrCreateExternalApproval.AddErr(errors.Wrap(err, "create definition"))
 	}
+	err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
+		ApprovalID: approvalCode,
+	})
+	if err != nil {
+		return "", e.ErrCreateExternalApproval.AddErr(errors.Wrap(err, "subscribe"))
+	}
+
 	args.LarkDefaultApprovalCode = approvalCode
 	err = mongodb.NewExternalApprovalColl().Update(context.Background(), oid, args)
 	if err != nil {
@@ -88,10 +97,9 @@ func ValidateExternalApproval(approval *commonmodels.ExternalApproval, log *zap.
 }
 
 func createLarkDefaultApprovalDefinition(client *lark.Client) (string, error) {
-	code, err := client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
+	return client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
 		Name:        "Zadig 默认审批定义-OR",
 		Description: "Zadig 默认审批定义-OR",
 		Type:        lark.ApproveTypeOr,
 	})
-	return code, errors.Wrap(err, "create approval definition")
 }
