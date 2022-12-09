@@ -74,9 +74,16 @@ type NativeApproval struct {
 }
 
 type LarkApproval struct {
-	Timeout      int              `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApprovalID   string           `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
-	ApproveUsers []*lark.UserInfo `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Timeout      int                 `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApprovalID   string              `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	ApproveUsers []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+}
+
+type LarkApprovalUser struct {
+	*lark.UserInfo  `bson:",inline"  yaml:",inline"  json:",inline"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
+	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
 }
 
 type User struct {

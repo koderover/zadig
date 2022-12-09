@@ -222,6 +222,21 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			log.Errorf("cancel approval %s error: %v", instance, err)
 		}
 	}
+	userUpdate := func(list []*commonmodels.LarkApprovalUser) []*commonmodels.LarkApprovalUser {
+		info, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+		if err != nil {
+			log.Errorf("waitForLarkApprove: GetApprovalInstance error: %v", err)
+			return list
+		}
+		for _, user := range list {
+			if user.ID == info.ApproverInfo.ID {
+				user.RejectOrApprove = info.ApproveOrReject
+				user.Comment = info.Comment
+				user.OperationTime = info.Time
+			}
+		}
+		return list
+	}
 
 	defer func() {
 		larkservice.GetLarkApprovalManager(approval.ApprovalID).RemoveInstance(instance)
@@ -242,9 +257,11 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			status := larkservice.GetLarkApprovalManager(approval.ApprovalID).GetInstanceStatus(instance)
 			switch status {
 			case larkservice.LarkApprovalStatusApproved:
+				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
 				return nil
 			case larkservice.LarkApprovalStatusRejected:
 				stage.Status = config.StatusReject
+				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
 				return errors.New("Approval has been rejected")
 			case larkservice.LarkApprovalStatusCanceled:
 				return errors.New("Approval has been canceled")

@@ -20,10 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	larkapproval "github.com/larksuite/oapi-sdk-go/v3/service/approval/v4"
 	"github.com/pkg/errors"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -149,6 +152,58 @@ func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (
 	}
 
 	return *resp.Data.InstanceCode, nil
+}
+
+type GetApprovalInstanceArgs struct {
+	InstanceID string
+}
+
+type ApprovalInstanceInfo struct {
+	config.ApproveOrReject
+	ApproverInfo *UserInfo
+	Comment      string
+	Time         int64
+}
+
+func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*ApprovalInstanceInfo, error) {
+	req := larkapproval.NewGetInstanceReqBuilder().
+		InstanceId(args.InstanceID).
+		Build()
+
+	resp, err := client.Approval.Instance.Get(context.Background(), req)
+	if err != nil {
+		return nil, errors.Wrap(err, "send request")
+	}
+
+	if !resp.Success() {
+		return nil, resp.CodeError
+	}
+
+	m := map[string]config.ApproveOrReject{
+		"PASS":   config.Approve,
+		"REJECT": config.Reject,
+	}
+
+	for _, timeline := range resp.Data.Timeline {
+		status := getStringFromPointer(timeline.Type)
+		if status == "PASS" || status == "REJECT" {
+			user, err := client.GetUserInfoByID(getStringFromPointer(timeline.OpenId))
+			if err != nil {
+				return nil, errors.Wrap(err, "get user")
+			}
+			ts, _ := strconv.ParseInt(getStringFromPointer(timeline.CreateTime), 10, 64)
+			if ts == 0 {
+				ts = time.Now().Unix()
+			}
+			return &ApprovalInstanceInfo{
+				ApproveOrReject: m[status],
+				ApproverInfo:    user,
+				Comment:         getStringFromPointer(timeline.Comment),
+				Time:            ts,
+			}, nil
+		}
+	}
+	return nil, errors.New("not found timeline")
 }
 
 type CancelApprovalInstanceArgs struct {
