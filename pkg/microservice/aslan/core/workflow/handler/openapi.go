@@ -86,6 +86,7 @@ func OpenAPIGetWorkflowTaskV4(c *gin.Context) {
 	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 	ctx.Resp, ctx.Err = workflowservice.GetWorkflowTaskV4(args.WorkflowName, args.TaskID, ctx.Logger)
 }
@@ -98,6 +99,27 @@ func OpenAPICancelWorkflowTaskV4(c *gin.Context) {
 	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 	ctx.Err = workflowservice.CancelWorkflowTaskV4(ctx.UserName, args.WorkflowName, args.TaskID, ctx.Logger)
+}
+
+func OpenAPICreateProductWorkflowTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(workflowservice.OpenAPICreateProductWorkflowTaskArgs)
+	err := c.BindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	isValid, err := args.Validate()
+	if !isValid {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = workflowservice.OpenAPICreateProductWorkflowTask(ctx.UserName, args, ctx.Logger)
 }

@@ -646,7 +646,7 @@ func ListWorkflows(projects []string, userID string, names []string, log *zap.Su
 		return nil, e.ErrListWorkflow.AddDesc(err.Error())
 	}
 
-	var workflowNames []string
+	workflowNames := []string{}
 	var res []*Workflow
 	workflowCMMap, err := collaboration.GetWorkflowCMMap(projects, log)
 	if err != nil {

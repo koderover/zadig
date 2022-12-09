@@ -283,6 +283,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 				Deleted:     true,
 				Type:        service.Type,
 				Containers:  service.Containers,
+				Error:       service.Error,
 			}
 			serviceRevs = append(serviceRevs, serviceRev)
 		} else {
@@ -309,6 +310,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 				ServiceName:     service.ServiceName,
 				Type:            service.Type,
 				CurrentRevision: service.Revision,
+				Error:           service.Error,
 				NextRevision:    maxServiceTmpl.Revision,
 			}
 

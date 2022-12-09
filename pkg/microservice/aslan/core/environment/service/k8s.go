@@ -140,6 +140,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
 
+	svc.Error = ""
 	// 更新产品服务
 	for _, group := range exitedProd.Services {
 		for i, service := range group {
@@ -153,6 +154,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
 	}
 
+	// Note update logic need to be optimized since we only need to update one service
 	if err := commonrepo.NewProductColl().Update(exitedProd); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrUpdateProduct

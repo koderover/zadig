@@ -241,6 +241,7 @@ type UpdateProductParams struct {
 	commonmodels.Product
 }
 
+// UpdateProduct update product variables, used for k8s/pm products
 func UpdateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -251,10 +252,10 @@ func UpdateProduct(c *gin.Context) {
 	args := new(UpdateProductParams)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateProduct c.GetRawData() err : %v", err)
+		log.Errorf("updateProductImpl c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateProduct json.Unmarshal err : %v", err)
+		log.Errorf("updateProductImpl json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -289,12 +290,12 @@ func UpdateProductRegistry(c *gin.Context) {
 	args := new(UpdateProductRegistryRequest)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateProduct c.GetRawData() err : %v", err)
+		log.Errorf("updateProductImpl c.GetRawData() err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateProduct json.Unmarshal err : %v", err)
+		log.Errorf("updateProductImpl json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}

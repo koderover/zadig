@@ -29,7 +29,108 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/util"
 )
+
+// fill product services and chart infos and insert renderset data
+func prepareHelmProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
+	err := validateArgs(arg.ValuesData)
+	if err != nil {
+		return fmt.Errorf("failed to validate args: %s", err)
+	}
+
+	productObj.ChartInfos = make([]*templatemodels.RenderChart, 0)
+	// chart infos in template product
+	templateChartInfoMap := make(map[string]*templatemodels.RenderChart)
+	for _, tc := range templateProduct.ChartInfos {
+		templateChartInfoMap[tc.ServiceName] = tc
+	}
+
+	serviceDeployStrategy := make(map[string]string)
+
+	// user custom chart values
+	cvMap := make(map[string]*templatemodels.RenderChart)
+	for _, singleCV := range arg.ChartValues {
+		tc, ok := templateChartInfoMap[singleCV.ServiceName]
+		if !ok {
+			return fmt.Errorf("failed to find chart info in product, serviceName: %s productName: %s", singleCV.ServiceName, templateProduct.ProjectName)
+		}
+		chartInfo := &templatemodels.RenderChart{}
+		singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion)
+		chartInfo.ValuesYaml = tc.ValuesYaml
+		productObj.ChartInfos = append(productObj.ChartInfos, chartInfo)
+		cvMap[singleCV.ServiceName] = chartInfo
+		serviceDeployStrategy[singleCV.ServiceName] = singleCV.DeployStrategy
+	}
+
+	productObj.ServiceDeployStrategy = serviceDeployStrategy
+
+	// default values
+	defaultValuesYaml := arg.DefaultValues
+
+	// generate service group data
+	var serviceGroup [][]*commonmodels.ProductService
+	for _, names := range templateProduct.Services {
+		servicesResp := make([]*commonmodels.ProductService, 0)
+		for _, serviceName := range names {
+			// only the services chosen by use can be applied into product
+			rc, ok := cvMap[serviceName]
+			if !ok {
+				continue
+			}
+
+			serviceTmpl, ok := serviceTmplMap[serviceName]
+			if !ok {
+				return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to find service info in template_service, serviceName: %s", serviceName))
+			}
+
+			serviceResp := &commonmodels.ProductService{
+				ServiceName: serviceTmpl.ServiceName,
+				ProductName: serviceTmpl.ProductName,
+				Type:        serviceTmpl.Type,
+				Revision:    serviceTmpl.Revision,
+			}
+			serviceResp.Containers = make([]*commonmodels.Container, 0)
+			var err error
+			for _, c := range serviceTmpl.Containers {
+				image := c.Image
+				image, err = genImageFromYaml(c, rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
+				if err != nil {
+					errMsg := fmt.Sprintf("genImageFromYaml product template %s,service name:%s,error:%s", productObj.ProductName, rc.ServiceName, err)
+					log.Error(errMsg)
+					return e.ErrCreateEnv.AddDesc(errMsg)
+				}
+				container := &commonmodels.Container{
+					Name:      c.Name,
+					ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
+					Image:     image,
+					ImagePath: c.ImagePath,
+				}
+				serviceResp.Containers = append(serviceResp.Containers, container)
+			}
+			servicesResp = append(servicesResp, serviceResp)
+		}
+		serviceGroup = append(serviceGroup, servicesResp)
+	}
+	productObj.Services = serviceGroup
+
+	// insert renderset info into db
+	err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		EnvName:       arg.EnvName,
+		ProductTmpl:   arg.ProductName,
+		UpdateBy:      productObj.UpdateBy,
+		IsDefault:     false,
+		DefaultValues: arg.DefaultValues,
+		ChartInfos:    productObj.ChartInfos,
+		YamlData:      geneYamlData(arg.ValuesData),
+	}, log)
+	if err != nil {
+		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+	}
+	return nil
+}
 
 func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
@@ -104,6 +205,35 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 	return errList.ErrorOrNil()
 }
 
+func prepareK8sProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg) error {
+	templateChartInfoMap := templateProduct.AllServiceInfoMap()
+	// validate the service is in product
+	for _, createdSvcGroup := range arg.Services {
+		for _, createdSvc := range createdSvcGroup {
+			if createdSvc.ProductName != templateProduct.ProductName {
+				continue
+			}
+			if _, ok := templateChartInfoMap[createdSvc.ServiceName]; !ok {
+				return fmt.Errorf("failed to find service info in product, serviceName: %s productName: %s", createdSvc.ServiceName, templateProduct.ProjectName)
+			}
+		}
+	}
+
+	serviceDeployStrategy := make(map[string]string)
+	// build product services
+	productObj.Services = make([][]*commonmodels.ProductService, 0)
+	for _, svcGroup := range arg.Services {
+		sg := make([]*commonmodels.ProductService, 0)
+		for _, svc := range svcGroup {
+			sg = append(sg, svc.ProductService)
+			serviceDeployStrategy[svc.ServiceName] = svc.DeployStrategy
+		}
+		productObj.Services = append(productObj.Services, sg)
+	}
+	productObj.ServiceDeployStrategy = serviceDeployStrategy
+	return nil
+}
+
 func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID, userName string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
 		ProductName:     templateProduct.ProductName,
@@ -128,7 +258,7 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 	}
 
 	// fill services and chart infos of product
-	err := prepareK8sProductCreation(templateProduct, productObj, arg, log)
+	err := prepareK8sProductCreation(templateProduct, productObj, arg)
 	if err != nil {
 		return err
 	}

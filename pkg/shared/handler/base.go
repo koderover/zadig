@@ -180,9 +180,9 @@ func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, me
 // responseHelper recursively finds all nil slice in the given interface,
 // replacing them with empty slices.
 // Drawbacks of this function is listed below to avoid possible misuse.
-// 1. This function will return the pointer of the given structure, in case a
-//    pointer a passed in, a pointer will be returned, not a double pointer
-// 2. All private fields of the struct will be deleted during the process.
+//  1. This function will return the pointer of the given structure, in case a
+//     pointer a passed in, a pointer will be returned, not a double pointer
+//  2. All private fields of the struct will be deleted during the process.
 func responseHelper(response interface{}) interface{} {
 	switch response.(type) {
 	case string, []byte:
