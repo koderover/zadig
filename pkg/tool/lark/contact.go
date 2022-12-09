@@ -137,7 +137,7 @@ func (client *Client) listSubDepartmentsInfoWithPage(departmentID, pageToken str
 	var list []*DepartmentInfo
 	for _, item := range resp.Data.Items {
 		list = append(list, &DepartmentInfo{
-			ID:   getStringFromPointer(item.DepartmentId),
+			ID:   getStringFromPointer(item.OpenDepartmentId),
 			Name: getStringFromPointer(item.Name),
 		})
 	}
