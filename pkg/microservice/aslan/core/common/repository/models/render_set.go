@@ -28,17 +28,19 @@ type RenderSet struct {
 	Name     string `bson:"name"                     json:"name"`
 	Revision int64  `bson:"revision"                 json:"revision"`
 	// 可以为空，空时为产品模板默认的渲染集，非空时为环境的渲染集
-	EnvName       string                        `bson:"env_name,omitempty"       json:"env_name,omitempty"`
-	ProductTmpl   string                        `bson:"product_tmpl"             json:"product_tmpl"`
-	Team          string                        `bson:"team,omitempty"           json:"team,omitempty"`
-	UpdateTime    int64                         `bson:"update_time"              json:"update_time"`
-	UpdateBy      string                        `bson:"update_by"                json:"update_by"`
-	IsDefault     bool                          `bson:"is_default"               json:"is_default"`
+	EnvName     string `bson:"env_name,omitempty"             json:"env_name,omitempty"`
+	ProductTmpl string `bson:"product_tmpl"                   json:"product_tmpl"`
+	Team        string `bson:"team,omitempty"                 json:"team,omitempty"`
+	UpdateTime  int64  `bson:"update_time"                    json:"update_time"`
+	UpdateBy    string `bson:"update_by"                      json:"update_by"`
+	IsDefault   bool   `bson:"is_default"                     json:"is_default"`
+	// yaml content, used as 'global variables' for both k8s/helm projects
 	DefaultValues string                        `bson:"default_values,omitempty"       json:"default_values,omitempty"`
 	YamlData      *templatemodels.CustomYaml    `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
-	KVs           []*templatemodels.RenderKV    `bson:"kvs,omitempty"            json:"kvs,omitempty"`
-	ChartInfos    []*templatemodels.RenderChart `bson:"chart_infos,omitempty"    json:"chart_infos,omitempty"`
-	Description   string                        `bson:"description,omitempty"    json:"description,omitempty"`
+	KVs           []*templatemodels.RenderKV    `bson:"kvs,omitempty"                  json:"kvs,omitempty"` // deprecated since 1.16.0
+	ServiceVars   []*templatemodels.RenderChart `bson:"service_vars"                   json:"service_vars"`  // new since 1.16.0 replace kvs
+	ChartInfos    []*templatemodels.RenderChart `bson:"chart_infos,omitempty"          json:"chart_infos,omitempty"`
+	Description   string                        `bson:"description,omitempty"          json:"description,omitempty"`
 }
 
 func (RenderSet) TableName() string {

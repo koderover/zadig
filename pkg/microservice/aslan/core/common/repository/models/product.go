@@ -44,7 +44,7 @@ type Product struct {
 	Services     [][]*ProductService           `bson:"services"                  json:"services"`
 	Render       *RenderInfo                   `bson:"render"                    json:"render"`
 	Error        string                        `bson:"error"                     json:"error"`
-	Vars         []*templatemodels.RenderKV    `bson:"vars,omitempty"            json:"vars,omitempty"`
+	Vars         []*templatemodels.RenderKV    `bson:"_,omitempty"               json:"vars,omitempty"`
 	ChartInfos   []*templatemodels.RenderChart `bson:"-"                         json:"chart_infos,omitempty"`
 	IsPublic     bool                          `bson:"is_public"                 json:"isPublic"`
 	RoleIDs      []int64                       `bson:"role_ids"                  json:"roleIds"`

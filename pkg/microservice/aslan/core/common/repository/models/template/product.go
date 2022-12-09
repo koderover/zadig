@@ -120,13 +120,17 @@ type CustomYaml struct {
 	SourceID     string      `bson:"source_id" json:"source_id"`
 }
 
-// RenderChart ...
+// RenderChart used for helm product service ...
 type RenderChart struct {
-	ServiceName    string      `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion   string      `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml     string      `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-	OverrideYaml   *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
-	OverrideValues string      `bson:"override_values,omitempty"   json:"override_values,omitempty"`
+	ServiceName string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+
+	// ---- for helm services begin ----
+	ChartVersion   string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideValues string `bson:"override_values,omitempty"   json:"override_values,omitempty"` // used for helm services, json-encoded string of kv value
+	// ---- for helm services end ----
+
+	OverrideYaml *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
 }
 
 type ProductFeature struct {
