@@ -98,8 +98,8 @@ func ValidateExternalApproval(approval *commonmodels.ExternalApproval, log *zap.
 
 func createLarkDefaultApprovalDefinition(client *lark.Client) (string, error) {
 	return client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
-		Name:        "Zadig 默认审批定义-OR",
-		Description: "Zadig 默认审批定义-OR",
+		Name:        "Zadig 工作流",
+		Description: "Zadig 工作流",
 		Type:        lark.ApproveTypeOr,
 	})
 }

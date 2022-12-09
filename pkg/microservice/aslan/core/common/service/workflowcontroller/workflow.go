@@ -134,6 +134,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 
 	workflowCtx := &commonmodels.WorkflowTaskCtx{
 		WorkflowName:             c.workflowTask.WorkflowName,
+		WorkflowDisplayName:      c.workflowTask.WorkflowDisplayName,
 		ProjectName:              c.workflowTask.ProjectName,
 		TaskID:                   c.workflowTask.TaskID,
 		WorkflowTaskCreatorEmail: c.workflowTask.TaskCreatorEmail,

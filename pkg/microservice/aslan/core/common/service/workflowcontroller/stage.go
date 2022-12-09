@@ -19,6 +19,7 @@ package workflowcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -185,6 +187,13 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	}
 
 	log.Infof("waitForLarkApprove: ApproveUsers num %d", len(approval.ApproveUsers))
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowCtx.ProjectName,
+		workflowCtx.WorkflowName,
+		workflowCtx.TaskID,
+		url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	)
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
 		ApprovalCode: data.LarkDefaultApprovalCode,
 		UserOpenID:   userID,
@@ -194,7 +203,8 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			}
 			return list
 		}(),
-		FormContent: fmt.Sprintf("工作流名称: %s\n工作流 ID:%d\n阶段名称: %s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name),
+		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s\n\n更多详细详见: [点击查看工作流详情](%s)",
+			workflowCtx.ProjectName, workflowCtx.WorkflowName, stage.Name, detailURL),
 	})
 	if err != nil {
 		log.Errorf("waitForLarkApprove: create instance failed: %v", err)

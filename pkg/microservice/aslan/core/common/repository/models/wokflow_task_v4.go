@@ -296,6 +296,7 @@ type StepTask struct {
 
 type WorkflowTaskCtx struct {
 	WorkflowName             string
+	WorkflowDisplayName      string
 	ProjectName              string
 	TaskID                   int64
 	DockerHost               string
