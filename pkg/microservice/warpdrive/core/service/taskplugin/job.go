@@ -49,6 +49,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
@@ -404,10 +405,11 @@ type JobLabel struct {
 }
 
 const (
-	jobLabelTaskKey    = "s-task"
-	jobLabelServiceKey = "s-service"
-	jobLabelSTypeKey   = "s-type"
-	jobLabelPTypeKey   = "p-type"
+	jobLabelTaskKey     = "s-task"
+	jobLabelServiceKey  = "s-service"
+	jobLabelSTypeKey    = "s-type"
+	jobLabelPTypeKey    = "p-type"
+	jobLabelTaskHashKey = "t-hash"
 )
 
 // getJobLabels get labels k-v map from JobLabel struct
@@ -418,10 +420,11 @@ func getJobLabels(jobLabel *JobLabel) map[string]string {
 		name = name[:57]
 	}
 	retMap := map[string]string{
-		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
-		jobLabelServiceKey: strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),
-		jobLabelSTypeKey:   strings.Replace(jobLabel.TaskType, "_", "-", -1),
-		jobLabelPTypeKey:   jobLabel.PipelineType,
+		jobLabelTaskKey:     fmt.Sprintf("%s-%d", strings.ToLower(name), jobLabel.TaskID),
+		jobLabelServiceKey:  strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),
+		jobLabelSTypeKey:    strings.Replace(jobLabel.TaskType, "_", "-", -1),
+		jobLabelPTypeKey:    jobLabel.PipelineType,
+		jobLabelTaskHashKey: crypto.Sha1([]byte(fmt.Sprintf("%s-%d", jobLabel.PipelineName, jobLabel.TaskID))),
 	}
 	// no need to add labels with empty value to a job
 	for k, v := range retMap {
