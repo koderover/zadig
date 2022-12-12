@@ -217,7 +217,7 @@ func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogge
 			}
 			_, err = cli.GetUserOpenIDByEmail(userInfo.Email)
 			if err != nil {
-				return e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, email: %s", stage.Approval.LarkApproval.ApprovalID, userInfo.Email))
+				return e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, email: %s, error: %v", stage.Approval.LarkApproval.ApprovalID, userInfo.Email, err))
 			}
 		}
 	}
