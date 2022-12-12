@@ -17,9 +17,10 @@ limitations under the License.
 package orm
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
 // GetUserSettingByUid Gets user setting info from db by uid
