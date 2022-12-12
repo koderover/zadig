@@ -156,6 +156,7 @@ const (
 	ProductLabel                    = "s-product"
 	GroupLabel                      = "s-group"
 	ServiceLabel                    = "s-service"
+	LabelHashKey                    = "hash"
 	ConfigBackupLabel               = "config-backup"
 	EnvNameLabel                    = "s-env"
 	UpdateBy                        = "update-by"

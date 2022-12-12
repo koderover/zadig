@@ -36,6 +36,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -261,6 +262,13 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 	}
 
 	selector := getWorkflowSelector(options)
+	selector := label.GetJobLabels(&label.JobLabel{
+		PipelineName: options.PipelineName,
+		TaskID:       options.TaskID,
+		TaskType:     options.JobType,
+		ServiceName:  "",
+		PipelineType: "",
+	})
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
