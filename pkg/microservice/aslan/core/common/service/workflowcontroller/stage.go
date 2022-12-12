@@ -181,9 +181,9 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 
 	client := lark.NewClient(data.AppID, data.AppSecret)
 
-	userID, err := client.GetUserOpenIDByEmail(workflowCtx.WorkflowTaskCreatorEmail)
+	userID, err := client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile)
 	if err != nil {
-		return errors.Wrapf(err, "get user lark id by email-%s", workflowCtx.WorkflowTaskCreatorEmail)
+		return errors.Wrapf(err, "get user lark id by mobile-%s", workflowCtx.WorkflowTaskCreatorMobile)
 	}
 
 	log.Infof("waitForLarkApprove: ApproveUsers num %d", len(approval.ApproveUsers))

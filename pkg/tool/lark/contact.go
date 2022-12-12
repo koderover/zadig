@@ -25,15 +25,22 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-func (client *Client) GetUserOpenIDByEmail(email string) (string, error) {
-	if email == "" {
-		return "", errors.New("empty email")
+func (client *Client) GetUserOpenIDByEmailOrMobile(_type, value string) (string, error) {
+	if value == "" {
+		return "", errors.New("empty value")
+	}
+	var body *larkcontact.BatchGetIdUserReqBody
+	switch _type {
+	case QueryTypeMobile:
+		body = larkcontact.NewBatchGetIdUserReqBodyBuilder().Mobiles([]string{value}).Build()
+	case QueryTypeEmail:
+		body = larkcontact.NewBatchGetIdUserReqBodyBuilder().Emails([]string{value}).Build()
+	default:
+		return "", errors.New("invalid query type")
 	}
 	req := larkcontact.NewBatchGetIdUserReqBuilder().
 		UserIdType(setting.LarkUserOpenID).
-		Body(larkcontact.NewBatchGetIdUserReqBodyBuilder().
-			Emails([]string{email}).
-			Build()).
+		Body(body).
 		Build()
 
 	resp, err := client.Contact.User.BatchGetId(context.Background(), req)

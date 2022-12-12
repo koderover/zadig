@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	larktool "github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
@@ -215,9 +216,9 @@ func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogge
 			if err != nil {
 				return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
 			}
-			_, err = cli.GetUserOpenIDByEmail(userInfo.Email)
+			_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
 			if err != nil {
-				return e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, email: %s, error: %v", stage.Approval.LarkApproval.ApprovalID, userInfo.Email, err))
+				return e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, phone: %s, error: %v", stage.Approval.LarkApproval.ApprovalID, userInfo.Phone, err))
 			}
 		}
 	}
@@ -247,6 +248,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return resp, errors.New("failed to get user info by uid")
 		}
 		workflowTask.TaskCreatorEmail = userInfo.Email
+		workflowTask.TaskCreatorPhone = userInfo.Phone
 	}
 
 	// save workflow original workflow task args.

@@ -21,6 +21,9 @@ type ApprovalType string
 const (
 	ApproveTypeAnd ApprovalType = "AND"
 	ApproveTypeOr  ApprovalType = "OR"
+
+	QueryTypeEmail  = "email"
+	QueryTypeMobile = "mobile"
 )
 
 const (

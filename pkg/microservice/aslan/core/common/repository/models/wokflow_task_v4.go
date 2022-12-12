@@ -37,6 +37,7 @@ type WorkflowTask struct {
 	ClusterIDMap        map[string]bool    `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status      `bson:"status"                    json:"status,omitempty"`
 	TaskCreator         string             `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskCreatorPhone    string             `bson:"task_creator_phone"        json:"task_creator_phone"`
 	TaskCreatorEmail    string             `bson:"task_creator_email"        json:"task_creator_email"`
 	TaskRevoker         string             `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
 	CreateTime          int64              `bson:"create_time"               json:"create_time,omitempty"`
@@ -295,19 +296,20 @@ type StepTask struct {
 }
 
 type WorkflowTaskCtx struct {
-	WorkflowName             string
-	WorkflowDisplayName      string
-	ProjectName              string
-	TaskID                   int64
-	DockerHost               string
-	Workspace                string
-	DistDir                  string
-	DockerMountDir           string
-	ConfigMapMountDir        string
-	WorkflowTaskCreatorEmail string
-	WorkflowKeyVals          []*KeyVal
-	GlobalContextGet         func(key string) (string, bool)
-	GlobalContextSet         func(key, value string)
-	GlobalContextEach        func(f func(k, v string) bool)
-	ClusterIDAdd             func(clusterID string)
+	WorkflowName              string
+	WorkflowDisplayName       string
+	ProjectName               string
+	TaskID                    int64
+	DockerHost                string
+	Workspace                 string
+	DistDir                   string
+	DockerMountDir            string
+	ConfigMapMountDir         string
+	WorkflowTaskCreatorEmail  string
+	WorkflowTaskCreatorMobile string
+	WorkflowKeyVals           []*KeyVal
+	GlobalContextGet          func(key string) (string, bool)
+	GlobalContextSet          func(key, value string)
+	GlobalContextEach         func(f func(k, v string) bool)
+	ClusterIDAdd              func(clusterID string)
 }
