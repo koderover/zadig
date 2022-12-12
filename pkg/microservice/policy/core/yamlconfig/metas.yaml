@@ -545,6 +545,10 @@ metas:
             endpoint: /api/aslan/workflow/v4/cron
           - method: DELETE
             endpoint: /api/aslan/workflow/v4/cron/?*/trigger/?*
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/department/?*
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/user
       - action: create_workflow
         alias: 新建
         description: ''
