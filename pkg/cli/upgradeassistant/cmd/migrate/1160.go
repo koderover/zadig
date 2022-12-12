@@ -67,8 +67,9 @@ func V1150ToV1160() error {
 		log.Errorf("createNewPackageDependencies err:%s", err)
 		return err
 	}
-	if err := adjustProductRenderInfo(); err != nil {
-		log.Errorf("adjustProductRenderInfo err:%s", err)
+
+	if err := HandleK8sYamlVars(); err != nil {
+		log.Errorf("HandleK8sYamlVars err:%s", err)
 		return err
 	}
 	return nil

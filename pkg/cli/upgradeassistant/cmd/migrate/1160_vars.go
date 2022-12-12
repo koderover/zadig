@@ -40,6 +40,22 @@ type DataBulkUpdater struct {
 	WriteThreshold int
 }
 
+func HandleK8sYamlVars() error {
+	err := handleServiceTemplates()
+	if err != nil {
+		log.Errorf("failed to handleServiceTemplates, err: %s", err)
+		return err
+	}
+
+	err = adjustProductRenderInfo()
+	if err != nil {
+		log.Errorf("failed to adjustProductRenderInfo, err: %s", err)
+		return err
+	}
+
+	return nil
+}
+
 func (dbu *DataBulkUpdater) AddModel(wModel mongo.WriteModel) error {
 	dbu.WriteModels = append(dbu.WriteModels, wModel)
 	if len(dbu.WriteModels) >= dbu.WriteThreshold {
