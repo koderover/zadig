@@ -359,6 +359,12 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		logger.Errorf("DeleteUserByUID DeleteUserLoginByUid:%s error, error msg:%s", uid, err.Error())
 		return err
 	}
+	err = orm.DeleteUserSettingByUid(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("DeleteUserByUID DeleteUserSettingByUid:%s error, error msg:%s", uid, err.Error())
+		return err
+	}
 	return tx.Commit().Error
 }
 
@@ -488,7 +494,7 @@ func UpdateUserSetting(uid string, args *UserSetting) error {
 		LogBgColor:   args.LogBgColor,
 		LogFontColor: args.LogFontColor,
 	}
-	err := orm.UpdateUserSetting(uid, userSetting, core.DB)
+	err := orm.UpsertUserSetting(userSetting, core.DB)
 	if err != nil {
 		return e.ErrUpdateUser.AddErr(err)
 	}

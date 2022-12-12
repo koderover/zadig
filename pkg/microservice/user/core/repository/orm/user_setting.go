@@ -19,6 +19,7 @@ package orm
 import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // GetUserSettingByUid Gets user setting info from db by uid
@@ -34,7 +35,16 @@ func GetUserSettingByUid(uid string, db *gorm.DB) (*models.UserSetting, error) {
 	return user, nil
 }
 
-// UpdateUserSetting update user setting info
-func UpdateUserSetting(uid string, userSetting *models.UserSetting, db *gorm.DB) error {
-	return db.Model(&models.UserSetting{}).Where("uid = ?", uid).Updates(userSetting).Error
+// UpsertUserSetting update user setting info
+func UpsertUserSetting(userSetting *models.UserSetting, db *gorm.DB) error {
+	return db.Model(&models.UserSetting{}).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uid"}},
+		DoUpdates: clause.AssignmentColumns([]string{"theme", "log_bg_color", "log_font_color"}),
+	}).Create(userSetting).Error
+}
+
+// DeleteUserSettingByUid Delete  user setting by on uid
+func DeleteUserSettingByUid(uid string, db *gorm.DB) error {
+	var userSetting models.UserSetting
+	return db.Where("uid = ?", uid).Delete(&userSetting).Error
 }
