@@ -412,6 +412,11 @@ const (
 
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
+	name := jobLabel.PipelineName
+	// limit length of TaskKey with taskID less than 64
+	if len(name) >= 57 {
+		name = name[:57]
+	}
 	retMap := map[string]string{
 		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
 		jobLabelServiceKey: strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),
