@@ -168,6 +168,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	log.Infof("waitForLarkApprove start")
 	approval := stage.Approval.LarkApproval
 	if approval == nil {
+		stage.Status = config.StatusFailed
 		return errors.New("waitForApprove: lark approval data not found")
 	}
 	if approval.Timeout == 0 {
@@ -176,6 +177,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 
 	data, err := mongodb.NewExternalApprovalColl().GetByID(context.Background(), approval.ApprovalID)
 	if err != nil {
+		stage.Status = config.StatusFailed
 		return errors.Wrap(err, "get external approval data")
 	}
 
@@ -183,6 +185,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 
 	userID, err := client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile)
 	if err != nil {
+		stage.Status = config.StatusFailed
 		return errors.Wrapf(err, "get user lark id by mobile-%s", workflowCtx.WorkflowTaskCreatorMobile)
 	}
 
@@ -208,6 +211,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	})
 	if err != nil {
 		log.Errorf("waitForLarkApprove: create instance failed: %v", err)
+		stage.Status = config.StatusFailed
 		return errors.Wrap(err, "create approval instance")
 	}
 	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
@@ -264,6 +268,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
 				return errors.New("Approval has been rejected")
 			case larkservice.LarkApprovalStatusCanceled:
+				stage.Status = config.StatusFailed
 				return errors.New("Approval has been canceled")
 			case larkservice.LarkApprovalStatusDeleted:
 				return errors.New("Approval has been deleted")
