@@ -68,7 +68,24 @@ func CreateExternalApproval(args *commonmodels.ExternalApproval, log *zap.Sugare
 }
 
 func UpdateExternalApproval(id string, args *commonmodels.ExternalApproval, log *zap.SugaredLogger) error {
-	err := mongodb.NewExternalApprovalColl().Update(context.Background(), id, args)
+	if err := lark.Validate(args.AppID, args.AppSecret); err != nil {
+		return e.ErrUpdateExternalApproval.AddErr(errors.Wrap(err, "validate"))
+	}
+
+	client := lark.NewClient(args.AppID, args.AppSecret)
+	approvalCode, err := createLarkDefaultApprovalDefinition(client)
+	if err != nil {
+		return e.ErrUpdateExternalApproval.AddErr(errors.Wrap(err, "create definition"))
+	}
+	err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
+		ApprovalID: approvalCode,
+	})
+	if err != nil {
+		return e.ErrUpdateExternalApproval.AddErr(errors.Wrap(err, "subscribe"))
+	}
+	args.LarkDefaultApprovalCode = approvalCode
+
+	err = mongodb.NewExternalApprovalColl().Update(context.Background(), id, args)
 	if err != nil {
 		log.Errorf("update external approval error: %v", err)
 		return e.ErrUpdateExternalApproval.AddErr(err)
