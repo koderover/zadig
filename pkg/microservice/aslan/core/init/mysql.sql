@@ -27,3 +27,11 @@ CREATE TABLE IF NOT EXISTS `user`(
     UNIQUE KEY `account` (`account`,`identity_type`),
     PRIMARY KEY (`uid`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 59 CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户信息表' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `user_setting`(
+    `uid` varchar(64) NOT NULL COMMENT '用户ID',
+    `theme` varchar(64) NOT NULL COMMENT '主题色',
+    `log_bg_color` varchar(64) NOT NULL COMMENT '日志背景颜色',
+    `log_font_color` varchar(64) NOT NULL COMMENT '日志背景颜色',
+     PRIMARY KEY (`uid`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户属性表' ROW_FORMAT = Compact;

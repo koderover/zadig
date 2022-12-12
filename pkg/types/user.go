@@ -55,3 +55,10 @@ type UserStatistics struct {
 	UserByType []*UserCountByType `json:"user_info"`
 	ActiveUser int64              `json:"active_user"`
 }
+
+type UserSetting struct {
+	Uid          string `json:"uid"`
+	Theme        string `json:"theme"`
+	LogBgColor   string `json:"log_bg_color"`
+	LogFontColor string `json:"log_font_color"`
+}
