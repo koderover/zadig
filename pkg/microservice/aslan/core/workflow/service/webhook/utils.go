@@ -577,6 +577,10 @@ func (m MatchFolders) ContainsFile(file string) bool {
 }
 
 func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
+	// if it is an empty commit, allow triggering workflow tasks
+	if len(files) == 0 {
+		return true
+	}
 	mf := MatchFolders(m.MatchFolders)
 	for _, file := range files {
 		if matches := mf.ContainsFile(file); matches {
