@@ -42,9 +42,9 @@ func GetJobLabels(jobLabel *JobLabel) map[string]string {
 		name = name[:57]
 	}
 	retMap := map[string]string{
-		setting.JobLabelTaskKey:   fmt.Sprintf("%s-%d", strings.ToLower(name), jobLabel.TaskID),
+		setting.TaskLabel:         fmt.Sprintf("%s-%d", strings.ToLower(name), jobLabel.TaskID),
 		setting.ServiceLabel:      strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),
-		setting.JobLabelSTypeKey:  strings.Replace(jobLabel.TaskType, "_", "-", -1),
+		setting.TypeLabel:         strings.Replace(jobLabel.TaskType, "_", "-", -1),
 		setting.PipelineTypeLable: jobLabel.PipelineType,
 		setting.LabelHashKey:      crypto.Sha1([]byte(fmt.Sprintf("%s-%d", jobLabel.PipelineName, jobLabel.TaskID))),
 	}
