@@ -38,7 +38,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 const (
@@ -344,27 +343,6 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 			log,
 		)
 	}
-}
-
-func getPipelineSelector(options *GetContainerOptions) labels.Selector {
-	ret := labels.Set{}
-	pipelineWithTaskID := fmt.Sprintf("%s-%d", strings.ToLower(options.PipelineName), options.TaskID)
-
-	//适配之前的docker_build下划线
-	options.SubTask = strings.Replace(options.SubTask, "_", "-", 1)
-
-	ret[setting.TaskLabel] = pipelineWithTaskID
-	ret[setting.TypeLabel] = options.SubTask
-
-	if options.ServiceName != "" {
-		ret[setting.ServiceLabel] = strings.ToLower(util.ReturnValidLabelValue(options.ServiceName))
-	}
-
-	if options.PipelineType != "" {
-		ret[setting.PipelineTypeLable] = options.PipelineType
-	}
-
-	return ret.AsSelector()
 }
 
 func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
