@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -150,7 +151,7 @@ func (p *ArtifactPackageTaskPlugin) Run(ctx context.Context, pipelineTask *task.
 
 	p.Task.Error = ""
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		TaskID:       pipelineTask.TaskID,
 		TaskType:     string(p.Type()),
@@ -335,7 +336,7 @@ func (p *ArtifactPackageTaskPlugin) waitJobEnd(ctx context.Context, taskTimeout 
 
 // Complete ...
 func (p *ArtifactPackageTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,

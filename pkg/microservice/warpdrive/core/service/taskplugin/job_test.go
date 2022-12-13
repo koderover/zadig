@@ -22,17 +22,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-//Test create configmap named jobname
+// Test create configmap named jobname
 func TestCreateJobConfigMap(t *testing.T) {
 
 	assert := assert.New(t)
@@ -57,7 +59,7 @@ func TestCreateJobConfigMap(t *testing.T) {
 	//Test createJobConfigMap
 	//created a configmap named jobname
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineName,
 		ServiceName:  serviceName,
 		TaskID:       taskID,
@@ -80,7 +82,7 @@ func TestEnsureDeleteConfigMap(t *testing.T) {
 	jobname := "fake-test-jobname"
 	jobCtx := ""
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: "test-pipeline",
 		ServiceName:  "test-service",
 		TaskID:       1,
@@ -211,7 +213,7 @@ func TestEnsureDeleteJob(t *testing.T) {
 	log.Infof("%v", err)
 	assert.Nil(err)
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  servicename,
 		TaskID:       pipelineTask.TaskID,

@@ -51,6 +51,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
@@ -83,8 +84,8 @@ func saveFile(src io.Reader, localFile string) error {
 	return err
 }
 
-func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName string, jobLabel *JobLabel, kubeClient client.Client) error {
-	selector := labels.Set(getJobLabels(jobLabel)).AsSelector()
+func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName string, jobLabel *label.JobLabel, kubeClient client.Client) error {
+	selector := labels.Set(label.GetJobLabels(jobLabel)).AsSelector()
 	pods, err := getter.ListPods(namespace, selector, kubeClient)
 	if err != nil {
 		return err
@@ -385,13 +386,13 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	return ctx
 }
 
-func ensureDeleteConfigMap(namespace string, jobLabel *JobLabel, kubeClient client.Client) error {
-	ls := getJobLabels(jobLabel)
+func ensureDeleteConfigMap(namespace string, jobLabel *label.JobLabel, kubeClient client.Client) error {
+	ls := label.GetJobLabels(jobLabel)
 	return updater.DeleteConfigMapsAndWait(namespace, labels.Set(ls).AsSelector(), kubeClient)
 }
 
-func ensureDeleteJob(namespace string, jobLabel *JobLabel, kubeClient client.Client) error {
-	ls := getJobLabels(jobLabel)
+func ensureDeleteJob(namespace string, jobLabel *label.JobLabel, kubeClient client.Client) error {
+	ls := label.GetJobLabels(jobLabel)
 	return updater.DeleteJobsAndWait(namespace, labels.Set(ls).AsSelector(), kubeClient)
 }
 
@@ -404,36 +405,12 @@ type JobLabel struct {
 	PipelineType string
 }
 
-const (
-	jobLabelTaskKey    = "s-task"
-	jobLabelServiceKey = "s-service"
-	jobLabelSTypeKey   = "s-type"
-	jobLabelPTypeKey   = "p-type"
-)
-
-// getJobLabels get labels k-v map from JobLabel struct
-func getJobLabels(jobLabel *JobLabel) map[string]string {
-	retMap := map[string]string{
-		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
-		jobLabelServiceKey: strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),
-		jobLabelSTypeKey:   strings.Replace(jobLabel.TaskType, "_", "-", -1),
-		jobLabelPTypeKey:   jobLabel.PipelineType,
-	}
-	// no need to add labels with empty value to a job
-	for k, v := range retMap {
-		if len(v) == 0 {
-			delete(retMap, k)
-		}
-	}
-	return retMap
-}
-
-func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx string, kubeClient client.Client) error {
+func createJobConfigMap(namespace, jobName string, jobLabel *label.JobLabel, jobCtx string, kubeClient client.Client) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: namespace,
-			Labels:    getJobLabels(jobLabel),
+			Labels:    label.GetJobLabels(jobLabel),
 		},
 		Data: map[string]string{
 			"job-config.xml": jobCtx,
@@ -489,14 +466,14 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		}
 	}
 
-	labels := getJobLabels(&JobLabel{
+	labels := label.GetJobLabels(&label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,
 		TaskType:     string(taskType),
 		PipelineType: string(pipelineTask.Type),
 	})
-
+	
 	// 引用集成到系统中的私有镜像仓库的访问权限
 	ImagePullSecrets := []corev1.LocalObjectReference{
 		{
@@ -898,10 +875,10 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 			}
 
 			podLabels := labels.Set{
-				jobLabelPTypeKey:   job.Labels[jobLabelPTypeKey],
-				jobLabelServiceKey: job.Labels[jobLabelServiceKey],
-				jobLabelTaskKey:    job.Labels[jobLabelTaskKey],
-				jobLabelSTypeKey:   job.Labels[jobLabelSTypeKey],
+				setting.PipelineTypeLable: job.Labels[setting.PipelineTypeLable],
+				setting.ServiceLabel:      job.Labels[setting.ServiceLabel],
+				setting.TaskLabel:         job.Labels[setting.TaskLabel],
+				setting.TypeLabel:         job.Labels[setting.TypeLabel],
 			}
 			pods, err := getter.ListPods(namespace, podLabels.AsSelector(), kubeClient)
 			if err != nil {
@@ -1156,8 +1133,8 @@ func replaceEnvWithValue(str string, envs map[string]string) string {
 	return ret
 }
 
-func checkJobExists(ctx context.Context, ns string, jobLabels *JobLabel, kclient client.Client) (jobObj *batchv1.Job, exist bool, err error) {
-	labelsMap := getJobLabels(jobLabels)
+func checkJobExists(ctx context.Context, ns string, jobLabels *label.JobLabel, kclient client.Client) (jobObj *batchv1.Job, exist bool, err error) {
+	labelsMap := label.GetJobLabels(jobLabels)
 	labelSelector := labels.SelectorFromSet(labels.Set(labelsMap))
 
 	jobList := &batchv1.JobList{}
@@ -1176,8 +1153,8 @@ func checkJobExists(ctx context.Context, ns string, jobLabels *JobLabel, kclient
 	return &(jobList.Items[0]), true, nil
 }
 
-func checkConfigMapExists(ctx context.Context, ns string, jobLabels *JobLabel, kclient client.Client) (cmObj *corev1.ConfigMap, exist bool, err error) {
-	labelsMap := getJobLabels(jobLabels)
+func checkConfigMapExists(ctx context.Context, ns string, jobLabels *label.JobLabel, kclient client.Client) (cmObj *corev1.ConfigMap, exist bool, err error) {
+	labelsMap := label.GetJobLabels(jobLabels)
 	labelSelector := labels.SelectorFromSet(labels.Set(labelsMap))
 
 	cmList := &corev1.ConfigMapList{}
