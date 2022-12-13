@@ -259,7 +259,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.POST("/validate", ValidateConfigurationManagement)
 	}
 
-	approval := router.Group("approval")
+	approval := router.Group("im_app")
 	{
 		approval.GET("", ListApproval)
 		approval.POST("", CreateApproval)
