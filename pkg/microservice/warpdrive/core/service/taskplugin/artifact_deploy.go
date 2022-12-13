@@ -201,7 +201,7 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 		return
 	}
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,
@@ -305,7 +305,7 @@ func (p *ArtifactDeployTaskPlugin) Wait(ctx context.Context) {
 
 // Complete ...
 func (p *ArtifactDeployTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,

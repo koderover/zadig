@@ -198,7 +198,13 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	if options.SubTask == "" {
 		options.SubTask = string(config.TaskBuild)
 	}
-	selector := getPipelineSelector(options)
+	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
+		PipelineName: options.PipelineName,
+		TaskID:       options.TaskID,
+		TaskType:     options.SubTask,
+		ServiceName:  options.ServiceName,
+		PipelineType: options.PipelineType,
+	})).AsSelector()
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
@@ -262,19 +268,18 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 	}
 
 	selector := getWorkflowSelector(options)
-	selector := label.GetJobLabels(&label.JobLabel{
-		PipelineName: options.PipelineName,
-		TaskID:       options.TaskID,
-		TaskType:     options.JobType,
-		ServiceName:  "",
-		PipelineType: "",
-	})
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
 func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
 	options.SubTask = string(config.TaskTestingV2)
-	selector := getPipelineSelector(options)
+	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
+		PipelineName: options.PipelineName,
+		TaskID:       options.TaskID,
+		TaskType:     options.SubTask,
+		ServiceName:  options.ServiceName,
+		PipelineType: options.PipelineType,
+	})).AsSelector()
 	// get cluster ID
 	testing, _ := commonrepo.NewTestingColl().Find(getTestName(options.ServiceName), "")
 	// Compatible with the situation where the old data has not been modified

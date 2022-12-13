@@ -34,14 +34,13 @@ type JobLabel struct {
 	PipelineType string
 }
 
-// getJobLabels get labels k-v map from JobLabel struct
+// GetJobLabels get labels k-v map from JobLabel struct
 func GetJobLabels(jobLabel *JobLabel) map[string]string {
 	name := jobLabel.PipelineName
 	// limit length of TaskKey with taskID less than 64
 	if len(name) >= 57 {
 		name = name[:57]
 	}
-
 	retMap := map[string]string{
 		setting.JobLabelTaskKey:   fmt.Sprintf("%s-%d", strings.ToLower(name), jobLabel.TaskID),
 		setting.ServiceLabel:      strings.ToLower(util.ReturnValidLabelValue(jobLabel.ServiceName)),

@@ -23,6 +23,12 @@ import (
 	"strconv"
 	"time"
 
+	helmclient "github.com/mittwald/go-helm-client"
+	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/labels"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -31,11 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
-	helmclient "github.com/mittwald/go-helm-client"
-	"github.com/pkg/errors"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v3"
@@ -190,7 +191,7 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 	// 重置错误信息
 	p.Task.Error = ""
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,
@@ -776,7 +777,7 @@ DistributeLoop:
 
 // Complete ...
 func (p *ReleaseImagePlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,
