@@ -32,25 +32,25 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type ExternalApprovalColl struct {
+type IMAppColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewExternalApprovalColl() *ExternalApprovalColl {
-	name := models.ExternalApproval{}.TableName()
-	return &ExternalApprovalColl{
+func NewIMAppColl() *IMAppColl {
+	name := models.IMApp{}.TableName()
+	return &IMAppColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *ExternalApprovalColl) GetCollectionName() string {
+func (c *IMAppColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *ExternalApprovalColl) EnsureIndex(ctx context.Context) error {
+func (c *IMAppColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -70,9 +70,9 @@ func (c *ExternalApprovalColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ExternalApprovalColl) Create(ctx context.Context, args *models.ExternalApproval) (string, error) {
+func (c *IMAppColl) Create(ctx context.Context, args *models.IMApp) (string, error) {
 	if args == nil {
-		return "", errors.New("approval is nil")
+		return "", errors.New("im app is nil")
 	}
 	args.UpdateTime = time.Now().Unix()
 
@@ -83,9 +83,9 @@ func (c *ExternalApprovalColl) Create(ctx context.Context, args *models.External
 	return res.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-func (c *ExternalApprovalColl) List(ctx context.Context, _type string) ([]*models.ExternalApproval, error) {
+func (c *IMAppColl) List(ctx context.Context, _type string) ([]*models.IMApp, error) {
 	query := bson.M{}
-	resp := make([]*models.ExternalApproval, 0)
+	resp := make([]*models.IMApp, 0)
 
 	if _type != "" {
 		query["type"] = _type
@@ -98,25 +98,25 @@ func (c *ExternalApprovalColl) List(ctx context.Context, _type string) ([]*model
 	return resp, cursor.All(ctx, &resp)
 }
 
-func (c *ExternalApprovalColl) GetByID(ctx context.Context, idString string) (*models.ExternalApproval, error) {
+func (c *IMAppColl) GetByID(ctx context.Context, idString string) (*models.IMApp, error) {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return nil, err
 	}
 	query := bson.M{"_id": id}
 
-	resp := new(models.ExternalApproval)
+	resp := new(models.IMApp)
 	return resp, c.FindOne(ctx, query).Decode(resp)
 }
 
-func (c *ExternalApprovalColl) GetByAppID(ctx context.Context, appID string) (*models.ExternalApproval, error) {
+func (c *IMAppColl) GetByAppID(ctx context.Context, appID string) (*models.IMApp, error) {
 	query := bson.M{"app_id": appID}
 
-	resp := new(models.ExternalApproval)
+	resp := new(models.IMApp)
 	return resp, c.FindOne(ctx, query).Decode(resp)
 }
 
-func (c *ExternalApprovalColl) Update(ctx context.Context, idString string, arg *models.ExternalApproval) error {
+func (c *IMAppColl) Update(ctx context.Context, idString string, arg *models.IMApp) error {
 	if arg == nil {
 		return fmt.Errorf("nil app")
 	}
@@ -133,7 +133,7 @@ func (c *ExternalApprovalColl) Update(ctx context.Context, idString string, arg 
 	return err
 }
 
-func (c *ExternalApprovalColl) DeleteByID(ctx context.Context, idString string) error {
+func (c *IMAppColl) DeleteByID(ctx context.Context, idString string) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return err

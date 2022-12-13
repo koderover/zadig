@@ -766,12 +766,12 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	// external approval releated errors: 6930-6939
 	//-----------------------------------------------------------------------------------------------
-	ErrCreateExternalApproval   = NewHTTPError(6930, "创建外部审批失败")
-	ErrUpdateExternalApproval   = NewHTTPError(6931, "更新外部审批失败")
-	ErrListExternalApproval     = NewHTTPError(6932, "列出外部审批失败")
-	ErrGetExternalApproval      = NewHTTPError(6933, "获取外部审批失败")
-	ErrDeleteExternalApproval   = NewHTTPError(6934, "删除外部审批失败")
-	ErrValidateExternalApproval = NewHTTPError(6935, "校验外部审批失败")
+	ErrCreateIMApp   = NewHTTPError(6930, "创建 IM 应用失败")
+	ErrUpdateIMApp   = NewHTTPError(6931, "更新 IM 应用失败")
+	ErrListIMApp     = NewHTTPError(6932, "列出 IM 应用失败")
+	ErrGetIMApp      = NewHTTPError(6933, "获取 IM 应用失败")
+	ErrDeleteIMApp   = NewHTTPError(6934, "删除 IM 应用失败")
+	ErrValidateIMApp = NewHTTPError(6935, "校验 IM 应用失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// check workflow task lark approval available releated errors: 6940-6949

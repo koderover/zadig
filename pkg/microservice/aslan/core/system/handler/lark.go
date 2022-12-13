@@ -57,7 +57,7 @@ func LarkEventHandler(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = lark.LarkEventHandler(
+	ctx.Resp, ctx.Err = lark.EventHandler(
 		c.Param("id"),
 		c.GetHeader("X-Lark-Signature"),
 		c.GetHeader("X-Lark-Request-Timestamp"),

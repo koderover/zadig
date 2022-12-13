@@ -37,23 +37,23 @@ import (
 )
 
 const (
-	// LarkApprovalStatusNotFound not defined by lark open api, it just means not found in local manager.
-	LarkApprovalStatusNotFound = "NOTFOUND"
+	// ApprovalStatusNotFound not defined by lark open api, it just means not found in local manager.
+	ApprovalStatusNotFound = "NOTFOUND"
 
-	LarkApprovalStatusPending  = "PENDING"
-	LarkApprovalStatusApproved = "APPROVED"
-	LarkApprovalStatusRejected = "REJECTED"
-	LarkApprovalStatusCanceled = "CANCELED"
-	LarkApprovalStatusDeleted  = "DELETED"
+	ApprovalStatusPending  = "PENDING"
+	ApprovalStatusApproved = "APPROVED"
+	ApprovalStatusRejected = "REJECTED"
+	ApprovalStatusCanceled = "CANCELED"
+	ApprovalStatusDeleted  = "DELETED"
 )
 
-type LarkDepartmentInfo struct {
+type DepartmentInfo struct {
 	UserList          []*lark.UserInfo       `json:"user_list"`
 	SubDepartmentList []*lark.DepartmentInfo `json:"sub_department_list"`
 }
 
-func GetLarkDepartment(approvalID, openID string) (*LarkDepartmentInfo, error) {
-	cli, err := GetLarkClientByExternalApprovalID(approvalID)
+func GetLarkDepartment(approvalID, openID string) (*DepartmentInfo, error) {
+	cli, err := GetLarkClientByIMAppID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
@@ -65,14 +65,14 @@ func GetLarkDepartment(approvalID, openID string) (*LarkDepartmentInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get sub-department list")
 	}
-	return &LarkDepartmentInfo{
+	return &DepartmentInfo{
 		UserList:          userList,
 		SubDepartmentList: departmentList,
 	}, nil
 }
 
-func GetLarkAppContactRange(approvalID string) (*LarkDepartmentInfo, error) {
-	cli, err := GetLarkClientByExternalApprovalID(approvalID)
+func GetLarkAppContactRange(approvalID string) (*DepartmentInfo, error) {
+	cli, err := GetLarkClientByIMAppID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
@@ -103,7 +103,7 @@ func GetLarkAppContactRange(approvalID string) (*LarkDepartmentInfo, error) {
 	if err2 != nil {
 		return nil, errors.Wrap(err, "get department info")
 	}
-	return &LarkDepartmentInfo{
+	return &DepartmentInfo{
 		UserList:          userList,
 		SubDepartmentList: departmentList,
 	}, nil
@@ -188,7 +188,7 @@ func GetLarkUserID(approvalID, queryType, queryValue string) (string, error) {
 		return "", errors.New("invalid query type")
 	}
 
-	cli, err := GetLarkClientByExternalApprovalID(approvalID)
+	cli, err := GetLarkClientByIMAppID(approvalID)
 	if err != nil {
 		return "", errors.Wrap(err, "get client")
 	}
@@ -197,24 +197,24 @@ func GetLarkUserID(approvalID, queryType, queryValue string) (string, error) {
 
 var (
 	once                   sync.Once
-	larkApprovalManagerMap *LarkApprovalManagerMap
+	larkApprovalManagerMap *ApprovalManagerMap
 )
 
-type LarkApprovalManagerMap struct {
+type ApprovalManagerMap struct {
 	sync.RWMutex
-	m map[string]*LarkApprovalManager
+	m map[string]*ApprovalManager
 }
 
-type LarkApprovalManager struct {
+type ApprovalManager struct {
 	sync.RWMutex
 	m           map[string]string
 	requestUUID map[string]struct{}
 }
 
-func GetLarkApprovalManager(id string) *LarkApprovalManager {
+func GetLarkApprovalManager(id string) *ApprovalManager {
 	if larkApprovalManagerMap == nil {
 		once.Do(func() {
-			larkApprovalManagerMap = &LarkApprovalManagerMap{m: make(map[string]*LarkApprovalManager)}
+			larkApprovalManagerMap = &ApprovalManagerMap{m: make(map[string]*ApprovalManager)}
 		})
 	}
 
@@ -222,7 +222,7 @@ func GetLarkApprovalManager(id string) *LarkApprovalManager {
 	defer larkApprovalManagerMap.Unlock()
 
 	if manager, ok := larkApprovalManagerMap.m[id]; !ok {
-		larkApprovalManagerMap.m[id] = &LarkApprovalManager{
+		larkApprovalManagerMap.m[id] = &ApprovalManager{
 			m:           make(map[string]string),
 			requestUUID: make(map[string]struct{}),
 		}
@@ -232,29 +232,29 @@ func GetLarkApprovalManager(id string) *LarkApprovalManager {
 	}
 }
 
-func (l *LarkApprovalManager) GetInstanceStatus(id string) string {
+func (l *ApprovalManager) GetInstanceStatus(id string) string {
 	l.RLock()
 	defer l.RUnlock()
 	if status, ok := l.m[id]; !ok {
-		return LarkApprovalStatusNotFound
+		return ApprovalStatusNotFound
 	} else {
 		return status
 	}
 }
 
-func (l *LarkApprovalManager) UpdateInstanceStatus(id, status string) {
+func (l *ApprovalManager) UpdateInstanceStatus(id, status string) {
 	l.Lock()
 	defer l.Unlock()
 	l.m[id] = status
 }
 
-func (l *LarkApprovalManager) RemoveInstance(id string) {
+func (l *ApprovalManager) RemoveInstance(id string) {
 	l.Lock()
 	defer l.Unlock()
 	delete(l.m, id)
 }
 
-func (l *LarkApprovalManager) CheckAndUpdateUUID(uuid string) bool {
+func (l *ApprovalManager) CheckAndUpdateUUID(uuid string) bool {
 	l.Lock()
 	defer l.Unlock()
 	if _, ok := l.requestUUID[uuid]; ok {
@@ -264,7 +264,7 @@ func (l *LarkApprovalManager) CheckAndUpdateUUID(uuid string) bool {
 	return true
 }
 
-type LarkCallbackData struct {
+type CallbackData struct {
 	UUID  string `json:"uuid"`
 	Event struct {
 		AppID               string `json:"app_id"`
@@ -282,18 +282,18 @@ type LarkCallbackData struct {
 	Type  string `json:"type"`
 }
 
-type LarkEventHandlerResponse struct {
+type EventHandlerResponse struct {
 	Challenge string `json:"challenge"`
 }
 
-func LarkEventHandler(appID, sign, ts, nonce, body string) (*LarkEventHandlerResponse, error) {
-	approval, err := mongodb.NewExternalApprovalColl().GetByAppID(context.Background(), appID)
+func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, error) {
+	approval, err := mongodb.NewIMAppColl().GetByAppID(context.Background(), appID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get approval by appID")
 	}
 	key := approval.EncryptKey
 	approvalID := approval.ID.Hex()
-	log.Infof("LarkEventHandler: new request approval ID %s", approvalID)
+	log.Infof("EventHandler: new request approval ID %s", approvalID)
 
 	raw, err := larkDecrypt(gjson.Get(body, "encrypt").String(), key)
 	if err != nil {
@@ -302,14 +302,14 @@ func LarkEventHandler(appID, sign, ts, nonce, body string) (*LarkEventHandlerRes
 
 	// handle lark open platform webhook URL check request, which only need reply the challenge field.
 	if sign == "" {
-		return &LarkEventHandlerResponse{Challenge: gjson.Get(raw, "challenge").String()}, nil
+		return &EventHandlerResponse{Challenge: gjson.Get(raw, "challenge").String()}, nil
 	}
 
 	if sign != larkCalculateSignature(ts, nonce, key, body) {
 		return nil, errors.New("check sign failed")
 	}
 
-	callback := &LarkCallbackData{}
+	callback := &CallbackData{}
 	err = json.Unmarshal([]byte(raw), callback)
 	if err != nil {
 		log.Errorf("unmarshal callback data failed: %v", err)
@@ -376,8 +376,8 @@ func larkCalculateSignature(timestamp, nonce, encryptKey, bodystring string) str
 	return sig
 }
 
-func GetLarkClientByExternalApprovalID(id string) (*lark.Client, error) {
-	approval, err := mongodb.NewExternalApprovalColl().GetByID(context.Background(), id)
+func GetLarkClientByIMAppID(id string) (*lark.Client, error) {
+	approval, err := mongodb.NewIMAppColl().GetByID(context.Background(), id)
 	if err != nil {
 		return nil, errors.Wrap(err, "get external approval data")
 	}

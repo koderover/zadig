@@ -18,7 +18,7 @@ package models
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-type ExternalApproval struct {
+type IMApp struct {
 	ID   primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	Type string             `json:"type" bson:"type"`
 	Name string             `json:"name" bson:"name"`
@@ -31,6 +31,6 @@ type ExternalApproval struct {
 	UpdateTime int64 `json:"update_time" bson:"update_time"`
 }
 
-func (ExternalApproval) TableName() string {
-	return "external_approval"
+func (IMApp) TableName() string {
+	return "im_app"
 }

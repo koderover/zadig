@@ -549,6 +549,8 @@ metas:
             endpoint: /api/aslan/system/lark/?*/department/?*
           - method: GET
             endpoint: /api/aslan/system/lark/?*/user
+          - method: GET
+            endpoint: /api/aslan/system/im_app
       - action: create_workflow
         alias: 新建
         description: ''

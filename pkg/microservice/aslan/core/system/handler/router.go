@@ -259,13 +259,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.POST("/validate", ValidateConfigurationManagement)
 	}
 
-	approval := router.Group("im_app")
+	imapp := router.Group("im_app")
 	{
-		approval.GET("", ListApproval)
-		approval.POST("", CreateApproval)
-		approval.PUT("/:id", UpdateApproval)
-		approval.DELETE("/:id", DeleteApproval)
-		approval.POST("/validate", ValidateApproval)
+		imapp.GET("", ListIMApp)
+		imapp.POST("", CreateIMApp)
+		imapp.PUT("/:id", UpdateIMApp)
+		imapp.DELETE("/:id", DeleteIMApp)
+		imapp.POST("/validate", ValidateIMApp)
 	}
 
 	lark := router.Group("lark")

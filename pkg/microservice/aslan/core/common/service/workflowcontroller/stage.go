@@ -175,7 +175,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		approval.Timeout = 60
 	}
 
-	data, err := mongodb.NewExternalApprovalColl().GetByID(context.Background(), approval.ApprovalID)
+	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ApprovalID)
 	if err != nil {
 		stage.Status = config.StatusFailed
 		return errors.Wrap(err, "get external approval data")
@@ -260,17 +260,17 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		default:
 			status := larkservice.GetLarkApprovalManager(approval.ApprovalID).GetInstanceStatus(instance)
 			switch status {
-			case larkservice.LarkApprovalStatusApproved:
+			case larkservice.ApprovalStatusApproved:
 				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
 				return nil
-			case larkservice.LarkApprovalStatusRejected:
+			case larkservice.ApprovalStatusRejected:
 				stage.Status = config.StatusReject
 				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
 				return errors.New("Approval has been rejected")
-			case larkservice.LarkApprovalStatusCanceled:
+			case larkservice.ApprovalStatusCanceled:
 				stage.Status = config.StatusFailed
 				return errors.New("Approval has been canceled")
-			case larkservice.LarkApprovalStatusDeleted:
+			case larkservice.ApprovalStatusDeleted:
 				return errors.New("Approval has been deleted")
 			}
 		}

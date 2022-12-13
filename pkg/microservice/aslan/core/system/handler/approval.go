@@ -25,23 +25,23 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListApproval(c *gin.Context) {
+func ListIMApp(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListExternalApproval(c.Query("type"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListIMApp(c.Query("type"), ctx.Logger)
 }
 
-func CreateApproval(c *gin.Context) {
+func CreateIMApp(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var args commonmodels.ExternalApproval
+	var args commonmodels.IMApp
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	oid, err := service.CreateExternalApproval(&args, ctx.Logger)
+	oid, err := service.CreateIMApp(&args, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -49,33 +49,33 @@ func CreateApproval(c *gin.Context) {
 	ctx.Resp = map[string]string{"id": oid}
 }
 
-func UpdateApproval(c *gin.Context) {
+func UpdateIMApp(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var args commonmodels.ExternalApproval
+	var args commonmodels.IMApp
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Err = service.UpdateExternalApproval(c.Param("id"), &args, ctx.Logger)
+	ctx.Err = service.UpdateIMApp(c.Param("id"), &args, ctx.Logger)
 }
 
-func DeleteApproval(c *gin.Context) {
+func DeleteIMApp(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DeleteExternalApproval(c.Param("id"), ctx.Logger)
+	ctx.Err = service.DeleteIMApp(c.Param("id"), ctx.Logger)
 }
 
-func ValidateApproval(c *gin.Context) {
+func ValidateIMApp(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var args commonmodels.ExternalApproval
+	var args commonmodels.IMApp
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Err = service.ValidateExternalApproval(&args, ctx.Logger)
+	ctx.Err = service.ValidateIMApp(&args, ctx.Logger)
 }

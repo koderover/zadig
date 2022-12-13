@@ -212,7 +212,7 @@ func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogge
 
 	for _, stage := range workflow.Stages {
 		if stage.Approval != nil && stage.Approval.Enabled && stage.Approval.Type == config.LarkApproval && stage.Approval.LarkApproval != nil {
-			cli, err := lark.GetLarkClientByExternalApprovalID(stage.Approval.LarkApproval.ApprovalID)
+			cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ApprovalID)
 			if err != nil {
 				return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
 			}

@@ -295,6 +295,13 @@ exemption_urls:
       methods:
         - PUT
         - DELETE
+    - endpoint: api/aslan/system/im_app
+      methods:
+        - POST
+    - endpoint: api/aslan/system/im_app/?*
+      methods:
+        - PUT
+        - DELETE
     - endpoint: api/aslan/system/operation
       methods:
         - GET

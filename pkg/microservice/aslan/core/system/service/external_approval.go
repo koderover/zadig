@@ -29,86 +29,86 @@ import (
 	"github.com/koderover/zadig/pkg/tool/lark"
 )
 
-func ListExternalApproval(_type string, log *zap.SugaredLogger) ([]*commonmodels.ExternalApproval, error) {
-	resp, err := mongodb.NewExternalApprovalColl().List(context.Background(), _type)
+func ListIMApp(_type string, log *zap.SugaredLogger) ([]*commonmodels.IMApp, error) {
+	resp, err := mongodb.NewIMAppColl().List(context.Background(), _type)
 	if err != nil {
 		log.Errorf("list external approval error: %v", err)
-		return nil, e.ErrListExternalApproval.AddErr(err)
+		return nil, e.ErrListIMApp.AddErr(err)
 	}
 
 	return resp, nil
 }
 
-func CreateExternalApproval(args *commonmodels.ExternalApproval, log *zap.SugaredLogger) (string, error) {
-	oid, err := mongodb.NewExternalApprovalColl().Create(context.Background(), args)
+func CreateIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) (string, error) {
+	oid, err := mongodb.NewIMAppColl().Create(context.Background(), args)
 	if err != nil {
 		log.Errorf("create external approval error: %v", err)
-		return "", e.ErrCreateExternalApproval.AddErr(err)
+		return "", e.ErrCreateIMApp.AddErr(err)
 	}
 
 	client := lark.NewClient(args.AppID, args.AppSecret)
 
 	approvalCode, err := createLarkDefaultApprovalDefinition(client)
 	if err != nil {
-		return "", e.ErrCreateExternalApproval.AddErr(errors.Wrap(err, "create definition"))
+		return "", e.ErrCreateIMApp.AddErr(errors.Wrap(err, "create definition"))
 	}
 	err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
 		ApprovalID: approvalCode,
 	})
 	if err != nil {
-		return "", e.ErrCreateExternalApproval.AddErr(errors.Wrap(err, "subscribe"))
+		return "", e.ErrCreateIMApp.AddErr(errors.Wrap(err, "subscribe"))
 	}
 
 	args.LarkDefaultApprovalCode = approvalCode
-	err = mongodb.NewExternalApprovalColl().Update(context.Background(), oid, args)
+	err = mongodb.NewIMAppColl().Update(context.Background(), oid, args)
 	if err != nil {
 		return "", errors.Wrap(err, "update approval with approval code")
 	}
 	return "", nil
 }
 
-func UpdateExternalApproval(id string, args *commonmodels.ExternalApproval, log *zap.SugaredLogger) error {
+func UpdateIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	if err := lark.Validate(args.AppID, args.AppSecret); err != nil {
-		return e.ErrUpdateExternalApproval.AddErr(errors.Wrap(err, "validate"))
+		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}
 
 	client := lark.NewClient(args.AppID, args.AppSecret)
 	approvalCode, err := createLarkDefaultApprovalDefinition(client)
 	if err != nil {
-		return e.ErrUpdateExternalApproval.AddErr(errors.Wrap(err, "create definition"))
+		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "create definition"))
 	}
 	err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
 		ApprovalID: approvalCode,
 	})
 	if err != nil {
-		return e.ErrUpdateExternalApproval.AddErr(errors.Wrap(err, "subscribe"))
+		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "subscribe"))
 	}
 	args.LarkDefaultApprovalCode = approvalCode
 
-	err = mongodb.NewExternalApprovalColl().Update(context.Background(), id, args)
+	err = mongodb.NewIMAppColl().Update(context.Background(), id, args)
 	if err != nil {
 		log.Errorf("update external approval error: %v", err)
-		return e.ErrUpdateExternalApproval.AddErr(err)
+		return e.ErrUpdateIMApp.AddErr(err)
 	}
 	return nil
 }
 
-func DeleteExternalApproval(id string, log *zap.SugaredLogger) error {
-	err := mongodb.NewExternalApprovalColl().DeleteByID(context.Background(), id)
+func DeleteIMApp(id string, log *zap.SugaredLogger) error {
+	err := mongodb.NewIMAppColl().DeleteByID(context.Background(), id)
 	if err != nil {
 		log.Errorf("delete external approval error: %v", err)
-		return e.ErrDeleteExternalApproval.AddErr(err)
+		return e.ErrDeleteIMApp.AddErr(err)
 	}
 	return nil
 }
 
-func ValidateExternalApproval(approval *commonmodels.ExternalApproval, log *zap.SugaredLogger) error {
+func ValidateIMApp(approval *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	switch approval.Type {
 	case setting.IMLark:
 		return lark.Validate(approval.AppID, approval.AppSecret)
 	case setting.IMDingding:
 	default:
-		return e.ErrValidateExternalApproval.AddDesc("invalid type")
+		return e.ErrValidateIMApp.AddDesc("invalid type")
 	}
 	return nil
 }
