@@ -454,3 +454,23 @@ func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStor
 	}
 	return resp
 }
+
+func getEnvFromCommitMsg(repos []*types.Repository) []*commonmodels.KeyVal {
+	compileRegex := regexp.MustCompile(`^###(\w+=.+)$`)
+	resp := []*commonmodels.KeyVal{}
+	for _, repo := range repos {
+		if repo.CommitMessage == "" {
+			continue
+		}
+		msgs := strings.Split(repo.CommitMessage, "\n")
+		for _, msg := range msgs {
+			matchArr := compileRegex.FindStringSubmatch(msg)
+			keyValStr := matchArr[len(matchArr)-1]
+			keyValArr := strings.Split(keyValStr, "=")
+			if len(keyValArr) == 2 {
+				resp = append(resp, &commonmodels.KeyVal{Key: keyValArr[0], Value: keyValArr[1], Type: commonmodels.StringType})
+			}
+		}
+	}
+	return resp
+}
