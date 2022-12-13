@@ -230,7 +230,7 @@ func (p *Product) IsK8sYamlProduct() bool {
 	if p.ProductFeature == nil {
 		return true
 	}
-	return p.ProductFeature != nil && p.ProductFeature.DeployType == setting.K8SDeployType && p.ProductFeature.BasicFacility == setting.BasicFacilityK8S
+	return p.ProductFeature != nil && p.ProductFeature.DeployType == setting.K8SDeployType && p.ProductFeature.BasicFacility == setting.BasicFacilityK8S && p.ProductFeature.CreateEnvType != setting.SourceFromExternal
 }
 
 func (p *Product) IsCVMProduct() bool {

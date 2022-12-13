@@ -18,6 +18,7 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -41,7 +42,13 @@ type DataBulkUpdater struct {
 }
 
 func HandleK8sYamlVars() error {
-	err := handleServiceTemplates()
+	err := handleYamlTemplates()
+	if err != nil {
+		log.Errorf("failed to handleYamlTemplates, err: %s", err)
+		return err
+	}
+
+	err = handleServiceTemplates()
 	if err != nil {
 		log.Errorf("failed to handleServiceTemplates, err: %s", err)
 		return err
@@ -75,9 +82,78 @@ func (dbu *DataBulkUpdater) Write() error {
 	return nil
 }
 
+// use variable_yaml instead of []variables
+func handleYamlTemplates() error {
+	yamlTemplates, _, err := mongodb.NewYamlTemplateColl().List(0, 0)
+	if err != nil {
+		log.Errorf("failed to list templates error: %s", err)
+	}
+
+	updater := &DataBulkUpdater{
+		Coll:           mongodb.NewYamlTemplateColl().Collection,
+		WriteThreshold: 20,
+	}
+
+	for _, yamlTemplate := range yamlTemplates {
+		// data has been handled
+		if len(yamlTemplate.ServiceVars) > 0 {
+			continue
+		}
+
+		if len(yamlTemplate.VariableYaml) > 0 {
+			valuesMap := make(map[string]interface{})
+			_ = yaml.Unmarshal([]byte(yamlTemplate.VariableYaml), &valuesMap)
+			yamlTemplate.ServiceVars = make([]string, 0)
+			for k := range valuesMap {
+				yamlTemplate.ServiceVars = append(yamlTemplate.ServiceVars, k)
+			}
+			err = updater.AddModel(mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", yamlTemplate.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"variable_yaml", yamlTemplate.VariableYaml},
+						{"service_vars", yamlTemplate.ServiceVars},
+					}},
+				}))
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
+		if len(yamlTemplate.Variables) == 0 {
+			continue
+		}
+
+		serviceVars := make([]string, 0)
+		valuesMap := make(map[string]interface{})
+		for _, v := range yamlTemplate.Variables {
+			valuesMap[v.Key] = v.Value
+			serviceVars = append(serviceVars, v.Key)
+		}
+		yamlBs, _ := yaml.Marshal(valuesMap)
+		yamlTemplate.VariableYaml = string(yamlBs)
+		yamlTemplate.ServiceVars = serviceVars
+		err = updater.AddModel(mongo.NewUpdateOneModel().
+			SetFilter(bson.D{{"_id", yamlTemplate.ID}}).
+			SetUpdate(bson.D{{"$set",
+				bson.D{
+					{"variable_yaml", yamlTemplate.VariableYaml},
+					{"service_vars", yamlTemplate.ServiceVars},
+				}},
+			}))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func handleServiceTemplates() error {
 	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
-		DeployType: setting.K8SDeployType,
+		DeployType:    setting.K8SDeployType,
+		BasicFacility: setting.BasicFacilityK8S,
 	})
 	if err != nil {
 		log.Errorf("handleServiceTemplates list projects error: %s", err)
@@ -85,6 +161,9 @@ func handleServiceTemplates() error {
 	}
 
 	for _, project := range temProducts {
+		if project.IsHostProduct() {
+			continue
+		}
 		err = setServiceVariables(project.ProjectName)
 		if err != nil {
 			return err
@@ -94,7 +173,8 @@ func handleServiceTemplates() error {
 	return nil
 }
 
-// read current parsed variables and convert to service variable yaml
+// 1. read current parsed variables and convert to service variable yaml
+// 2. use variable.yaml in svc.creationFrom instead of []variable
 func setServiceVariables(projectName string) error {
 	templateServices, err := mongodb.NewServiceColl().ListMaxRevisionsByProduct(projectName)
 	if err != nil {
@@ -135,7 +215,36 @@ func setServiceVariables(projectName string) error {
 		}
 		variableYaml, _ := yaml.Marshal(valuesMap)
 		svc.VariableYaml = string(variableYaml)
+		serviceVars := make([]string, 0)
+		for k := range valuesMap {
+			serviceVars = append(serviceVars, k)
+		}
+		svc.ServiceVars = serviceVars
 		svcsNeedUpdate = append(svcsNeedUpdate, svc)
+		if svc.Source == setting.ServiceSourceTemplate {
+			creation := &models.CreateFromYamlTemplate{}
+			bs, err := json.Marshal(svc.CreateFrom)
+			if err != nil {
+				log.Errorf("failed to marshal creation data: %s", err)
+				continue
+			}
+
+			err = json.Unmarshal(bs, creation)
+			if err != nil {
+				log.Errorf("failed to unmarshal creation data: %s", err)
+				continue
+			}
+			if len(creation.VariableYaml) == 0 && len(creation.Variables) > 0 {
+				// turn current kv info into global variable-yaml
+				valuesMap := make(map[string]interface{})
+				for _, kv := range creation.Variables {
+					valuesMap[kv.Key] = kv.Value
+				}
+				valuesYaml, _ := yaml.Marshal(valuesMap)
+				creation.VariableYaml = string(valuesYaml)
+				svc.CreateFrom = creation
+			}
+		}
 	}
 
 	updater := &DataBulkUpdater{
@@ -148,6 +257,8 @@ func setServiceVariables(projectName string) error {
 			SetUpdate(bson.D{{"$set",
 				bson.D{
 					{"variable_yaml", svc.VariableYaml},
+					{"service_vars", svc.ServiceVars},
+					{"create_from", svc.CreateFrom},
 				}},
 			}))
 		if err != nil {
@@ -164,7 +275,8 @@ func setServiceVariables(projectName string) error {
 
 func adjustProductRenderInfo() error {
 	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
-		DeployType: setting.K8SDeployType,
+		DeployType:    setting.K8SDeployType,
+		BasicFacility: setting.BasicFacilityK8S,
 	})
 	if err != nil {
 		log.Errorf("adjustProductRenderInfo list projects error: %s", err)
@@ -172,6 +284,9 @@ func adjustProductRenderInfo() error {
 	}
 	projectNames := make([]string, 0)
 	for _, v := range temProducts {
+		if v.IsHostProduct() {
+			continue
+		}
 		projectNames = append(projectNames, v.ProductName)
 	}
 
@@ -216,7 +331,7 @@ func adjustSingleProductRender(product *uamodel.Product) error {
 		Name:        maxVersionRender.Name,
 	})
 	if err != nil {
-		log.Errorf("failed to find renderset info: %v/%v", renderSet.Name, renderSet.Revision)
+		log.Errorf("failed to find renderset info: %v/%v, product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, product.ProductName, product.EnvName)
 		return err
 	}
 

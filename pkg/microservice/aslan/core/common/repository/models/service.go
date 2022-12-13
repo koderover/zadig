@@ -55,6 +55,7 @@ type Service struct {
 	GiteePath        string           `bson:"gitee_path,omitempty"           json:"gitee_path,omitempty"`
 	BuildName        string           `bson:"build_name"                     json:"build_name"`
 	VariableYaml     string           `bson:"variable_yaml"                  json:"variable_yaml"` // New since 1.16.0, stores the variable yaml of k8s services
+	ServiceVars      []string         `bson:"service_vars"                   json:"service_vars"`  // New since 1.16.0, stores keys in variables which can be set in env
 	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
 	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`

@@ -53,8 +53,8 @@ func geneCreateFromDetail(templateId string, variables []*Variable, variableYaml
 		})
 	}
 	return &commonmodels.CreateFromYamlTemplate{
-		TemplateID:   templateId,
-		Variables:    vs,
+		TemplateID: templateId,
+		//Variables:    vs,
 		VariableYaml: variableYaml,
 	}
 }
@@ -137,10 +137,11 @@ func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger 
 		return "", fmt.Errorf("failed to preview service, err: %s", err)
 	}
 
-	templateVariableYaml, err := commomtemplate.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
-	if err != nil {
-		return "", fmt.Errorf("failed to get variable yaml from yaml template")
-	}
+	//templateVariableYaml, err := commomtemplate.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
+	//if err != nil {
+	//	return "", fmt.Errorf("failed to get variable yaml from yaml template")
+	//}
+	templateVariableYaml := yamlTemplate.VariableYaml
 	return renderYamlFromTemplate(yamlTemplate.Content, req.ProjectName, req.ServiceName, nil, templateVariableYaml, req.VariableYaml)
 }
 
@@ -295,23 +296,24 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 
 func buildYamlTemplateVariables(service *commonmodels.Service, template *commonmodels.YamlTemplate) ([]*Variable, string, error) {
 	variables := make([]*Variable, 0)
-	variableMap := make(map[string]*Variable)
-	for _, v := range template.Variables {
-		kv := &Variable{
-			Key:   v.Key,
-			Value: v.Value,
-		}
-		variableMap[v.Key] = kv
-		variables = append(variables, kv)
-	}
+	//variableMap := make(map[string]*Variable)
+	//for _, v := range template.Variables {
+	//	kv := &Variable{
+	//		Key:   v.Key,
+	//		Value: v.Value,
+	//	}
+	//	variableMap[v.Key] = kv
+	//	variables = append(variables, kv)
+	//}
 
-	templateVariable, err := commomtemplate.GetTemplateVariableYaml(template.Variables, template.VariableYaml)
-	if err != nil {
-		return nil, "", err
-	}
+	//templateVariable, err := commomtemplate.GetTemplateVariableYaml(template.Variables, template.VariableYaml)
+	//if err != nil {
+	//	return nil, "", err
+	//}
+	templateVariable := template.VariableYaml
 
 	creation := &commonmodels.CreateFromYamlTemplate{}
-	vbs := make([]*commonmodels.Variable, 0)
+	//vbs := make([]*commonmodels.Variable, 0)
 	if service.CreateFrom != nil {
 		bs, err := json.Marshal(service.CreateFrom)
 		if err != nil {
@@ -324,16 +326,19 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 			log.Errorf("failed to unmarshal creation data: %s", err)
 			return variables, "", err
 		}
-		for _, kv := range creation.Variables {
-			if tkv, ok := variableMap[kv.Key]; ok {
-				tkv.Value = kv.Value
-			}
-		}
+		//for _, kv := range creation.Variables {
+		//	if tkv, ok := variableMap[kv.Key]; ok {
+		//		tkv.Value = kv.Value
+		//	}
+		//}
 
-		serviceVariable, err := commomtemplate.GetTemplateVariableYaml(creation.Variables, creation.VariableYaml)
-		if err != nil {
-			return nil, "", err
-		}
+		//serviceVariable, err := commomtemplate.GetTemplateVariableYaml(creation.Variables, creation.VariableYaml)
+		//if err != nil {
+		//	return nil, "", err
+		//}
+
+		serviceVariable := creation.VariableYaml
+
 		kvs := make(map[string]string)
 		templateVariable, kvs, err = commomtemplate.SafeMergeVariableYaml(templateVariable, serviceVariable)
 		for k, v := range kvs {
@@ -344,13 +349,13 @@ func buildYamlTemplateVariables(service *commonmodels.Service, template *commonm
 		creation.TemplateID = template.ID.Hex()
 	}
 
-	for _, kv := range variables {
-		vbs = append(vbs, &commonmodels.Variable{
-			Key:   kv.Key,
-			Value: kv.Value,
-		})
-	}
-	creation.Variables = vbs
+	//for _, kv := range variables {
+	//	vbs = append(vbs, &commonmodels.Variable{
+	//		Key:   kv.Key,
+	//		Value: kv.Value,
+	//	})
+	//}
+	//creation.Variables = vbs
 	service.CreateFrom = creation
 
 	return variables, templateVariable, nil
