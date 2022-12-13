@@ -559,9 +559,10 @@ const (
 	PathSearchComponentTag   = "tag"
 )
 
-// Aliyun specific stuff
+// host for multiple cloud provider
 const (
 	AliyunHost = ".aliyuncs.com"
+	AWSHost    = ".amazonaws.com"
 )
 
 // Dockerfile parsing consts

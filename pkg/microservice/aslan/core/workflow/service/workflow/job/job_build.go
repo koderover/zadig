@@ -450,6 +450,7 @@ func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
 		Subfolder: modelS3.Subfolder,
 		Insecure:  modelS3.Insecure,
 		Provider:  modelS3.Provider,
+		Region:    modelS3.Region,
 	}
 	if modelS3.Insecure {
 		resp.Protocol = "http"

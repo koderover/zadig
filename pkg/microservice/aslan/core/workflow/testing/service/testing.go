@@ -342,7 +342,7 @@ func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, l
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("download html test report error: %s", err)
 		return "", e.ErrGetTestReport.AddErr(err)
@@ -429,7 +429,7 @@ func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("download html test report error: %s", err)
 		return "", e.ErrGetTestReport.AddErr(err)

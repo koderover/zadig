@@ -800,7 +800,7 @@ func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64
 	if storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
 		return []byte{}, fmt.Errorf("create S3 client err: %v", err)

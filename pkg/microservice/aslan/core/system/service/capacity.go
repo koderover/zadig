@@ -112,7 +112,7 @@ func CleanCache() error {
 	}
 
 	s3Server := s3.FindInternalS3()
-	client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Insecure, false)
+	client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, false)
 	if err != nil {
 		log.Errorf("Failed to create s3 client, error: %+v", err)
 		return err
@@ -341,14 +341,14 @@ func handleWorkflowTaskV4Retention(dryRun bool, batch int, option *commonrepo.Li
 	return len(removeIds), nil
 }
 
-//
-//func (s *Service) logInfo(format string, args ...interface{}) {
-//	s.logger.Infof("[%v]: %v", logTag, fmt.Sprintf(format, args...))
-//}
+//	func (s *Service) logInfo(format string, args ...interface{}) {
+//		s.logger.Infof("[%v]: %v", logTag, fmt.Sprintf(format, args...))
+//	}
 //
 // cleanStaleTasks will mark stale tasks as deleted, and remove their relevant S3 files.
 // returns:
-//   []bson.ObjectId, task ides to be marked as deleted
+//
+//	[]bson.ObjectId, task ides to be marked as deleted
 func cleanStaleTasks(tasks []*task.Task, s3Server *s3.S3, dryRun bool) []string {
 	ids := make([]string, len(tasks))
 	paths := make([]string, len(tasks))
@@ -360,7 +360,7 @@ func cleanStaleTasks(tasks []*task.Task, s3Server *s3.S3, dryRun bool) []string 
 	if s3Server.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, forcedPathStyle)
 	if err == nil {
 		go s3client.RemoveFiles(s3Server.Bucket, paths)
 	}
@@ -378,7 +378,7 @@ func cleanStaleTaskV4s(tasks []*commonmodels.WorkflowTask, s3Server *s3.S3, dryR
 	if s3Server.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, forcedPathStyle)
 	if err == nil {
 		go s3client.RemoveFiles(s3Server.Bucket, paths)
 	}

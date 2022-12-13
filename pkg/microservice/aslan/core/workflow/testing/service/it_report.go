@@ -82,7 +82,7 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 								if storage.Provider == setting.ProviderSourceAli {
 									forcedPathStyle = false
 								}
-								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
 								if err != nil {
 									log.Errorf("GetTestLocalTestSuite Create S3 client err:%+v", err)
 									continue

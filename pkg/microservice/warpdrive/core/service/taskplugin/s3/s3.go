@@ -17,6 +17,7 @@ limitations under the License.
 package s3
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -43,6 +44,7 @@ type Storage struct {
 	UpdatedBy   string `bson:"updated_by"  json:"updated_by"`
 	UpdateTime  int64  `bson:"update_time" json:"update_time"`
 	Provider    int8   `bson:"provider"    json:"provider"`
+	Region      string `bson:"region"      json:"region"`
 }
 
 func (s *S3) GetSchema() string {
@@ -92,6 +94,15 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 	}
 	if strings.Contains(store.Host, setting.AliyunHost) {
 		ret.Provider = setting.ProviderSourceAli
+	}
+	if strings.Contains(store.Host, setting.AWSHost) {
+		// aws endpoint looks like <bucket>.s3.<region>.amazonaws.com
+		segmentation := strings.Split(store.Host, ".")
+		if len(segmentation) < 3 {
+			return nil, errors.New("cannot find region for aws s3")
+		}
+		// we get the third part of the endpoint
+		ret.Region = segmentation[2]
 	}
 
 	return ret, nil

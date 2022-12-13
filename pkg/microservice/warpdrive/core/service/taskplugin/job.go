@@ -133,7 +133,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 			if store.Provider == setting.ProviderSourceAli {
 				forcedPathStyle = false
 			}
-			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 			if err != nil {
 				return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
 			}
@@ -365,6 +365,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	ctx.StorageSK = pipelineTask.ConfigPayload.S3Storage.Sk
 	ctx.StorageBucket = pipelineTask.ConfigPayload.S3Storage.Bucket
 	ctx.StorageProvider = pipelineTask.ConfigPayload.S3Storage.Provider
+	ctx.StorageRegion = pipelineTask.ConfigPayload.S3Storage.Region
 	if pipelineTask.ArtifactInfo != nil {
 		ctx.ArtifactInfo = &types.ArtifactInfo{
 			URL:          pipelineTask.ArtifactInfo.URL,

@@ -182,9 +182,9 @@ func updatePipelineStatus(pipelineTask *task.Task, xl *zap.SugaredLogger) {
 	xl.Infof("%+v", pipelineTask)
 }
 
-//汇总Stage Status
-//制定Status Map，遍历Tasks状态，根据Map赋值。
-//最后取值最大的那个状态。
+// 汇总Stage Status
+// 制定Status Map，遍历Tasks状态，根据Map赋值。
+// 最后取值最大的那个状态。
 func getStageStatus(tasks []*Task, xl *zap.SugaredLogger) config.Status {
 	taskStatusMap := map[config.Status]int{
 		config.StatusCancelled: 4,
@@ -516,7 +516,7 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("failed to create s3 client, error: %+v", err)
 		return nil, err

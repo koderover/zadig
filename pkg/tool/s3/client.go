@@ -50,10 +50,10 @@ var defaultDownloadOption = &DownloadOption{
 	RetryNum: 3,
 }
 
-func NewClient(endpoint, ak, sk string, insecure, forcedPathStyle bool) (*Client, error) {
+func NewClient(endpoint, ak, sk, region string, insecure, forcedPathStyle bool) (*Client, error) {
 	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
-		Region:           aws.String(DefaultRegion),
+		Region:           aws.String(region),
 		Endpoint:         aws.String(endpoint),
 		S3ForcePathStyle: aws.Bool(forcedPathStyle),
 		Credentials:      creds,

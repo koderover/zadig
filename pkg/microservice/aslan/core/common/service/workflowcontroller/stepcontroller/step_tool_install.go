@@ -73,6 +73,7 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 		if objectStorage.Insecure {
 			spec.S3Storage.Protocol = "http"
 		}
+		spec.S3Storage.Region = objectStorage.Region
 	}
 
 	for _, tool := range s.toolInstalldSpec.Installs {

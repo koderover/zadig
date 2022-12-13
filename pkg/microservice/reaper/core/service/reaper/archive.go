@@ -47,7 +47,7 @@ func (r *Reaper) archiveS3Files() (err error) {
 		if store.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
 		}
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 		if err != nil {
 			log.Errorf("failed to create s3 client, error is: %+v", err)
 			return err
@@ -104,7 +104,7 @@ func (r *Reaper) archiveTestFiles() error {
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("failed to create s3 client, error is: %+v", err)
 		return err
@@ -156,7 +156,7 @@ func (r *Reaper) archiveHTMLTestReportFile() error {
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("failed to create s3 client, error is: %+v", err)
 		return err

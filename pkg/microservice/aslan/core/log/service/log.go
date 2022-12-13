@@ -102,7 +102,7 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	if storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("Failed to create s3 client, the error is: %+v", err)
 		return "", err
