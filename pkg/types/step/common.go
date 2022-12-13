@@ -36,4 +36,5 @@ type S3 struct {
 	Insecure  bool   `bson:"insecure"                        json:"insecure"                           yaml:"insecure"`
 	Provider  int8   `bson:"provider"                        json:"provider"                           yaml:"provider"`
 	Protocol  string `bson:"protocol"                        json:"protocol"                           yaml:"protocol"`
+	Region    string `bson:"region"                          json:"region"                             yaml:"region"`
 }

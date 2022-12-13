@@ -265,7 +265,7 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err != nil {
 		return nil, err
 	}

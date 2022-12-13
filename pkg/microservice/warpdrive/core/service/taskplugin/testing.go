@@ -364,7 +364,7 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err == nil {
 		if len(p.Task.JobCtx.ArtifactPaths) > 0 {
 			prefix := store.GetObjectPath("/")

@@ -97,7 +97,7 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 	if storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("NewClient err:%v", err)
 		return err

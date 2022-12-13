@@ -81,6 +81,7 @@ func (r *Reaper) runIntallationScripts() error {
 				Bucket:   r.Ctx.StorageBucket,
 				Insecure: true,
 				Provider: r.Ctx.StorageProvider,
+				Region:   r.Ctx.StorageRegion,
 			}
 			store.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, install.Name, install.Version)
 
@@ -91,7 +92,7 @@ func (r *Reaper) runIntallationScripts() error {
 			if store.Provider == setting.ProviderSourceAli {
 				forcedPathStyle = false
 			}
-			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 			if err == nil {
 				objectKey := store.GetObjectPath(fileName)
 				err = s3client.Download(
@@ -452,7 +453,7 @@ func (r *Reaper) downloadArtifactFile() error {
 	if store.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("s3 create client err:%s", err)
 		return err

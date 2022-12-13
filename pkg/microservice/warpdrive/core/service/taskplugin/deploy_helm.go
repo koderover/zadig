@@ -440,7 +440,7 @@ func (p *HelmDeployTaskPlugin) downloadService(productName, serviceName, storage
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		p.Log.Errorf("failed to create s3 client, err: %s", err)
 		return "", err

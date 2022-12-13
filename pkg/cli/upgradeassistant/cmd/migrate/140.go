@@ -80,7 +80,7 @@ func getS3Client() (*s3service.S3, *s3tool.Client, error) {
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	c, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	c, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
 
 	return s3Storage, c, err
 }

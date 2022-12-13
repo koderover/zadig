@@ -81,7 +81,7 @@ func GetLocalTestSuite(pipelineName, serviceName, testType string, taskID int64,
 		if s3Storage.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
 		}
-		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
 		if err != nil {
 			log.Errorf("Failed to create s3 client for download, error: %+v", err)
 			return testReport, fmt.Errorf("failed to create s3 client for download, error: %+v", err)
@@ -210,7 +210,7 @@ func GetWorkflowV4LocalTestSuite(workflowName, jobName string, taskID int64, log
 		if s3Storage.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
 		}
-		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
 		if err != nil {
 			log.Errorf("Failed to create s3 client for download, error: %+v", err)
 			return testReport, fmt.Errorf("failed to create s3 client for download, error: %+v", err)

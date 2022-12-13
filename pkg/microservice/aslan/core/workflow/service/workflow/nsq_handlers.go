@@ -482,7 +482,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 								if storage.Provider == setting.ProviderSourceAli {
 									forcedPathStyle = false
 								}
-								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
 								objectKey := storage.GetObjectPath(fileSrc)
 								err = client.Download(storage.Bucket, objectKey, filename)
 								if err != nil {
@@ -656,7 +656,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							if storage.Provider == setting.ProviderSourceAli {
 								forcedPathStyle = false
 							}
-							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
 							objectKey := storage.GetObjectPath(fileSrc)
 							err = client.Download(storage.Bucket, objectKey, filename)
 							if err != nil {

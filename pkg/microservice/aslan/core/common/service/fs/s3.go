@@ -82,7 +82,7 @@ func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Stor
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("Failed to get s3 client, err: %s", err)
 		return err
@@ -126,7 +126,7 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 		forcedPathStyle = false
 	}
 
-	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Region, s3.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
@@ -162,7 +162,7 @@ func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.Sugared
 	if s3.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Region, s3.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
