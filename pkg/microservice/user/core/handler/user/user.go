@@ -64,7 +64,7 @@ func GetPersonalUser(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.GetUser(uid, ctx.Logger)
 }
 
-func GetUserSettings(c *gin.Context) {
+func GetUserSetting(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	uid := c.Param("uid")
