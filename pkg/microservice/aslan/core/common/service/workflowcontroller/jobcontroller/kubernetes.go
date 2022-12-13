@@ -465,7 +465,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			},
 		})
 
-		mountPath := jobTaskSpec.Properties.CacheUserDir
+		mountPath := strings.ReplaceAll(jobTaskSpec.Properties.CacheUserDir, "$WORKSPACE", workflowCtx.Workspace)
 		if jobTaskSpec.Properties.CacheDirType == commontypes.WorkspaceCacheDir {
 			mountPath = workflowCtx.Workspace
 		}
