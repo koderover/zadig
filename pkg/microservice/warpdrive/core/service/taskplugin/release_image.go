@@ -35,6 +35,7 @@ import (
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 

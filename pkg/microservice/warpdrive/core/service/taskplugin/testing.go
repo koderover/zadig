@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	commontypes "github.com/koderover/zadig/pkg/types"

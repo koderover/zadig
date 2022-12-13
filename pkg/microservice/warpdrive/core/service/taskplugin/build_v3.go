@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
