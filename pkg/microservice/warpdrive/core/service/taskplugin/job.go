@@ -472,6 +472,10 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		TaskType:     string(taskType),
 		PipelineType: string(pipelineTask.Type),
 	})
+	//todo debug
+	for s, s2 := range labels {
+		fmt.Printf("key: %s val: %s\n", s, s2)
+	}
 
 	// 引用集成到系统中的私有镜像仓库的访问权限
 	ImagePullSecrets := []corev1.LocalObjectReference{
