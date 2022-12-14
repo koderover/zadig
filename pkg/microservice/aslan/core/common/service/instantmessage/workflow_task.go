@@ -190,7 +190,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						repos = stepSpec.Repos
 					}
 				}
-				branchTag, branchTagType, commitID, gitCommitURL := "", BranchTagTypeBranch, "", "", ""
+				branchTag, branchTagType, commitID, gitCommitURL := "", BranchTagTypeBranch, "", ""
 				commitMsgs := []string{}
 				for idx, buildRepo := range repos {
 					if idx == 0 || buildRepo.IsPrimary {
