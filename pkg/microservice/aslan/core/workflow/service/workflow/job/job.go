@@ -456,7 +456,7 @@ func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStor
 }
 
 func getEnvFromCommitMsg(repos []*types.Repository) []*commonmodels.KeyVal {
-	compileRegex := regexp.MustCompile(`^###(\w+=.+)$`)
+	compileRegex := regexp.MustCompile(`^#(\w+=.+)$`)
 	resp := []*commonmodels.KeyVal{}
 	for _, repo := range repos {
 		if repo.CommitMessage == "" {
