@@ -762,4 +762,19 @@ var (
 	ErrGetConfigurationManagement      = NewHTTPError(6923, "获取配置管理失败")
 	ErrDeleteConfigurationManagement   = NewHTTPError(6924, "删除配置管理失败")
 	ErrValidateConfigurationManagement = NewHTTPError(6925, "校验配置管理失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// external approval releated errors: 6930-6939
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateIMApp   = NewHTTPError(6930, "创建 IM 应用失败")
+	ErrUpdateIMApp   = NewHTTPError(6931, "更新 IM 应用失败")
+	ErrListIMApp     = NewHTTPError(6932, "列出 IM 应用失败")
+	ErrGetIMApp      = NewHTTPError(6933, "获取 IM 应用失败")
+	ErrDeleteIMApp   = NewHTTPError(6934, "删除 IM 应用失败")
+	ErrValidateIMApp = NewHTTPError(6935, "校验 IM 应用失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// check workflow task lark approval available releated errors: 6940-6949
+	//-----------------------------------------------------------------------------------------------
+	ErrCheckLarkApprovalCreator = NewHTTPError(6940, "获取飞书账号信息失败")
 )

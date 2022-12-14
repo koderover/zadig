@@ -204,6 +204,13 @@ const (
 	ZadigLastAppliedReplicas = "last-applied-replicas"
 )
 
+type ApprovalType string
+
+const (
+	NativeApproval ApprovalType = "native"
+	LarkApproval   ApprovalType = "lark"
+)
+
 type ApproveOrReject string
 
 const (

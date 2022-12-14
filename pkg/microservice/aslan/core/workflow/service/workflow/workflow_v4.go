@@ -495,9 +495,25 @@ func lintApprovals(approval *commonmodels.Approval) error {
 	if !approval.Enabled {
 		return nil
 	}
-	if len(approval.ApproveUsers) < approval.NeededApprovers {
-		return errors.New("all approve users should not less than needed approvers")
+	switch approval.Type {
+	case config.NativeApproval:
+		if approval.NativeApproval == nil {
+			return errors.New("approval not found")
+		}
+		if len(approval.NativeApproval.ApproveUsers) < approval.NativeApproval.NeededApprovers {
+			return errors.New("all approve users should not less than needed approvers")
+		}
+	case config.LarkApproval:
+		if approval.LarkApproval == nil {
+			return errors.New("approval not found")
+		}
+		if len(approval.LarkApproval.ApproveUsers) == 0 {
+			return errors.New("num of approver is 0")
+		}
+	default:
+		return errors.New("invalid approval type")
 	}
+
 	return nil
 }
 

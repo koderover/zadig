@@ -162,7 +162,7 @@ func GetWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
 func GetWebhookForWorkflowV4Preset(c *gin.Context) {
@@ -170,6 +170,13 @@ func GetWebhookForWorkflowV4Preset(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), ctx.Logger)
+}
+
+func CheckWorkflowV4LarkApproval(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = workflow.CheckWorkflowV4LarkApproval(c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
 func ListWebhookForWorkflowV4(c *gin.Context) {

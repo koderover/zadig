@@ -258,6 +258,22 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.DELETE("/:id", DeleteConfigurationManagement)
 		configuration.POST("/validate", ValidateConfigurationManagement)
 	}
+
+	imapp := router.Group("im_app")
+	{
+		imapp.GET("", ListIMApp)
+		imapp.POST("", CreateIMApp)
+		imapp.PUT("/:id", UpdateIMApp)
+		imapp.DELETE("/:id", DeleteIMApp)
+		imapp.POST("/validate", ValidateIMApp)
+	}
+
+	lark := router.Group("lark")
+	{
+		lark.GET("/:id/department/:department_id", GetLarkDepartment)
+		lark.GET("/:id/user", GetLarkUserID)
+		lark.POST("/:id/webhook", LarkEventHandler)
+	}
 }
 
 type OpenAPIRouter struct{}
