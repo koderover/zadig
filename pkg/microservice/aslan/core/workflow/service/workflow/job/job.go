@@ -465,6 +465,9 @@ func getEnvFromCommitMsg(repos []*types.Repository) []*commonmodels.KeyVal {
 		msgs := strings.Split(repo.CommitMessage, "\n")
 		for _, msg := range msgs {
 			matchArr := compileRegex.FindStringSubmatch(msg)
+			if len(matchArr) == 0 {
+				continue
+			}
 			keyValStr := matchArr[len(matchArr)-1]
 			keyValArr := strings.Split(keyValStr, "=")
 			if len(keyValArr) == 2 {
