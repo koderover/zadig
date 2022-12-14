@@ -75,7 +75,7 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
 	// NOTE. technically the content of variable yaml should be validated
 	// but the service is not rendered before applied to k8s, we ignore the validation on template
-	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVariables)
+	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVars)
 	if err != nil {
 		logger.Errorf("update yaml template variable error: %s", err)
 	}
@@ -115,8 +115,11 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 			log.Error("failed to get flat map of variable, err: %s", err)
 		} else {
 			allKeys := sets.NewString()
-			for k := range flatMap {
-				resp.VariableKeys = append(resp.VariableKeys, k)
+			for k, v := range flatMap {
+				resp.VariableKVs = append(resp.VariableKVs, &models.VariableKV{
+					Key:   k,
+					Value: v,
+				})
 				allKeys.Insert(k)
 			}
 			validServiceVars := make([]string, 0)
@@ -209,9 +212,30 @@ func ValidateVariable(content, variable string) error {
 	return nil
 }
 
-func ExtractVariable(content string) (string, error) {
-	if len(content) == 0 {
+func ExtractVariable(yamlContent string) (string, error) {
+	if len(yamlContent) == 0 {
 		return "", nil
 	}
-	return yamlutil.ExtractVariableYaml(content)
+	return yamlutil.ExtractVariableYaml(yamlContent)
+}
+
+func FlattenKvs(yamlContent string) ([]*models.VariableKV, error) {
+	if len(yamlContent) == 0 {
+		return nil, nil
+	}
+
+	valuesMap := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(yamlContent), &valuesMap)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*models.VariableKV, 0)
+	for k, v := range valuesMap {
+		ret = append(ret, &models.VariableKV{
+			Key:   k,
+			Value: v,
+		})
+	}
+	return ret, nil
 }

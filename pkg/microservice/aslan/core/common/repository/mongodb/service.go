@@ -333,6 +333,23 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	return err
 }
 
+func (c *ServiceColl) UpdateServiceVariables(args *models.Service) error {
+	if args == nil {
+		return errors.New("nil ServiceTmplObject")
+	}
+	args.ProductName = strings.TrimSpace(args.ProductName)
+	args.ServiceName = strings.TrimSpace(args.ServiceName)
+
+	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
+	changeMap := bson.M{
+		"variable_yaml": args.VariableYaml,
+		"service_vars":  args.ServiceVars,
+	}
+	change := bson.M{"$set": changeMap}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *ServiceColl) TransferServiceSource(productName, source, newSource, username string) error {
 	query := bson.M{"product_name": productName, "source": source}
 

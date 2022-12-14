@@ -147,7 +147,7 @@ func handleYamlTemplates() error {
 		}
 	}
 
-	return nil
+	return updater.Write()
 }
 
 func handleServiceTemplates() error {
@@ -334,6 +334,8 @@ func adjustSingleProductRender(product *uamodel.Product) error {
 		log.Errorf("failed to find renderset info: %v/%v, product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, product.ProductName, product.EnvName)
 		return err
 	}
+
+	log.Infof("handling single render set: %s:%v", maxVersionRender.Name, maxVersionRender.Revision)
 
 	// the render set has been handled
 	if len(renderSet.DefaultValues) > 0 {

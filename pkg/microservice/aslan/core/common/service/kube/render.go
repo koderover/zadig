@@ -17,14 +17,75 @@ limitations under the License.
 package kube
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
+	gotemplate "text/template"
+
+	"github.com/koderover/zadig/pkg/tool/log"
+
+	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
+	"gopkg.in/yaml.v2"
 )
+
+func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet) (string, error) {
+	if rs == nil {
+		return originYaml, nil
+	}
+	tmpl, err := gotemplate.New(fmt.Sprintf("%s:%s", productName, serviceName)).Parse(originYaml)
+	if err != nil {
+		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
+	}
+
+	serviceVariable := ""
+	for _, v := range rs.ServiceVariables {
+		if v.ServiceName != serviceName {
+			continue
+		}
+		if v.OverrideYaml != nil {
+			serviceVariable = v.OverrideYaml.YamlContent
+		}
+		break
+	}
+
+	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(rs.DefaultValues, serviceVariable)
+	if err != nil {
+		return originYaml, err
+	}
+
+	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
+	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
+
+	variableMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
+	if err != nil {
+		return originYaml, fmt.Errorf("failed to unmarshal variable yaml, err: %s", err)
+	}
+
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, variableMap)
+	if err != nil {
+		return originYaml, fmt.Errorf("template validate err: %s", err)
+	}
+
+	originYaml = buf.String()
+
+	// replace system variables
+	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
+	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
+
+	for rk, rv := range replacedKv {
+		originYaml = strings.ReplaceAll(originYaml, rk, rv)
+	}
+
+	return originYaml, nil
+}
 
 func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
 	if rs == nil {
@@ -61,6 +122,7 @@ func replaceAliasValue(origin string, v *templatemodels.RenderKV) string {
 	return origin
 }
 
+// RenderService renders service with particular revision and service vars in environment
 func RenderService(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService) (yaml *string, err error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: service.ServiceName,
@@ -73,11 +135,12 @@ func RenderService(prod *commonmodels.Product, render *commonmodels.RenderSet, s
 		return nil, err
 	}
 
-	// 渲染配置集
-	parsedYaml := RenderValueForString(svcTmpl.Yaml, render)
-	// 渲染系统变量键值
+	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
+	if err != nil {
+		log.Error("failed to render service yaml, err: %s", err)
+	}
+	//parsedYaml := RenderValueForString(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
-	// 替换服务模板容器镜像为用户指定镜像
 	parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
 
 	return &parsedYaml, nil

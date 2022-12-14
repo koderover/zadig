@@ -130,6 +130,7 @@ type RenderChart struct {
 	OverrideValues string `bson:"override_values,omitempty"   json:"override_values,omitempty"` // used for helm services, json-encoded string of kv value
 	// ---- for helm services end ----
 
+	// OverrideYaml will be used in both helm and k8s projects
 	OverrideYaml *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
 }
 

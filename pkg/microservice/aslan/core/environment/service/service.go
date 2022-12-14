@@ -460,7 +460,6 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		if serviceTmpl != nil && newRender != nil && productService != nil {
 			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 			_, err = upsertService(
-				true,
 				productObj,
 				productService,
 				productService,

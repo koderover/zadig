@@ -472,7 +472,6 @@ func updateProductImpl(serviceNames []string, deployStrategy map[string]string, 
 							return
 						}
 						_, errUpsertService := upsertService(
-							existedServices[service.ServiceName] != nil,
 							updateProd,
 							service,
 							existedServices[service.ServiceName],
@@ -2041,11 +2040,12 @@ func getProjectType(productName string) string {
 	return projectType
 }
 
-// upsertService 创建或者更新服务, 更新服务之前先创建服务需要的配置
-func upsertService(isUpdate bool, env *commonmodels.Product,
+// upsertService
+func upsertService(env *commonmodels.Product,
 	service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
+	isUpdate := prevSvc == nil
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {
 			format := "更新服务"
@@ -2066,7 +2066,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 		},
 	}
 
-	// 如果是非容器化部署方式的服务，则现在不需要进行创建或者更新
 	if service.Type != setting.K8SDeployType {
 		return nil, nil
 	}

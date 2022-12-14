@@ -64,8 +64,9 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	svc := &commonmodels.ProductService{
 		ServiceName: args.ServiceName,
 		Type:        args.ServiceType,
-		Revision:    args.ServiceRev.NextRevision,
-		Containers:  args.ServiceRev.Containers,
+		//Revision:    args.ServiceRev.NextRevision,
+		Revision:   0,
+		Containers: args.ServiceRev.Containers,
 	}
 
 	project, err := templaterepo.NewProductColl().Find(args.ProductName)
@@ -84,6 +85,14 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if err != nil {
 		k.log.Error(err)
 		return errors.New(e.UpsertServiceErrMsg)
+	}
+
+	currentProductSvc := exitedProd.GetServiceMap()[svc.ServiceName]
+	if currentProductSvc == nil {
+		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service: %s in env: %s", svc.ServiceName, exitedProd.EnvName))
+	}
+	if !args.UpdateServiceTmpl {
+		svc.Revision = currentProductSvc.Revision
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
@@ -128,10 +137,9 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	exitedProd.Render = &commonmodels.RenderInfo{Name: newRender.Name, Revision: newRender.Revision, ProductTmpl: newRender.ProductTmpl}
 
 	_, err = upsertService(
-		true,
 		exitedProd,
 		svc,
-		exitedProd.GetServiceMap()[svc.ServiceName],
+		currentProductSvc,
 		newRender, preRevision, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
@@ -262,7 +270,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(false, prod, svc, nil, renderSet, nil, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, nil, renderSet, nil, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

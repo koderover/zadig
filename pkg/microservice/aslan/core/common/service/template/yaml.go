@@ -47,7 +47,7 @@ func GetTemplateVariableYaml(variables []*models.Variable, variableYaml string) 
 }
 
 // SafeMergeVariableYaml merge yamls
-// support go template grammar
+// support go template grammar, you can put {{.xxx}} as value in variable yaml
 func SafeMergeVariableYaml(variableYamls ...string) (string, map[string]string, error) {
 	templateKv := make(map[string]string)
 	yamlsToMerge := make([][]byte, 0)

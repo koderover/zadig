@@ -63,6 +63,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		yaml.POST("/:id/reference", SyncYamlTemplateReference)
 		yaml.POST("/validateVariable", ValidateTemplateVariables)
 		yaml.POST("/extractVariable", ExtractTemplateVariables)
+		yaml.POST("/flatkvs", GetFlatKvs)
 	}
 
 	build := router.Group("build")
