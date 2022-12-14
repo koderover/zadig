@@ -317,6 +317,7 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 		if len(repo.CommitID) > 0 {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
 		}
+		ret = append(ret, getEnvFromCommitMsg(repo.CommitMessage)...)
 	}
 	return ret
 }
@@ -451,6 +452,26 @@ func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStor
 			MountPath: storage.Path,
 		}
 		resp = append(resp, storageDetail)
+	}
+	return resp
+}
+
+func getEnvFromCommitMsg(commitMsg string) []*commonmodels.KeyVal {
+	resp := []*commonmodels.KeyVal{}
+	if commitMsg == "" {
+		return resp
+	}
+	compileRegex := regexp.MustCompile(`(?U)#(\w+=.+)#`)
+	kvArrs := compileRegex.FindAllStringSubmatch(commitMsg, -1)
+	for _, kvArr := range kvArrs {
+		if len(kvArr) == 0 {
+			continue
+		}
+		keyValStr := kvArr[len(kvArr)-1]
+		keyValArr := strings.Split(keyValStr, "=")
+		if len(keyValArr) == 2 {
+			resp = append(resp, &commonmodels.KeyVal{Key: keyValArr[0], Value: keyValArr[1], Type: commonmodels.StringType})
+		}
 	}
 	return resp
 }

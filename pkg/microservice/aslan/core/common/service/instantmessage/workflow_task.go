@@ -190,7 +190,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						repos = stepSpec.Repos
 					}
 				}
-				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", BranchTagTypeBranch, "", "", ""
+				branchTag, branchTagType, commitID, gitCommitURL := "", BranchTagTypeBranch, "", ""
+				commitMsgs := []string{}
 				for idx, buildRepo := range repos {
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
@@ -201,13 +202,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						if len(buildRepo.CommitID) > 8 {
 							commitID = buildRepo.CommitID[0:8]
 						}
-						commitMsgs := strings.Split(buildRepo.CommitMessage, "\n")
-						if len(commitMsgs) > 0 {
-							commitMsg = commitMsgs[0]
-						}
-						if len(commitMsg) > CommitMsgInterceptLength {
-							commitMsg = commitMsg[0:CommitMsgInterceptLength]
-						}
+						commitMsgs = strings.Split(buildRepo.CommitMessage, "\n")
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
 				}
@@ -219,7 +214,15 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				}
 				if len(commitID) > 0 {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
+					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
+					if len(commitMsgs) == 1 {
+						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])
+					} else {
+						jobTplcontent += "\n"
+						for _, commitMsg := range commitMsgs {
+							jobTplcontent += fmt.Sprintf("%s \n", commitMsg)
+						}
+					}
 				}
 				if image != "" {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", image)
