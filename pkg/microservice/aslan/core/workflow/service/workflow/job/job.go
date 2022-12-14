@@ -317,6 +317,7 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 		if len(repo.CommitID) > 0 {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
 		}
+		ret = append(ret, getEnvFromCommitMsg(repo.CommitMessage)...)
 	}
 	return ret
 }
@@ -455,24 +456,21 @@ func getShareStorageDetail(shareStorages []*commonmodels.ShareStorage, shareStor
 	return resp
 }
 
-func getEnvFromCommitMsg(repos []*types.Repository) []*commonmodels.KeyVal {
-	compileRegex := regexp.MustCompile(`^#(\w+=.+)$`)
+func getEnvFromCommitMsg(commitMsg string) []*commonmodels.KeyVal {
 	resp := []*commonmodels.KeyVal{}
-	for _, repo := range repos {
-		if repo.CommitMessage == "" {
+	if commitMsg == "" {
+		return resp
+	}
+	compileRegex := regexp.MustCompile(`(?U)#(\w+=.+)#`)
+	kvArrs := compileRegex.FindAllStringSubmatch(commitMsg, -1)
+	for _, kvArr := range kvArrs {
+		if len(kvArr) == 0 {
 			continue
 		}
-		msgs := strings.Split(repo.CommitMessage, "\n")
-		for _, msg := range msgs {
-			matchArr := compileRegex.FindStringSubmatch(msg)
-			if len(matchArr) == 0 {
-				continue
-			}
-			keyValStr := matchArr[len(matchArr)-1]
-			keyValArr := strings.Split(keyValStr, "=")
-			if len(keyValArr) == 2 {
-				resp = append(resp, &commonmodels.KeyVal{Key: keyValArr[0], Value: keyValArr[1], Type: commonmodels.StringType})
-			}
+		keyValStr := kvArr[len(kvArr)-1]
+		keyValArr := strings.Split(keyValStr, "=")
+		if len(keyValArr) == 2 {
+			resp = append(resp, &commonmodels.KeyVal{Key: keyValArr[0], Value: keyValArr[1], Type: commonmodels.StringType})
 		}
 	}
 	return resp

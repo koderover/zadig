@@ -187,7 +187,6 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
 		}
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, testing.ProjectName, testing.Name, logger)...)
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getEnvFromCommitMsg(testing.Repos)...)
 
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)

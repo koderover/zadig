@@ -177,7 +177,6 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Registries:          registries,
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		}
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getEnvFromCommitMsg(scanning.Repos)...)
 
 		// init tools install step
 		tools := []*step.Tool{}
