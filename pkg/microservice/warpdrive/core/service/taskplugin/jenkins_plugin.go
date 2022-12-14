@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -137,7 +138,7 @@ func (j *JenkinsBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 	// 重置错误信息
 	j.Task.Error = ""
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,
@@ -241,7 +242,7 @@ func (j *JenkinsBuildPlugin) matchStatus(jobStatus config.Status, jenkinsBuildSt
 }
 
 func (j *JenkinsBuildPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,

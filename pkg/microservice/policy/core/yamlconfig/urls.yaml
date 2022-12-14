@@ -67,6 +67,9 @@ exemption_urls:
     - endpoint: api/aslan/system/registry
       methods:
         - GET
+    - endpoint: api/aslan/system/lark/?*/webhook
+      methods:
+        - POST
     - endpoint: api/aslan/testing/report
       methods:
         - GET
@@ -289,6 +292,13 @@ exemption_urls:
       methods:
         - POST
     - endpoint: api/aslan/system/configuration/?*
+      methods:
+        - PUT
+        - DELETE
+    - endpoint: api/aslan/system/im_app
+      methods:
+        - POST
+    - endpoint: api/aslan/system/im_app/?*
       methods:
         - PUT
         - DELETE

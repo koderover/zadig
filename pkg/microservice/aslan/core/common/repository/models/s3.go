@@ -33,6 +33,7 @@ type S3Storage struct {
 	UpdatedBy   string             `bson:"updated_by"     json:"updated_by"`
 	UpdateTime  int64              `bson:"update_time"    json:"update_time"`
 	Provider    int8               `bson:"provider"       json:"provider"`
+	Region      string             `bson:"region"         json:"region"`
 }
 
 type TarInfo struct {

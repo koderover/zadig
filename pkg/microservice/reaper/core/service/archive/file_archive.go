@@ -231,7 +231,7 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 		if store.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
 		}
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 		if err != nil {
 			log.Errorf("Archive s3 create s3 client error: %+v", err)
 			return nil, err

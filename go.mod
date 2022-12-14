@@ -45,6 +45,7 @@ require (
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/jinzhu/copier v0.3.5
 	github.com/jinzhu/now v1.1.5
+	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mittwald/go-helm-client v0.11.3
 	github.com/moby/buildkit v0.10.4

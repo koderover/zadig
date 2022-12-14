@@ -19,14 +19,22 @@ package workflowcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
+	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/pkg/tool/lark"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type approveMap struct {
@@ -35,7 +43,7 @@ type approveMap struct {
 }
 
 type approveWithLock struct {
-	approval *commonmodels.Approval
+	approval *commonmodels.NativeApproval
 	sync.RWMutex
 }
 
@@ -54,7 +62,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	stage.StartTime = time.Now().Unix()
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
-	if err := waitiForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
+	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
 		stage.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
@@ -91,18 +99,33 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return approveWithL.doApproval(userName, userID, comment, approve)
 }
 
-func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
 	if stage.Approval == nil {
 		return nil
 	}
 	if !stage.Approval.Enabled {
 		return nil
 	}
-	if stage.Approval.Timeout == 0 {
-		stage.Approval.Timeout = 60
+	switch stage.Approval.Type {
+	case config.NativeApproval:
+		return waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
+	case config.LarkApproval:
+		return waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
+	default:
+		return errors.New("invalid approval type")
+	}
+}
+
+func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	approval := stage.Approval.NativeApproval
+	if approval == nil {
+		return errors.New("waitForApprove: native approval data not found")
+	}
+	if approval.Timeout == 0 {
+		approval.Timeout = 60
 	}
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
-	approveWithL := &approveWithLock{approval: stage.Approval}
+	approveWithL := &approveWithLock{approval: approval}
 	globalApproveMap.setApproval(approveKey, approveWithL)
 	defer func() {
 		globalApproveMap.deleteApproval(approveKey)
@@ -112,7 +135,7 @@ func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflo
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 
-	timeout := time.After(time.Duration(stage.Approval.Timeout) * time.Minute)
+	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
 	latestApproveCount := 0
 	for {
 		time.Sleep(1 * time.Second)
@@ -136,6 +159,119 @@ func waitiForApprove(ctx context.Context, stage *commonmodels.StageTask, workflo
 			if approveCount > latestApproveCount {
 				ack()
 				latestApproveCount = approveCount
+			}
+		}
+	}
+}
+
+func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	log.Infof("waitForLarkApprove start")
+	approval := stage.Approval.LarkApproval
+	if approval == nil {
+		stage.Status = config.StatusFailed
+		return errors.New("waitForApprove: lark approval data not found")
+	}
+	if approval.Timeout == 0 {
+		approval.Timeout = 60
+	}
+
+	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ApprovalID)
+	if err != nil {
+		stage.Status = config.StatusFailed
+		return errors.Wrap(err, "get external approval data")
+	}
+
+	client := lark.NewClient(data.AppID, data.AppSecret)
+
+	userID, err := client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile)
+	if err != nil {
+		stage.Status = config.StatusFailed
+		return errors.Wrapf(err, "get user lark id by mobile-%s", workflowCtx.WorkflowTaskCreatorMobile)
+	}
+
+	log.Infof("waitForLarkApprove: ApproveUsers num %d", len(approval.ApproveUsers))
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowCtx.ProjectName,
+		workflowCtx.WorkflowName,
+		workflowCtx.TaskID,
+		url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	)
+	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
+		ApprovalCode: data.LarkDefaultApprovalCode,
+		UserOpenID:   userID,
+		ApproverIDList: func() (list []string) {
+			for _, user := range approval.ApproveUsers {
+				list = append(list, user.ID)
+			}
+			return list
+		}(),
+		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s\n\n更多详见: %s",
+			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, detailURL),
+	})
+	if err != nil {
+		log.Errorf("waitForLarkApprove: create instance failed: %v", err)
+		stage.Status = config.StatusFailed
+		return errors.Wrap(err, "create approval instance")
+	}
+	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
+
+	cancelApproval := func() {
+		err := client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{
+			ApprovalID: data.LarkDefaultApprovalCode,
+			InstanceID: instance,
+			UserID:     userID,
+		})
+		if err != nil {
+			log.Errorf("cancel approval %s error: %v", instance, err)
+		}
+	}
+	userUpdate := func(list []*commonmodels.LarkApprovalUser) []*commonmodels.LarkApprovalUser {
+		info, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+		if err != nil {
+			log.Errorf("waitForLarkApprove: GetApprovalInstance error: %v", err)
+			return list
+		}
+		for _, user := range list {
+			if user.ID == info.ApproverInfo.ID {
+				user.RejectOrApprove = info.ApproveOrReject
+				user.Comment = info.Comment
+				user.OperationTime = info.Time
+			}
+		}
+		return list
+	}
+
+	defer func() {
+		larkservice.GetLarkApprovalManager(approval.ApprovalID).RemoveInstance(instance)
+	}()
+	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
+	for {
+		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			stage.Status = config.StatusCancelled
+			cancelApproval()
+			return fmt.Errorf("workflow was canceled")
+		case <-timeout:
+			stage.Status = config.StatusCancelled
+			cancelApproval()
+			return fmt.Errorf("workflow timeout")
+		default:
+			status := larkservice.GetLarkApprovalManager(approval.ApprovalID).GetInstanceStatus(instance)
+			switch status {
+			case larkservice.ApprovalStatusApproved:
+				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
+				return nil
+			case larkservice.ApprovalStatusRejected:
+				stage.Status = config.StatusReject
+				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
+				return errors.New("Approval has been rejected")
+			case larkservice.ApprovalStatusCanceled:
+				stage.Status = config.StatusFailed
+				return errors.New("Approval has been canceled")
+			case larkservice.ApprovalStatusDeleted:
+				return errors.New("Approval has been deleted")
 			}
 		}
 	}

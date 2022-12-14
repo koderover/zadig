@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -201,7 +202,7 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 		return
 	}
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,
@@ -305,7 +306,7 @@ func (p *ArtifactDeployTaskPlugin) Wait(ctx context.Context) {
 
 // Complete ...
 func (p *ArtifactDeployTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,

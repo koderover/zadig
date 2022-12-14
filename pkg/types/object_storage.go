@@ -23,6 +23,7 @@ type ObjectStorageInfo struct {
 	Bucket   string `bson:"bucket"   json:"bucket"   yaml:"bucket"`
 	Insecure bool   `bson:"insecure" json:"insecure" yaml:"insecure"`
 	Provider int8   `bson:"provider" json:"provider" yaml:"provider"`
+	Region   string `bson:"region"   json:"region"   yaml:"region"`
 }
 
 type ObjectStoragePathDetail struct {

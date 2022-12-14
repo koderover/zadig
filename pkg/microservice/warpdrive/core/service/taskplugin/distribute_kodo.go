@@ -87,7 +87,7 @@ func (p *Distribute2S3TaskPlugin) TaskTimeout() int {
 	return p.Task.Timeout
 }
 
-//是否是kodo
+// 是否是kodo
 func isKODO(storage *s3.S3) bool {
 	return strings.Contains(storage.Endpoint, "qiniucs.com")
 }
@@ -107,7 +107,7 @@ func upload(ctx context.Context, log *zap.SugaredLogger, storage *s3.S3, localfi
 	if storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 		if srcStorage.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
 		}
-		s3client, err := s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Region, srcStorage.Insecure, forcedPathStyle)
 		if err != nil {
 			p.Log.Errorf("failed to create s3 client source storage %s: %v", srcStorage.GetURI(), err)
 			return

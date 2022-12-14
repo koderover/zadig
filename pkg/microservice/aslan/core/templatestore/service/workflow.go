@@ -375,10 +375,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name:     "灰度50%",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
-						Enabled:         true,
-						Timeout:         60,
-						NeededApprovers: 1,
-						Description:     "Confirm release to 50%",
+						Enabled:     true,
+						Description: "Confirm release to 50%",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
 					},
 					Jobs: []*commonmodels.Job{
 						{
@@ -396,10 +399,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name:     "灰度100%",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
-						Enabled:         true,
-						Timeout:         60,
-						NeededApprovers: 1,
-						Description:     "Confirm release to 100%",
+						Enabled:     true,
+						Description: "Confirm release to 100%",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
 					},
 					Jobs: []*commonmodels.Job{
 						{
@@ -436,10 +442,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name:     "蓝绿发布",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
-						Enabled:         true,
-						Timeout:         60,
-						NeededApprovers: 1,
-						Description:     "Confirm to release",
+						Enabled:     true,
+						Description: "Confirm to release",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
 					},
 					Jobs: []*commonmodels.Job{
 						{
@@ -474,10 +483,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name:     "金丝雀发布",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
-						Enabled:         true,
-						Timeout:         60,
-						NeededApprovers: 1,
-						Description:     "Confirm to release",
+						Enabled:     true,
+						Description: "Confirm to release",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
 					},
 					Jobs: []*commonmodels.Job{
 						{
@@ -516,10 +528,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name:     "istio流量切换20%",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
-						Enabled:         true,
-						Timeout:         60,
-						NeededApprovers: 1,
-						Description:     "Confirm switch 20% reaffic",
+						Enabled:     true,
+						Description: "Confirm switch 20% reaffic",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
 					},
 					Jobs: []*commonmodels.Job{
 						{
@@ -570,10 +585,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name:     "istio流量切换100%",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
-						Enabled:         true,
-						Timeout:         60,
-						NeededApprovers: 1,
-						Description:     "Confirm switch 100 traffic",
+						Enabled:     true,
+						Description: "Confirm switch 100 traffic",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
 					},
 					Jobs: []*commonmodels.Job{
 						{
@@ -607,10 +625,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Name:     "灰度100%",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
-						Enabled:         true,
-						Timeout:         60,
-						NeededApprovers: 1,
-						Description:     "Confirm release to 100%",
+						Enabled:     true,
+						Description: "Confirm release to 100%",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
 					},
 					Jobs: []*commonmodels.Job{
 						{

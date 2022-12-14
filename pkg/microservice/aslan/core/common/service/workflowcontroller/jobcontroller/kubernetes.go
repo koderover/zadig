@@ -465,7 +465,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			},
 		})
 
-		mountPath := jobTaskSpec.Properties.CacheUserDir
+		mountPath := strings.ReplaceAll(jobTaskSpec.Properties.CacheUserDir, "$WORKSPACE", workflowCtx.Workspace)
 		if jobTaskSpec.Properties.CacheDirType == commontypes.WorkspaceCacheDir {
 			mountPath = workflowCtx.Workspace
 		}
@@ -1048,7 +1048,7 @@ func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID
 			if store.Provider == setting.ProviderSourceAli {
 				forcedPathStyle = false
 			}
-			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
 			if err != nil {
 				return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
 			}

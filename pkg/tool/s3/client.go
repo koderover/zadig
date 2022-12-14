@@ -50,14 +50,18 @@ var defaultDownloadOption = &DownloadOption{
 	RetryNum: 3,
 }
 
-func NewClient(endpoint, ak, sk string, insecure, forcedPathStyle bool) (*Client, error) {
+func NewClient(endpoint, ak, sk, region string, insecure, forcedPathStyle bool) (*Client, error) {
 	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
-		Region:           aws.String(DefaultRegion),
 		Endpoint:         aws.String(endpoint),
 		S3ForcePathStyle: aws.Bool(forcedPathStyle),
 		Credentials:      creds,
 		DisableSSL:       aws.Bool(insecure),
+	}
+	if region != "" {
+		config.Region = aws.String(region)
+	} else {
+		config.Region = aws.String(DefaultRegion)
 	}
 	session, err := session.NewSession(config)
 	if err != nil {

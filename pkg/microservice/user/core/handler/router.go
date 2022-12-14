@@ -38,11 +38,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		users.PUT("/users/:uid/personal", user.UpdatePersonalUser)
 
+		users.PUT("/users/:uid/setting", user.UpdateUserSetting)
+
 		users.GET("/users/:uid", user.GetUser)
 
 		users.DELETE("/users/:uid", user.DeleteUser)
 
 		users.GET("/users/:uid/personal", user.GetPersonalUser)
+
+		users.GET("/users/:uid/setting", user.GetUserSetting)
 
 		users.POST("/users/search", user.ListUsers)
 

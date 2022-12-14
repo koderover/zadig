@@ -148,7 +148,7 @@ func InitTestStat(log *zap.SugaredLogger) error {
 									if defaultS3Storage.Provider == setting.ProviderSourceAli {
 										forcedPathStyle = false
 									}
-									client, err := s3tool.NewClient(defaultS3Storage.Endpoint, defaultS3Storage.Ak, defaultS3Storage.Sk, defaultS3Storage.Insecure, forcedPathStyle)
+									client, err := s3tool.NewClient(defaultS3Storage.Endpoint, defaultS3Storage.Ak, defaultS3Storage.Sk, defaultS3Storage.Region, defaultS3Storage.Insecure, forcedPathStyle)
 									if err != nil {
 										log.Errorf("Failed to create s3 client for download, error: %s", err)
 										return

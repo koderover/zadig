@@ -48,7 +48,6 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 
 	log.Infof("Matching scanning list to find matched task to run.")
 	for _, scanning := range scanningList {
-		log.Infof("scanning.AdvancedSetting.Hookctl is: [%s], scanning.AdvancedSetting.HookCtl.Enabled is: [%s], scanningName is: [%s]", scanning.AdvancedSetting.HookCtl, scanning.AdvancedSetting.HookCtl.Enabled, scanning.ID)
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {
 				matcher := createGithubEventMatcherForScanning(event, diffSrv, scanning, log)

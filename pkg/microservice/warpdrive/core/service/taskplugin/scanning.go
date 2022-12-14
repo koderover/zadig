@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"go.uber.org/zap"
@@ -37,6 +36,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
 func InitializeScanningTaskPlugin(taskType config.TaskType) TaskPlugin {
@@ -172,7 +173,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		return
 	}
 
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,
@@ -286,7 +287,7 @@ func (p *ScanPlugin) tmpSetTaskTimeout(durationInSeconds int) {
 }
 
 func (p *ScanPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
-	jobLabel := &JobLabel{
+	jobLabel := &label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
 		TaskID:       pipelineTask.TaskID,

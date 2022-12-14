@@ -36,8 +36,8 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 const (
@@ -197,7 +197,13 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	if options.SubTask == "" {
 		options.SubTask = string(config.TaskBuild)
 	}
-	selector := getPipelineSelector(options)
+	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
+		PipelineName: options.PipelineName,
+		TaskID:       options.TaskID,
+		TaskType:     options.SubTask,
+		ServiceName:  options.ServiceName,
+		PipelineType: options.PipelineType,
+	})).AsSelector()
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
@@ -266,7 +272,13 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 
 func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
 	options.SubTask = string(config.TaskTestingV2)
-	selector := getPipelineSelector(options)
+	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
+		PipelineName: options.PipelineName,
+		TaskID:       options.TaskID,
+		TaskType:     options.SubTask,
+		ServiceName:  options.ServiceName,
+		PipelineType: options.PipelineType,
+	})).AsSelector()
 	// get cluster ID
 	testing, _ := commonrepo.NewTestingColl().Find(getTestName(options.ServiceName), "")
 	// Compatible with the situation where the old data has not been modified
@@ -331,27 +343,6 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 			log,
 		)
 	}
-}
-
-func getPipelineSelector(options *GetContainerOptions) labels.Selector {
-	ret := labels.Set{}
-	pipelineWithTaskID := fmt.Sprintf("%s-%d", strings.ToLower(options.PipelineName), options.TaskID)
-
-	//适配之前的docker_build下划线
-	options.SubTask = strings.Replace(options.SubTask, "_", "-", 1)
-
-	ret[setting.TaskLabel] = pipelineWithTaskID
-	ret[setting.TypeLabel] = options.SubTask
-
-	if options.ServiceName != "" {
-		ret[setting.ServiceLabel] = strings.ToLower(util.ReturnValidLabelValue(options.ServiceName))
-	}
-
-	if options.PipelineType != "" {
-		ret[setting.PipelineTypeLable] = options.PipelineType
-	}
-
-	return ret.AsSelector()
 }
 
 func getWorkflowSelector(options *GetContainerOptions) labels.Selector {

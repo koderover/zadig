@@ -64,6 +64,17 @@ func GetPersonalUser(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.GetUser(uid, ctx.Logger)
 }
 
+func GetUserSetting(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	uid := c.Param("uid")
+	if ctx.UserID != uid {
+		ctx.Err = e.ErrForbidden
+		return
+	}
+	ctx.Resp, ctx.Err = user.GetUserSetting(uid, ctx.Logger)
+}
+
 func ListUsers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -121,6 +132,22 @@ func UpdatePersonalUser(c *gin.Context) {
 		return
 	}
 	ctx.Err = user.UpdateUser(uid, args, ctx.Logger)
+}
+
+func UpdateUserSetting(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &user.UserSetting{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	uid := c.Param("uid")
+	if ctx.UserID != uid {
+		ctx.Err = e.ErrForbidden
+		return
+	}
+	ctx.Err = user.UpdateUserSetting(uid, args)
 }
 
 func SignUp(c *gin.Context) {

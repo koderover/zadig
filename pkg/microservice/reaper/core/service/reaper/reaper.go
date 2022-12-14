@@ -506,7 +506,7 @@ func (r *Reaper) AfterExec() error {
 		if r.Ctx.UploadStorageInfo.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
 		}
-		client, err := s3.NewClient(r.Ctx.UploadStorageInfo.Endpoint, r.Ctx.UploadStorageInfo.AK, r.Ctx.UploadStorageInfo.SK, r.Ctx.UploadStorageInfo.Insecure, forcedPathStyle)
+		client, err := s3.NewClient(r.Ctx.UploadStorageInfo.Endpoint, r.Ctx.UploadStorageInfo.AK, r.Ctx.UploadStorageInfo.SK, r.Ctx.UploadStorageInfo.Region, r.Ctx.UploadStorageInfo.Insecure, forcedPathStyle)
 		if err != nil {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}

@@ -89,6 +89,12 @@ type RetrieveResp struct {
 	Email string `json:"email"`
 }
 
+type UserSetting struct {
+	Theme        string `json:"theme"`
+	LogBgColor   string `json:"log_bg_color"`
+	LogFontColor string `json:"log_font_color"`
+}
+
 func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 	systemConfigClient := systemconfig.New()
 	si, err := systemConfigClient.GetLDAPConnector(ldapId)
@@ -198,6 +204,31 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 		}
 	}
 	return userInfoRes, nil
+}
+
+func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, error) {
+	user, err := orm.GetUserByUid(uid, core.DB)
+	if err != nil {
+		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
+		return nil, err
+	}
+	if user == nil {
+		return nil, nil
+	}
+	userSetting, err := orm.GetUserSettingByUid(uid, core.DB)
+	if err != nil {
+		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
+		return nil, err
+	}
+	ret := &types.UserSetting{
+		Uid: uid,
+	}
+	if userSetting != nil {
+		ret.Theme = userSetting.Theme
+		ret.LogBgColor = userSetting.LogBgColor
+		ret.LogFontColor = userSetting.LogFontColor
+	}
+	return ret, nil
 }
 
 func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
@@ -328,6 +359,12 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		logger.Errorf("DeleteUserByUID DeleteUserLoginByUid:%s error, error msg:%s", uid, err.Error())
 		return err
 	}
+	err = orm.DeleteUserSettingByUid(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("DeleteUserByUID DeleteUserSettingByUid:%s error, error msg:%s", uid, err.Error())
+		return err
+	}
 	return tx.Commit().Error
 }
 
@@ -448,7 +485,20 @@ func UpdateUser(uid string, args *UpdateUserInfo, _ *zap.SugaredLogger) error {
 		Phone: args.Phone,
 	}
 	return orm.UpdateUser(uid, user, core.DB)
+}
 
+func UpdateUserSetting(uid string, args *UserSetting) error {
+	userSetting := &models.UserSetting{
+		UID:          uid,
+		Theme:        args.Theme,
+		LogBgColor:   args.LogBgColor,
+		LogFontColor: args.LogFontColor,
+	}
+	err := orm.UpsertUserSetting(userSetting, core.DB)
+	if err != nil {
+		return e.ErrUpdateUser.AddErr(err)
+	}
+	return nil
 }
 
 func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {

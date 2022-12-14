@@ -156,6 +156,7 @@ const (
 	ProductLabel                    = "s-product"
 	GroupLabel                      = "s-group"
 	ServiceLabel                    = "s-service"
+	LabelHashKey                    = "hash"
 	ConfigBackupLabel               = "config-backup"
 	EnvNameLabel                    = "s-env"
 	UpdateBy                        = "update-by"
@@ -559,9 +560,10 @@ const (
 	PathSearchComponentTag   = "tag"
 )
 
-// Aliyun specific stuff
+// host for multiple cloud provider
 const (
 	AliyunHost = ".aliyuncs.com"
+	AWSHost    = ".amazonaws.com"
 )
 
 // Dockerfile parsing consts
@@ -734,4 +736,16 @@ const (
 const (
 	ServiceDeployStrategyImport = "import"
 	ServiceDeployStrategyDeploy = "deploy"
+)
+
+// Instant Message System types
+const (
+	IMLark     = "lark"
+	IMDingding = "dingding"
+)
+
+// lark app
+const (
+	LarkUserOpenID       = "open_id"
+	LarkDepartmentOpenID = "open_department_id"
 )

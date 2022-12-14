@@ -69,7 +69,10 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(ctx.UserName, args, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+		Name:   ctx.UserName,
+		UserID: ctx.UserID,
+	}, args, ctx.Logger)
 }
 
 func ListWorkflowTaskV4(c *gin.Context) {

@@ -36,6 +36,7 @@ type S3 struct {
 	Insecure  bool   `json:"insecure"`
 	IsDefault bool   `json:"is_default"`
 	Provider  int    `json:"provider"`
+	Region    string `json:"region"`
 }
 
 func (s *S3) GetSchema() string {

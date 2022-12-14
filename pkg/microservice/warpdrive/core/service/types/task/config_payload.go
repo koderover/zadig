@@ -87,6 +87,7 @@ type S3Config struct {
 	Path     string
 	Protocol string
 	Provider int8
+	Region   string
 }
 
 type GithubConfig struct {
