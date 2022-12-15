@@ -336,7 +336,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if err != nil {
 					return "", "", nil, err
 				}
-				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", BranchTagTypeBranch, "", "", ""
+				branchTag, branchTagType, commitID, commitMsg, gitCommitURL, prURL, prID := "", BranchTagTypeBranch, "", "", "", "", 0
 				for idx, buildRepo := range buildSt.JobCtx.Builds {
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
@@ -355,7 +355,14 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 							commitMsg = commitMsg[0:CommitMsgInterceptLength]
 						}
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
+						prID = buildRepo.PR
+						prURL = fmt.Sprintf("%s/%s/%s/pull/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
 					}
+				}
+				prInfo := ""
+				if prID != 0 {
+					// need an extra space at the end
+					prInfo = fmt.Sprintf("[PullRequest-#%d](%s) ", prID, prURL)
 				}
 				if buildSt.BuildStatus.Status == "" {
 					buildSt.BuildStatus.Status = config.StatusNotRun
@@ -365,7 +372,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 					(buildSt.JobCtx.FileArchiveCtx != nil || buildSt.JobCtx.DockerBuildCtx != nil)) {
 					buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.JobCtx.Image)
 				}
-				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s-%s %s[%s](%s) \n", branchTagType, branchTag, prInfo, commitID, gitCommitURL)
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
 				build = append(build, buildElemTemp)
 			}
