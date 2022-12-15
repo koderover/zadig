@@ -210,7 +210,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			}
 			return list
 		}(),
-		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s%s\n阶段名称: %s\n\n更多详见: %s",
+		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
 			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, descForm, stage.Name, detailURL),
 	})
 	if err != nil {
