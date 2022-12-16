@@ -120,7 +120,7 @@ func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.Suga
 		stages := []string{}
 		for _, stage := range template.Stages {
 			if stage.Approval != nil && stage.Approval.Enabled {
-				stages = append(stages, "人工审核")
+				stages = append(stages, "人工审批")
 			}
 			stages = append(stages, stage.Name)
 		}
@@ -353,7 +353,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "多阶段灰度",
-			Description:  "支持自动化执行多阶段的灰度发布，结合人工审核，确保灰度过程可控",
+			Description:  "支持自动化执行多阶段的灰度发布，结合人工审批，确保灰度过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
@@ -423,7 +423,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "蓝绿发布",
-			Description:  "支持自动化执行蓝绿发布，结合人工审核，确保蓝绿过程可控",
+			Description:  "支持自动化执行蓝绿发布，结合人工审批，确保蓝绿过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
@@ -464,7 +464,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "金丝雀发布",
-			Description:  "支持自动化执行金丝雀发布，结合人工审核，确保金丝雀发布过程可控",
+			Description:  "支持自动化执行金丝雀发布，结合人工审批，确保金丝雀发布过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
