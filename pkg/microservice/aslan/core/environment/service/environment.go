@@ -884,6 +884,46 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 	}
 }
 
+func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log *zap.SugaredLogger) (map[string][]string, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product info, err: %s", err)
+	}
+	productServiceRevisions, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find revision services, err: %s", err)
+	}
+
+	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: productName,
+		EnvName:     envName,
+		IsDefault:   false,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find render, err: %s", err)
+	}
+
+	ret := make(map[string][]string)
+	ret["services"] = make([]string, 0)
+	diffKeys, err := yamlutil.DiffFlatKeys(renderset.DefaultValues, arg.VariableYaml)
+	if err != nil {
+		return ret, err
+	}
+
+	for _, singleSvc := range productServiceRevisions {
+		containsKey, err := yamlutil.ContainsFlatKey(singleSvc.VariableYaml, diffKeys)
+		if err != nil {
+			return ret, err
+		}
+		if containsKey {
+			ret["services"] = append(ret["services"], singleSvc.ServiceName)
+		}
+	}
+	return ret, nil
+}
+
 func GeneEstimatedValues(productName, envName, serviceName, scene, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
 	chartValues, defaultValues, err := prepareEstimatedData(productName, envName, serviceName, scene, arg.DefaultValues, log)
 	if err != nil {
@@ -1983,7 +2023,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	}
 
 	// find renderchart info in env
-	renderChartInEnv, _, err := commonservice.GetSvcRenderArgs(productName, envName, serviceNameListStr, setting.HelmDeployType, log)
+	renderChartInEnv, _, err := commonservice.GetSvcRenderArgs(productName, envName, serviceNameListStr, log)
 	if err != nil {
 		log.Errorf("find render charts in env fail, env %s err %s", envName, err.Error())
 		return nil, e.ErrGetRenderSet.AddDesc("failed to get render charts in env")

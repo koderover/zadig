@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -125,13 +127,93 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func GetSvcRenderArgs(productName, envName, serviceName, svcType string, log *zap.SugaredLogger) ([]*SvcRenderArg, *models.RenderSet, error) {
+func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*SvcRenderArg, error) {
+
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
+	renderRevision := int64(0)
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+
+	if err != nil && err != mongo.ErrNoDocuments {
+		return nil, err
+	}
+	if err == nil {
+		renderSetName = productInfo.Render.Name
+		renderRevision = productInfo.Render.Revision
+	}
+
+	svcRenders := make(map[string]*templatemodels.ServiceRender)
+	svcs, err := GetProductUsedTemplateSvcs(productInfo)
+	if err != nil {
+		return nil, err
+	}
+	for _, svc := range svcs {
+		svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
+			ServiceName:  svc.ServiceName,
+			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+		}
+	}
 
 	opt := &commonrepo.RenderSetFindOption{
 		ProductTmpl: productName,
 		EnvName:     envName,
 		Name:        renderSetName,
+		Revision:    renderRevision,
+	}
+	rendersetObj, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err == nil {
+		for _, svcRender := range rendersetObj.ChartInfos {
+			svcRenders[svcRender.ServiceName] = svcRender
+		}
+	}
+
+	validSvcs := sets.NewString(strings.Split(serviceName, ",")...)
+	filter := func(name string) bool {
+		return len(serviceName) == 0 || validSvcs.Has(name)
+	}
+
+	ret := make([]*SvcRenderArg, 0)
+	for name, svcRender := range svcRenders {
+		if !filter(name) {
+			continue
+		}
+		rArg := &SvcRenderArg{
+			ServiceName: svcRender.ServiceName,
+		}
+		if svcRender.OverrideYaml != nil {
+			rArg.VariableYaml = svcRender.OverrideYaml.YamlContent
+		}
+		ret = append(ret, rArg)
+	}
+	return ret, nil
+}
+
+func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*SvcRenderArg, *models.RenderSet, error) {
+
+	renderSetName := GetProductEnvNamespace(envName, productName, "")
+	renderRevision := int64(0)
+	ret := make([]*SvcRenderArg, 0)
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+
+	if err != nil && err != mongo.ErrNoDocuments {
+		return nil, nil, err
+	}
+
+	if err == nil {
+		renderSetName = productInfo.Render.Name
+		renderRevision = productInfo.Render.Revision
+	}
+
+	opt := &commonrepo.RenderSetFindOption{
+		ProductTmpl: productName,
+		EnvName:     envName,
+		Name:        renderSetName,
+		Revision:    renderRevision,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
@@ -142,7 +224,6 @@ func GetSvcRenderArgs(productName, envName, serviceName, svcType string, log *za
 		return nil, nil, nil
 	}
 
-	ret := make([]*SvcRenderArg, 0)
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
 	if len(serviceName) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
@@ -159,20 +240,14 @@ func GetSvcRenderArgs(productName, envName, serviceName, svcType string, log *za
 
 	for _, singleChart := range matchedRenderChartModels {
 		rcaObj := &SvcRenderArg{}
-		if svcType == setting.K8SDeployType {
-			if singleChart.OverrideYaml != nil {
-				rcaObj.VariableYaml = singleChart.OverrideYaml.YamlContent
-			}
-		} else {
-			rcaObj.LoadFromRenderChartModel(singleChart)
-			rcaObj.EnvName = envName
-			err = FillGitNamespace(rendersetObj.YamlData)
-			if err != nil {
-				// Note, since user can always reselect the git info, error should not block normal logic
-				log.Warnf("failed to fill git namespace data, err: %s", err)
-			}
-			rcaObj.YamlData = singleChart.OverrideYaml
+		rcaObj.LoadFromRenderChartModel(singleChart)
+		rcaObj.EnvName = envName
+		err = FillGitNamespace(rendersetObj.YamlData)
+		if err != nil {
+			// Note, since user can always reselect the git info, error should not block normal logic
+			log.Warnf("failed to fill git namespace data, err: %s", err)
 		}
+		rcaObj.YamlData = singleChart.OverrideYaml
 		ret = append(ret, rcaObj)
 	}
 	return ret, rendersetObj, nil

@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -713,14 +715,16 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 	return resp, nil
 }
 
-func GetResourceDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
-
-	svcSet := sets.NewString(request.Services...)
+	svcSet := sets.NewString()
+	for _, svc := range request.Services {
+		svcSet.Insert(svc.ServiceName)
+	}
 	ret := make([]*ServiceDeployStatus, 0)
 
 	resourcesByType := make(map[string]map[string]*ResourceDeployStatus)
@@ -734,8 +738,35 @@ func GetResourceDeployStatus(productName string, request *DeployStatusCheckReque
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
+	defaultValues := request.DefaultValues
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: request.EnvName,
+	})
+
+	if err == nil && productInfo != nil {
+		renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+			ProductTmpl: productName,
+			EnvName:     request.EnvName,
+			IsDefault:   false,
+			Revision:    productInfo.Render.Revision,
+			Name:        productInfo.Render.Name,
+		})
+		if err == nil && renderset != nil {
+			defaultValues = renderset.DefaultValues
+		}
+	}
+
 	fakeRenderSet := &models.RenderSet{
-		KVs: request.Vars,
+		DefaultValues: defaultValues,
+	}
+
+	for _, sv := range request.Services {
+		fakeRenderSet.ServiceVariables = append(fakeRenderSet.ServiceVariables, &template.ServiceRender{
+			ServiceName:  sv.ServiceName,
+			OverrideYaml: &template.CustomYaml{YamlContent: sv.VariableYaml},
+		})
 	}
 
 	for _, svc := range productServices {
@@ -830,7 +861,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	return nil
 }
 
-func GetReleaseDeployStatus(productName string, request *DeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {

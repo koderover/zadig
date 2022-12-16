@@ -117,7 +117,7 @@ type EnvRendersetArg struct {
 }
 
 type K8sRendersetArg struct {
-	DefaultValues string `json:"default_values"`
+	VariableYaml string `json:"variable_yaml"`
 }
 
 type ProductK8sServiceCreationInfo struct {
@@ -194,12 +194,21 @@ type UpdateEnvRequest struct {
 
 // ------------ used for api of getting deploy status of k8s resource/helm release
 
-type DeployStatusCheckRequest struct {
-	EnvName   string                     `json:"env_name"`
-	Services  []string                   `json:"services"`
-	ClusterID string                     `json:"cluster_id"`
-	Namespace string                     `json:"namespace"`
-	Vars      []*templatemodels.RenderKV `json:"vars"`
+type K8sDeployStatusCheckRequest struct {
+	EnvName       string                        `json:"env_name"`
+	Services      []*commonservice.SvcRenderArg `json:"services"`
+	ClusterID     string                        `json:"cluster_id"`
+	Namespace     string                        `json:"namespace"`
+	DefaultValues string                        `json:"default_values"`
+	//Vars      []*templatemodels.RenderKV `json:"vars"`
+}
+
+type HelmDeployStatusCheckRequest struct {
+	EnvName   string   `json:"env_name"`
+	Services  []string `json:"services"`
+	ClusterID string   `json:"cluster_id"`
+	Namespace string   `json:"namespace"`
+	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
 type DeployStatus string

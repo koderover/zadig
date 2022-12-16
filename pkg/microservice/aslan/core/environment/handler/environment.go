@@ -92,7 +92,6 @@ func UpdateMultiProducts(c *gin.Context) {
 	} else {
 		updateMultiK8sEnv(c, request, ctx)
 	}
-
 }
 
 func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
@@ -312,6 +311,26 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	ctx.Err = service.UpdateProductRecycleDay(envName, projectName, recycleDay)
 }
 
+func AffectedServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+
+	arg := new(service.K8sRendersetArg)
+
+	if err := c.BindJSON(arg); err != nil {
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetAffectedServices(projectName, envName, arg, ctx.Logger)
+}
+
 func EstimatedValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -461,7 +480,7 @@ func UpdateK8sProductDefaultValues(c *gin.Context) {
 
 	envRenderArg := &service.EnvRendersetArg{
 		DeployType:    setting.K8SDeployType,
-		DefaultValues: arg.DefaultValues,
+		DefaultValues: arg.VariableYaml,
 	}
 
 	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, envRenderArg, ctx.Logger)

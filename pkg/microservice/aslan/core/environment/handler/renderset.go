@@ -19,8 +19,6 @@ package handler
 import (
 	"strings"
 
-	"github.com/koderover/zadig/pkg/setting"
-
 	"github.com/gin-gonic/gin"
 
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -43,7 +41,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), setting.K8SDeployType, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.GetK8sSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func GetServiceVariables(c *gin.Context) {
@@ -60,7 +58,7 @@ func GetServiceVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), setting.HelmDeployType, ctx.Logger)
+	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {
