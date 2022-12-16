@@ -197,6 +197,10 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		workflowCtx.TaskID,
 		url.QueryEscape(workflowCtx.WorkflowDisplayName),
 	)
+	descForm := ""
+	if stage.Approval.Description != "" {
+		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
+	}
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
 		ApprovalCode: data.LarkDefaultApprovalCode,
 		UserOpenID:   userID,
@@ -206,8 +210,8 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			}
 			return list
 		}(),
-		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s\n\n更多详见: %s",
-			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, detailURL),
+		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
+			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL),
 	})
 	if err != nil {
 		log.Errorf("waitForLarkApprove: create instance failed: %v", err)
@@ -215,6 +219,10 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		return errors.Wrap(err, "create approval instance")
 	}
 	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
+
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+		logger.Errorf("send approve notification failed, error: %v", err)
+	}
 
 	cancelApproval := func() {
 		err := client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{

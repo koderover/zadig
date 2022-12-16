@@ -220,7 +220,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		stages := []string{}
 		for _, stage := range workflowModel.Stages {
 			if stage.Approval != nil && stage.Approval.Enabled {
-				stages = append(stages, "人工审核")
+				stages = append(stages, "人工审批")
 			}
 			stages = append(stages, stage.Name)
 		}
@@ -911,7 +911,6 @@ func CheckShareStorageEnabled(clusterID, jobType, identifyName, project string, 
 	if clusterID != "" {
 		return checkClusterShareStorage(clusterID)
 	}
-	
 	switch jobType {
 	case string(config.JobZadigBuild):
 		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: identifyName, ProductName: project})
