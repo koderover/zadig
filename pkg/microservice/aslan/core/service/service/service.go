@@ -1442,6 +1442,7 @@ func distinctEnvServices(productName string) (map[string][]*commonmodels.Product
 
 func setCurrentContainerImages(args *commonmodels.Service) error {
 	var srvContainers []*commonmodels.Container
+	log.Infof("##### lenth of yaml is %v", len(args.KubeYamls))
 	for _, data := range args.KubeYamls {
 		yamlDataArray := SplitYaml(data)
 		for index, yamlData := range yamlDataArray {
@@ -1463,6 +1464,8 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 				}
 				return errors.New("nil ReourceKind")
 			}
+
+			log.Infof("######### resource kind is %v", resKind.Kind)
 
 			if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
 				containers, err := getContainers(yamlData)
