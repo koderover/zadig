@@ -220,6 +220,10 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	}
 	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
 
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+		logger.Errorf("send approve notification failed, error: %v", err)
+	}
+
 	cancelApproval := func() {
 		err := client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{
 			ApprovalID: data.LarkDefaultApprovalCode,
