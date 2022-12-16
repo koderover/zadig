@@ -1396,6 +1396,9 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.KubeYamls = SplitYaml(args.RenderedYaml)
 		}
 
+		log.Infof("####### the RenderedYaml yamls is %+v", args.RenderedYaml)
+		log.Infof("####### the kube yamls is %+v", args.KubeYamls)
+
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
 		if err := setCurrentContainerImages(args); err != nil {
 			return err
