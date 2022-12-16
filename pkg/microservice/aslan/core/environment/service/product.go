@@ -130,7 +130,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 
 		// Note: In the Helm scenario, filter `chart_infos` which is used by front-end.
 		if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {
-			chartInfos := []*templatemodels.ServiceRender{}
+			var chartInfos []*templatemodels.ServiceRender
 			for _, chartInfo := range ret.ServiceRenders {
 				found := false
 				for _, svcGroupName := range svcGroupNames {
@@ -189,6 +189,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
+					serviceResp.VariableYaml = serviceTmpl.VariableYaml
 				}
 			}
 			servicesResp = append(servicesResp, serviceResp)

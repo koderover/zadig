@@ -139,13 +139,13 @@ type CreateSingleProductArg struct {
 	BaseEnvName string `json:"base_env_name"`
 	BaseName    string `json:"base_name,omitempty"` // for collaboration mode
 
+	DefaultValues string `json:"defaultValues"`
 	// for helm products
-	DefaultValues string                            `json:"defaultValues"`
-	ValuesData    *commonservice.ValuesDataArgs     `json:"valuesData"`
-	ChartValues   []*ProductHelmServiceCreationInfo `json:"chartValues"`
+	ValuesData  *commonservice.ValuesDataArgs     `json:"valuesData"`
+	ChartValues []*ProductHelmServiceCreationInfo `json:"chartValues"`
 
 	// for k8s products
-	Vars     []*templatemodels.RenderKV         `json:"vars"`
+	//Vars     []*templatemodels.RenderKV         `json:"vars"`
 	Services [][]*ProductK8sServiceCreationInfo `json:"services"`
 
 	IsExisted bool `json:"is_existed"`

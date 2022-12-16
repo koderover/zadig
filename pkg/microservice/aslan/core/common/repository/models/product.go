@@ -104,8 +104,9 @@ type ProductService struct {
 	Revision    int64        `bson:"revision"                   json:"revision"`
 	Containers  []*Container `bson:"containers"                 json:"containers,omitempty"`
 	//Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // Deprecated
-	Error      string       `bson:"error,omitempty"            json:"error,omitempty"`
-	EnvConfigs []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
+	Error        string       `bson:"error,omitempty"            json:"error,omitempty"`
+	EnvConfigs   []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
+	VariableYaml string       `bson:"-"                          json:"variable_yaml,omitempty"`
 }
 
 type ServiceConfig struct {
