@@ -54,7 +54,7 @@ func V140ToV150() error {
 			log.Errorf("find helm renderset[%s] error: %v", renderSetName, err)
 			continue
 		}
-		product.ChartInfos = renderSet.ChartInfos
+		product.ServiceRenders = renderSet.ChartInfos
 
 		err = fillImageParseInfo(product)
 		if err != nil {
@@ -79,7 +79,7 @@ func missContainerImagePath(container *commonmodels.Container) bool {
 
 func fillImageParseInfo(prod *commonmodels.Product) error {
 	rendersetMap := make(map[string]string)
-	for _, singleData := range prod.ChartInfos {
+	for _, singleData := range prod.ServiceRenders {
 		rendersetMap[singleData.ServiceName] = singleData.ValuesYaml
 	}
 

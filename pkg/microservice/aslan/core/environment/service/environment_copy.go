@@ -45,12 +45,12 @@ type CopyYamlProductArg struct {
 }
 
 type HelmProductItem struct {
-	OldName       string                          `json:"old_name"`
-	NewName       string                          `json:"new_name"`
-	BaseName      string                          `json:"base_name"`
-	DefaultValues string                          `json:"default_values"`
-	ChartValues   []*commonservice.RenderChartArg `json:"chart_values"`
-	ValuesData    *commonservice.ValuesDataArgs   `json:"values_data"`
+	OldName       string                        `json:"old_name"`
+	NewName       string                        `json:"new_name"`
+	BaseName      string                        `json:"base_name"`
+	DefaultValues string                        `json:"default_values"`
+	ChartValues   []*commonservice.SvcRenderArg `json:"chart_values"`
+	ValuesData    *commonservice.ValuesDataArgs `json:"values_data"`
 }
 
 type CopyHelmProductArg struct {
@@ -85,7 +85,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			chartValues := make([]*ProductHelmServiceCreationInfo, 0)
 			for _, value := range item.ChartValues {
 				chartValues = append(chartValues, &ProductHelmServiceCreationInfo{
-					RenderChartArg: value,
+					SvcRenderArg:   value,
 					DeployStrategy: setting.ServiceDeployStrategyDeploy,
 				})
 			}
@@ -265,12 +265,12 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 	if err != nil {
 		return fmt.Errorf("failed to find source renderset: %s, err: %s", productInfo.Namespace, err)
 	}
-	sourceChartMap := make(map[string]*templatemodels.RenderChart)
+	sourceChartMap := make(map[string]*templatemodels.ServiceRender)
 	for _, singleChart := range sourceRenderSet.ChartInfos {
 		sourceChartMap[singleChart.ServiceName] = singleChart
 	}
 	templateCharts := templateProduct.ChartInfos
-	templateProduct.ChartInfos = make([]*templatemodels.RenderChart, 0)
+	templateProduct.ChartInfos = make([]*templatemodels.ServiceRender, 0)
 	for _, chart := range templateCharts {
 		if chartFromSource, ok := sourceChartMap[chart.ServiceName]; ok {
 			templateProduct.ChartInfos = append(templateProduct.ChartInfos, chartFromSource)
@@ -289,8 +289,8 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 	productInfo.Render = nil
 
 	// insert renderset info into db
-	if len(productInfo.ChartInfos) > 0 {
-		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+	if len(productInfo.ServiceRenders) > 0 {
+		err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 			EnvName:       arg.EnvName,
 			ProductTmpl:   arg.ProductName,
@@ -298,7 +298,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 			IsDefault:     false,
 			DefaultValues: arg.DefaultValues,
 			YamlData:      geneYamlData(arg.ValuesData),
-			ChartInfos:    productInfo.ChartInfos,
+			ChartInfos:    productInfo.ServiceRenders,
 		}, log)
 		if err != nil {
 			log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)

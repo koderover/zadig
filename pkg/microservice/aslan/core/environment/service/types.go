@@ -52,7 +52,7 @@ type SvcRevision struct {
 	New               bool                      `json:"new"`
 	Containers        []*commonmodels.Container `json:"containers,omitempty"`
 	UpdateServiceTmpl bool                      `json:"update_service_tmpl"`
-	VariableYaml      string                    `json:"varible_yaml"`
+	VariableYaml      string                    `json:"variable_yaml"`
 }
 
 type ProductIngressInfo struct {

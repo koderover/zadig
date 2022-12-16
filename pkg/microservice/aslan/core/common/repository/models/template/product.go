@@ -39,7 +39,7 @@ type Product struct {
 	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
 	Vars                []*RenderKV           `bson:"vars"                      json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
-	ChartInfos          []*RenderChart        `bson:"-"                         json:"chart_infos,omitempty"`
+	ChartInfos          []*ServiceRender      `bson:"-"                         json:"chart_infos,omitempty"`
 	Description         string                `bson:"description,omitempty"     json:"desc,omitempty"`
 	ProductFeature      *ProductFeature       `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
 	ImageSearchingRules []*ImageSearchingRule `bson:"image_searching_rules,omitempty" json:"image_searching_rules,omitempty"`
@@ -120,8 +120,8 @@ type CustomYaml struct {
 	SourceID     string      `bson:"source_id" json:"source_id"`
 }
 
-// RenderChart used for helm product service ...
-type RenderChart struct {
+// ServiceRender used for helm product service ...
+type ServiceRender struct {
 	ServiceName string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
 
 	// ---- for helm services begin ----
@@ -131,6 +131,7 @@ type RenderChart struct {
 	// ---- for helm services end ----
 
 	// OverrideYaml will be used in both helm and k8s projects
+	// In k8s this is variable_yaml
 	OverrideYaml *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
 }
 
@@ -144,10 +145,10 @@ type ProductFeature struct {
 }
 
 type ForkProject struct {
-	EnvName      string         `json:"env_name"`
-	WorkflowName string         `json:"workflow_name"`
-	ValuesYamls  []*RenderChart `json:"values_yamls"`
-	ProductName  string         `json:"product_name"`
+	EnvName      string           `json:"env_name"`
+	WorkflowName string           `json:"workflow_name"`
+	ValuesYamls  []*ServiceRender `json:"values_yamls"`
+	ProductName  string           `json:"product_name"`
 }
 
 type ImageSearchingRule struct {
@@ -269,7 +270,7 @@ func (r *RenderKV) RemoveDupServices() {
 	r.Services = result
 }
 
-func (rc *RenderChart) GetOverrideYaml() string {
+func (rc *ServiceRender) GetOverrideYaml() string {
 	if rc.OverrideYaml == nil {
 		return ""
 	}

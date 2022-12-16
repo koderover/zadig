@@ -19,6 +19,8 @@ package handler
 import (
 	"strings"
 
+	"github.com/koderover/zadig/pkg/setting"
+
 	"github.com/gin-gonic/gin"
 
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -41,7 +43,24 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), setting.K8SDeployType, ctx.Logger)
+}
+
+func GetServiceVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("projectName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Query("envName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+
+	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), setting.HelmDeployType, ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {

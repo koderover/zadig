@@ -46,7 +46,7 @@ type DeleteProductServicesRequest struct {
 }
 
 type ChartInfoArgs struct {
-	ChartInfos []*template.RenderChart `json:"chart_infos"`
+	ChartInfos []*template.ServiceRender `json:"chart_infos"`
 }
 
 type NamespaceResource struct {
@@ -89,37 +89,10 @@ func UpdateMultiProducts(c *gin.Context) {
 
 	if request.Type == setting.HelmDeployType {
 		updateMultiHelmEnv(c, ctx)
-		return
+	} else {
+		updateMultiK8sEnv(c, request, ctx)
 	}
 
-	args := make([]*service.UpdateEnv, 0)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateMultiProducts c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	if err = json.Unmarshal(data, &args); err != nil {
-		log.Errorf("UpdateMultiProducts json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	var envNames []string
-	for _, arg := range args {
-		envNames = append(envNames, arg.EnvName)
-	}
-	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedEnvs...)
-		currentSet := sets.NewString(envNames...)
-		if !allowedSet.IsSuperset(currentSet) {
-			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
-			return
-		}
-	}
-
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
-	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, request.ProjectName, ctx.RequestID, request.Force, ctx.Logger)
 }
 
 func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
@@ -238,10 +211,11 @@ func CreateProduct(c *gin.Context) {
 
 type UpdateProductParams struct {
 	ServiceNames []string `json:"service_names"`
+	VariableYaml string   `json:"variable_yaml"`
 	commonmodels.Product
 }
 
-// UpdateProduct update product variables, used for k8s/pm products
+// UpdateProduct update product variables, used for pm products
 func UpdateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -274,9 +248,8 @@ func UpdateProduct(c *gin.Context) {
 			serviceNames.Insert(s)
 		}
 	}
-	// update product asynchronously
-	// TODO FIXME currently update vars will make related service update to latest revision which doesn't work as expected
-	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, serviceNames.List(), nil, force, args.Vars, ctx.Logger)
+
+	ctx.Err = service.UpdateCVMProduct(envName, projectName, ctx.UserName, ctx.RequestID, serviceNames.List(), nil, force, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)
 	}
@@ -442,10 +415,40 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	arg := new(service.EnvRendersetArg)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateHelmProductDefaultValues c.GetRawData() err : %v", err)
+		log.Errorf("UpdateProductDefaultValues c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductDefaultValues json.Unmarshal err : %v", err)
+		log.Errorf("UpdateProductDefaultValues json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	arg.DeployType = setting.HelmDeployType
+	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+}
+
+func UpdateK8sProductDefaultValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(service.K8sRendersetArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateK8sProductDefaultValues json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
@@ -456,7 +459,12 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateHelmProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+	envRenderArg := &service.EnvRendersetArg{
+		DeployType:    setting.K8SDeployType,
+		DefaultValues: arg.DefaultValues,
+	}
+
+	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, envRenderArg, ctx.Logger)
 }
 
 func UpdateHelmProductCharts(c *gin.Context) {
@@ -494,6 +502,42 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	}
 
 	ctx.Err = service.UpdateHelmProductCharts(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+}
+
+func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *internalhandler.Context) {
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+	args := make([]*service.UpdateEnv, 0)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateMultiProducts c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, &args); err != nil {
+		log.Errorf("UpdateMultiProducts json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	var envNames []string
+	for _, arg := range args {
+		envNames = append(envNames, arg.EnvName)
+	}
+	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedEnvs...)
+		currentSet := sets.NewString(envNames...)
+		if !allowedSet.IsSuperset(currentSet) {
+			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
+			return
+		}
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
+	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, projectName, ctx.RequestID, request.Force, ctx.Logger)
 }
 
 func updateMultiHelmEnv(c *gin.Context, ctx *internalhandler.Context) {

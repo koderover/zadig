@@ -115,7 +115,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 	ret.CreateTime = prodTmpl.CreateTime
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
 	ret.Vars = prodTmpl.Vars
-	ret.ChartInfos = prodTmpl.ChartInfos
+	ret.ServiceRenders = prodTmpl.ChartInfos
 	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
 		ret.Source = setting.PMDeployType
 	}
@@ -130,8 +130,8 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 
 		// Note: In the Helm scenario, filter `chart_infos` which is used by front-end.
 		if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {
-			chartInfos := []*templatemodels.RenderChart{}
-			for _, chartInfo := range ret.ChartInfos {
+			chartInfos := []*templatemodels.ServiceRender{}
+			for _, chartInfo := range ret.ServiceRenders {
 				found := false
 				for _, svcGroupName := range svcGroupNames {
 					if util.InStringArray(chartInfo.ServiceName, svcGroupName) {
@@ -145,7 +145,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 				}
 			}
 
-			ret.ChartInfos = chartInfos
+			ret.ServiceRenders = chartInfos
 		}
 	}
 

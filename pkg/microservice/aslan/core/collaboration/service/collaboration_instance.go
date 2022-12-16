@@ -95,16 +95,16 @@ type Workflow struct {
 }
 
 type Product struct {
-	CollaborationType config.CollaborationType        `json:"collaboration_type"`
-	BaseName          string                          `json:"base_name"`
-	CollaborationMode string                          `json:"collaboration_mode"`
-	Name              string                          `json:"name"`
-	DeployType        string                          `json:"deploy_type"`
-	Vars              []*templatemodels.RenderKV      `json:"vars"`
-	DefaultValues     string                          `json:"defaultValues,omitempty"`
-	ValuesData        *commonservice.ValuesDataArgs   `json:"valuesData,omitempty"`
-	YamlData          *templatemodels.CustomYaml      `json:"yaml_data,omitempty"`
-	ChartValues       []*commonservice.RenderChartArg `json:"chartValues,omitempty"`
+	CollaborationType config.CollaborationType      `json:"collaboration_type"`
+	BaseName          string                        `json:"base_name"`
+	CollaborationMode string                        `json:"collaboration_mode"`
+	Name              string                        `json:"name"`
+	DeployType        string                        `json:"deploy_type"`
+	Vars              []*templatemodels.RenderKV    `json:"vars"`
+	DefaultValues     string                        `json:"defaultValues,omitempty"`
+	ValuesData        *commonservice.ValuesDataArgs `json:"valuesData,omitempty"`
+	YamlData          *templatemodels.CustomYaml    `json:"yaml_data,omitempty"`
+	ChartValues       []*commonservice.SvcRenderArg `json:"chartValues,omitempty"`
 }
 
 type GetCollaborationNewResp struct {
@@ -1387,7 +1387,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			//chart, ok := envChartsMap[product.BaseName]
 
-			renderChartArgs, rendersetData, err := commonservice.GetRenderCharts(projectName, product.BaseName, "", logger)
+			renderChartArgs, rendersetData, err := commonservice.GetSvcRenderArgs(projectName, product.BaseName, "", setting.HelmDeployType, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find product renderset :%s, err: %s", product.BaseName, err)
 			}

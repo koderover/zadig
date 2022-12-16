@@ -196,13 +196,13 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 				Revision:    renderSet.Revision,
 			}
 			// user renderchart from renderset
-			chartInfoMap := make(map[string]*template.RenderChart)
+			chartInfoMap := make(map[string]*template.ServiceRender)
 			for _, renderChart := range renderSet.ChartInfos {
 				chartInfoMap[renderChart.ServiceName] = renderChart
 			}
 
 			// use values.yaml content from predefined env renderset
-			for _, singleRenderChart := range args.ChartInfos {
+			for _, singleRenderChart := range args.ServiceRenders {
 				if renderInEnvRenderset, ok := chartInfoMap[singleRenderChart.ServiceName]; ok {
 					singleRenderChart.OverrideValues = renderInEnvRenderset.OverrideValues
 					singleRenderChart.OverrideYaml = renderInEnvRenderset.OverrideYaml
@@ -216,7 +216,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, args.EnvName, log)
+	renderSet, err = FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())

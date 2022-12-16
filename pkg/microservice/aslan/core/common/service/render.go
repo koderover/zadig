@@ -59,15 +59,16 @@ type ValuesDataArgs struct {
 	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
 }
 
-type RenderChartArg struct {
-	EnvName        string                     `json:"envName,omitempty"`
-	ServiceName    string                     `json:"serviceName,omitempty"`
-	ChartVersion   string                     `json:"chartVersion,omitempty"`
-	OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
+type SvcRenderArg struct {
+	EnvName        string                     `json:"env_name,omitempty"`
+	ServiceName    string                     `json:"service_name,omitempty"`
+	ChartVersion   string                     `json:"chart_version,omitempty"`
+	OverrideValues []*KVPair                  `json:"override_values,omitempty"`
 	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
 	ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
 	YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
-	DeployStrategy string                     `json:"deploy_strategy"` // New since 1.16.0, used to determine if the service will be installed
+	VariableYaml   string                     `json:"variable_yaml"`
+	DeployStrategy string                     `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
 }
 
 type RenderChartDiffResult string
@@ -78,7 +79,7 @@ const (
 	LogicSame RenderChartDiffResult = "logicSame"
 )
 
-func (args *RenderChartArg) ToOverrideValueString() string {
+func (args *SvcRenderArg) ToOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {
 		return ""
 	}
@@ -90,7 +91,7 @@ func (args *RenderChartArg) ToOverrideValueString() string {
 	return string(bs)
 }
 
-func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
+func (args *SvcRenderArg) fromOverrideValueString(valueStr string) {
 	if valueStr == "" {
 		args.OverrideValues = nil
 		return
@@ -103,7 +104,7 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 	}
 }
 
-func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
+func (args *SvcRenderArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 	ret := &templatemodels.CustomYaml{
 		YamlContent: args.OverrideYaml,
 	}
@@ -130,7 +131,7 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 	return ret
 }
 
-func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
+func (args *SvcRenderArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
 	if customValuesYaml == nil {
 		return
 	}
@@ -138,7 +139,7 @@ func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels
 }
 
 // FillRenderChartModel fill render chart model
-func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderChart, version string) {
+func (args *SvcRenderArg) FillRenderChartModel(chart *templatemodels.ServiceRender, version string) {
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
 	chart.OverrideValues = args.ToOverrideValueString()
@@ -146,14 +147,14 @@ func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderCha
 }
 
 // LoadFromRenderChartModel load from render chart model
-func (args *RenderChartArg) LoadFromRenderChartModel(chart *templatemodels.RenderChart) {
+func (args *SvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender) {
 	args.ServiceName = chart.ServiceName
 	args.ChartVersion = chart.ChartVersion
 	args.fromOverrideValueString(chart.OverrideValues)
 	args.fromCustomValueYaml(chart.OverrideYaml)
 }
 
-func (args *RenderChartArg) GetUniqueKvMap() map[string]interface{} {
+func (args *SvcRenderArg) GetUniqueKvMap() map[string]interface{} {
 	uniqueKvs := make(map[string]interface{})
 	for index := range args.OverrideValues {
 		kv := args.OverrideValues[len(args.OverrideValues)-index-1]
@@ -166,7 +167,7 @@ func (args *RenderChartArg) GetUniqueKvMap() map[string]interface{} {
 }
 
 // DiffValues generate diff values to override from two chart args
-func (args *RenderChartArg) DiffValues(target *RenderChartArg) RenderChartDiffResult {
+func (args *SvcRenderArg) DiffValues(target *SvcRenderArg) RenderChartDiffResult {
 	argsUniqueKvs := args.GetUniqueKvMap()
 	targetUniqueKvs := target.GetUniqueKvMap()
 	if len(argsUniqueKvs) != len(targetUniqueKvs) || !reflect.DeepEqual(argsUniqueKvs, targetUniqueKvs) {
@@ -261,27 +262,19 @@ func ValidateRenderSet(productName, renderName, envName string, serviceInfo *tem
 	return resp, nil
 }
 
-func mergeKVs(newKVs []*templatemodels.RenderKV, oldKVs []*templatemodels.RenderKV) []*templatemodels.RenderKV {
-	var result []*templatemodels.RenderKV
-	newKVsMap := make(map[string]*templatemodels.RenderKV)
-	for _, v := range newKVs {
-		newKVsMap[v.Key] = v
+func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVariables []*templatemodels.ServiceRender) []*templatemodels.ServiceRender {
+	oldVarMap := make(map[string]*templatemodels.ServiceRender)
+	for _, sv := range oldVariables {
+		oldVarMap[sv.ServiceName] = sv
 	}
-	oldKVsMap := make(map[string]*templatemodels.RenderKV)
-	for _, v := range oldKVs {
-		oldKVsMap[v.Key] = v
-		if newKV, ok := newKVsMap[v.Key]; ok {
-			result = append(result, newKV)
-			continue
-		}
-		result = append(result, v)
+	for _, sv := range newVariables {
+		oldVarMap[sv.ServiceName] = sv
 	}
-	for _, v := range newKVs {
-		if _, ok := oldKVsMap[v.Key]; !ok {
-			result = append(result, v)
-		}
+	ret := make([]*templatemodels.ServiceRender, 0)
+	for _, sv := range oldVariables {
+		ret = append(ret, sv)
 	}
-	return result
+	return ret
 }
 
 func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
@@ -293,8 +286,7 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 		} else {
 			return nil
 		}
-		mergedKVs := mergeKVs(args.KVs, rs.KVs)
-		args.KVs = mergedKVs
+		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
 	}
 	return createRenderset(args, log)
 }
@@ -320,8 +312,8 @@ func ForceCreateReaderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) 
 	return createRenderset(args, log)
 }
 
-// CreateHelmRenderSet 添加renderSet
-func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+// CreateK8sHelmRenderSet creates renderset for k8s/helm projects
+func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        args.Name,
 		ProductTmpl: args.ProductTmpl,
@@ -329,9 +321,7 @@ func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) e
 	}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
-		// 已经存在渲染配置集
-		// 判断是否有修改
-		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) {
+		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) || rs.K8sServiceRenderDiff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
 			return nil

@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/util/converter"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -61,10 +63,11 @@ type ServiceOption struct {
 	SystemVariable []*Variable                `json:"system_variable"`
 	CustomVariable []*templatemodels.RenderKV `json:"custom_variable"`
 	//TemplateVariable []*Variable                `json:"template_variable" // Deprecated`
-	VariableYaml string                `json:"variable_yaml"`
-	ServiceVars  []string              `json:"service_vars"`
-	Yaml         string                `json:"yaml"`
-	Service      *commonmodels.Service `json:"service,omitempty"`
+	VariableYaml string                     `json:"variable_yaml"`
+	ServiceVars  []string                   `json:"service_vars"`
+	VariableKVs  []*commonmodels.VariableKV `json:"variable_kvs"`
+	Yaml         string                     `json:"yaml"`
+	Service      *commonmodels.Service      `json:"service,omitempty"`
 }
 
 type ServiceModule struct {
@@ -250,6 +253,29 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 
 	serviceOption.VariableYaml = getTemplateMergedVariables(args)
 	serviceOption.ServiceVars = args.ServiceVars
+	if len(serviceOption.VariableYaml) > 0 {
+		flatMap, err := converter.YamlToFlatMap([]byte(serviceOption.VariableYaml))
+		if err != nil {
+			log.Error("failed to get flat map of variable, err: %s", err)
+		} else {
+			allKeys := sets.NewString()
+			for k, v := range flatMap {
+				serviceOption.VariableKVs = append(serviceOption.VariableKVs, &commonmodels.VariableKV{
+					Key:   k,
+					Value: v,
+				})
+				allKeys.Insert(k)
+			}
+			validServiceVars := make([]string, 0)
+			for _, k := range serviceOption.ServiceVars {
+				if allKeys.Has(k) {
+					validServiceVars = append(validServiceVars, k)
+				}
+			}
+			serviceOption.ServiceVars = validServiceVars
+		}
+	}
+
 	//renderKVs, err := commonservice.ListServicesRenderKeys([]*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}, log)
 	//if err != nil {
 	//	log.Errorf("ListServicesRenderKeys %s error: %v", args.ServiceName, err)
@@ -1202,7 +1228,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 func removeServiceFromRenderset(productName, renderName, envName, serviceName string) error {
 	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName, EnvName: envName}
 	if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
-		chartInfos := make([]*templatemodels.RenderChart, 0)
+		chartInfos := make([]*templatemodels.ServiceRender, 0)
 		for _, chartInfo := range rs.ChartInfos {
 			if chartInfo.ServiceName == serviceName {
 				continue

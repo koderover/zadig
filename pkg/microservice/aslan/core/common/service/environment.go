@@ -60,12 +60,12 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 			serviceNames.Insert(serviceName)
 		}
 	}
-	tmpl.ChartInfos = make([]*templatemodels.RenderChart, 0)
+	tmpl.ChartInfos = make([]*templatemodels.ServiceRender, 0)
 	for _, renderChart := range renderSet.ChartInfos {
 		if !serviceNames.Has(renderChart.ServiceName) {
 			continue
 		}
-		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.RenderChart{
+		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.ServiceRender{
 			ServiceName:    renderChart.ServiceName,
 			ChartVersion:   renderChart.ChartVersion,
 			ValuesYaml:     renderChart.ValuesYaml,
@@ -125,8 +125,7 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, *models.RenderSet, error) {
-
+func GetSvcRenderArgs(productName, envName, serviceName, svcType string, log *zap.SugaredLogger) ([]*SvcRenderArg, *models.RenderSet, error) {
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{
@@ -143,9 +142,8 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		return nil, nil, nil
 	}
 
-	ret := make([]*RenderChartArg, 0)
-
-	matchedRenderChartModels := make([]*templatemodels.RenderChart, 0)
+	ret := make([]*SvcRenderArg, 0)
+	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
 	if len(serviceName) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
@@ -160,15 +158,21 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	}
 
 	for _, singleChart := range matchedRenderChartModels {
-		rcaObj := new(RenderChartArg)
-		rcaObj.LoadFromRenderChartModel(singleChart)
-		rcaObj.EnvName = envName
-		err = FillGitNamespace(rendersetObj.YamlData)
-		if err != nil {
-			// Note, since user can always reselect the git info, error should not block normal logic
-			log.Warnf("failed to fill git namespace data, err: %s", err)
+		rcaObj := &SvcRenderArg{}
+		if svcType == setting.K8SDeployType {
+			if singleChart.OverrideYaml != nil {
+				rcaObj.VariableYaml = singleChart.OverrideYaml.YamlContent
+			}
+		} else {
+			rcaObj.LoadFromRenderChartModel(singleChart)
+			rcaObj.EnvName = envName
+			err = FillGitNamespace(rendersetObj.YamlData)
+			if err != nil {
+				// Note, since user can always reselect the git info, error should not block normal logic
+				log.Warnf("failed to fill git namespace data, err: %s", err)
+			}
+			rcaObj.YamlData = singleChart.OverrideYaml
 		}
-		rcaObj.YamlData = singleChart.OverrideYaml
 		ret = append(ret, rcaObj)
 	}
 	return ret, rendersetObj, nil

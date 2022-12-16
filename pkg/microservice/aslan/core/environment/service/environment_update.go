@@ -158,7 +158,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	var renderChart *templatemodels.RenderChart
+	var renderChart *templatemodels.ServiceRender
 	for _, _renderChart := range renderInfo.ChartInfos {
 		if _renderChart.ServiceName == serviceName {
 			renderChart = _renderChart
@@ -212,7 +212,20 @@ func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commo
 	if _, ok := productSvcMap[serviceName]; !ok {
 		return nil
 	}
-	return UpdateProductV2(productInfo.EnvName, productInfo.ProductName, "", "", []string{templateSvc.ServiceName}, nil, false, nil, log.SugaredLogger())
+
+	svcRender := &templatemodels.ServiceRender{
+		ServiceName: templateSvc.ServiceName,
+	}
+	currentRenderset, err := FindProductRenderSet(productInfo.ProductName, productInfo.Render.Name, productInfo.EnvName, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("failed to find renderset, err: %s", err)
+	}
+	for _, sv := range currentRenderset.ServiceVariables {
+		if sv.ServiceName == templateSvc.ServiceName {
+			svcRender = sv
+		}
+	}
+	return updateK8sProduct(productInfo, "system", "", []string{svcRender.ServiceName}, nil, []*templatemodels.ServiceRender{svcRender}, nil, false, currentRenderset.DefaultValues, log.SugaredLogger())
 }
 
 // ReInstallHelmSvcInAllEnvs reinstall svc in all envs in which the svc is already installed
@@ -269,7 +282,7 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 				continue
 			}
 
-			var renderChart *templatemodels.RenderChart
+			var renderChart *templatemodels.ServiceRender
 			for _, _renderChart := range renderInfo.ChartInfos {
 				if _renderChart.ServiceName == templateSvc.ServiceName {
 					renderChart = _renderChart
@@ -281,7 +294,7 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 				continue
 			}
 
-			chartArg := &commonservice.RenderChartArg{
+			chartArg := &commonservice.SvcRenderArg{
 				EnvName:     product.EnvName,
 				ServiceName: templateSvc.ServiceName,
 			}
@@ -320,7 +333,8 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 	return retErr.ErrorOrNil()
 }
 
-func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, serviceNames []string, deployStrategy map[string]string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) error {
+func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]string,
+	force bool, variableYaml string, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
@@ -331,7 +345,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(exitedProd.Namespace, kubeClient))
 		var specifyModifiedServices []*serviceInfo
 		for _, modifiedService := range modifiedServices {
-			if util.InStringArray(modifiedService.Name, serviceNames) {
+			if util.InStringArray(modifiedService.Name, updateRevisionSvc) {
 				specifyModifiedServices = append(specifyModifiedServices, modifiedService)
 			}
 		}
@@ -354,10 +368,11 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	err = commonservice.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
-			Name:        exitedProd.Namespace,
-			EnvName:     envName,
-			ProductTmpl: productName,
-			KVs:         kvs,
+			Name:             exitedProd.Namespace,
+			EnvName:          envName,
+			ProductTmpl:      productName,
+			ServiceVariables: updatedSvcs,
+			DefaultValues:    variableYaml,
 		},
 		log,
 	)
@@ -366,18 +381,13 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 
-	if exitedProd.Render == nil {
-		exitedProd.Render = &commonmodels.RenderInfo{ProductTmpl: exitedProd.ProductName}
-	}
-
-	// 检查renderset是否覆盖产品所有key
 	renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
-	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, serviceNames)
+	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 
 	// 查找产品模板
 	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
@@ -402,7 +412,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	go func() {
 		productErrMsg := ""
-		err = updateProductImpl(serviceNames, deployStrategy, exitedProd, updateProd, renderSet, log)
+		err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, renderSet, filter, log)
 		if err != nil {
 			productErrMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -423,7 +433,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	return nil
 }
 
-func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, serviceNames []string, deployStrategy map[string]string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) error {
+func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, serviceNames []string, deployStrategy map[string]string, force bool, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	//TODO:The host update environment cannot remove deleted services
 	if !force {
@@ -476,11 +486,11 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	go func() {
 		productErrMsg := ""
-		err = updateProductImpl(serviceNames, deployStrategy, exitedProd, updateProd, renderSet, log)
+		err = updateProductImpl(serviceNames, deployStrategy, exitedProd, updateProd, renderSet, nil, log)
 		if err != nil {
 			productErrMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
-			// 发送更新产品失败消息给用户
+			// 发送更新产品失败消息给用户›
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
 			commonservice.SendErrorMessage(user, title, requestID, err, log)
 			updateProd.Status = setting.ProductStatusFailed

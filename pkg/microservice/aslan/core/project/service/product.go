@@ -705,7 +705,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 		EnvName:         args.EnvName,
 		Services:        svcs,
 		Source:          setting.HelmDeployType,
-		ChartInfos:      prodTmpl.ChartInfos,
+		ServiceRenders:  prodTmpl.ChartInfos,
 		IsForkedProduct: true,
 	}
 

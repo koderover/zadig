@@ -105,14 +105,19 @@ type EstimateValuesArg struct {
 }
 
 type EnvRenderChartArg struct {
-	ChartValues []*commonservice.RenderChartArg `json:"chartValues"`
+	ChartValues []*commonservice.SvcRenderArg `json:"chartValues"`
 }
 
 type EnvRendersetArg struct {
-	DefaultValues     string                          `json:"defaultValues"`
-	ValuesData        *commonservice.ValuesDataArgs   `json:"valuesData"`
-	ChartValues       []*commonservice.RenderChartArg `json:"chartValues"`
-	UpdateServiceTmpl bool                            `json:"updateServiceTmpl"`
+	DeployType        string                        `json:"-"`
+	DefaultValues     string                        `json:"defaultValues"`
+	ValuesData        *commonservice.ValuesDataArgs `json:"valuesData"`
+	ChartValues       []*commonservice.SvcRenderArg `json:"chartValues"`
+	UpdateServiceTmpl bool                          `json:"updateServiceTmpl"`
+}
+
+type K8sRendersetArg struct {
+	DefaultValues string `json:"default_values"`
 }
 
 type ProductK8sServiceCreationInfo struct {
@@ -121,7 +126,7 @@ type ProductK8sServiceCreationInfo struct {
 }
 
 type ProductHelmServiceCreationInfo struct {
-	*commonservice.RenderChartArg
+	*commonservice.SvcRenderArg
 	DeployStrategy string `json:"deploy_strategy"`
 }
 
@@ -152,11 +157,11 @@ type CreateSingleProductArg struct {
 }
 
 type UpdateMultiHelmProductArg struct {
-	ProductName     string                          `json:"productName"`
-	EnvNames        []string                        `json:"envNames"`
-	ChartValues     []*commonservice.RenderChartArg `json:"chartValues"`
-	DeletedServices []string                        `json:"deletedServices"`
-	ReplacePolicy   string                          `json:"replacePolicy"` // TODO logic not implemented
+	ProductName     string                        `json:"productName"`
+	EnvNames        []string                      `json:"envNames"`
+	ChartValues     []*commonservice.SvcRenderArg `json:"chartValues"`
+	DeletedServices []string                      `json:"deletedServices"`
+	ReplacePolicy   string                        `json:"replacePolicy"` // TODO logic not implemented
 }
 
 type RawYamlResp struct {
@@ -168,7 +173,7 @@ type ReleaseInstallParam struct {
 	Namespace    string
 	ReleaseName  string
 	MergedValues string
-	RenderChart  *templatemodels.RenderChart
+	RenderChart  *templatemodels.ServiceRender
 	serviceObj   *commonmodels.Service
 	DryRun       bool
 }

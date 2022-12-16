@@ -39,9 +39,9 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		return fmt.Errorf("failed to validate args: %s", err)
 	}
 
-	productObj.ChartInfos = make([]*templatemodels.RenderChart, 0)
+	productObj.ServiceRenders = make([]*templatemodels.ServiceRender, 0)
 	// chart infos in template product
-	templateChartInfoMap := make(map[string]*templatemodels.RenderChart)
+	templateChartInfoMap := make(map[string]*templatemodels.ServiceRender)
 	for _, tc := range templateProduct.ChartInfos {
 		templateChartInfoMap[tc.ServiceName] = tc
 	}
@@ -49,16 +49,16 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	serviceDeployStrategy := make(map[string]string)
 
 	// user custom chart values
-	cvMap := make(map[string]*templatemodels.RenderChart)
+	cvMap := make(map[string]*templatemodels.ServiceRender)
 	for _, singleCV := range arg.ChartValues {
 		tc, ok := templateChartInfoMap[singleCV.ServiceName]
 		if !ok {
 			return fmt.Errorf("failed to find chart info in product, serviceName: %s productName: %s", singleCV.ServiceName, templateProduct.ProjectName)
 		}
-		chartInfo := &templatemodels.RenderChart{}
+		chartInfo := &templatemodels.ServiceRender{}
 		singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion)
 		chartInfo.ValuesYaml = tc.ValuesYaml
-		productObj.ChartInfos = append(productObj.ChartInfos, chartInfo)
+		productObj.ServiceRenders = append(productObj.ServiceRenders, chartInfo)
 		cvMap[singleCV.ServiceName] = chartInfo
 		serviceDeployStrategy[singleCV.ServiceName] = singleCV.DeployStrategy
 	}
@@ -115,14 +115,14 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+	err = commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
 		UpdateBy:      productObj.UpdateBy,
 		IsDefault:     false,
 		DefaultValues: arg.DefaultValues,
-		ChartInfos:    productObj.ChartInfos,
+		ChartInfos:    productObj.ServiceRenders,
 		YamlData:      geneYamlData(arg.ValuesData),
 	}, log)
 	if err != nil {
