@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
@@ -341,6 +342,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
+		log.Errorf("send workflow task notification failed, error: %v", err)
+	}
 
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)
