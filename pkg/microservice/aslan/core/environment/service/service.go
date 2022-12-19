@@ -256,8 +256,11 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
 		}
 
-		// 渲染配置集
-		parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, rs)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs)
+		if err != nil {
+			log.Errorf("failed to render service yaml, err: %s", err)
+			return nil, err
+		}
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
 

@@ -480,7 +480,11 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
 		}
 
-		parsedYaml := RenderValueForString(svcTmpl.Yaml, newRender)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, newRender)
+		if err != nil {
+			log.Errorf("RenderServiceYaml failed, err: %s", err)
+			return "", err
+		}
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceName, parsedYaml)
 		// 替换服务模板容器镜像为用户指定镜像

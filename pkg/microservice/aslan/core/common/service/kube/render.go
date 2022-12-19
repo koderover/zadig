@@ -28,7 +28,6 @@ import (
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"gopkg.in/yaml.v2"
@@ -87,40 +86,40 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	return originYaml, nil
 }
 
-func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
-	if rs == nil {
-		return origin
-	}
-	rs.SetKVAlias()
-	for _, v := range rs.KVs {
-		if v.State == "unused" {
-			continue
-		}
-		origin = replaceAliasValue(origin, v)
-	}
-	return origin
-}
+//func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
+//	if rs == nil {
+//		return origin
+//	}
+//	rs.SetKVAlias()
+//	for _, v := range rs.KVs {
+//		if v.State == "unused" {
+//			continue
+//		}
+//		origin = replaceAliasValue(origin, v)
+//	}
+//	return origin
+//}
 
-func replaceAliasValue(origin string, v *templatemodels.RenderKV) string {
-	for {
-		idx := strings.Index(origin, v.Alias)
-		if idx < 0 {
-			break
-		}
-		spaces := ""
-		start := 0
-		for i := idx - 1; i >= 0; i-- {
-			if string(origin[i]) != " " {
-				break
-			}
-			start++
-		}
-		spaces = origin[idx-start : idx]
-		valueStr := strings.Replace(v.Value, "\n", fmt.Sprintf("%s%s", "\n", spaces), -1)
-		origin = strings.Replace(origin, v.Alias, valueStr, 1)
-	}
-	return origin
-}
+//func replaceAliasValue(origin string, v *templatemodels.RenderKV) string {
+//	for {
+//		idx := strings.Index(origin, v.Alias)
+//		if idx < 0 {
+//			break
+//		}
+//		spaces := ""
+//		start := 0
+//		for i := idx - 1; i >= 0; i-- {
+//			if string(origin[i]) != " " {
+//				break
+//			}
+//			start++
+//		}
+//		spaces = origin[idx-start : idx]
+//		valueStr := strings.Replace(v.Value, "\n", fmt.Sprintf("%s%s", "\n", spaces), -1)
+//		origin = strings.Replace(origin, v.Alias, valueStr, 1)
+//	}
+//	return origin
+//}
 
 // RenderService renders service with particular revision and service vars in environment
 func RenderService(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService) (yaml *string, err error) {

@@ -20,6 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -407,8 +411,16 @@ func getMaxServiceRevision(services []*commonmodels.Service, serviceName, produc
 
 func isRenderedStringUpdateble(currentString, nextString string, currentRender, nextRender *commonmodels.RenderSet) bool {
 	resp := false
-	currentString = commonservice.RenderValueForString(currentString, currentRender)
-	nextString = commonservice.RenderValueForString(nextString, nextRender)
+	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender)
+	if err != nil {
+		log.Error("failed to check is RenderedString updatable, err: %s", err)
+		return false
+	}
+	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender)
+	if err != nil {
+		log.Error("failed to check is RenderedString updatable, err: %s", err)
+		return false
+	}
 	if currentString != nextString {
 		resp = true
 	}

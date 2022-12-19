@@ -47,26 +47,26 @@ func (RenderSet) TableName() string {
 	return "render_set"
 }
 
-func (m *RenderSet) GetKeyValueMap() map[string]string {
-	resp := make(map[string]string)
-	for _, kv := range m.KVs {
-		resp[kv.Key] = kv.Value
-	}
-	return resp
-}
+//func (m *RenderSet) GetKeyValueMap() map[string]string {
+//	resp := make(map[string]string)
+//	for _, kv := range m.KVs {
+//		resp[kv.Key] = kv.Value
+//	}
+//	return resp
+//}
 
 // SetKVAlias ...
-func (m *RenderSet) SetKVAlias() {
-	if m == nil || len(m.KVs) == 0 {
-		return
-	}
-	for _, kv := range m.KVs {
-		if kv != nil {
-			kv.SetAlias()
-		}
-
-	}
-}
+//func (m *RenderSet) SetKVAlias() {
+//	if m == nil || len(m.KVs) == 0 {
+//		return
+//	}
+//	for _, kv := range m.KVs {
+//		if kv != nil {
+//			kv.SetAlias()
+//		}
+//
+//	}
+//}
 
 func (m *RenderSet) Diff(target *RenderSet) bool {
 	//if m.IsDefault != target.IsDefault || reflect.DeepEqual(m.KVs, target.KVs) {

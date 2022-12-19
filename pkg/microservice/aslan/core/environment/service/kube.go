@@ -50,7 +50,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -773,7 +772,12 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		if len(svcSet) > 0 && !svcSet.Has(svc.ServiceName) {
 			continue
 		}
-		rederedYaml := commonservice.RenderValueForString(svc.Yaml, fakeRenderSet)
+		//rederedYaml := commonservice.RenderValueForString(svc.Yaml, fakeRenderSet)
+		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet)
+		if err != nil {
+			log.Errorf("failed to render service yaml, err: %s", err)
+			return nil, err
+		}
 		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
 		manifests := releaseutil.SplitManifests(rederedYaml)
 		resources := make([]*ResourceDeployStatus, 0)
