@@ -124,6 +124,16 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 	if err != nil {
 		return err
 	}
+
+	renderSetMap := make(map[string]*commonmodels.RenderSet)
+	for _, product := range products {
+		renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: product.Render.Name, Revision: product.Render.Revision, IsDefault: false})
+		if err != nil {
+			return fmt.Errorf("failed to find renderset of base product %s/%s, err: %s", product.ProductName, product.EnvName)
+		}
+		renderSetMap[renderset.EnvName] = renderset
+	}
+
 	productMap := make(map[string]*commonmodels.Product)
 	for _, product := range products {
 		productMap[product.EnvName] = product
@@ -136,12 +146,24 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 		if product, ok := productMap[item.OldName]; ok {
 			newProduct := *product
 			newProduct.EnvName = item.NewName
-			newProduct.Vars = item.Vars
+			//newProduct.Vars = item.Vars
 			newProduct.Namespace = projectName + "-env-" + newProduct.EnvName
-			newProduct.Render.Name = newProduct.Namespace
 			util.Clear(&newProduct.ID)
-			newProduct.Render.Revision = 0
 			newProduct.BaseName = item.BaseName
+
+			baseRenderset := renderSetMap[item.OldName]
+			newRenderset := *baseRenderset
+			newRenderset.Name = newProduct.Namespace
+			newRenderset.Revision = 0
+			newRenderset.EnvName = newProduct.EnvName
+			err = commonservice.ForceCreateReaderSet(&newRenderset, log)
+			if err != nil {
+				return err
+			}
+			newProduct.Render.Name = newProduct.Namespace
+			newProduct.Render.Revision = newRenderset.Revision
+			newProduct.Render.ProductTmpl = newProduct.ProductName
+
 			err = CreateProduct(user, requestID, &newProduct, log)
 			if err != nil {
 				return err

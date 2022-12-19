@@ -646,6 +646,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	return nil
 }
 
+// ForkProduct Deprecated
 func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)

@@ -144,55 +144,55 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	return res, nil
 }
 
-func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
-	for _, product := range products {
-		if product.Source == setting.SourceFromExternal || product.Source == setting.SourceFromHelm {
-			continue
-		}
-		renderName := product.Namespace
-		var revision int64
-		// if the environment is backtracking, render.name will be different with product.Namespace
-		if product.Render != nil {
-			revision = product.Render.Revision
-			renderName = product.Render.Name
-		}
-
-		renderSet, err := commonservice.GetRenderSet(renderName, revision, false, product.EnvName, log)
-		if err != nil {
-			log.Errorf("Failed to find render set, productName: %s, namespace: %s,  err: %s", product.ProductName, product.Namespace, err)
-			return e.ErrGetRenderSet.AddDesc(err.Error())
-		}
-
-		product.Vars = renderSet.KVs[:]
-
-		// Note. the service property of kv pair stored in DB is not accuracy
-		// from v1.14.0 we should fetch related service data real-time
-		if len(product.Vars) == 0 {
-			return nil
-		}
-
-		templateSvcsOfProduct, err := commonservice.GetProductUsedTemplateSvcs(product)
-		if err != nil {
-			log.Errorf("failed to get service templates applied in product, err: %s", err)
-			return nil
-		}
-
-		renderKvs, err := commonservice.ListRenderKeysByTemplateSvc(templateSvcsOfProduct, log)
-		if err != nil {
-			log.Errorf("failed to get render kvs in product, err: %s", err)
-			return nil
-		}
-
-		relatedSvcs := make(map[string][]string)
-		for _, key := range renderKvs {
-			relatedSvcs[key.Key] = key.Services
-		}
-		for _, varInfo := range product.Vars {
-			varInfo.Services = relatedSvcs[varInfo.Key]
-		}
-	}
-	return nil
-}
+//func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
+//	for _, product := range products {
+//		if product.Source == setting.SourceFromExternal || product.Source == setting.SourceFromHelm {
+//			continue
+//		}
+//		renderName := product.Namespace
+//		var revision int64
+//		// if the environment is backtracking, render.name will be different with product.Namespace
+//		if product.Render != nil {
+//			revision = product.Render.Revision
+//			renderName = product.Render.Name
+//		}
+//
+//		//renderSet, err := commonservice.GetRenderSet(renderName, revision, false, product.EnvName, log)
+//		//if err != nil {
+//		//	log.Errorf("Failed to find render set, productName: %s, namespace: %s,  err: %s", product.ProductName, product.Namespace, err)
+//		//	return e.ErrGetRenderSet.AddDesc(err.Error())
+//		//}
+//
+//		//product.Vars = renderSet.KVs[:]
+//		//
+//		//// Note. the service property of kv pair stored in DB is not accuracy
+//		//// from v1.14.0 we should fetch related service data real-time
+//		//if len(product.Vars) == 0 {
+//		//	return nil
+//		//}
+//
+//		templateSvcsOfProduct, err := commonservice.GetProductUsedTemplateSvcs(product)
+//		if err != nil {
+//			log.Errorf("failed to get service templates applied in product, err: %s", err)
+//			return nil
+//		}
+//
+//		renderKvs, err := commonservice.ListRenderKeysByTemplateSvc(templateSvcsOfProduct, log)
+//		if err != nil {
+//			log.Errorf("failed to get render kvs in product, err: %s", err)
+//			return nil
+//		}
+//
+//		relatedSvcs := make(map[string][]string)
+//		for _, key := range renderKvs {
+//			relatedSvcs[key.Key] = key.Services
+//		}
+//		for _, varInfo := range product.Vars {
+//			varInfo.Services = relatedSvcs[varInfo.Key]
+//		}
+//	}
+//	return nil
+//}
 
 var mutexAutoCreate sync.RWMutex
 
@@ -639,14 +639,14 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	return nil
 }
 
-func UpdateCVMProduct(envName, productName, user, requestID string, serviceNames []string, deployStrategy map[string]string, force bool, log *zap.SugaredLogger) error {
+func UpdateCVMProduct(envName, productName, user, requestID string, deployStrategy map[string]string, force bool, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][P:%s] Product.FindByOwner error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
-	return updateCVMProduct(exitedProd, user, requestID, serviceNames, deployStrategy, force, log)
+	return updateCVMProduct(exitedProd, user, requestID, deployStrategy, force, log)
 }
 
 // CreateProduct create a new product with its dependent stacks
@@ -1488,7 +1488,7 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 		return prod, nil
 	}
 	prod.ServiceRenders = renderSet.ChartInfos
-	prod.Vars = renderSet.KVs
+	//prod.Vars = renderSet.KVs
 
 	return prod, nil
 }
@@ -2583,7 +2583,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 					EnvName:     envName,
 					ProductTmpl: args.ProductName,
 					UpdateBy:    args.UpdateBy,
-					KVs:         args.Vars,
+					//KVs:         args.Vars,
 				},
 				log,
 			)
@@ -2595,7 +2595,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		}
 	}
 
-	args.Vars = nil
+	//args.Vars = nil
 
 	var productTmpl *templatemodels.Product
 	// 查询产品模板

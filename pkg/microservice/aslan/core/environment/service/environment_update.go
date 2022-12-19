@@ -433,22 +433,21 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	return nil
 }
 
-func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, serviceNames []string, deployStrategy map[string]string, force bool, log *zap.SugaredLogger) error {
+func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, deployStrategy map[string]string, force bool, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
+	var serviceNames []string
 	//TODO:The host update environment cannot remove deleted services
-	if !force {
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(productName)
-		if err != nil && !commonrepo.IsErrNoDocuments(err) {
-			log.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
-			return fmt.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(productName)
+	if err != nil && !commonrepo.IsErrNoDocuments(err) {
+		log.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
+		return fmt.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
+	}
+	if services != nil {
+		svcNames := make([]string, len(services))
+		for _, svc := range services {
+			svcNames = append(svcNames, svc.ServiceName)
 		}
-		if services != nil {
-			svcNames := make([]string, len(services))
-			for _, svc := range services {
-				svcNames = append(svcNames, svc.ServiceName)
-			}
-			serviceNames = svcNames
-		}
+		serviceNames = svcNames
 	}
 
 	if exitedProd.Render == nil {

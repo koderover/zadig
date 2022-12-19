@@ -28,23 +28,23 @@ type ProductPermission string
 
 // Vars不做保存，只做input参数
 type Product struct {
-	ID             primitive.ObjectID              `bson:"_id,omitempty"             json:"id,omitempty"`
-	ProductName    string                          `bson:"product_name"              json:"product_name"`
-	CreateTime     int64                           `bson:"create_time"               json:"create_time"`
-	UpdateTime     int64                           `bson:"update_time"               json:"update_time"`
-	Namespace      string                          `bson:"namespace,omitempty"       json:"namespace,omitempty"`
-	Status         string                          `bson:"status"                    json:"status"`
-	Revision       int64                           `bson:"revision"                  json:"revision"`
-	Enabled        bool                            `bson:"enabled"                   json:"enabled"`
-	EnvName        string                          `bson:"env_name"                  json:"env_name"`
-	BaseEnvName    string                          `bson:"-"                         json:"base_env_name"`
-	UpdateBy       string                          `bson:"update_by"                 json:"update_by"`
-	Auth           []*ProductAuth                  `bson:"auth"                      json:"auth"`
-	Visibility     string                          `bson:"-"                         json:"visibility"`
-	Services       [][]*ProductService             `bson:"services"                  json:"services"`
-	Render         *RenderInfo                     `bson:"render"                    json:"render"`
-	Error          string                          `bson:"error"                     json:"error"`
-	Vars           []*templatemodels.RenderKV      `bson:"_,omitempty"               json:"vars,omitempty"`
+	ID          primitive.ObjectID  `bson:"_id,omitempty"             json:"id,omitempty"`
+	ProductName string              `bson:"product_name"              json:"product_name"`
+	CreateTime  int64               `bson:"create_time"               json:"create_time"`
+	UpdateTime  int64               `bson:"update_time"               json:"update_time"`
+	Namespace   string              `bson:"namespace,omitempty"       json:"namespace,omitempty"`
+	Status      string              `bson:"status"                    json:"status"`
+	Revision    int64               `bson:"revision"                  json:"revision"`
+	Enabled     bool                `bson:"enabled"                   json:"enabled"`
+	EnvName     string              `bson:"env_name"                  json:"env_name"`
+	BaseEnvName string              `bson:"-"                         json:"base_env_name"`
+	UpdateBy    string              `bson:"update_by"                 json:"update_by"`
+	Auth        []*ProductAuth      `bson:"auth"                      json:"auth"`
+	Visibility  string              `bson:"-"                         json:"visibility"`
+	Services    [][]*ProductService `bson:"services"                  json:"services"`
+	Render      *RenderInfo         `bson:"render"                    json:"render"`
+	Error       string              `bson:"error"                     json:"error"`
+	//Vars           []*templatemodels.RenderKV      `bson:"_,omitempty"               json:"vars,omitempty"`
 	ServiceRenders []*templatemodels.ServiceRender `bson:"-"                         json:"chart_infos,omitempty"`
 	IsPublic       bool                            `bson:"is_public"                 json:"isPublic"`
 	RoleIDs        []int64                         `bson:"role_ids"                  json:"roleIds"`

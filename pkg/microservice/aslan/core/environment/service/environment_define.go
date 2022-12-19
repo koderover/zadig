@@ -139,7 +139,7 @@ type CreateSingleProductArg struct {
 	BaseEnvName string `json:"base_env_name"`
 	BaseName    string `json:"base_name,omitempty"` // for collaboration mode
 
-	DefaultValues string `json:"defaultValues"`
+	DefaultValues string `json:"default_values"`
 	// for helm products
 	ValuesData  *commonservice.ValuesDataArgs     `json:"valuesData"`
 	ChartValues []*ProductHelmServiceCreationInfo `json:"chartValues"`

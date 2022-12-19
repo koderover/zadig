@@ -424,6 +424,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
+		// no need to create renderset since renderset is not necessary in host projects
 		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
@@ -1396,9 +1397,6 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.KubeYamls = SplitYaml(args.RenderedYaml)
 		}
 
-		log.Infof("####### the RenderedYaml yamls is %+v", args.RenderedYaml)
-		log.Infof("####### the kube yamls is %+v", args.KubeYamls)
-
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
 		if err := setCurrentContainerImages(args); err != nil {
 			return err
@@ -1442,7 +1440,6 @@ func distinctEnvServices(productName string) (map[string][]*commonmodels.Product
 
 func setCurrentContainerImages(args *commonmodels.Service) error {
 	var srvContainers []*commonmodels.Container
-	log.Infof("##### lenth of yaml is %v", len(args.KubeYamls))
 	for _, data := range args.KubeYamls {
 		yamlDataArray := SplitYaml(data)
 		for index, yamlData := range yamlDataArray {
@@ -1464,8 +1461,6 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 				}
 				return errors.New("nil ReourceKind")
 			}
-
-			log.Infof("######### resource kind is %v", resKind.Kind)
 
 			if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
 				containers, err := getContainers(yamlData)

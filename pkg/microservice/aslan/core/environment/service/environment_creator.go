@@ -383,6 +383,41 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		args.Namespace = namespace
 	}
 
+	var renderSet *models.RenderSet
+	if args.Render == nil || args.Render.Revision == 0 {
+		renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+			EnvName:     args.EnvName,
+			Name:        args.Namespace,
+			ProductTmpl: args.ProductName,
+		})
+
+		if err != nil {
+			log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
+			return e.ErrCreateEnv.AddDesc(err.Error())
+		}
+		// if env renderset is predefined, set render info
+		if renderSet != nil {
+			args.Render = &models.RenderInfo{
+				ProductTmpl: args.ProductName,
+				Name:        renderSet.Name,
+				Revision:    renderSet.Revision,
+			}
+			//// user renderchart from renderset
+			//chartInfoMap := make(map[string]*template.ServiceRender)
+			//for _, renderChart := range renderSet.ChartInfos {
+			//	chartInfoMap[renderChart.ServiceName] = renderChart
+			//}
+			//
+			//// use values.yaml content from predefined env renderset
+			//for _, singleRenderChart := range args.ServiceRenders {
+			//	if renderInEnvRenderset, ok := chartInfoMap[singleRenderChart.ServiceName]; ok {
+			//		singleRenderChart.OverrideValues = renderInEnvRenderset.OverrideValues
+			//		singleRenderChart.OverrideYaml = renderInEnvRenderset.OverrideYaml
+			//	}
+			//}
+		}
+	}
+
 	//创建角色环境之间的关联关系
 	//todo 创建环境暂时不指定角色
 	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
@@ -395,7 +430,7 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		args.Render = &models.RenderInfo{ProductTmpl: args.ProductName}
 	}
 
-	renderSet := &models.RenderSet{
+	renderSet = &models.RenderSet{
 		ProductTmpl: args.Render.ProductTmpl,
 		Name:        args.Render.Name,
 		Revision:    args.Render.Revision,
