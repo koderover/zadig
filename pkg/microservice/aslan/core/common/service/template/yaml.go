@@ -67,7 +67,7 @@ func SafeMergeVariableYaml(variableYamls ...string) (string, map[string]string, 
 
 	mergedYaml, err := yamlutil.Merge(yamlsToMerge)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to merge varibale yamls, err: %s", err)
+		return "", nil, fmt.Errorf("failed to merge variable yamls, err: %s", err)
 	}
 	return string(mergedYaml), templateKv, nil
 }

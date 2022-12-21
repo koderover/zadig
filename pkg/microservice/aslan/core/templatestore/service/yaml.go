@@ -112,7 +112,7 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 	if len(resp.VariableYaml) > 0 {
 		flatMap, err := converter.YamlToFlatMap([]byte(resp.VariableYaml))
 		if err != nil {
-			log.Error("failed to get flat map of variable, err: %s", err)
+			log.Errorf("failed to get flat map of variable, err: %s", err)
 		} else {
 			allKeys := sets.NewString()
 			for k, v := range flatMap {

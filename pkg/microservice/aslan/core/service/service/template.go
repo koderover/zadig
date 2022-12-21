@@ -66,11 +66,11 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
 		return err
 	}
-	renderedYaml, err := renderYamlFromTemplate(template.Content, projectName, serviceName)
+	renderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName)
 	if err != nil {
 		return err
 	}
-	fullRenderedYaml, err := renderYamlFromTemplate(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
+	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
 	if err != nil {
 		return err
 	}
@@ -116,12 +116,12 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 	}
 
 	// raw yaml content will be saved, only system vars are render
-	renderedYaml, err := renderYamlFromTemplate(template.Content, projectName, serviceName)
+	renderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName)
 	if err != nil {
 		return err
 	}
 
-	fullRenderedYaml, err := renderYamlFromTemplate(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
+	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
 	if err != nil {
 		return err
 	}
@@ -157,10 +157,10 @@ func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger 
 	//	return "", fmt.Errorf("failed to get variable yaml from yaml template")
 	//}
 	//templateVariableYaml := yamlTemplate.VariableYaml
-	return renderYamlFromTemplate(yamlTemplate.Content, req.ProjectName, req.ServiceName, yamlTemplate.VariableYaml, req.VariableYaml)
+	return renderK8sSvcYaml(yamlTemplate.Content, req.ProjectName, req.ServiceName, yamlTemplate.VariableYaml, req.VariableYaml)
 }
 
-func renderYamlFromTemplate(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
+func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
 
 	tmpl, err := gotemplate.New(serviceName).Parse(originYaml)
 	if err != nil {
@@ -439,11 +439,11 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		return err
 	}
 
-	renderedYaml, err := renderYamlFromTemplate(template.Content, projectName, service.ServiceName, variableYaml)
+	renderedYaml, err := renderK8sSvcYaml(template.Content, projectName, service.ServiceName, variableYaml)
 	if err != nil {
 		return err
 	}
-	fullRenderedYaml, err := renderYamlFromTemplate(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
+	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
 	if err != nil {
 		return err
 	}

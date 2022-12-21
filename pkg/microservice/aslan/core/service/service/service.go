@@ -257,7 +257,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	if len(serviceOption.VariableYaml) > 0 {
 		flatMap, err := converter.YamlToFlatMap([]byte(serviceOption.VariableYaml))
 		if err != nil {
-			log.Error("failed to get flat map of variable, err: %s", err)
+			log.Errorf("failed to get flat map of variable, err: %s", err)
 		} else {
 			allKeys := sets.NewString()
 			for k, v := range flatMap {
@@ -1400,6 +1400,13 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		if len(args.RenderedYaml) == 0 {
 			args.RenderedYaml = args.Yaml
 		}
+
+		var err error
+		args.RenderedYaml, err = renderK8sSvcYaml(args.RenderedYaml, args.ProductName, args.ServiceName, args.VariableYaml)
+		if err != nil {
+			return fmt.Errorf("failed to render yaml, err: %s", err)
+		}
+
 		// Only the gerrit/spock/external type needs to be processed by yaml
 		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal || args.Source == setting.ServiceSourceTemplate || args.Source == setting.SourceFromGitee {
 			// 拆分 all-in-one yaml文件
