@@ -53,6 +53,9 @@ func SafeMergeVariableYaml(variableYamls ...string) (string, map[string]string, 
 	yamlsToMerge := make([][]byte, 0)
 
 	for _, vYaml := range variableYamls {
+		if len(vYaml) == 0 {
+			continue
+		}
 		kvs, err := GetYamlVariables(vYaml, log.SugaredLogger())
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to get variable from yaml: %s, err: %s", vYaml, err)

@@ -109,7 +109,7 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 	resp.Name = yamlTemplate.Name
 	resp.Content = yamlTemplate.Content
 	resp.ServiceVars = yamlTemplate.ServiceVars
-	if len(resp.VariableYaml) > 0 {
+	if len(yamlTemplate.VariableYaml) > 0 {
 		flatMap, err := converter.YamlToFlatMap([]byte(resp.VariableYaml))
 		if err != nil {
 			log.Errorf("failed to get flat map of variable, err: %s", err)
@@ -224,8 +224,7 @@ func FlattenKvs(yamlContent string) ([]*models.VariableKV, error) {
 		return nil, nil
 	}
 
-	valuesMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(yamlContent), &valuesMap)
+	valuesMap, err := converter.YamlToFlatMap([]byte(yamlContent))
 	if err != nil {
 		return nil, err
 	}

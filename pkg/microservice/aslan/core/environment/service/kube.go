@@ -768,11 +768,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		})
 	}
 
-	log.Infof("###### the svc set is %v", svcSet.List())
-
 	for _, svc := range productServices {
-
-		log.Infof("##### check single svc: %s", svc.ServiceName)
 
 		if len(svcSet) > 0 && !svcSet.Has(svc.ServiceName) {
 			continue
@@ -784,14 +780,9 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			return nil, err
 		}
 
-		log.Infof("######## the Yaml yaml is %v", svc.Yaml)
-		log.Infof("######## the rendered yaml is %v", rederedYaml)
-
 		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
 
 		manifests := releaseutil.SplitManifests(rederedYaml)
-
-		log.Infof("####### legth of manifests is %v", len(manifests))
 
 		resources := make([]*ResourceDeployStatus, 0)
 		for _, item := range manifests {
