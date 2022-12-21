@@ -294,7 +294,7 @@ type workflowTaskNotification struct {
 func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (string, error) {
 	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
 		"getColor": func(status config.Status) string {
-			if status == config.StatusPassed {
+			if status == config.StatusPassed || status == config.StatusCreated {
 				return markdownColorInfo
 			} else if status == config.StatusTimeout || status == config.StatusCancelled {
 				return markdownColorComment
@@ -312,19 +312,27 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return "执行超时"
 			} else if status == config.StatusReject {
 				return "执行被拒绝"
+			} else if status == config.StatusCreated {
+				return "开始执行"
 			}
 			return "执行失败"
 		},
 		"getIcon": func(status config.Status) string {
-			if status == config.StatusPassed {
+			if status == config.StatusPassed || status == config.StatusCreated {
 				return "👍"
 			}
 			return "⚠️"
 		},
 		"getStartTime": func(startTime int64) string {
+			if startTime == 0 {
+				return time.Now().Format("2006-01-02 15:04:05")
+			}
 			return time.Unix(startTime, 0).Format("2006-01-02 15:04:05")
 		},
 		"getDuration": func(startTime int64) string {
+			if startTime == 0 {
+				return "0s"
+			}
 			duration, er := time.ParseDuration(strconv.FormatInt(startTime, 10) + "s")
 			if er != nil {
 				log.Errorf("getTplExec ParseDuration err:%s", er)
