@@ -978,9 +978,11 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
 				// if this yaml contains go template grammar, the validation will be passed
 				ot := template.New(args.ServiceName)
-				_, err := ot.Parse(yamlData)
-				if err == nil {
+				_, errTemplate := ot.Parse(yamlData)
+				if errTemplate == nil {
 					continue
+				} else {
+					log.Errorf("failed to pase as template, err: %s", errTemplate)
 				}
 				errorDetails = append(errorDetails, fmt.Sprintf("Invalid yaml format. The content must be a series of valid Kubernetes resources. err: %s", err))
 			}
