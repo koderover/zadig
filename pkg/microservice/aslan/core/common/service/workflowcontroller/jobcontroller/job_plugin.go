@@ -78,6 +78,9 @@ func (c *PluginJobCtl) prepare(ctx context.Context) {
 func (c *PluginJobCtl) Clean(ctx context.Context) {}
 
 func (c *PluginJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+
 	c.prepare(ctx)
 	if err := c.run(ctx); err != nil {
 		return

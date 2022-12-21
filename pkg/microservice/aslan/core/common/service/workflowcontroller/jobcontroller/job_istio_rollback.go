@@ -19,14 +19,15 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"go.uber.org/zap"
 	"istio.io/api/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -64,6 +65,9 @@ func (c *IstioRollbackJobCtl) Clean(ctx context.Context) {
 }
 
 func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+
 	var err error
 
 	// initialize istio client

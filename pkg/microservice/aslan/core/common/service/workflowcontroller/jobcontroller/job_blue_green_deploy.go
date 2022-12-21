@@ -65,6 +65,8 @@ func NewBlueGreenDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmode
 func (c *BlueGreenDeployJobCtl) Clean(ctx context.Context) {}
 
 func (c *BlueGreenDeployJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
 	if err := c.run(ctx); err != nil {
 		return
 	}

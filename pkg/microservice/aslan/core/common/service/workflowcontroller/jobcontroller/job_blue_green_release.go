@@ -109,6 +109,9 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 }
 
 func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+
 	var err error
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {

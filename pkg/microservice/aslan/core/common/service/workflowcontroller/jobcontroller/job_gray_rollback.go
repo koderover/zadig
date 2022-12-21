@@ -59,6 +59,9 @@ func (c *GrayRollbackJobCtl) Clean(ctx context.Context) {
 }
 
 func (c *GrayRollbackJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+
 	var err error
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
