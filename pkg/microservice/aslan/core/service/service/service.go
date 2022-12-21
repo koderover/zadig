@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/koderover/zadig/pkg/util/converter"
 
@@ -958,7 +959,6 @@ func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) set
 }
 
 func YamlValidator(args *YamlValidatorReq) []string {
-	//validateWithCacheMap := make(map[string]*gojsonschema.Schema)
 	errorDetails := make([]string, 0)
 	if args.Yaml == "" {
 		return errorDetails
@@ -976,6 +976,12 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
+				// if this yaml contains go template grammar, the validation will be passed
+				ot := template.New(args.ServiceName)
+				_, err := ot.Parse(yamlData)
+				if err == nil {
+					continue
+				}
 				errorDetails = append(errorDetails, fmt.Sprintf("Invalid yaml format. The content must be a series of valid Kubernetes resources. err: %s", err))
 			}
 		}
