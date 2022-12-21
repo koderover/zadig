@@ -91,8 +91,6 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	job.StartTime = time.Now().Unix()
 	job.K8sJobName = getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID)
 	ack()
-	// todo debug
-	time.Sleep(time.Second * 5)
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
