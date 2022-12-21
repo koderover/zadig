@@ -506,7 +506,7 @@ func getHTMLTestReport(task *task.Task) []string {
 func getTplExec(tplcontent string, weChatNotification *wechatNotification) (string, error) {
 	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
 		"getColor": func(status config.Status) string {
-			if status == config.StatusPassed {
+			if status == config.StatusPassed || status == config.StatusCreated {
 				return markdownColorInfo
 			} else if status == config.StatusTimeout || status == config.StatusCancelled {
 				return markdownColorComment
@@ -528,11 +528,13 @@ func getTplExec(tplcontent string, weChatNotification *wechatNotification) (stri
 				return "执行取消"
 			} else if status == config.StatusTimeout {
 				return "执行超时"
+			} else if status == config.StatusCreated {
+				return "开始执行"
 			}
 			return "执行失败"
 		},
 		"getIcon": func(status config.Status) string {
-			if status == config.StatusPassed {
+			if status == config.StatusPassed || status == config.StatusCreated {
 				return "👍"
 			}
 			return "⚠️"
