@@ -280,6 +280,8 @@ func (h *ExecHandler) SendNotification() {
 		return
 	}
 
+	// todo debug
+	xl.Infof("debug: Status %s", notify.Content.(*types.PipelineStatusCtx).Status)
 	if err := h.Sender.Publish(setting.TopicNotification, nb); err != nil {
 		xl.Errorf("publish [%s] error: %v", setting.TopicNotification, err)
 		return
