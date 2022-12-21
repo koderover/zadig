@@ -105,15 +105,15 @@ type EstimateValuesArg struct {
 }
 
 type EnvRenderChartArg struct {
-	ChartValues []*commonservice.SvcRenderArg `json:"chartValues"`
+	ChartValues []*commonservice.HelmSvcRenderArg `json:"chartValues"`
 }
 
 type EnvRendersetArg struct {
-	DeployType        string                        `json:"-"`
-	DefaultValues     string                        `json:"defaultValues"`
-	ValuesData        *commonservice.ValuesDataArgs `json:"valuesData"`
-	ChartValues       []*commonservice.SvcRenderArg `json:"chartValues"`
-	UpdateServiceTmpl bool                          `json:"updateServiceTmpl"`
+	DeployType        string                            `json:"-"`
+	DefaultValues     string                            `json:"defaultValues"`
+	ValuesData        *commonservice.ValuesDataArgs     `json:"valuesData"`
+	ChartValues       []*commonservice.HelmSvcRenderArg `json:"chartValues"`
+	UpdateServiceTmpl bool                              `json:"updateServiceTmpl"`
 }
 
 type K8sRendersetArg struct {
@@ -126,7 +126,7 @@ type ProductK8sServiceCreationInfo struct {
 }
 
 type ProductHelmServiceCreationInfo struct {
-	*commonservice.SvcRenderArg
+	*commonservice.HelmSvcRenderArg
 	DeployStrategy string `json:"deploy_strategy"`
 }
 
@@ -157,11 +157,11 @@ type CreateSingleProductArg struct {
 }
 
 type UpdateMultiHelmProductArg struct {
-	ProductName     string                        `json:"productName"`
-	EnvNames        []string                      `json:"envNames"`
-	ChartValues     []*commonservice.SvcRenderArg `json:"chartValues"`
-	DeletedServices []string                      `json:"deletedServices"`
-	ReplacePolicy   string                        `json:"replacePolicy"` // TODO logic not implemented
+	ProductName     string                            `json:"productName"`
+	EnvNames        []string                          `json:"envNames"`
+	ChartValues     []*commonservice.HelmSvcRenderArg `json:"chartValues"`
+	DeletedServices []string                          `json:"deletedServices"`
+	ReplacePolicy   string                            `json:"replacePolicy"` // TODO logic not implemented
 }
 
 type RawYamlResp struct {
@@ -195,11 +195,11 @@ type UpdateEnvRequest struct {
 // ------------ used for api of getting deploy status of k8s resource/helm release
 
 type K8sDeployStatusCheckRequest struct {
-	EnvName       string                        `json:"env_name"`
-	Services      []*commonservice.SvcRenderArg `json:"services"`
-	ClusterID     string                        `json:"cluster_id"`
-	Namespace     string                        `json:"namespace"`
-	DefaultValues string                        `json:"default_values"`
+	EnvName       string                            `json:"env_name"`
+	Services      []*commonservice.HelmSvcRenderArg `json:"services"`
+	ClusterID     string                            `json:"cluster_id"`
+	Namespace     string                            `json:"namespace"`
+	DefaultValues string                            `json:"default_values"`
 	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 

@@ -34,10 +34,12 @@ import (
 )
 
 type YamlProductItem struct {
-	OldName  string                     `json:"old_name"`
-	NewName  string                     `json:"new_name"`
-	BaseName string                     `json:"base_name"`
-	Vars     []*templatemodels.RenderKV `json:"vars"`
+	OldName       string                           `json:"old_name"`
+	NewName       string                           `json:"new_name"`
+	BaseName      string                           `json:"base_name"`
+	DefaultValues string                           `json:"default_values"`
+	Services      []*commonservice.K8sSvcRenderArg `json:"services"`
+	//Vars          []*templatemodels.RenderKV       `json:"vars"`
 }
 
 type CopyYamlProductArg struct {
@@ -45,12 +47,12 @@ type CopyYamlProductArg struct {
 }
 
 type HelmProductItem struct {
-	OldName       string                        `json:"old_name"`
-	NewName       string                        `json:"new_name"`
-	BaseName      string                        `json:"base_name"`
-	DefaultValues string                        `json:"default_values"`
-	ChartValues   []*commonservice.SvcRenderArg `json:"chart_values"`
-	ValuesData    *commonservice.ValuesDataArgs `json:"values_data"`
+	OldName       string                            `json:"old_name"`
+	NewName       string                            `json:"new_name"`
+	BaseName      string                            `json:"base_name"`
+	DefaultValues string                            `json:"default_values"`
+	ChartValues   []*commonservice.HelmSvcRenderArg `json:"chart_values"`
+	ValuesData    *commonservice.ValuesDataArgs     `json:"values_data"`
 }
 
 type CopyHelmProductArg struct {
@@ -85,8 +87,8 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			chartValues := make([]*ProductHelmServiceCreationInfo, 0)
 			for _, value := range item.ChartValues {
 				chartValues = append(chartValues, &ProductHelmServiceCreationInfo{
-					SvcRenderArg:   value,
-					DeployStrategy: setting.ServiceDeployStrategyDeploy,
+					HelmSvcRenderArg: value,
+					DeployStrategy:   setting.ServiceDeployStrategyDeploy,
 				})
 			}
 			args = append(args, &CreateSingleProductArg{
@@ -152,14 +154,28 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			newProduct.BaseName = item.BaseName
 
 			baseRenderset := renderSetMap[item.OldName]
+
+			// we need create render set info here
 			newRenderset := *baseRenderset
 			newRenderset.Name = newProduct.Namespace
 			newRenderset.Revision = 0
 			newRenderset.EnvName = newProduct.EnvName
+			newRenderset.DefaultValues = item.DefaultValues
+			svcVariableYamlMap := make(map[string]string)
+			for _, sv := range item.Services {
+				svcVariableYamlMap[sv.ServiceName] = sv.VariableYaml
+			}
+			for _, sv := range newRenderset.ServiceVariables {
+				if variableYaml, ok := svcVariableYamlMap[sv.ServiceName]; ok {
+					sv.ValuesYaml = variableYaml
+				}
+			}
+
 			err = commonservice.ForceCreateReaderSet(&newRenderset, log)
 			if err != nil {
 				return err
 			}
+
 			newProduct.Render.Name = newProduct.Namespace
 			newProduct.Render.Revision = newRenderset.Revision
 			newProduct.Render.ProductTmpl = newProduct.ProductName

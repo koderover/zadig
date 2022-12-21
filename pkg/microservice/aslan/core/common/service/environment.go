@@ -127,8 +127,7 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*SvcRenderArg, error) {
-
+func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -137,7 +136,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	})
 
 	if err != nil && err != mongo.ErrNoDocuments {
-		return nil, err
+		return nil, nil, err
 	}
 	if err == nil {
 		renderSetName = productInfo.Render.Name
@@ -147,7 +146,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 	svcs, err := GetProductUsedTemplateSvcs(productInfo)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, svc := range svcs {
 		svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
@@ -164,7 +163,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	}
 	rendersetObj, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err == nil {
-		for _, svcRender := range rendersetObj.ChartInfos {
+		for _, svcRender := range rendersetObj.ServiceVariables {
 			svcRenders[svcRender.ServiceName] = svcRender
 		}
 	}
@@ -174,12 +173,12 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		return len(serviceName) == 0 || validSvcs.Has(name)
 	}
 
-	ret := make([]*SvcRenderArg, 0)
+	ret := make([]*K8sSvcRenderArg, 0)
 	for name, svcRender := range svcRenders {
 		if !filter(name) {
 			continue
 		}
-		rArg := &SvcRenderArg{
+		rArg := &K8sSvcRenderArg{
 			ServiceName: svcRender.ServiceName,
 		}
 		if svcRender.OverrideYaml != nil {
@@ -187,14 +186,14 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 		ret = append(ret, rArg)
 	}
-	return ret, nil
+	return ret, rendersetObj, nil
 }
 
-func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*SvcRenderArg, *models.RenderSet, error) {
+func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
 
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
-	ret := make([]*SvcRenderArg, 0)
+	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
@@ -239,7 +238,7 @@ func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.Sugared
 	}
 
 	for _, singleChart := range matchedRenderChartModels {
-		rcaObj := &SvcRenderArg{}
+		rcaObj := &HelmSvcRenderArg{}
 		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
 		err = FillGitNamespace(rendersetObj.YamlData)

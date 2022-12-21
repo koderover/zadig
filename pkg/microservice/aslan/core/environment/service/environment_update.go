@@ -294,7 +294,7 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 				continue
 			}
 
-			chartArg := &commonservice.SvcRenderArg{
+			chartArg := &commonservice.HelmSvcRenderArg{
 				EnvName:     product.EnvName,
 				ServiceName: templateSvc.ServiceName,
 			}

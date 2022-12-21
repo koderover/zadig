@@ -58,16 +58,28 @@ type ValuesDataArgs struct {
 	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
 }
 
-type SvcRenderArg struct {
-	EnvName        string                     `json:"env_name,omitempty"`
-	ServiceName    string                     `json:"service_name,omitempty"`
-	ChartVersion   string                     `json:"chart_version,omitempty"`
-	OverrideValues []*KVPair                  `json:"override_values,omitempty"`
+type HelmSvcRenderArg struct {
+	EnvName        string                     `json:"envName,omitempty"`
+	ServiceName    string                     `json:"serviceName,omitempty"`
+	ChartVersion   string                     `json:"chartVersion,omitempty"`
+	OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
 	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
 	ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
 	YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 	VariableYaml   string                     `json:"variable_yaml"`
 	DeployStrategy string                     `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
+}
+
+type K8sSvcRenderArg struct {
+	EnvName     string `json:"env_name,omitempty"`
+	ServiceName string `json:"service_name,omitempty"`
+	//ChartVersion   string                     `json:"chartVersion,omitempty"`
+	//OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
+	//OverrideYaml   string                     `json:"overrideYaml,omitempty"`
+	//ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
+	//YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
+	VariableYaml   string `json:"variable_yaml"`
+	DeployStrategy string `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
 }
 
 type RenderChartDiffResult string
@@ -78,7 +90,7 @@ const (
 	LogicSame RenderChartDiffResult = "logicSame"
 )
 
-func (args *SvcRenderArg) ToOverrideValueString() string {
+func (args *HelmSvcRenderArg) ToOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {
 		return ""
 	}
@@ -90,7 +102,7 @@ func (args *SvcRenderArg) ToOverrideValueString() string {
 	return string(bs)
 }
 
-func (args *SvcRenderArg) fromOverrideValueString(valueStr string) {
+func (args *HelmSvcRenderArg) fromOverrideValueString(valueStr string) {
 	if valueStr == "" {
 		args.OverrideValues = nil
 		return
@@ -103,7 +115,7 @@ func (args *SvcRenderArg) fromOverrideValueString(valueStr string) {
 	}
 }
 
-func (args *SvcRenderArg) toCustomValuesYaml() *templatemodels.CustomYaml {
+func (args *HelmSvcRenderArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 	ret := &templatemodels.CustomYaml{
 		YamlContent: args.OverrideYaml,
 	}
@@ -130,7 +142,7 @@ func (args *SvcRenderArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 	return ret
 }
 
-func (args *SvcRenderArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
+func (args *HelmSvcRenderArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
 	if customValuesYaml == nil {
 		return
 	}
@@ -138,7 +150,7 @@ func (args *SvcRenderArg) fromCustomValueYaml(customValuesYaml *templatemodels.C
 }
 
 // FillRenderChartModel fill render chart model
-func (args *SvcRenderArg) FillRenderChartModel(chart *templatemodels.ServiceRender, version string) {
+func (args *HelmSvcRenderArg) FillRenderChartModel(chart *templatemodels.ServiceRender, version string) {
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
 	chart.OverrideValues = args.ToOverrideValueString()
@@ -146,14 +158,14 @@ func (args *SvcRenderArg) FillRenderChartModel(chart *templatemodels.ServiceRend
 }
 
 // LoadFromRenderChartModel load from render chart model
-func (args *SvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender) {
+func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender) {
 	args.ServiceName = chart.ServiceName
 	args.ChartVersion = chart.ChartVersion
 	args.fromOverrideValueString(chart.OverrideValues)
 	args.fromCustomValueYaml(chart.OverrideYaml)
 }
 
-func (args *SvcRenderArg) GetUniqueKvMap() map[string]interface{} {
+func (args *HelmSvcRenderArg) GetUniqueKvMap() map[string]interface{} {
 	uniqueKvs := make(map[string]interface{})
 	for index := range args.OverrideValues {
 		kv := args.OverrideValues[len(args.OverrideValues)-index-1]
@@ -166,7 +178,7 @@ func (args *SvcRenderArg) GetUniqueKvMap() map[string]interface{} {
 }
 
 // DiffValues generate diff values to override from two chart args
-func (args *SvcRenderArg) DiffValues(target *SvcRenderArg) RenderChartDiffResult {
+func (args *HelmSvcRenderArg) DiffValues(target *HelmSvcRenderArg) RenderChartDiffResult {
 	argsUniqueKvs := args.GetUniqueKvMap()
 	targetUniqueKvs := target.GetUniqueKvMap()
 	if len(argsUniqueKvs) != len(targetUniqueKvs) || !reflect.DeepEqual(argsUniqueKvs, targetUniqueKvs) {

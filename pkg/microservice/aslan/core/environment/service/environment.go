@@ -669,7 +669,7 @@ func buildContainerMap(cs []*models.Container) map[string]*models.Container {
 	return containerMap
 }
 
-func UpdateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.SvcRenderArg, deletedServices []string, log *zap.SugaredLogger) error {
+func UpdateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedServices []string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -930,7 +930,7 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to prepare data, err %s", err))
 	}
 
-	tempArg := &commonservice.SvcRenderArg{OverrideValues: arg.OverrideValues}
+	tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
 	mergeValues, err := helmtool.MergeOverrideValues(chartValues, defaultValues, arg.OverrideYaml, tempArg.ToOverrideValueString())
 	if err != nil {
 		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
@@ -950,8 +950,8 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 
 // check if override values or yaml content changes
 // return [need-Redeploy] and [need-SaveToDB]
-func checkOverrideValuesChange(source *templatemodels.ServiceRender, args *commonservice.SvcRenderArg) (bool, bool) {
-	sourceArg := &commonservice.SvcRenderArg{}
+func checkOverrideValuesChange(source *templatemodels.ServiceRender, args *commonservice.HelmSvcRenderArg) (bool, bool) {
+	sourceArg := &commonservice.HelmSvcRenderArg{}
 	sourceArg.LoadFromRenderChartModel(source)
 
 	same := sourceArg.DiffValues(args)
@@ -1068,7 +1068,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
 	}
 
-	requestValueMap := make(map[string]*commonservice.SvcRenderArg)
+	requestValueMap := make(map[string]*commonservice.HelmSvcRenderArg)
 	for _, arg := range args.ChartValues {
 		requestValueMap[arg.ServiceName] = arg
 	}
@@ -1079,7 +1079,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 	}
 
 	updatedRcMap := make(map[string]*templatemodels.ServiceRender)
-	changedCharts := make([]*commonservice.SvcRenderArg, 0)
+	changedCharts := make([]*commonservice.HelmSvcRenderArg, 0)
 
 	// update override values
 	for serviceName, arg := range requestValueMap {
@@ -2004,7 +2004,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	return nil
 }
 
-func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, log *zap.SugaredLogger) ([]*commonservice.SvcRenderArg, error) {
+func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
 
 	var serviceNameList []string
 	// no service appointed, find all service templates
@@ -2029,7 +2029,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 		return nil, e.ErrGetRenderSet.AddDesc("failed to get render charts in env")
 	}
 
-	rcMap := make(map[string]*commonservice.SvcRenderArg)
+	rcMap := make(map[string]*commonservice.HelmSvcRenderArg)
 	for _, rc := range renderChartInEnv {
 		rcMap[rc.ServiceName] = rc
 	}
@@ -2056,7 +2056,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 			return nil, e.ErrGetRenderSet.AddDesc("failed to get service template info")
 		}
 		for _, singleService := range serviceList {
-			rcMap[singleService.ServiceName] = &commonservice.SvcRenderArg{
+			rcMap[singleService.ServiceName] = &commonservice.HelmSvcRenderArg{
 				EnvName:      envName,
 				ServiceName:  singleService.ServiceName,
 				ChartVersion: singleService.HelmChart.Version,
@@ -2064,7 +2064,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 		}
 	}
 
-	ret := make([]*commonservice.SvcRenderArg, 0, len(rcMap))
+	ret := make([]*commonservice.HelmSvcRenderArg, 0, len(rcMap))
 	for _, rc := range rcMap {
 		ret = append(ret, rc)
 	}
@@ -2928,7 +2928,7 @@ func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, 
 }
 
 func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
-	overrideCharts []*commonservice.SvcRenderArg, deletedSvcRevision map[string]int64, log *zap.SugaredLogger) error {
+	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -2991,7 +2991,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 
 // diffRenderSet get diff between renderset in product and product template
 // generate a new renderset and insert into db
-func diffRenderSet(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.SvcRenderArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func diffRenderSet(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// default renderset
 	latestRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productName, IsDefault: true})
 	if err != nil {
@@ -3006,7 +3006,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	}
 
 	// chart infos from client
-	renderChartArgMap := make(map[string]*commonservice.SvcRenderArg)
+	renderChartArgMap := make(map[string]*commonservice.HelmSvcRenderArg)
 	for _, singleArg := range overrideCharts {
 		if singleArg.EnvName == envName {
 			renderChartArgMap[singleArg.ServiceName] = singleArg
