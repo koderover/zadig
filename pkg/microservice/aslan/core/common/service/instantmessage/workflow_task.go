@@ -203,6 +203,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 							commitID = buildRepo.CommitID[0:8]
 						}
 						commitMsgs = strings.Split(buildRepo.CommitMessage, "\n")
+						log.Errorf("@@@ commit msg: %s", buildRepo.CommitMessage)
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
 				}
@@ -215,6 +216,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				if len(commitID) > 0 {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
 					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
+					log.Errorf("@@@ commit msgs: %+v", commitMsgs)
 					if len(commitMsgs) == 1 {
 						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])
 					} else {
