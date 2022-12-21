@@ -217,6 +217,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
 					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
 					log.Errorf("@@@ commit msgs: %+v", commitMsgs)
+					log.Errorf("@@@ length of : %d", len(commitMsgs))
 					if len(commitMsgs) == 1 {
 						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])
 					} else {
