@@ -769,6 +769,9 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 	}
 
 	for _, svc := range productServices {
+
+		log.Infof("##### check single svc: %s", svc.ServiceName)
+
 		if len(svcSet) > 0 && !svcSet.Has(svc.ServiceName) {
 			continue
 		}
