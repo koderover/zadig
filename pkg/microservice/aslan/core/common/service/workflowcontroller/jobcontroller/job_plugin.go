@@ -78,9 +78,6 @@ func (c *PluginJobCtl) prepare(ctx context.Context) {
 func (c *PluginJobCtl) Clean(ctx context.Context) {}
 
 func (c *PluginJobCtl) Run(ctx context.Context) {
-	c.job.Status = config.StatusRunning
-	c.ack()
-
 	c.prepare(ctx)
 	if err := c.run(ctx); err != nil {
 		return
@@ -147,9 +144,14 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 }
 
 func (c *PluginJobCtl) wait(ctx context.Context) {
-	status := WaitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	c.job.Status = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	if c.job.Status == config.StatusRunning {
+		c.ack()
+	} else {
+		return
+	}
+	status := waitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
 	c.job.Status = status
-
 }
 
 func (c *PluginJobCtl) complete(ctx context.Context) {
