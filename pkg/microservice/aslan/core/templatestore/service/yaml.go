@@ -109,7 +109,8 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 	resp.Name = yamlTemplate.Name
 	resp.Content = yamlTemplate.Content
 	resp.ServiceVars = yamlTemplate.ServiceVars
-	if len(yamlTemplate.VariableYaml) > 0 {
+	resp.VariableYaml = yamlTemplate.VariableYaml
+	if len(resp.VariableYaml) > 0 {
 		flatMap, err := converter.YamlToFlatMap([]byte(resp.VariableYaml))
 		if err != nil {
 			log.Errorf("failed to get flat map of variable, err: %s", err)
@@ -132,7 +133,6 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 		}
 	}
 	//resp.VariableYaml, err = template.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
-	resp.VariableYaml = yamlTemplate.VariableYaml
 	return resp, err
 }
 
