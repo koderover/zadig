@@ -127,10 +127,10 @@ func UpdateServiceVariable(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	if args.Username != "system" {
-		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
-	}
+	args.ProductName = c.Query("projectName")
+	args.ServiceName = c.Param("name")
 	args.Username = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s", args.ServiceName), "", ctx.Logger)
 	ctx.Err = svcservice.UpdateServiceVariables(args)
 }
 
