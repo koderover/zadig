@@ -768,6 +768,8 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		})
 	}
 
+	log.Infof("###### the svc set is %v", svcSet.List())
+
 	for _, svc := range productServices {
 
 		log.Infof("##### check single svc: %s", svc.ServiceName)
