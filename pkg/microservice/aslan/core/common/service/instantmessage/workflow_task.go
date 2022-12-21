@@ -324,15 +324,9 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 			return "⚠️"
 		},
 		"getStartTime": func(startTime int64) string {
-			if startTime == 0 {
-				return time.Now().Format("2006-01-02 15:04:05")
-			}
 			return time.Unix(startTime, 0).Format("2006-01-02 15:04:05")
 		},
 		"getDuration": func(startTime int64) string {
-			if startTime == 0 {
-				return "0s"
-			}
 			duration, er := time.ParseDuration(strconv.FormatInt(startTime, 10) + "s")
 			if er != nil {
 				log.Errorf("getTplExec ParseDuration err:%s", er)

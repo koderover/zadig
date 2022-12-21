@@ -342,6 +342,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
+	workflowTask.StartTime = time.Now().Unix()
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
