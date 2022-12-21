@@ -195,11 +195,11 @@ type UpdateEnvRequest struct {
 // ------------ used for api of getting deploy status of k8s resource/helm release
 
 type K8sDeployStatusCheckRequest struct {
-	EnvName       string                            `json:"env_name"`
-	Services      []*commonservice.HelmSvcRenderArg `json:"services"`
-	ClusterID     string                            `json:"cluster_id"`
-	Namespace     string                            `json:"namespace"`
-	DefaultValues string                            `json:"default_values"`
+	EnvName       string                           `json:"env_name"`
+	Services      []*commonservice.K8sSvcRenderArg `json:"services"`
+	ClusterID     string                           `json:"cluster_id"`
+	Namespace     string                           `json:"namespace"`
+	DefaultValues string                           `json:"default_values"`
 	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
