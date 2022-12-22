@@ -467,8 +467,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 	existedServices := existedProd.GetServiceMap()
 
-	log.Infof("####### the serviceRevisionMap is %v", serviceRevisionMap)
-
 	// 按照产品模板的顺序来创建或者更新服务
 	for groupIndex, prodServiceGroup := range updateProd.Services {
 		//Mark if there is k8s type service in this group
@@ -681,7 +679,7 @@ func buildContainerMap(cs []*models.Container) map[string]*models.Container {
 	return containerMap
 }
 
-func UpdateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedServices []string, log *zap.SugaredLogger) error {
+func updateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedServices []string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1465,7 +1463,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 			return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for env: %s", envName))
 		}
 
-		err = UpdateHelmProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, log)
+		err = updateHelmProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
 			return envStatuses, e.ErrUpdateEnv.AddDesc(err.Error())

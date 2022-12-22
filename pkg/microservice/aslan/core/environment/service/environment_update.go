@@ -400,7 +400,24 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
-	updateProd.Services = exitedProd.Services
+
+	// build services
+	productSvcs := exitedProd.GetServiceMap()
+	svcGroups := make([][]*commonmodels.ProductService, 0)
+	for _, svcGroup := range updateProd.Services {
+		validSvcGroup := make([]*commonmodels.ProductService, 0)
+		for _, svc := range svcGroup {
+			if curSvc, ok := productSvcs[svc.ServiceName]; ok {
+				// services to be updated
+				validSvcGroup = append(validSvcGroup, curSvc)
+			} else if util.InStringArray(svc.ServiceName, updateRevisionSvc) {
+				// services to be added
+				validSvcGroup = append(validSvcGroup, svc)
+			}
+		}
+		svcGroups = append(svcGroups, validSvcGroup)
+	}
+	updateProd.Services = svcGroups
 
 	switch exitedProd.Status {
 	case setting.ProductStatusCreating, setting.ProductStatusUpdating, setting.ProductStatusDeleting:
