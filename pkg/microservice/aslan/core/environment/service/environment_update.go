@@ -386,7 +386,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
-	log.Infof("########## new rendet set, name: %v, revision: %v", renderSet.Name, renderSet.Revision)
 
 	//renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
 	//if err != nil {

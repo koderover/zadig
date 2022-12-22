@@ -360,7 +360,6 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 }
 
 func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, filter svcUpgradeFilter, log *zap.SugaredLogger) (err error) {
-	log.Infof("###### updateRevisionSvcs is %v, renderset revision: %v", updateRevisionSvcs, renderSet.Revision)
 	oldProductRender := existedProd.Render
 	updateProd.Render = &commonmodels.RenderInfo{
 		Name:        renderSet.Name,
@@ -600,7 +599,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 	}
 
-	log.Infof("###### updating product render, render: %+v", *updateProd.Render)
 	err = commonrepo.NewProductColl().UpdateRender(envName, productName, updateProd.Render)
 	if err != nil {
 		log.Errorf("failed to update product render error: %v", err)
