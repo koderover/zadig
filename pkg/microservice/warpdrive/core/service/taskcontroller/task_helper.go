@@ -73,13 +73,13 @@ func transformToStages(pipelineTask *task.Task, xl *zap.SugaredLogger) error {
 	return nil
 }
 
-// 设置开始运行时的pipeline状态；包括执行开始时间、状态为Running，执行主机
+// 设置开始运行时的pipeline状态；包括执行开始时间、状态为 Created，执行主机
 func initPipelineTask(pipelineTask *task.Task, xl *zap.SugaredLogger) {
 	xl.Infof("start initPipelineTask")
 	now := time.Now().Unix()
 	pipelineTask.StartTime = now
 	pipelineTask.EndTime = now
-	pipelineTask.Status = config.StatusRunning
+	pipelineTask.Status = config.StatusCreated
 
 	//设置 Task.AgentHost
 	setHostName(pipelineTask)
