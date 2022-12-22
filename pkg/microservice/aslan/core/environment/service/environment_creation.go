@@ -293,7 +293,10 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 
 	for _, svg := range arg.Services {
 		for _, sv := range svg {
-			productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{ServiceName: sv.ServiceName, OverrideYaml: &templatemodels.CustomYaml{YamlContent: sv.VariableYaml}})
+			productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{
+				ServiceName:  sv.ServiceName,
+				OverrideYaml: &templatemodels.CustomYaml{YamlContent: sv.VariableYaml},
+			})
 		}
 	}
 
