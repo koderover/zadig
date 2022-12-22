@@ -77,12 +77,13 @@ func UpdateService(c *gin.Context) {
 	}
 
 	args := &service.SvcOptArgs{
-		EnvName:     envName,
-		ProductName: projectName,
-		ServiceName: c.Param("serviceName"),
-		ServiceType: svcRev.Type,
-		ServiceRev:  svcRev,
-		UpdateBy:    ctx.UserName,
+		EnvName:           envName,
+		ProductName:       projectName,
+		ServiceName:       c.Param("serviceName"),
+		ServiceType:       svcRev.Type,
+		ServiceRev:        svcRev,
+		UpdateBy:          ctx.UserName,
+		UpdateServiceTmpl: svcRev.UpdateServiceTmpl,
 	}
 
 	ctx.Err = service.UpdateService(args, ctx.Logger)
