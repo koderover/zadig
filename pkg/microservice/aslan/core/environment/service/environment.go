@@ -360,7 +360,7 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 }
 
 func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, filter svcUpgradeFilter, log *zap.SugaredLogger) (err error) {
-	log.Infof("###### updateRevisionSvcs is %v", updateRevisionSvcs)
+	log.Infof("###### updateRevisionSvcs is %v, renderset revision: %v", updateRevisionSvcs, renderSet.Revision)
 	oldProductRender := existedProd.Render
 	updateProd.Render = &commonmodels.RenderInfo{
 		Name:        renderSet.Name,
@@ -600,8 +600,8 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 	}
 
-	log.Infof("###### updating product render, render: %+v", *existedProd.Render)
-	err = commonrepo.NewProductColl().UpdateRender(envName, productName, existedProd.Render)
+	log.Infof("###### updating product render, render: %+v", *updateProd.Render)
+	err = commonrepo.NewProductColl().UpdateRender(envName, productName, updateProd.Render)
 	if err != nil {
 		log.Errorf("failed to update product render error: %v", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -2167,8 +2167,7 @@ func getProjectType(productName string) string {
 }
 
 // upsertService
-func upsertService(env *commonmodels.Product,
-	service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
+func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
 	isUpdate := prevSvc == nil
