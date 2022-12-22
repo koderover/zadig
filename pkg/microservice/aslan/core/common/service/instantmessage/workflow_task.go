@@ -202,7 +202,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						if len(buildRepo.CommitID) > 8 {
 							commitID = buildRepo.CommitID[0:8]
 						}
-						commitMsgs = strings.Split(buildRepo.CommitMessage, "\n")
+						commitMsg := strings.Trim(buildRepo.CommitMessage, "\n")
+						commitMsgs = strings.Split(commitMsg, "\n")
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
 				}
