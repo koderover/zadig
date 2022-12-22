@@ -292,7 +292,7 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl, EnvName: args.EnvName}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
-		if rs.Diff(args) {
+		if rs.K8sServiceRenderDiff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
 			return args, nil
@@ -304,19 +304,19 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 }
 
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        args.Name,
-		ProductTmpl: args.ProductTmpl,
-		EnvName:     args.EnvName,
-	}
-	rs, err := commonrepo.NewRenderSetColl().Find(opt)
-	if rs != nil && err == nil {
-		if rs.Diff(args) {
-			args.IsDefault = rs.IsDefault
-		} else {
-			return nil
-		}
-	}
+	//opt := &commonrepo.RenderSetFindOption{
+	//	Name:        args.Name,
+	//	ProductTmpl: args.ProductTmpl,
+	//	EnvName:     args.EnvName,
+	//}
+	//rs, err := commonrepo.NewRenderSetColl().Find(opt)
+	//if rs != nil && err == nil {
+	//	if rs.Diff(args) {
+	//		args.IsDefault = rs.IsDefault
+	//	} else {
+	//		return nil
+	//	}
+	//}
 	return createRenderset(args, log)
 }
 

@@ -478,6 +478,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 		for _, prodService := range prodServiceGroup {
 
+			log.Infof("######## hanlding single service %s", prodService.ServiceName)
 			// no need to update service
 			if filter != nil && !filter(prodService) {
 				continue
@@ -493,6 +494,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 			// need update service revision
 			if util.InStringArray(prodService.ServiceName, updateRevisionSvcs) {
+				log.Infof("######## revision update single service %s", prodService.ServiceName)
 				svcRev, ok := serviceRevisionMap[prodService.ServiceName+prodService.Type]
 				if !ok {
 					continue

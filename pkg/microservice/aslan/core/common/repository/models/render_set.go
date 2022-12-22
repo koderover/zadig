@@ -70,7 +70,7 @@ func (RenderSet) TableName() string {
 
 func (m *RenderSet) Diff(target *RenderSet) bool {
 	//if m.IsDefault != target.IsDefault || reflect.DeepEqual(m.KVs, target.KVs) {
-	if m.IsDefault != target.IsDefault || m.DefaultValues == target.DefaultValues {
+	if m.DefaultValues == target.DefaultValues {
 		return false
 	}
 	return true
