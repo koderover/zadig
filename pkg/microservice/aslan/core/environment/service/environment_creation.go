@@ -291,6 +291,12 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 		productObj.BaseEnvName = arg.BaseEnvName
 	}
 
+	for _, svg := range arg.Services {
+		for _, sv := range svg {
+			productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{ServiceName: sv.ServiceName, ValuesYaml: sv.VariableYaml})
+		}
+	}
+
 	// fill services and chart infos of product
 	err := prepareK8sProductCreation(templateProduct, productObj, arg, log)
 	if err != nil {
