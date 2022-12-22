@@ -395,12 +395,12 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 
-	// 查找产品模板
 	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
+	updateProd.Services = exitedProd.Services
 
 	switch exitedProd.Status {
 	case setting.ProductStatusCreating, setting.ProductStatusUpdating, setting.ProductStatusDeleting:
