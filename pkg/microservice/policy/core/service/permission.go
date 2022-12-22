@@ -396,7 +396,7 @@ func setVerbToWorkflows(workflowsNameMap map[string]*ReleaseWorkflowResp, workfl
 func WorkflowToWorkflowResp(workflow *aslanmodels.WorkflowV4) *ReleaseWorkflowResp {
 	stages := []string{}
 	for _, stage := range workflow.Stages {
-		if stage.Approval.Enabled {
+		if stage.Approval != nil && stage.Approval.Enabled {
 			stages = append(stages, "人工审批")
 		}
 		stages = append(stages, stage.Name)
