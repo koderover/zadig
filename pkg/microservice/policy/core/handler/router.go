@@ -112,6 +112,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		policyUserPermission.GET("project/:name", GetUserRulesByProject)
 		policyUserPermission.GET("releaseworkflow", GetUserReleaseWorkflows)
+		policyUserPermission.GET("testing", ListTesting)
 		policyUserPermission.GET("", GetUserRules)
 
 	}

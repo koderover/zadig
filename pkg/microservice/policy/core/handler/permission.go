@@ -45,6 +45,13 @@ func GetUserReleaseWorkflows(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetUserReleaseWorkflows(ctx.UserID, ctx.Logger)
 }
 
+func ListTesting(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListTesting(ctx.UserID, ctx.Logger)
+}
+
 type GetUserResourcesPermissionReq struct {
 	ProjectName  string   `json:"project_name"      form:"project_name"`
 	Uid          string   `json:"uid"               form:"uid"`

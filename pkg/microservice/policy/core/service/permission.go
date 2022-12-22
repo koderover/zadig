@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -372,6 +373,74 @@ func GetResourcesPermission(uid string, projectName string, resourceType string,
 	return resourceRes, nil
 }
 
+func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string][]string, error) {
+	roleBindings, err := mongodb.NewRoleBindingColl().ListRoleBindingsByUIDs([]string{uid, "*"})
+	if err != nil {
+		return false, nil, err
+	}
+	if len(roleBindings) == 0 {
+		return false, nil, nil
+	}
+	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
+	if err != nil {
+		return false, nil, err
+	}
+	roleMap := make(map[string]*models.Role)
+	for _, role := range roles {
+		roleMap[role.Name] = role
+	}
+	var isSystemAdmin bool
+	projectVerbMap := make(map[string][]string)
+
+	for _, rolebinding := range roleBindings {
+		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) {
+			isSystemAdmin = true
+			continue
+		} else if rolebinding.RoleRef.Name == string(setting.ProjectAdmin) {
+			projectVerbMap[rolebinding.Namespace] = []string{"*"}
+			continue
+		}
+		var role *models.Role
+		if roleRef, ok := roleMap[rolebinding.RoleRef.Name]; ok {
+			role = roleRef
+		} else {
+			return false, projectVerbMap, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
+		}
+		if rolebinding.Namespace != "*" {
+			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
+				verbSet := sets.NewString(verbs...)
+				for _, rule := range role.Rules {
+					if len(rule.MatchAttributes) > 0 && rule.MatchAttributes[0].Key == "placeholder" {
+						continue
+					}
+					if rule.Resources[0] == resourceType {
+						verbSet.Insert(rule.Verbs...)
+					}
+				}
+				projectVerbMap[rolebinding.Namespace] = verbSet.List()
+
+			} else {
+				verbSet := sets.NewString()
+				for _, rule := range role.Rules {
+					if rule.Resources[0] == resourceType {
+						verbSet.Insert(rule.Verbs...)
+					}
+				}
+				projectVerbMap[rolebinding.Namespace] = verbSet.List()
+			}
+		}
+	}
+	for project, verbs := range projectVerbMap {
+		for _, verb := range verbs {
+			if verb == "*" {
+				projectVerbMap[project] = []string{"*"}
+				break
+			}
+		}
+	}
+	return isSystemAdmin, projectVerbMap, nil
+}
+
 type ReleaseWorkflowResp struct {
 	Name        string                   `json:"name"`
 	DisplayName string                   `json:"display_name"`
@@ -430,23 +499,11 @@ func GetUserReleaseWorkflows(uid string, log *zap.SugaredLogger) ([]*ReleaseWork
 	for _, workflow := range releaseWorkflows {
 		workflowNameMap[workflow.Name] = WorkflowToWorkflowResp(workflow)
 	}
-	roleBindings, err := mongodb.NewRoleBindingColl().ListRoleBindingsByUIDs([]string{uid, "*"})
+
+	isSystemAdmin, projectVerbMap, err := getRoleBindingVerbMapByResource(uid, "Workflow")
 	if err != nil {
-		log.Errorf("ListRoleBindingsByUIDs err:%s")
+		log.Errorf("getRoleBindingVerbMapByResource err:%s", err)
 		return workflowResp, err
-	}
-	if len(roleBindings) == 0 {
-		log.Info("rolebindings == 0")
-		return workflowResp, nil
-	}
-	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
-	if err != nil {
-		log.Errorf("ListUserAllRolesByRoleBindings err:%s", err)
-		return workflowResp, err
-	}
-	roleMap := make(map[string]*models.Role)
-	for _, role := range roles {
-		roleMap[role.Name] = role
 	}
 
 	policyBindings, err := mongodb.NewPolicyBindingColl().ListByUser(uid)
@@ -460,50 +517,6 @@ func GetUserReleaseWorkflows(uid string, log *zap.SugaredLogger) ([]*ReleaseWork
 	policyMap := make(map[string]*models.Policy)
 	for _, policy := range policies {
 		policyMap[policy.Name] = policy
-	}
-
-	var isSystemAdmin bool
-	projectAdminSet := sets.NewString()
-	projectVerbMap := make(map[string][]string)
-
-	for _, rolebinding := range roleBindings {
-		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) {
-			isSystemAdmin = true
-			continue
-		} else if rolebinding.RoleRef.Name == string(setting.ProjectAdmin) {
-			projectAdminSet.Insert(rolebinding.Namespace)
-			continue
-		}
-		var role *models.Role
-		if roleRef, ok := roleMap[rolebinding.RoleRef.Name]; ok {
-			role = roleRef
-		} else {
-			log.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
-			return workflowResp, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
-		}
-		if rolebinding.Namespace != "*" {
-			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
-				verbSet := sets.NewString(verbs...)
-				for _, rule := range role.Rules {
-					if len(rule.MatchAttributes) > 0 && rule.MatchAttributes[0].Key == "placeholder" {
-						continue
-					}
-					if rule.Resources[0] == string(config.ResourceTypeWorkflow) {
-						verbSet.Insert(rule.Verbs...)
-					}
-				}
-				projectVerbMap[rolebinding.Namespace] = verbSet.List()
-
-			} else {
-				verbSet := sets.NewString()
-				for _, rule := range role.Rules {
-					if rule.Resources[0] == string(config.ResourceTypeWorkflow) {
-						verbSet.Insert(rule.Verbs...)
-					}
-				}
-				projectVerbMap[rolebinding.Namespace] = verbSet.List()
-			}
-		}
 	}
 
 	labelVerbMap := make(map[string][]string)
@@ -576,10 +589,6 @@ func GetUserReleaseWorkflows(uid string, log *zap.SugaredLogger) ([]*ReleaseWork
 			setVerbToWorkflows(respMap, workflows, []string{"*"})
 			continue
 		}
-		if projectAdminSet.Has(project) {
-			setVerbToWorkflows(respMap, workflows, []string{"*"})
-			continue
-		}
 		if verbs, ok := projectVerbMap[project]; ok {
 			setVerbToWorkflows(respMap, workflows, verbs)
 		}
@@ -598,4 +607,114 @@ func GetUserReleaseWorkflows(uid string, log *zap.SugaredLogger) ([]*ReleaseWork
 		workflowResp = append(workflowResp, workflow)
 	}
 	return workflowResp, nil
+}
+
+type TestingOpt struct {
+	Name        string                  `json:"name"`
+	ProductName string                  `json:"product_name"`
+	Desc        string                  `json:"desc"`
+	UpdateTime  int64                   `json:"update_time"`
+	UpdateBy    string                  `json:"update_by"`
+	TestCaseNum int                     `json:"test_case_num,omitempty"`
+	ExecuteNum  int                     `json:"execute_num,omitempty"`
+	PassRate    float64                 `json:"pass_rate,omitempty"`
+	AvgDuration float64                 `json:"avg_duration,omitempty"`
+	Workflows   []*aslanmodels.Workflow `json:"workflows,omitempty"`
+	Verbs       []string                `json:"verbs"`
+}
+
+func setVerbToTestings(workflowsNameMap map[string]*TestingOpt, testings []*TestingOpt, verbs []string) {
+	for _, testing := range testings {
+		testing.Verbs = verbs
+		workflowsNameMap[testing.Name] = testing
+	}
+}
+
+func ListTesting(uid string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
+	testingResp := []*TestingOpt{}
+	allTestings := []*aslanmodels.Testing{}
+	testings, err := aslanmongo.NewTestingColl().List(&aslanmongo.ListTestOption{TestType: "function"})
+	if err != nil {
+		log.Errorf("[Testing.List] error: %v", err)
+		return nil, fmt.Errorf("list testing error: %v", err)
+	}
+
+	for _, testing := range testings {
+
+		testTaskStat, _ := GetTestTask(testing.Name)
+		if testTaskStat == nil {
+			testTaskStat = new(aslanmodels.TestTaskStat)
+		}
+		testing.TestCaseNum = testTaskStat.TestCaseNum
+		totalNum := testTaskStat.TotalSuccess + testTaskStat.TotalFailure
+		testing.ExecuteNum = totalNum
+		if totalNum != 0 {
+			passRate := float64(testTaskStat.TotalSuccess) / float64(totalNum)
+			testing.PassRate = decimal(passRate)
+			avgDuration := float64(testTaskStat.TotalDuration) / float64(totalNum)
+			testing.AvgDuration = decimal(avgDuration)
+		}
+
+		testing.Workflows, _ = ListAllWorkflows(testing.Name, log)
+
+		allTestings = append(allTestings, testing)
+	}
+
+	testingOpts := make([]*TestingOpt, 0)
+	for _, t := range allTestings {
+		testingOpts = append(testingOpts, &TestingOpt{
+			Name:        t.Name,
+			ProductName: t.ProductName,
+			Desc:        t.Desc,
+			UpdateTime:  t.UpdateTime,
+			UpdateBy:    t.UpdateBy,
+			TestCaseNum: t.TestCaseNum,
+			ExecuteNum:  t.ExecuteNum,
+			PassRate:    t.PassRate,
+			AvgDuration: t.AvgDuration,
+			Workflows:   t.Workflows,
+		})
+	}
+	isSystemAdmin, projectVerbMap, err := getRoleBindingVerbMapByResource(uid, "Workflow")
+	if err != nil {
+		log.Errorf("getRoleBindingVerbMapByResource err:%s", err)
+		return testingResp, err
+	}
+	respMap := make(map[string]*TestingOpt)
+	testingProjectMap := make(map[string][]*TestingOpt)
+	for _, testing := range testingOpts {
+		testingProjectMap[testing.ProductName] = append(testingProjectMap[testing.ProductName], testing)
+	}
+	for project, testings := range testingProjectMap {
+		if isSystemAdmin {
+			setVerbToTestings(respMap, testings, []string{"*"})
+			continue
+		}
+		if verbs, ok := projectVerbMap[project]; ok {
+			setVerbToTestings(respMap, testings, verbs)
+		}
+	}
+	for _, testing := range respMap {
+		testingResp = append(testingResp, testing)
+	}
+
+	return testingResp, nil
+}
+
+func GetTestTask(testName string) (*aslanmodels.TestTaskStat, error) {
+	return aslanmongo.NewTestTaskStatColl().FindTestTaskStat(&aslanmongo.TestTaskStatOption{Name: testName})
+}
+
+func ListAllWorkflows(testName string, log *zap.SugaredLogger) ([]*aslanmodels.Workflow, error) {
+	workflows, err := aslanmongo.NewWorkflowColl().ListByTestName(testName)
+	if err != nil {
+		log.Errorf("Workflow.List error: %v", err)
+		return nil, fmt.Errorf("list workflow error: %s", err)
+	}
+	return workflows, nil
+}
+
+func decimal(value float64) float64 {
+	value, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
+	return value
 }
