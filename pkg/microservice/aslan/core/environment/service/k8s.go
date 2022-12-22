@@ -162,6 +162,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	//}
 	preRevision := exitedProd.Render
 	exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
+	k.log.Infof("######## the revision of rendet is %v, name: %v", curRenderset.Revision, curRenderset.Name)
 
 	_, err = upsertService(
 		exitedProd,
