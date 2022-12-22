@@ -225,7 +225,13 @@ func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commo
 			svcRender = sv
 		}
 	}
-	return updateK8sProduct(productInfo, "system", "", []string{svcRender.ServiceName}, nil, []*templatemodels.ServiceRender{svcRender}, nil, false, currentRenderset.DefaultValues, log.SugaredLogger())
+	filter := func(service *commonmodels.ProductService) bool {
+		if _, ok := productSvcMap[service.ServiceName]; ok {
+			return true
+		}
+		return false
+	}
+	return updateK8sProduct(productInfo, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, false, currentRenderset.DefaultValues, log.SugaredLogger())
 }
 
 // ReInstallHelmSvcInAllEnvs reinstall svc in all envs in which the svc is already installed

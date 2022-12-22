@@ -1348,7 +1348,14 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 }
 
 func updateK8sProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, userName, requestID string, log *zap.SugaredLogger) error {
-	return updateK8sProduct(productResp, userName, requestID, nil, nil, renderset.ServiceVariables, nil, false, renderset.DefaultValues, log)
+	svcMap := productResp.GetServiceMap()
+	filter := func(service *commonmodels.ProductService) bool {
+		if _, ok := svcMap[service.ServiceName]; ok {
+			return true
+		}
+		return false
+	}
+	return updateK8sProduct(productResp, userName, requestID, nil, filter, renderset.ServiceVariables, nil, false, renderset.DefaultValues, log)
 }
 
 func updateHelmProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, userName, requestID string, log *zap.SugaredLogger) error {
@@ -2181,7 +2188,6 @@ func upsertService(env *commonmodels.Product,
 
 	// 获取服务模板
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
-	log.Infof("############ yaml after render is %s", parsedYaml)
 
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)

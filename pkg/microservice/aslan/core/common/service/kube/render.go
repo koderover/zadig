@@ -41,11 +41,9 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
 	}
-	log.Infof("###### serviceName: %s, length of service vars: %v", serviceName, len(rs.ServiceVariables))
 
 	serviceVariable := ""
 	for _, v := range rs.ServiceVariables {
-		log.Infof("##### handling single va for svc: %s", v.ServiceName)
 		if v.ServiceName != serviceName {
 			continue
 		}
@@ -54,12 +52,6 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 		}
 		break
 	}
-
-	log.Infof("######### renderset info, name: %v, revision: %v", rs.Name, rs.Revision)
-
-	log.Infof("######### source yaml: %s", originYaml)
-	log.Infof("###### default values: %s", rs.DefaultValues)
-	log.Infof("###### serviceVariable: %s", serviceVariable)
 
 	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(rs.DefaultValues, serviceVariable)
 	if err != nil {
