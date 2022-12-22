@@ -276,7 +276,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			case setting.Deployment:
 				d, found, err := getter.GetDeployment(namespace, u.GetName(), kubeClient)
 				if err != nil || !found {
-					log.Warnf("failed to get deployment %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+					//log.Warnf("failed to get deployment %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
@@ -285,7 +285,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			case setting.StatefulSet:
 				sts, found, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
 				if err != nil || !found {
-					log.Warnf("failed to get statefulSet %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+					//log.Warnf("failed to get statefulSet %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
@@ -301,7 +301,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				if kubeclient.VersionLessThan122(version) {
 					ing, found, err := getter.GetExtensionsV1Beta1Ingress(namespace, u.GetName(), inf)
 					if err != nil || !found {
-						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						//log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 						continue
 					}
 
@@ -309,7 +309,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				} else {
 					ing, err := getter.GetNetworkingV1Ingress(namespace, u.GetName(), inf)
 					if err != nil {
-						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						//log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 						continue
 					}
 
@@ -327,7 +327,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			case setting.Service:
 				svc, found, err := getter.GetService(namespace, u.GetName(), kubeClient)
 				if err != nil || !found {
-					log.Warnf("no svc %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+					//log.Warnf("no svc %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 

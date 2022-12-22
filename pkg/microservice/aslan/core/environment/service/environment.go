@@ -2181,6 +2181,7 @@ func upsertService(env *commonmodels.Product,
 
 	// 获取服务模板
 	parsedYaml, err := kube.RenderService(env, renderSet, service)
+	log.Infof("############ yaml after render is %s", parsedYaml)
 
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
