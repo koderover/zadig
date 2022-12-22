@@ -2559,7 +2559,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName, args.Namespace)
 		err                 error
 	)
-	// 如果 args.Render.Revision > 0 则该次操作是版本回溯
 	if args.Render != nil && args.Render.Revision > 0 {
 		renderSetName = args.Render.Name
 	} else {
@@ -2579,11 +2578,12 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		default:
 			err = commonservice.CreateRenderSet(
 				&commonmodels.RenderSet{
-					Name:        renderSetName,
-					Revision:    0,
-					EnvName:     envName,
-					ProductTmpl: args.ProductName,
-					UpdateBy:    args.UpdateBy,
+					Name:             renderSetName,
+					Revision:         0,
+					EnvName:          envName,
+					ProductTmpl:      args.ProductName,
+					UpdateBy:         args.UpdateBy,
+					ServiceVariables: args.ServiceRenders,
 					//KVs:         args.Vars,
 				},
 				log,

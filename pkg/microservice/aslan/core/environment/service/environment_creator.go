@@ -426,14 +426,13 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	if args.Render == nil {
-		args.Render = &models.RenderInfo{ProductTmpl: args.ProductName}
-	}
-
-	renderSet = &models.RenderSet{
-		ProductTmpl: args.Render.ProductTmpl,
-		Name:        args.Render.Name,
-		Revision:    args.Render.Revision,
+	renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		EnvName:  args.EnvName,
+		Name:     args.Render.Name,
+		Revision: args.Render.Revision,
+	})
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to find renderset: %v/%v", args.Render.Name, args.Render.Revision))
 	}
 	//// 如果是版本回滚，则args.Render.Revision > 0
 	//if args.Render.Revision == 0 {
