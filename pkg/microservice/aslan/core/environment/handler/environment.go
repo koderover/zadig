@@ -556,7 +556,7 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
-	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args, envNames, projectName, ctx.RequestID, request.Force, ctx.Logger)
+	ctx.Resp, ctx.Err = service.UpdateMultipleK8sEnv(args, envNames, projectName, ctx.RequestID, request.Force, ctx.Logger)
 }
 
 func updateMultiHelmEnv(c *gin.Context, ctx *internalhandler.Context) {

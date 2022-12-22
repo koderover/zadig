@@ -274,32 +274,33 @@ func ValidateRenderSet(productName, renderName, envName string, serviceInfo *tem
 }
 
 func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVariables []*templatemodels.ServiceRender) []*templatemodels.ServiceRender {
-	oldVarMap := make(map[string]*templatemodels.ServiceRender)
+	allVarMap := make(map[string]*templatemodels.ServiceRender)
 	for _, sv := range oldVariables {
-		oldVarMap[sv.ServiceName] = sv
+		allVarMap[sv.ServiceName] = sv
 	}
 	for _, sv := range newVariables {
-		oldVarMap[sv.ServiceName] = sv
+		allVarMap[sv.ServiceName] = sv
 	}
 	ret := make([]*templatemodels.ServiceRender, 0)
-	for _, sv := range oldVariables {
+	for _, sv := range allVarMap {
 		ret = append(ret, sv)
 	}
 	return ret
 }
 
-func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl, EnvName: args.EnvName}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
 		if rs.Diff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
-			return nil
+			return args, nil
 		}
 		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
 	}
-	return createRenderset(args, log)
+	err = createRenderset(args, log)
+	return args, err
 }
 
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {

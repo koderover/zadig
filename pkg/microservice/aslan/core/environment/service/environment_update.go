@@ -372,7 +372,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return err
 	}
 
-	err = commonservice.CreateRenderSetByMerge(
+	renderSet, err := commonservice.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
 			Name:             exitedProd.Namespace,
 			EnvName:          envName,
@@ -387,11 +387,11 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 
-	renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
-	if err != nil {
-		log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
+	//renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
+	//if err != nil {
+	//	log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
+	//	return e.ErrUpdateEnv.AddDesc(err.Error())
+	//}
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 

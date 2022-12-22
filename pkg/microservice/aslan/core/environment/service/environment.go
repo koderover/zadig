@@ -233,7 +233,7 @@ type UpdateEnv struct {
 	//Vars     []*template.RenderKV `json:"vars,omitempty"`
 }
 
-func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -243,7 +243,7 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 
 	productsRevision, err := ListProductsRevision(productName, "", log)
 	if err != nil {
-		log.Errorf("AutoUpdateProduct ListProductsRevision err:%v", err)
+		log.Errorf("UpdateMultipleK8sEnv ListProductsRevision err:%v", err)
 		return envStatuses, err
 	}
 	productMap := make(map[string]*ProductRevision)
@@ -293,7 +293,7 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 		// svc revision will not be updated
 		err = updateK8sProduct(exitedProd, setting.SystemUser, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, rendersetInfo.DefaultValues, log)
 		if err != nil {
-			log.Errorf("AutoUpdateProduct UpdateProductV2 err:%v", err)
+			log.Errorf("UpdateMultipleK8sEnv UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
 		}
 	}
@@ -314,7 +314,6 @@ func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, reques
 		envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: productResp.Status})
 	}
 	return envStatuses, errList.ErrorOrNil()
-
 }
 
 // getServicesWithMaxRevision get all services template with max revision including involved shared services
@@ -361,6 +360,7 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 }
 
 func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, filter svcUpgradeFilter, log *zap.SugaredLogger) (err error) {
+	log.Infof("###### updateRevisionSvcs is %v", updateRevisionSvcs)
 	oldProductRender := existedProd.Render
 	updateProd.Render = &commonmodels.RenderInfo{
 		Name:        renderSet.Name,
@@ -467,6 +467,8 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	}
 
 	existedServices := existedProd.GetServiceMap()
+
+	log.Infof("####### the serviceRevisionMap is %v", serviceRevisionMap)
 
 	// 按照产品模板的顺序来创建或者更新服务
 	for groupIndex, prodServiceGroup := range updateProd.Services {
