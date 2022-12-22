@@ -2180,7 +2180,7 @@ func upsertService(env *commonmodels.Product,
 	namespace := env.Namespace
 
 	// 获取服务模板
-	parsedYaml, err := kube.RenderService(env, renderSet, service)
+	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 	log.Infof("############ yaml after render is %s", parsedYaml)
 
 	if err != nil {
@@ -2189,7 +2189,7 @@ func upsertService(env *commonmodels.Product,
 		return nil, errList
 	}
 
-	manifests := releaseutil.SplitManifests(*parsedYaml)
+	manifests := releaseutil.SplitManifests(parsedYaml)
 	resources := make([]*unstructured.Unstructured, 0, len(manifests))
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
@@ -2455,7 +2455,7 @@ func removeOldResources(
 		return err
 	}
 
-	parsedYaml, err := kube.RenderService(env, oldRenderset, oldService)
+	parsedYaml, err := kube.RenderEnvService(env, oldRenderset, oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return err
@@ -2466,7 +2466,7 @@ func removeOldResources(
 		itemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
 	}
 
-	manifests := releaseutil.SplitManifests(*parsedYaml)
+	manifests := releaseutil.SplitManifests(parsedYaml)
 	oldItemsMap := make(map[string]*unstructured.Unstructured)
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))

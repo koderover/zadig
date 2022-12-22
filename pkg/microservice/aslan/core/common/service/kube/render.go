@@ -121,8 +121,8 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 //	return origin
 //}
 
-// RenderService renders service with particular revision and service vars in environment
-func RenderService(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService) (yaml *string, err error) {
+// RenderEnvService renders service with particular revision and service vars in environment
+func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService) (yaml string, err error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: service.ServiceName,
 		ProductName: service.ProductName,
@@ -131,18 +131,19 @@ func RenderService(prod *commonmodels.Product, render *commonmodels.RenderSet, s
 	}
 	svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	if err != nil {
 		log.Error("failed to render service yaml, err: %s", err)
+		return "", err
 	}
 	//parsedYaml := RenderValueForString(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
 	parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
 
-	return &parsedYaml, nil
+	return parsedYaml, nil
 }
 
 func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) string {
