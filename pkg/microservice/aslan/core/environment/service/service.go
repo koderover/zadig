@@ -244,6 +244,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			)
 		}
 
+		env.EnsureRenderInfo()
 		renderSetFindOpt := &commonrepo.RenderSetFindOption{
 			Name:        env.Render.Name,
 			Revision:    env.Render.Revision,
