@@ -476,11 +476,12 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		//groupServices := make([]*commonmodels.ProductService, 0)
 		var wg sync.WaitGroup
 
+		groupSvcs := make([]*commonmodels.ProductService, 0)
 		for _, prodService := range prodServiceGroup {
-
 			log.Infof("######## hanlding single service %s", prodService.ServiceName)
 			// no need to update service
 			if filter != nil && !filter(prodService) {
+				groupSvcs = append(groupSvcs, prodService)
 				continue
 			}
 
@@ -497,11 +498,13 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				log.Infof("######## revision update single service %s", prodService.ServiceName)
 				svcRev, ok := serviceRevisionMap[prodService.ServiceName+prodService.Type]
 				if !ok {
+					groupSvcs = append(groupSvcs, prodService)
 					continue
 				}
 				service.Revision = svcRev.NextRevision
 				service.Containers = svcRev.Containers
 			}
+			groupSvcs = append(groupSvcs, service)
 
 			if prodService.Type == setting.K8SDeployType {
 				log.Infof("[Namespace:%s][Product:%s][Service:%s] upsert service", envName, productName, prodService.ServiceName)
@@ -590,12 +593,19 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		//	}
 		//}
 
-		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, prodServiceGroup)
+		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupSvcs)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			return
 		}
+	}
+
+	err = commonrepo.NewProductColl().UpdateRender(envName, productName, existedProd.Render)
+	if err != nil {
+		log.Errorf("failed to update product render error: %v", err)
+		err = e.ErrUpdateEnv.AddDesc(err.Error())
+		return
 	}
 
 	// store deploy strategy
