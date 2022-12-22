@@ -478,7 +478,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 		groupSvcs := make([]*commonmodels.ProductService, 0)
 		for _, prodService := range prodServiceGroup {
-			log.Infof("######## hanlding single service %s", prodService.ServiceName)
 			// no need to update service
 			if filter != nil && !filter(prodService) {
 				groupSvcs = append(groupSvcs, prodService)
@@ -601,6 +600,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 	}
 
+	log.Infof("###### updating product render, render: %+v", *existedProd.Render)
 	err = commonrepo.NewProductColl().UpdateRender(envName, productName, existedProd.Render)
 	if err != nil {
 		log.Errorf("failed to update product render error: %v", err)
