@@ -317,11 +317,11 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 	return nil
 }
 
-type DefaultProductCreator struct {
+type K8sYamlProductCreator struct {
 }
 
-func newDefaultProductCreator() *DefaultProductCreator {
-	return &DefaultProductCreator{}
+func newDefaultProductCreator() *K8sYamlProductCreator {
+	return &K8sYamlProductCreator{}
 }
 
 func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, log *zap.SugaredLogger) error {
@@ -340,7 +340,7 @@ func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSe
 	return errList.ErrorOrNil()
 }
 
-func (creator *DefaultProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
+func (creator *K8sYamlProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
 	// get project cluster relation
 	clusterID := args.ClusterID
 	if clusterID == "" {
@@ -435,16 +435,16 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		Name:        args.Render.Name,
 		Revision:    args.Render.Revision,
 	}
-	// 如果是版本回滚，则args.Render.Revision > 0
-	if args.Render.Revision == 0 {
-		// 检查renderset是否覆盖产品所有key
-		renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, args.EnvName, nil, log)
-		if err != nil {
-			log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		args.Render.Revision = renderSet.Revision
-	}
+	//// 如果是版本回滚，则args.Render.Revision > 0
+	//if args.Render.Revision == 0 {
+	//	// 检查renderset是否覆盖产品所有key
+	//	renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, args.EnvName, nil, log)
+	//	if err != nil {
+	//		log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
+	//		return e.ErrCreateEnv.AddDesc(err.Error())
+	//	}
+	//	args.Render.Revision = renderSet.Revision
+	//}
 
 	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early
 	dryRunClient := client.NewDryRunClient(kubeClient)
