@@ -449,16 +449,16 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 	}
 
-	// 转化prodRevs.ServiceRevisions为serviceName+serviceType:serviceRev的map
-	// 不在遍历到每个服务时再次进行遍历
-	serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
-
-	// 首先更新一次数据库，将产品模板的最新编排更新到数据库
-	// 只更新编排，不更新服务revision等信息
-	updatedServices := getUpdatedProductServices(updateProd, serviceRevisionMap, existedProd)
+	//// 转化prodRevs.ServiceRevisions为serviceName+serviceType:serviceRev的map
+	//// 不在遍历到每个服务时再次进行遍历
+	//serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
+	//
+	//// 首先更新一次数据库，将产品模板的最新编排更新到数据库
+	//// 只更新编排，不更新服务revision等信息
+	//updatedServices := getUpdatedProductServices(updateProd, serviceRevisionMap, existedProd)
 
 	updateProd.Status = setting.ProductStatusUpdating
-	updateProd.Services = updatedServices
+	//updateProd.Services = updatedServices
 	updateProd.ShareEnv = existedProd.ShareEnv
 
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {

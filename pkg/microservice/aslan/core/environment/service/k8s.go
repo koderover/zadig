@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -127,20 +129,36 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 
 	exitedProd.EnsureRenderInfo()
 
-	// generate new renderset
-	newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
-	if err != nil {
-		k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
-		return e.ErrUpdateProduct.AddDesc(err.Error())
+	curRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		Name:     exitedProd.Render.Name,
+		EnvName:  exitedProd.EnvName,
+		Revision: exitedProd.Revision,
+	})
+	for _, svc := range curRenderset.ServiceVariables {
+		if svc.ServiceName != args.ServiceName {
+			continue
+		}
+		svc.OverrideYaml = &template.CustomYaml{YamlContent: args.ServiceRev.VariableYaml}
 	}
+	err = commonservice.CreateK8sHelmRenderSet(curRenderset, k.log)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
+	}
+
+	//// generate new renderset
+	//newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
+	//if err != nil {
+	//	k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
+	//	return e.ErrUpdateProduct.AddDesc(err.Error())
+	//}
 	preRevision := exitedProd.Render
-	exitedProd.Render = &commonmodels.RenderInfo{Name: newRender.Name, Revision: newRender.Revision, ProductTmpl: newRender.ProductTmpl}
+	exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
 
 	_, err = upsertService(
 		exitedProd,
 		svc,
 		currentProductSvc,
-		newRender, preRevision, inf, kubeClient, istioClient, k.log)
+		curRenderset, preRevision, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
