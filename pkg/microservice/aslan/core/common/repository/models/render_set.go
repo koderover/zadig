@@ -77,9 +77,9 @@ func (m *RenderSet) Diff(target *RenderSet) bool {
 }
 
 func (m *RenderSet) HelmRenderDiff(target *RenderSet) bool {
-	return !reflect.DeepEqual(m.ChartInfos, target.ChartInfos)
+	return !m.Diff(target) || !reflect.DeepEqual(m.ChartInfos, target.ChartInfos)
 }
 
 func (m *RenderSet) K8sServiceRenderDiff(target *RenderSet) bool {
-	return !reflect.DeepEqual(m.ServiceVariables, target.ServiceVariables)
+	return !m.Diff(target) || !reflect.DeepEqual(m.ServiceVariables, target.ServiceVariables)
 }

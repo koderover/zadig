@@ -295,6 +295,7 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 		if rs.K8sServiceRenderDiff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
+			args.Revision = rs.Revision
 			return args, nil
 		}
 		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
