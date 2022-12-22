@@ -95,6 +95,15 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	}
 	if !args.UpdateServiceTmpl {
 		svc.Revision = currentProductSvc.Revision
+	} else {
+		latestSvcRevision, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			ServiceName: svc.ServiceName,
+			ProductName: svc.ProductName,
+		})
+		if err != nil {
+			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
+		}
+		svc.Revision = latestSvcRevision.Revision
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
