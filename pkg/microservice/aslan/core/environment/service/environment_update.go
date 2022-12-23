@@ -429,7 +429,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		if groupIndex >= len(svcGroups) {
 			groupIndex = 0
 		}
-		log.Infof("######### add removed services: %s", svcName)
 		svcGroups[groupIndex] = append(svcGroups[groupIndex], productSvcs[svcName])
 	}
 

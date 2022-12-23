@@ -169,7 +169,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 	}
 
-	// svc render in services
+	// svc render in renderchart
 	opt := &commonrepo.RenderSetFindOption{
 		ProductTmpl: productName,
 		EnvName:     envName,
@@ -179,7 +179,9 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	rendersetObj, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err == nil {
 		for _, svcRender := range rendersetObj.ServiceVariables {
-			svcRenders[svcRender.ServiceName] = svcRender
+			if _, ok := svcRenders[svcRender.ServiceName]; ok {
+				svcRenders[svcRender.ServiceName] = svcRender
+			}
 		}
 	}
 
