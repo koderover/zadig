@@ -190,6 +190,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
 		k.log.Error(err)
+		svc.Error = err.Error()
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
 
@@ -324,6 +325,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				default:
 					errList = multierror.Append(errList, e)
 				}
+				svc.Error = err.Error()
 				lock.Unlock()
 			}
 
