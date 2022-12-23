@@ -17,7 +17,7 @@ limitations under the License.
 package jira
 
 import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/pkg/errors"
 )
 
 // IssueService ...
@@ -34,12 +34,81 @@ func (s *IssueService) GetByKeyOrID(keyOrID, fields string) (*Issue, error) {
 	url := s.client.Host + "/rest/api/2/issue/" + keyOrID
 
 	issue := &Issue{}
-	_, err := s.client.Conn.Get(url, httpclient.SetResult(issue), httpclient.SetQueryParam("fields", fields))
+	resp, err := s.client.R().AddQueryParam("fields", fields).Get(url)
 	if err != nil {
 		return nil, err
 	}
+	if err = resp.UnmarshalJson(issue); err != nil {
+		return nil, errors.Wrap(err, "unmarshal")
+	}
 
 	return issue, nil
+}
+
+type IssueTypeDefinition struct {
+	Self     string `json:"self"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Subtask  bool   `json:"subtask"`
+	Statuses []struct {
+		Self             string `json:"self"`
+		Description      string `json:"description"`
+		IconURL          string `json:"iconUrl"`
+		Name             string `json:"name"`
+		UntranslatedName string `json:"untranslatedName"`
+		ID               string `json:"id"`
+		StatusCategory   struct {
+			Self      string `json:"self"`
+			ID        int    `json:"id"`
+			Key       string `json:"key"`
+			ColorName string `json:"colorName"`
+			Name      string `json:"name"`
+		} `json:"statusCategory"`
+	} `json:"statuses"`
+}
+
+type IssueTypeWithStatus struct {
+	Type   string
+	Status []string
+}
+
+func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) {
+	url := s.client.Host + "/rest/api/2/project/" + project + "/statuses"
+	resp, err := s.client.R().Get(url)
+	if err != nil {
+		return nil, err
+	}
+	var list []*IssueTypeDefinition
+	if err = resp.UnmarshalJson(&list); err != nil {
+		return nil, err
+	}
+	var result []*IssueTypeWithStatus
+	for _, v := range list {
+		result = append(result, &IssueTypeWithStatus{
+			Type: v.Name,
+			Status: func() []string {
+				var re []string
+				for _, s := range v.Statuses {
+					re = append(re, s.UntranslatedName)
+				}
+				return re
+			}(),
+		})
+	}
+	return result, nil
+}
+
+func (s *IssueService) SearchByJQL(jql string) ([]*Issue, error) {
+	url := s.client.Host + "/rest/api/2/search"
+	resp, err := s.client.R().AddQueryParam("jql", jql).Get(url)
+	if err != nil {
+		return nil, err
+	}
+	var list []*Issue
+	if err = resp.UnmarshalJson(&list); err != nil {
+		return nil, errors.Wrap(err, "unmarshal")
+	}
+	return list, nil
 }
 
 //// GetIssuesCountByJQL ...

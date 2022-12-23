@@ -28,8 +28,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		jira.GET("", GetJira)
 		jira.GET("/internal", GetJiraInternal)
 		jira.POST("", CreateJira)
+		jira.POST("/validate", Validate)
 		jira.PATCH("", UpdateJira)
 		jira.DELETE("", DeleteJira)
+		jira.GET("/project", ListJiraProjects)
+		jira.GET("/issue", SearchJiraIssues)
+		jira.GET("/type", GetJiraTypes)
 	}
 
 }

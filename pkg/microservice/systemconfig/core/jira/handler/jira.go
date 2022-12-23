@@ -69,3 +69,36 @@ func UpdateJira(c *gin.Context) {
 	}
 	ctx.Resp, ctx.Err = service.UpdateJira(req, ctx.Logger)
 }
+
+//jira.GET("/project", ListJiraProjects)
+//	jira.GET("/issue", SearchJiraIssues)
+//	jira.GET("/type", GetJiraTypes)
+
+func Validate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	req := new(models.Jira)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Err = service.ValidateJira(req)
+}
+
+func ListJiraProjects(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.ListJiraProjects()
+}
+
+func SearchJiraIssues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Query("project"), c.Query("type"), c.Query("status"), c.Query("ne") != "")
+}
+
+func GetJiraTypes(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Query("project"))
+}
