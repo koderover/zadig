@@ -64,7 +64,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	validKvMap := make(map[string]interface{})
 	for k, v := range valuesMap {
 		if keysSet.Has(k) {
-			valuesMap[k] = v
+			validKvMap[k] = v
 		}
 	}
 
