@@ -403,6 +403,12 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	// build services
 	productSvcs := exitedProd.GetServiceMap()
+	svcGroupMap := make(map[string]int)
+	for i, svg := range exitedProd.Services {
+		for _, svc := range svg {
+			svcGroupMap[svc.ServiceName] = i
+		}
+	}
 	svcGroups := make([][]*commonmodels.ProductService, 0)
 	for _, svcGroup := range updateProd.Services {
 		validSvcGroup := make([]*commonmodels.ProductService, 0)
@@ -410,6 +416,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			if curSvc, ok := productSvcs[svc.ServiceName]; ok {
 				// services to be updated
 				validSvcGroup = append(validSvcGroup, curSvc)
+				delete(svcGroupMap, curSvc.ServiceName)
 			} else if util.InStringArray(svc.ServiceName, updateRevisionSvc) {
 				// services to be added
 				validSvcGroup = append(validSvcGroup, svc)
@@ -417,6 +424,15 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		}
 		svcGroups = append(svcGroups, validSvcGroup)
 	}
+
+	for svcName, groupIndex := range svcGroupMap {
+		if groupIndex >= len(svcGroups) {
+			groupIndex = 0
+		}
+		log.Infof("######### add removed services: %s", svcName)
+		svcGroups[groupIndex] = append(svcGroups[groupIndex], productSvcs[svcName])
+	}
+
 	updateProd.Services = svcGroups
 
 	switch exitedProd.Status {
