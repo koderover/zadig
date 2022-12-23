@@ -1861,6 +1861,15 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 			return err
 		}
 	}
+
+	for _, singleName := range serviceNames {
+		delete(productInfo.ServiceDeployStrategy, singleName)
+	}
+	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
+	if err != nil {
+		log.Errorf("failed to update product deploy strategy, err: %s", err)
+	}
+
 	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		Name:        productInfo.Namespace,
 		EnvName:     productInfo.EnvName,
@@ -1951,6 +1960,15 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			return err
 		}
 	}
+
+	for _, singleName := range serviceNames {
+		delete(productInfo.ServiceDeployStrategy, singleName)
+	}
+	err := commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
+	if err != nil {
+		log.Errorf("failed to update product deploy strategy, err: %s", err)
+	}
+
 	rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		EnvName:     productInfo.EnvName,
 		Name:        productInfo.Namespace,
@@ -1960,18 +1978,18 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		log.Errorf("get renderSet error: %v", err)
 		return err
 	}
-	var updatedKVs []*templatemodels.RenderKV
-	for _, v := range rs.KVs {
-		var updatedServices []string
-		for _, service := range v.Services {
-			if !util.InStringArray(service, serviceNames) {
-				updatedServices = append(updatedServices, service)
-			}
-		}
-		v.Services = updatedServices
-		updatedKVs = append(updatedKVs, v)
-	}
-	rs.KVs = updatedKVs
+	//var updatedKVs []*templatemodels.RenderKV
+	//for _, v := range rs.KVs {
+	//	var updatedServices []string
+	//	for _, service := range v.Services {
+	//		if !util.InStringArray(service, serviceNames) {
+	//			updatedServices = append(updatedServices, service)
+	//		}
+	//	}
+	//	v.Services = updatedServices
+	//	updatedKVs = append(updatedKVs, v)
+	//}
+	//rs.KVs = updatedKVs
 	err = commonrepo.NewRenderSetColl().Update(rs)
 	if err != nil {
 		log.Errorf("failed to update renderSet, error: %v", err)
