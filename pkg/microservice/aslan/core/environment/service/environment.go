@@ -491,7 +491,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 			// need update service revision
 			if util.InStringArray(prodService.ServiceName, updateRevisionSvcs) {
-				log.Infof("######## revision update single service %s", prodService.ServiceName)
 				svcRev, ok := serviceRevisionMap[prodService.ServiceName+prodService.Type]
 				if !ok {
 					groupSvcs = append(groupSvcs, prodService)
@@ -1021,6 +1020,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to validate args: %s", err))
 	}
 
+	log.Infof("######## defatult values: %s", args.DefaultValues)
 	err = UpdateProductDefaultValuesWithRender(productRenderset, userName, requestID, args, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)

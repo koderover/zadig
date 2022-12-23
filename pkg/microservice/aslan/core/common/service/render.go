@@ -334,7 +334,7 @@ func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger
 	}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
-		if rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) || rs.K8sServiceRenderDiff(args) {
+		if rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) || rs.K8sServiceRenderDiff(args) || rs.Diff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
 			args.Revision = rs.Revision
