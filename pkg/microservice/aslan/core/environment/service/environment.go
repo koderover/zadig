@@ -1043,7 +1043,7 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
 	if !equal {
 		if args.DeployType == setting.K8SDeployType {
-			updatedSvcList = productRenderset.ServiceVariables
+			//updatedSvcList = productRenderset.ServiceVariables
 			relatedSvcs, _ := GetAffectedServices(productRenderset.ProductTmpl, productRenderset.EnvName, &K8sRendersetArg{VariableYaml: args.DefaultValues}, log)
 			if relatedSvcs != nil {
 				svcSet := sets.NewString(relatedSvcs["service"]...)
