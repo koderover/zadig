@@ -38,6 +38,7 @@ import (
 )
 
 func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {
+	log.Infof("######### service vars: %v", serviceVars)
 	serviceVariable := ""
 	for _, v := range rs.ServiceVariables {
 		if v.ServiceName != serviceName {
@@ -51,6 +52,8 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	if len(serviceVariable) == 0 {
 		return "", nil
 	}
+
+	log.Infof("###### raw variable is %v", serviceVariable)
 
 	valuesMap, err := converter.YamlToFlatMap([]byte(serviceVariable))
 	if err != nil {
@@ -66,6 +69,9 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	}
 
 	bs, err := yaml.Marshal(validKvMap)
+
+	log.Infof("######## valid variable yaml: %s", string(bs))
+
 	return string(bs), err
 }
 
