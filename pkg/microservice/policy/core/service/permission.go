@@ -675,7 +675,7 @@ func ListTesting(uid string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
 			Workflows:   t.Workflows,
 		})
 	}
-	isSystemAdmin, projectVerbMap, err := getRoleBindingVerbMapByResource(uid, "Workflow")
+	isSystemAdmin, projectVerbMap, err := getRoleBindingVerbMapByResource(uid, "Test")
 	if err != nil {
 		log.Errorf("getRoleBindingVerbMapByResource err:%s", err)
 		return testingResp, err
