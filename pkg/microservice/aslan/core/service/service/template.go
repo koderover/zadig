@@ -84,6 +84,7 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		Visibility:   setting.PrivateVisibility,
 		TemplateID:   templateID,
 		AutoSync:     autoSync,
+		VariableYaml: req.VariableYaml,
 		CreateFrom:   geneCreateFromDetail(templateID, req.VariableYaml),
 	}
 	_, err = CreateServiceTemplate(username, service, force, logger)
