@@ -1367,10 +1367,11 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 }
 
 func updateK8sProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, userName, requestID string, log *zap.SugaredLogger) error {
-	svcMap := productResp.GetServiceMap()
 	filter := func(service *commonmodels.ProductService) bool {
-		if _, ok := svcMap[service.ServiceName]; ok {
-			return true
+		for _, sr := range productResp.ServiceRenders {
+			if sr.ServiceName == service.ServiceName {
+				return true
+			}
 		}
 		return false
 	}
