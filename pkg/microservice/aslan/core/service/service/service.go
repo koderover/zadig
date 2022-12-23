@@ -252,7 +252,8 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Value: ""},
 	}
 
-	serviceOption.VariableYaml = getTemplateMergedVariables(args)
+	//serviceOption.VariableYaml = getTemplateMergedVariables(args)
+	serviceOption.VariableYaml = args.VariableYaml
 	serviceOption.ServiceVars = args.ServiceVars
 	if len(serviceOption.VariableYaml) > 0 {
 		flatMap, err := converter.YamlToFlatMap([]byte(serviceOption.VariableYaml))

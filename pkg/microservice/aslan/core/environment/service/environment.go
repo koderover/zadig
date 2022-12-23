@@ -1044,6 +1044,15 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 	if !equal {
 		if args.DeployType == setting.K8SDeployType {
 			updatedSvcList = productRenderset.ServiceVariables
+			relatedSvcs, _ := GetAffectedServices(productRenderset.ProductTmpl, productRenderset.EnvName, &K8sRendersetArg{VariableYaml: args.DefaultValues}, log)
+			if relatedSvcs != nil {
+				svcSet := sets.NewString(relatedSvcs["service"]...)
+				for _, svc := range productRenderset.ServiceVariables {
+					if svcSet.Has(svc.ServiceName) {
+						updatedSvcList = append(updatedSvcList, svc)
+					}
+				}
+			}
 		} else {
 			updatedSvcList = productRenderset.ChartInfos
 		}
