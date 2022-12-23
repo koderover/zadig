@@ -77,7 +77,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	if err != nil {
 		return nil, err
 	}
-	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
+	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter", "ReleaseCenter")
 	projectScopeSet := sets.NewString("Workflow", "Environment", "Test", "Delivery", "Build", "Service", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {

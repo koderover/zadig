@@ -237,6 +237,16 @@ metas:
         rules:
           - method: DELETE
             endpoint: /api/aslan/build/build
+  - resource: ReleaseCenter
+    alias: 发布中心
+    description: ''
+    rules:
+      - action: get_release
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/v1/policy/permission/releaseworkflow
   - resource: TestCenter
     alias: 测试中心
     description: ''
@@ -259,6 +269,8 @@ metas:
             endpoint: /api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*
           - method: GET
             endpoint: /api/aslan/testing/workspace/workflow/?*/taskId/?*
+          - method: GET
+            endpoint: /api/v1/policy/permission/testing
       - action: edit_test
         alias: 编辑
         description: ''
