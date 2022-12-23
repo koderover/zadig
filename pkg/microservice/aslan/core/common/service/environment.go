@@ -144,6 +144,20 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	}
 
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
+
+	// product template svcs
+	templateSvcs, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find template svcs, err: %s", err)
+	}
+	for _, svc := range templateSvcs {
+		svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
+			ServiceName:  svc.ServiceName,
+			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+		}
+	}
+
+	// svc used in products
 	svcs, err := GetProductUsedTemplateSvcs(productInfo)
 	if err != nil {
 		return nil, nil, err
@@ -155,6 +169,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 	}
 
+	// svc render in services
 	opt := &commonrepo.RenderSetFindOption{
 		ProductTmpl: productName,
 		EnvName:     envName,
