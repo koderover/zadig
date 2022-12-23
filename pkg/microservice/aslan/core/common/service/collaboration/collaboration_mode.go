@@ -114,7 +114,7 @@ func setCollaborationModesWorkflowDisplayName(mode *models.CollaborationMode) {
 	names := []string{}
 	v4Names := []string{}
 	for _, workflow := range mode.Workflows {
-		if workflow.WorkflowType == "common_workflow" {
+		if workflow.WorkflowType != "" {
 			v4Names = append(v4Names, workflow.Name)
 			continue
 		}
@@ -141,7 +141,7 @@ func setCollaborationModesWorkflowDisplayName(mode *models.CollaborationMode) {
 		}
 	}
 	for i, workflow := range mode.Workflows {
-		if workflow.WorkflowType == "common_workflow" {
+		if workflow.WorkflowType != "" {
 			mode.Workflows[i].DisplayName = v4NamesMap[workflow.Name]
 			continue
 		}

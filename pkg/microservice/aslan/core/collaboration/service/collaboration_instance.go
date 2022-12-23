@@ -394,7 +394,7 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 		policyName := buildPolicyName(projectName, mode.Name, identityType, userName)
 
 		for _, workflow := range mode.Workflows {
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				rules = append(rules, &types.Rule{
 					Verbs:     workflow.Verbs,
 					Kind:      "resource",
@@ -467,7 +467,7 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 	for _, instance := range updateResp.UpdateInstance {
 		var rules []*types.Rule
 		for _, workflow := range instance.Workflows {
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				rules = append(rules, &types.Rule{
 					Verbs:     workflow.Verbs,
 					Kind:      "resource",
@@ -553,7 +553,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	var deleteBindings []*mongodb2.LabelBinding
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				labels = append(labels, mongodb2.Label{
 					Key: "policy",
 					Value: buildLabelValue(projectName, mode.Name, identityType, userName,
@@ -583,7 +583,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	}
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				labels = append(labels, mongodb2.Label{
 					Key: "policy",
 					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
@@ -611,7 +611,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 		for _, workflow := range item.DeleteSpec.Workflows {
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				deleteLabels = append(deleteLabels, mongodb2.Label{
 					Key: "policy",
 					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
@@ -642,7 +642,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	}
 	for _, instance := range updateResp.Delete {
 		for _, workflow := range instance.Workflows {
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				deleteLabels = append(deleteLabels, mongodb2.Label{
 					Key: "policy",
 					Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
@@ -702,7 +702,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.UpdateSpec.Workflows {
-			if workflow.New.WorkflowType == "common_workflow" {
+			if workflow.New.WorkflowType != "" {
 				labels = append(labels, mongodb2.Label{
 					Key:   "policy",
 					Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.New.Name),
@@ -749,7 +749,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
 			var labelValue string
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				labelValue = buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.Name)
 			} else {
 				labelValue = buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
@@ -762,7 +762,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, mode.Name, identityType, userName)
 			}
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				newBindings = append(newBindings, &mongodb2.LabelBinding{
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
@@ -805,7 +805,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
 			var labelValue string
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.Name)
 			} else {
 				labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
@@ -818,7 +818,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			if workflow.CollaborationType == config.CollaborationNew {
 				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
 			}
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				newBindings = append(newBindings, &mongodb2.LabelBinding{
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
@@ -860,7 +860,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
 				var labelValue string
-				if workflow.New.WorkflowType == "common_workflow" {
+				if workflow.New.WorkflowType != "" {
 					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.New.Name)
 				} else {
 					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
@@ -869,7 +869,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
 				}
-				if workflow.New.WorkflowType == "common_workflow" {
+				if workflow.New.WorkflowType != "" {
 					newBindings = append(newBindings, &mongodb2.LabelBinding{
 						LabelID: labelId,
 						Resource: mongodb2.Resource{
@@ -888,7 +888,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 						},
 					})
 				}
-				if workflow.Old.WorkflowType == "common_workflow" {
+				if workflow.Old.WorkflowType != "" {
 					deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
 						LabelID: labelId,
 						Resource: mongodb2.Resource{
@@ -910,7 +910,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			}
 			if workflow.Old.CollaborationType == config.CollaborationNew && workflow.New.CollaborationType == config.CollaborationShare {
 				var labelValue string
-				if workflow.New.WorkflowType == "common_workflow" {
+				if workflow.New.WorkflowType != "" {
 					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeCommonWorkflow), workflow.New.Name)
 				} else {
 					labelValue = buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
@@ -919,7 +919,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
 				}
-				if workflow.New.WorkflowType == "common_workflow" {
+				if workflow.New.WorkflowType != "" {
 					newBindings = append(newBindings, &mongodb2.LabelBinding{
 						LabelID: labelId,
 						Resource: mongodb2.Resource{
@@ -938,7 +938,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 						},
 					})
 				}
-				if workflow.Old.WorkflowType == "common_workflow" {
+				if workflow.Old.WorkflowType != "" {
 					deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
 						LabelID: labelId,
 						Resource: mongodb2.Resource{
@@ -1084,7 +1084,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	var newCommonWorkflows []workflowservice.WorkflowCopyItem
 	for _, workflow := range newResp.Workflow {
 		if workflow.CollaborationType == config.CollaborationNew {
-			if workflow.WorkflowType == "common_workflow" {
+			if workflow.WorkflowType != "" {
 				newCommonWorkflows = append(newCommonWorkflows, workflowservice.WorkflowCopyItem{
 					ProjectName:    projectName,
 					Old:            workflow.BaseName,
@@ -1218,7 +1218,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		}
 		for _, workflow := range item.Workflows {
 			if workflow.CollaborationType == config.CollaborationNew {
-				if workflow.WorkflowType == "common_workflow" {
+				if workflow.WorkflowType != "" {
 					commonWorkflowSet.Insert(workflow.Name)
 				} else {
 					workflowSet.Insert(workflow.Name)
@@ -1229,7 +1229,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 	for _, item := range updateResp.Update {
 		for _, deleteWorkflow := range item.DeleteSpec.Workflows {
 			if deleteWorkflow.CollaborationType == config.CollaborationNew {
-				if deleteWorkflow.WorkflowType == "common_workflow" {
+				if deleteWorkflow.WorkflowType != "" {
 					commonWorkflowSet.Insert(deleteWorkflow.Name)
 				} else {
 					workflowSet.Insert(deleteWorkflow.Name)
@@ -1244,7 +1244,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationNew &&
 				workflow.New.CollaborationType == config.CollaborationShare {
-				if workflow.Old.WorkflowType == "common_workflow" {
+				if workflow.Old.WorkflowType != "" {
 					commonWorkflowSet.Insert(workflow.Old.Name)
 				} else {
 					workflowSet.Insert(workflow.Old.Name)
@@ -1593,7 +1593,7 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 
 func getWorkflowDisplayName(workflowName, workflowType string) string {
 	resp := workflowName
-	if workflowType == "common_workflow" {
+	if workflowType != "" {
 		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 		if err != nil {
 			log.Errorf("workflow v4 :%s not found", workflowName)
