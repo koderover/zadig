@@ -107,6 +107,9 @@ func updateRolesForTesting() error {
 			continue
 		}
 		for _, rule := range role.Rules {
+			if len(rule.Resources) == 0 {
+				continue
+			}
 			if rule.Resources[0] == "TestCenter" {
 				newVerbs := []string{}
 				for _, verb := range rule.Verbs {
