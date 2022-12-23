@@ -33,6 +33,7 @@ import (
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type LoadServiceFromYamlTemplateReq struct {
@@ -131,6 +132,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 		Visibility:   setting.PrivateVisibility,
 		TemplateID:   templateID,
 		AutoSync:     autoSync,
+		ServiceVars:  service.ServiceVars,
 		VariableYaml: req.VariableYaml,
 		CreateFrom:   geneCreateFromDetail(templateID, req.VariableYaml),
 	}
@@ -444,6 +446,13 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 	if err != nil {
 		return err
 	}
+
+	// TODO need optimization, should only use keys defined in template.variable
+	mergedValue, err := yamlutil.Merge([][]byte{[]byte(template.VariableYaml), []byte(service.VariableYaml)})
+	if err != nil {
+		return fmt.Errorf("failed to merge variable value, err: %s", err)
+	}
+
 	svc := &commonmodels.Service{
 		ServiceName:  service.ServiceName,
 		Type:         setting.K8SDeployType,
@@ -452,6 +461,8 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		Yaml:         renderedYaml,
 		RenderedYaml: fullRenderedYaml,
 		Visibility:   setting.PrivateVisibility,
+		ServiceVars:  service.ServiceVars,
+		VariableYaml: string(mergedValue),
 		TemplateID:   service.TemplateID,
 		CreateFrom:   service.CreateFrom,
 		AutoSync:     service.AutoSync,
