@@ -104,11 +104,14 @@ func (s *IssueService) SearchByJQL(jql string) ([]*Issue, error) {
 	if err != nil {
 		return nil, err
 	}
-	var list []*Issue
-	if err = resp.UnmarshalJson(&list); err != nil {
+	type tmp struct {
+		Issues []*Issue `json:"issues"`
+	}
+	var re tmp
+	if err = resp.UnmarshalJson(&re); err != nil {
 		return nil, errors.Wrap(err, "unmarshal")
 	}
-	return list, nil
+	return re.Issues, nil
 }
 
 //// GetIssuesCountByJQL ...
