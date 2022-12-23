@@ -66,10 +66,7 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
 		return err
 	}
-	renderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName)
-	if err != nil {
-		return err
-	}
+	renderedYaml := renderSystemVars(template.Content, projectName, serviceName)
 	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
 	if err != nil {
 		return err
@@ -118,11 +115,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 	}
 
 	// raw yaml content will be saved, only system vars are render
-	renderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName)
-	if err != nil {
-		return err
-	}
-
+	renderedYaml := renderSystemVars(template.Content, projectName, serviceName)
 	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
 	if err != nil {
 		return err
@@ -162,8 +155,13 @@ func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger 
 	return renderK8sSvcYaml(yamlTemplate.Content, req.ProjectName, req.ServiceName, yamlTemplate.VariableYaml, req.VariableYaml)
 }
 
-func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
+func renderSystemVars(originYaml, productName, serviceName string) string {
+	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
+	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
+	return originYaml
+}
 
+func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
 	tmpl, err := gotemplate.New(serviceName).Parse(originYaml)
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
@@ -441,10 +439,7 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		return err
 	}
 
-	renderedYaml, err := renderK8sSvcYaml(template.Content, projectName, service.ServiceName, variableYaml)
-	if err != nil {
-		return err
-	}
+	renderedYaml := renderSystemVars(template.Content, projectName, service.ServiceName)
 	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
 	if err != nil {
 		return err
