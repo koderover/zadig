@@ -439,6 +439,8 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		oldRenderInfo := productObj.Render
 		var productService *commonmodels.ProductService
 
+		log.Infof("#######   restaring single service %s", args.ServiceName)
+
 		if serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]; ok {
 			productService = serviceObj
 			serviceTmpl, err = commonservice.GetServiceTemplate(serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, "", serviceObj.Revision, log)
@@ -458,7 +460,6 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				err = e.ErrRestartService.AddErr(err)
 				return
 			}
-			break
 		}
 
 		if serviceTmpl != nil && newRender != nil && productService != nil {
