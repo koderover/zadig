@@ -774,7 +774,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			continue
 		}
 		//rederedYaml := commonservice.RenderValueForString(svc.Yaml, fakeRenderSet)
-		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet)
+		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet, svc.ServiceVars)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err

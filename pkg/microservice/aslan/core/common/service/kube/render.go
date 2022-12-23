@@ -23,6 +23,10 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/koderover/zadig/pkg/util/converter"
+
 	"github.com/koderover/zadig/pkg/tool/log"
 
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
@@ -33,15 +37,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet) (string, error) {
-	if rs == nil {
-		return originYaml, nil
-	}
-	tmpl, err := gotemplate.New(fmt.Sprintf("%s:%s", productName, serviceName)).Parse(originYaml)
-	if err != nil {
-		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
-	}
-
+func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {
 	serviceVariable := ""
 	for _, v := range rs.ServiceVariables {
 		if v.ServiceName != serviceName {
@@ -52,7 +48,40 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 		}
 		break
 	}
+	if len(serviceVariable) == 0 {
+		return "", nil
+	}
 
+	valuesMap, err := converter.YamlToFlatMap([]byte(serviceVariable))
+	if err != nil {
+		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
+	}
+
+	keysSet := sets.NewString(serviceVars...)
+	validKvMap := make(map[string]interface{})
+	for k, v := range valuesMap {
+		if keysSet.Has(k) {
+			valuesMap[k] = v
+		}
+	}
+
+	bs, err := yaml.Marshal(validKvMap)
+	return string(bs), err
+}
+
+func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {
+	if rs == nil {
+		return originYaml, nil
+	}
+	tmpl, err := gotemplate.New(fmt.Sprintf("%s:%s", productName, serviceName)).Parse(originYaml)
+	if err != nil {
+		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
+	}
+
+	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars)
+	if err != nil {
+		return "", err
+	}
 	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(rs.DefaultValues, serviceVariable)
 	if err != nil {
 		return originYaml, err
@@ -134,7 +163,9 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		return "", err
 	}
 
-	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
+	// Note only the keys in TemplateService.ServiceVar can work
+
+	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render, svcTmpl.ServiceVars)
 	if err != nil {
 		log.Error("failed to render service yaml, err: %s", err)
 		return "", err

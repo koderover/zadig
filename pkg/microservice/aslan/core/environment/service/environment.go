@@ -515,9 +515,9 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						existedServices[service.ServiceName],
 						renderSet, oldProductRender, inf, kubeClient, istioClient, log)
 					if errUpsertService != nil {
-						prodService.Error = errUpsertService.Error()
+						service.Error = errUpsertService.Error()
 					} else {
-						prodService.Error = ""
+						service.Error = ""
 					}
 				}()
 			}
