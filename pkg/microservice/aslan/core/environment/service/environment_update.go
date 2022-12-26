@@ -331,6 +331,7 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 	}
 	retErr := &multierror.Error{}
 	for _, product := range products {
+		log.Infof("########## updating svc: %s in product: %s", product.EnvName)
 		err := updateK8sServiceInEnv(product, templateSvc)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
