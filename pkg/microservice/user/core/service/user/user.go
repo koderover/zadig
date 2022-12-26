@@ -218,7 +218,7 @@ func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, 
 	}
 	userSetting, err := mongodb.NewUserSettingColl().GetUserSettingByUid(uid)
 	if err != nil {
-		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
+		logger.Errorf("GetUser GetUserSettingByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
 	ret := &types.UserSetting{

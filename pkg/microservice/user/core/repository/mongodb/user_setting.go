@@ -62,7 +62,8 @@ func (c *UserSettingColl) UpsertUserSetting(args *models.UserSetting) error {
 		return errors.New("nil UserSetting args")
 	}
 	query := bson.M{"uid": args.UID}
-	_, err := c.UpdateOne(context.TODO(), query, args, options.Update().SetUpsert(true))
+	change := bson.M{"$set": args}
+	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
 	return err
 }
 
