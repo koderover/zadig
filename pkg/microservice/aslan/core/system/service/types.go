@@ -83,3 +83,27 @@ func (req OpenAPICreateRegistryReq) Validate() error {
 
 	return nil
 }
+
+type DashBoardConfig struct {
+	Cards []*DashBoardCardConfig `json:""`
+}
+
+type DashBoardCardConfig struct {
+	Name   string      `json:"name"`
+	Type   string      `json:"type"`
+	Config interface{} `json:"config"`
+}
+
+type MyWorkflowCardConfig struct {
+	WorkflowList []*WorkflowConfig `json:"workflow_list"`
+}
+
+type MyEnvCardConfig struct {
+	EnvName     string `json:"env_name"`
+	ProjectName string `json:"project_name"`
+}
+
+type WorkflowConfig struct {
+	Name    string `json:"name"`
+	Project string `json:"project"`
+}
