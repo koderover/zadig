@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/setting"
@@ -215,9 +216,9 @@ func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, 
 	if user == nil {
 		return nil, nil
 	}
-	userSetting, err := orm.GetUserSettingByUid(uid, core.DB)
+	userSetting, err := mongodb.NewUserSettingColl().GetUserSettingByUid(uid)
 	if err != nil {
-		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
+		logger.Errorf("GetUser GetUserSettingByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
 	ret := &types.UserSetting{
@@ -359,7 +360,7 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		logger.Errorf("DeleteUserByUID DeleteUserLoginByUid:%s error, error msg:%s", uid, err.Error())
 		return err
 	}
-	err = orm.DeleteUserSettingByUid(uid, tx)
+	err = mongodb.NewUserSettingColl().DeleteUserSettingByUid(uid)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("DeleteUserByUID DeleteUserSettingByUid:%s error, error msg:%s", uid, err.Error())
@@ -494,7 +495,7 @@ func UpdateUserSetting(uid string, args *UserSetting) error {
 		LogBgColor:   args.LogBgColor,
 		LogFontColor: args.LogFontColor,
 	}
-	err := orm.UpsertUserSetting(userSetting, core.DB)
+	err := mongodb.NewUserSettingColl().UpsertUserSetting(userSetting)
 	if err != nil {
 		return e.ErrUpdateUser.AddErr(err)
 	}

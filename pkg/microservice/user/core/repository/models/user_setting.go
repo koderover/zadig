@@ -16,13 +16,16 @@ limitations under the License.
 
 package models
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 type UserSetting struct {
-	UID          string `gorm:"column:uid"`
-	Theme        string `gorm:"column:theme"`
-	LogBgColor   string `gorm:"column:log_bg_color"`
-	LogFontColor string `gorm:"column:log_font_color"`
+	ID           primitive.ObjectID `bson:"_id,omitempty"      json:"id,omitempty"`
+	UID          string             `bson:"uid"                json:"uid"`
+	Theme        string             `bson:"theme"              json:"theme"`
+	LogBgColor   string             `bson:"log_bg_color"       json:"log_bg_color"`
+	LogFontColor string             `bson:"log_font_color"     json:"log_font_color"`
 }
 
-func (*UserSetting) TableName() string {
+func (UserSetting) TableName() string {
 	return "user_setting"
 }
