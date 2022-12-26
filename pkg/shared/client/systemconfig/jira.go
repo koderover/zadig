@@ -27,12 +27,11 @@ type JiraInfo struct {
 	User           string `json:"user"`
 	AccessToken    string `json:"access_token"`
 	OrganizationID int    `json:"organizationId"`
-	CreatedAt      int64  `json:"created_at"`
 	UpdatedAt      int64  `json:"updated_at"`
 }
 
 func (c *Client) GetJiraInfo() (*JiraInfo, error) {
-	resp, err := service.GeJiraInternal(log.SugaredLogger())
+	resp, err := service.GetJira(log.SugaredLogger())
 	if err != nil {
 		return nil, err
 	}
@@ -42,10 +41,9 @@ func (c *Client) GetJiraInfo() (*JiraInfo, error) {
 	}
 
 	jira := &JiraInfo{
-		Host:        resp.Host,
-		User:        resp.User,
-		AccessToken: resp.AccessToken,
-		CreatedAt:   resp.CreatedAt,
+		Host:        resp.JiraHost,
+		User:        resp.JiraUser,
+		AccessToken: resp.JiraToken,
 		UpdatedAt:   resp.UpdatedAt,
 	}
 
