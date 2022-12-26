@@ -172,6 +172,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			ServiceName:  svc.ServiceName,
 			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
 		}
+		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 	}
 
 	// svc used in products
