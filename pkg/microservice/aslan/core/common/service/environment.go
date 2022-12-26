@@ -153,7 +153,7 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 		return variableYaml
 	}
 	log.Infof("###### latestVariableYaml variable yaml %s vars %v", serviceTemplate.VariableYaml, serviceTemplate.ServiceVars)
-	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.Yaml), []byte(variableYaml)})
+	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
 	if err != nil {
 		log.Errorf("failed to merge variable yaml, err: %s", err)
 		return variableYaml
