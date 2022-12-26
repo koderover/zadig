@@ -83,6 +83,7 @@ func (dbu *DataBulkUpdater) Write() error {
 }
 
 // use variable_yaml instead of []variables
+// extract service_vars
 func handleYamlTemplates() error {
 	yamlTemplates, _, err := mongodb.NewYamlTemplateColl().List(0, 0)
 	if err != nil {

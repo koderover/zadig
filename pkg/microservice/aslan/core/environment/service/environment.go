@@ -2000,6 +2000,13 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	//	updatedKVs = append(updatedKVs, v)
 	//}
 	//rs.KVs = updatedKVs
+	validServiceVars := make([]*templatemodels.ServiceRender, 0)
+	for _, sr := range rs.ServiceVariables {
+		if !util.InStringArray(sr.ServiceName, serviceNames) {
+			validServiceVars = append(validServiceVars, sr)
+		}
+	}
+	rs.ServiceVariables = validServiceVars
 	err = commonrepo.NewRenderSetColl().Update(rs)
 	if err != nil {
 		log.Errorf("failed to update renderSet, error: %v", err)

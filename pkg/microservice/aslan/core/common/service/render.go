@@ -211,7 +211,7 @@ func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*temp
 func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// 未指定renderName返回空的renderSet
 	if renderName == "" {
-		return &commonmodels.RenderSet{KVs: []*templatemodels.RenderKV{}}, nil
+		return &commonmodels.RenderSet{}, nil
 	}
 	opt := &commonrepo.RenderSetFindOption{
 		Name:      renderName,
@@ -373,27 +373,27 @@ func UpdateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return nil
 }
 
-func ListRenderKeysByTemplateSvc(serviceTmpls []*models.Service, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
-	renderSvcMap := make(map[string][]string)
-	resp := make([]*templatemodels.RenderKV, 0)
-	for _, serviceTmpl := range serviceTmpls {
-		findRenderAlias(serviceTmpl.ServiceName, serviceTmpl.Yaml, renderSvcMap)
-	}
-
-	for key, val := range renderSvcMap {
-		rk := &templatemodels.RenderKV{
-			Alias:    key,
-			Services: val,
-		}
-		rk.SetKeys()
-		rk.RemoveDupServices()
-
-		resp = append(resp, rk)
-	}
-
-	sort.SliceStable(resp, func(i, j int) bool { return resp[i].Key < resp[j].Key })
-	return resp, nil
-}
+//func ListRenderKeysByTemplateSvc(serviceTmpls []*models.Service, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
+//	renderSvcMap := make(map[string][]string)
+//	resp := make([]*templatemodels.RenderKV, 0)
+//	for _, serviceTmpl := range serviceTmpls {
+//		findRenderAlias(serviceTmpl.ServiceName, serviceTmpl.Yaml, renderSvcMap)
+//	}
+//
+//	for key, val := range renderSvcMap {
+//		rk := &templatemodels.RenderKV{
+//			Alias:    key,
+//			Services: val,
+//		}
+//		rk.SetKeys()
+//		rk.RemoveDupServices()
+//
+//		resp = append(resp, rk)
+//	}
+//
+//	sort.SliceStable(resp, func(i, j int) bool { return resp[i].Key < resp[j].Key })
+//	return resp, nil
+//}
 
 func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
 	renderSvcMap := make(map[string][]string)
@@ -587,37 +587,37 @@ func ValidateKVs(kvs []*templatemodels.RenderKV, services []*templatemodels.Serv
 //}
 
 // getRenderSetValue 获取render set的value
-func getValueFromSharedRenderSet(kv *templatemodels.RenderKV, productName string, serviceMap map[string]*templatemodels.ServiceInfo, log *zap.SugaredLogger) (string, error) {
-	targetProduct := ""
-	for _, serviceName := range kv.Services {
-		info := serviceMap[serviceName]
-		if info != nil && info.Owner != productName {
-			targetProduct = info.Owner
-			break
-		}
-	}
-	if targetProduct == "" {
-		return "", nil
-	}
-
-	renderSetOpt := &commonrepo.RenderSetFindOption{
-		Name:      targetProduct,
-		IsDefault: true,
-		Revision:  0,
-	}
-	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-	if err != nil {
-		log.Errorf("RenderSet.Find failed, ProductName:%s, error:%v", targetProduct, err)
-		return "", err
-	}
-	for _, originKv := range renderSet.KVs {
-		if originKv.Key == kv.Key {
-			return originKv.Value, nil
-		}
-	}
-
-	return "", nil
-}
+//func getValueFromSharedRenderSet(kv *templatemodels.RenderKV, productName string, serviceMap map[string]*templatemodels.ServiceInfo, log *zap.SugaredLogger) (string, error) {
+//	targetProduct := ""
+//	for _, serviceName := range kv.Services {
+//		info := serviceMap[serviceName]
+//		if info != nil && info.Owner != productName {
+//			targetProduct = info.Owner
+//			break
+//		}
+//	}
+//	if targetProduct == "" {
+//		return "", nil
+//	}
+//
+//	renderSetOpt := &commonrepo.RenderSetFindOption{
+//		Name:      targetProduct,
+//		IsDefault: true,
+//		Revision:  0,
+//	}
+//	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
+//	if err != nil {
+//		log.Errorf("RenderSet.Find failed, ProductName:%s, error:%v", targetProduct, err)
+//		return "", err
+//	}
+//	for _, originKv := range renderSet.KVs {
+//		if originKv.Key == kv.Key {
+//			return originKv.Value, nil
+//		}
+//	}
+//
+//	return "", nil
+//}
 
 func findRenderAlias(serviceName, value string, rendSvc map[string][]string) {
 	aliases := config.RenderTemplateAlias.FindAllString(value, -1)

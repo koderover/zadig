@@ -20,11 +20,9 @@ import (
 	"bytes"
 	"text/template"
 
-	"github.com/onsi/gomega"
-
-	"gopkg.in/yaml.v3"
-
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var templateYaml = `

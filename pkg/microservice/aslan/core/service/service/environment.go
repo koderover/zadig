@@ -201,6 +201,7 @@ type GetKubeWorkloadsYamlResp struct {
 	Services []ServiceYaml `json:"services"`
 }
 
+// LoadKubeWorkloadsYaml creates service from existing workloads in k8s namespace
 func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, force bool, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), params.ClusterID)
 	if err != nil {

@@ -23,18 +23,15 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/koderover/zadig/pkg/util/converter"
-
-	"github.com/koderover/zadig/pkg/tool/log"
-
-	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
-	"gopkg.in/yaml.v2"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {

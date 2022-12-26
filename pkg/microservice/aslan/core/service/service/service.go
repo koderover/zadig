@@ -30,8 +30,6 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/koderover/zadig/pkg/util/converter"
-
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -57,6 +55,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 type ServiceOption struct {
@@ -718,6 +717,25 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	return nil
 }
 
+// fillServiceVariable fill service.variableYaml and service.serviceVars by the previous revision
+// services created by [spock, template] do not need to be filled
+func fillServiceVariable(args *commonmodels.Service) {
+	if args.Source == setting.SourceFromZadig || args.Source == setting.ServiceSourceTemplate {
+		return
+	}
+	curRevision, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		Revision:      0,
+		Type:          args.Type,
+		ProductName:   args.ProductName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	if err == nil && curRevision != nil {
+		args.ServiceVars = curRevision.ServiceVars
+		args.VariableYaml = curRevision.VariableYaml
+	}
+}
+
 func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -747,6 +765,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 			}
 		}
 	}
+
+	// fill serviceVars and variableYaml
+	fillServiceVariable(args)
 
 	// 校验args
 	if err := ensureServiceTmpl(userName, args, log); err != nil {
@@ -858,6 +879,21 @@ func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	return commonrepo.NewServiceColl().Update(updateArgs)
 }
 
+func containersChanged(oldContainers []*commonmodels.Container, newContainers []*commonmodels.Container) bool {
+	if len(oldContainers) != len(newContainers) {
+		return true
+	}
+	oldSet := sets.NewString()
+	for _, container := range oldContainers {
+		oldSet.Insert(container.Name)
+	}
+	newSet := sets.NewString()
+	for _, container := range newContainers {
+		newSet.Insert(container.Name)
+	}
+	return !oldSet.Equal(newSet)
+}
+
 func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
@@ -874,10 +910,28 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	currentService.VariableYaml = args.VariableYaml
 
 	// TODO validate service vars
-
 	err = commonrepo.NewServiceColl().UpdateServiceVariables(currentService)
 	if err != nil {
 		return e.ErrUpdateService.AddErr(err)
+	}
+
+	// reparse service, check if container changes
+	currentService.RenderedYaml, err = renderK8sSvcYaml(currentService.Yaml, args.ProductName, args.ServiceName, currentService.VariableYaml)
+	if err != nil {
+		return fmt.Errorf("failed to render yaml, err: %s", err)
+	}
+
+	currentService.RenderedYaml = util.ReplaceWrapLine(currentService.RenderedYaml)
+	currentService.KubeYamls = SplitYaml(currentService.RenderedYaml)
+	oldContainers := currentService.Containers
+	if err := setCurrentContainerImages(currentService); err != nil {
+		log.Errorf("failed to ser set container images, err: %s", err)
+		//return err
+	} else if containersChanged(oldContainers, currentService.Containers) {
+		err = commonrepo.NewServiceColl().UpdateServiceContainers(currentService)
+		if err != nil {
+			log.Errorf("failed to update service containers")
+		}
 	}
 	return nil
 }
@@ -992,6 +1046,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	return errorDetails
 }
 
+// Deprecated
 func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -1004,7 +1059,7 @@ func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
 	}
 
 	renderSet := new(commonmodels.RenderSet)
-	renderSet.KVs = args.Variables
+	//renderSet.KVs = args.Variables
 	//parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, renderSet)
 	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, args.ProjectName, svcTmpl.ServiceName, renderSet, svcTmpl.ServiceVars)
 	if err != nil {
@@ -1419,9 +1474,11 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.KubeYamls = SplitYaml(args.RenderedYaml)
 		}
 
-		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
+		// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
+		// errors will only be logged here
 		if err := setCurrentContainerImages(args); err != nil {
-			return err
+			log.Errorf("failed to ser set container images, err: %s", err)
+			//return err
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 	}
@@ -1434,7 +1491,6 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	}
 
 	args.Revision = rev
-
 	return nil
 }
 
@@ -1481,7 +1537,7 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 				if index == 0 {
 					continue
 				}
-				return errors.New("nil ReourceKind")
+				return errors.New("nil Resource Kind")
 			}
 
 			if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
@@ -1502,7 +1558,6 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 	}
 
 	args.Containers = uniqeSlice(srvContainers)
-
 	return nil
 }
 

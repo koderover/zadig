@@ -447,7 +447,6 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		return err
 	}
 
-	// TODO need optimization, should only use keys defined in template.variable
 	mergedValue, err := yamlutil.Merge([][]byte{[]byte(template.VariableYaml), []byte(service.VariableYaml)})
 	if err != nil {
 		return fmt.Errorf("failed to merge variable value, err: %s", err)

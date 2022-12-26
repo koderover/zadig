@@ -146,7 +146,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
 		IsDefault:   true,
-		KVs:         kvs,
+		//KVs:         kvs,
 	}, log)
 
 	if err != nil {
@@ -223,7 +223,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
 		IsDefault:   true,
-		KVs:         kvs,
+		//KVs:         kvs,
 	}, log); err != nil {
 		log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 	}
@@ -236,7 +236,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 			ProductTmpl: args.ProductName,
 			UpdateBy:    args.UpdateBy,
 			IsDefault:   false,
-			KVs:         envVars.Vars,
+			//KVs:         envVars.Vars,
 		}, log); err != nil {
 			log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 		}
