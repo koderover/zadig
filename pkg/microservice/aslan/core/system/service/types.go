@@ -116,5 +116,5 @@ type WorkflowReponse struct {
 	StartTime   int64  `json:"start_time"`
 	Status      string `json:"status"`
 	DisplayName string `json:"display_name"`
-	Type        string `json:"type"`
+	Type        string `json:"workflow_type"`
 }

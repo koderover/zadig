@@ -103,9 +103,9 @@ func GetRunningWorkflow(ctx context.Context, streamChan chan interface{}, log *z
 				Project:     "test-project",
 				Creator:     "minmin",
 				StartTime:   1672043731,
-				Status:      "running",
+				Status:      "pending",
 				DisplayName: "测试用pending自定义工作流",
-				Type:        "custom",
+				Type:        "common_workflow",
 			})
 			streamChan <- resp
 		}
