@@ -137,11 +137,14 @@ func clipVariableYaml(variableYaml string, validKeys []string) string {
 	if len(validKeys) == 0 {
 		return ""
 	}
+	log.Infof("####### before clip yaml %s", variableYaml)
+	log.Infof("####### before clip validKeys %v", validKeys)
 	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
 	if err != nil {
 		log.Errorf("failed to clip variable yaml, err: %s", err)
 		return variableYaml
 	}
+	log.Infof("###### after clip yaml %s", clippedYaml)
 	return clippedYaml
 }
 
@@ -155,6 +158,7 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 		log.Errorf("failed to merge variable yaml, err: %s", err)
 		return variableYaml
 	}
+	log.Infof("merge yaml is %v", string(mergedYaml))
 	return clipVariableYaml(string(mergedYaml), serviceTemplate.ServiceVars)
 }
 
