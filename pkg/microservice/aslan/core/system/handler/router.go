@@ -274,6 +274,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.GET("/:id/user", GetLarkUserID)
 		lark.POST("/:id/webhook", LarkEventHandler)
 	}
+
+	pm := router.Group("project_management")
+	{
+		pm.GET("", ListProjectManagement)
+		pm.POST("", CreateProjectManagement)
+		pm.POST("/validate", Validate)
+		pm.PATCH("/:id", UpdateProjectManagement)
+		pm.DELETE("/:id", DeleteProjectManagement)
+		pm.GET("/jira/project", ListJiraProjects)
+		pm.GET("/jira/issue", SearchJiraIssues)
+		pm.GET("/jira/type", GetJiraTypes)
+	}
 }
 
 type OpenAPIRouter struct{}

@@ -26,11 +26,11 @@ import (
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
+	jiraservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/jira"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	wdgithub "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/jira"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -381,7 +381,7 @@ func (p *JiraPlugin) SetEndTime() {
 func (p *JiraPlugin) getJiraIssue(pipelineTask *task.Task, key string) (*task.JiraIssue, error) {
 	jiraIssue := new(task.JiraIssue)
 
-	jiraInfo, err := systemconfig.New().GetJiraInfo()
+	jiraInfo, err := jiraservice.GetJiraInfo()
 	if err != nil {
 		return nil, fmt.Errorf("getJiraInfo [%s] error: %v", key, err)
 	}

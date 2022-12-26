@@ -1,18 +1,18 @@
 /*
-Copyright 2021 The KodeRover Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ * Copyright 2022 The KodeRover Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package mongodb
 
@@ -25,8 +25,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/project_management/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -52,9 +52,9 @@ func (c *ProjectManagementColl) EnsureIndex(ctx context.Context) error {
 	return nil
 }
 
-func (c *ProjectManagementColl) Create(iProjectManagement *models.ProjectManagement) error {
-	iProjectManagement.UpdatedAt = time.Now().Unix()
-	_, err := c.Collection.InsertOne(context.TODO(), iProjectManagement)
+func (c *ProjectManagementColl) Create(pm *models.ProjectManagement) error {
+	pm.UpdatedAt = time.Now().Unix()
+	_, err := c.Collection.InsertOne(context.TODO(), pm)
 	if err != nil {
 		log.Error("repository Create err : %v", err)
 		return err
@@ -62,15 +62,15 @@ func (c *ProjectManagementColl) Create(iProjectManagement *models.ProjectManagem
 	return nil
 }
 
-func (c *ProjectManagementColl) UpdateByID(idHex string, iProjectManagement *models.ProjectManagement) error {
+func (c *ProjectManagementColl) UpdateByID(idHex string, pm *models.ProjectManagement) error {
 	id, err := primitive.ObjectIDFromHex(idHex)
 	if err != nil {
 		return fmt.Errorf("invalid id")
 	}
 
-	iProjectManagement.UpdatedAt = time.Now().Unix()
+	pm.UpdatedAt = time.Now().Unix()
 	filter := bson.M{"_id": id}
-	update := bson.M{"$set": iProjectManagement}
+	update := bson.M{"$set": pm}
 
 	_, err = c.UpdateOne(context.TODO(), filter, update)
 	if err != nil {

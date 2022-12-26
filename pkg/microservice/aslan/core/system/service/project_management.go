@@ -1,18 +1,18 @@
 /*
-Copyright 2021 The KodeRover Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ * Copyright 2022 The KodeRover Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package service
 
@@ -23,20 +23,21 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/project_management/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/project_management/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/jira"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetJira(log *zap.SugaredLogger) (*models.ProjectManagement, error) {
-	jira, err := mongodb.NewProjectManagementColl().GetJira()
+	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
 		log.Errorf("GeJira error:%s", err)
 		return nil, err
 	}
-	return jira, nil
+	return info, nil
 }
 
 func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement, error) {
@@ -80,7 +81,11 @@ func DeleteProjectManagement(idHex string, log *zap.SugaredLogger) error {
 
 func ValidateJira(info *models.ProjectManagement) error {
 	_, err := jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Project.ListProjects()
-	return err
+	if err != nil {
+		log.Errorf("Validate jira error: %v", err)
+		return e.ErrValidateProjectManagement.AddDesc("failed to validate jira")
+	}
+	return nil
 }
 
 func ListJiraProjects() ([]string, error) {
