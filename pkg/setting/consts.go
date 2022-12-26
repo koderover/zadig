@@ -749,3 +749,9 @@ const (
 	LarkUserOpenID       = "open_id"
 	LarkDepartmentOpenID = "open_department_id"
 )
+
+// Project Management types
+const (
+	PMJira = "jira"
+	PMLark = "lark"
+)

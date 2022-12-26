@@ -23,17 +23,16 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	jira := router.Group("jira")
+	pm := router.Group("pm")
 	{
-		jira.GET("", GetJira)
-		jira.GET("/internal", GetJiraInternal)
-		jira.POST("", CreateJira)
-		jira.POST("/validate", Validate)
-		jira.PATCH("", UpdateJira)
-		jira.DELETE("", DeleteJira)
-		jira.GET("/project", ListJiraProjects)
-		jira.GET("/issue", SearchJiraIssues)
-		jira.GET("/type", GetJiraTypes)
+		pm.GET("", ListProjectManagement)
+		pm.POST("", CreateProjectManagement)
+		pm.POST("/validate", Validate)
+		pm.PATCH("/:id", UpdateProjectManagement)
+		pm.DELETE("/:id", DeleteProjectManagement)
+		pm.GET("/jira/project", ListJiraProjects)
+		pm.GET("/jira/issue", SearchJiraIssues)
+		pm.GET("/jira/type", GetJiraTypes)
 	}
 
 }

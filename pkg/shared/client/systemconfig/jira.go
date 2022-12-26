@@ -17,7 +17,7 @@ limitations under the License.
 package systemconfig
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/service"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/project_management/service"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 

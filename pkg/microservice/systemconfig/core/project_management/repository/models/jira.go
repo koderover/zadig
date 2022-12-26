@@ -16,15 +16,17 @@ limitations under the License.
 
 package models
 
-type Jira struct {
-	Host        string `bson:"host"         json:"host"`
-	User        string `bson:"user"         json:"user"`
-	AccessToken string `bson:"access_token" json:"access_token"`
-	CreatedAt   int64  `bson:"created_at"   json:"created_at"`
-	UpdatedAt   int64  `bson:"updated_at"   json:"updated_at"`
-	DeletedAt   int64  `bson:"deleted_at"   json:"deleted_at"`
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
+type ProjectManagement struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id" `
+	Type      string             `bson:"type"         json:"type"`
+	JiraHost  string             `bson:"jira_host"    json:"jira_host"`
+	JiraUser  string             `bson:"jira_user"    json:"jira_user"`
+	JiraToken string             `bson:"jira_token"   json:"jira_token"`
+	UpdatedAt int64              `bson:"updated_at"   json:"updated_at"`
 }
 
-func (Jira) TableName() string {
-	return "jira"
+func (ProjectManagement) TableName() string {
+	return "project_management"
 }

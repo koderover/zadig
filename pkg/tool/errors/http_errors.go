@@ -777,4 +777,14 @@ var (
 	// check workflow task lark approval available releated errors: 6940-6949
 	//-----------------------------------------------------------------------------------------------
 	ErrCheckLarkApprovalCreator = NewHTTPError(6940, "获取飞书账号信息失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// project management releated errors: 6950-6959
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateProjectManagement   = NewHTTPError(6950, "创建项目管理集成失败")
+	ErrUpdateProjectManagement   = NewHTTPError(6951, "更新项目管理集成失败")
+	ErrListProjectManagement     = NewHTTPError(6952, "列出项目管理集成失败")
+	ErrGetProjectManagement      = NewHTTPError(6953, "获取项目管理集成失败")
+	ErrDeleteProjectManagement   = NewHTTPError(6954, "删除项目管理集成失败")
+	ErrValidateProjectManagement = NewHTTPError(6955, "校验项目管理集成失败")
 )

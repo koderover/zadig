@@ -19,70 +19,61 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/service"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/project_management/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/project_management/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func DeleteJira(c *gin.Context) {
+func ListProjectManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = service.DeleteJira(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProjectManagement(ctx.Logger)
 }
 
-func GetJira(c *gin.Context) {
+func CreateProjectManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	encryptedKey := c.Query("encryptedKey")
-	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
-	ctx.Resp, ctx.Err = service.GeJira(encryptedKey, ctx.Logger)
-}
-
-func GetJiraInternal(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GeJiraInternal(ctx.Logger)
-}
-
-func CreateJira(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.Jira)
+	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.CreateJira(req, ctx.Logger)
+	ctx.Err = service.CreateProjectManagement(req, ctx.Logger)
 }
 
-func UpdateJira(c *gin.Context) {
+func UpdateProjectManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.Jira)
+	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.UpdateJira(req, ctx.Logger)
+	ctx.Err = service.UpdateProjectManagement(c.Param("id"), req, ctx.Logger)
 }
 
-//jira.GET("/project", ListJiraProjects)
-//	jira.GET("/issue", SearchJiraIssues)
-//	jira.GET("/type", GetJiraTypes)
+func DeleteProjectManagement(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Err = service.DeleteProjectManagement(c.Param("id"), ctx.Logger)
+}
 
 func Validate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.Jira)
+	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = service.ValidateJira(req)
+	switch req.Type {
+	case setting.PMJira:
+		ctx.Err = service.ValidateJira(req)
+	default:
+		ctx.Err = e.ErrValidateProjectManagement.AddDesc("invalid type")
+	}
 }
 
 func ListJiraProjects(c *gin.Context) {
