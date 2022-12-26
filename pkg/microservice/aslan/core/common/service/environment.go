@@ -149,6 +149,7 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 	if serviceTemplate == nil {
 		return variableYaml
 	}
+	log.Infof("###### latestVariableYaml variable yaml %s vars %v", serviceTemplate.VariableYaml, serviceTemplate.ServiceVars)
 	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.Yaml), []byte(variableYaml)})
 	if err != nil {
 		log.Errorf("failed to merge variable yaml, err: %s", err)
@@ -189,6 +190,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		templateSvcMap[svc.ServiceName] = svc
+		log.Infof("##### svc name: %s", svc.ServiceName)
 	}
 
 	// svc used in products
@@ -237,6 +239,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 		if svcRender.OverrideYaml != nil {
 			rArg.VariableYaml = clipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
+			log.Infof("###### rArg.VariableYaml %s", rArg.VariableYaml)
 			rArg.LatestVariableYaml = latestVariableYaml(rArg.VariableYaml, templateSvcMap[svcRender.ServiceName])
 		}
 		ret = append(ret, rArg)
