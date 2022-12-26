@@ -70,10 +70,16 @@ func (c *UserSettingColl) UpsertUserSetting(args *models.UserSetting) error {
 func (c *UserSettingColl) GetUserSettingByUid(uid string) (*models.UserSetting, error) {
 	query := bson.M{"uid": uid}
 
-	resp := new(models.UserSetting)
+	resp := &models.UserSetting{}
 
 	err := c.FindOne(context.TODO(), query).Decode(resp)
-	return resp, err
+	if err != nil && err != mongo.ErrNoDocuments {
+		return resp, err
+	}
+	if err == mongo.ErrNoDocuments {
+		return &models.UserSetting{}, nil
+	}
+	return resp, nil
 }
 
 func (c *UserSettingColl) DeleteUserSettingByUid(uid string) error {
