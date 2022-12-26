@@ -17,12 +17,10 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"time"
 )
 
 const (
@@ -37,7 +35,7 @@ const (
 	CardTypeMyEnv                  = "my_env"
 )
 
-func CreateOrUpdateDashboardConfiguration(userName, userID string, config *DashBoardConfig, log *zap.SugaredLogger) error {
+func CreateOrUpdateDashboardConfiguration(username, userID string, config *DashBoardConfig, log *zap.SugaredLogger) error {
 	cardConfig := make([]*commonmodels.CardConfig, 0)
 	for _, cfg := range config.Cards {
 		cardConfig = append(cardConfig, &commonmodels.CardConfig{
@@ -50,14 +48,14 @@ func CreateOrUpdateDashboardConfiguration(userName, userID string, config *DashB
 	dashboardConfig := &commonmodels.DashboardConfig{
 		Cards:    cardConfig,
 		UserID:   userID,
-		UserName: userName,
+		UserName: username,
 	}
 
 	return commonrepo.NewDashboardConfigColl().CreateOrUpdate(dashboardConfig)
 }
 
-func GetDashboardConfiguration(userName, userID string, log *zap.SugaredLogger) (*DashBoardConfig, error) {
-	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(userName, userID)
+func GetDashboardConfiguration(username, userID string, log *zap.SugaredLogger) (*DashBoardConfig, error) {
+	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
 	// if there is an error and the error is not empty document then we return error
 	if err != nil {
 		if err != mongo.ErrNoDocuments {
@@ -79,26 +77,48 @@ func GetDashboardConfiguration(userName, userID string, log *zap.SugaredLogger) 
 	return &DashBoardConfig{Cards: cardConfig}, nil
 }
 
-func GetRunningWorkflow(ctx context.Context, streamChan chan interface{}, log *zap.SugaredLogger) {
-	log.Infof("Starting to get information about running workflow")
-	for {
-		time.Sleep(time.Second)
-		select {
-		case <-ctx.Done():
-			log.Infof("Connection is closed, container log stream stopped")
-			return
-		default:
-			resp := make([]*WorkflowReponse, 0)
-			resp = append(resp, &WorkflowReponse{
-				Name:        "test-running-workflow",
-				Project:     "test-project",
-				Creator:     "minmin",
-				StartTime:   1672043731,
-				Status:      "running",
-				DisplayName: "测试用工作流",
-				Type:        "",
-			})
-			resp = append(resp, &WorkflowReponse{
+func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
+	resp := make([]*WorkflowResponse, 0)
+	resp = append(resp, &WorkflowResponse{
+		Name:        "test-running-workflow",
+		Project:     "test-project",
+		Creator:     "minmin",
+		StartTime:   1672043731,
+		Status:      "running",
+		DisplayName: "测试用running产品工作流",
+		Type:        "",
+	})
+	resp = append(resp, &WorkflowResponse{
+		Name:        "test-pending-custom-workflow",
+		Project:     "test-project",
+		Creator:     "minmin",
+		StartTime:   1672043731,
+		Status:      "pending",
+		DisplayName: "测试用pending自定义工作流",
+		Type:        "common_workflow",
+	})
+
+	return resp, nil
+}
+
+func GetMyWorkflow(username, userID string, log *zap.SugaredLogger) (*WorkflowCardResponse, error) {
+	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
+	// if there is an error and the error is not empty document then we return error
+	if err != nil {
+		if err != mongo.ErrNoDocuments {
+			return nil, err
+		} else {
+			// if no config is found, then no my workflow is configured, return empty
+			return &WorkflowCardResponse{Cards: make([]*WorkflowCard, 0)}, nil
+		}
+	}
+
+	cardList := make([]*WorkflowCard, 0)
+
+	for _, cardCfg := range cfg.Cards {
+		if cardCfg.Type == CardTypeMyWorkflow {
+			sampleWorkflowList := make([]*WorkflowResponse, 0)
+			sampleWorkflowList = append(sampleWorkflowList, &WorkflowResponse{
 				Name:        "test-pending-custom-workflow",
 				Project:     "test-project",
 				Creator:     "minmin",
@@ -107,9 +127,33 @@ func GetRunningWorkflow(ctx context.Context, streamChan chan interface{}, log *z
 				DisplayName: "测试用pending自定义工作流",
 				Type:        "common_workflow",
 			})
-			streamChan <- resp
+			cardList = append(cardList, &WorkflowCard{
+				CardID:    cardCfg.ID,
+				Workflows: sampleWorkflowList,
+			})
 		}
 	}
+	return &WorkflowCardResponse{Cards: cardList}, nil
+}
+
+func GetMyEnvironment(projectName, envName string) (interface{}, error) {
+	serviceList := make([]*EnvService, 0)
+	serviceList = append(serviceList, &EnvService{
+		ServiceName: "demo-service",
+		Status:      "running",
+		Image:       "xxxxxxx",
+	})
+	serviceList = append(serviceList, &EnvService{
+		ServiceName: "demo-service2",
+		Status:      "pending",
+		Image:       "xxxxxxx",
+	})
+	return &EnvResponse{
+		Name:        envName,
+		ProjectName: projectName,
+		UpdateTime:  1672051405,
+		Services:    serviceList,
+	}, nil
 }
 
 func generateDefaultDashboardConfig() *DashBoardConfig {

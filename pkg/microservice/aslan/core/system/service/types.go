@@ -109,7 +109,7 @@ type WorkflowConfig struct {
 	Project string `json:"project"`
 }
 
-type WorkflowReponse struct {
+type WorkflowResponse struct {
 	Name        string `json:"name"`
 	Project     string `json:"project"`
 	Creator     string `json:"creator"`
@@ -117,4 +117,26 @@ type WorkflowReponse struct {
 	Status      string `json:"status"`
 	DisplayName string `json:"display_name"`
 	Type        string `json:"workflow_type"`
+}
+
+type WorkflowCardResponse struct {
+	Cards []*WorkflowCard `json:"cards"`
+}
+
+type WorkflowCard struct {
+	CardID    string              `json:"card_id"`
+	Workflows []*WorkflowResponse `json:"workflows"`
+}
+
+type EnvResponse struct {
+	Name        string        `json:"name"`
+	ProjectName string        `json:"project_name"`
+	UpdateTime  int64         `json:"update_time"`
+	Services    []*EnvService `json:"services"`
+}
+
+type EnvService struct {
+	ServiceName string `json:"service_name"`
+	Status      string `json:"status"`
+	Image       string `json:"Image"`
 }
