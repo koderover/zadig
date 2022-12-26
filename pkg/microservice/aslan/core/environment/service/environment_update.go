@@ -226,7 +226,7 @@ func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commo
 		}
 	}
 	filter := func(service *commonmodels.ProductService) bool {
-		if _, ok := productSvcMap[service.ServiceName]; ok {
+		if templateSvc.ServiceName == service.ServiceName {
 			return true
 		}
 		return false
