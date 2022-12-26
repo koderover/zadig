@@ -85,7 +85,7 @@ func (req OpenAPICreateRegistryReq) Validate() error {
 }
 
 type DashBoardConfig struct {
-	Cards []*DashBoardCardConfig `json:""`
+	Cards []*DashBoardCardConfig `json:"cards"`
 }
 
 type DashBoardCardConfig struct {
