@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/util/yaml"
+
 	"github.com/koderover/zadig/pkg/tool/log"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -143,6 +145,18 @@ func clipVariableYaml(variableYaml string, validKeys []string) string {
 	return clippedYaml
 }
 
+func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) string {
+	if serviceTemplate == nil {
+		return variableYaml
+	}
+	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.Yaml), []byte(variableYaml)})
+	if err != nil {
+		log.Errorf("failed to merge variable yaml, err: %s", err)
+		return variableYaml
+	}
+	return clipVariableYaml(string(mergedYaml), serviceTemplate.ServiceVars)
+}
+
 func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
@@ -167,25 +181,29 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find template svcs, err: %s", err)
 	}
+	templateSvcMap := make(map[string]*models.Service)
 	for _, svc := range templateSvcs {
 		svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
 			ServiceName:  svc.ServiceName,
 			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
 		}
 		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+		templateSvcMap[svc.ServiceName] = svc
 	}
 
 	// svc used in products
-	svcs, err := GetProductUsedTemplateSvcs(productInfo)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, svc := range svcs {
-		svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
-			ServiceName:  svc.ServiceName,
-			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+	if productInfo != nil {
+		svcs, err := GetProductUsedTemplateSvcs(productInfo)
+		if err != nil {
+			return nil, nil, err
 		}
-		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+		for _, svc := range svcs {
+			svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
+				ServiceName:  svc.ServiceName,
+				OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+			}
+			serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+		}
 	}
 
 	// svc render in renderchart
@@ -219,6 +237,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 		if svcRender.OverrideYaml != nil {
 			rArg.VariableYaml = clipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
+			rArg.LatestVariableYaml = latestVariableYaml(rArg.VariableYaml, templateSvcMap[svcRender.ServiceName])
 		}
 		ret = append(ret, rArg)
 	}

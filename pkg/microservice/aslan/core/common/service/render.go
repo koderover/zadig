@@ -78,8 +78,9 @@ type K8sSvcRenderArg struct {
 	//OverrideYaml   string                     `json:"overrideYaml,omitempty"`
 	//ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
 	//YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
-	VariableYaml   string `json:"variable_yaml"`
-	DeployStrategy string `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
+	VariableYaml       string `json:"variable_yaml"`
+	LatestVariableYaml string `json:"latest_variable_yaml"`
+	DeployStrategy     string `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
 }
 
 type RenderChartDiffResult string
