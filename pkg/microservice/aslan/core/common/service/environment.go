@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -126,6 +128,21 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
+func clipVariableYaml(variableYaml string, validKeys []string) string {
+	if len(variableYaml) == 0 {
+		return variableYaml
+	}
+	if len(validKeys) == 0 {
+		return ""
+	}
+	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
+	if err != nil {
+		log.Errorf("failed to clip variable yaml, err: %s", err)
+		return variableYaml
+	}
+	return clippedYaml
+}
+
 func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
@@ -141,6 +158,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		renderSetName = productInfo.Render.Name
 		renderRevision = productInfo.Render.Revision
 	}
+	serviceVarsMap := make(map[string][]string)
 
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
@@ -166,6 +184,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			ServiceName:  svc.ServiceName,
 			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
 		}
+		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 	}
 
 	// svc render in renderchart
@@ -198,7 +217,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			ServiceName: svcRender.ServiceName,
 		}
 		if svcRender.OverrideYaml != nil {
-			rArg.VariableYaml = svcRender.OverrideYaml.YamlContent
+			rArg.VariableYaml = clipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
 		}
 		ret = append(ret, rArg)
 	}

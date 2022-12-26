@@ -34,6 +34,24 @@ import (
 	"github.com/koderover/zadig/pkg/util/converter"
 )
 
+func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
+	valuesMap, err := converter.YamlToFlatMap([]byte(variableYaml))
+	if err != nil {
+		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
+	}
+
+	keysSet := sets.NewString(validKeys...)
+	validKvMap := make(map[string]interface{})
+	for k, v := range valuesMap {
+		if keysSet.Has(k) {
+			validKvMap[k] = v
+		}
+	}
+
+	bs, err := yaml.Marshal(validKvMap)
+	return string(bs), err
+}
+
 func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {
 	serviceVariable := ""
 	for _, v := range rs.ServiceVariables {
@@ -49,22 +67,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		return "", nil
 	}
 
-	valuesMap, err := converter.YamlToFlatMap([]byte(serviceVariable))
-	if err != nil {
-		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
-	}
-
-	keysSet := sets.NewString(serviceVars...)
-	validKvMap := make(map[string]interface{})
-	for k, v := range valuesMap {
-		if keysSet.Has(k) {
-			validKvMap[k] = v
-		}
-	}
-
-	bs, err := yaml.Marshal(validKvMap)
-
-	return string(bs), err
+	return ClipVariableYaml(serviceVariable, serviceVars)
 }
 
 func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {
