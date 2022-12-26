@@ -17,10 +17,12 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"time"
 )
 
 const (
@@ -39,6 +41,7 @@ func CreateOrUpdateDashboardConfiguration(userName, userID string, config *DashB
 	cardConfig := make([]*commonmodels.CardConfig, 0)
 	for _, cfg := range config.Cards {
 		cardConfig = append(cardConfig, &commonmodels.CardConfig{
+			ID:     cfg.ID,
 			Name:   cfg.Name,
 			Type:   cfg.Type,
 			Config: cfg.Config,
@@ -66,6 +69,7 @@ func GetDashboardConfiguration(userName, userID string, log *zap.SugaredLogger) 
 	cardConfig := make([]*DashBoardCardConfig, 0)
 	for _, card := range cfg.Cards {
 		retConfig := &DashBoardCardConfig{
+			ID:     card.ID,
 			Name:   card.Name,
 			Type:   card.Type,
 			Config: card.Config,
@@ -73,6 +77,39 @@ func GetDashboardConfiguration(userName, userID string, log *zap.SugaredLogger) 
 		cardConfig = append(cardConfig, retConfig)
 	}
 	return &DashBoardConfig{Cards: cardConfig}, nil
+}
+
+func GetRunningWorkflow(ctx context.Context, streamChan chan interface{}, log *zap.SugaredLogger) {
+	log.Infof("Starting to get information about running workflow")
+	for {
+		time.Sleep(time.Second)
+		select {
+		case <-ctx.Done():
+			log.Infof("Connection is closed, container log stream stopped")
+			return
+		default:
+			resp := make([]*WorkflowReponse, 0)
+			resp = append(resp, &WorkflowReponse{
+				Name:        "test-running-workflow",
+				Project:     "test-project",
+				Creator:     "minmin",
+				StartTime:   1672043731,
+				Status:      "running",
+				DisplayName: "测试用工作流",
+				Type:        "",
+			})
+			resp = append(resp, &WorkflowReponse{
+				Name:        "test-pending-custom-workflow",
+				Project:     "test-project",
+				Creator:     "minmin",
+				StartTime:   1672043731,
+				Status:      "running",
+				DisplayName: "测试用pending自定义工作流",
+				Type:        "custom",
+			})
+			streamChan <- resp
+		}
+	}
 }
 
 func generateDefaultDashboardConfig() *DashBoardConfig {

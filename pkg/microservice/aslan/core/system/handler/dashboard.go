@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -47,7 +48,9 @@ func GetRunningWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListConfigurationManagement(ctx.Logger)
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		service.GetRunningWorkflow(ctx1, streamChan, ctx.Logger)
+	}, ctx.Logger)
 }
 
 func GetMyWorkflow(c *gin.Context) {

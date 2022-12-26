@@ -89,6 +89,7 @@ type DashBoardConfig struct {
 }
 
 type DashBoardCardConfig struct {
+	ID     string      `json:"id"`
 	Name   string      `json:"name"`
 	Type   string      `json:"type"`
 	Config interface{} `json:"config"`
@@ -106,4 +107,14 @@ type MyEnvCardConfig struct {
 type WorkflowConfig struct {
 	Name    string `json:"name"`
 	Project string `json:"project"`
+}
+
+type WorkflowReponse struct {
+	Name        string `json:"name"`
+	Project     string `json:"project"`
+	Creator     string `json:"creator"`
+	StartTime   int64  `json:"start_time"`
+	Status      string `json:"status"`
+	DisplayName string `json:"display_name"`
+	Type        string `json:"type"`
 }

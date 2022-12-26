@@ -27,6 +27,7 @@ type DashboardConfig struct {
 }
 
 type CardConfig struct {
+	ID     string      `bson:"id"`
 	Name   string      `bson:"name"`
 	Type   string      `bson:"type"`
 	Config interface{} `bson:"config,omitempty"`
