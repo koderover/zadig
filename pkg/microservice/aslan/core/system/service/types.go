@@ -120,15 +120,6 @@ type WorkflowResponse struct {
 	Type        string `json:"workflow_type"`
 }
 
-type WorkflowCardResponse struct {
-	Cards []*WorkflowCard `json:"cards"`
-}
-
-type WorkflowCard struct {
-	CardID    string              `json:"card_id"`
-	Workflows []*WorkflowResponse `json:"workflows"`
-}
-
 type EnvResponse struct {
 	Name        string        `json:"name"`
 	ProjectName string        `json:"project_name"`

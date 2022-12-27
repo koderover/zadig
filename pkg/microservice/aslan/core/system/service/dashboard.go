@@ -110,7 +110,9 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	return resp, nil
 }
 
-func GetMyWorkflow(username, userID string, log *zap.SugaredLogger) (*WorkflowCardResponse, error) {
+func GetMyWorkflow(username, userID, cardID string, log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
+	resp := make([]*WorkflowResponse, 0)
+
 	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
 	// if there is an error and the error is not empty document then we return error
 	if err != nil {
@@ -118,31 +120,28 @@ func GetMyWorkflow(username, userID string, log *zap.SugaredLogger) (*WorkflowCa
 			return nil, err
 		} else {
 			// if no config is found, then no my workflow is configured, return empty
-			return &WorkflowCardResponse{Cards: make([]*WorkflowCard, 0)}, nil
+			return resp, nil
 		}
 	}
-
-	cardList := make([]*WorkflowCard, 0)
 
 	for _, cardCfg := range cfg.Cards {
-		if cardCfg.Type == CardTypeMyWorkflow {
-			sampleWorkflowList := make([]*WorkflowResponse, 0)
-			sampleWorkflowList = append(sampleWorkflowList, &WorkflowResponse{
-				Name:        "test-pending-custom-workflow",
-				Project:     "test-project",
-				Creator:     "minmin",
-				StartTime:   1672043731,
-				Status:      "pending",
-				DisplayName: "测试用pending自定义工作流",
-				Type:        "common_workflow",
-			})
-			cardList = append(cardList, &WorkflowCard{
-				CardID:    cardCfg.ID,
-				Workflows: sampleWorkflowList,
-			})
+		if cardCfg.Type == CardTypeMyWorkflow && cardCfg.ID == cardID {
+			configDetail := cardCfg.Config.(MyWorkflowCardConfig)
+			for _, item := range configDetail.WorkflowList {
+				resp = append(resp, &WorkflowResponse{
+					Name:        item.Name,
+					Project:     item.Project,
+					Creator:     "minmin",
+					StartTime:   1672043731,
+					Status:      "pending",
+					DisplayName: "测试用" + item.Name,
+					Type:        "common_workflow",
+				})
+			}
+
 		}
 	}
-	return &WorkflowCardResponse{Cards: cardList}, nil
+	return resp, nil
 }
 
 const (
@@ -174,6 +173,7 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 		return nil, err
 	}
 	targetServiceMap := make(map[string]int)
+	var targetServiceCount int
 	for _, card := range cfg.Cards {
 		if card.Type == CardTypeMyEnv {
 			envConfig := card.Config.(MyEnvCardConfig)
@@ -181,16 +181,29 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 				for _, svc := range envConfig.ServiceModules {
 					targetServiceMap[svc] = 1
 				}
+				targetServiceCount = len(envConfig.ServiceModules)
+				break
 			}
 		}
 	}
-	for _, svc := range svcList {
-		if _, ok := targetServiceMap[svc.ServiceName]; ok {
+	// if none of the service is configured, return all the services
+	if targetServiceCount == 0 {
+		for _, svc := range svcList {
 			serviceList = append(serviceList, &EnvService{
 				ServiceName: svc.ServiceDisplayName,
 				Status:      svc.Status,
 				Image:       svc.Images[0],
 			})
+		}
+	} else {
+		for _, svc := range svcList {
+			if _, ok := targetServiceMap[svc.ServiceName]; ok {
+				serviceList = append(serviceList, &EnvService{
+					ServiceName: svc.ServiceDisplayName,
+					Status:      svc.Status,
+					Image:       svc.Images[0],
+				})
+			}
 		}
 	}
 	return &EnvResponse{
