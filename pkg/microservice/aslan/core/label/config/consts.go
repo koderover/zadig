@@ -30,7 +30,7 @@ func GetWorkflowResourceType(workflowType string) string {
 	if IsCustomWorkflow(workflowType) {
 		return string(ResourceTypeCommonWorkflow)
 	}
-	return string(ResourceTypeCommonWorkflow)
+	return string(ResourceTypeWorkflow)
 }
 
 func IsCustomWorkflow(workflowType string) bool {
