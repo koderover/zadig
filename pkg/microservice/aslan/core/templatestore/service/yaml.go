@@ -62,6 +62,7 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 			Content: template.Content,
 			//Variables:    nil,
 			VariableYaml: template.VariableYaml,
+			ServiceVars:  template.ServiceVars,
 		},
 	)
 	if err != nil {
