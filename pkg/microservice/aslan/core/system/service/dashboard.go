@@ -129,7 +129,11 @@ func GetMyWorkflow(username, userID, cardID string, log *zap.SugaredLogger) ([]*
 			if cardCfg.Config == nil {
 				return resp, nil
 			}
-			configDetail := cardCfg.Config.(MyWorkflowCardConfig)
+			configDetail := new(MyWorkflowCardConfig)
+			err := commonmodels.IToi(cardCfg.Config, configDetail)
+			if err != nil {
+				return nil, err
+			}
 			for _, item := range configDetail.WorkflowList {
 				resp = append(resp, &WorkflowResponse{
 					Name:        item.Name,
@@ -179,7 +183,14 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 	var targetServiceCount int
 	for _, card := range cfg.Cards {
 		if card.Type == CardTypeMyEnv {
-			envConfig := card.Config.(MyEnvCardConfig)
+			envConfig := new(MyEnvCardConfig)
+			err := commonmodels.IToi(card.Config, envConfig)
+			if err != nil {
+				return nil, err
+			}
+			if envConfig == nil {
+				continue
+			}
 			if envConfig.EnvName == envName && envConfig.ProjectName == projectName {
 				for _, svc := range envConfig.ServiceModules {
 					targetServiceMap[svc] = 1
