@@ -19,6 +19,7 @@ package service
 import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
@@ -79,24 +80,30 @@ func GetDashboardConfiguration(username, userID string, log *zap.SugaredLogger) 
 
 func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	resp := make([]*WorkflowResponse, 0)
-	resp = append(resp, &WorkflowResponse{
-		Name:        "test-running-workflow",
-		Project:     "test-project",
-		Creator:     "minmin",
-		StartTime:   1672043731,
-		Status:      "running",
-		DisplayName: "测试用running产品工作流",
-		Type:        "",
-	})
-	resp = append(resp, &WorkflowResponse{
-		Name:        "test-pending-custom-workflow",
-		Project:     "test-project",
-		Creator:     "minmin",
-		StartTime:   1672043731,
-		Status:      "pending",
-		DisplayName: "测试用pending自定义工作流",
-		Type:        "common_workflow",
-	})
+	runningQueue := workflow.RunningTasks()
+	pendingQueue := workflow.PendingTasks()
+	for _, runningtask := range runningQueue {
+		resp = append(resp, &WorkflowResponse{
+			Name:        runningtask.PipelineName,
+			Project:     runningtask.ProductName,
+			Creator:     runningtask.TaskCreator,
+			StartTime:   runningtask.StartTime,
+			Status:      string(runningtask.Status),
+			DisplayName: runningtask.PipelineDisplayName,
+			Type:        string(runningtask.Type),
+		})
+	}
+	for _, pendingTask := range pendingQueue {
+		resp = append(resp, &WorkflowResponse{
+			Name:        pendingTask.PipelineName,
+			Project:     pendingTask.ProductName,
+			Creator:     pendingTask.TaskCreator,
+			StartTime:   pendingTask.StartTime,
+			Status:      string(pendingTask.Status),
+			DisplayName: pendingTask.PipelineDisplayName,
+			Type:        string(pendingTask.Type),
+		})
+	}
 
 	return resp, nil
 }
@@ -136,8 +143,16 @@ func GetMyWorkflow(username, userID string, log *zap.SugaredLogger) (*WorkflowCa
 	return &WorkflowCardResponse{Cards: cardList}, nil
 }
 
-func GetMyEnvironment(projectName, envName string) (interface{}, error) {
+func GetMyEnvironment(projectName, envName string, log *zap.SugaredLogger) (interface{}, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, err
+	}
 	serviceList := make([]*EnvService, 0)
+
 	serviceList = append(serviceList, &EnvService{
 		ServiceName: "demo-service",
 		Status:      "running",
@@ -151,7 +166,8 @@ func GetMyEnvironment(projectName, envName string) (interface{}, error) {
 	return &EnvResponse{
 		Name:        envName,
 		ProjectName: projectName,
-		UpdateTime:  1672051405,
+		UpdateTime:  productInfo.UpdateTime,
+		UpdatedBy:   productInfo.UpdateBy,
 		Services:    serviceList,
 	}, nil
 }

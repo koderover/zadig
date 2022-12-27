@@ -132,11 +132,12 @@ type EnvResponse struct {
 	Name        string        `json:"name"`
 	ProjectName string        `json:"project_name"`
 	UpdateTime  int64         `json:"update_time"`
+	UpdatedBy   string        `json:"updated_by"`
 	Services    []*EnvService `json:"services"`
 }
 
 type EnvService struct {
 	ServiceName string `json:"service_name"`
 	Status      string `json:"status"`
-	Image       string `json:"Image"`
+	Image       string `json:"image"`
 }
