@@ -48,6 +48,11 @@ func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
 		}
 	}
 
+	validKvMap, err = converter.Expand(validKvMap)
+	if err != nil {
+		return "", err
+	}
+
 	bs, err := yaml.Marshal(validKvMap)
 	return string(bs), err
 }
