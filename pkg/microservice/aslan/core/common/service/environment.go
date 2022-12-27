@@ -232,7 +232,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			_, ok := productSvcMap[serviceName]
 			return ok
 		}
-		return len(serviceName) == 0 || validSvcs.Has(name)
+		return validSvcs.Has(name)
 	}
 
 	ret := make([]*K8sSvcRenderArg, 0)
