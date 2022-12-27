@@ -126,6 +126,9 @@ func GetMyWorkflow(username, userID, cardID string, log *zap.SugaredLogger) ([]*
 
 	for _, cardCfg := range cfg.Cards {
 		if cardCfg.Type == CardTypeMyWorkflow && cardCfg.ID == cardID {
+			if cardCfg.Config == nil {
+				return resp, nil
+			}
 			configDetail := cardCfg.Config.(MyWorkflowCardConfig)
 			for _, item := range configDetail.WorkflowList {
 				resp = append(resp, &WorkflowResponse{
