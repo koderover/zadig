@@ -53,11 +53,6 @@ func GetServiceVariables(c *gin.Context) {
 		return
 	}
 
-	if c.Query("envName") == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-		return
-	}
-
 	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 

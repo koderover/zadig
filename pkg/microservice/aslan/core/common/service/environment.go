@@ -159,22 +159,20 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 }
 
 func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
-	renderSetName := GetProductEnvNamespace(envName, productName, "")
-	renderRevision := int64(0)
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
-	})
+	var productInfo *models.Product
+	var err error
+	if len(envName) > 0 {
+		productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    productName,
+			EnvName: envName,
+		})
+	}
 
 	if err != nil && err != mongo.ErrNoDocuments {
 		return nil, nil, err
 	}
-	if err == nil {
-		renderSetName = productInfo.Render.Name
-		renderRevision = productInfo.Render.Revision
-	}
-	serviceVarsMap := make(map[string][]string)
 
+	serviceVarsMap := make(map[string][]string)
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
 	// product template svcs
@@ -209,18 +207,21 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		productSvcMap = productInfo.GetServiceMap()
 	}
 
-	// svc render in renderchart
-	opt := &commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		Name:        renderSetName,
-		Revision:    renderRevision,
-	}
-	rendersetObj, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err == nil {
-		for _, svcRender := range rendersetObj.ServiceVariables {
-			if _, ok := svcRenders[svcRender.ServiceName]; ok {
-				svcRenders[svcRender.ServiceName] = svcRender
+	var rendersetObj *models.RenderSet
+	if productInfo != nil {
+		// svc render in renderchart
+		opt := &commonrepo.RenderSetFindOption{
+			ProductTmpl: productName,
+			EnvName:     envName,
+			Name:        productInfo.Render.Name,
+			Revision:    productInfo.Render.Revision,
+		}
+		rendersetObj, _, err = commonrepo.NewRenderSetColl().FindRenderSet(opt)
+		if err == nil {
+			for _, svcRender := range rendersetObj.ServiceVariables {
+				if _, ok := svcRenders[svcRender.ServiceName]; ok {
+					svcRenders[svcRender.ServiceName] = svcRender
+				}
 			}
 		}
 	}
