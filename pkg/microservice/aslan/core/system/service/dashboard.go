@@ -175,7 +175,6 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 	}
 	serviceList := make([]*EnvService, 0)
 	_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, "", math.MaxInt, 1, log)
-	log.Infof("svcList length is: %d", len(svcList))
 	if err != nil {
 		log.Errorf("failed to get workloads in the env, error: %s", err)
 		return nil, err
@@ -204,20 +203,29 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 	// if none of the service is configured, return all the services
 	if targetServiceCount == 0 {
 		for _, svc := range svcList {
-			serviceList = append(serviceList, &EnvService{
+			entry := &EnvService{
 				ServiceName: svc.ServiceDisplayName,
 				Status:      svc.Status,
 				Image:       svc.Images[0],
-			})
+			}
+			if entry.ServiceName == "" {
+				entry.ServiceName = svc.ServiceName
+			}
+			serviceList = append(serviceList, entry)
+
 		}
 	} else {
 		for _, svc := range svcList {
 			if _, ok := targetServiceMap[svc.ServiceName]; ok {
-				serviceList = append(serviceList, &EnvService{
+				entry := &EnvService{
 					ServiceName: svc.ServiceDisplayName,
 					Status:      svc.Status,
 					Image:       svc.Images[0],
-				})
+				}
+				if entry.ServiceName == "" {
+					entry.ServiceName = svc.ServiceName
+				}
+				serviceList = append(serviceList, entry)
 			}
 		}
 	}
