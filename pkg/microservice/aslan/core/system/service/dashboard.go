@@ -175,6 +175,7 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 	}
 	serviceList := make([]*EnvService, 0)
 	_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, DefaultEnvFilter, math.MaxInt, 1, log)
+	log.Infof("svcList length is: %d", len(svcList))
 	if err != nil {
 		log.Errorf("failed to get workloads in the env, error: %s", err)
 		return nil, err
