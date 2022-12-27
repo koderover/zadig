@@ -90,8 +90,11 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		log.Error(errMsg)
 		statusChanged = true
 	}
-	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning && task.Status != config.StatusCreated {
+	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning {
 		statusChanged = true
+	}
+	if task.Status == config.StatusCreated {
+		statusChanged = false
 	}
 	for _, notify := range resp.NotifyCtls {
 		if !notify.Enabled {
