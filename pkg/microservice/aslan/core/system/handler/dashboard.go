@@ -64,5 +64,5 @@ func GetMyEnvironment(c *gin.Context) {
 	projectName := c.Query("project_name")
 	envName := c.Param("name")
 
-	ctx.Resp, ctx.Err = service.GetMyEnvironment(projectName, envName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetMyEnvironment(projectName, envName, ctx.UserName, ctx.UserID, ctx.Logger)
 }
