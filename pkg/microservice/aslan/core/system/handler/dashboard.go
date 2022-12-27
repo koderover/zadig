@@ -61,7 +61,7 @@ func GetMyEnvironment(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("project_name")
+	projectName := c.Query("projectName")
 	envName := c.Param("name")
 
 	ctx.Resp, ctx.Err = service.GetMyEnvironment(projectName, envName, ctx.UserName, ctx.UserID, ctx.Logger)
