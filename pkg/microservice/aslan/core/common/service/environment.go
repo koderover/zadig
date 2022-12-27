@@ -193,6 +193,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	}
 
 	// svc used in products
+	productSvcMap := make(map[string]*models.ProductService)
 	if productInfo != nil {
 		svcs, err := GetProductUsedTemplateSvcs(productInfo)
 		if err != nil {
@@ -205,6 +206,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			}
 			serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		}
+		productSvcMap = productInfo.GetServiceMap()
 	}
 
 	// svc render in renderchart
@@ -225,6 +227,11 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 
 	validSvcs := sets.NewString(strings.Split(serviceName, ",")...)
 	filter := func(name string) bool {
+		// if service name is not set, use the current services in product
+		if len(serviceName) == 0 {
+			_, ok := productSvcMap[serviceName]
+			return ok
+		}
 		return len(serviceName) == 0 || validSvcs.Has(name)
 	}
 
