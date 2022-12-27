@@ -22,8 +22,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-// Vars不做保存，只做input参数
-// product_name 当前项目主键
 type Product struct {
 	ProjectName         string                `bson:"project_name"              json:"project_name"`
 	ProductName         string                `bson:"product_name"              json:"product_name"`
@@ -37,7 +35,7 @@ type Product struct {
 	Timeout             int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services            [][]string            `bson:"services"                  json:"services"`
 	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
-	Vars                []*RenderKV           `bson:"vars"                      json:"vars"`
+	Vars                []*RenderKV           `bson:"-"                         json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos          []*ServiceRender      `bson:"-"                         json:"chart_infos,omitempty"`
 	Description         string                `bson:"description,omitempty"     json:"desc,omitempty"`

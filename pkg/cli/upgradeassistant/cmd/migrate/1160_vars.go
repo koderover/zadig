@@ -86,8 +86,13 @@ func (dbu *DataBulkUpdater) Write() error {
 // extract service_vars
 func handleYamlTemplates() error {
 	yamlTemplates, _, err := mongodb.NewYamlTemplateColl().List(0, 0)
-	if err != nil {
+	if err != nil && !mongodb.IsErrNoDocuments(err) {
 		log.Errorf("failed to list templates error: %s", err)
+		return err
+	}
+	if len(yamlTemplates) == 0 {
+		log.Infof("no yaml template used, skipping...")
+		return nil
 	}
 
 	updater := &DataBulkUpdater{
@@ -178,9 +183,13 @@ func handleServiceTemplates() error {
 // 2. use variable.yaml in svc.creationFrom instead of []variable
 func setServiceVariables(projectName string) error {
 	templateServices, err := mongodb.NewServiceColl().ListMaxRevisionsByProduct(projectName)
-	if err != nil {
+	if err != nil && !mongodb.IsErrNoDocuments(err) {
 		log.Errorf("failed to find service templates, err: %s", err)
 		return err
+	}
+	if len(templateServices) == 0 {
+		log.Infof("no need to handle service for project: %s, skipping", projectName)
+		return nil
 	}
 
 	defaultRenderset, err := uamongo.NewRenderSetColl().Find(&uamongo.RenderSetFindOption{
@@ -280,10 +289,16 @@ func adjustProductRenderInfo() error {
 		DeployType:    setting.K8SDeployType,
 		BasicFacility: setting.BasicFacilityK8S,
 	})
-	if err != nil {
+	if err != nil && !mongodb.IsErrNoDocuments(err) {
 		log.Errorf("adjustProductRenderInfo list projects error: %s", err)
 		return fmt.Errorf("adjustProductRenderInfo list projects error: %s", err)
 	}
+
+	if len(temProducts) == 0 {
+		log.Infof("no k8s projects found, skipping...")
+		return nil
+	}
+
 	projectNames := make([]string, 0)
 	for _, v := range temProducts {
 		if v.IsHostProduct() {
@@ -293,7 +308,7 @@ func adjustProductRenderInfo() error {
 	}
 
 	products, err := uamongo.NewProductColl().List(&uamongo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InProjects: projectNames})
-	if err != nil {
+	if err != nil && !mongodb.IsErrNoDocuments(err) {
 		log.Errorf("adjustProductRenderInfo list product error: %s", err)
 		return fmt.Errorf("adjustProductRenderInfo list product error: %s", err)
 	}
