@@ -93,7 +93,7 @@ func ListAllWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogg
 			qs.Add("projects", name)
 		}
 	}
-	return aslan.New().ListWorkflowsV3(header, qs)
+	return aslan.New().ListAllWorkflows(header, qs)
 }
 
 func ListTestWorkflows(testName string, header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
