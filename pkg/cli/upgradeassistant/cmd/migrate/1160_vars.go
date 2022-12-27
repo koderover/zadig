@@ -108,11 +108,11 @@ func handleYamlTemplates() error {
 			for k := range valuesMap {
 				yamlTemplate.ServiceVars = append(yamlTemplate.ServiceVars, k)
 			}
+			log.Infof("setting service vars for yaml template： %s, service vars: %v", yamlTemplate.Name, yamlTemplate.ServiceVars)
 			err = updater.AddModel(mongo.NewUpdateOneModel().
 				SetFilter(bson.D{{"_id", yamlTemplate.ID}}).
 				SetUpdate(bson.D{{"$set",
 					bson.D{
-						{"variable_yaml", yamlTemplate.VariableYaml},
 						{"service_vars", yamlTemplate.ServiceVars},
 					}},
 				}))
@@ -122,7 +122,7 @@ func handleYamlTemplates() error {
 			continue
 		}
 
-		if len(yamlTemplate.Variables) == 0 {
+		if len(yamlTemplate.Variables) == 0 || len(yamlTemplate.VariableYaml) > 0 {
 			continue
 		}
 
@@ -135,6 +135,7 @@ func handleYamlTemplates() error {
 		yamlBs, _ := yaml.Marshal(valuesMap)
 		yamlTemplate.VariableYaml = string(yamlBs)
 		yamlTemplate.ServiceVars = serviceVars
+		log.Infof("setting variable and service vars for yaml template： %s, service vars: %v", yamlTemplate.Name, yamlTemplate.ServiceVars)
 		err = updater.AddModel(mongo.NewUpdateOneModel().
 			SetFilter(bson.D{{"_id", yamlTemplate.ID}}).
 			SetUpdate(bson.D{{"$set",
@@ -170,7 +171,6 @@ func handleServiceTemplates() error {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -253,6 +253,7 @@ func setServiceVariables(projectName string) error {
 		WriteThreshold: 20,
 	}
 	for _, svc := range svcsNeedUpdate {
+		log.Infof("setting service info, service name: %s, service vars: %v", svc.ServiceName, svc.ServiceVars)
 		err = updater.AddModel(mongo.NewUpdateOneModel().
 			SetFilter(bson.D{{"product_name", svc.ProductName}, {"service_name", svc.ServiceName}, {"revision", svc.Revision}}).
 			SetUpdate(bson.D{{"$set",
@@ -354,7 +355,7 @@ func adjustSingleProductRender(product *uamodel.Product) error {
 	}
 	valuesYaml, _ := yaml.Marshal(valuesMap)
 	renderSet.DefaultValues = string(valuesYaml)
-
+	log.Infof("setting default values for renderset: %s", renderSet.DefaultValues)
 	err = uamongo.NewRenderSetColl().UpdateDefaultValues(renderSet)
 	if err != nil {
 		return err
@@ -368,6 +369,7 @@ func setProductRender(product *uamodel.Product, maxVersionRender *uamodel.Render
 	if product.Render != nil && product.Render.Revision == maxVersionRender.Revision {
 		return nil
 	}
+	log.Infof("setting product render: %s from revision: %d to revision: %d", product.Render.Name, product.Revision, maxVersionRender.Revision)
 	product.Render = maxVersionRender
 	return uamongo.NewProductColl().UpdateProductRender(product)
 }
