@@ -1001,3 +1001,21 @@ func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Wo
 
 	return resp, nil
 }
+
+func GetLatestTaskInfo(workflowInfo *Workflow) (startTime int64, creator, status string) {
+	// if we found it is a custom workflow, search it in the custom workflow task
+	if workflowInfo.WorkflowType == setting.CustomWorkflowType {
+		taskInfo, err := getLatestWorkflowTaskV4(workflowInfo.Name)
+		if err != nil {
+			return 0, "", ""
+		}
+		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
+	} else {
+		// otherwise it is a product workflow
+		taskInfo, err := getLatestWorkflowTask(workflowInfo.Name)
+		if err != nil {
+			return 0, "", ""
+		}
+		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
+	}
+}

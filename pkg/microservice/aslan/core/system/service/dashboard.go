@@ -17,13 +17,19 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
+	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"math"
+	"net/http"
+	"strings"
 )
 
 const (
@@ -110,7 +116,16 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	return resp, nil
 }
 
-func GetMyWorkflow(username, userID, cardID string, log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
+type rule struct {
+	method   string
+	endpoint string
+}
+
+type allowedProjectsData struct {
+	Result []string `json:"result"`
+}
+
+func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	resp := make([]*WorkflowResponse, 0)
 
 	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
@@ -124,6 +139,34 @@ func GetMyWorkflow(username, userID, cardID string, log *zap.SugaredLogger) ([]*
 		}
 	}
 
+	// determine the allowed project
+	rules := []*rule{{
+		method:   "/api/aslan/workflow/workflow",
+		endpoint: "GET",
+	}}
+
+	var res [][]string
+	for _, v := range rules {
+		allowedProjects := &allowedProjectsData{}
+		opaClient := opa.NewDefault()
+		err := opaClient.Evaluate("rbac.user_allowed_projects", allowedProjects, func() (*opa.Input, error) {
+			return generateOPAInput(header, v.method, v.endpoint), nil
+		})
+		if err != nil {
+			log.Errorf("opa evaluation failed, err: %s", err)
+			return nil, err
+		}
+		res = append(res, allowedProjects.Result)
+	}
+
+	projects := intersect(res)
+	workflowList, err := workflow.ListAllAvailableWorkflows(projects, log)
+	if err != nil {
+		log.Errorf("failed to list all available workflows, error: %s", err)
+		return nil, err
+	}
+
+	targetMap := make(map[string]int)
 	for _, cardCfg := range cfg.Cards {
 		if cardCfg.Type == CardTypeMyWorkflow && cardCfg.ID == cardID {
 			if cardCfg.Config == nil {
@@ -135,25 +178,28 @@ func GetMyWorkflow(username, userID, cardID string, log *zap.SugaredLogger) ([]*
 				return nil, err
 			}
 			for _, item := range configDetail.WorkflowList {
-				resp = append(resp, &WorkflowResponse{
-					Name:        item.Name,
-					Project:     item.Project,
-					Creator:     "minmin",
-					StartTime:   1672043731,
-					Status:      "pending",
-					DisplayName: "测试用" + item.Name,
-					Type:        "common_workflow",
-				})
+				key := fmt.Sprintf("%s-%s", item.Project, item.Name)
+				targetMap[key] = 1
 			}
-
+		}
+	}
+	for _, item := range workflowList {
+		key := fmt.Sprintf("%s-%s", item.ProjectName, item.Name)
+		if _, ok := targetMap[key]; ok {
+			startTime, creator, status := workflow.GetLatestTaskInfo(item)
+			resp = append(resp, &WorkflowResponse{
+				Name:        item.Name,
+				Project:     item.ProjectName,
+				Creator:     creator,
+				StartTime:   startTime,
+				Status:      status,
+				DisplayName: item.DisplayName,
+				Type:        item.WorkflowType,
+			})
 		}
 	}
 	return resp, nil
 }
-
-const (
-	DefaultEnvFilter = "serviceName=*,name="
-)
 
 func GetMyEnvironment(projectName, envName, username, userID string, log *zap.SugaredLogger) (*EnvResponse, error) {
 	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
@@ -249,4 +295,33 @@ func generateDefaultDashboardConfig() *DashBoardConfig {
 		Type: CardTypeServiceUpdateFrequency,
 	})
 	return &DashBoardConfig{Cards: cardConfig}
+}
+
+func intersect(s [][]string) []string {
+	if len(s) == 0 {
+		return nil
+	}
+	tmp := sets.NewString(s[0]...)
+	for _, v := range s[1:] {
+		t := sets.NewString(v...)
+		tmp = t.Intersection(tmp)
+	}
+	return tmp.List()
+}
+
+func generateOPAInput(header http.Header, method string, endpoint string) *opa.Input {
+	authorization := header.Get(strings.ToLower(setting.AuthorizationHeader))
+	headers := map[string]string{}
+	parsedPath := strings.Split(strings.Trim(endpoint, "/"), "/")
+	headers[strings.ToLower(setting.AuthorizationHeader)] = authorization
+
+	return &opa.Input{
+		Attributes: &opa.Attributes{
+			Request: &opa.Request{HTTP: &opa.HTTPSpec{
+				Headers: headers,
+				Method:  method,
+			}},
+		},
+		ParsedPath: parsedPath,
+	}
 }
