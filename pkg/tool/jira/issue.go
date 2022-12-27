@@ -17,6 +17,9 @@ limitations under the License.
 package jira
 
 import (
+	"net/http"
+	"strconv"
+
 	"github.com/pkg/errors"
 )
 
@@ -99,19 +102,95 @@ func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) 
 }
 
 func (s *IssueService) SearchByJQL(jql string) ([]*Issue, error) {
+	var re []*Issue
+	start := 0
+	for {
+		list, next, err := s.searchByJQL(jql, start)
+		if err != nil {
+			return nil, err
+		}
+		re = append(re, list...)
+		if next == 0 {
+			return re, nil
+		}
+		start = next
+	}
+	return re, nil
+}
+
+func (s *IssueService) searchByJQL(jql string, start int) ([]*Issue, int, error) {
 	url := s.client.Host + "/rest/api/2/search"
-	resp, err := s.client.R().AddQueryParam("jql", jql).Get(url)
+	resp, err := s.client.R().SetQueryParams(map[string]string{
+		"jql":     jql,
+		"startAt": strconv.Itoa(start),
+	}).Get(url)
+	if err != nil {
+		return nil, 0, err
+	}
+	type tmp struct {
+		StartAt    int      `json:"startAt"`
+		MaxResults int      `json:"maxResults"`
+		Total      int      `json:"total"`
+		Issues     []*Issue `json:"issues"`
+	}
+	var re tmp
+	if err = resp.UnmarshalJson(&re); err != nil {
+		return nil, 0, errors.Wrap(err, "unmarshal")
+	}
+	next := 0
+	if re.StartAt+re.MaxResults < re.Total {
+		next = re.StartAt + re.MaxResults
+	}
+	return re.Issues, next, nil
+}
+
+type updateBody struct {
+	Transition struct {
+		ID string `json:"id"`
+	} `json:"transition"`
+}
+
+func (s *IssueService) UpdateStatus(key, statusID string) error {
+	url := s.client.Host + "/rest/api/2/issue/" + key + "/transitions"
+	body := updateBody{Transition: struct {
+		ID string `json:"id"`
+	}{ID: statusID}}
+	resp, err := s.client.R().SetBodyJsonMarshal(body).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.GetStatusCode() != http.StatusOK && resp.GetStatusCode() != http.StatusNoContent {
+		return errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	return nil
+}
+
+type Transition struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	IsAvailable bool   `json:"isAvailable"`
+}
+
+func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
+	url := s.client.Host + "/rest/api/2/issue/" + key + "/transitions?expand=transitions.fields"
+	resp, err := s.client.R().Get(url)
 	if err != nil {
 		return nil, err
 	}
 	type tmp struct {
-		Issues []*Issue `json:"issues"`
+		Transitions []*Transition `json:"transitions"`
 	}
-	var re tmp
-	if err = resp.UnmarshalJson(&re); err != nil {
+	t := &tmp{}
+	if err := resp.UnmarshalJson(t); err != nil {
 		return nil, errors.Wrap(err, "unmarshal")
 	}
-	return re.Issues, nil
+	var list []*Transition
+	for _, transition := range t.Transitions {
+		if transition.IsAvailable {
+			list = append(list, transition)
+		}
+	}
+	return list, nil
 }
 
 //// GetIssuesCountByJQL ...
