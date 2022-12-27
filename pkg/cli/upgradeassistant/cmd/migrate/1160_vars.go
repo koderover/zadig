@@ -20,6 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -32,7 +35,6 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 type DataBulkUpdater struct {
@@ -82,6 +84,15 @@ func (dbu *DataBulkUpdater) Write() error {
 	return nil
 }
 
+// safeMarshallYaml unmarshall yaml to map
+// support nested go-template data
+func safeUnMarshallYaml(yamlStr string) map[string]interface{} {
+	yamlStr = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlStr, "ssssssss")
+	valuesMap := make(map[string]interface{})
+	_ = yaml.Unmarshal([]byte(yamlStr), &valuesMap)
+	return valuesMap
+}
+
 // use variable_yaml instead of []variables
 // extract service_vars
 func handleYamlTemplates() error {
@@ -107,8 +118,7 @@ func handleYamlTemplates() error {
 		}
 
 		if len(yamlTemplate.VariableYaml) > 0 {
-			valuesMap := make(map[string]interface{})
-			_ = yaml.Unmarshal([]byte(yamlTemplate.VariableYaml), &valuesMap)
+			valuesMap := safeUnMarshallYaml(yamlTemplate.VariableYaml)
 			yamlTemplate.ServiceVars = make([]string, 0)
 			for k := range valuesMap {
 				yamlTemplate.ServiceVars = append(yamlTemplate.ServiceVars, k)
@@ -179,6 +189,17 @@ func handleServiceTemplates() error {
 	return nil
 }
 
+func extractVars(yamlStr string) []string {
+	aliases := config.RenderTemplateAlias.FindAllString(yamlStr, -1)
+	ret := make([]string, 0)
+	for _, alias := range aliases {
+		a := strings.TrimPrefix(alias, "{{.")
+		a = strings.TrimSuffix(a, "}}")
+		ret = append(ret, a)
+	}
+	return ret
+}
+
 // 1. read current parsed variables and convert to service variable yaml
 // 2. use variable.yaml in svc.creationFrom instead of []variable
 func setServiceVariables(projectName string) error {
@@ -201,6 +222,13 @@ func setServiceVariables(projectName string) error {
 		log.Errorf("failed to find default renderset: %s, err: %s", projectName, err)
 		return nil
 	}
+	valuesMap := make(map[string]interface{})
+	for _, kv := range defaultRenderset.KVs {
+		//if !util.InStringArray(svc.ServiceName, kv.Services) {
+		//	continue
+		//}
+		valuesMap[kv.Key] = kv.Value
+	}
 
 	// no variable used for this project
 	if len(defaultRenderset.KVs) == 0 {
@@ -212,24 +240,21 @@ func setServiceVariables(projectName string) error {
 		if len(svc.VariableYaml) > 0 {
 			continue
 		}
-		valuesMap := make(map[string]interface{})
-		for _, kv := range defaultRenderset.KVs {
-			if !util.InStringArray(svc.ServiceName, kv.Services) {
-				continue
-			}
-			valuesMap[kv.Key] = kv.Value
-		}
-		// no variable is used on this service
-		if len(valuesMap) == 0 {
+
+		// extract go template vars from service yaml
+		goTemplateVars := extractVars(svc.Yaml)
+		if len(goTemplateVars) == 0 {
 			continue
 		}
-		variableYaml, _ := yaml.Marshal(valuesMap)
-		svc.VariableYaml = string(variableYaml)
-		serviceVars := make([]string, 0)
-		for k := range valuesMap {
-			serviceVars = append(serviceVars, k)
+		variableMap := make(map[string]interface{})
+		for _, goTemplateVar := range goTemplateVars {
+			variableMap[goTemplateVar] = valuesMap[goTemplateVar]
 		}
-		svc.ServiceVars = serviceVars
+
+		variableYaml, _ := yaml.Marshal(variableMap)
+		svc.VariableYaml = string(variableYaml)
+
+		svc.ServiceVars = goTemplateVars
 		svcsNeedUpdate = append(svcsNeedUpdate, svc)
 		if svc.Source == setting.ServiceSourceTemplate {
 			creation := &models.CreateFromYamlTemplate{}
