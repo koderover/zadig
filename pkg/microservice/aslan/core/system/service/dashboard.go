@@ -19,9 +19,11 @@ package service
 import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"math"
 )
 
 const (
@@ -143,7 +145,21 @@ func GetMyWorkflow(username, userID string, log *zap.SugaredLogger) (*WorkflowCa
 	return &WorkflowCardResponse{Cards: cardList}, nil
 }
 
-func GetMyEnvironment(projectName, envName string, log *zap.SugaredLogger) (interface{}, error) {
+const (
+	DefaultEnvFilter = "serviceName=*,name="
+)
+
+func GetMyEnvironment(projectName, envName, username, userID string, log *zap.SugaredLogger) (*EnvResponse, error) {
+	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
+	// if there is an error and the error is not empty document then we return error
+	if err != nil {
+		if err != mongo.ErrNoDocuments {
+			return nil, err
+		} else {
+			// if no config is found, then no my env is configured, return empty
+			return nil, nil
+		}
+	}
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    projectName,
 		EnvName: envName,
@@ -152,17 +168,31 @@ func GetMyEnvironment(projectName, envName string, log *zap.SugaredLogger) (inte
 		return nil, err
 	}
 	serviceList := make([]*EnvService, 0)
-
-	serviceList = append(serviceList, &EnvService{
-		ServiceName: "demo-service",
-		Status:      "running",
-		Image:       "xxxxxxx",
-	})
-	serviceList = append(serviceList, &EnvService{
-		ServiceName: "demo-service2",
-		Status:      "pending",
-		Image:       "xxxxxxx",
-	})
+	_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, DefaultEnvFilter, math.MaxInt, 1, log)
+	if err != nil {
+		log.Errorf("failed to get workloads in the env, error: %s", err)
+		return nil, err
+	}
+	targetServiceMap := make(map[string]int)
+	for _, card := range cfg.Cards {
+		if card.Type == CardTypeMyEnv {
+			envConfig := card.Config.(MyEnvCardConfig)
+			if envConfig.EnvName == envName && envConfig.ProjectName == projectName {
+				for _, svc := range envConfig.ServiceModules {
+					targetServiceMap[svc] = 1
+				}
+			}
+		}
+	}
+	for _, svc := range svcList {
+		if _, ok := targetServiceMap[svc.ServiceName]; ok {
+			serviceList = append(serviceList, &EnvService{
+				ServiceName: svc.ServiceDisplayName,
+				Status:      svc.Status,
+				Image:       svc.Images[0],
+			})
+		}
+	}
 	return &EnvResponse{
 		Name:        envName,
 		ProjectName: projectName,
