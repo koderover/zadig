@@ -230,7 +230,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	filter := func(name string) bool {
 		// if service name is not set, use the current services in product
 		if len(serviceName) == 0 {
-			_, ok := productSvcMap[serviceName]
+			_, ok := productSvcMap[name]
 			return ok
 		}
 		return validSvcs.Has(name)

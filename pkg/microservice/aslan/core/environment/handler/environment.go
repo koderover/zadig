@@ -173,6 +173,13 @@ func CreateProduct(c *gin.Context) {
 				}
 			}
 		}
+
+		if createParam.Type == setting.HelmDeployType {
+			for _, arg := range createArgs {
+				arg.DefaultValues = arg.HelmDefaultValues
+			}
+		}
+
 		if createParam.Scene == "copy" {
 			copyProduct(c, createParam, createArgs, string(data), ctx)
 		} else {
