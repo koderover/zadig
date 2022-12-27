@@ -137,14 +137,11 @@ func clipVariableYaml(variableYaml string, validKeys []string) string {
 	if len(validKeys) == 0 {
 		return ""
 	}
-	log.Infof("####### before clip yaml %s", variableYaml)
-	log.Infof("####### before clip validKeys %v", validKeys)
 	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
 	if err != nil {
 		log.Errorf("failed to clip variable yaml, err: %s", err)
 		return variableYaml
 	}
-	log.Infof("###### after clip yaml %s", clippedYaml)
 	return clippedYaml
 }
 
@@ -152,7 +149,6 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 	if serviceTemplate == nil {
 		return variableYaml
 	}
-	log.Infof("###### latestVariableYaml variable yaml %s vars %v", serviceTemplate.VariableYaml, serviceTemplate.ServiceVars)
 	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
 	if err != nil {
 		log.Errorf("failed to merge variable yaml, err: %s", err)
@@ -194,7 +190,6 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		templateSvcMap[svc.ServiceName] = svc
-		log.Infof("##### svc name: %s", svc.ServiceName)
 	}
 
 	// svc used in products
@@ -243,7 +238,6 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 		if svcRender.OverrideYaml != nil {
 			rArg.VariableYaml = clipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
-			log.Infof("###### rArg.VariableYaml %s", rArg.VariableYaml)
 			rArg.LatestVariableYaml = latestVariableYaml(rArg.VariableYaml, templateSvcMap[svcRender.ServiceName])
 		}
 		ret = append(ret, rArg)
