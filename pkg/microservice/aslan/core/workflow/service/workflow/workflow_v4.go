@@ -979,6 +979,8 @@ func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Wo
 		})
 	}
 
+	log.Infof("listing all custom workflows for project: %+v", projects)
+
 	allCustomWorkflows, err := commonrepo.NewWorkflowV4Coll().ListByProjectNames(projects)
 	if err != nil {
 		log.Errorf("failed to get all custom workflows, error: %s", err)
