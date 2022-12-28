@@ -984,6 +984,7 @@ func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Wo
 		log.Errorf("failed to get all custom workflows, error: %s", err)
 		return nil, err
 	}
+	log.Infof("the length of custom workflow list is: %d", len(allCustomWorkflows))
 
 	for _, customWorkflow := range allCustomWorkflows {
 		resp = append(resp, &Workflow{
