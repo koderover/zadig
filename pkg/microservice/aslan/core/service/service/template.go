@@ -452,6 +452,12 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		return fmt.Errorf("failed to merge variable value, err: %s", err)
 	}
 
+	serviceVars := service.ServiceVars
+	// for services auto sync from yaml template, use service vars define in yaml template
+	if service.AutoSync {
+		serviceVars = template.ServiceVars
+	}
+
 	svc := &commonmodels.Service{
 		ServiceName:  service.ServiceName,
 		Type:         setting.K8SDeployType,
@@ -460,7 +466,7 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		Yaml:         renderedYaml,
 		RenderedYaml: fullRenderedYaml,
 		Visibility:   setting.PrivateVisibility,
-		ServiceVars:  service.ServiceVars,
+		ServiceVars:  serviceVars,
 		VariableYaml: string(mergedValue),
 		TemplateID:   service.TemplateID,
 		CreateFrom:   service.CreateFrom,
