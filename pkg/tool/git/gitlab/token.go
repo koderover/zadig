@@ -69,7 +69,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 
 	ch.AccessToken = token.AccessToken
 	ch.RefreshToken = token.RefreshToken
-	ch.UpdatedAt = int64(token.CreatedAt)
+	ch.UpdatedAt = time.Now().Unix()
 
 	// Since the new token is valid, we simply log the error
 	// No error will be returned, only the new token is returned
