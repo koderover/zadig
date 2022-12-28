@@ -45,8 +45,8 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		return "", nil
 	}
 
-	lockInterface, _ := CodeHostLockMap.LoadOrStore(id, &sync.RWMutex{})
-	lock := lockInterface.(*sync.RWMutex)
+	lockInterface, _ := CodeHostLockMap.LoadOrStore(id, sync.RWMutex{})
+	lock := lockInterface.(sync.RWMutex)
 	lock.Lock()
 	defer lock.Unlock()
 
