@@ -546,7 +546,7 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 
-		newFilePath := path.Join(chartDir, name)
+		newFilePath := path.Join(chartDir, args.Path)
 		mkdirErr = os.Mkdir(newFilePath, 0755)
 		if mkdirErr != nil {
 			logger.Errorf("Failed to mkdir %s, err: %s", newFilePath, mkdirErr)
