@@ -90,7 +90,8 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	resp := make([]*WorkflowResponse, 0)
 	runningQueue := workflow.RunningTasks()
 	pendingQueue := workflow.PendingTasks()
-	for _, runningtask := range runningQueue {
+	for i, runningtask := range runningQueue {
+		log.Infof("running task #%d: %s", i, runningtask.PipelineName)
 		resp = append(resp, &WorkflowResponse{
 			TaskID:      runningtask.TaskID,
 			Name:        runningtask.PipelineName,
@@ -102,7 +103,8 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 			Type:        string(runningtask.Type),
 		})
 	}
-	for _, pendingTask := range pendingQueue {
+	for i, pendingTask := range pendingQueue {
+		log.Infof("pending task #%d: %s", i, pendingTask.PipelineName)
 		resp = append(resp, &WorkflowResponse{
 			TaskID:      pendingTask.TaskID,
 			Name:        pendingTask.PipelineName,
