@@ -186,7 +186,7 @@ func GetResourceDeployStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	request := &service.DeployStatusCheckRequest{}
+	request := &service.K8sDeployStatusCheckRequest{}
 	err := c.BindJSON(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
@@ -200,7 +200,7 @@ func GetReleaseDeployStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	request := &service.DeployStatusCheckRequest{}
+	request := &service.HelmDeployStatusCheckRequest{}
 	err := c.BindJSON(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)

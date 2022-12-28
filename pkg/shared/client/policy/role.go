@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	policyservice "github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -63,14 +64,9 @@ func (c *Client) CreateOrUpdateRoleBinding(projectName string, roleBinding *Role
 }
 
 func (c *Client) CreateOrUpdateSystemRoleBinding(roleBinding *RoleBinding) error {
-	args := &policyservice.RoleBinding{
-		Name:   roleBinding.Name,
-		UID:    roleBinding.UID,
-		Role:   roleBinding.Role,
-		Preset: roleBinding.Preset,
-		Type:   roleBinding.Type,
-	}
-	return policyservice.CreateOrUpdateSystemRoleBinding(policyservice.SystemScope, args, log.SugaredLogger())
+	url := fmt.Sprintf("/system-rolebindings/%s", roleBinding.Name)
+	_, err := c.Put(url, httpclient.SetBody(roleBinding))
+	return err
 }
 
 func (c *Client) DeleteRoleBinding(name string, projectName string) error {

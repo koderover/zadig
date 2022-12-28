@@ -257,10 +257,11 @@ func (c *RenderSetColl) Create(args *models.RenderSet) error {
 func (c *RenderSetColl) Update(args *models.RenderSet) error {
 	query := bson.M{"name": args.Name, "revision": args.Revision}
 	change := bson.M{"$set": bson.M{
-		"chart_infos": args.ChartInfos,
-		"update_time": time.Now().Unix(),
-		"update_by":   args.UpdateBy,
-		"kvs":         args.KVs,
+		"chart_infos":       args.ChartInfos,
+		"service_variables": args.ServiceVariables,
+		"update_time":       time.Now().Unix(),
+		"update_by":         args.UpdateBy,
+		//"kvs":               args.KVs,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

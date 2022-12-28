@@ -78,6 +78,8 @@ type ServiceTmplObject struct {
 	From         string                        `json:"from,omitempty"`
 	HealthChecks []*commonmodels.PmHealthCheck `json:"health_checks"`
 	EnvName      string                        `json:"env_name"`
+	VariableYaml string                        `json:"variable_yaml"`
+	ServiceVars  []string                      `json:"service_vars"`
 }
 
 type ServiceProductMap struct {

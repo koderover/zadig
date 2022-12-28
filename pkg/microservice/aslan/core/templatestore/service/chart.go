@@ -541,6 +541,7 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			err = mkdirErr
 			return
 		}
+
 		copyErr := copy.Copy(currentChartPath, newFilePath)
 		if copyErr != nil {
 			logger.Errorf("Failed to copy directory, err: %s", copyErr)

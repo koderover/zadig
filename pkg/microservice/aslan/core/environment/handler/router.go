@@ -140,9 +140,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name", GetProduct)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
+		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
 		environments.PUT("/:name/helm/charts", UpdateHelmProductCharts)
 		environments.PUT("/:name/syncVariables", SyncHelmProductRenderset)
 		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
@@ -185,6 +187,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		rendersets.GET("/renderchart", GetServiceRenderCharts)
 		rendersets.GET("/default-values", GetProductDefaultValues)
 		rendersets.GET("/yamlContent", GetYamlContent)
+		rendersets.GET("/variables", GetServiceVariables)
 	}
 
 	// ---------------------------------------------------------------------------------------
