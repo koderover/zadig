@@ -49,6 +49,12 @@ type ParentInfo struct {
 	Path string `json:"path"`
 }
 
+const (
+	// fixedPagination is used to fix gitee's recent change to the API
+	// It is a temporary solution for now since the webpage of zadig does not have pagination functionality for now
+	fixedPagination = 100
+)
+
 func (c *Client) ListRepositoriesForAuthenticatedUser(hostURL, accessToken, keyword string, page, perPage int) ([]Project, error) {
 	apiHost := fmt.Sprintf("%s/%s", hostURL, "api")
 	httpClient := httpclient.New(
@@ -63,7 +69,7 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(hostURL, accessToken, keyw
 	queryParams["type"] = "personal"
 	queryParams["q"] = keyword
 	queryParams["page"] = strconv.Itoa(page)
-	queryParams["per_page"] = strconv.Itoa(perPage)
+	queryParams["per_page"] = strconv.Itoa(fixedPagination)
 
 	var projects []Project
 	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projects))
@@ -86,7 +92,7 @@ func (c *Client) ListRepositoryForEnterprise(hostURL, accessToken, enterprise st
 	queryParams["access_token"] = accessToken
 	queryParams["type"] = "all"
 	queryParams["page"] = strconv.Itoa(page)
-	queryParams["per_page"] = strconv.Itoa(perPage)
+	queryParams["per_page"] = strconv.Itoa(fixedPagination)
 	queryParams["direct"] = "false"
 
 	var projects []Project
@@ -110,7 +116,7 @@ func (c *Client) ListRepositoriesForOrg(hostURL, accessToken, org string, page, 
 	queryParams["access_token"] = accessToken
 	queryParams["type"] = "all"
 	queryParams["page"] = strconv.Itoa(page)
-	queryParams["per_page"] = strconv.Itoa(perPage)
+	queryParams["per_page"] = strconv.Itoa(fixedPagination)
 	queryParams["direct"] = "false"
 
 	var projects []Project
