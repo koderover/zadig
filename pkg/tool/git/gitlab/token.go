@@ -65,13 +65,29 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		return "", err
 	}
 
-	ch.AccessToken = token.AccessToken
-	ch.RefreshToken = token.RefreshToken
-	ch.UpdatedAt = time.Now().Unix()
+	newCodehost := &systemconfig.CodeHost{
+		ID:                 ch.ID,
+		Address:            ch.Address,
+		Type:               ch.Type,
+		AccessToken:        token.AccessToken,
+		RefreshToken:       token.RefreshToken,
+		Namespace:          ch.Namespace,
+		Region:             ch.Region,
+		AccessKey:          ch.AccessKey,
+		SecretKey:          ch.SecretKey,
+		Username:           ch.Username,
+		Password:           ch.Password,
+		EnableProxy:        ch.EnableProxy,
+		UpdatedAt:          time.Now().Unix(),
+		Alias:              ch.Alias,
+		AuthType:           ch.AuthType,
+		SSHKey:             ch.SSHKey,
+		PrivateAccessToken: ch.PrivateAccessToken,
+	}
 
 	// Since the new token is valid, we simply log the error
 	// No error will be returned, only the new token is returned
-	if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
+	if err = systemconfig.New().UpdateCodeHost(ch.ID, newCodehost); err != nil {
 		log.Errorf("failed to update codehost, err: %s", err)
 	}
 
