@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	gitlab2 "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"io/ioutil"
 	"os"
 	"path"
@@ -755,7 +756,8 @@ func validateServiceUpdateGithub(detail *systemconfig.CodeHost, serviceName, rep
 func validateServiceUpdateGitlab(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
 	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 
-	gitlabClient, err := gitlab.NewOAuthClient(detail.AccessToken, gitlab.WithBaseURL(detail.Address))
+	newToken, err := gitlab2.UpdateGitlabToken(detail.ID, detail.AccessToken)
+	gitlabClient, err := gitlab.NewOAuthClient(newToken, gitlab.WithBaseURL(detail.Address))
 	if err != nil {
 		log.Errorf("failed to prepare gitlab client, the error is:%+v", err)
 		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
