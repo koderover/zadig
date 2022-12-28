@@ -164,6 +164,7 @@ func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap
 	}
 
 	projects := intersect(res)
+	log.Infof("project we get now is: %+v", projects)
 	workflowList, err := workflow.ListAllAvailableWorkflows(projects, log)
 	if err != nil {
 		log.Errorf("failed to list all available workflows, error: %s", err)
