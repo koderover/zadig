@@ -79,7 +79,7 @@ func GetProductDeployType(projectName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if projectInfo.IsHostProduct() {
+	if projectInfo.IsCVMProduct() {
 		return setting.PMDeployType, nil
 	}
 	if projectInfo.IsHelmProduct() {
