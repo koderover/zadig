@@ -88,10 +88,8 @@ func ListAllWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogg
 	if len(names) == 0 {
 		return nil, nil
 	}
-	if !(len(names) == 1 && names[0] == "*") {
-		for _, name := range names {
-			qs.Add("projects", name)
-		}
+	for _, name := range names {
+		qs.Add("projects", name)
 	}
 	return aslan.New().ListAllWorkflows(header, qs)
 }
