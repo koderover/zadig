@@ -54,7 +54,7 @@ func GetMyWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetMyWorkflow(ctx.UserName, ctx.UserID, c.Query("card_id"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetMyWorkflow(c.Request.Header, ctx.UserName, ctx.UserID, c.Query("card_id"), ctx.Logger)
 }
 
 func GetMyEnvironment(c *gin.Context) {
