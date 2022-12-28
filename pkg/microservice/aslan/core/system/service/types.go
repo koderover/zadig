@@ -111,6 +111,7 @@ type WorkflowConfig struct {
 }
 
 type WorkflowResponse struct {
+	TaskID      int64  `json:"task_id,omitempty"`
 	Name        string `json:"name"`
 	Project     string `json:"project"`
 	Creator     string `json:"creator"`
