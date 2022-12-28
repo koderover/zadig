@@ -362,6 +362,9 @@ func findChangedFilesOfPullRequestEvent(event *gitee.PullRequestEvent, codehostI
 	}
 
 	changeFiles := make([]string, 0)
+	if commitComparison.Files == nil {
+		return changeFiles, nil
+	}
 	for _, commitFile := range commitComparison.Files {
 		changeFiles = append(changeFiles, commitFile.Filename)
 	}
