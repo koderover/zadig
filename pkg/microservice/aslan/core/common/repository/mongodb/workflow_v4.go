@@ -117,9 +117,6 @@ func (c *WorkflowV4Coll) ListByWorkflows(opt ListWorkflowV4Opt) ([]*models.Workf
 func (c *WorkflowV4Coll) ListByProjectNames(projects []string) ([]*models.WorkflowV4, error) {
 	resp := make([]*models.WorkflowV4, 0)
 	query := bson.M{}
-	fmt.Println("=========================")
-	fmt.Println(projects[0] == "*")
-	fmt.Println("=========================")
 	if len(projects) != 0 {
 		if len(projects) != 1 || projects[0] != "*" {
 			query = bson.M{"product_tmpl_name": bson.M{
@@ -127,7 +124,6 @@ func (c *WorkflowV4Coll) ListByProjectNames(projects []string) ([]*models.Workfl
 			}}
 		}
 	} else {
-		fmt.Println("yyyyyyyyyyyyyyyyy")
 		return resp, nil
 	}
 	cursor, err := c.Collection.Find(context.TODO(), query)

@@ -19,7 +19,6 @@ package mongodb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -267,7 +266,6 @@ func (c *WorkflowColl) ListWorkflowsByProjects(projects []string) ([]*models.Wor
 			}}
 		}
 	} else {
-		fmt.Println("xxxxxxxxxxxxxxxxxxx")
 		return resp, nil
 	}
 
