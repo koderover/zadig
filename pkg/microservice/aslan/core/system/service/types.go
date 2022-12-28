@@ -100,6 +100,7 @@ type MyWorkflowCardConfig struct {
 }
 
 type MyEnvCardConfig struct {
+	EnvType        string   `json:"env_type"`
 	EnvName        string   `json:"env_name"`
 	ProjectName    string   `json:"project_name"`
 	ServiceModules []string `json:"service_modules"`

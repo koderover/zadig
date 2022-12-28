@@ -164,14 +164,11 @@ func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap
 	}
 
 	projects := intersect(res)
-	log.Infof("################### project we get is: %+v  ####################", projects)
 	workflowList, err := workflow.ListAllAvailableWorkflows(projects, log)
 	if err != nil {
 		log.Errorf("failed to list all available workflows, error: %s", err)
 		return nil, err
 	}
-
-	log.Infof("##### The workflow list we get has length: %d #########", len(workflowList))
 
 	targetMap := make(map[string]int)
 	for _, cardCfg := range cfg.Cards {
@@ -186,7 +183,6 @@ func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap
 			}
 			for _, item := range configDetail.WorkflowList {
 				key := fmt.Sprintf("%s-%s", item.Project, item.Name)
-				log.Infof("storing key [%s] into the target map", key)
 				targetMap[key] = 1
 			}
 		}
