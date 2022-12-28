@@ -1132,7 +1132,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	var helmProductArgs []service2.HelmProductItem
 	for _, product := range newResp.Product {
 		if productArg, ok := productMap[product.BaseName]; ok {
-			if productArg.DeployType == string(setting.HelmDeployType) {
+			if productArg.DeployType == setting.HelmDeployType {
 				helmProductArgs = append(helmProductArgs, service2.HelmProductItem{
 					OldName:       product.BaseName,
 					NewName:       product.Name,
@@ -1142,7 +1142,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					ValuesData:    productArg.ValuesData,
 				})
 			}
-			if productArg.DeployType == string(setting.K8SDeployType) {
+			if productArg.DeployType == setting.K8SDeployType {
 				yamlProductItems = append(yamlProductItems, service2.YamlProductItem{
 					OldName:       product.BaseName,
 					NewName:       product.Name,

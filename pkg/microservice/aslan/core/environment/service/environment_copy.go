@@ -167,7 +167,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			}
 			for _, sv := range newRenderset.ServiceVariables {
 				if variableYaml, ok := svcVariableYamlMap[sv.ServiceName]; ok {
-					sv.ValuesYaml = variableYaml
+					sv.OverrideYaml = &templatemodels.CustomYaml{YamlContent: variableYaml}
 				}
 			}
 
