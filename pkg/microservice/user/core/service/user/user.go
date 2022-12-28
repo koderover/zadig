@@ -20,7 +20,6 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"net/url"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	configbase "github.com/koderover/zadig/pkg/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
