@@ -457,6 +457,7 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 	if service.AutoSync {
 		serviceVars = template.ServiceVars
 	}
+	log.Infof("######### service vars %v", serviceVars)
 
 	svc := &commonmodels.Service{
 		ServiceName:  service.ServiceName,
