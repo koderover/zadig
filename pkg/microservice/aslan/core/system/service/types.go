@@ -83,3 +83,56 @@ func (req OpenAPICreateRegistryReq) Validate() error {
 
 	return nil
 }
+
+type DashBoardConfig struct {
+	Cards []*DashBoardCardConfig `json:"cards"`
+}
+
+type DashBoardCardConfig struct {
+	ID     string      `json:"id"`
+	Name   string      `json:"name"`
+	Type   string      `json:"type"`
+	Config interface{} `json:"config"`
+}
+
+type MyWorkflowCardConfig struct {
+	WorkflowList []*WorkflowConfig `json:"workflow_list"`
+}
+
+type MyEnvCardConfig struct {
+	EnvType        string   `json:"env_type"`
+	EnvName        string   `json:"env_name"`
+	ProjectName    string   `json:"project_name"`
+	ServiceModules []string `json:"service_modules"`
+}
+
+type WorkflowConfig struct {
+	Name    string `json:"name"`
+	Project string `json:"project_name"`
+}
+
+type WorkflowResponse struct {
+	TaskID      int64  `json:"task_id,omitempty"`
+	Name        string `json:"name"`
+	Project     string `json:"project"`
+	Creator     string `json:"creator"`
+	StartTime   int64  `json:"start_time"`
+	Status      string `json:"status"`
+	DisplayName string `json:"display_name"`
+	Type        string `json:"workflow_type"`
+}
+
+type EnvResponse struct {
+	Name        string        `json:"name"`
+	ProjectName string        `json:"project_name"`
+	UpdateTime  int64         `json:"update_time"`
+	UpdatedBy   string        `json:"updated_by"`
+	ClusterID   string        `json:"cluster_id"`
+	Services    []*EnvService `json:"services"`
+}
+
+type EnvService struct {
+	ServiceName string `json:"service_name"`
+	Status      string `json:"status"`
+	Image       string `json:"image"`
+}

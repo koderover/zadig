@@ -274,6 +274,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.GET("/:id/user", GetLarkUserID)
 		lark.POST("/:id/webhook", LarkEventHandler)
 	}
+
+	// personal dashboard configuration
+	dashboard := router.Group("dashboard")
+	{
+		// dashboard configuration
+		dashboard.GET("/settings", GetDashboardConfiguration)
+		dashboard.PUT("/settings", CreateOrUpdateDashboardConfiguration)
+
+		// dashboard card API
+		dashboard.GET("/workflow/running", GetRunningWorkflow)
+		dashboard.GET("/workflow/mine", GetMyWorkflow)
+		dashboard.GET("/environment/:name", GetMyEnvironment)
+	}
 }
 
 type OpenAPIRouter struct{}
