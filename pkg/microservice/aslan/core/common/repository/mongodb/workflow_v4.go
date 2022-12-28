@@ -119,7 +119,7 @@ func (c *WorkflowV4Coll) ListByProjectNames(projects []string) ([]*models.Workfl
 	query := bson.M{}
 	if len(projects) != 0 {
 		if len(projects) != 1 || projects[0] != "*" {
-			query = bson.M{"product_tmpl_name": bson.M{
+			query = bson.M{"project": bson.M{
 				"$in": projects,
 			}}
 		}
