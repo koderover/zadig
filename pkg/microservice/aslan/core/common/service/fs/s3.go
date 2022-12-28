@@ -111,7 +111,7 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	if err != nil {
 		logger.Errorf("Failed to create temp dir, err: %s", err)
 	}
-	//defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir)
 	s3, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err: %s", err)

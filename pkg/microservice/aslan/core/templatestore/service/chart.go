@@ -71,7 +71,6 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*template.Chart, 
 
 	localBase := configbase.LocalChartTemplatePath(name)
 	s3Base := configbase.ObjectStorageChartTemplatePath(name)
-	log.Infof("####### local path is %s, s3 path is %s, name is %s", localBase, s3Base, name)
 	if err = fs.PreloadFiles(name, localBase, s3Base, chart.Source, logger); err != nil {
 		return nil, err
 	}
@@ -512,8 +511,6 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 
-		log.Infof("###### copying from path: %s to %s", currentChartPath, path.Join(localBase, path.Base(args.Path)))
-
 		err = copy.Copy(currentChartPath, path.Join(localBase, path.Base(args.Path)))
 		if err != nil {
 			logger.Errorf("Failed to save files to disk, err: %s", err)
@@ -532,7 +529,7 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 		defer func() {
-			//_ = os.RemoveAll(tmpDir)
+			_ = os.RemoveAll(tmpDir)
 		}()
 
 		fileName := fmt.Sprintf("%s.tar.gz", name)
