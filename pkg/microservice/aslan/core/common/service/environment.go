@@ -170,6 +170,9 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	if err != nil && err != mongo.ErrNoDocuments {
 		return nil, nil, err
 	}
+	if err != nil {
+		productInfo = nil
+	}
 
 	serviceVarsMap := make(map[string][]string)
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
