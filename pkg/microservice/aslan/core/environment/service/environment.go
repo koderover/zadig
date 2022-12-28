@@ -74,6 +74,20 @@ import (
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
+func GetProductDeployType(projectName string) (string, error) {
+	projectInfo, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		return "", err
+	}
+	if projectInfo.IsCVMProduct() {
+		return setting.PMDeployType, nil
+	}
+	if projectInfo.IsHelmProduct() {
+		return setting.HelmDeployType, nil
+	}
+	return setting.K8SDeployType, nil
+}
+
 func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
@@ -359,6 +373,8 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 	return allServices, nil
 }
 
+// TODO need optimize
+// cvm and k8s yaml projects should not be handled together
 func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, filter svcUpgradeFilter, log *zap.SugaredLogger) (err error) {
 	oldProductRender := existedProd.Render
 	updateProd.Render = &commonmodels.RenderInfo{
@@ -648,14 +664,42 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	return nil
 }
 
-func UpdateCVMProduct(envName, productName, user, requestID string, deployStrategy map[string]string, force bool, log *zap.SugaredLogger) error {
+func UpdateMultiCVMProducts(envNames []string, productName, user, requestID string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+	errList := &multierror.Error{}
+	for _, env := range envNames {
+		err := UpdateCVMProduct(env, productName, user, requestID, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+
+	productResps := make([]*ProductResp, 0)
+	for _, envName := range envNames {
+		productResp, err := GetProduct(setting.SystemUser, envName, productName, log)
+		if err == nil && productResp != nil {
+			productResps = append(productResps, productResp)
+		}
+	}
+
+	envStatuses := make([]*EnvStatus, 0)
+	for _, productResp := range productResps {
+		if productResp.Error != "" {
+			envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: setting.ProductStatusFailed, ErrMessage: productResp.Error})
+			continue
+		}
+		envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: productResp.Status})
+	}
+	return envStatuses, errList.ErrorOrNil()
+}
+
+func UpdateCVMProduct(envName, productName, user, requestID string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][P:%s] Product.FindByOwner error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
-	return updateCVMProduct(exitedProd, user, requestID, deployStrategy, force, log)
+	return updateCVMProduct(exitedProd, user, requestID, log)
 }
 
 // CreateProduct create a new product with its dependent stacks
