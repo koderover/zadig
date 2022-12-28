@@ -1147,8 +1147,8 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					OldName:       product.BaseName,
 					NewName:       product.Name,
 					BaseName:      product.BaseName,
-					DefaultValues: product.DefaultValues,
-					Services:      product.Services,
+					DefaultValues: productArg.DefaultValues,
+					Services:      productArg.Services,
 					//Vars:          productArg.Vars,
 				})
 			}

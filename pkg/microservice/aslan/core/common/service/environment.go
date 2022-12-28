@@ -154,7 +154,6 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 		log.Errorf("failed to merge variable yaml, err: %s", err)
 		return variableYaml
 	}
-	log.Infof("merge yaml is %v", string(mergedYaml))
 	return clipVariableYaml(string(mergedYaml), serviceTemplate.ServiceVars)
 }
 
