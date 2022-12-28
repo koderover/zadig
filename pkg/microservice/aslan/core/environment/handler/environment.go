@@ -254,7 +254,7 @@ func UpdateProduct(c *gin.Context) {
 	//	}
 	//}
 
-	ctx.Err = service.UpdateCVMProduct(envName, projectName, ctx.UserName, ctx.RequestID, false, ctx.Logger)
+	ctx.Err = service.UpdateCVMProduct(envName, projectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)
 	}
@@ -535,6 +535,7 @@ func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, ct
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+	log.Infof("update multiple envs for project: %s, deploy type: %s", request.ProjectName, deployType)
 	switch deployType {
 	case setting.PMDeployType:
 		updateMultiCvmEnv(c, request, ctx)
@@ -622,8 +623,10 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 		envNames = append(envNames, arg.EnvName)
 	}
 
+	log.Infof("####### updating env: %v", envNames)
+
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
-	ctx.Resp, ctx.Err = service.MultipleCVMProduct(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
+	ctx.Resp, ctx.Err = service.UpdateMultiCVMProducts(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
 func GetProduct(c *gin.Context) {

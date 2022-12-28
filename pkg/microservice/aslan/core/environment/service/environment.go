@@ -664,10 +664,10 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	return nil
 }
 
-func MultipleCVMProduct(envNames []string, productName, user, requestID string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultiCVMProducts(envNames []string, productName, user, requestID string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	errList := &multierror.Error{}
 	for _, env := range envNames {
-		err := UpdateCVMProduct(env, productName, user, requestID, false, log)
+		err := UpdateCVMProduct(env, productName, user, requestID, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
@@ -692,14 +692,14 @@ func MultipleCVMProduct(envNames []string, productName, user, requestID string, 
 	return envStatuses, errList.ErrorOrNil()
 }
 
-func UpdateCVMProduct(envName, productName, user, requestID string, force bool, log *zap.SugaredLogger) error {
+func UpdateCVMProduct(envName, productName, user, requestID string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][P:%s] Product.FindByOwner error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
-	return updateCVMProduct(exitedProd, user, requestID, force, log)
+	return updateCVMProduct(exitedProd, user, requestID, log)
 }
 
 // CreateProduct create a new product with its dependent stacks

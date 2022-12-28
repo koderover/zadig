@@ -471,7 +471,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	return nil
 }
 
-func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, force bool, log *zap.SugaredLogger) error {
+func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	var serviceNames []string
 	//TODO:The host update environment cannot remove deleted services
