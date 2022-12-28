@@ -96,6 +96,8 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
 
+	log.Infof("###### the variable yaml is %s", variableYaml)
+
 	variableMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
 	if err != nil {
