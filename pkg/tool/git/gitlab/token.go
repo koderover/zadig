@@ -54,11 +54,13 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		return "", fmt.Errorf("get codehost info error: [%s]", err)
 	}
 
+	oldToken := ch.AccessToken
+
 	if time.Now().Unix()-ch.UpdatedAt <= TokenExpirationThreshold {
 		return ch.AccessToken, nil
 	}
 
-	log.Infof("Starting to refresh gitlab token")
+	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
 	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
 	if err != nil {
@@ -85,13 +87,15 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		PrivateAccessToken: ch.PrivateAccessToken,
 	}
 
+	log.Infof("the update time of the codehost is: %d", newCodehost.UpdatedAt)
+
 	// Since the new token is valid, we simply log the error
 	// No error will be returned, only the new token is returned
 	if err = systemconfig.New().UpdateCodeHost(ch.ID, newCodehost); err != nil {
 		log.Errorf("failed to update codehost, err: %s", err)
 	}
 
-	log.Infof("gitlab token for client [%d] changed from [%s] to [%s]", id, accessToken, token.AccessToken)
+	log.Infof("gitlab token for client [%d] changed from [%s] to [%s]", id, oldToken, token.AccessToken)
 
 	return token.AccessToken, nil
 }
