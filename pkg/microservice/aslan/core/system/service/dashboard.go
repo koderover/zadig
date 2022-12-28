@@ -170,6 +170,8 @@ func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap
 		return nil, err
 	}
 
+	log.Infof("##### The workflow list we get has length: %d #########", len(workflowList))
+
 	targetMap := make(map[string]int)
 	for _, cardCfg := range cfg.Cards {
 		if cardCfg.Type == CardTypeMyWorkflow && cardCfg.ID == cardID {
@@ -286,6 +288,7 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 		ProjectName: projectName,
 		UpdateTime:  productInfo.UpdateTime,
 		UpdatedBy:   productInfo.UpdateBy,
+		ClusterID:   productInfo.ClusterID,
 		Services:    serviceList,
 	}, nil
 }

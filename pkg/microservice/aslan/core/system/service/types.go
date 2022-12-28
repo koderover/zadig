@@ -126,6 +126,7 @@ type EnvResponse struct {
 	ProjectName string        `json:"project_name"`
 	UpdateTime  int64         `json:"update_time"`
 	UpdatedBy   string        `json:"updated_by"`
+	ClusterID   string        `json:"cluster_id"`
 	Services    []*EnvService `json:"services"`
 }
 
