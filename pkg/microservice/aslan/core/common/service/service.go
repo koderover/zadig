@@ -340,9 +340,29 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 
 	resp, err := commonrepo.NewServiceColl().Find(opt)
 	if err != nil {
-		errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s error: %v", serviceName, err)
-		log.Error(errMsg)
-		return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		err = func() error {
+			if !commonrepo.IsErrNoDocuments(err) {
+				return err
+			}
+			templateProductInfo, errFindProject := templaterepo.NewProductColl().Find(productName)
+			if errFindProject != nil {
+				return errFindProject
+			}
+			for _, svc := range templateProductInfo.SharedServices {
+				if svc.Name == serviceName && svc.Owner != productName {
+					opt.ProductName = svc.Owner
+					resp, err = commonrepo.NewServiceColl().Find(opt)
+					break
+				}
+			}
+			return err
+		}()
+
+		if err != nil {
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s error: %v", serviceName, err)
+			log.Error(errMsg)
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		}
 	}
 
 	if resp.Type == setting.PMDeployType {
