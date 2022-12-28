@@ -538,10 +538,18 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 		fileName := fmt.Sprintf("%s.tar.gz", name)
 		tarball := filepath.Join(tmpDir, fileName)
 
-		newFilePath := path.Join(tmpDir, "chart", name)
-		mkdirErr := os.Mkdir(newFilePath, 0755)
+		chartDir := path.Join(tmpDir, "chart")
+		mkdirErr := os.Mkdir(chartDir, 0755)
 		if mkdirErr != nil {
-			logger.Errorf("Failed to mkdir %s, err: %s", newFilePath, err)
+			logger.Errorf("Failed to mkdir %s, err: %s", chartDir, mkdirErr)
+			err = mkdirErr
+			return
+		}
+
+		newFilePath := path.Join(chartDir, name)
+		mkdirErr = os.Mkdir(newFilePath, 0755)
+		if mkdirErr != nil {
+			logger.Errorf("Failed to mkdir %s, err: %s", newFilePath, mkdirErr)
 			err = mkdirErr
 			return
 		}
@@ -553,7 +561,7 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 
-		tree := os.DirFS(path.Join(tmpDir, "chart"))
+		tree := os.DirFS(chartDir)
 		if err1 = fsutil.Tar(tree, tarball); err1 != nil {
 			logger.Errorf("Failed to archive files to %s, err: %s", tarball, err1)
 			err = err1
