@@ -35,9 +35,9 @@ type AccessToken struct {
 	CreatedAt    int    `json:"created_at"`
 }
 
-var CodeHostLockMap sync.Map
-
 const TokenExpirationThreshold int64 = 7000
+
+var mu = &sync.RWMutex{}
 
 func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	// if accessToken is empty, then it is either of ssh token type or username/password, we return empty
@@ -45,10 +45,8 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		return "", nil
 	}
 
-	lockInterface, _ := CodeHostLockMap.LoadOrStore(id, sync.RWMutex{})
-	lock := lockInterface.(sync.RWMutex)
-	lock.Lock()
-	defer lock.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 
 	ch, err := systemconfig.New().GetCodeHost(id)
 
