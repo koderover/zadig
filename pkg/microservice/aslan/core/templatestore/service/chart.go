@@ -512,13 +512,15 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 
+		log.Infof("###### copying from path: %s to %s", currentChartPath, path.Join(localBase, path.Base(args.Path)))
+
 		err = copy.Copy(currentChartPath, path.Join(localBase, path.Base(args.Path)))
 		if err != nil {
 			logger.Errorf("Failed to save files to disk, err: %s", err)
 			return
 		}
 
-		logger.Debug("Finish to save and upload chart")
+		logger.Debug("Finish to save chart")
 	})
 
 	wg.Start(func() {
@@ -530,26 +532,28 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 		defer func() {
-			_ = os.RemoveAll(tmpDir)
+			//_ = os.RemoveAll(tmpDir)
 		}()
 
 		fileName := fmt.Sprintf("%s.tar.gz", name)
 		tarball := filepath.Join(tmpDir, fileName)
-		//newFilePath := path.Join(currentChartPath, name)
-		//mkdirErr := os.Mkdir(newFilePath, 0755)
-		//if mkdirErr != nil {
-		//	logger.Errorf("Failed to mkdir %s, err: %s", newFilePath, err)
-		//	err = mkdirErr
-		//	return
-		//}
 
-		//copyErr := copy.Copy(currentChartPath, newFilePath)
-		//if copyErr != nil {
-		//	logger.Errorf("Failed to copy directory, err: %s", copyErr)
-		//	err = copyErr
-		//	return
-		//}
-		tree := os.DirFS(currentChartPath)
+		newFilePath := path.Join(tmpDir, "chart", name)
+		mkdirErr := os.Mkdir(newFilePath, 0755)
+		if mkdirErr != nil {
+			logger.Errorf("Failed to mkdir %s, err: %s", newFilePath, err)
+			err = mkdirErr
+			return
+		}
+
+		copyErr := copy.Copy(currentChartPath, newFilePath)
+		if copyErr != nil {
+			logger.Errorf("Failed to copy directory, err: %s", copyErr)
+			err = copyErr
+			return
+		}
+
+		tree := os.DirFS(path.Join(tmpDir, "chart"))
 		if err1 = fsutil.Tar(tree, tarball); err1 != nil {
 			logger.Errorf("Failed to archive files to %s, err: %s", tarball, err1)
 			err = err1
