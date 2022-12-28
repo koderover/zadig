@@ -32,6 +32,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	configbase "github.com/koderover/zadig/pkg/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
@@ -108,7 +109,11 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		return fmt.Errorf("can't find connector")
 	}
 
-	config := si.Config.(*ldap.Config)
+	config := new(ldap.Config)
+	err = commonmodels.IToi(si.Config, config)
+	if err != nil {
+		return err
+	}
 	l, err := ldapv3.Dial("tcp", config.Host)
 	if err != nil {
 		logger.Errorf("ldap dial host:%s error, error msg:%s", config.Host, err)

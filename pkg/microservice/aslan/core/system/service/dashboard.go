@@ -21,6 +21,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
@@ -90,8 +91,9 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	resp := make([]*WorkflowResponse, 0)
 	runningQueue := workflow.RunningTasks()
 	pendingQueue := workflow.PendingTasks()
-	for i, runningtask := range runningQueue {
-		log.Infof("running task #%d: %s", i, runningtask.PipelineName)
+	runningCustomQueue := workflowcontroller.RunningTasks()
+	pendingCustomQueue := workflowcontroller.PendingTasks()
+	for _, runningtask := range runningQueue {
 		resp = append(resp, &WorkflowResponse{
 			TaskID:      runningtask.TaskID,
 			Name:        runningtask.PipelineName,
@@ -103,8 +105,19 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 			Type:        string(runningtask.Type),
 		})
 	}
-	for i, pendingTask := range pendingQueue {
-		log.Infof("pending task #%d: %s", i, pendingTask.PipelineName)
+	for _, runningtask := range runningCustomQueue {
+		resp = append(resp, &WorkflowResponse{
+			TaskID:      runningtask.TaskID,
+			Name:        runningtask.WorkflowName,
+			Project:     runningtask.ProjectName,
+			Creator:     runningtask.TaskCreator,
+			StartTime:   runningtask.CreateTime,
+			Status:      string(runningtask.Status),
+			DisplayName: runningtask.WorkflowDisplayName,
+			Type:        "common_workflow",
+		})
+	}
+	for _, pendingTask := range pendingQueue {
 		resp = append(resp, &WorkflowResponse{
 			TaskID:      pendingTask.TaskID,
 			Name:        pendingTask.PipelineName,
@@ -114,6 +127,18 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 			Status:      string(pendingTask.Status),
 			DisplayName: pendingTask.PipelineDisplayName,
 			Type:        string(pendingTask.Type),
+		})
+	}
+	for _, pendingTask := range pendingCustomQueue {
+		resp = append(resp, &WorkflowResponse{
+			TaskID:      pendingTask.TaskID,
+			Name:        pendingTask.WorkflowName,
+			Project:     pendingTask.ProjectName,
+			Creator:     pendingTask.TaskCreator,
+			StartTime:   pendingTask.CreateTime,
+			Status:      string(pendingTask.Status),
+			DisplayName: pendingTask.WorkflowDisplayName,
+			Type:        "common_workflow",
 		})
 	}
 
@@ -294,10 +319,6 @@ func generateDefaultDashboardConfig() *DashBoardConfig {
 	cardConfig = append(cardConfig, &DashBoardCardConfig{
 		Name: CardNameRunningWorkflow,
 		Type: CardTypeRunningWorkflow,
-	})
-	cardConfig = append(cardConfig, &DashBoardCardConfig{
-		Name: CardNameServiceUpdateFrequency,
-		Type: CardTypeServiceUpdateFrequency,
 	})
 	return &DashBoardConfig{Cards: cardConfig}
 }
