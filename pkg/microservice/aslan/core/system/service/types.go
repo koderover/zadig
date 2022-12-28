@@ -107,7 +107,7 @@ type MyEnvCardConfig struct {
 
 type WorkflowConfig struct {
 	Name    string `json:"name"`
-	Project string `json:"project"`
+	Project string `json:"project_name"`
 }
 
 type WorkflowResponse struct {
