@@ -189,7 +189,6 @@ func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap
 	}
 	for _, item := range workflowList {
 		key := fmt.Sprintf("%s-%s", item.ProjectName, item.Name)
-		log.Infof("finding key [%s] from the map", key)
 		if _, ok := targetMap[key]; ok {
 			startTime, creator, status := workflow.GetLatestTaskInfo(item)
 			resp = append(resp, &WorkflowResponse{
