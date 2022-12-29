@@ -16,10 +16,7 @@ limitations under the License.
 
 package systemconfig
 
-import (
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/service"
-	"github.com/koderover/zadig/pkg/tool/log"
-)
+import "github.com/koderover/zadig/pkg/tool/httpclient"
 
 type JiraInfo struct {
 	ID             int64  `json:"id"`
@@ -32,21 +29,12 @@ type JiraInfo struct {
 }
 
 func (c *Client) GetJiraInfo() (*JiraInfo, error) {
-	resp, err := service.GeJiraInternal(log.SugaredLogger())
+	url := "/jira/internal"
+
+	jira := &JiraInfo{}
+	_, err := c.Get(url, httpclient.SetResult(jira))
 	if err != nil {
 		return nil, err
-	}
-	// since in some case, db will return no error even if it does not have anything, we simply do a compatibility change
-	if resp == nil {
-		return nil, nil
-	}
-
-	jira := &JiraInfo{
-		Host:        resp.Host,
-		User:        resp.User,
-		AccessToken: resp.AccessToken,
-		CreatedAt:   resp.CreatedAt,
-		UpdatedAt:   resp.UpdatedAt,
 	}
 
 	return jira, nil
