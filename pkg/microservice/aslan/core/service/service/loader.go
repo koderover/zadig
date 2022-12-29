@@ -305,12 +305,19 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 		remoteName = "origin"
 	}
 	base := path.Join(config.S3StoragePath(), repoName)
-	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
-		if err != nil {
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
+	// we should not use the cache stored on local disk since files stored in remove gerrit server may be changed
+	_ = os.RemoveAll(base)
+	// TODO there may by concurrency issues since same directory are used by multiple requests
+	err := command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
+	if err != nil {
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
+	//if _, err := os.Stat(base); os.IsNotExist(err) {
+	//	err = command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
+	//	if err != nil {
+	//		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	//	}
+	//}
 
 	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	commit, err := gerritCli.GetCommitByBranch(repoName, branchName)
