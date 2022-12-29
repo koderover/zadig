@@ -83,7 +83,7 @@ func (c *YamlTemplateColl) Update(idString string, obj *models.YamlTemplate) err
 	return err
 }
 
-func (c *YamlTemplateColl) UpdateVariable(idString string, variable string) error {
+func (c *YamlTemplateColl) UpdateVariable(idString string, variable string, serviceVars []string) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return fmt.Errorf("invalid id")
@@ -91,6 +91,7 @@ func (c *YamlTemplateColl) UpdateVariable(idString string, variable string) erro
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": bson.M{
 		"variable_yaml": variable,
+		"service_vars":  serviceVars,
 	}}
 
 	_, err = c.UpdateOne(context.TODO(), filter, update)
@@ -104,9 +105,11 @@ func (c *YamlTemplateColl) List(pageNum, pageSize int) ([]*models.YamlTemplate, 
 	if err != nil {
 		return nil, 0, err
 	}
-	opt := options.Find().
-		SetSkip(int64((pageNum - 1) * pageSize)).
-		SetLimit(int64(pageSize))
+	opt := options.Find()
+
+	if pageNum > 0 && pageSize > 0 {
+		opt.SetSkip(int64((pageNum - 1) * pageSize)).SetLimit(int64(pageSize))
+	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)
 	if err != nil {

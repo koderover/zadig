@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@ limitations under the License.
 
 package models
 
-import (
-	"reflect"
-
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-)
+import templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 
 // RenderSet ...
 type RenderSet struct {
@@ -35,9 +31,9 @@ type RenderSet struct {
 	UpdateBy    string `bson:"update_by"                      json:"update_by"`
 	IsDefault   bool   `bson:"is_default"                     json:"is_default"`
 	// yaml content, used as 'global variables' for both k8s/helm projects
-	DefaultValues string                     `bson:"default_values,omitempty"       json:"default_values,omitempty"`
-	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
-	//KVs              []*templatemodels.RenderKV      `bson:"kvs,omitempty"                  json:"kvs,omitempty"`               // deprecated since 1.16.0
+	DefaultValues    string                          `bson:"default_values,omitempty"       json:"default_values,omitempty"`
+	YamlData         *templatemodels.CustomYaml      `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	KVs              []*templatemodels.RenderKV      `bson:"kvs,omitempty"                  json:"kvs,omitempty"`               // deprecated since 1.16.0
 	ServiceVariables []*templatemodels.ServiceRender `bson:"service_variables,omitempty"    json:"service_variables,omitempty"` // new since 1.16.0 replace kvs
 	ChartInfos       []*templatemodels.ServiceRender `bson:"chart_infos,omitempty"          json:"chart_infos,omitempty"`
 	Description      string                          `bson:"description,omitempty"          json:"description,omitempty"`
@@ -45,41 +41,4 @@ type RenderSet struct {
 
 func (RenderSet) TableName() string {
 	return "render_set"
-}
-
-//func (m *RenderSet) GetKeyValueMap() map[string]string {
-//	resp := make(map[string]string)
-//	for _, kv := range m.KVs {
-//		resp[kv.Key] = kv.Value
-//	}
-//	return resp
-//}
-
-// SetKVAlias ...
-//func (m *RenderSet) SetKVAlias() {
-//	if m == nil || len(m.KVs) == 0 {
-//		return
-//	}
-//	for _, kv := range m.KVs {
-//		if kv != nil {
-//			kv.SetAlias()
-//		}
-//
-//	}
-//}
-
-func (m *RenderSet) Diff(target *RenderSet) bool {
-	//if m.IsDefault != target.IsDefault || reflect.DeepEqual(m.KVs, target.KVs) {
-	if m.DefaultValues == target.DefaultValues {
-		return false
-	}
-	return true
-}
-
-func (m *RenderSet) HelmRenderDiff(target *RenderSet) bool {
-	return !m.Diff(target) || !reflect.DeepEqual(m.ChartInfos, target.ChartInfos)
-}
-
-func (m *RenderSet) K8sServiceRenderDiff(target *RenderSet) bool {
-	return !m.Diff(target) || !reflect.DeepEqual(m.ServiceVariables, target.ServiceVariables)
 }

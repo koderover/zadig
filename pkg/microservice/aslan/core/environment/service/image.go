@@ -64,7 +64,7 @@ func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
 
 // prepare necessary data from db
 func prepareData(namespace, serviceName, containerName, image string, product *models.Product) (targetContainer *models.Container,
-	targetChart *templatemodels.RenderChart, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
+	targetChart *templatemodels.ServiceRender, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
 
 	imageName := commonservice.ExtractImageName(image)
 

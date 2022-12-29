@@ -2357,6 +2357,16 @@ func getServiceNaming(projectName, envName, serviceName string) (string, error) 
 	return util.GeneReleaseName(templateSvc.GetReleaseNaming(), projectName, productInfo.Namespace, envName, serviceName), nil
 }
 
+func getLatestWorkflowTask(workflowName string) (*task.Task, error) {
+	resp, err := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{
+		PipelineName: workflowName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) error {
 	var (
 		buildEnvs []*commonmodels.KeyVal

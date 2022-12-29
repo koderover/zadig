@@ -37,6 +37,7 @@ type Service struct {
 	Source           string           `bson:"source,omitempty"               json:"source,omitempty"`
 	GUIConfig        *GUIConfig       `bson:"gui_config,omitempty"           json:"gui_config,omitempty"`
 	Yaml             string           `bson:"yaml,omitempty"                 json:"yaml"`
+	RenderedYaml     string           `bson:"-"                              json:"-"`
 	SrcPath          string           `bson:"src_path,omitempty"             json:"src_path,omitempty"`
 	Commit           *Commit          `bson:"commit,omitempty"               json:"commit,omitempty"`
 	KubeYamls        []string         `bson:"-"                              json:"-"`
@@ -54,6 +55,8 @@ type Service struct {
 	GerritCodeHostID int              `bson:"gerrit_codeHost_id,omitempty"   json:"gerrit_codeHost_id,omitempty"`
 	GiteePath        string           `bson:"gitee_path,omitempty"           json:"gitee_path,omitempty"`
 	BuildName        string           `bson:"build_name"                     json:"build_name"`
+	VariableYaml     string           `bson:"variable_yaml"                  json:"variable_yaml"` // New since 1.16.0, stores the variable yaml of k8s services
+	ServiceVars      []string         `bson:"service_vars"                   json:"service_vars"`  // New since 1.16.0, stores keys in variables which can be set in env
 	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
 	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
@@ -99,7 +102,7 @@ type CreateFromChartRepo struct {
 
 type CreateFromYamlTemplate struct {
 	TemplateID   string      `bson:"template_id"   json:"template_id"`
-	Variables    []*Variable `bson:"variables"     json:"variables"`
+	Variables    []*Variable `bson:"variables"     json:"variables"` // Deprecated since 1.16.0
 	VariableYaml string      `bson:"variable_yaml" json:"variable_yaml"`
 }
 
@@ -267,6 +270,11 @@ type PmHealthCheck struct {
 	UnhealthyThreshold  int    `bson:"unhealthy_threshold,omitempty"   json:"unhealthy_threshold,omitempty"`
 	CurrentHealthyNum   int    `bson:"current_healthy_num,omitempty"   json:"current_healthy_num,omitempty"`
 	CurrentUnhealthyNum int    `bson:"current_unhealthy_num,omitempty" json:"current_unhealthy_num,omitempty"`
+}
+
+type VariableKV struct {
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
 }
 
 func (svc *Service) GetRepoNamespace() string {

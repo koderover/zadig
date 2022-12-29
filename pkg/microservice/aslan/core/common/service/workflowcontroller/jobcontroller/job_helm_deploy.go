@@ -124,7 +124,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	var (
 		productInfo              *commonmodels.Product
-		renderChart              *templatemodels.RenderChart
+		renderChart              *templatemodels.ServiceRender
 		replacedValuesYaml       string
 		mergedValuesYaml         string
 		replacedMergedValuesYaml string

@@ -957,3 +957,65 @@ func checkClusterShareStorage(id string) (bool, error) {
 	}
 	return false, nil
 }
+
+func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Workflow, error) {
+	resp := make([]*Workflow, 0)
+	allProductWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
+	if err != nil {
+		log.Errorf("failed to get all product workflows, error: %s", err)
+		return nil, err
+	}
+	for _, productWorkflow := range allProductWorkflows {
+		resp = append(resp, &Workflow{
+			Name:         productWorkflow.Name,
+			DisplayName:  productWorkflow.DisplayName,
+			ProjectName:  productWorkflow.ProductTmplName,
+			UpdateTime:   productWorkflow.UpdateTime,
+			CreateTime:   productWorkflow.CreateTime,
+			UpdateBy:     productWorkflow.UpdateBy,
+			WorkflowType: "",
+			Description:  productWorkflow.Description,
+			BaseName:     productWorkflow.BaseName,
+		})
+	}
+
+	allCustomWorkflows, err := commonrepo.NewWorkflowV4Coll().ListByProjectNames(projects)
+	if err != nil {
+		log.Errorf("failed to get all custom workflows, error: %s", err)
+		return nil, err
+	}
+
+	for _, customWorkflow := range allCustomWorkflows {
+		resp = append(resp, &Workflow{
+			Name:         customWorkflow.Name,
+			DisplayName:  customWorkflow.DisplayName,
+			ProjectName:  customWorkflow.Project,
+			UpdateTime:   customWorkflow.UpdateTime,
+			CreateTime:   customWorkflow.CreateTime,
+			UpdateBy:     customWorkflow.UpdatedBy,
+			WorkflowType: setting.CustomWorkflowType,
+			Description:  customWorkflow.Description,
+			BaseName:     customWorkflow.BaseName,
+		})
+	}
+
+	return resp, nil
+}
+
+func GetLatestTaskInfo(workflowInfo *Workflow) (startTime int64, creator, status string) {
+	// if we found it is a custom workflow, search it in the custom workflow task
+	if workflowInfo.WorkflowType == setting.CustomWorkflowType {
+		taskInfo, err := getLatestWorkflowTaskV4(workflowInfo.Name)
+		if err != nil {
+			return 0, "", ""
+		}
+		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
+	} else {
+		// otherwise it is a product workflow
+		taskInfo, err := getLatestWorkflowTask(workflowInfo.Name)
+		if err != nil {
+			return 0, "", ""
+		}
+		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
+	}
+}

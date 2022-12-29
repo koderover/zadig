@@ -95,16 +95,17 @@ type Workflow struct {
 }
 
 type Product struct {
-	CollaborationType config.CollaborationType        `json:"collaboration_type"`
-	BaseName          string                          `json:"base_name"`
-	CollaborationMode string                          `json:"collaboration_mode"`
-	Name              string                          `json:"name"`
-	DeployType        string                          `json:"deploy_type"`
-	Vars              []*templatemodels.RenderKV      `json:"vars"`
-	DefaultValues     string                          `json:"defaultValues,omitempty"`
-	ValuesData        *commonservice.ValuesDataArgs   `json:"valuesData,omitempty"`
-	YamlData          *templatemodels.CustomYaml      `json:"yaml_data,omitempty"`
-	ChartValues       []*commonservice.RenderChartArg `json:"chartValues,omitempty"`
+	CollaborationType config.CollaborationType `json:"collaboration_type"`
+	BaseName          string                   `json:"base_name"`
+	CollaborationMode string                   `json:"collaboration_mode"`
+	Name              string                   `json:"name"`
+	DeployType        string                   `json:"deploy_type"`
+	//Vars              []*templatemodels.RenderKV        `json:"vars"`
+	DefaultValues string                            `json:"default_values,omitempty"`
+	ValuesData    *commonservice.ValuesDataArgs     `json:"valuesData,omitempty"`
+	YamlData      *templatemodels.CustomYaml        `json:"yaml_data,omitempty"`
+	ChartValues   []*commonservice.HelmSvcRenderArg `json:"chartValues,omitempty"`
+	Services      []*commonservice.K8sSvcRenderArg  `json:"services"`
 }
 
 type GetCollaborationNewResp struct {
@@ -973,7 +974,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	var helmProductArgs []service2.HelmProductItem
 	for _, product := range newResp.Product {
 		if productArg, ok := productMap[product.BaseName]; ok {
-			if productArg.DeployType == string(setting.HelmDeployType) {
+			if productArg.DeployType == setting.HelmDeployType {
 				helmProductArgs = append(helmProductArgs, service2.HelmProductItem{
 					OldName:       product.BaseName,
 					NewName:       product.Name,
@@ -983,12 +984,14 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					ValuesData:    productArg.ValuesData,
 				})
 			}
-			if productArg.DeployType == string(setting.K8SDeployType) {
+			if productArg.DeployType == setting.K8SDeployType {
 				yamlProductItems = append(yamlProductItems, service2.YamlProductItem{
-					OldName:  product.BaseName,
-					NewName:  product.Name,
-					BaseName: product.BaseName,
-					Vars:     productArg.Vars,
+					OldName:       product.BaseName,
+					NewName:       product.Name,
+					BaseName:      product.BaseName,
+					DefaultValues: productArg.DefaultValues,
+					Services:      productArg.Services,
+					//Vars:          productArg.Vars,
 				})
 			}
 		}
@@ -1203,33 +1206,25 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		}
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.K8SDeployType {
-		renderSets, err := getRenderSet(projectName, newProductName.List())
-		if err != nil {
-			logger.Errorf("getRenderSet error:%s", err)
-			return nil, err
-		}
-		if renderSets != nil {
-			productRenderSetMap := make(map[string]models2.RenderSet)
-			for _, set := range renderSets {
-				productRenderSetMap[set.EnvName] = set
+		for _, product := range newProduct {
+			services, rendersetData, err := commonservice.GetK8sSvcRenderArgs(projectName, product.BaseName, "", logger)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find product renderset :%s, err: %s", product.BaseName, err)
 			}
-			for _, product := range newProduct {
-				set, ok := productRenderSetMap[product.BaseName]
-				if !ok {
-					logger.Warnf("product:%s renderSet not exist", product.BaseName)
-					continue
-				}
+			if rendersetData == nil {
+				logger.Errorf("product renderset:%s not exist", product.BaseName)
+				return nil, fmt.Errorf("product renderset :%s not exist", product.BaseName)
+			}
 
-				product.Vars = set.KVs
-				product.DefaultValues = set.DefaultValues
-			}
+			product.Services = services
+			product.DefaultValues = rendersetData.DefaultValues
 		}
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
 		for _, product := range newProduct {
 			//chart, ok := envChartsMap[product.BaseName]
 
-			renderChartArgs, rendersetData, err := commonservice.GetRenderCharts(projectName, product.BaseName, "", logger)
+			renderChartArgs, rendersetData, err := commonservice.GetSvcRenderArgs(projectName, product.BaseName, "", logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find product renderset :%s, err: %s", product.BaseName, err)
 			}
@@ -1412,12 +1407,8 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 	}
 	var findOpts []commonrepo.RenderSetFindOption
 	for _, product := range products {
-		var revision int64
-		for _, productService := range product.GetServiceMap() {
-			revision = productService.Render.Revision
-		}
 		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
-			Revision:    revision,
+			Revision:    product.Render.Revision,
 			ProductTmpl: projectName,
 			EnvName:     product.EnvName,
 			Name:        product.Namespace,

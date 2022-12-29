@@ -27,31 +27,30 @@ type ProductPermission string
 
 // Vars do not save, only input parameters
 type Product struct {
-	ID              primitive.ObjectID            `bson:"_id,omitempty"             json:"id,omitempty"`
-	ProductName     string                        `bson:"product_name"              json:"product_name"`
-	CreateTime      int64                         `bson:"create_time"               json:"create_time"`
-	UpdateTime      int64                         `bson:"update_time"               json:"update_time"`
-	Namespace       string                        `bson:"namespace,omitempty"       json:"namespace,omitempty"`
-	Status          string                        `bson:"status"                    json:"status"`
-	Revision        int64                         `bson:"revision"                  json:"revision"`
-	Enabled         bool                          `bson:"enabled"                   json:"enabled"`
-	EnvName         string                        `bson:"env_name"                  json:"env_name"`
-	UpdateBy        string                        `bson:"update_by"                 json:"update_by"`
-	Auth            []*ProductAuth                `bson:"auth"                      json:"auth"`
-	Visibility      string                        `bson:"-"                         json:"visibility"`
-	Services        [][]*ProductService           `bson:"services"                  json:"services"`
-	Render          *RenderInfo                   `bson:"render"                    json:"render"`
-	Error           string                        `bson:"error"                     json:"error"`
-	Vars            []*templatemodels.RenderKV    `bson:"vars,omitempty"            json:"vars,omitempty"`
-	ChartInfos      []*templatemodels.RenderChart `bson:"-"                         json:"chart_infos,omitempty"`
-	IsPublic        bool                          `bson:"is_public"                 json:"isPublic"`
-	RoleIDs         []int64                       `bson:"role_ids"                  json:"roleIds"`
-	ClusterID       string                        `bson:"cluster_id,omitempty"      json:"cluster_id,omitempty"`
-	RecycleDay      int                           `bson:"recycle_day"               json:"recycle_day"`
-	Source          string                        `bson:"source"                    json:"source"`
-	IsOpenSource    bool                          `bson:"is_opensource"             json:"is_opensource"`
-	RegistryID      string                        `bson:"registry_id"               json:"registry_id"`
-	IsForkedProduct bool                          `bson:"-"                         json:"-"`
+	ID              primitive.ObjectID         `bson:"_id,omitempty"             json:"id,omitempty"`
+	ProductName     string                     `bson:"product_name"              json:"product_name"`
+	CreateTime      int64                      `bson:"create_time"               json:"create_time"`
+	UpdateTime      int64                      `bson:"update_time"               json:"update_time"`
+	Namespace       string                     `bson:"namespace,omitempty"       json:"namespace,omitempty"`
+	Status          string                     `bson:"status"                    json:"status"`
+	Revision        int64                      `bson:"revision"                  json:"revision"`
+	Enabled         bool                       `bson:"enabled"                   json:"enabled"`
+	EnvName         string                     `bson:"env_name"                  json:"env_name"`
+	UpdateBy        string                     `bson:"update_by"                 json:"update_by"`
+	Auth            []*ProductAuth             `bson:"auth"                      json:"auth"`
+	Visibility      string                     `bson:"-"                         json:"visibility"`
+	Services        [][]*ProductService        `bson:"services"                  json:"services"`
+	Render          *RenderInfo                `bson:"render"                    json:"render"`
+	Error           string                     `bson:"error"                     json:"error"`
+	Vars            []*templatemodels.RenderKV `bson:"vars,omitempty"            json:"vars,omitempty"`
+	IsPublic        bool                       `bson:"is_public"                 json:"isPublic"`
+	RoleIDs         []int64                    `bson:"role_ids"                  json:"roleIds"`
+	ClusterID       string                     `bson:"cluster_id,omitempty"      json:"cluster_id,omitempty"`
+	RecycleDay      int                        `bson:"recycle_day"               json:"recycle_day"`
+	Source          string                     `bson:"source"                    json:"source"`
+	IsOpenSource    bool                       `bson:"is_opensource"             json:"is_opensource"`
+	RegistryID      string                     `bson:"registry_id"               json:"registry_id"`
+	IsForkedProduct bool                       `bson:"-"                         json:"-"`
 }
 
 type RenderInfo struct {
@@ -101,24 +100,8 @@ type ServiceConfig struct {
 	Revision   int64  `bson:"revision"              json:"revision"`
 }
 
-func (Product) TableName() string {
+func (*Product) TableName() string {
 	return "product"
-}
-
-func (p *Product) GetNamespace() string {
-	return p.ProductName + "-env-" + p.EnvName
-}
-
-func (p *Product) GetGroupServiceNames() [][]string {
-	var resp [][]string
-	for _, group := range p.Services {
-		services := make([]string, 0, len(group))
-		for _, service := range group {
-			services = append(services, service.ServiceName)
-		}
-		resp = append(resp, services)
-	}
-	return resp
 }
 
 func (p *Product) GetServiceMap() map[string]*ProductService {

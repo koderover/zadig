@@ -114,6 +114,33 @@ func (c *WorkflowV4Coll) ListByWorkflows(opt ListWorkflowV4Opt) ([]*models.Workf
 	return res, nil
 }
 
+func (c *WorkflowV4Coll) ListByProjectNames(projects []string) ([]*models.WorkflowV4, error) {
+	resp := make([]*models.WorkflowV4, 0)
+	query := bson.M{}
+	if len(projects) != 0 {
+		if len(projects) != 1 || projects[0] != "*" {
+			query = bson.M{"project": bson.M{
+				"$in": projects,
+			}}
+		}
+	} else {
+		return resp, nil
+	}
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func (c *WorkflowV4Coll) BulkCreate(args []*models.WorkflowV4) error {
 	if len(args) == 0 {
 		return nil

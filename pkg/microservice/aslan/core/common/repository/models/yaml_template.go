@@ -22,8 +22,9 @@ type YamlTemplate struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name         string             `bson:"name"          json:"name"`
 	Content      string             `bson:"content"       json:"content"`
-	Variables    []*Variable        `bson:"variables"     json:"variables"`
+	Variables    []*Variable        `bson:"variables"     json:"variables"` // Deprecated since 1.16.0
 	VariableYaml string             `bson:"variable_yaml" json:"variable_yaml"`
+	ServiceVars  []string           `bson:"service_vars"  json:"service_vars"`
 }
 
 type Variable struct {

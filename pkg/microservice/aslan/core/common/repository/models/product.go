@@ -28,32 +28,32 @@ type ProductPermission string
 
 // Vars不做保存，只做input参数
 type Product struct {
-	ID           primitive.ObjectID            `bson:"_id,omitempty"             json:"id,omitempty"`
-	ProductName  string                        `bson:"product_name"              json:"product_name"`
-	CreateTime   int64                         `bson:"create_time"               json:"create_time"`
-	UpdateTime   int64                         `bson:"update_time"               json:"update_time"`
-	Namespace    string                        `bson:"namespace,omitempty"       json:"namespace,omitempty"`
-	Status       string                        `bson:"status"                    json:"status"`
-	Revision     int64                         `bson:"revision"                  json:"revision"`
-	Enabled      bool                          `bson:"enabled"                   json:"enabled"`
-	EnvName      string                        `bson:"env_name"                  json:"env_name"`
-	BaseEnvName  string                        `bson:"-"                         json:"base_env_name"`
-	UpdateBy     string                        `bson:"update_by"                 json:"update_by"`
-	Auth         []*ProductAuth                `bson:"auth"                      json:"auth"`
-	Visibility   string                        `bson:"-"                         json:"visibility"`
-	Services     [][]*ProductService           `bson:"services"                  json:"services"`
-	Render       *RenderInfo                   `bson:"render"                    json:"render"`
-	Error        string                        `bson:"error"                     json:"error"`
-	Vars         []*templatemodels.RenderKV    `bson:"vars,omitempty"            json:"vars,omitempty"`
-	ChartInfos   []*templatemodels.RenderChart `bson:"-"                         json:"chart_infos,omitempty"`
-	IsPublic     bool                          `bson:"is_public"                 json:"isPublic"`
-	RoleIDs      []int64                       `bson:"role_ids"                  json:"roleIds"`
-	ClusterID    string                        `bson:"cluster_id,omitempty"      json:"cluster_id,omitempty"`
-	RecycleDay   int                           `bson:"recycle_day"               json:"recycle_day"`
-	Source       string                        `bson:"source"                    json:"source"`
-	IsOpenSource bool                          `bson:"is_opensource"             json:"is_opensource"`
-	RegistryID   string                        `bson:"registry_id"               json:"registry_id"`
-	BaseName     string                        `bson:"base_name"                 json:"base_name"`
+	ID          primitive.ObjectID  `bson:"_id,omitempty"             json:"id,omitempty"`
+	ProductName string              `bson:"product_name"              json:"product_name"`
+	CreateTime  int64               `bson:"create_time"               json:"create_time"`
+	UpdateTime  int64               `bson:"update_time"               json:"update_time"`
+	Namespace   string              `bson:"namespace,omitempty"       json:"namespace,omitempty"`
+	Status      string              `bson:"status"                    json:"status"`
+	Revision    int64               `bson:"revision"                  json:"revision"`
+	Enabled     bool                `bson:"enabled"                   json:"enabled"`
+	EnvName     string              `bson:"env_name"                  json:"env_name"`
+	BaseEnvName string              `bson:"-"                         json:"base_env_name"`
+	UpdateBy    string              `bson:"update_by"                 json:"update_by"`
+	Auth        []*ProductAuth      `bson:"auth"                      json:"auth"`
+	Visibility  string              `bson:"-"                         json:"visibility"`
+	Services    [][]*ProductService `bson:"services"                  json:"services"`
+	Render      *RenderInfo         `bson:"render"                    json:"render"`
+	Error       string              `bson:"error"                     json:"error"`
+	//Vars           []*templatemodels.RenderKV      `bson:"_,omitempty"               json:"vars,omitempty"`
+	ServiceRenders []*templatemodels.ServiceRender `bson:"-"                         json:"chart_infos,omitempty"`
+	IsPublic       bool                            `bson:"is_public"                 json:"isPublic"`
+	RoleIDs        []int64                         `bson:"role_ids"                  json:"roleIds"`
+	ClusterID      string                          `bson:"cluster_id,omitempty"      json:"cluster_id,omitempty"`
+	RecycleDay     int                             `bson:"recycle_day"               json:"recycle_day"`
+	Source         string                          `bson:"source"                    json:"source"`
+	IsOpenSource   bool                            `bson:"is_opensource"             json:"is_opensource"`
+	RegistryID     string                          `bson:"registry_id"               json:"registry_id"`
+	BaseName       string                          `bson:"base_name"                 json:"base_name"`
 	// IsExisted is true if this environment is created from an existing one
 	IsExisted bool `bson:"is_existed"                json:"is_existed"`
 	// TODO: Deprecated: temp flag
@@ -103,9 +103,10 @@ type ProductService struct {
 	Type        string       `bson:"type"                       json:"type"`
 	Revision    int64        `bson:"revision"                   json:"revision"`
 	Containers  []*Container `bson:"containers"                 json:"containers,omitempty"`
-	Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
-	Error       string       `bson:"error,omitempty"            json:"error,omitempty"`
-	EnvConfigs  []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
+	//Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // Deprecated
+	Error        string       `bson:"error,omitempty"            json:"error,omitempty"`
+	EnvConfigs   []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
+	VariableYaml string       `bson:"-"                          json:"variable_yaml,omitempty"`
 }
 
 type ServiceConfig struct {
@@ -123,7 +124,7 @@ func (Product) TableName() string {
 	return "product"
 }
 
-// TODO: LOU: what namespace is it??
+// GetNamespace returns the default name of namespace created by zadig
 func (p *Product) GetNamespace() string {
 	return p.ProductName + "-env-" + p.EnvName
 }
@@ -159,4 +160,12 @@ func (p *Product) GetProductSvcNames() []string {
 		}
 	}
 	return ret
+}
+
+// EnsureRenderInfo For some old data, the render data mayby nil
+func (p *Product) EnsureRenderInfo() {
+	if p.Render != nil {
+		return
+	}
+	p.Render = &RenderInfo{ProductTmpl: p.ProductName, Name: p.Namespace}
 }

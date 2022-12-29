@@ -148,19 +148,6 @@ type getYamlTemplateVariablesReq struct {
 	VariableYaml string `json:"variable_yaml"`
 }
 
-func GetYamlTemplateVariables(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	req := &getYamlTemplateVariablesReq{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Resp, ctx.Err = template.GetYamlVariables(req.Content, ctx.Logger)
-}
-
 func ValidateTemplateVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -172,4 +159,30 @@ func ValidateTemplateVariables(c *gin.Context) {
 	}
 
 	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml)
+}
+
+func ExtractTemplateVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &getYamlTemplateVariablesReq{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp, ctx.Err = templateservice.ExtractVariable(req.VariableYaml)
+}
+
+func GetFlatKvs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &getYamlTemplateVariablesReq{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp, ctx.Err = templateservice.FlattenKvs(req.VariableYaml)
 }

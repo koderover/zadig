@@ -75,6 +75,25 @@ func ListWorkflowsV3(header http.Header, qs url.Values, logger *zap.SugaredLogge
 	return aslan.New().ListWorkflowsV3(header, qs)
 }
 
+func ListAllWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
+	rules := []*rule{{
+		method:   "/api/aslan/workflow/workflow",
+		endpoint: "GET",
+	}}
+	names, err := getAllowedProjects(header, rules, config.AND, logger)
+	if err != nil {
+		logger.Errorf("Failed to get allowed project names, err: %s", err)
+		return nil, err
+	}
+	if len(names) == 0 {
+		return nil, nil
+	}
+	for _, name := range names {
+		qs.Add("projects", name)
+	}
+	return aslan.New().ListAllWorkflows(header, qs)
+}
+
 func ListTestWorkflows(testName string, header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
 	rules := []*rule{{
 		method:   "/api/aslan/workflow/workflow",
@@ -96,8 +115,8 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
-//getAllowedProjects
-//rulesLogicalOperator@ OR:satisfy any one of rules / AND:satisfy all rules
+// getAllowedProjects
+// rulesLogicalOperator@ OR:satisfy any one of rules / AND:satisfy all rules
 func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator config.RulesLogicalOperator, logger *zap.SugaredLogger) (projects []string, err error) {
 	var res [][]string
 	for _, v := range rules {
