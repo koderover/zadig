@@ -1557,6 +1557,16 @@ func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTa
 			}
 		}
 	}
+	for _, build := range resp.Builds {
+		if workflowArgs.MergeRequestID == "" {
+			continue
+		}
+		mrID, _ := strconv.Atoi(workflowArgs.MergeRequestID)
+		if build.Source == workflowArgs.Source && build.RepoName == workflowArgs.RepoName && build.RepoOwner == workflowArgs.RepoOwner {
+			build.PR = mrID
+			build.PRs = []int{mrID}
+		}
+	}
 	return resp
 }
 
