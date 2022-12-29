@@ -205,9 +205,9 @@ func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls
 	return originYaml, nil
 }
 
-func buildVariable(key string) string {
-	return fmt.Sprintf("{{.%s}}", key)
-}
+//func buildVariable(key string) string {
+//	return fmt.Sprintf("{{.%s}}", key)
+//}
 
 // SyncServiceFromTemplate syncs services from (yaml|chart)template
 func SyncServiceFromTemplate(userName, source, templateId, templateName string, logger *zap.SugaredLogger) error {
