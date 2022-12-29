@@ -757,6 +757,10 @@ func validateServiceUpdateGitlab(detail *systemconfig.CodeHost, serviceName, rep
 	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 
 	newToken, err := gitlab2.UpdateGitlabToken(detail.ID, detail.AccessToken)
+	if err != nil {
+		log.Errorf("failed to update gitlab token, err: %s", err)
+		return nil, err
+	}
 	gitlabClient, err := gitlab.NewOAuthClient(newToken, gitlab.WithBaseURL(detail.Address))
 	if err != nil {
 		log.Errorf("failed to prepare gitlab client, the error is:%+v", err)
