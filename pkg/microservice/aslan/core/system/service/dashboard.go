@@ -31,6 +31,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
@@ -285,37 +286,37 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 
 	if projectInfo.ProductFeature.BasicFacility == "cloud_host" {
 		// if a vm environment is detected, we simply find all the services another way.
-		//pmSvcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, log)
-		//if err != nil {
-		//	log.Errorf("failed to get services in the env, error: %s", err)
-		//	return nil, err
-		//}
+		pmSvcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, log)
+		if err != nil {
+			log.Errorf("failed to get services in the env, error: %s", err)
+			return nil, err
+		}
 
-		//if targetServiceCount == 0 {
-		//	for _, svc := range pmSvcList {
-		//		entry := &VMEnvService{
-		//			ServiceName: svc.ServiceDisplayName,
-		//			EnvStatus:   svc.EnvStatuses,
-		//		}
-		//		if entry.ServiceName == "" {
-		//			entry.ServiceName = svc.ServiceName
-		//		}
-		//		vmServiceList = append(vmServiceList, entry)
-		//	}
-		//} else {
-		//	for _, svc := range pmSvcList {
-		//		if _, ok := targetServiceMap[svc.ServiceName]; ok {
-		//			entry := &VMEnvService{
-		//				ServiceName: svc.ServiceDisplayName,
-		//				EnvStatus:   svc.EnvStatuses,
-		//			}
-		//			if entry.ServiceName == "" {
-		//				entry.ServiceName = svc.ServiceName
-		//			}
-		//			vmServiceList = append(vmServiceList, entry)
-		//		}
-		//	}
-		//}
+		if targetServiceCount == 0 {
+			for _, svc := range pmSvcList {
+				entry := &VMEnvService{
+					ServiceName: svc.ServiceDisplayName,
+					EnvStatus:   svc.EnvStatuses,
+				}
+				if entry.ServiceName == "" {
+					entry.ServiceName = svc.ServiceName
+				}
+				vmServiceList = append(vmServiceList, entry)
+			}
+		} else {
+			for _, svc := range pmSvcList {
+				if _, ok := targetServiceMap[svc.ServiceName]; ok {
+					entry := &VMEnvService{
+						ServiceName: svc.ServiceDisplayName,
+						EnvStatus:   svc.EnvStatuses,
+					}
+					if entry.ServiceName == "" {
+						entry.ServiceName = svc.ServiceName
+					}
+					vmServiceList = append(vmServiceList, entry)
+				}
+			}
+		}
 	} else {
 		// if the project is non-vm, we do it normally.
 		_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, "", math.MaxInt, 1, log)
