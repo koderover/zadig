@@ -280,6 +280,7 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 		}
 		if buildIndex >= 0 {
 			setBuildFromArg(builds[buildIndex], buildArg)
+			log.Errorf("@@@@ build args: %+v", buildArg)
 		}
 	}
 
