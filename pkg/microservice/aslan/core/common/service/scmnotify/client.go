@@ -19,6 +19,7 @@ package scmnotify
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -97,9 +98,10 @@ func (c *Client) Comment(notify *models.Notification) error {
 		cli := gerrit.NewClient(codeHostDetail.Address, codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
 		for _, task := range notify.Tasks {
 			// create task created comment
-			workflowURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d", notify.BaseURI, task.ProductName, task.WorkflowName, task.ID)
+			encodedDisplayName := url.PathEscape(task.WorkflowDisplayName)
+			workflowURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", notify.BaseURI, task.ProductName, task.WorkflowName, task.ID, encodedDisplayName)
 			if notify.IsWorkflowV4 {
-				workflowURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", notify.BaseURI, task.ProductName, task.WorkflowName, task.ID)
+				workflowURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", notify.BaseURI, task.ProductName, task.WorkflowName, task.ID, encodedDisplayName)
 			}
 			if !task.FirstCommented && task.Status == config.TaskStatusReady {
 				if e := cli.SetReview(
