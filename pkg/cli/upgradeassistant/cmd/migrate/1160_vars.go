@@ -22,23 +22,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/util"
-
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	uamodel "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type DataBulkUpdater struct {
