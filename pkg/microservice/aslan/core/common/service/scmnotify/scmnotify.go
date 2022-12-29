@@ -123,8 +123,6 @@ func (s *Service) SendErrWebhookComment(
 
 func convertTaskStatusToNotificationTaskStatus(status config.Status) config.TaskStatus {
 	switch status {
-	case config.StatusCreated:
-		fallthrough
 	case config.StatusWaiting:
 		fallthrough
 	case config.StatusQueued:
@@ -133,6 +131,8 @@ func convertTaskStatusToNotificationTaskStatus(status config.Status) config.Task
 		fallthrough
 	case config.QueueItemPending:
 		return config.TaskStatusReady
+	case config.StatusCreated:
+		fallthrough
 	case config.StatusRunning:
 		return config.TaskStatusRunning
 	case config.StatusFailed:
