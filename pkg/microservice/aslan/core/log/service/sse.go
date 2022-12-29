@@ -206,6 +206,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		ServiceName:  options.ServiceName,
 		PipelineType: options.PipelineType,
 	})).AsSelector()
+	log.Errorf("#### option: %+v", options)
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
