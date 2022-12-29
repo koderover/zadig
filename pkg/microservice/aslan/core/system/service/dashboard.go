@@ -317,6 +317,43 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 				}
 			}
 		}
+	} else if projectInfo.ProductFeature.DeployType == "k8s" {
+		// if the project is non-vm & k8s project, then we get the workloads in groups
+		svcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, log)
+		if err != nil {
+			log.Errorf("failed to get k8s services in the env, error: %s", err)
+			return nil, err
+		}
+
+		// if none of the service is configured, return all the services
+		if targetServiceCount == 0 {
+			for _, svc := range svcList {
+				entry := &EnvService{
+					ServiceName: svc.ServiceDisplayName,
+					Status:      svc.Status,
+					Image:       svc.Images[0],
+				}
+				if entry.ServiceName == "" {
+					entry.ServiceName = svc.ServiceName
+				}
+				serviceList = append(serviceList, entry)
+
+			}
+		} else {
+			for _, svc := range svcList {
+				if _, ok := targetServiceMap[svc.ServiceName]; ok {
+					entry := &EnvService{
+						ServiceName: svc.ServiceDisplayName,
+						Status:      svc.Status,
+						Image:       svc.Images[0],
+					}
+					if entry.ServiceName == "" {
+						entry.ServiceName = svc.ServiceName
+					}
+					serviceList = append(serviceList, entry)
+				}
+			}
+		}
 	} else {
 		// if the project is non-vm, we do it normally.
 		_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, "", math.MaxInt, 1, log)
