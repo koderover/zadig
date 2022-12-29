@@ -22,7 +22,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -55,6 +54,5 @@ func GetJobLabels(jobLabel *JobLabel) map[string]string {
 			delete(retMap, k)
 		}
 	}
-	log.Errorf("@@@ label was :%+v", retMap)
 	return retMap
 }
