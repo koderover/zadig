@@ -437,10 +437,12 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 		stages := make([]*commonmodels.Stage, 0)
 		testName := strings.Replace(t.PipelineName, "-job", "", 1)
 		var mrID string
+		var source string
 		if t.TestArgs != nil {
 			mrID = t.TestArgs.MergeRequestID
+			source = t.TestArgs.Source
 		}
-		if testTask, err := TestArgsToTestSubtask(&commonmodels.TestTaskArgs{ProductName: t.ProductName, TestName: testName, TestTaskCreator: userName, MergeRequestID: mrID}, t, log); err == nil {
+		if testTask, err := TestArgsToTestSubtask(&commonmodels.TestTaskArgs{ProductName: t.ProductName, TestName: testName, TestTaskCreator: userName, MergeRequestID: mrID, Source: source}, t, log); err == nil {
 			FmtBuilds(testTask.JobCtx.Builds, log)
 			if testSubTask, err := testTask.ToSubTask(); err == nil {
 				AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
