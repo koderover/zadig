@@ -77,6 +77,7 @@ func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) 
 
 	resp.Envs = envs0
 	resp.Envs = append(resp.Envs, envs1...)
+
 	return resp, nil
 }
 
@@ -323,25 +324,37 @@ func getServiceVariables(templateProduct *template.Product, product *commonmodel
 		return ret
 	}
 
-	product.EnsureRenderInfo()
-	renderSet, err := commonservice.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log.SugaredLogger())
+	args, _, err := commonservice.GetK8sSvcRenderArgs(product.ProductName, product.EnvName, "", log.SugaredLogger())
 	if err != nil {
-		log.Errorf("failed to get renderset, err: %s", err)
-		return ret
+		log.Errorf("failed to get k8s service render args, err: %s", err)
+	}
+	ret = make([]*types.ServiceWithVariable, 0)
+	for _, arg := range args {
+		ret = append(ret, &types.ServiceWithVariable{
+			ServiceName:  arg.ServiceName,
+			VariableYaml: arg.LatestVariableYaml,
+		})
 	}
 
-	svMap := make(map[string]*template.ServiceRender)
-	for _, sv := range renderSet.ServiceVariables {
-		svMap[sv.ServiceName] = sv
-	}
-
-	for _, svc := range ret {
-		if sv, ok := svMap[svc.ServiceName]; ok {
-			if sv.OverrideYaml != nil {
-				svc.VariableYaml = sv.OverrideYaml.YamlContent
-			}
-		}
-	}
+	//product.EnsureRenderInfo()
+	//renderSet, err := commonservice.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log.SugaredLogger())
+	//if err != nil {
+	//	log.Errorf("failed to get renderset, err: %s", err)
+	//	return ret
+	//}
+	//
+	//svMap := make(map[string]*template.ServiceRender)
+	//for _, sv := range renderSet.ServiceVariables {
+	//	svMap[sv.ServiceName] = sv
+	//}
+	//
+	//for _, svc := range ret {
+	//	if sv, ok := svMap[svc.ServiceName]; ok {
+	//		if sv.OverrideYaml != nil {
+	//			svc.VariableYaml = sv.OverrideYaml.YamlContent
+	//		}
+	//	}
+	//}
 
 	return ret
 }
