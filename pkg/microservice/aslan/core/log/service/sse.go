@@ -181,6 +181,8 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 				return
 			}
 		}
+		options.ClusterID = setting.LocalClusterID
+		options.Namespace = config.Namespace()
 		// Compatible with the situation where the old data has not been modified
 		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" {
 			options.ClusterID = build.PreBuild.ClusterID
@@ -200,6 +202,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
 		PipelineName: options.PipelineName,
 		TaskID:       options.TaskID,
+		TaskType:     options.SubTask,
 		ServiceName:  options.ServiceName,
 		PipelineType: options.PipelineType,
 	})).AsSelector()
