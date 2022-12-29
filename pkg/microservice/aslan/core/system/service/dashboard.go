@@ -18,19 +18,23 @@ package service
 
 import (
 	"fmt"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
-	"github.com/koderover/zadig/pkg/setting"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"math"
 	"net/http"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 const (
@@ -241,19 +245,23 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 			return nil, nil
 		}
 	}
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    projectName,
 		EnvName: envName,
 	})
 	if err != nil {
+		log.Infof("failed to get environment info, the error is: %s", err)
 		return nil, err
 	}
 	serviceList := make([]*EnvService, 0)
-	_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, "", math.MaxInt, 1, log)
+	vmServiceList := make([]*VMEnvService, 0)
+
+	projectInfo, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
-		log.Errorf("failed to get workloads in the env, error: %s", err)
+		log.Infof("failed to get project info, the error is: %s", err)
 		return nil, err
 	}
+
 	targetServiceMap := make(map[string]int)
 	var targetServiceCount int
 	for _, card := range cfg.Cards {
@@ -275,23 +283,51 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 			}
 		}
 	}
-	// if none of the service is configured, return all the services
-	if targetServiceCount == 0 {
-		for _, svc := range svcList {
-			entry := &EnvService{
-				ServiceName: svc.ServiceDisplayName,
-				Status:      svc.Status,
-				Image:       svc.Images[0],
-			}
-			if entry.ServiceName == "" {
-				entry.ServiceName = svc.ServiceName
-			}
-			serviceList = append(serviceList, entry)
 
+	if projectInfo.ProductFeature.BasicFacility == "cloud_host" {
+		// if a vm environment is detected, we simply find all the services another way.
+		pmSvcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, log)
+		if err != nil {
+			log.Errorf("failed to get services in the env, error: %s", err)
+			return nil, err
+		}
+
+		if targetServiceCount == 0 {
+			for _, svc := range pmSvcList {
+				entry := &VMEnvService{
+					ServiceName: svc.ServiceDisplayName,
+					EnvStatus:   svc.EnvStatuses,
+				}
+				if entry.ServiceName == "" {
+					entry.ServiceName = svc.ServiceName
+				}
+				vmServiceList = append(vmServiceList, entry)
+			}
+		} else {
+			for _, svc := range pmSvcList {
+				if _, ok := targetServiceMap[svc.ServiceName]; ok {
+					entry := &VMEnvService{
+						ServiceName: svc.ServiceDisplayName,
+						EnvStatus:   svc.EnvStatuses,
+					}
+					if entry.ServiceName == "" {
+						entry.ServiceName = svc.ServiceName
+					}
+					vmServiceList = append(vmServiceList, entry)
+				}
+			}
 		}
 	} else {
-		for _, svc := range svcList {
-			if _, ok := targetServiceMap[svc.ServiceName]; ok {
+		// if the project is non-vm, we do it normally.
+		_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, "", math.MaxInt, 1, log)
+		if err != nil {
+			log.Errorf("failed to get workloads in the env, error: %s", err)
+			return nil, err
+		}
+
+		// if none of the service is configured, return all the services
+		if targetServiceCount == 0 {
+			for _, svc := range svcList {
 				entry := &EnvService{
 					ServiceName: svc.ServiceDisplayName,
 					Status:      svc.Status,
@@ -301,16 +337,33 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 					entry.ServiceName = svc.ServiceName
 				}
 				serviceList = append(serviceList, entry)
+
+			}
+		} else {
+			for _, svc := range svcList {
+				if _, ok := targetServiceMap[svc.ServiceName]; ok {
+					entry := &EnvService{
+						ServiceName: svc.ServiceDisplayName,
+						Status:      svc.Status,
+						Image:       svc.Images[0],
+					}
+					if entry.ServiceName == "" {
+						entry.ServiceName = svc.ServiceName
+					}
+					serviceList = append(serviceList, entry)
+				}
 			}
 		}
 	}
+
 	return &EnvResponse{
 		Name:        envName,
 		ProjectName: projectName,
-		UpdateTime:  productInfo.UpdateTime,
-		UpdatedBy:   productInfo.UpdateBy,
-		ClusterID:   productInfo.ClusterID,
+		UpdateTime:  envInfo.UpdateTime,
+		UpdatedBy:   envInfo.UpdateBy,
+		ClusterID:   envInfo.ClusterID,
 		Services:    serviceList,
+		VMServices:  vmServiceList,
 	}, nil
 }
 
