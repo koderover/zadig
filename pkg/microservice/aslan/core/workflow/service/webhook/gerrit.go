@@ -66,8 +66,6 @@ func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log 
 		log.Errorf("processGerritHook json.Unmarshal err : %v", err)
 		return fmt.Errorf("this event is not supported")
 	}
-	//同步yaml数据
-	//同步yaml数据
 	if gerritTypeEventObj.Type == changeMergedEventType {
 		err := updateServiceTemplateByGerritEvent(req.RequestURI, log)
 		if err != nil {
