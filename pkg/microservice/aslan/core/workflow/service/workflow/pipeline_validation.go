@@ -295,6 +295,9 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 		}(build)
 	}
 	wg.Wait()
+	for _, build := range builds {
+		log.Errorf("#### build: %+v", build)
+	}
 	return nil
 }
 
