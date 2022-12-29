@@ -129,8 +129,8 @@ type EnvResponse struct {
 	UpdateTime  int64           `json:"update_time"`
 	UpdatedBy   string          `json:"updated_by"`
 	ClusterID   string          `json:"cluster_id"`
-	Services    []*EnvService   `json:"services"`
-	VMServices  []*VMEnvService `json:"vm_services"`
+	Services    []*EnvService   `json:"services,omitempty"`
+	VMServices  []*VMEnvService `json:"vm_services,omitempty"`
 }
 
 type EnvService struct {
