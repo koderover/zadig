@@ -200,7 +200,6 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
 		PipelineName: options.PipelineName,
 		TaskID:       options.TaskID,
-		TaskType:     options.SubTask,
 		ServiceName:  options.ServiceName,
 		PipelineType: options.PipelineType,
 	})).AsSelector()
