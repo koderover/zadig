@@ -199,6 +199,8 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	if options.SubTask == "" {
 		options.SubTask = string(config.TaskBuild)
 	}
+	options.SubTask = strings.Replace(options.SubTask, "_", "-", -1)
+
 	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
 		PipelineName: options.PipelineName,
 		TaskID:       options.TaskID,
