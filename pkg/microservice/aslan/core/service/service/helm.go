@@ -798,15 +798,6 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 	filePaths = createFromRepo.Paths
 	base = path.Join(config.S3StoragePath(), createFromRepo.Repo)
 
-	//if codehostDetail.Type == setting.SourceFromGerrit {
-	//	_ = os.RemoveAll(base)
-	//	err = command.RunGitCmds(codehostDetail, createFromRepo.Owner, createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, "origin")
-	//	if err != nil {
-	//		log.Errorf("Failed to clone the repo, namespace: [%s], name: [%s], branch: [%s], error: %s", createFromRepo.Namespace, createFromRepo.Repo, createFromRepo.Branch, err)
-	//		return nil, err
-	//	}
-	//}
-
 	helmRenderCharts := make([]*templatemodels.ServiceRender, 0, len(filePaths))
 	var wg wait.Group
 	var mux sync.RWMutex

@@ -178,7 +178,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		log.Infof("###### handling gerrit webhooks, newYamlContent: %s ", newYamlContent)
 		log.Infof("###### handling gerrit webhooks, oldYamlContent: %s ", oldYamlContent)
 
-		if strings.Compare(newYamlContent, oldYamlContent) != 0 {
+		if strings.Compare(newYamlContent, oldYamlContent) != 0 || service.Type == setting.HelmDeployType {
 			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.LoadPath)
 			service.CreateBy = "system"
 			service.Yaml = newYamlContent
