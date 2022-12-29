@@ -33,7 +33,6 @@ import (
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type LoadServiceFromYamlTemplateReq struct {
@@ -115,32 +114,8 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 		return err
 	}
 
-	// raw yaml content will be saved, only system vars are render
-	renderedYaml := renderSystemVars(template.Content, projectName, serviceName)
-	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
-	if err != nil {
-		return err
-	}
-
-	svc := &commonmodels.Service{
-		ServiceName:  serviceName,
-		Type:         setting.K8SDeployType,
-		ProductName:  projectName,
-		Source:       setting.ServiceSourceTemplate,
-		Yaml:         renderedYaml,
-		RenderedYaml: fullRenderedYaml,
-		Visibility:   setting.PrivateVisibility,
-		TemplateID:   templateID,
-		AutoSync:     autoSync,
-		ServiceVars:  service.ServiceVars,
-		VariableYaml: req.VariableYaml,
-		CreateFrom:   geneCreateFromDetail(templateID, req.VariableYaml),
-	}
-	_, err = CreateServiceTemplate(username, svc, true, logger)
-	if err != nil {
-		logger.Errorf("Failed to create service template from template ID: %s, the error is: %s", service.TemplateID, err)
-	}
-	return err
+	service.AutoSync = autoSync
+	return reloadServiceFromYamlTemplateImpl(username, projectName, template, service, req.VariableYaml)
 }
 
 func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger *zap.SugaredLogger) (string, error) {
@@ -434,22 +409,11 @@ func buildChartTemplateVariables(service *commonmodels.Service, template *common
 	return variables, customYaml, nil
 }
 
-func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
-	//extract variables from current service
-	variableYaml, err := buildYamlTemplateVariables(service, template)
-	if err != nil {
-		return err
-	}
-
+func reloadServiceFromYamlTemplateImpl(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service, variableYaml string) error {
 	renderedYaml := renderSystemVars(template.Content, projectName, service.ServiceName)
 	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
 	if err != nil {
 		return err
-	}
-
-	mergedValue, err := yamlutil.Merge([][]byte{[]byte(template.VariableYaml), []byte(service.VariableYaml)})
-	if err != nil {
-		return fmt.Errorf("failed to merge variable value, err: %s", err)
 	}
 
 	serviceVars := service.ServiceVars
@@ -467,9 +431,9 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		RenderedYaml: fullRenderedYaml,
 		Visibility:   setting.PrivateVisibility,
 		ServiceVars:  serviceVars,
-		VariableYaml: string(mergedValue),
+		VariableYaml: variableYaml,
 		TemplateID:   service.TemplateID,
-		CreateFrom:   service.CreateFrom,
+		CreateFrom:   geneCreateFromDetail(service.TemplateID, variableYaml),
 		AutoSync:     service.AutoSync,
 	}
 	_, err = CreateServiceTemplate(userName, svc, true, log.SugaredLogger())
@@ -477,4 +441,15 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		return fmt.Errorf("failed to reload service template from template ID: %s, error : %s", service.TemplateID, err)
 	}
 	return nil
+}
+
+func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
+	//extract variables from current service
+	// merge service variable and yaml variable
+	variableYaml, err := buildYamlTemplateVariables(service, template)
+	if err != nil {
+		return err
+	}
+
+	return reloadServiceFromYamlTemplateImpl(userName, projectName, template, service, variableYaml)
 }
