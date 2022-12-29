@@ -75,13 +75,13 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 			log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
 			return res
 		}
-		rederedYaml, err := kube.RenderService(env, renderset, productService)
+		rederedYaml, err := kube.RenderEnvService(env, renderset, productService)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return res
 		}
 
-		manifests := releaseutil.SplitManifests(*rederedYaml)
+		manifests := releaseutil.SplitManifests(rederedYaml)
 		for _, item := range manifests {
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 			if err != nil {

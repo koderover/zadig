@@ -71,13 +71,19 @@ func UpdateService(c *gin.Context) {
 		return
 	}
 
+	if c.Param("serviceName") != svcRev.ServiceName {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName not match")
+		return
+	}
+
 	args := &service.SvcOptArgs{
-		EnvName:     envName,
-		ProductName: projectName,
-		ServiceName: c.Param("serviceName"),
-		ServiceType: c.Query("serviceType"),
-		ServiceRev:  svcRev,
-		UpdateBy:    ctx.UserName,
+		EnvName:           envName,
+		ProductName:       projectName,
+		ServiceName:       c.Param("serviceName"),
+		ServiceType:       svcRev.Type,
+		ServiceRev:        svcRev,
+		UpdateBy:          ctx.UserName,
+		UpdateServiceTmpl: svcRev.UpdateServiceTmpl,
 	}
 
 	ctx.Err = service.UpdateService(args, ctx.Logger)

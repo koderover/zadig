@@ -113,7 +113,7 @@ type DeliveryChartData struct {
 	ChartData      *CreateHelmDeliveryVersionChartData
 	ServiceObj     *commonmodels.Service
 	ProductService *commonmodels.ProductService
-	RenderChart    *template.RenderChart
+	RenderChart    *template.ServiceRender
 	RenderSet      *commonmodels.RenderSet
 	ValuesInEnv    map[string]interface{}
 }
@@ -820,7 +820,7 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 	if err != nil {
 		return nil, fmt.Errorf("failed to find renderSet: %s, revision: %d", productInfo.Render.Name, productInfo.Render.Revision)
 	}
-	chartMap := make(map[string]*template.RenderChart)
+	chartMap := make(map[string]*template.ServiceRender)
 	for _, rChart := range renderSet.ChartInfos {
 		chartMap[rChart.ServiceName] = rChart
 	}

@@ -142,6 +142,21 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	return resp, count, nil
 }
 
+func (c *WorkflowTaskv4Coll) GetLatest(workflowName string) (*models.WorkflowTask, error) {
+	resp := new(models.WorkflowTask)
+	query := bson.M{}
+	query["workflow_name"] = workflowName
+
+	findOption := options.FindOne()
+	findOption.SetSort(bson.D{{"create_time", -1}})
+
+	err := c.FindOne(context.TODO(), query, findOption).Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *WorkflowTaskv4Coll) FindTodoTasksByWorkflowName(workflowName string) ([]*models.WorkflowTask, error) {
 	ret := make([]*models.WorkflowTask, 0)
 	query := bson.M{"status": bson.M{"$in": []string{"waiting", "queued", "created", "running", "blocked"}}}

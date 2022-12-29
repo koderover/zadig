@@ -146,7 +146,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
 		IsDefault:   true,
-		KVs:         kvs,
+		//KVs:         kvs,
 	}, log)
 
 	if err != nil {
@@ -223,7 +223,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
 		IsDefault:   true,
-		KVs:         kvs,
+		//KVs:         kvs,
 	}, log); err != nil {
 		log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 	}
@@ -236,16 +236,16 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 			ProductTmpl: args.ProductName,
 			UpdateBy:    args.UpdateBy,
 			IsDefault:   false,
-			KVs:         envVars.Vars,
+			//KVs:         envVars.Vars,
 		}, log); err != nil {
 			log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 		}
 	}
 
-	// 更新子环境渲染集
-	if err = commonservice.UpdateSubRenderSet(args.ProductName, kvs, log); err != nil {
-		log.Warnf("ProductTmpl.Update UpdateSubRenderSet error: %v", err)
-	}
+	//// 更新子环境渲染集
+	//if err = commonservice.UpdateSubRenderSet(args.ProductName, kvs, log); err != nil {
+	//	log.Warnf("ProductTmpl.Update UpdateSubRenderSet error: %v", err)
+	//}
 
 	return nil
 }
@@ -396,12 +396,6 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 				Type:        svcTemplate.Type,
 				Revision:    svcTemplate.Revision,
 				Containers:  svcTemplate.Containers,
-				Render: &commonmodels.RenderInfo{
-					Name:        rendersetInfo.Name,
-					Revision:    rendersetInfo.Revision,
-					ProductTmpl: rendersetInfo.ProductTmpl,
-					Description: rendersetInfo.Description,
-				},
 			})
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
@@ -652,6 +646,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	return nil
 }
 
+// ForkProduct Deprecated
 func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
@@ -711,7 +706,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 		EnvName:         args.EnvName,
 		Services:        svcs,
 		Source:          setting.HelmDeployType,
-		ChartInfos:      prodTmpl.ChartInfos,
+		ServiceRenders:  prodTmpl.ChartInfos,
 		IsForkedProduct: true,
 	}
 

@@ -42,9 +42,12 @@ func PreloadFiles(name, localBase, s3Base, source string, logger *zap.SugaredLog
 
 	switch source {
 	case setting.SourceFromGerrit:
-		if err = DownloadAndCopyFilesFromGerrit(name, localBase, logger); err != nil {
-			logger.Errorf("Failed to download files from s3, err: %s", err)
-			return err
+		if err = DownloadAndExtractFilesFromS3(name, localBase, s3Base, logger); err != nil {
+			logger.Errorf("Failed to download files from s3: %s, err: %s", s3Base, err)
+			if err = DownloadAndCopyFilesFromGerrit(name, localBase, logger); err != nil {
+				logger.Errorf("Failed to download files from s3, err: %s", err)
+				return err
+			}
 		}
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		if err = DownloadAndCopyFilesFromGitee(name, localBase, logger); err != nil {
@@ -53,7 +56,7 @@ func PreloadFiles(name, localBase, s3Base, source string, logger *zap.SugaredLog
 		}
 	default:
 		if err = DownloadAndExtractFilesFromS3(name, localBase, s3Base, logger); err != nil {
-			logger.Errorf("Failed to download files from s3, err: %s", err)
+			logger.Errorf("Failed to download files from s3: %s, err: %s", s3Base, err)
 			return err
 		}
 	}

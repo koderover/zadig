@@ -36,7 +36,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commontpl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -202,15 +201,16 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 	}
 
 	namespace := product.Namespace
-	renderSet, err := commonservice.GetRenderSet(namespace, 0, false, product.EnvName, log)
-	if err != nil {
-		log.Errorf("Failed to find render set for product template %s, err: %v", product.ProductName, err)
-		return err
-	}
+	//renderSet, err := commonservice.GetRenderSet(namespace, 0, false, product.EnvName, log)
+	//if err != nil {
+	//	log.Errorf("Failed to find render set for product template %s, err: %v", product.ProductName, err)
+	//	return err
+	//}
 	for key, value := range cm.Data {
-		for _, kv := range renderSet.KVs {
-			value = strings.Replace(value, kv.Alias, kv.Value, -1)
-		}
+		// TODO  need fill variable yaml?
+		//for _, kv := range renderSet.KVs {
+		//	value = strings.Replace(value, kv.Alias, kv.Value, -1)
+		//}
 		value = kube.ParseSysKeys(product.Namespace, product.EnvName, product.ProductName, args.ServiceName, value)
 		cm.Data[key] = value
 	}

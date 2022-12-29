@@ -32,6 +32,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -64,8 +65,21 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	svc := &commonmodels.ProductService{
 		ServiceName: args.ServiceName,
 		Type:        args.ServiceType,
-		Revision:    args.ServiceRev.NextRevision,
-		Containers:  args.ServiceRev.Containers,
+		//Revision:    args.ServiceRev.NextRevision,
+		Revision:   0,
+		Containers: args.ServiceRev.Containers,
+	}
+
+	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
+	exitedProd, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		k.log.Error(err)
+		return errors.New(e.UpsertServiceErrMsg)
+	}
+
+	currentProductSvc := exitedProd.GetServiceMap()[svc.ServiceName]
+	if currentProductSvc == nil {
+		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service: %s in env: %s", svc.ServiceName, exitedProd.EnvName))
 	}
 
 	project, err := templaterepo.NewProductColl().Find(args.ProductName)
@@ -74,16 +88,41 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return err
 	}
 	serviceInfo := project.GetServiceInfo(args.ServiceName)
-	if serviceInfo == nil {
-		return fmt.Errorf("service %s not found", args.ServiceName)
+	if serviceInfo != nil {
+		svc.ProductName = serviceInfo.Owner
+	} else {
+		svc.ProductName = currentProductSvc.ProductName
 	}
-	svc.ProductName = serviceInfo.Owner
 
-	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
-	exitedProd, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		k.log.Error(err)
-		return errors.New(e.UpsertServiceErrMsg)
+	svc.Containers = currentProductSvc.Containers
+
+	if !args.UpdateServiceTmpl {
+		svc.Revision = currentProductSvc.Revision
+	} else {
+		latestSvcRevision, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			ServiceName: svc.ServiceName,
+			ProductName: svc.ProductName,
+		})
+		if err != nil {
+			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
+		}
+		svc.Revision = latestSvcRevision.Revision
+
+		containerMap := make(map[string]*commonmodels.Container)
+		for _, container := range latestSvcRevision.Containers {
+			containerMap[container.Name] = container
+		}
+
+		for _, container := range svc.Containers {
+			if _, ok := containerMap[container.Name]; ok {
+				containerMap[container.Name] = container
+			}
+		}
+
+		svc.Containers = make([]*commonmodels.Container, 0)
+		for _, container := range containerMap {
+			svc.Containers = append(svc.Containers, container)
+		}
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
@@ -116,28 +155,42 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddDesc(e.EnvCantUpdatedMsg)
 	}
 
-	// 适配老的产品没有renderset为空的情况
-	if exitedProd.Render == nil {
-		exitedProd.Render = &commonmodels.RenderInfo{ProductTmpl: exitedProd.ProductName}
+	exitedProd.EnsureRenderInfo()
+	curRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		Name:     exitedProd.Render.Name,
+		EnvName:  exitedProd.EnvName,
+		Revision: exitedProd.Render.Revision,
+	})
+	for _, svc := range curRenderset.ServiceVariables {
+		if svc.ServiceName != args.ServiceName {
+			continue
+		}
+		svc.OverrideYaml = &template.CustomYaml{YamlContent: args.ServiceRev.VariableYaml}
 	}
-	// 检查renderset是否覆盖服务所有key
-	newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
+	err = commonservice.CreateK8sHelmRenderSet(curRenderset, k.log)
 	if err != nil {
-		k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
-		return e.ErrUpdateProduct.AddDesc(err.Error())
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
 	}
-	svc.Render = &commonmodels.RenderInfo{Name: newRender.Name, Revision: newRender.Revision, ProductTmpl: newRender.ProductTmpl}
+
+	//// generate new renderset
+	//newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
+	//if err != nil {
+	//	k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
+	//	return e.ErrUpdateProduct.AddDesc(err.Error())
+	//}
+	preRevision := exitedProd.Render
+	exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
 
 	_, err = upsertService(
-		true,
 		exitedProd,
 		svc,
-		exitedProd.GetServiceMap()[svc.ServiceName],
-		newRender, inf, kubeClient, istioClient, k.log)
+		currentProductSvc,
+		curRenderset, preRevision, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
 		k.log.Error(err)
+		svc.Error = err.Error()
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
 
@@ -263,7 +316,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(false, prod, svc, nil, renderSet, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, nil, renderSet, nil, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {
@@ -272,6 +325,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				default:
 					errList = multierror.Append(errList, e)
 				}
+				svc.Error = err.Error()
 				lock.Unlock()
 			}
 

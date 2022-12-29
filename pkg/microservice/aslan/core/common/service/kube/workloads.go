@@ -69,14 +69,14 @@ func FetchRelatedWorkloads(namespace, serviceName string,
 		log.Errorf("failed to find renderset for env: %s, err: %v", productInfo.EnvName, err)
 		return nil, nil, fmt.Errorf("failed to find renderset for env: %s/%s, err: %v", productInfo.ProductName, productInfo.EnvName, err)
 	}
-	rederedYaml, err := RenderService(productInfo, renderset, productService)
+	rederedYaml, err := RenderEnvService(productInfo, renderset, productService)
 	if err != nil {
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return nil, nil, fmt.Errorf("failed to render service yaml, err: %s", err)
 	}
 
 	deploys, stss := make([]*appsv1.Deployment, 0), make([]*appsv1.StatefulSet, 0)
-	manifests := util.SplitManifests(*rederedYaml)
+	manifests := util.SplitManifests(rederedYaml)
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		if err != nil {

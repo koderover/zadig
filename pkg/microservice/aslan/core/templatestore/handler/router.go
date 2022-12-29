@@ -61,8 +61,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		yaml.DELETE("/:id", DeleteYamlTemplate)
 		yaml.GET("/:id/reference", GetYamlTemplateReference)
 		yaml.POST("/:id/reference", SyncYamlTemplateReference)
-		yaml.POST("/getVariables", GetYamlTemplateVariables) //Deprecated
 		yaml.POST("/validateVariable", ValidateTemplateVariables)
+		yaml.POST("/extractVariable", ExtractTemplateVariables)
+		yaml.POST("/flatkvs", GetFlatKvs)
 	}
 
 	build := router.Group("build")

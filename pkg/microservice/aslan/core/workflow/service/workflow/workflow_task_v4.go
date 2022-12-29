@@ -393,6 +393,17 @@ func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *za
 	return resp, total, nil
 }
 
+func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, error) {
+	resp, err := commonrepo.NewworkflowTaskv4Coll().GetLatest(workflowName)
+	if err != nil {
+		return nil, err
+	}
+	resp.WorkflowArgs = nil
+	resp.OriginWorkflowArgs = nil
+	resp.Stages = nil
+	return resp, nil
+}
+
 // clean extra message for list workflow
 func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 	for _, workflow := range workflows {

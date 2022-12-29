@@ -701,22 +701,45 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR Product Find err:%v", err)
 	}
+	baseRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Name:      baseProduct.Render.Name,
+		Revision:  baseProduct.Render.Revision,
+		IsDefault: false,
+	})
+	if err != nil {
+		return fmt.Errorf("CreateEnvAndTaskByPR renderset Find err:%v", err)
+	}
 
 	mutex.Lock()
 	defer func() {
 		mutex.Unlock()
 	}()
-	if baseProduct.Render != nil {
-		if renderSet, _ := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: baseProduct.Render.Name, Revision: baseProduct.Render.Revision, ProductTmpl: baseProduct.ProductName}); renderSet != nil {
-			baseProduct.Vars = renderSet.KVs
-		}
-	}
+	//if baseProduct.Render != nil {
+	//	if renderSet, _ := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: baseProduct.Render.Name, Revision: baseProduct.Render.Revision, ProductTmpl: baseProduct.ProductName}); renderSet != nil {
+	//		baseProduct.Vars = renderSet.KVs
+	//	}
+	//}
 
 	envName := fmt.Sprintf("%s-%d-%s%s", "pr", prID, util.GetRandomNumString(3), util.GetRandomString(3))
 	util.Clear(&baseProduct.ID)
 	baseProduct.Namespace = commonservice.GetProductEnvNamespace(envName, workflowArgs.ProductTmplName, "")
 	baseProduct.UpdateBy = setting.SystemUser
 	baseProduct.EnvName = envName
+
+	// set renderset info
+	baseRenderset.Revision = 0
+	baseRenderset.EnvName = envName
+	baseRenderset.Name = baseProduct.Namespace
+	err = commonservice.ForceCreateReaderSet(baseRenderset, log)
+	if err != nil {
+		return fmt.Errorf("CreateEnvAndTaskByPR renderset create err:%v", err)
+	}
+	baseProduct.Render = &commonmodels.RenderInfo{
+		Name:        baseRenderset.Name,
+		Revision:    baseRenderset.Revision,
+		ProductTmpl: baseRenderset.ProductTmpl,
+	}
+
 	err = environmentservice.CreateProduct(setting.SystemUser, requestID, baseProduct, log)
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR CreateProduct err:%v", err)

@@ -36,6 +36,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflows.GET("testName/:testName", ListTestWorkflows)
 		workflows.GET("", ListWorkflows)
 		workflows.GET("v3", ListWorkflowsV3)
+		workflows.GET("all", ListAllWorkflows)
 	}
 
 	rolebindings := router.Group("bindings")

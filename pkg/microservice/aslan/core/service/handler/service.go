@@ -118,6 +118,22 @@ func UpdateServiceTemplate(c *gin.Context) {
 	ctx.Err = svcservice.UpdateServiceVisibility(args)
 }
 
+func UpdateServiceVariable(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonservice.ServiceTmplObject)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	args.ProductName = c.Query("projectName")
+	args.ServiceName = c.Param("name")
+	args.Username = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s", args.ServiceName), "", ctx.Logger)
+	ctx.Err = svcservice.UpdateServiceVariables(args)
+}
+
 func UpdateServiceHealthCheckStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

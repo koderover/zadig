@@ -369,7 +369,7 @@ func loadChartFilesInfo(productName, serviceName string, revision int64, dir str
 	return fis, nil
 }
 
-//prepare chart version data
+// prepare chart version data
 func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) error {
 	productName := prod.ProductName
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
@@ -428,13 +428,13 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	if err != nil {
 		return nil, e.ErrGetHelmCharts.AddErr(err)
 	}
-	renderSet, err := FindHelmRenderSet(productName, prod.Render.Name, prod.EnvName, log)
+	renderSet, err := FindProductRenderSet(productName, prod.Render.Name, prod.EnvName, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] find product renderset error: %v", envName, productName, err)
 		return nil, e.ErrGetHelmCharts.AddErr(err)
 	}
 
-	chartMap := make(map[string]*template.RenderChart)
+	chartMap := make(map[string]*template.ServiceRender)
 	for _, chart := range renderSet.ChartInfos {
 		chartMap[chart.ServiceName] = chart
 	}

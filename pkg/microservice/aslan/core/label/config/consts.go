@@ -16,6 +16,8 @@ limitations under the License.
 
 package config
 
+import "github.com/koderover/zadig/pkg/setting"
+
 type ResourceType string
 
 const (
@@ -23,3 +25,17 @@ const (
 	ResourceTypeCommonWorkflow ResourceType = "CommonWorkflow"
 	ResourceTypeEnvironment    ResourceType = "Environment"
 )
+
+func GetWorkflowResourceType(workflowType string) string {
+	if IsCustomWorkflow(workflowType) {
+		return string(ResourceTypeCommonWorkflow)
+	}
+	return string(ResourceTypeWorkflow)
+}
+
+func IsCustomWorkflow(workflowType string) bool {
+	if workflowType == setting.CustomWorkflowType || workflowType == string(setting.ReleaseWorkflow) {
+		return true
+	}
+	return false
+}

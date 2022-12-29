@@ -244,20 +244,24 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			)
 		}
 
+		env.EnsureRenderInfo()
 		renderSetFindOpt := &commonrepo.RenderSetFindOption{
 			Name:        env.Render.Name,
-			Revision:    service.Render.Revision,
+			Revision:    env.Render.Revision,
 			ProductTmpl: env.ProductName,
 			EnvName:     envName,
 		}
 		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
 		if err != nil {
-			log.Errorf("find renderset[%s] error: %v", service.Render.Name, err)
-			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", service.Render.Name))
+			log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
 		}
 
-		// 渲染配置集
-		parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, rs)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs, svcTmpl.ServiceVars)
+		if err != nil {
+			log.Errorf("failed to render service yaml, err: %s", err)
+			return nil, err
+		}
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
 
@@ -273,7 +277,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			case setting.Deployment:
 				d, found, err := getter.GetDeployment(namespace, u.GetName(), kubeClient)
 				if err != nil || !found {
-					log.Warnf("failed to get deployment %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+					//log.Warnf("failed to get deployment %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
@@ -282,7 +286,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			case setting.StatefulSet:
 				sts, found, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
 				if err != nil || !found {
-					log.Warnf("failed to get statefulSet %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+					//log.Warnf("failed to get statefulSet %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
@@ -298,7 +302,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				if kubeclient.VersionLessThan122(version) {
 					ing, found, err := getter.GetExtensionsV1Beta1Ingress(namespace, u.GetName(), inf)
 					if err != nil || !found {
-						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						//log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 						continue
 					}
 
@@ -306,7 +310,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				} else {
 					ing, err := getter.GetNetworkingV1Ingress(namespace, u.GetName(), inf)
 					if err != nil {
-						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						//log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 						continue
 					}
 
@@ -324,7 +328,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			case setting.Service:
 				svc, found, err := getter.GetService(namespace, u.GetName(), kubeClient)
 				if err != nil || !found {
-					log.Warnf("no svc %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+					//log.Warnf("no svc %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
@@ -431,46 +435,43 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	default:
 		var serviceTmpl *commonmodels.Service
 		var newRender *commonmodels.RenderSet
+		productObj.EnsureRenderInfo()
+		oldRenderInfo := productObj.Render
 		var productService *commonmodels.ProductService
-		for _, group := range productObj.Services {
-			for _, serviceObj := range group {
-				if serviceObj.ServiceName == args.ServiceName {
-					productService = serviceObj
-					serviceTmpl, err = commonservice.GetServiceTemplate(
-						serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, setting.ProductStatusDeleting, serviceObj.Revision, log,
-					)
-					if err != nil {
-						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-						return
-					}
-					opt := &commonrepo.RenderSetFindOption{
-						Name:        serviceObj.Render.Name,
-						Revision:    serviceObj.Render.Revision,
-						ProductTmpl: productObj.ProductName,
-						EnvName:     productObj.EnvName,
-					}
-					newRender, err = commonrepo.NewRenderSetColl().Find(opt)
-					if err != nil {
-						log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
-						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-						return
-					}
-					break
-				}
+
+		if serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]; ok {
+			productService = serviceObj
+			serviceTmpl, err = commonservice.GetServiceTemplate(serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, "", serviceObj.Revision, log)
+			if err != nil {
+				err = e.ErrRestartService.AddErr(err)
+				return
+			}
+			opt := &commonrepo.RenderSetFindOption{
+				Name:        oldRenderInfo.Name,
+				Revision:    oldRenderInfo.Revision,
+				ProductTmpl: productObj.ProductName,
+				EnvName:     productObj.EnvName,
+			}
+			newRender, err = commonrepo.NewRenderSetColl().Find(opt)
+			if err != nil {
+				log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
+				err = e.ErrRestartService.AddErr(err)
+				return
 			}
 		}
+
 		if serviceTmpl != nil && newRender != nil && productService != nil {
 			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 			_, err = upsertService(
-				true,
 				productObj,
 				productService,
 				productService,
-				newRender, inf, kubeClient, istioClient, log)
+				newRender, oldRenderInfo, inf, kubeClient, istioClient, log)
 
 			// 如果创建依赖服务组有返回错误, 停止等待
 			if err != nil {
-				log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+				log.Errorf("failed to upsert service, err:%v", err)
+				err = e.ErrRestartService.AddErr(err)
 				return
 			}
 			if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {

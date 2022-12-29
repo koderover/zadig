@@ -85,12 +85,12 @@ type ProductResp struct {
 }
 
 type ProductRenderset struct {
-	Name        string                        `bson:"name"                     json:"name"`
-	Revision    int64                         `bson:"revision"                 json:"revision"`
-	EnvName     string                        `bson:"env_name,omitempty"       json:"env_name,omitempty"`
-	ProductTmpl string                        `bson:"product_tmpl"             json:"product_tmpl"`
-	YamlData    *templatemodels.CustomYaml    `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
-	ChartInfos  []*templatemodels.RenderChart `bson:"chart_infos,omitempty"    json:"chart_infos,omitempty"`
+	Name        string                          `bson:"name"                     json:"name"`
+	Revision    int64                           `bson:"revision"                 json:"revision"`
+	EnvName     string                          `bson:"env_name,omitempty"       json:"env_name,omitempty"`
+	ProductTmpl string                          `bson:"product_tmpl"             json:"product_tmpl"`
+	YamlData    *templatemodels.CustomYaml      `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	ChartInfos  []*templatemodels.ServiceRender `bson:"chart_infos,omitempty"    json:"chart_infos,omitempty"`
 }
 
 type EnvConfig struct {
