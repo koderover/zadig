@@ -678,6 +678,94 @@ func DeleteWebhookForWorkflowV4(workflowName, triggerName string, logger *zap.Su
 	return nil
 }
 
+func CreateJiraHookForWorkflowV4(workflowName string, arg *models.JiraHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrCreateJiraHook.AddErr(err)
+	}
+	for _, hook := range workflow.JiraHookCtls {
+		if hook.Name == arg.Name {
+			errMsg := fmt.Sprintf("jira hook %s already exists", arg.Name)
+			logger.Error(errMsg)
+			return e.ErrCreateJiraHook.AddDesc(errMsg)
+		}
+	}
+	if err := validateHookNames([]string{arg.Name}); err != nil {
+		logger.Errorf(err.Error())
+		return e.ErrCreateJiraHook.AddErr(err)
+	}
+	workflow.JiraHookCtls = append(workflow.JiraHookCtls, arg)
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to create jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrCreateJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func ListJiraHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*models.JiraHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrListJiraHook.AddErr(err)
+	}
+	return workflow.JiraHookCtls, nil
+}
+
+func UpdateJiraHookForWorkflowV4(workflowName string, arg *models.JiraHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrUpdateJiraHook.AddErr(err)
+	}
+	updated := false
+	for i, hook := range workflow.JiraHookCtls {
+		if hook.Name == arg.Name {
+			workflow.JiraHookCtls[i] = arg
+			updated = true
+		}
+	}
+	if !updated {
+		errMsg := fmt.Sprintf("failed to find jira hook %s", arg.Name)
+		log.Error(errMsg)
+		return e.ErrUpdateJiraHook.AddDesc(errMsg)
+	}
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to update jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrUpdateJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func DeleteJiraHookForWorkflowV4(workflowName, hookName string, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrDeleteJiraHook.AddErr(err)
+	}
+	var list []*models.JiraHook
+	for _, ctl := range workflow.JiraHookCtls {
+		if ctl.Name == hookName {
+			continue
+		}
+		list = append(list, ctl)
+	}
+	if len(list) == len(workflow.JiraHookCtls) {
+		errMsg := fmt.Sprintf("jira hook %s not found", hookName)
+		log.Error(errMsg)
+		return e.ErrDeleteJiraHook.AddDesc(errMsg)
+	}
+	workflow.JiraHookCtls = list
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to delete jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrDeleteJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
 func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.SugaredLogger) error {
 	var workflows []commonrepo.WorkflowV4
 

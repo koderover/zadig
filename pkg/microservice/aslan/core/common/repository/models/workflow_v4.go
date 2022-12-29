@@ -45,6 +45,7 @@ type WorkflowV4 struct {
 	MultiRun       bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
 	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
 	HookCtls       []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
+	JiraHookCtls   []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
 	NotificationID string                   `bson:"notification_id"     yaml:"-"                   json:"notification_id"`
 	HookPayload    *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
 	BaseName       string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
@@ -388,6 +389,13 @@ type WorkflowV4Hook struct {
 	Description         string              `bson:"description,omitempty"     json:"description,omitempty"`
 	Repos               []*types.Repository `bson:"-"                         json:"repos,omitempty"`
 	WorkflowArg         *WorkflowV4         `bson:"workflow_arg"              json:"workflow_arg"`
+}
+
+type JiraHook struct {
+	Name        string      `bson:"name" json:"name"`
+	Enabled     bool        `bson:"enabled" json:"enabled"`
+	Description string      `bson:"description" json:"description"`
+	WorkflowArg *WorkflowV4 `bson:"workflow_arg" json:"workflow_arg"`
 }
 
 type Param struct {

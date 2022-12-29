@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/jira"
 )
 
 func ListProjectManagement(c *gin.Context) {
@@ -92,4 +93,16 @@ func GetJiraTypes(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Query("project"))
+}
+
+func HandleJiraEvent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	event := new(jira.Event)
+	if err := c.ShouldBindJSON(event); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.HandleJiraHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
 }

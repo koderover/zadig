@@ -285,6 +285,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.GET("/jira/project", ListJiraProjects)
 		pm.GET("/jira/issue", SearchJiraIssues)
 		pm.GET("/jira/type", GetJiraTypes)
+		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
 	}
 }
 

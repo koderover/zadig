@@ -19,12 +19,18 @@ package service
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 
+	config2 "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	jira2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/jira"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/jira"
@@ -124,6 +130,67 @@ func SearchJiraIssues(project, _type, status string, ne bool) ([]*jira.Issue, er
 		}
 	}
 	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Issue.SearchByJQL(strings.Join(jql, " AND "))
+}
+
+func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logger *zap.SugaredLogger) error {
+	if event.Issue == nil || event.Issue.Key == "" {
+		logger.Errorf("HandleJiraHookEvent: nil issue or issue key, skip")
+		return nil
+	}
+	workflowInfo, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	var jiraHook *models.JiraHook
+	for _, hook := range workflowInfo.JiraHookCtls {
+		if hook.Name == hookName {
+			jiraHook = hook
+			break
+		}
+	}
+	if jiraHook == nil {
+		errMsg := fmt.Sprintf("Failed to find Jira hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	taskInfo, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+		Name: setting.JiraHookTaskCreator,
+	}, jiraHook.WorkflowArg, logger)
+	if err != nil {
+		errMsg := fmt.Sprintf("HandleJiraHookEvent: failed to create workflow task: %s", err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			task, err := mongodb.NewworkflowTaskv4Coll().Find(taskInfo.WorkflowName, taskInfo.TaskID)
+			if err != nil {
+				log.Errorf("HandleJiraHookEventWaiter: failed to find task %s-%d, err: %v", taskInfo.WorkflowName, taskInfo.TaskID, err)
+				return
+			}
+			if lo.Contains([]config.Status{config.StatusPassed, config.StatusFailed, config.StatusTimeout, config.StatusCancelled, config.StatusReject}, task.Status) {
+				statusMap := map[config.Status]string{
+					config.StatusPassed:    "成功",
+					config.StatusFailed:    "失败",
+					config.StatusTimeout:   "超时",
+					config.StatusCancelled: "取消",
+					config.StatusReject:    "拒绝",
+				}
+				msg := fmt.Sprintf("Zadig 工作流执行%s: ", statusMap[task.Status])
+				link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", config2.SystemAddress(), task.ProjectName, task.WorkflowName, task.TaskID)
+				err := jira2.SendComment(event.Issue.Key, msg, link, task.WorkflowDisplayName)
+				if err != nil {
+					log.Errorf("HandleJiraHookEventWaiter: send jira comment error: %v", err)
+				}
+				log.Infof("HandleJiraHookEventWaiter: send jira issue %s comment success", event.Issue.Key)
+				return
+			}
+		}
+	}()
+	return nil
 }
 
 func checkType(_type string) error {

@@ -787,4 +787,13 @@ var (
 	ErrGetProjectManagement      = NewHTTPError(6953, "获取项目管理集成失败")
 	ErrDeleteProjectManagement   = NewHTTPError(6954, "删除项目管理集成失败")
 	ErrValidateProjectManagement = NewHTTPError(6955, "校验项目管理集成失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// jira hook releated Error Range: 6960 - 6969
+	//-----------------------------------------------------------------------------------------------
+	ErrGetJiraHook    = NewHTTPError(6960, "获取 jira hook 详情失败")
+	ErrListJiraHook   = NewHTTPError(6961, "列出 jira hook 失败")
+	ErrCreateJiraHook = NewHTTPError(6962, "创建 jira hook 失败")
+	ErrUpdateJiraHook = NewHTTPError(6963, "更新 jira hook 失败")
+	ErrDeleteJiraHook = NewHTTPError(6964, "删除 jira hook 失败")
 )

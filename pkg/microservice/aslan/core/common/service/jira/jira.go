@@ -17,7 +17,10 @@
 package jira
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/jira"
 )
 
 type JiraInfo struct {
@@ -47,4 +50,13 @@ func GetJiraInfo() (*JiraInfo, error) {
 	}
 
 	return jira, nil
+}
+
+func SendComment(key, message, link, linkTitle string) error {
+	info, err := GetJiraInfo()
+	if err != nil {
+		return errors.Wrap(err, "get jira info")
+	}
+	client := jira.NewJiraClient(info.User, info.AccessToken, info.Host)
+	return client.Issue.AddComment(key, message, link, linkTitle)
 }

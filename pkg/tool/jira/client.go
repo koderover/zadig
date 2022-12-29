@@ -33,8 +33,11 @@ type Client struct {
 // NewJiraClient is to get jira client func
 func NewJiraClient(username, password, host string) *Client {
 	c := &Client{
-		Host:   host,
-		Client: req.C().SetCommonBasicAuth(username, password),
+		Host: host,
+		Client: req.C().SetCommonBasicAuth(username, password).SetCommonHeaders(map[string]string{
+			"X-Force-Accept-Language": "true",
+			"Accept-Language":         "en-US,en",
+		}),
 	}
 
 	c.Issue = &IssueService{client: c}

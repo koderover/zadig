@@ -17,11 +17,40 @@ limitations under the License.
 package jira
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/pkg/errors"
 )
+
+const commentTmpl = `{"body": {
+  "version": 1,
+  "type": "doc",
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "%s"
+        },
+        {
+          "type": "text",
+          "text": "%s",
+          "marks": [
+            {
+              "type": "link",
+              "attrs": {
+                "href": "%s"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}}`
 
 // IssueService ...
 type IssueService struct {
@@ -191,6 +220,19 @@ func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
 		}
 	}
 	return list, nil
+}
+
+func (s *IssueService) AddComment(key, comment, link, linkTitle string) error {
+	url := s.client.Host + "/rest/api/3/issue/" + key + "/comment"
+
+	resp, err := s.client.R().SetContentType("application/json").SetBody(fmt.Sprintf(commentTmpl, comment, linkTitle, link)).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return errors.Errorf("get unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	return nil
 }
 
 //// GetIssuesCountByJQL ...
