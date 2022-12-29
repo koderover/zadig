@@ -345,7 +345,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 
 				// 交叉对比已创建的配置和待更新配置模板
 				// 检查模板yaml渲染后是否有变化
-				if isRenderedStringUpdateble(currentServiceTmpl.Yaml, maxServiceTmpl.Yaml, oldRender, newRender, currentServiceTmpl.ServiceVars, maxServiceTmpl.ServiceVars) {
+				if isRenderedStringUpdatable(currentServiceTmpl, maxServiceTmpl, oldRender, newRender) {
 					serviceRev.Updatable = true
 				}
 
@@ -408,14 +408,17 @@ func getMaxServiceRevision(services []*commonmodels.Service, serviceName, produc
 	return resp, nil
 }
 
-func isRenderedStringUpdateble(currentString, nextString string, currentRender, nextRender *commonmodels.RenderSet, currentSvcVars, nextSvcVars []string) bool {
+func isRenderedStringUpdatable(currentSvc, nextSvc *commonmodels.Service, currentRender, nextRender *commonmodels.RenderSet) bool {
 	resp := false
-	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender, currentSvcVars)
+	currentString, nextString := currentSvc.Yaml, nextSvc.Yaml
+	currentSvcVars, nextSvcVars := currentSvc.ServiceVars, nextSvc.ServiceVars
+
+	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender, currentSvcVars, currentSvc.VariableYaml)
 	if err != nil {
 		log.Error("failed to check is RenderedString updatable, err: %s", err)
 		return false
 	}
-	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender, nextSvcVars)
+	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender, nextSvcVars, nextSvc.VariableYaml)
 	if err != nil {
 		log.Error("failed to check is RenderedString updatable, err: %s", err)
 		return false

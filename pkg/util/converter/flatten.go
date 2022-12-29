@@ -32,6 +32,9 @@ const (
 
 func YamlToFlatMap(data []byte) (map[string]interface{}, error) {
 	nested := make(map[string]interface{})
+	if len(data) == 0 {
+		return nested, nil
+	}
 	if err := yaml.Unmarshal(data, &nested); err != nil {
 		return nil, err
 	}
