@@ -336,6 +336,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	log.Debugf("Found %d running pods", len(pods))
 
 	if len(pods) > 0 {
+		log.Errorf("$$$ pod name: %s", pods[0].Name)
 		containerLogStream(
 			ctx, streamChan,
 			options.Namespace,
