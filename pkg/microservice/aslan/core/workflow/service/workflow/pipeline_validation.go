@@ -268,6 +268,9 @@ func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 
 // 外部触发任务设置build参数
 func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository, log *zap.SugaredLogger) error {
+	for _, build := range builds {
+		log.Errorf("$$$$ rep build: %+v", build)
+	}
 	for _, buildArg := range buildArgs {
 		// 同名repo修改主repo(没有主repo第一个同名为主)
 		applyBuildArgFlag := false
