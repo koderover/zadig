@@ -317,7 +317,7 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 				}
 			}
 		}
-	} else if projectInfo.ProductFeature.DeployType == "k8s" {
+	} else if projectInfo.ProductFeature.DeployType == "k8s" && projectInfo.ProductFeature.CreateEnvType == "system" {
 		// if the project is non-vm & k8s project, then we get the workloads in groups
 		svcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, log)
 		if err != nil {
