@@ -620,7 +620,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ProductName: args.ProductTmplName,
 				Variables:   target.Envs,
 				Env:         env,
-				BuildName:   target.BuildName,
+				BuildName:   getBuildName(workflow, target.Name, target.ServiceName),
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
@@ -1557,6 +1557,16 @@ func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTa
 			}
 		}
 	}
+	for _, build := range resp.Builds {
+		if workflowArgs.MergeRequestID == "" {
+			continue
+		}
+		mrID, _ := strconv.Atoi(workflowArgs.MergeRequestID)
+		if build.Source == workflowArgs.Source && build.RepoName == workflowArgs.RepoName && build.RepoOwner == workflowArgs.RepoOwner {
+			build.PR = mrID
+			build.PRs = []int{mrID}
+		}
+	}
 	return resp
 }
 
@@ -2076,6 +2086,9 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		err = fillBuildDetail(module, args.ServiceName, args.Target)
 		if err != nil {
 			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
+		if module.Name != args.BuildName {
+			continue
 		}
 		build := &taskmodels.Build{
 			TaskType:            config.TaskBuild,
@@ -2990,4 +3003,25 @@ func nextTargetID(subTasks map[string]map[string]interface{}, target string) str
 	}
 
 	return strconv.Itoa(count)
+}
+
+func getBuildName(workflow *commonmodels.Workflow, targetName, serviceName string) string {
+	if workflow == nil {
+		return ""
+	}
+	if workflow.BuildStage == nil {
+		return ""
+	}
+	if !workflow.BuildStage.Enabled {
+		return ""
+	}
+	for _, module := range workflow.BuildStage.Modules {
+		if module.Target == nil {
+			continue
+		}
+		if module.Target.ServiceName == serviceName && module.Target.ServiceModule == targetName {
+			return module.Target.BuildName
+		}
+	}
+	return ""
 }
