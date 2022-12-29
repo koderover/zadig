@@ -438,11 +438,16 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 		testName := strings.Replace(t.PipelineName, "-job", "", 1)
 		var mrID string
 		var source string
+		var repoOwner string
+		var repoName string
+
 		if t.TestArgs != nil {
 			mrID = t.TestArgs.MergeRequestID
 			source = t.TestArgs.Source
+			repoOwner = t.TestArgs.RepoOwner
+			repoName = t.TestArgs.RepoName
 		}
-		if testTask, err := TestArgsToTestSubtask(&commonmodels.TestTaskArgs{ProductName: t.ProductName, TestName: testName, TestTaskCreator: userName, MergeRequestID: mrID, Source: source}, t, log); err == nil {
+		if testTask, err := TestArgsToTestSubtask(&commonmodels.TestTaskArgs{ProductName: t.ProductName, TestName: testName, TestTaskCreator: userName, MergeRequestID: mrID, Source: source, RepoOwner: repoOwner, RepoName: repoName}, t, log); err == nil {
 			FmtBuilds(testTask.JobCtx.Builds, log)
 			if testSubTask, err := testTask.ToSubTask(); err == nil {
 				AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
@@ -628,7 +633,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 				pr, _ := strconv.Atoi(args.MergeRequestID)
 
 				for i, build := range testArg.Builds {
-					if build.Source == args.Source {
+					if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
 						testArg.Builds[i].PR = pr
 						testArg.Builds[i].PRs = []int{pr}
 					}
