@@ -620,7 +620,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ProductName: args.ProductTmplName,
 				Variables:   target.Envs,
 				Env:         env,
-				BuildName:   target.BuildName,
+				BuildName:   getBuildName(workflow, target.Name, target.ServiceName),
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
@@ -2087,6 +2087,9 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		if err != nil {
 			return nil, e.ErrConvertSubTasks.AddErr(err)
 		}
+		if module.Name != args.BuildName {
+			continue
+		}
 		build := &taskmodels.Build{
 			TaskType:            config.TaskBuild,
 			Enabled:             true,
@@ -3000,4 +3003,25 @@ func nextTargetID(subTasks map[string]map[string]interface{}, target string) str
 	}
 
 	return strconv.Itoa(count)
+}
+
+func getBuildName(workflow *commonmodels.Workflow, targetName, serviceName string) string {
+	if workflow == nil {
+		return ""
+	}
+	if workflow.BuildStage == nil {
+		return ""
+	}
+	if !workflow.BuildStage.Enabled {
+		return ""
+	}
+	for _, module := range workflow.BuildStage.Modules {
+		if module.Target == nil {
+			continue
+		}
+		if module.Target.ServiceName == serviceName && module.Target.ServiceModule == targetName {
+			return module.Target.BuildName
+		}
+	}
+	return ""
 }
