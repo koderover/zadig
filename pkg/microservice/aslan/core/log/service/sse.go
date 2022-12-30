@@ -185,6 +185,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		options.Namespace = config.Namespace()
 		// Compatible with the situation where the old data has not been modified
 		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" {
+			log.Infof("setting cluster info and namespace info according to build information")
 			// since there are 2 cases in this situation: if no template is used, then we use the old logic
 			if build.TemplateID == "" {
 				options.ClusterID = build.PreBuild.ClusterID
