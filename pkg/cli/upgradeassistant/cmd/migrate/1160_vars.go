@@ -22,11 +22,6 @@ import (
 	"fmt"
 	"strings"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"gopkg.in/yaml.v3"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	uamodel "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -36,6 +31,9 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"gopkg.in/yaml.v3"
 )
 
 type DataBulkUpdater struct {
@@ -331,24 +329,29 @@ func adjustSingleProductRender(product *uamodel.Product) error {
 		return nil
 	}
 
-	handledRenderRevisions := sets.NewInt64()
+	rendersetMap := make(map[int64]*uamodel.RenderSet)
+
 	usedSvcVariables := make(map[string]string)
 	for _, svc := range product.GetServiceMap() {
-		if svc.Render == nil || handledRenderRevisions.Has(svc.Render.Revision) {
+		if svc.Render == nil {
 			continue
 		}
-		handledRenderRevisions.Insert(svc.Render.Revision)
 
-		renderSet, err := uamongo.NewRenderSetColl().Find(&uamongo.RenderSetFindOption{
-			ProductTmpl: product.ProductName,
-			EnvName:     product.EnvName,
-			IsDefault:   false,
-			Revision:    svc.Render.Revision,
-			Name:        svc.Render.Name,
-		})
-		if err != nil {
-			log.Errorf("failed to find renderset info %v/%v for service: %s , product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, svc.ServiceName, product.ProductName, product.EnvName)
-			continue
+		renderSet, ok := rendersetMap[svc.Render.Revision]
+		if !ok {
+			var err error
+			renderSet, err = uamongo.NewRenderSetColl().Find(&uamongo.RenderSetFindOption{
+				ProductTmpl: product.ProductName,
+				EnvName:     product.EnvName,
+				IsDefault:   false,
+				Revision:    svc.Render.Revision,
+				Name:        svc.Render.Name,
+			})
+			if err != nil {
+				log.Errorf("failed to find renderset info %v/%v for service: %s , product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, svc.ServiceName, product.ProductName, product.EnvName)
+				continue
+			}
+			rendersetMap[svc.Render.Revision] = renderSet
 		}
 
 		if len(renderSet.DefaultValues) > 0 {
