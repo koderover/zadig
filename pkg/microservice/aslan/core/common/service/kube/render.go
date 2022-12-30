@@ -93,7 +93,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	}
 
 	for k, v := range serviceDefaultValuesMap {
-		if !keysSet.Has(k) {
+		if _, ok := valuesMap[k]; !ok {
 			svcValidDefaultValueMap[k] = v
 		}
 	}
