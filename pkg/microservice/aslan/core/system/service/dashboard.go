@@ -98,7 +98,7 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	runningCustomQueue := workflowcontroller.RunningTasks()
 	pendingCustomQueue := workflowcontroller.PendingTasks()
 	for _, runningtask := range runningQueue {
-		resp = append(resp, &WorkflowResponse{
+		arg := &WorkflowResponse{
 			TaskID:      runningtask.TaskID,
 			Name:        runningtask.PipelineName,
 			Project:     runningtask.ProductName,
@@ -107,7 +107,15 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 			Status:      string(runningtask.Status),
 			DisplayName: runningtask.PipelineDisplayName,
 			Type:        string(runningtask.Type),
-		})
+		}
+		if runningtask.TestArgs != nil {
+			arg.TestName = runningtask.TestArgs.TestName
+		}
+		if runningtask.ScanningArgs != nil {
+			arg.ScanName = runningtask.ScanningArgs.ScanningName
+			arg.ScanID = runningtask.ScanningArgs.ScanningID
+		}
+		resp = append(resp, arg)
 	}
 	for _, runningtask := range runningCustomQueue {
 		resp = append(resp, &WorkflowResponse{
@@ -122,7 +130,7 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 		})
 	}
 	for _, pendingTask := range pendingQueue {
-		resp = append(resp, &WorkflowResponse{
+		arg := &WorkflowResponse{
 			TaskID:      pendingTask.TaskID,
 			Name:        pendingTask.PipelineName,
 			Project:     pendingTask.ProductName,
@@ -131,7 +139,15 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 			Status:      string(pendingTask.Status),
 			DisplayName: pendingTask.PipelineDisplayName,
 			Type:        string(pendingTask.Type),
-		})
+		}
+		if pendingTask.TestArgs != nil {
+			arg.TestName = pendingTask.TestArgs.TestName
+		}
+		if pendingTask.ScanningArgs != nil {
+			arg.ScanName = pendingTask.ScanningArgs.ScanningName
+			arg.ScanID = pendingTask.ScanningArgs.ScanningID
+		}
+		resp = append(resp, arg)
 	}
 	for _, pendingTask := range pendingCustomQueue {
 		resp = append(resp, &WorkflowResponse{
