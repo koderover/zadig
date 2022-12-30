@@ -157,12 +157,20 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 			options.TaskID = taskObj.TaskID
 		}
 	} else if options.ProductName != "" {
+		workflowInfo, err := commonrepo.NewWorkflowColl().Find(options.PipelineName)
+		if err != nil {
+			log.Errorf("Failed to find product workflow of name: %s, error: %s", options.PipelineName, err)
+			return
+		}
+		var buildName string
+		for _, buildInfo := range workflowInfo.BuildStage.Modules {
+			if buildInfo.Target.ServiceName == serviceName && buildInfo.Target.ServiceModule == serviceModule {
+				buildName = buildInfo.Target.BuildName
+			}
+		}
 		buildFindOptions := &commonrepo.BuildFindOption{
 			ProductName: options.ProductName,
-			Targets:     []string{serviceModule},
-		}
-		if serviceName != "" {
-			buildFindOptions.ServiceName = serviceName
+			Name:        buildName,
 		}
 
 		build, err := commonrepo.NewBuildColl().Find(buildFindOptions)
