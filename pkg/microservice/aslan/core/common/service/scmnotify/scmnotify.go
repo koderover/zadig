@@ -499,10 +499,12 @@ func (s *Service) UpdateWebhookCommentForWorkflowV4(task *models.WorkflowTask, l
 		if nTask.ID == task.TaskID {
 			shouldComment = nTask.Status != status
 			scmTask := &models.NotificationTask{
-				ProductName:  task.ProjectName,
-				WorkflowName: task.WorkflowName,
-				ID:           task.TaskID,
-				Status:       status,
+				ProductName:         task.ProjectName,
+				WorkflowName:        task.WorkflowName,
+				WorkflowDisplayName: task.WorkflowDisplayName,
+				ID:                  task.TaskID,
+
+				Status: status,
 			}
 
 			tasks = append(tasks, scmTask)
