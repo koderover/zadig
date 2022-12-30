@@ -157,12 +157,20 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 			options.TaskID = taskObj.TaskID
 		}
 	} else if options.ProductName != "" {
+		workflowInfo, err := commonrepo.NewWorkflowColl().Find(options.PipelineName)
+		if err != nil {
+			log.Errorf("Failed to find product workflow of name: %s, error: %s", options.PipelineName, err)
+			return
+		}
+		var buildName string
+		for _, buildInfo := range workflowInfo.BuildStage.Modules {
+			if buildInfo.Target.ServiceName == serviceName && buildInfo.Target.ServiceModule == serviceModule {
+				buildName = buildInfo.Target.BuildName
+			}
+		}
 		buildFindOptions := &commonrepo.BuildFindOption{
 			ProductName: options.ProductName,
-			Targets:     []string{serviceModule},
-		}
-		if serviceName != "" {
-			buildFindOptions.ServiceName = serviceName
+			Name:        buildName,
 		}
 
 		build, err := commonrepo.NewBuildColl().Find(buildFindOptions)
@@ -185,13 +193,32 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		options.Namespace = config.Namespace()
 		// Compatible with the situation where the old data has not been modified
 		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" {
-			options.ClusterID = build.PreBuild.ClusterID
+			// since there are 2 cases in this situation: if no template is used, then we use the old logic
+			if build.TemplateID == "" {
+				options.ClusterID = build.PreBuild.ClusterID
 
-			switch build.PreBuild.ClusterID {
-			case setting.LocalClusterID:
-				options.Namespace = config.Namespace()
-			default:
-				options.Namespace = setting.AttachedClusterNamespace
+				switch build.PreBuild.ClusterID {
+				case setting.LocalClusterID:
+					options.Namespace = config.Namespace()
+				default:
+					options.Namespace = setting.AttachedClusterNamespace
+				}
+			} else {
+				// otherwise we have to get the template ID and find its cluster settings
+				template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+					ID: build.TemplateID,
+				})
+				if err != nil {
+					log.Errorf("failed to find build template of ID: [%s], error: [%s]", build.TemplateID, err)
+					return
+				}
+				options.ClusterID = template.PreBuild.ClusterID
+				switch template.PreBuild.ClusterID {
+				case setting.LocalClusterID:
+					options.Namespace = config.Namespace()
+				default:
+					options.Namespace = setting.AttachedClusterNamespace
+				}
 			}
 		}
 	}
