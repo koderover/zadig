@@ -193,7 +193,6 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		options.Namespace = config.Namespace()
 		// Compatible with the situation where the old data has not been modified
 		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" {
-			log.Infof("setting cluster info and namespace info according to build information, templateID: %s", build.TemplateID)
 			// since there are 2 cases in this situation: if no template is used, then we use the old logic
 			if build.TemplateID == "" {
 				options.ClusterID = build.PreBuild.ClusterID
@@ -205,7 +204,6 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 					options.Namespace = setting.AttachedClusterNamespace
 				}
 			} else {
-				log.Infof("starting to get logs for build with template")
 				// otherwise we have to get the template ID and find its cluster settings
 				template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 					ID: build.TemplateID,
