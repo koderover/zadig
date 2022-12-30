@@ -700,7 +700,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 		jiraInfo, _ := systemconfig.New().GetJiraInfo()
 		if jiraInfo != nil {
-			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, log)
+			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
 			if err != nil {
 				log.Errorf("add jira task error: %v", err)
 				return nil, e.ErrCreateTask.AddErr(fmt.Errorf("add jira task error: %v", err))
@@ -1501,7 +1501,7 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 	return resp, nil
 }
 
-func AddJiraSubTask(moduleName, target, serviceName, productName string, log *zap.SugaredLogger) (map[string]interface{}, error) {
+func AddJiraSubTask(moduleName, target, serviceName, productName, buildName string, log *zap.SugaredLogger) (map[string]interface{}, error) {
 	repos := make([]*types.Repository, 0)
 
 	opt := &commonrepo.BuildListOption{
@@ -1523,6 +1523,9 @@ func AddJiraSubTask(moduleName, target, serviceName, productName string, log *za
 		Enabled:  true,
 	}
 	for _, module := range modules {
+		if module.Name != buildName {
+			continue
+		}
 		repos = append(repos, module.Repos...)
 	}
 	jira.Builds = repos
