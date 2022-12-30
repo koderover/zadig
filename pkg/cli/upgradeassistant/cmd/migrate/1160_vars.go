@@ -329,9 +329,30 @@ func adjustSingleProductRender(product *uamodel.Product) error {
 		return nil
 	}
 
+	renderSet, err := uamongo.NewRenderSetColl().Find(&uamongo.RenderSetFindOption{
+		ProductTmpl: product.ProductName,
+		EnvName:     product.EnvName,
+		IsDefault:   false,
+		Revision:    maxVersionRender.Revision,
+		Name:        maxVersionRender.Name,
+	})
+	if err != nil {
+		log.Errorf("failed to find renderset info: %v/%v, product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, product.ProductName, product.EnvName)
+		return err
+	}
+	// the render set has been handled
+	if len(renderSet.DefaultValues) > 0 {
+		return nil
+	}
+
+	// set variable kv default value
+	usedSvcVariables := make(map[string]string)
+	for _, kv := range renderSet.KVs {
+		usedSvcVariables[kv.Key] = kv.Value
+	}
+
 	rendersetMap := make(map[int64]*uamodel.RenderSet)
 
-	usedSvcVariables := make(map[string]string)
 	for _, svc := range product.GetServiceMap() {
 		if svc.Render == nil {
 			continue
@@ -370,27 +391,13 @@ func adjustSingleProductRender(product *uamodel.Product) error {
 
 	valuesYaml, _ := yaml.Marshal(usedSvcVariables)
 
-	renderSet, err := uamongo.NewRenderSetColl().Find(&uamongo.RenderSetFindOption{
-		ProductTmpl: product.ProductName,
-		EnvName:     product.EnvName,
-		IsDefault:   false,
-		Revision:    maxVersionRender.Revision,
-		Name:        maxVersionRender.Name,
-	})
-	if err != nil {
-		log.Errorf("failed to find renderset info: %v/%v, product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, product.ProductName, product.EnvName)
-		return err
-	}
-
 	log.Infof("handling single render set: %s:%v, generated variable yaml %s", maxVersionRender.Name, maxVersionRender.Revision, string(valuesYaml))
-
-	// the render set has been handled
-	if len(renderSet.DefaultValues) > 0 {
-		return nil
-	}
 
 	// turn current kv info into global variable-yaml
 	renderSet.DefaultValues = string(valuesYaml)
+	if len(usedSvcVariables) == 0 {
+		renderSet.DefaultValues = ""
+	}
 
 	log.Infof("setting default values for renderset: %v/%v, values: %v", renderSet.Name, renderSet.Revision, renderSet.DefaultValues)
 	err = uamongo.NewRenderSetColl().UpdateDefaultValues(renderSet)
