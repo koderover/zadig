@@ -204,6 +204,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 					log.Errorf("failed to find build template of ID: [%s], error: [%s]", build.TemplateID, err)
 					return
 				}
+				options.ClusterID = template.PreBuild.ClusterID
 				switch template.PreBuild.ClusterID {
 				case setting.LocalClusterID:
 					options.Namespace = config.Namespace()
