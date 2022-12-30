@@ -196,6 +196,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 					options.Namespace = setting.AttachedClusterNamespace
 				}
 			} else {
+				log.Infof("starting to get logs for build with template")
 				// otherwise we have to get the template ID and find its cluster settings
 				template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 					ID: build.TemplateID,
