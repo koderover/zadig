@@ -1504,30 +1504,17 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 func AddJiraSubTask(moduleName, target, serviceName, productName, buildName string, log *zap.SugaredLogger) (map[string]interface{}, error) {
 	repos := make([]*types.Repository, 0)
 
-	opt := &commonrepo.BuildListOption{
-		Name:        moduleName,
-		ServiceName: serviceName,
-		ProductName: productName,
-	}
-
-	if len(target) > 0 {
-		opt.Targets = []string{target}
-	}
-
-	modules, err := commonrepo.NewBuildColl().List(opt)
-	if err != nil {
-		return nil, e.ErrConvertSubTasks.AddErr(err)
-	}
 	jira := &taskmodels.Jira{
 		TaskType: config.TaskJira,
 		Enabled:  true,
 	}
-	for _, module := range modules {
-		if module.Name != buildName {
-			continue
-		}
-		repos = append(repos, module.Repos...)
+
+	module, err := getBuildModule(buildName, serviceName, target, productName)
+	if err != nil {
+		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
+	repos = append(repos, module.Repos...)
+
 	jira.Builds = repos
 	return jira.ToSubTask()
 }
@@ -2051,15 +2038,6 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		subTasks    = make([]map[string]interface{}, 0)
 		serviceTmpl *commonmodels.Service
 	)
-	opt := &commonrepo.BuildListOption{
-		Name:        args.BuildName,
-		ServiceName: args.ServiceName,
-		ProductName: args.ProductName,
-	}
-
-	if len(args.Target) > 0 {
-		opt.Targets = []string{args.Target}
-	}
 
 	if args.Env != nil {
 		serviceTmpl, _ = commonservice.GetServiceTemplate(
@@ -2067,271 +2045,258 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		)
 	}
 
-	modules, err := commonrepo.NewBuildColl().List(opt)
-	if err != nil {
-		return nil, e.ErrConvertSubTasks.AddErr(err)
-	}
-	// The service may be a shared service
-	if len(modules) == 0 {
-		opt.ProductName = ""
-		modules, err = commonrepo.NewBuildColl().List(opt)
-		if err != nil {
-			return nil, e.ErrConvertSubTasks.AddErr(err)
-		}
-	}
-
 	registries, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	for _, module := range modules {
-		err = fillBuildDetail(module, args.ServiceName, args.Target)
+	module, err := getBuildModule(args.BuildName, args.ServiceName, args.Target, args.ProductName)
+	if err != nil {
+		return nil, e.ErrConvertSubTasks.AddErr(err)
+	}
+
+	err = fillBuildDetail(module, args.ServiceName, args.Target)
+	if err != nil {
+		return nil, e.ErrConvertSubTasks.AddErr(err)
+	}
+	build := &taskmodels.Build{
+		TaskType:            config.TaskBuild,
+		Enabled:             true,
+		InstallItems:        module.PreBuild.Installs,
+		ServiceName:         args.Target,
+		Service:             args.ServiceName,
+		JobCtx:              taskmodels.JobCtx{},
+		ImageID:             module.PreBuild.ImageID,
+		BuildOS:             module.PreBuild.BuildOS,
+		ImageFrom:           module.PreBuild.ImageFrom,
+		ResReq:              module.PreBuild.ResReq,
+		ResReqSpec:          module.PreBuild.ResReqSpec,
+		Timeout:             module.Timeout,
+		Registries:          registries,
+		ProductName:         args.ProductName,
+		Namespace:           module.PreBuild.Namespace,
+		ClusterID:           module.PreBuild.ClusterID,
+		UseHostDockerDaemon: module.PreBuild.UseHostDockerDaemon,
+	}
+
+	// In some old build configurations, the `pre_build.cluster_id` field is empty indicating that's a local cluster.
+	// We do a protection here to avoid query failure.
+	// Resaving the build configuration after v1.8.0 will automatically populate this field.
+	if module.PreBuild.ClusterID == "" {
+		module.PreBuild.ClusterID = setting.LocalClusterID
+	}
+
+	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(module.PreBuild.ClusterID)
+	if err != nil {
+		return nil, e.ErrConvertSubTasks.AddErr(fmt.Errorf("failed to get cluster: %s, err: %s", module.PreBuild.ClusterID, err))
+	}
+	build.Cache = clusterInfo.Cache
+
+	// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+	if build.Cache.MediumType == "" {
+		build.CacheEnable = false
+	} else {
+		build.CacheEnable = module.CacheEnable
+		build.CacheDirType = module.CacheDirType
+		build.CacheUserDir = module.CacheUserDir
+	}
+
+	if args.TaskType != "" {
+		build.TaskType = config.TaskArtifactDeploy
+	}
+
+	// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
+	if module.PreBuild.ImageID != "" {
+		basicImage, err := commonrepo.NewBasicImageColl().Find(module.PreBuild.ImageID)
 		if err != nil {
-			return nil, e.ErrConvertSubTasks.AddErr(err)
-		}
-		if module.Name != args.BuildName {
-			continue
-		}
-		build := &taskmodels.Build{
-			TaskType:            config.TaskBuild,
-			Enabled:             true,
-			InstallItems:        module.PreBuild.Installs,
-			ServiceName:         args.Target,
-			Service:             args.ServiceName,
-			JobCtx:              taskmodels.JobCtx{},
-			ImageID:             module.PreBuild.ImageID,
-			BuildOS:             module.PreBuild.BuildOS,
-			ImageFrom:           module.PreBuild.ImageFrom,
-			ResReq:              module.PreBuild.ResReq,
-			ResReqSpec:          module.PreBuild.ResReqSpec,
-			Timeout:             module.Timeout,
-			Registries:          registries,
-			ProductName:         args.ProductName,
-			Namespace:           module.PreBuild.Namespace,
-			ClusterID:           module.PreBuild.ClusterID,
-			UseHostDockerDaemon: module.PreBuild.UseHostDockerDaemon,
-		}
-
-		// In some old build configurations, the `pre_build.cluster_id` field is empty indicating that's a local cluster.
-		// We do a protection here to avoid query failure.
-		// Resaving the build configuration after v1.8.0 will automatically populate this field.
-		if module.PreBuild.ClusterID == "" {
-			module.PreBuild.ClusterID = setting.LocalClusterID
-		}
-
-		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(module.PreBuild.ClusterID)
-		if err != nil {
-			return nil, e.ErrConvertSubTasks.AddErr(fmt.Errorf("failed to get cluster: %s, err: %s", module.PreBuild.ClusterID, err))
-		}
-		build.Cache = clusterInfo.Cache
-
-		// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
-		if build.Cache.MediumType == "" {
-			build.CacheEnable = false
+			log.Errorf("BasicImage.Find failed, id:%s, err:%v", module.PreBuild.ImageID, err)
 		} else {
-			build.CacheEnable = module.CacheEnable
-			build.CacheDirType = module.CacheDirType
-			build.CacheUserDir = module.CacheUserDir
+			build.BuildOS = basicImage.Value
 		}
+	}
 
-		if args.TaskType != "" {
-			build.TaskType = config.TaskArtifactDeploy
-		}
+	if build.ImageFrom == "" {
+		build.ImageFrom = commonmodels.ImageFromKoderover
+	}
 
-		// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
-		if module.PreBuild.ImageID != "" {
-			basicImage, err := commonrepo.NewBasicImageColl().Find(module.PreBuild.ImageID)
+	envHostInfos := make(map[string]*commonmodels.PrivateKey)
+	if serviceTmpl != nil {
+		build.ServiceType = setting.PMDeployType
+		envHost := make(map[string][]string)
+		envHostNames := make(map[string][]string)
+
+		for _, envConfig := range serviceTmpl.EnvConfigs {
+			privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 			if err != nil {
-				log.Errorf("BasicImage.Find failed, id:%s, err:%v", module.PreBuild.ImageID, err)
-			} else {
-				build.BuildOS = basicImage.Value
+				log.Errorf("ListNameByArgs ids err:%s", err)
+				continue
+			}
+			ips := sets.NewString()
+			names := sets.NewString()
+			ips, names = extractHost(privateKeys, ips, names, envHostInfos)
+			privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+			if err != nil {
+				log.Errorf("ListNameByArgs labels err:%s", err)
+				continue
+			}
+			ips, names = extractHost(privateKeys, ips, names, envHostInfos)
+			envHost[envConfig.EnvName] = ips.List()
+			envHostNames[envConfig.EnvName] = names.List()
+		}
+		build.EnvHostInfo = envHost
+		build.EnvHostNames = envHostNames
+	}
+
+	if args.Env != nil {
+		build.EnvName = args.Env.EnvName
+	}
+
+	if build.InstallItems == nil {
+		build.InstallItems = make([]*commonmodels.Item, 0)
+	}
+
+	build.JobCtx.Builds = module.SafeRepos()
+	for _, repo := range build.JobCtx.Builds {
+		repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+		if err != nil {
+			log.Errorf("Failed to get proxy settings for codehost ID: %d, the error is: %s", repo.CodehostID, err)
+			return nil, err
+		}
+		repo.EnableProxy = repoInfo.EnableProxy
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
+	if len(build.JobCtx.Builds) == 0 {
+		build.JobCtx.Builds = make([]*types.Repository, 0)
+	}
+
+	build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}
+	if module.Scripts != "" {
+		build.JobCtx.BuildSteps = append(build.JobCtx.BuildSteps, &taskmodels.BuildStep{BuildType: "shell", Scripts: module.Scripts})
+	}
+
+	if module.PMDeployScripts != "" && build.ServiceType == setting.PMDeployType {
+		build.JobCtx.PMDeployScripts = module.PMDeployScripts
+	}
+
+	if len(module.SSHs) > 0 && build.ServiceType == setting.PMDeployType {
+		privateKeys := make([]*taskmodels.SSH, 0)
+		for _, sshID := range module.SSHs {
+			//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
+			latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
+			if err != nil || latestKeyInfo == nil {
+				log.Errorf("PrivateKey.Find failed, id:%s, err:%s", sshID, err)
+				continue
+			}
+			ssh := new(taskmodels.SSH)
+			ssh.Name = latestKeyInfo.Name
+			ssh.UserName = latestKeyInfo.UserName
+			ssh.IP = latestKeyInfo.IP
+			ssh.Port = latestKeyInfo.Port
+			if ssh.Port == 0 {
+				ssh.Port = setting.PMHostDefaultPort
+			}
+			ssh.PrivateKey = latestKeyInfo.PrivateKey
+
+			privateKeys = append(privateKeys, ssh)
+			delete(envHostInfos, sshID)
+		}
+		build.JobCtx.SSHs = privateKeys
+	}
+	// Sync from the configuration in the environment
+	for _, privateKey := range envHostInfos {
+		build.JobCtx.SSHs = append(build.JobCtx.SSHs, &taskmodels.SSH{
+			Name:       privateKey.Name,
+			UserName:   privateKey.UserName,
+			IP:         privateKey.IP,
+			Port:       privateKey.Port,
+			PrivateKey: privateKey.PrivateKey,
+		})
+	}
+
+	build.JobCtx.EnvVars = module.PreBuild.Envs
+
+	if len(build.JobCtx.EnvVars) == 0 {
+		build.JobCtx.EnvVars = make([]*commonmodels.KeyVal, 0)
+	}
+
+	if len(args.Variables) > 0 {
+		for _, envVar := range build.JobCtx.EnvVars {
+			for _, overwrite := range args.Variables {
+				if overwrite.Key == envVar.Key && overwrite.Value != setting.MaskValue {
+					envVar.Value = overwrite.Value
+					envVar.IsCredential = overwrite.IsCredential
+					break
+				}
 			}
 		}
+	}
 
-		if build.ImageFrom == "" {
-			build.ImageFrom = commonmodels.ImageFromKoderover
-		}
+	build.JobCtx.UploadPkg = module.PreBuild.UploadPkg
+	build.JobCtx.CleanWorkspace = module.PreBuild.CleanWorkspace
+	build.JobCtx.EnableProxy = module.PreBuild.EnableProxy
 
-		envHostInfos := make(map[string]*commonmodels.PrivateKey)
-		if serviceTmpl != nil {
-			build.ServiceType = setting.PMDeployType
-			envHost := make(map[string][]string)
-			envHostNames := make(map[string][]string)
-
-			for _, envConfig := range serviceTmpl.EnvConfigs {
-				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
-				if err != nil {
-					log.Errorf("ListNameByArgs ids err:%s", err)
-					continue
-				}
-				ips := sets.NewString()
-				names := sets.NewString()
-				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
-				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
-				if err != nil {
-					log.Errorf("ListNameByArgs labels err:%s", err)
-					continue
-				}
-				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
-				envHost[envConfig.EnvName] = ips.List()
-				envHostNames[envConfig.EnvName] = names.List()
+	if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
+		dockerTemplateContent := ""
+		if module.PostBuild.DockerBuild.TemplateID != "" {
+			if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(module.PostBuild.DockerBuild.TemplateID, log); err == nil {
+				dockerTemplateContent = dockerfileDetail.Content
 			}
-			build.EnvHostInfo = envHost
-			build.EnvHostNames = envHostNames
 		}
-
-		if args.Env != nil {
-			build.EnvName = args.Env.EnvName
+		build.JobCtx.DockerBuildCtx = &taskmodels.DockerBuildCtx{
+			Source:                module.PostBuild.DockerBuild.Source,
+			WorkDir:               module.PostBuild.DockerBuild.WorkDir,
+			DockerFile:            module.PostBuild.DockerBuild.DockerFile,
+			BuildArgs:             module.PostBuild.DockerBuild.BuildArgs,
+			DockerTemplateContent: dockerTemplateContent,
 		}
+	}
 
-		if build.InstallItems == nil {
-			build.InstallItems = make([]*commonmodels.Item, 0)
+	if module.PostBuild != nil && module.PostBuild.FileArchive != nil {
+		build.JobCtx.FileArchiveCtx = &taskmodels.FileArchiveCtx{
+			FileLocation: module.PostBuild.FileArchive.FileLocation,
 		}
+	}
 
-		build.JobCtx.Builds = module.SafeRepos()
-		for _, repo := range build.JobCtx.Builds {
-			repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+	if module.PostBuild != nil && module.PostBuild.Scripts != "" {
+		build.JobCtx.PostScripts = module.PostBuild.Scripts
+	}
+
+	if module.PostBuild != nil && module.PostBuild.ObjectStorageUpload != nil {
+		build.JobCtx.UploadEnabled = module.PostBuild.ObjectStorageUpload.Enabled
+		if module.PostBuild.ObjectStorageUpload.Enabled {
+			storageInfo, err := commonrepo.NewS3StorageColl().Find(module.PostBuild.ObjectStorageUpload.ObjectStorageID)
 			if err != nil {
-				log.Errorf("Failed to get proxy settings for codehost ID: %d, the error is: %s", repo.CodehostID, err)
+				log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
 				return nil, err
 			}
-			repo.EnableProxy = repoInfo.EnableProxy
-			repo.RepoNamespace = repo.GetRepoNamespace()
-		}
-		if len(build.JobCtx.Builds) == 0 {
-			build.JobCtx.Builds = make([]*types.Repository, 0)
-		}
-
-		build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}
-		if module.Scripts != "" {
-			build.JobCtx.BuildSteps = append(build.JobCtx.BuildSteps, &taskmodels.BuildStep{BuildType: "shell", Scripts: module.Scripts})
-		}
-
-		if module.PMDeployScripts != "" && build.ServiceType == setting.PMDeployType {
-			build.JobCtx.PMDeployScripts = module.PMDeployScripts
-		}
-
-		if len(module.SSHs) > 0 && build.ServiceType == setting.PMDeployType {
-			privateKeys := make([]*taskmodels.SSH, 0)
-			for _, sshID := range module.SSHs {
-				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
-				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
-				if err != nil || latestKeyInfo == nil {
-					log.Errorf("PrivateKey.Find failed, id:%s, err:%s", sshID, err)
-					continue
-				}
-				ssh := new(taskmodels.SSH)
-				ssh.Name = latestKeyInfo.Name
-				ssh.UserName = latestKeyInfo.UserName
-				ssh.IP = latestKeyInfo.IP
-				ssh.Port = latestKeyInfo.Port
-				if ssh.Port == 0 {
-					ssh.Port = setting.PMHostDefaultPort
-				}
-				ssh.PrivateKey = latestKeyInfo.PrivateKey
-
-				privateKeys = append(privateKeys, ssh)
-				delete(envHostInfos, sshID)
+			build.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
+				Endpoint: storageInfo.Endpoint,
+				AK:       storageInfo.Ak,
+				SK:       storageInfo.Sk,
+				Bucket:   storageInfo.Bucket,
+				Insecure: storageInfo.Insecure,
+				Provider: storageInfo.Provider,
 			}
-			build.JobCtx.SSHs = privateKeys
+			build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
 		}
-		// Sync from the configuration in the environment
-		for _, privateKey := range envHostInfos {
-			build.JobCtx.SSHs = append(build.JobCtx.SSHs, &taskmodels.SSH{
-				Name:       privateKey.Name,
-				UserName:   privateKey.UserName,
-				IP:         privateKey.IP,
-				Port:       privateKey.Port,
-				PrivateKey: privateKey.PrivateKey,
-			})
-		}
-
-		build.JobCtx.EnvVars = module.PreBuild.Envs
-
-		if len(build.JobCtx.EnvVars) == 0 {
-			build.JobCtx.EnvVars = make([]*commonmodels.KeyVal, 0)
-		}
-
-		if len(args.Variables) > 0 {
-			for _, envVar := range build.JobCtx.EnvVars {
-				for _, overwrite := range args.Variables {
-					if overwrite.Key == envVar.Key && overwrite.Value != setting.MaskValue {
-						envVar.Value = overwrite.Value
-						envVar.IsCredential = overwrite.IsCredential
-						break
-					}
-				}
-			}
-		}
-
-		build.JobCtx.UploadPkg = module.PreBuild.UploadPkg
-		build.JobCtx.CleanWorkspace = module.PreBuild.CleanWorkspace
-		build.JobCtx.EnableProxy = module.PreBuild.EnableProxy
-
-		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
-			dockerTemplateContent := ""
-			if module.PostBuild.DockerBuild.TemplateID != "" {
-				if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(module.PostBuild.DockerBuild.TemplateID, log); err == nil {
-					dockerTemplateContent = dockerfileDetail.Content
-				}
-			}
-			build.JobCtx.DockerBuildCtx = &taskmodels.DockerBuildCtx{
-				Source:                module.PostBuild.DockerBuild.Source,
-				WorkDir:               module.PostBuild.DockerBuild.WorkDir,
-				DockerFile:            module.PostBuild.DockerBuild.DockerFile,
-				BuildArgs:             module.PostBuild.DockerBuild.BuildArgs,
-				DockerTemplateContent: dockerTemplateContent,
-			}
-		}
-
-		if module.PostBuild != nil && module.PostBuild.FileArchive != nil {
-			build.JobCtx.FileArchiveCtx = &taskmodels.FileArchiveCtx{
-				FileLocation: module.PostBuild.FileArchive.FileLocation,
-			}
-		}
-
-		if module.PostBuild != nil && module.PostBuild.Scripts != "" {
-			build.JobCtx.PostScripts = module.PostBuild.Scripts
-		}
-
-		if module.PostBuild != nil && module.PostBuild.ObjectStorageUpload != nil {
-			build.JobCtx.UploadEnabled = module.PostBuild.ObjectStorageUpload.Enabled
-			if module.PostBuild.ObjectStorageUpload.Enabled {
-				storageInfo, err := commonrepo.NewS3StorageColl().Find(module.PostBuild.ObjectStorageUpload.ObjectStorageID)
-				if err != nil {
-					log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
-					return nil, err
-				}
-				build.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
-					Endpoint: storageInfo.Endpoint,
-					AK:       storageInfo.Ak,
-					SK:       storageInfo.Sk,
-					Bucket:   storageInfo.Bucket,
-					Insecure: storageInfo.Insecure,
-					Provider: storageInfo.Provider,
-				}
-				build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
-			}
-		}
-
-		build.JobCtx.Caches = module.Caches
-
-		if args.FileName != "" {
-			build.ArtifactInfo = &taskmodels.ArtifactInfo{
-				URL:          args.URL,
-				WorkflowName: args.WorkflowName,
-				TaskID:       args.TaskID,
-				FileName:     args.FileName,
-			}
-		}
-
-		bst, err := build.ToSubTask()
-		if err != nil {
-			return subTasks, e.ErrConvertSubTasks.AddErr(err)
-		}
-		subTasks = append(subTasks, bst)
 	}
+
+	build.JobCtx.Caches = module.Caches
+
+	if args.FileName != "" {
+		build.ArtifactInfo = &taskmodels.ArtifactInfo{
+			URL:          args.URL,
+			WorkflowName: args.WorkflowName,
+			TaskID:       args.TaskID,
+			FileName:     args.FileName,
+		}
+	}
+
+	bst, err := build.ToSubTask()
+	if err != nil {
+		return subTasks, e.ErrConvertSubTasks.AddErr(err)
+	}
+	subTasks = append(subTasks, bst)
 
 	return subTasks, nil
 }
@@ -3027,4 +2992,40 @@ func getBuildName(workflow *commonmodels.Workflow, targetName, serviceName strin
 		}
 	}
 	return ""
+}
+
+func getBuildModule(buildName, serviceName, serviceModule, productName string) (*commonmodels.Build, error) {
+	opt := &commonrepo.BuildListOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+		Targets:     []string{serviceModule},
+	}
+
+	if len(serviceModule) > 0 {
+		opt.Targets = []string{serviceModule}
+	}
+
+	modules, err := commonrepo.NewBuildColl().List(opt)
+	if err != nil {
+		return nil, err
+	}
+	// The service may be a shared service
+	if len(modules) == 0 {
+		opt.ProductName = ""
+		modules, err = commonrepo.NewBuildColl().List(opt)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, module := range modules {
+		if module.Name == buildName {
+			return module, nil
+		}
+	}
+	// if default build not set but there is only one build, we use it as the default build.
+	if len(modules) == 1 {
+		return modules[0], nil
+	}
+	return nil, fmt.Errorf("no build module found for %s/%s/%s", productName, serviceName, serviceModule)
 }
