@@ -3017,6 +3017,9 @@ func getBuildModule(buildName, serviceName, serviceModule, productName string) (
 			return nil, err
 		}
 	}
+	if len(modules) == 0 {
+		return nil, fmt.Errorf("no build module found for %s/%s/%s", productName, serviceName, serviceModule)
+	}
 
 	for _, module := range modules {
 		if module.Name == buildName {
@@ -3027,5 +3030,5 @@ func getBuildModule(buildName, serviceName, serviceModule, productName string) (
 	if len(modules) == 1 {
 		return modules[0], nil
 	}
-	return nil, fmt.Errorf("no build module found for %s/%s/%s", productName, serviceName, serviceModule)
+	return nil, fmt.Errorf("multiple build module found for %s/%s/%s, please select one in workflow configuration", productName, serviceName, serviceModule)
 }
