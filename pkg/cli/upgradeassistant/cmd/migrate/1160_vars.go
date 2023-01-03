@@ -22,19 +22,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"gopkg.in/yaml.v3"
-
 	uamodel "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"gopkg.in/yaml.v3"
 )
 
 type DataBulkUpdater struct {
@@ -94,7 +93,6 @@ func safeUnMarshallYaml(yamlStr string) map[string]interface{} {
 }
 
 // use variable_yaml instead of []variables
-// extract service_vars
 func handleYamlTemplates() error {
 	yamlTemplates, _, err := mongodb.NewYamlTemplateColl().List(0, 0)
 	if err != nil && !mongodb.IsErrNoDocuments(err) {
@@ -112,51 +110,22 @@ func handleYamlTemplates() error {
 	}
 
 	for _, yamlTemplate := range yamlTemplates {
-		// data has been handled
-		if len(yamlTemplate.ServiceVars) > 0 {
-			continue
-		}
-
-		if len(yamlTemplate.VariableYaml) > 0 {
-			valuesMap := safeUnMarshallYaml(yamlTemplate.VariableYaml)
-			yamlTemplate.ServiceVars = make([]string, 0)
-			for k := range valuesMap {
-				yamlTemplate.ServiceVars = append(yamlTemplate.ServiceVars, k)
-			}
-			log.Infof("setting service vars for yaml template： %s, service vars: %v", yamlTemplate.Name, yamlTemplate.ServiceVars)
-			err = updater.AddModel(mongo.NewUpdateOneModel().
-				SetFilter(bson.D{{"_id", yamlTemplate.ID}}).
-				SetUpdate(bson.D{{"$set",
-					bson.D{
-						{"service_vars", yamlTemplate.ServiceVars},
-					}},
-				}))
-			if err != nil {
-				return err
-			}
-			continue
-		}
-
 		if len(yamlTemplate.Variables) == 0 || len(yamlTemplate.VariableYaml) > 0 {
 			continue
 		}
 
-		serviceVars := make([]string, 0)
 		valuesMap := make(map[string]interface{})
 		for _, v := range yamlTemplate.Variables {
 			valuesMap[v.Key] = v.Value
-			serviceVars = append(serviceVars, v.Key)
 		}
 		yamlBs, _ := yaml.Marshal(valuesMap)
 		yamlTemplate.VariableYaml = string(yamlBs)
-		yamlTemplate.ServiceVars = serviceVars
-		log.Infof("setting variable and service vars for yaml template： %s, service vars: %v", yamlTemplate.Name, yamlTemplate.ServiceVars)
+		log.Infof("setting variable and service vars for yaml template： %s", yamlTemplate.Name)
 		err = updater.AddModel(mongo.NewUpdateOneModel().
 			SetFilter(bson.D{{"_id", yamlTemplate.ID}}).
 			SetUpdate(bson.D{{"$set",
 				bson.D{
 					{"variable_yaml", yamlTemplate.VariableYaml},
-					{"service_vars", yamlTemplate.ServiceVars},
 				}},
 			}))
 		if err != nil {
@@ -224,9 +193,6 @@ func setServiceVariables(projectName string) error {
 	}
 	valuesMap := make(map[string]interface{})
 	for _, kv := range defaultRenderset.KVs {
-		//if !util.InStringArray(svc.ServiceName, kv.Services) {
-		//	continue
-		//}
 		valuesMap[kv.Key] = kv.Value
 	}
 
@@ -254,7 +220,6 @@ func setServiceVariables(projectName string) error {
 		variableYaml, _ := yaml.Marshal(variableMap)
 		svc.VariableYaml = string(variableYaml)
 
-		svc.ServiceVars = goTemplateVars
 		svcsNeedUpdate = append(svcsNeedUpdate, svc)
 		if svc.Source == setting.ServiceSourceTemplate {
 			creation := &models.CreateFromYamlTemplate{}
@@ -287,13 +252,12 @@ func setServiceVariables(projectName string) error {
 		WriteThreshold: 20,
 	}
 	for _, svc := range svcsNeedUpdate {
-		log.Infof("setting service info, service name: %s, service vars: %v", svc.ServiceName, svc.ServiceVars)
+		log.Infof("setting service info, service name: %s", svc.ServiceName)
 		err = updater.AddModel(mongo.NewUpdateOneModel().
 			SetFilter(bson.D{{"product_name", svc.ProductName}, {"service_name", svc.ServiceName}, {"revision", svc.Revision}}).
 			SetUpdate(bson.D{{"$set",
 				bson.D{
 					{"variable_yaml", svc.VariableYaml},
-					{"service_vars", svc.ServiceVars},
 					{"create_from", svc.CreateFrom},
 				}},
 			}))
@@ -376,26 +340,66 @@ func adjustSingleProductRender(product *uamodel.Product) error {
 		log.Errorf("failed to find renderset info: %v/%v, product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, product.ProductName, product.EnvName)
 		return err
 	}
-
-	log.Infof("handling single render set: %s:%v", maxVersionRender.Name, maxVersionRender.Revision)
-
 	// the render set has been handled
 	if len(renderSet.DefaultValues) > 0 {
 		return nil
 	}
 
-	if len(renderSet.KVs) == 0 {
-		return setProductRender(product, maxVersionRender)
+	// set variable kv default value
+	usedSvcVariables := make(map[string]string)
+	for _, kv := range renderSet.KVs {
+		usedSvcVariables[kv.Key] = kv.Value
 	}
 
-	// turn current kv info into global variable-yaml
-	valuesMap := make(map[string]interface{})
-	for _, kv := range renderSet.KVs {
-		valuesMap[kv.Key] = kv.Value
+	rendersetMap := make(map[int64]*uamodel.RenderSet)
+
+	for _, svc := range product.GetServiceMap() {
+		if svc.Render == nil {
+			continue
+		}
+
+		renderSet, ok := rendersetMap[svc.Render.Revision]
+		if !ok {
+			var err error
+			renderSet, err = uamongo.NewRenderSetColl().Find(&uamongo.RenderSetFindOption{
+				ProductTmpl: product.ProductName,
+				EnvName:     product.EnvName,
+				IsDefault:   false,
+				Revision:    svc.Render.Revision,
+				Name:        svc.Render.Name,
+			})
+			if err != nil {
+				log.Errorf("failed to find renderset info %v/%v for service: %s , product: %v/%v", maxVersionRender.Name, maxVersionRender.Revision, svc.ServiceName, product.ProductName, product.EnvName)
+				continue
+			}
+			rendersetMap[svc.Render.Revision] = renderSet
+		}
+
+		if len(renderSet.DefaultValues) > 0 {
+			return nil
+		}
+
+		if len(renderSet.KVs) == 0 {
+			continue
+		}
+		for _, kv := range renderSet.KVs {
+			if util.InStringArray(svc.ServiceName, kv.Services) {
+				usedSvcVariables[kv.Key] = kv.Value
+			}
+		}
 	}
-	valuesYaml, _ := yaml.Marshal(valuesMap)
+
+	valuesYaml, _ := yaml.Marshal(usedSvcVariables)
+
+	log.Infof("handling single render set: %s:%v, generated variable yaml %s", maxVersionRender.Name, maxVersionRender.Revision, string(valuesYaml))
+
+	// turn current kv info into global variable-yaml
 	renderSet.DefaultValues = string(valuesYaml)
-	log.Infof("setting default values for renderset: %s", renderSet.DefaultValues)
+	if len(usedSvcVariables) == 0 {
+		renderSet.DefaultValues = ""
+	}
+
+	log.Infof("setting default values for renderset: %v/%v, values: %v", renderSet.Name, renderSet.Revision, renderSet.DefaultValues)
 	err = uamongo.NewRenderSetColl().UpdateDefaultValues(renderSet)
 	if err != nil {
 		return err

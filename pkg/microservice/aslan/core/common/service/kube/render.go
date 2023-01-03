@@ -57,7 +57,10 @@ func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
 	return string(bs), err
 }
 
-func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {
+// extract valid svc variable from service variable
+// keys defined in service vars are valid
+// keys not defined in service vars or default values are valid as well
+func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, serviceVars []string, serviceDefaultValues string) (string, error) {
 	serviceVariable := ""
 	for _, v := range rs.ServiceVariables {
 		if v.ServiceName != serviceName {
@@ -68,14 +71,55 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		}
 		break
 	}
-	if len(serviceVariable) == 0 {
-		return "", nil
+
+	valuesMap, err := converter.YamlToFlatMap([]byte(serviceVariable))
+	if err != nil {
+		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
 	}
 
-	return ClipVariableYaml(serviceVariable, serviceVars)
+	serviceDefaultValuesMap, err := converter.YamlToFlatMap([]byte(serviceDefaultValues))
+	if err != nil {
+		return "", fmt.Errorf("failed to get flat map for service default variable, err: %s", err)
+	}
+
+	// keys defined in service vars
+	keysSet := sets.NewString(serviceVars...)
+	validKvMap, svcValidDefaultValueMap := make(map[string]interface{}), make(map[string]interface{})
+
+	for k, v := range valuesMap {
+		if keysSet.Has(k) {
+			validKvMap[k] = v
+		}
+	}
+
+	for k, v := range serviceDefaultValuesMap {
+		if _, ok := valuesMap[k]; !ok {
+			svcValidDefaultValueMap[k] = v
+		}
+	}
+
+	defaultValuesMap, err := converter.YamlToFlatMap([]byte(rs.DefaultValues))
+	if err != nil {
+		return "", fmt.Errorf("failed to get flat map for default variable, err: %s", err)
+	}
+	for k := range defaultValuesMap {
+		delete(svcValidDefaultValueMap, k)
+	}
+
+	for k, v := range svcValidDefaultValueMap {
+		validKvMap[k] = v
+	}
+
+	validKvMap, err = converter.Expand(validKvMap)
+	if err != nil {
+		return "", err
+	}
+
+	bs, err := yaml.Marshal(validKvMap)
+	return string(bs), err
 }
 
-func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet, serviceVars []string) (string, error) {
+func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet, serviceVars []string, serviceDefaultValues string) (string, error) {
 	if rs == nil {
 		return originYaml, nil
 	}
@@ -84,7 +128,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
 	}
 
-	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars)
+	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars, serviceDefaultValues)
 	if err != nil {
 		return "", err
 	}
@@ -171,7 +215,7 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 
 	// Note only the keys in TemplateService.ServiceVar can work
 
-	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render, svcTmpl.ServiceVars)
+	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
 	if err != nil {
 		log.Error("failed to render service yaml, err: %s", err)
 		return "", err

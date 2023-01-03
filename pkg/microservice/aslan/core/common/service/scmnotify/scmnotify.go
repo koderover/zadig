@@ -123,8 +123,6 @@ func (s *Service) SendErrWebhookComment(
 
 func convertTaskStatusToNotificationTaskStatus(status config.Status) config.TaskStatus {
 	switch status {
-	case config.StatusCreated:
-		fallthrough
 	case config.StatusWaiting:
 		fallthrough
 	case config.StatusQueued:
@@ -133,6 +131,8 @@ func convertTaskStatusToNotificationTaskStatus(status config.Status) config.Task
 		fallthrough
 	case config.QueueItemPending:
 		return config.TaskStatusReady
+	case config.StatusCreated:
+		fallthrough
 	case config.StatusRunning:
 		return config.TaskStatusRunning
 	case config.StatusFailed:
@@ -499,10 +499,12 @@ func (s *Service) UpdateWebhookCommentForWorkflowV4(task *models.WorkflowTask, l
 		if nTask.ID == task.TaskID {
 			shouldComment = nTask.Status != status
 			scmTask := &models.NotificationTask{
-				ProductName:  task.ProjectName,
-				WorkflowName: task.WorkflowName,
-				ID:           task.TaskID,
-				Status:       status,
+				ProductName:         task.ProjectName,
+				WorkflowName:        task.WorkflowName,
+				WorkflowDisplayName: task.WorkflowDisplayName,
+				ID:                  task.TaskID,
+
+				Status: status,
 			}
 
 			tasks = append(tasks, scmTask)

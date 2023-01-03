@@ -621,7 +621,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ProductName: args.ProductTmplName,
 				Variables:   target.Envs,
 				Env:         env,
-				BuildName:   target.BuildName,
+				BuildName:   getBuildName(workflow, target.Name, target.ServiceName),
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
@@ -701,7 +701,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 		jiraInfo, _ := jira.GetJiraInfo()
 		if jiraInfo != nil {
-			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, log)
+			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
 			if err != nil {
 				log.Errorf("add jira task error: %v", err)
 				return nil, e.ErrCreateTask.AddErr(fmt.Errorf("add jira task error: %v", err))
@@ -1502,7 +1502,7 @@ func formatDistributeSubtasks(serviceModule *commonmodels.ServiceModuleTarget, r
 	return resp, nil
 }
 
-func AddJiraSubTask(moduleName, target, serviceName, productName string, log *zap.SugaredLogger) (map[string]interface{}, error) {
+func AddJiraSubTask(moduleName, target, serviceName, productName, buildName string, log *zap.SugaredLogger) (map[string]interface{}, error) {
 	repos := make([]*types.Repository, 0)
 
 	opt := &commonrepo.BuildListOption{
@@ -1524,6 +1524,9 @@ func AddJiraSubTask(moduleName, target, serviceName, productName string, log *za
 		Enabled:  true,
 	}
 	for _, module := range modules {
+		if module.Name != buildName {
+			continue
+		}
 		repos = append(repos, module.Repos...)
 	}
 	jira.Builds = repos
@@ -1556,6 +1559,16 @@ func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTa
 			if build.Build != nil {
 				resp.Builds = build.Build.Repos
 			}
+		}
+	}
+	for _, build := range resp.Builds {
+		if workflowArgs.MergeRequestID == "" {
+			continue
+		}
+		mrID, _ := strconv.Atoi(workflowArgs.MergeRequestID)
+		if build.Source == workflowArgs.Source && build.RepoName == workflowArgs.RepoName && build.RepoOwner == workflowArgs.RepoOwner {
+			build.PR = mrID
+			build.PRs = []int{mrID}
 		}
 	}
 	return resp
@@ -2077,6 +2090,9 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		err = fillBuildDetail(module, args.ServiceName, args.Target)
 		if err != nil {
 			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
+		if module.Name != args.BuildName {
+			continue
 		}
 		build := &taskmodels.Build{
 			TaskType:            config.TaskBuild,
@@ -2991,4 +3007,25 @@ func nextTargetID(subTasks map[string]map[string]interface{}, target string) str
 	}
 
 	return strconv.Itoa(count)
+}
+
+func getBuildName(workflow *commonmodels.Workflow, targetName, serviceName string) string {
+	if workflow == nil {
+		return ""
+	}
+	if workflow.BuildStage == nil {
+		return ""
+	}
+	if !workflow.BuildStage.Enabled {
+		return ""
+	}
+	for _, module := range workflow.BuildStage.Modules {
+		if module.Target == nil {
+			continue
+		}
+		if module.Target.ServiceName == serviceName && module.Target.ServiceModule == targetName {
+			return module.Target.BuildName
+		}
+	}
+	return ""
 }

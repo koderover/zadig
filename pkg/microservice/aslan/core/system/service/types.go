@@ -18,6 +18,7 @@ package service
 
 import (
 	"errors"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"net/url"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -120,19 +121,28 @@ type WorkflowResponse struct {
 	Status      string `json:"status"`
 	DisplayName string `json:"display_name"`
 	Type        string `json:"workflow_type"`
+	TestName    string `json:"test_name,omitempty"`
+	ScanName    string `json:"scan_name,omitempty"`
+	ScanID      string `json:"scan_id,omitempty"`
 }
 
 type EnvResponse struct {
-	Name        string        `json:"name"`
-	ProjectName string        `json:"project_name"`
-	UpdateTime  int64         `json:"update_time"`
-	UpdatedBy   string        `json:"updated_by"`
-	ClusterID   string        `json:"cluster_id"`
-	Services    []*EnvService `json:"services"`
+	Name        string          `json:"name"`
+	ProjectName string          `json:"project_name"`
+	UpdateTime  int64           `json:"update_time"`
+	UpdatedBy   string          `json:"updated_by"`
+	ClusterID   string          `json:"cluster_id"`
+	Services    []*EnvService   `json:"services,omitempty"`
+	VMServices  []*VMEnvService `json:"vm_services,omitempty"`
 }
 
 type EnvService struct {
 	ServiceName string `json:"service_name"`
 	Status      string `json:"status"`
 	Image       string `json:"image"`
+}
+
+type VMEnvService struct {
+	ServiceName string                    `json:"service_name"`
+	EnvStatus   []*commonmodels.EnvStatus `json:"env_status"`
 }
