@@ -225,7 +225,7 @@ func (c *FreestyleJobCtl) wait(ctx context.Context) {
 	} else {
 		return
 	}
-	c.job.Status = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
+	c.job.Status, c.job.Error = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
 }
 
 func (c *FreestyleJobCtl) complete(ctx context.Context) {

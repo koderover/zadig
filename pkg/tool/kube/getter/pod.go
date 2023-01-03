@@ -17,12 +17,25 @@ limitations under the License.
 package getter
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func GetPodWithRetryOption(ns, name string, cl client.Client, retryCount int, retryInterval time.Duration) (pod *corev1.Pod, found bool, err error) {
+	for i := 0; i < retryCount; i++ {
+		pod, found, err = GetPod(ns, name, cl)
+		if err == nil {
+			return pod, found, err
+		}
+		time.Sleep(retryInterval)
+	}
+	return
+}
 
 func GetPod(ns, name string, cl client.Client) (*corev1.Pod, bool, error) {
 	p := &corev1.Pod{}
@@ -33,6 +46,17 @@ func GetPod(ns, name string, cl client.Client) (*corev1.Pod, bool, error) {
 	setPodGVK(p)
 
 	return p, found, err
+}
+
+func ListPodsWithRetryOption(ns string, selector labels.Selector, cl client.Client, retryCount int, retryInterval time.Duration) (pod []*corev1.Pod, err error) {
+	for i := 0; i < retryCount; i++ {
+		pod, err = ListPods(ns, selector, cl)
+		if err == nil {
+			return pod, err
+		}
+		time.Sleep(retryInterval)
+	}
+	return
 }
 
 func ListPods(ns string, selector labels.Selector, cl client.Client) ([]*corev1.Pod, error) {

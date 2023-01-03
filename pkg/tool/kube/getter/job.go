@@ -44,6 +44,8 @@ func ListJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1
 	return res, err
 }
 
+func GetJobWithRetryOption()
+
 func GetJob(ns, name string, cl client.Client) (*batchv1.Job, bool, error) {
 	g := &batchv1.Job{}
 	found, err := GetResourceInCache(ns, name, g, cl)
