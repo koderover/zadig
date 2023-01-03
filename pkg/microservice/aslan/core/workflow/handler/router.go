@@ -120,7 +120,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workflowtask := router.Group("workflowtask")
 	{
 		//todo 修改权限的uuid
-		workflowtask.GET("/targets/:productName/:namespace", GetWorkflowArgs)
+		workflowtask.POST("/targets/:productName/:namespace", GetWorkflowArgs)
 		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
 		workflowtask.POST("/:id", CreateWorkflowTask)
 		workflowtask.PUT("/:id", CreateArtifactWorkflowTask)

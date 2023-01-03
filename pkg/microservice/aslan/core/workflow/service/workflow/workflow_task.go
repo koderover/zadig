@@ -63,8 +63,14 @@ type CronjobWorkflowArgs struct {
 	Target []*commonmodels.TargetArgs `bson:"targets"                      json:"targets"`
 }
 
+type ServiceBuildInfo struct {
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module"`
+	BuildName     string `json:"build_name"`
+}
+
 // GetWorkflowArgs 返回工作流详细信息
-func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*CronjobWorkflowArgs, error) {
+func GetWorkflowArgs(productName, namespace string, serviceBuildInfos []*ServiceBuildInfo, log *zap.SugaredLogger) (*CronjobWorkflowArgs, error) {
 	resp := &CronjobWorkflowArgs{}
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: namespace}
 	product, err := commonrepo.NewProductColl().Find(opt)
@@ -80,24 +86,20 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 	}
 
 	targetMap, _ := commonservice.GetProductTargetMap(product)
-	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
-	for _, container := range projectTargets {
+
+	for _, serviceBuildInfo := range serviceBuildInfos {
+		container := strings.Join([]string{productName, serviceBuildInfo.ServiceName, serviceBuildInfo.ServiceModule}, SplitSymbol)
 		if _, ok := targetMap[container]; !ok {
 			continue
 		}
-		containerArr := strings.Split(container, SplitSymbol)
-		if len(containerArr) != 3 {
-			continue
-		}
-		target := &commonmodels.TargetArgs{Name: containerArr[2], ServiceName: containerArr[1], Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
-
-		moBuild, _ := findModuleByTargetAndVersion(allModules, container)
+		target := &commonmodels.TargetArgs{Name: serviceBuildInfo.ServiceModule, ServiceName: serviceBuildInfo.ServiceName, Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
+		moBuild, _ := findModuleByServiceBuildInfo(allModules, serviceBuildInfo)
 		if moBuild == nil {
 			moBuild = &commonmodels.Build{}
 			target.HasBuild = false
 		}
-		err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
+		err = fillBuildDetail(moBuild, serviceBuildInfo.ServiceName, serviceBuildInfo.ServiceModule)
 		if err != nil {
 			return resp, e.ErrListBuildModule.AddErr(err)
 		}
@@ -125,7 +127,6 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 				JenkinsBuildParams: jenkinsBuildParams,
 			}
 		}
-
 		targets = append(targets, target)
 	}
 	resp.Target = targets
@@ -274,6 +275,20 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 		for _, target := range mo.Targets {
 			targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
 			if targetStr == strings.Join(containerArr, SplitSymbol) {
+				return mo, target
+			}
+		}
+	}
+	return nil, nil
+}
+
+func findModuleByServiceBuildInfo(allModules []*commonmodels.Build, serviceBuildInfo *ServiceBuildInfo) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
+	for _, mo := range allModules {
+		if mo.Name != serviceBuildInfo.BuildName {
+			continue
+		}
+		for _, target := range mo.Targets {
+			if target.ServiceName == serviceBuildInfo.ServiceName && target.ServiceModule == serviceBuildInfo.ServiceModule {
 				return mo, target
 			}
 		}

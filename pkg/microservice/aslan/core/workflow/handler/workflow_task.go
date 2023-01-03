@@ -43,8 +43,13 @@ import (
 func GetWorkflowArgs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := []*workflow.ServiceBuildInfo{}
+	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowArgs(c.Param("productName"), c.Param("namespace"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.GetWorkflowArgs(c.Param("productName"), c.Param("namespace"), args, ctx.Logger)
 }
 
 // PresetWorkflowArgs find a workflow task
