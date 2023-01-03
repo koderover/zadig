@@ -220,6 +220,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 		Target:      args.ServiceName,
 		ServiceName: args.ServiceName,
 		ProductName: args.ProductName,
+		BuildName:   args.BuildName,
 	}
 	subTasks, err := BuildModuleToSubTasks(buildModuleArgs, log)
 	if err != nil {
