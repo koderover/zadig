@@ -22,6 +22,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/jira"
@@ -79,8 +80,11 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		err = client.Issue.UpdateStatus(issue.Key, *id)
 		if err != nil {
 			logError(c.job, fmt.Sprintf("Update issue %s status error: %v", issue.Key, err), c.logger)
-			return
+			issue.Status = string(config.StatusFailed)
+		} else {
+			issue.Status = string(config.StatusPassed)
 		}
+		issue.Link = fmt.Sprintf("%s/browse/%s", info.JiraHost, issue.Key)
 	}
 	return
 }

@@ -271,17 +271,19 @@ type JobTasK8sPatchSpec struct {
 }
 
 type IssueID struct {
-	Key  string `bson:"key" json:"key" yaml:"key"`
-	Name string `bson:"name" json:"name" yaml:"name"`
+	Key    string `bson:"key" json:"key" yaml:"key"`
+	Name   string `bson:"name" json:"name" yaml:"name"`
+	Status string `bson:"status" json:"status" yaml:"status"`
+	Link   string `bson:"link" json:"link" yaml:"link"`
 }
 
 type JobTaskJiraSpec struct {
-	ProjectID      string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
-	IssueType      string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
-	Issues         []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
-	IssuesDefault  []*IssueID `bson:"issues_default" json:"issues_default" yaml:"issues_default"`
-	TargetStatus   string     `bson:"target_status" json:"target_status" yaml:"target_status"`
-	TargetStatusID string     `bson:"target_status_id" json:"target_status_id" yaml:"target_status_id"`
+	ProjectID     string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	IssueType     string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues        []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
+	IssuesDefault []*IssueID `bson:"issues_default" json:"issues_default" yaml:"issues_default"`
+	TargetStatus  string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	Source        string     `bson:"source" json:"source" yaml:"source"`
 }
 
 type PatchTaskItem struct {

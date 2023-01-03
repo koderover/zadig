@@ -757,3 +757,9 @@ const (
 	PMJira = "jira"
 	PMLark = "lark"
 )
+
+// Workflow variable source type
+const (
+	VariableSourceRuntime = "runtime"
+	VariableSourceOther   = "other"
+)

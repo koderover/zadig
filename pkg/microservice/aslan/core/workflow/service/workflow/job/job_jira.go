@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type JiraJob struct {
@@ -75,6 +76,12 @@ func (j *JiraJob) LintJob() error {
 	}
 	if len(j.spec.Issues) == 0 {
 		return errors.New("issue list is empty")
+	}
+	switch j.spec.Source {
+	case setting.VariableSourceRuntime:
+	case setting.VariableSourceOther:
+	default:
+		return errors.New("invalid source")
 	}
 	return nil
 }
