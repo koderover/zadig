@@ -45,7 +45,7 @@ import (
 
 func init() {
 	upgradepath.RegisterHandler("1.15.0", "1.16.0", V1150ToV1160)
-	upgradepath.RegisterHandler("1.16.0", "1.15.0", V1150ToV1140)
+	upgradepath.RegisterHandler("1.16.0", "1.15.0", V1160ToV1150)
 }
 
 func V1150ToV1160() error {
@@ -73,6 +73,7 @@ func V1150ToV1160() error {
 		log.Errorf("createNewPackageDependencies err:%s", err)
 		return err
 	}
+
 	if err := updateWorkflowApproval(); err != nil {
 		log.Errorf("updateWorkflowApproval err:%s", err)
 		return err
@@ -89,6 +90,11 @@ func V1150ToV1160() error {
 		log.Errorf("updateWorkflowTemplateApproval err:%s", err)
 		return err
 	}
+
+	if err := HandleK8sYamlVars(); err != nil {
+		log.Errorf("HandleK8sYamlVars err:%s", err)
+	}
+
 	return nil
 }
 

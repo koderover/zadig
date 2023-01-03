@@ -27,7 +27,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -37,11 +38,11 @@ import (
 )
 
 type DeployableEnv struct {
-	EnvName   string               `json:"env_name"`
-	Namespace string               `json:"namespace"`
-	ClusterID string               `json:"cluster_id"`
-	Services  []string             `json:"services"`
-	Vars      []*template.RenderKV `json:"vars"`
+	EnvName   string                       `json:"env_name"`
+	Namespace string                       `json:"namespace"`
+	ClusterID string                       `json:"cluster_id"`
+	Services  []*types.ServiceWithVariable `json:"services"`
+	//Vars      []*template.RenderKV `json:"vars"`
 }
 
 type DeployableEnvResp struct {
@@ -76,6 +77,7 @@ func GetDeployableEnvs(svcName, projectName string) (*DeployableEnvResp, error) 
 
 	resp.Envs = envs0
 	resp.Envs = append(resp.Envs, envs1...)
+
 	return resp, nil
 }
 
@@ -200,6 +202,7 @@ type GetKubeWorkloadsYamlResp struct {
 	Services []ServiceYaml `json:"services"`
 }
 
+// LoadKubeWorkloadsYaml creates service from existing workloads in k8s namespace
 func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, force bool, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), params.ClusterID)
 	if err != nil {
@@ -309,6 +312,53 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 	return nil
 }
 
+func getServiceVariables(templateProduct *template.Product, product *commonmodels.Product) []*types.ServiceWithVariable {
+	ret := make([]*types.ServiceWithVariable, 0)
+	for _, svc := range product.GetServiceMap() {
+		ret = append(ret, &types.ServiceWithVariable{
+			ServiceName: svc.ServiceName,
+		})
+	}
+
+	if !templateProduct.IsK8sYamlProduct() {
+		return ret
+	}
+
+	args, _, err := commonservice.GetK8sSvcRenderArgs(product.ProductName, product.EnvName, "", log.SugaredLogger())
+	if err != nil {
+		log.Errorf("failed to get k8s service render args, err: %s", err)
+	}
+	ret = make([]*types.ServiceWithVariable, 0)
+	for _, arg := range args {
+		ret = append(ret, &types.ServiceWithVariable{
+			ServiceName:  arg.ServiceName,
+			VariableYaml: arg.LatestVariableYaml,
+		})
+	}
+
+	//product.EnsureRenderInfo()
+	//renderSet, err := commonservice.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log.SugaredLogger())
+	//if err != nil {
+	//	log.Errorf("failed to get renderset, err: %s", err)
+	//	return ret
+	//}
+	//
+	//svMap := make(map[string]*template.ServiceRender)
+	//for _, sv := range renderSet.ServiceVariables {
+	//	svMap[sv.ServiceName] = sv
+	//}
+	//
+	//for _, svc := range ret {
+	//	if sv, ok := svMap[svc.ServiceName]; ok {
+	//		if sv.OverrideYaml != nil {
+	//			svc.VariableYaml = sv.OverrideYaml.YamlContent
+	//		}
+	//	}
+	//}
+
+	return ret
+}
+
 func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           templateProduct.ProductName,
@@ -318,12 +368,12 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 		return nil, err
 	}
 
-	if templateProduct.IsK8sYamlProduct() {
-		err = service.FillProductVars(envs, log.SugaredLogger())
-		if err != nil {
-			return nil, err
-		}
-	}
+	//if templateProduct.IsK8sYamlProduct() {
+	//	err = service.FillProductVars(envs, log.SugaredLogger())
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	ret := make([]*DeployableEnv, len(envs))
 
@@ -334,8 +384,8 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 			EnvName:   env.EnvName,
 			Namespace: env.Namespace,
 			ClusterID: env.ClusterID,
-			Services:  env.GetProductSvcNames(),
-			Vars:      env.Vars,
+			Services:  getServiceVariables(templateProduct, env),
+			//Vars:      env.Vars,
 		}
 	}
 
@@ -353,12 +403,12 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 		return nil, err
 	}
 
-	if templateProduct.IsK8sYamlProduct() {
-		err = service.FillProductVars(baseEnvs, log.SugaredLogger())
-		if err != nil {
-			return nil, err
-		}
-	}
+	//if templateProduct.IsK8sYamlProduct() {
+	//	err = service.FillProductVars(baseEnvs, log.SugaredLogger())
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	ret := make([]*DeployableEnv, 0)
 	for _, baseEnv := range baseEnvs {
@@ -366,8 +416,8 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 			EnvName:   baseEnv.EnvName,
 			Namespace: baseEnv.Namespace,
 			ClusterID: baseEnv.ClusterID,
-			Services:  baseEnv.GetProductSvcNames(),
-			Vars:      baseEnv.Vars,
+			Services:  getServiceVariables(templateProduct, baseEnv),
+			//Vars:      baseEnv.Vars,
 		})
 
 		if !hasSvcInEnv(svcName, baseEnv) {
@@ -397,12 +447,12 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 		return nil, err
 	}
 
-	if templateProduct.IsK8sYamlProduct() {
-		err = service.FillProductVars(envs, log.SugaredLogger())
-		if err != nil {
-			return nil, err
-		}
-	}
+	//if templateProduct.IsK8sYamlProduct() {
+	//	err = service.FillProductVars(envs, log.SugaredLogger())
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
@@ -410,8 +460,8 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 			EnvName:   env.EnvName,
 			Namespace: env.Namespace,
 			ClusterID: env.ClusterID,
-			Services:  env.GetProductSvcNames(),
-			Vars:      env.Vars,
+			Services:  getServiceVariables(templateProduct, env),
+			//Vars:      env.Vars,
 		}
 	}
 

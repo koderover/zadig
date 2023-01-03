@@ -174,9 +174,10 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 	// 开始执行Pipeline Task，设置初始化字段和运行状态，包括执行开始时间状态，执行主机
 	xl.Infof("start to run pipeline task %s:%d ......", pipelineTask.PipelineName, pipelineTask.TaskID)
 	initPipelineTask(pipelineTask, xl)
-	// 发送初始状态ACK给backend，更新pipeline状态
-	h.SendAck()
 	h.SendNotification()
+	// 发送初始状态ACK给backend，更新pipeline状态
+	pipelineTask.Status = config.StatusRunning
+	h.SendAck()
 
 	// Step 3 - pipelineTask执行，真的开始了...
 	h.execute(ctx, pipelineTask, pipelineCtx, xl)
@@ -278,7 +279,7 @@ func (h *ExecHandler) SendNotification() {
 		xl.Errorf("marshal Notify error: %v", err)
 		return
 	}
-
+	
 	if err := h.Sender.Publish(setting.TopicNotification, nb); err != nil {
 		xl.Errorf("publish [%s] error: %v", setting.TopicNotification, err)
 		return

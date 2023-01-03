@@ -260,9 +260,13 @@ func (c *WorkflowColl) ListWorkflowsByProjects(projects []string) ([]*models.Wor
 	resp := make([]*models.Workflow, 0)
 	query := bson.M{}
 	if len(projects) != 0 {
-		query = bson.M{"product_tmpl_name": bson.M{
-			"$in": projects,
-		}}
+		if len(projects) != 1 || projects[0] != "*" {
+			query = bson.M{"product_tmpl_name": bson.M{
+				"$in": projects,
+			}}
+		}
+	} else {
+		return resp, nil
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)

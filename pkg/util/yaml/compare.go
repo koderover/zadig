@@ -19,7 +19,10 @@ package yaml
 import (
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
+
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 func Equal(source, target string) (bool, error) {
@@ -40,4 +43,53 @@ func Equal(source, target string) (bool, error) {
 	}
 
 	return reflect.DeepEqual(sourceYamlObj, targetYamlObj), nil
+}
+
+// DiffFlatKeys finds flat keys with different values from two yamls
+func DiffFlatKeys(source, target string) ([]string, error) {
+	equal, err := Equal(source, target)
+	if err != nil || equal {
+		return nil, err
+	}
+
+	sourceFlatMap, err := converter.YamlToFlatMap([]byte(source))
+	if err != nil {
+		return nil, err
+	}
+
+	targetFloatMap, err := converter.YamlToFlatMap([]byte(target))
+	if err != nil {
+		return nil, err
+	}
+
+	diffFlatKeys := sets.NewString()
+
+	for k, v := range sourceFlatMap {
+		if v != targetFloatMap[k] {
+			diffFlatKeys.Insert(k)
+		}
+	}
+
+	for k, v := range targetFloatMap {
+		if v != sourceFlatMap[k] {
+			diffFlatKeys.Insert(k)
+		}
+	}
+
+	return diffFlatKeys.List(), nil
+}
+
+func ContainsFlatKey(source string, keys []string) (bool, error) {
+	sourceFlatMap, err := converter.YamlToFlatMap([]byte(source))
+	if err != nil {
+		return false, err
+	}
+
+	keySet := sets.NewString(keys...)
+	for k := range sourceFlatMap {
+		if keySet.Has(k) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

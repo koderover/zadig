@@ -40,8 +40,8 @@ import (
 )
 
 type DefaultValuesResp struct {
-	DefaultValues string                     `json:"defaultValues"`
-	YamlData      *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
+	DefaultVariable string                     `json:"default_variable"`
+	YamlData        *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
 }
 
 type YamlContentRequestArg struct {
@@ -158,7 +158,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	if !existed {
 		return ret, nil
 	}
-	ret.DefaultValues = rendersetObj.DefaultValues
+	ret.DefaultVariable = rendersetObj.DefaultValues
 	err = service.FillGitNamespace(rendersetObj.YamlData)
 	if err != nil {
 		// Note, since user can always reselect the git info, error should not block normal logic

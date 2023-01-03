@@ -120,7 +120,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workflowtask := router.Group("workflowtask")
 	{
 		//todo 修改权限的uuid
-		workflowtask.GET("/targets/:productName/:namespace", GetWorkflowArgs)
+		workflowtask.POST("/targets/:productName/:namespace", GetWorkflowArgs)
 		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
 		workflowtask.POST("/:id", CreateWorkflowTask)
 		workflowtask.PUT("/:id", CreateArtifactWorkflowTask)
@@ -189,7 +189,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.DELETE("/cron/:workflowName/trigger/:cronID", DeleteCronForWorkflowV4)
 		workflowV4.POST("/patch", GetPatchParams)
 		workflowV4.GET("/sharestorage", CheckShareStorageEnabled)
-
+		workflowV4.GET("/all", ListAllAvailableWorkflows)
 	}
 
 	// ---------------------------------------------------------------------------------------

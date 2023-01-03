@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
@@ -341,6 +342,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
+	workflowTask.StartTime = time.Now().Unix()
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
+		log.Errorf("send workflow task notification failed, error: %v", err)
+	}
 
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)
@@ -386,6 +391,17 @@ func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *za
 	}
 	cleanWorkflowV4Tasks(resp)
 	return resp, total, nil
+}
+
+func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, error) {
+	resp, err := commonrepo.NewworkflowTaskv4Coll().GetLatest(workflowName)
+	if err != nil {
+		return nil, err
+	}
+	resp.WorkflowArgs = nil
+	resp.OriginWorkflowArgs = nil
+	resp.Stages = nil
+	return resp, nil
 }
 
 // clean extra message for list workflow

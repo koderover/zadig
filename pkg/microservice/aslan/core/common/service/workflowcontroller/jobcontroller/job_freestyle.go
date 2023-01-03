@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -206,7 +207,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
-	
+
 	if err := updater.CreateJob(job, c.kubeclient); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
 		logError(c.job, msg, c.logger)
@@ -217,8 +218,14 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 }
 
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
-	c.job.Status = status
+	taskTimeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
+	c.job.Status = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	if c.job.Status == config.StatusRunning {
+		c.ack()
+	} else {
+		return
+	}
+	c.job.Status = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
 }
 
 func (c *FreestyleJobCtl) complete(ctx context.Context) {

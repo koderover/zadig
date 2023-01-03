@@ -16,7 +16,11 @@ limitations under the License.
 
 package cmd
 
-import "os/exec"
+import (
+	"os/exec"
+
+	"github.com/koderover/zadig/pkg/types"
+)
 
 // InitGit creates an empty git repository.
 // it returns command git init
@@ -76,13 +80,18 @@ func Fetch(remoteName, ref string) *exec.Cmd {
 // DeepenedFetch deepens the fetch history. It is similar with Fetch but accepts 500 more commit history than
 // last Fetch operation by --deepen=500 option.
 // e.g. git fetch origin +refs/heads/onboarding --deepen=500
-func DeepenedFetch(remoteName, ref string) *exec.Cmd {
-	return exec.Command(
-		"git",
+func DeepenedFetch(remoteName, ref, source string) *exec.Cmd {
+	cmdArgs := []string{
 		"fetch",
 		remoteName,
-		"+"+ref, // "+" means overwrite
-		"--deepen=500",
+		"+" + ref, // "+" means overwrite
+	}
+	if source != types.ProviderGerrit {
+		cmdArgs = append(cmdArgs, "--deepen=500")
+	}
+	return exec.Command(
+		"git",
+		cmdArgs...,
 	)
 }
 

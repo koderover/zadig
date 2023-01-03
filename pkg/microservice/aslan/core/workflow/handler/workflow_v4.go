@@ -293,3 +293,10 @@ func CheckShareStorageEnabled(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = workflow.CheckShareStorageEnabled(c.Query("id"), c.Query("type"), c.Query("name"), c.Query("project"), ctx.Logger)
 }
+
+func ListAllAvailableWorkflows(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
+}

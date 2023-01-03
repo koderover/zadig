@@ -87,7 +87,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		}
 		return true
 	})
-	job.Status = config.StatusRunning
+	job.Status = config.StatusPrepare
 	job.StartTime = time.Now().Unix()
 	job.K8sJobName = getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID)
 	ack()

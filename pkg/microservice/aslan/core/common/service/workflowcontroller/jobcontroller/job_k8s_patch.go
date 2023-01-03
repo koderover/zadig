@@ -31,6 +31,7 @@ import (
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/hashicorp/go-multierror"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -64,6 +65,9 @@ func NewK8sPatchJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Work
 func (c *K8sPatchJobCtl) Clean(ctx context.Context) {}
 
 func (c *K8sPatchJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+
 	var err error
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {

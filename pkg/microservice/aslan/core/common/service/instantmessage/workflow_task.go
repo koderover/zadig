@@ -93,6 +93,9 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning {
 		statusChanged = true
 	}
+	if task.Status == config.StatusCreated {
+		statusChanged = false
+	}
 	for _, notify := range resp.NotifyCtls {
 		if !notify.Enabled {
 			continue
@@ -202,7 +205,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						if len(buildRepo.CommitID) > 8 {
 							commitID = buildRepo.CommitID[0:8]
 						}
-						commitMsgs = strings.Split(buildRepo.CommitMessage, "\n")
+						commitMsg := strings.Trim(buildRepo.CommitMessage, "\n")
+						commitMsgs = strings.Split(commitMsg, "\n")
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
 				}
@@ -294,7 +298,7 @@ type workflowTaskNotification struct {
 func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (string, error) {
 	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
 		"getColor": func(status config.Status) string {
-			if status == config.StatusPassed {
+			if status == config.StatusPassed || status == config.StatusCreated {
 				return markdownColorInfo
 			} else if status == config.StatusTimeout || status == config.StatusCancelled {
 				return markdownColorComment
@@ -312,11 +316,13 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return "执行超时"
 			} else if status == config.StatusReject {
 				return "执行被拒绝"
+			} else if status == config.StatusCreated {
+				return "开始执行"
 			}
 			return "执行失败"
 		},
 		"getIcon": func(status config.Status) string {
-			if status == config.StatusPassed {
+			if status == config.StatusPassed || status == config.StatusCreated {
 				return "👍"
 			}
 			return "⚠️"

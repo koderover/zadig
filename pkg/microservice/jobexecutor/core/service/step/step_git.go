@@ -300,7 +300,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	if len(repo.PRs) > 0 && len(repo.Branch) > 0 {
 		cmds = append(
 			cmds,
-			&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, repo.BranchRef())},
+			&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, repo.BranchRef(), repo.Source)},
 			&c.Command{Cmd: c.ResetMerge()},
 		)
 		for _, pr := range repo.PRs {
@@ -308,7 +308,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			ref := fmt.Sprintf("%s:%s", repo.PRRefByPRID(pr), newBranch)
 			cmds = append(
 				cmds,
-				&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, ref)},
+				&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, ref, repo.Source)},
 				&c.Command{Cmd: c.Merge(newBranch)},
 			)
 		}

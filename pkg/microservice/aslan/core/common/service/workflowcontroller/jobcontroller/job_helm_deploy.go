@@ -24,12 +24,6 @@ import (
 	"strings"
 	"time"
 
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/util/converter"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -38,6 +32,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/util/converter"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -85,6 +86,9 @@ func NewHelmDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wo
 func (c *HelmDeployJobCtl) Clean(ctx context.Context) {}
 
 func (c *HelmDeployJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,
 		EnvName: c.jobTaskSpec.Env,
@@ -120,7 +124,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	var (
 		productInfo              *commonmodels.Product
-		renderChart              *templatemodels.RenderChart
+		renderChart              *templatemodels.ServiceRender
 		replacedValuesYaml       string
 		mergedValuesYaml         string
 		replacedMergedValuesYaml string

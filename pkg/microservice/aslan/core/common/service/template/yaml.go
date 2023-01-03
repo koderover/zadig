@@ -47,12 +47,15 @@ func GetTemplateVariableYaml(variables []*models.Variable, variableYaml string) 
 }
 
 // SafeMergeVariableYaml merge yamls
-// support go template grammar
+// support go template grammar, you can put {{.xxx}} as value in variable yaml
 func SafeMergeVariableYaml(variableYamls ...string) (string, map[string]string, error) {
 	templateKv := make(map[string]string)
 	yamlsToMerge := make([][]byte, 0)
 
 	for _, vYaml := range variableYamls {
+		if len(vYaml) == 0 {
+			continue
+		}
 		kvs, err := GetYamlVariables(vYaml, log.SugaredLogger())
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to get variable from yaml: %s, err: %s", vYaml, err)
@@ -67,7 +70,7 @@ func SafeMergeVariableYaml(variableYamls ...string) (string, map[string]string, 
 
 	mergedYaml, err := yamlutil.Merge(yamlsToMerge)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to merge varibale yamls, err: %s", err)
+		return "", nil, fmt.Errorf("failed to merge variable yamls, err: %s", err)
 	}
 	return string(mergedYaml), templateKv, nil
 }
@@ -77,6 +80,10 @@ func getParameterKey(parameter string) string {
 	return strings.TrimSuffix(a, "}}")
 }
 
+// GetYamlVariables extract variables from go template yaml to Zadig-defined vars
+// use regex to search {{.rar}} and turn to {key: var}
+// NOTE this function DOES NOT support full go-template grammar, like {{- range }} / {{- eq }} / {{- if }} / nested data
+// technically this function should be deprecated
 func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*models.ChartVariable, error) {
 	resp := make([]*models.ChartVariable, 0)
 	regex, err := regexp.Compile(setting.RegExpParameter)
@@ -96,4 +103,11 @@ func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*models.ChartVaria
 		}
 	}
 	return resp, nil
+}
+
+// FetchTemplateVariableYaml extract variables from go template yaml and package them into yaml
+// supports most standard go-template grammar, but can't deal with complex situation like range in range / local vars using $
+// NOTE the return value should not be fully trusted
+func FetchTemplateVariableYaml(source string, logger *zap.SugaredLogger) (string, error) {
+	return "", nil
 }

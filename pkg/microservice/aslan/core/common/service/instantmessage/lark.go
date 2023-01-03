@@ -210,7 +210,7 @@ func (w *Service) sendFeishuMessageOfSingleType(title, uri, content string) erro
 }
 
 func getColorTemplateWithStatus(status config.Status) string {
-	if status == config.StatusPassed {
+	if status == config.StatusPassed || status == config.StatusCreated {
 		return feishuHeaderTemplateGreen
 	}
 	return feishuHeaderTemplateRed

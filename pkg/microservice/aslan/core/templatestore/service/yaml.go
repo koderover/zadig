@@ -24,12 +24,16 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/converter"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 var DefaultSystemVariable = map[string]string{
@@ -42,7 +46,7 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 		Name:         template.Name,
 		Content:      template.Content,
 		VariableYaml: template.VariableYaml,
-		Variables:    nil,
+		//Variables:    nil,
 	})
 	if err != nil {
 		logger.Errorf("create dockerfile template error: %s", err)
@@ -54,10 +58,11 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 	err := commonrepo.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
-			Name:         template.Name,
-			Content:      template.Content,
-			Variables:    nil,
+			Name:    template.Name,
+			Content: template.Content,
+			//Variables:    nil,
 			VariableYaml: template.VariableYaml,
+			ServiceVars:  template.ServiceVars,
 		},
 	)
 	if err != nil {
@@ -67,7 +72,9 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 }
 
 func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml)
+	// NOTE. technically the content of variable yaml should be validated
+	// but the service is not rendered before applied to k8s, we ignore the validation on template
+	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVars)
 	if err != nil {
 		logger.Errorf("update yaml template variable error: %s", err)
 	}
@@ -97,18 +104,34 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %s", id, err)
 		return nil, err
 	}
-	variables := make([]*models.ChartVariable, 0)
-	for _, v := range yamlTemplate.Variables {
-		variables = append(variables, &models.ChartVariable{
-			Key:   v.Key,
-			Value: v.Value,
-		})
-	}
 	resp.ID = yamlTemplate.ID.Hex()
 	resp.Name = yamlTemplate.Name
 	resp.Content = yamlTemplate.Content
-	resp.Variables = variables
-	resp.VariableYaml, err = template.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
+	resp.ServiceVars = yamlTemplate.ServiceVars
+	resp.VariableYaml = yamlTemplate.VariableYaml
+	if len(resp.VariableYaml) > 0 {
+		flatMap, err := converter.YamlToFlatMap([]byte(resp.VariableYaml))
+		if err != nil {
+			log.Errorf("failed to get flat map of variable, err: %s", err)
+		} else {
+			allKeys := sets.NewString()
+			for k, v := range flatMap {
+				resp.VariableKVs = append(resp.VariableKVs, &models.VariableKV{
+					Key:   k,
+					Value: v,
+				})
+				allKeys.Insert(k)
+			}
+			validServiceVars := make([]string, 0)
+			for _, k := range resp.ServiceVars {
+				if allKeys.Has(k) {
+					validServiceVars = append(validServiceVars, k)
+				}
+			}
+			resp.ServiceVars = validServiceVars
+		}
+	}
+	//resp.VariableYaml, err = template.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
 	return resp, err
 }
 
@@ -186,4 +209,31 @@ func ValidateVariable(content, variable string) error {
 		return fmt.Errorf("template validate err: %s", err)
 	}
 	return nil
+}
+
+func ExtractVariable(yamlContent string) (string, error) {
+	if len(yamlContent) == 0 {
+		return "", nil
+	}
+	return yamlutil.ExtractVariableYaml(yamlContent)
+}
+
+func FlattenKvs(yamlContent string) ([]*models.VariableKV, error) {
+	if len(yamlContent) == 0 {
+		return nil, nil
+	}
+
+	valuesMap, err := converter.YamlToFlatMap([]byte(yamlContent))
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*models.VariableKV, 0)
+	for k, v := range valuesMap {
+		ret = append(ret, &models.VariableKV{
+			Key:   k,
+			Value: v,
+		})
+	}
+	return ret, nil
 }

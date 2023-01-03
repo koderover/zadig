@@ -759,35 +759,15 @@ func int32Ptr(i int32) *int32 { return &i }
 func int64Ptr(i int64) *int64 { return &i }
 
 func WaitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
-	xl.Infof("wait job to start: %s/%s", namespace, jobName)
-	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
-	podTimeout := time.After(120 * time.Second)
-
-	xl.Infof("Timeout of preparing Pod: %s. Timeout of running task: %s.", 120*time.Second, time.Duration(taskTimeout)*time.Minute)
-
-	var started bool
-	for {
-		select {
-		case <-ctx.Done():
-			return config.StatusCancelled
-
-		case <-podTimeout:
-			return config.StatusTimeout
-		default:
-			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
-			if err != nil {
-				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
-			}
-			if job != nil {
-				started = job.Status.Active > 0
-			}
-		}
-		if started {
-			break
-		}
-
-		time.Sleep(time.Second)
+	status := waitJobStart(ctx, namespace, jobName, kubeClient, xl)
+	if status != config.StatusRunning {
+		return status
 	}
+	return waitPlainJobEnd(ctx, taskTimeout, namespace, jobName, kubeClient, xl)
+}
+
+func waitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
+	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
 	// wait for the job to end.
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
 	for {
@@ -818,19 +798,15 @@ func WaitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName st
 
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
+func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
-	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
+	xl.Infof("Timeout of preparing Pod: %s.", 120*time.Second)
 	podTimeout := time.After(120 * time.Second)
 
-	xl.Infof("Timeout of preparing Pod: %s. Timeout of running task: %s.", 120*time.Second, time.Duration(taskTimeout)*time.Minute)
-
-	var started bool
 	for {
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled
-
 		case <-podTimeout:
 			return config.StatusTimeout
 		default:
@@ -838,25 +814,22 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 			if err != nil {
 				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
 			}
-			if job != nil {
-				started = job.Status.Active > 0
+			if job != nil && job.Status.Active > 0 {
+				return config.StatusRunning
 			}
 		}
-		if started {
-			break
-		}
-
 		time.Sleep(time.Second)
 	}
+}
 
-	// 等待job 运行结束
+func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
 	for {
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled
 
-		case <-timeout:
+		case <-taskTimeout:
 			return config.StatusTimeout
 
 		default:

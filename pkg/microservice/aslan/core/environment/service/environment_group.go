@@ -151,7 +151,11 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 			return ingressInfo
 		}
 	}
-	parsedYaml := commonservice.RenderValueForString(service.Yaml, renderSet)
+	parsedYaml, err := kube.RenderServiceYaml(service.Yaml, product.ProductName, service.ServiceName, renderSet, service.ServiceVars, service.VariableYaml)
+	if err != nil {
+		log.Errorf("RenderServiceYaml err: %s", err)
+		return nil
+	}
 	// 渲染系统变量键值
 	parsedYaml = kube.ParseSysKeys(product.Namespace, product.EnvName, product.ProductName, service.ServiceName, parsedYaml)
 

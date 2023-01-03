@@ -114,8 +114,8 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 	ret.UpdateBy = prodTmpl.UpdateBy
 	ret.CreateTime = prodTmpl.CreateTime
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
-	ret.Vars = prodTmpl.Vars
-	ret.ChartInfos = prodTmpl.ChartInfos
+	//ret.Vars = prodTmpl.Vars
+	ret.ServiceRenders = prodTmpl.ChartInfos
 	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
 		ret.Source = setting.PMDeployType
 	}
@@ -130,8 +130,8 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 
 		// Note: In the Helm scenario, filter `chart_infos` which is used by front-end.
 		if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {
-			chartInfos := []*templatemodels.RenderChart{}
-			for _, chartInfo := range ret.ChartInfos {
+			var chartInfos []*templatemodels.ServiceRender
+			for _, chartInfo := range ret.ServiceRenders {
 				found := false
 				for _, svcGroupName := range svcGroupNames {
 					if util.InStringArray(chartInfo.ServiceName, svcGroupName) {
@@ -145,7 +145,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 				}
 			}
 
-			ret.ChartInfos = chartInfos
+			ret.ServiceRenders = chartInfos
 		}
 	}
 
@@ -189,6 +189,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
+					serviceResp.VariableYaml = serviceTmpl.VariableYaml
 				}
 			}
 			servicesResp = append(servicesResp, serviceResp)
@@ -207,12 +208,12 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 		return nil, e.ErrGetEnv
 	}
 
-	if prod.Source != setting.SourceFromHelm && prod.Source != setting.SourceFromExternal {
-		err = FillProductVars([]*commonmodels.Product{prod}, log)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//if prod.Source != setting.SourceFromHelm && prod.Source != setting.SourceFromExternal {
+	//	err = FillProductVars([]*commonmodels.Product{prod}, log)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	if len(prod.RegistryID) == 0 {
 		reg, _, err := commonservice.FindDefaultRegistry(false, log)
@@ -228,17 +229,17 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 
 func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) *ProductResp {
 	prodResp := &ProductResp{
-		ID:              prod.ID.Hex(),
-		ProductName:     prod.ProductName,
-		Namespace:       prod.Namespace,
-		Services:        [][]string{},
-		Status:          setting.PodUnstable,
-		EnvName:         prod.EnvName,
-		UpdateTime:      prod.UpdateTime,
-		UpdateBy:        prod.UpdateBy,
-		Render:          prod.Render,
-		Error:           prod.Error,
-		Vars:            prod.Vars[:],
+		ID:          prod.ID.Hex(),
+		ProductName: prod.ProductName,
+		Namespace:   prod.Namespace,
+		Services:    [][]string{},
+		Status:      setting.PodUnstable,
+		EnvName:     prod.EnvName,
+		UpdateTime:  prod.UpdateTime,
+		UpdateBy:    prod.UpdateBy,
+		Render:      prod.Render,
+		Error:       prod.Error,
+		//Vars:            prod.Vars[:],
 		IsPublic:        prod.IsPublic,
 		IsExisted:       prod.IsExisted,
 		ClusterID:       prod.ClusterID,

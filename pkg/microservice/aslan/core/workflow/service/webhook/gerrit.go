@@ -66,7 +66,6 @@ func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log 
 		log.Errorf("processGerritHook json.Unmarshal err : %v", err)
 		return fmt.Errorf("this event is not supported")
 	}
-	//同步yaml数据
 	if gerritTypeEventObj.Type == changeMergedEventType {
 		err := updateServiceTemplateByGerritEvent(req.RequestURI, log)
 		if err != nil {
@@ -174,7 +173,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			}
 		}
 
-		if strings.Compare(newYamlContent, oldYamlContent) != 0 {
+		if strings.Compare(newYamlContent, oldYamlContent) != 0 || service.Type == setting.HelmDeployType {
 			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.LoadPath)
 			service.CreateBy = "system"
 			service.Yaml = newYamlContent

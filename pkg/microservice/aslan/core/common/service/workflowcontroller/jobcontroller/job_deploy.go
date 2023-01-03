@@ -69,6 +69,8 @@ func NewDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workfl
 func (c *DeployJobCtl) Clean(ctx context.Context) {}
 
 func (c *DeployJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
 	if err := c.run(ctx); err != nil {
 		return
 	}

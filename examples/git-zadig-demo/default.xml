@@ -1,0 +1,15 @@
+<manifest>
+    <record-branch>change-history</record-branch>
+    <manifest-url>https://gitlab.com/kr-poc/manifest-repo</manifest-url>
+    <remote name="origin"
+            fetch="https://gitlab.com/kr-poc"
+            review="https://gitlab.com"
+            type="gitlab"/>
+
+    <default revision="main"
+            remote="origin"
+            sync-j="4" />
+
+    <project path="app-1-repo" name="app-1-repo" />
+    <project path="app-2-repo" name="app-2-repo" />
+</manifest>

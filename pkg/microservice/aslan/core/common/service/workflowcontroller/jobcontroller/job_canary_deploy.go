@@ -69,6 +69,8 @@ func NewCanaryDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.
 func (c *CanaryDeployJobCtl) Clean(ctx context.Context) {}
 
 func (c *CanaryDeployJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
 	if err := c.run(ctx); err != nil {
 		return
 	}

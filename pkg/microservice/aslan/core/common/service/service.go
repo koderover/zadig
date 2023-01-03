@@ -39,6 +39,7 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -78,27 +79,30 @@ type ServiceTmplObject struct {
 	From         string                        `json:"from,omitempty"`
 	HealthChecks []*commonmodels.PmHealthCheck `json:"health_checks"`
 	EnvName      string                        `json:"env_name"`
+	VariableYaml string                        `json:"variable_yaml"`
+	ServiceVars  []string                      `json:"service_vars"`
 }
 
 type ServiceProductMap struct {
-	Service          string                    `json:"service_name"`
-	Source           string                    `json:"source"`
-	Type             string                    `json:"type"`
-	Product          []string                  `json:"product"`
-	ProductName      string                    `json:"product_name"`
-	Containers       []*commonmodels.Container `json:"containers,omitempty"`
-	Visibility       string                    `json:"visibility,omitempty"`
-	CodehostID       int                       `json:"codehost_id"`
-	RepoOwner        string                    `json:"repo_owner"`
-	RepoNamespace    string                    `json:"repo_namespace"`
-	RepoName         string                    `json:"repo_name"`
-	RepoUUID         string                    `json:"repo_uuid"`
-	BranchName       string                    `json:"branch_name"`
-	LoadPath         string                    `json:"load_path"`
-	LoadFromDir      bool                      `json:"is_dir"`
-	GerritRemoteName string                    `json:"gerrit_remote_name,omitempty"`
-	CreateFrom       interface{}               `json:"create_from"`
-	AutoSync         bool                      `json:"auto_sync"`
+	Service                 string                    `json:"service_name"`
+	Source                  string                    `json:"source"`
+	Type                    string                    `json:"type"`
+	Product                 []string                  `json:"product"`
+	ProductName             string                    `json:"product_name"`
+	Containers              []*commonmodels.Container `json:"containers,omitempty"`
+	Visibility              string                    `json:"visibility,omitempty"`
+	CodehostID              int                       `json:"codehost_id"`
+	RepoOwner               string                    `json:"repo_owner"`
+	RepoNamespace           string                    `json:"repo_namespace"`
+	RepoName                string                    `json:"repo_name"`
+	RepoUUID                string                    `json:"repo_uuid"`
+	BranchName              string                    `json:"branch_name"`
+	LoadPath                string                    `json:"load_path"`
+	LoadFromDir             bool                      `json:"is_dir"`
+	GerritRemoteName        string                    `json:"gerrit_remote_name,omitempty"`
+	CreateFrom              interface{}               `json:"create_from"`
+	AutoSync                bool                      `json:"auto_sync"`
+	EstimatedMergedVariable string                    `json:"estimated_merged_variable"`
 }
 
 var (
@@ -174,6 +178,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
+	estimatedVariables := getEstimatedMergedVariables(services, productTmpl)
 	for _, serviceObject := range services {
 		if serviceObject.Source == setting.SourceFromGitlab {
 			if serviceObject.CodehostID == 0 {
@@ -201,24 +206,25 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			log.Warnf("faile to fill service creation info: %s", err)
 		}
 		spmap := &ServiceProductMap{
-			Service:          serviceObject.ServiceName,
-			Type:             serviceObject.Type,
-			Source:           serviceObject.Source,
-			ProductName:      serviceObject.ProductName,
-			Containers:       serviceObject.Containers,
-			Product:          []string{productName},
-			Visibility:       serviceObject.Visibility,
-			CodehostID:       serviceObject.CodehostID,
-			RepoOwner:        serviceObject.RepoOwner,
-			RepoNamespace:    serviceObject.GetRepoNamespace(),
-			RepoName:         serviceObject.RepoName,
-			RepoUUID:         serviceObject.RepoUUID,
-			BranchName:       serviceObject.BranchName,
-			LoadFromDir:      serviceObject.LoadFromDir,
-			LoadPath:         serviceObject.LoadPath,
-			GerritRemoteName: serviceObject.GerritRemoteName,
-			CreateFrom:       serviceObject.CreateFrom,
-			AutoSync:         serviceObject.AutoSync,
+			Service:                 serviceObject.ServiceName,
+			Type:                    serviceObject.Type,
+			Source:                  serviceObject.Source,
+			ProductName:             serviceObject.ProductName,
+			Containers:              serviceObject.Containers,
+			Product:                 []string{productName},
+			Visibility:              serviceObject.Visibility,
+			CodehostID:              serviceObject.CodehostID,
+			RepoOwner:               serviceObject.RepoOwner,
+			RepoNamespace:           serviceObject.GetRepoNamespace(),
+			RepoName:                serviceObject.RepoName,
+			RepoUUID:                serviceObject.RepoUUID,
+			BranchName:              serviceObject.BranchName,
+			LoadFromDir:             serviceObject.LoadFromDir,
+			LoadPath:                serviceObject.LoadPath,
+			GerritRemoteName:        serviceObject.GerritRemoteName,
+			CreateFrom:              serviceObject.CreateFrom,
+			AutoSync:                serviceObject.AutoSync,
+			EstimatedMergedVariable: estimatedVariables[serviceObject.ServiceName],
 		}
 
 		if _, ok := serviceToProject[serviceObject.ServiceName]; ok {
@@ -229,6 +235,53 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	}
 
 	return resp, nil
+}
+
+func getEstimatedMergedVariables(services []*commonmodels.Service, product *template.Product) map[string]string {
+	retValue := make(map[string]string)
+	if product.IsK8sYamlProduct() {
+		templateMap := make(map[string]*commonmodels.YamlTemplate)
+		k8sYamlTemplates, _, _ := commonrepo.NewYamlTemplateColl().List(0, 0)
+		for _, t := range k8sYamlTemplates {
+			templateMap[t.ID.Hex()] = t
+		}
+
+		for _, service := range services {
+			if service.Source != setting.ServiceSourceTemplate {
+				continue
+			}
+			retValue[service.ServiceName] = service.VariableYaml
+
+			sourceTemplate, ok := templateMap[service.TemplateID]
+			if !ok {
+				continue
+			}
+
+			templateVariable, kvs, err := commomtemplate.SafeMergeVariableYaml(sourceTemplate.VariableYaml, service.VariableYaml)
+			if err == nil {
+				for k, v := range kvs {
+					templateVariable = strings.ReplaceAll(templateVariable, k, v)
+				}
+				retValue[service.ServiceName] = templateVariable
+			}
+		}
+	}
+
+	if product.IsHelmProduct() {
+		for _, service := range services {
+			if service.Source != setting.SourceFromChartTemplate {
+				continue
+			}
+			creation, err := GetCreateFromChartTemplate(service.CreateFrom)
+			if err == nil {
+				if creation.YamlData != nil {
+					retValue[service.ServiceName] = creation.YamlData.YamlContent
+				}
+			}
+		}
+	}
+
+	return retValue
 }
 
 // ListWorkloadTemplate 列出实例模板
@@ -338,9 +391,29 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 
 	resp, err := commonrepo.NewServiceColl().Find(opt)
 	if err != nil {
-		errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s error: %v", serviceName, err)
-		log.Error(errMsg)
-		return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		err = func() error {
+			if !commonrepo.IsErrNoDocuments(err) {
+				return err
+			}
+			templateProductInfo, errFindProject := templaterepo.NewProductColl().Find(productName)
+			if errFindProject != nil {
+				return errFindProject
+			}
+			for _, svc := range templateProductInfo.SharedServices {
+				if svc.Name == serviceName && svc.Owner != productName {
+					opt.ProductName = svc.Owner
+					resp, err = commonrepo.NewServiceColl().Find(opt)
+					break
+				}
+			}
+			return err
+		}()
+
+		if err != nil {
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s error: %v", serviceName, err)
+			log.Error(errMsg)
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		}
 	}
 
 	if resp.Type == setting.PMDeployType {
