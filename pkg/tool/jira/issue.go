@@ -100,8 +100,8 @@ type IssueTypeDefinition struct {
 }
 
 type IssueTypeWithStatus struct {
-	Type   string
-	Status []string
+	Type   string   `json:"type"`
+	Status []string `json:"status"`
 }
 
 func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) {
