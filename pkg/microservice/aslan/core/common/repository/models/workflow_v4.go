@@ -426,13 +426,6 @@ type StorageDetail struct {
 	MountPath string           `bson:"mount_path"       json:"mount_path"       yaml:"mount_path"`
 }
 
-type JiraSpec struct {
-	ProjectID    string `bson:"project_id" json:"project_id" yaml:"project_id"`
-	IssueType    string `bson:"issue_type" json:"issue_type" yaml:"issue_type"`
-	IssueID      string `bson:"issue_id" json:"issue_id" yaml:"issue_id"`
-	TargetStatus string `bson:"target_status" json:"target_status" yaml:"target_status"`
-}
-
 func IToiYaml(before interface{}, after interface{}) error {
 	b, err := yaml.Marshal(before)
 	if err != nil {
