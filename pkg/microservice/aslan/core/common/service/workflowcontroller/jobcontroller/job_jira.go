@@ -66,18 +66,18 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 			logError(c.job, fmt.Sprintf("GetTransitions issue %s error: %v", issue.Key, err), c.logger)
 			return
 		}
-		var id *string
+		var id string
 		for _, transition := range list {
 			if transition.Name == c.jobTaskSpec.TargetStatus {
-				*id = transition.ID
+				id = transition.ID
 				break
 			}
 		}
-		if id == nil {
+		if id == "" {
 			logError(c.job, fmt.Sprintf("Issue %s failed to find status %s transition id", issue.Key, c.jobTaskSpec.TargetStatus), c.logger)
 			return
 		}
-		err = client.Issue.UpdateStatus(issue.Key, *id)
+		err = client.Issue.UpdateStatus(issue.Key, id)
 		if err != nil {
 			logError(c.job, fmt.Sprintf("Update issue %s status error: %v", issue.Key, err), c.logger)
 			issue.Status = string(config.StatusFailed)
