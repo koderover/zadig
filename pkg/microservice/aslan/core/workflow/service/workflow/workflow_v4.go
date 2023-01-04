@@ -695,7 +695,7 @@ func CreateGeneralHookForWorkflowV4(workflowName string, arg *models.GeneralHook
 		logger.Errorf(err.Error())
 		return e.ErrCreateGeneralHook.AddErr(err)
 	}
-	workflow.JiraHookCtls = append(workflow.JiraHookCtls, arg)
+	workflow.GeneralHookCtls = append(workflow.GeneralHookCtls, arg)
 	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
 		errMsg := fmt.Sprintf("failed to create jira hook for workflow %s, the error is: %v", workflowName, err)
 		log.Error(errMsg)

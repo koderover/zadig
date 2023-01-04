@@ -270,34 +270,34 @@ func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 	ctx.Err = workflow.CreateGeneralHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
-func GetGeneralHookForWorkflowV4Preset(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
-}
-
-func ListGeneralHookForWorkflowV4(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.ListGeneralHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
-}
-
-func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	jira := new(commonmodels.GeneralHook)
-	if err := c.ShouldBindJSON(jira); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	ctx.Err = workflow.UpdateGeneralHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
-}
-
-func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = workflow.DeleteGeneralHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
-}
+//func GetGeneralHookForWorkflowV4Preset(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//	ctx.Resp, ctx.Err = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+//}
+//
+//func ListGeneralHookForWorkflowV4(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//	ctx.Resp, ctx.Err = workflow.ListGeneralHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
+//}
+//
+//func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//	jira := new(commonmodels.GeneralHook)
+//	if err := c.ShouldBindJSON(jira); err != nil {
+//		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+//		return
+//	}
+//	ctx.Err = workflow.UpdateGeneralHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+//}
+//
+//func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//	ctx.Err = workflow.DeleteGeneralHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
+//}
 
 func GetCronForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
