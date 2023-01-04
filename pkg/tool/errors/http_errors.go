@@ -796,4 +796,13 @@ var (
 	ErrCreateJiraHook = NewHTTPError(6962, "创建 jira hook 失败")
 	ErrUpdateJiraHook = NewHTTPError(6963, "更新 jira hook 失败")
 	ErrDeleteJiraHook = NewHTTPError(6964, "删除 jira hook 失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// general hook releated Error Range: 6970 - 6979
+	//-----------------------------------------------------------------------------------------------
+	ErrGetGeneralHook    = NewHTTPError(6970, "获取 general hook 详情失败")
+	ErrListGeneralHook   = NewHTTPError(6971, "列出 general hook 失败")
+	ErrCreateGeneralHook = NewHTTPError(6972, "创建 general hook 失败")
+	ErrUpdateGeneralHook = NewHTTPError(6973, "更新 general hook 失败")
+	ErrDeleteGeneralHook = NewHTTPError(6974, "删除 general hook 失败")
 )
