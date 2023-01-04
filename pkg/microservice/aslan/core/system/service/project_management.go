@@ -23,6 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	config2 "github.com/koderover/zadig/pkg/config"
@@ -97,6 +98,9 @@ func ValidateJira(info *models.ProjectManagement) error {
 func ListJiraProjects() ([]string, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Project.ListProjects()
@@ -105,6 +109,9 @@ func ListJiraProjects() ([]string, error) {
 func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Issue.GetTypes(project)
@@ -113,6 +120,9 @@ func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
 func SearchJiraIssues(project, _type, status string, ne bool) ([]*jira.Issue, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var jql []string
