@@ -30,7 +30,7 @@ func GetPodWithRetryOption(ns, name string, cl client.Client, retryCount int, re
 	for i := 0; i < retryCount; i++ {
 		pod, found, err = GetPod(ns, name, cl)
 		if err == nil {
-			return pod, found, err
+			return
 		}
 		time.Sleep(retryInterval)
 	}
@@ -52,7 +52,7 @@ func ListPodsWithRetryOption(ns string, selector labels.Selector, cl client.Clie
 	for i := 0; i < retryCount; i++ {
 		pod, err = ListPods(ns, selector, cl)
 		if err == nil {
-			return pod, err
+			return
 		}
 		time.Sleep(retryInterval)
 	}
