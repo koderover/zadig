@@ -229,6 +229,12 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 	ctx.Err = workflow.CreateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
+func GetJiraHookForWorkflowV4Preset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = workflow.GetJiraHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+}
+
 func ListJiraHookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

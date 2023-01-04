@@ -704,6 +704,30 @@ func CreateJiraHookForWorkflowV4(workflowName string, arg *models.JiraHook, logg
 	return nil
 }
 
+func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.SugaredLogger) (*commonmodels.JiraHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrUpsertCronjob.AddErr(err)
+	}
+	var jiraHook *commonmodels.JiraHook
+	for _, hook := range workflow.JiraHookCtls {
+		if hook.Name == hookName {
+			jiraHook = hook
+		}
+	}
+	if jiraHook == nil {
+		return nil, e.ErrGetJiraHook.AddDesc("not found")
+	}
+	if err := job.MergeArgs(workflow, jiraHook.WorkflowArg); err != nil {
+		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+		log.Error(errMsg)
+		return nil, e.ErrGetWebhook.AddDesc(errMsg)
+	}
+	jiraHook.WorkflowArg = workflow
+	return jiraHook, nil
+}
+
 func ListJiraHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*models.JiraHook, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {

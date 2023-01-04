@@ -182,6 +182,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/webhook/:workflowName", CreateWebhookForWorkflowV4)
 		workflowV4.PUT("/webhook/:workflowName", UpdateWebhookForWorkflowV4)
 		workflowV4.DELETE("/webhook/:workflowName/trigger/:triggerName", DeleteWebhookForWorkflowV4)
+		workflowV4.GET("/jirahook/preset", GetJiraHookForWorkflowV4Preset)
 		workflowV4.GET("/jirahook/:workflowName", ListJiraHookForWorkflowV4)
 		workflowV4.POST("/jirahook/:workflowName", CreateJiraHookForWorkflowV4)
 		workflowV4.PUT("/jirahook/:workflowName", UpdateJiraHookForWorkflowV4)
