@@ -203,7 +203,14 @@ func (j *JenkinsBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 
 // Wait ...
 func (j *JenkinsBuildPlugin) Wait(ctx context.Context) {
-	jobStatus := waitJobEnd(ctx, j.TaskTimeout(), j.KubeNamespace, j.JobName, j.kubeClient, j.clientset, j.restConfig, j.Log)
+	jobStatus, err := waitJobEnd(ctx, j.TaskTimeout(), j.KubeNamespace, j.JobName, j.kubeClient, j.clientset, j.restConfig, j.Log)
+	if err != nil {
+		j.SetStatus(config.StatusFailed)
+		msg := fmt.Sprintf("failed to wait job end, error: %s", err)
+		j.Log.Error(msg)
+		j.Task.Error = msg
+		return
+	}
 	jenkinsClient, err := gojenkins.CreateJenkins(nil, j.Task.JenkinsIntegration.URL, j.Task.JenkinsIntegration.Username, j.Task.JenkinsIntegration.Password).Init(ctx)
 	if err != nil {
 		j.SetStatus(config.StatusFailed)
