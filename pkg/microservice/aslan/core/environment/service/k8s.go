@@ -23,6 +23,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -221,6 +228,94 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
 
+	svcNameSet := sets.NewString()
+	for _, svc := range allServices {
+		svcNameSet.Insert(svc.ServiceName)
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to init client set, err: %s", err)
+		return nil
+	}
+
+	selector := labels.Set{setting.ProductLabel: productName}.AsSelector()
+	workloadMap := make(map[string][]*commonservice.Workload)
+	listDeployments, err := getter.ListDeploymentsWithCache(selector, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] get deployment list error: %v", productName, envName, err)
+		return nil
+	}
+
+	for _, v := range listDeployments {
+		serviceName := v.Labels[setting.ServiceLabel]
+		if !svcNameSet.Has(serviceName) {
+			continue
+		}
+		workload := &commonservice.Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.Deployment,
+			Images:     wrapper.Deployment(v).ImageInfos(),
+			Ready:      wrapper.Deployment(v).Ready(),
+			Annotation: v.Annotations,
+		}
+		workloadMap[serviceName] = append(workloadMap[serviceName], workload)
+	}
+	statefulSets, err := getter.ListStatefulSetsWithCache(selector, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] get sts list error: %v", productName, envName, err)
+		return nil
+	}
+	for _, v := range statefulSets {
+		serviceName := v.Labels[setting.ServiceLabel]
+		if !svcNameSet.Has(serviceName) {
+			continue
+		}
+		workload := &commonservice.Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.StatefulSet,
+			Images:     wrapper.StatefulSet(v).ImageInfos(),
+			Ready:      wrapper.StatefulSet(v).Ready(),
+			Annotation: v.Annotations,
+		}
+		workloadMap[serviceName] = append(workloadMap[serviceName], workload)
+	}
+
+	hostInfos := make([]resource.HostInfo, 0)
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", productInfo.ClusterID, err)
+		return nil
+	}
+	if kubeclient.VersionLessThan122(version) {
+		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	} else {
+		ingresses, err := getter.ListNetworkingV1Ingress(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ingress)...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	}
+
+	// get all services
+	k8sServices, err := getter.ListServicesWithCache(nil, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] list service error: %s", envName, productInfo.Namespace, err)
+		return nil
+	}
+
 	for _, service := range allServices {
 		wg.Add(1)
 		go func(service *commonmodels.ProductService) {
@@ -253,8 +348,16 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				gp.Status = setting.ClusterUnknown
 			}
 
-			//处理ingress信息
-			gp.Ingress = GetIngressInfo(productInfo, serviceTmpl, k.log)
+			// ingress may be multiple workloads
+			hostInfo := make([]resource.HostInfo, 0)
+			for _, workload := range workloadMap[service.ServiceName] {
+				hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
+			}
+			gp.Ingress = &commonservice.IngressInfo{
+				HostInfo: hostInfo,
+			}
+
+			//gp.Ingress = GetIngressInfo(productInfo, serviceTmpl, k.log)
 			mutex.Lock()
 			resp = append(resp, gp)
 			mutex.Unlock()
