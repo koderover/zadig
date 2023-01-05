@@ -17,9 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/now"
@@ -36,14 +38,15 @@ import (
 )
 
 func GetAllPipelineTask(log *zap.SugaredLogger) error {
-	option := &commonmongodb.ListAllTaskOption{Type: config.WorkflowType}
 	count, err := mongodb.NewBuildStatColl().FindCount()
 	if err != nil {
 		log.Errorf("BuildStat FindCount err:%v", err)
 		return fmt.Errorf("BuildStat FindCount err:%v", err)
 	}
+	var createTime int64
+
 	if count > 0 {
-		option.CreateTime = time.Now().AddDate(0, 0, -1).Unix()
+		createTime = time.Now().AddDate(0, 0, -1).Unix()
 	}
 	//获取所有的项目名称
 	allProducts, err := templaterepo.NewProductColl().List()
@@ -52,106 +55,19 @@ func GetAllPipelineTask(log *zap.SugaredLogger) error {
 		return fmt.Errorf("BuildStat ProductTmpl List err:%v", err)
 	}
 	for _, product := range allProducts {
-		option.ProductNames = []string{product.ProductName}
-		allTasks, err := commonmongodb.NewTaskColl().ListAllTasks(option)
+		workflowBuildStats, err := GetworkflowBuildStatByProdutName(product.ProductName, createTime, log)
 		if err != nil {
-			log.Errorf("pipeline list err:%v", err)
-			return fmt.Errorf("pipeline list err:%v", err)
+			log.Errorf("list workkflow build stat err: %v", err)
+			return fmt.Errorf("list workkflow build stat err: %v", err)
 		}
-		taskDateMap := make(map[string][]*taskmodels.Task)
-		if len(allTasks) > 0 {
-			//将task的时间戳转成日期，以日期为单位分组
-			for _, task := range allTasks {
-				time := time.Unix(task.CreateTime, 0)
-				date := time.Format(config.Date)
-				if _, isExist := taskDateMap[date]; isExist {
-					taskDateMap[date] = append(taskDateMap[date], task)
-				} else {
-					tasks := make([]*taskmodels.Task, 0)
-					tasks = append(tasks, task)
-					taskDateMap[date] = tasks
-				}
-			}
-		} else {
-			localTime := time.Now().AddDate(0, 0, -1).In(time.Local)
-			date := localTime.Format(config.Date)
-			taskDateMap[date] = []*taskmodels.Task{
-				{Stages: []*commonmodels.Stage{}},
-			}
+		workflowV4BuildStats, err := GetworkflowV4BuildStatByProdutName(product.ProductName, createTime, log)
+		if err != nil {
+			log.Errorf("list workkflow v4 build stat err: %v", err)
+			return fmt.Errorf("list workkflow v4 build stat err: %v", err)
 		}
-
-		taskDateKeys := make([]string, 0, len(taskDateMap))
-		for taskDateMapKey := range taskDateMap {
-			taskDateKeys = append(taskDateKeys, taskDateMapKey)
-		}
-		sort.Strings(taskDateKeys)
-
-		for _, taskDate := range taskDateKeys {
-			var (
-				totalSuccess         = 0
-				totalFailure         = 0
-				totalTimeout         = 0
-				totalDuration        int64
-				maxDurationPipelines = make([]*models.PipelineInfo, 0)
-			)
-			//循环task任务获取需要的数据
-			for _, taskPreview := range taskDateMap[taskDate] {
-				stages := taskPreview.Stages
-				for _, subStage := range stages {
-					taskType := subStage.TaskType
-					switch taskType {
-					case config.TaskBuild:
-						// 获取构建时长
-						for _, subTask := range subStage.SubTasks {
-							buildInfo, err := base.ToBuildTask(subTask)
-							if err != nil {
-								log.Errorf("BuildStat ToBuildTask err:%v", err)
-								continue
-							}
-							if buildInfo.TaskStatus == config.StatusPassed {
-								totalSuccess++
-							} else if buildInfo.TaskStatus == config.StatusFailed {
-								totalFailure++
-							} else if buildInfo.TaskStatus == config.StatusTimeout {
-								totalTimeout++
-							} else {
-								continue
-							}
-
-							totalDuration += buildInfo.EndTime - buildInfo.StartTime
-							maxDurationPipeline := new(models.PipelineInfo)
-							maxDurationPipeline.PipelineName = taskPreview.PipelineName
-							maxDurationPipeline.TaskID = taskPreview.TaskID
-							maxDurationPipeline.Type = string(taskPreview.Type)
-							maxDurationPipeline.MaxDuration = buildInfo.EndTime - buildInfo.StartTime
-
-							maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
-						}
-					}
-				}
-			}
-			//比较maxDurationPipeline的MaxDuration的最大值
-			sort.SliceStable(maxDurationPipelines, func(i, j int) bool { return maxDurationPipelines[i].MaxDuration > maxDurationPipelines[j].MaxDuration })
-			buildStat := new(models.BuildStat)
-			buildStat.ProductName = product.ProductName
-			buildStat.TotalSuccess = totalSuccess
-			buildStat.TotalFailure = totalFailure
-			buildStat.TotalTimeout = totalTimeout
-			buildStat.TotalDuration = totalDuration
-			if len(maxDurationPipelines) > 0 {
-				buildStat.TotalBuildCount = len(maxDurationPipelines)
-				buildStat.MaxDuration = maxDurationPipelines[0].MaxDuration
-				buildStat.MaxDurationPipeline = maxDurationPipelines[0]
-			} else {
-				buildStat.TotalBuildCount = 0
-				buildStat.MaxDuration = 0
-				buildStat.MaxDurationPipeline = &models.PipelineInfo{}
-			}
-			buildStat.Date = taskDate
-			tt, _ := time.ParseInLocation(config.Date, taskDate, time.Local)
-			buildStat.CreateTime = tt.Unix()
-			buildStat.UpdateTime = time.Now().Unix()
-
+		allStats := append(workflowBuildStats, workflowV4BuildStats...)
+		stats := mergeBuildStat(allStats)
+		for _, buildStat := range stats {
 			err := mongodb.NewBuildStatColl().Create(buildStat)
 			if err != nil { //插入失败就更新
 				err = mongodb.NewBuildStatColl().Update(buildStat)
@@ -163,6 +79,250 @@ func GetAllPipelineTask(log *zap.SugaredLogger) error {
 		}
 	}
 	return nil
+}
+
+func GetworkflowBuildStatByProdutName(productName string, startTimestamp int64, log *zap.SugaredLogger) ([]*models.BuildStat, error) {
+	buildStats := []*models.BuildStat{}
+	option := &commonmongodb.ListAllTaskOption{Type: config.WorkflowType, ProductName: productName, CreateTime: startTimestamp}
+	cursor, err := commonmongodb.NewTaskColl().ListByCursor(option)
+	if err != nil {
+		return buildStats, fmt.Errorf("pipeline list err:%v", err)
+	}
+	taskDateMap := make(map[string][]*taskmodels.Task)
+	for cursor.Next(context.Background()) {
+		var workflowTask *taskmodels.Task
+		if err := cursor.Decode(&workflowTask); err != nil {
+			return buildStats, fmt.Errorf("decode task err:%v", err)
+		}
+		time := time.Unix(workflowTask.CreateTime, 0)
+		date := time.Format(config.Date)
+		if _, isExist := taskDateMap[date]; isExist {
+			taskDateMap[date] = append(taskDateMap[date], workflowTask)
+		} else {
+			tasks := make([]*taskmodels.Task, 0)
+			tasks = append(tasks, workflowTask)
+			taskDateMap[date] = tasks
+		}
+	}
+	if len(taskDateMap) == 0 {
+		localTime := time.Now().AddDate(0, 0, -1).In(time.Local)
+		date := localTime.Format(config.Date)
+		taskDateMap[date] = []*taskmodels.Task{
+			{Stages: []*commonmodels.Stage{}},
+		}
+	}
+
+	taskDateKeys := make([]string, 0, len(taskDateMap))
+	for taskDateMapKey := range taskDateMap {
+		taskDateKeys = append(taskDateKeys, taskDateMapKey)
+	}
+	sort.Strings(taskDateKeys)
+
+	for _, taskDate := range taskDateKeys {
+		var (
+			totalSuccess         = 0
+			totalFailure         = 0
+			totalTimeout         = 0
+			totalDuration        int64
+			maxDurationPipelines = make([]*models.PipelineInfo, 0)
+		)
+		//循环task任务获取需要的数据
+		for _, taskPreview := range taskDateMap[taskDate] {
+			stages := taskPreview.Stages
+			for _, subStage := range stages {
+				taskType := subStage.TaskType
+				switch taskType {
+				case config.TaskBuild:
+					// 获取构建时长
+					for _, subTask := range subStage.SubTasks {
+						buildInfo, err := base.ToBuildTask(subTask)
+						if err != nil {
+							log.Errorf("BuildStat ToBuildTask err:%v", err)
+							continue
+						}
+						if buildInfo.TaskStatus == config.StatusPassed {
+							totalSuccess++
+						} else if buildInfo.TaskStatus == config.StatusFailed {
+							totalFailure++
+						} else if buildInfo.TaskStatus == config.StatusTimeout {
+							totalTimeout++
+						} else {
+							continue
+						}
+
+						totalDuration += buildInfo.EndTime - buildInfo.StartTime
+						maxDurationPipeline := new(models.PipelineInfo)
+						maxDurationPipeline.PipelineName = taskPreview.PipelineName
+						maxDurationPipeline.TaskID = taskPreview.TaskID
+						maxDurationPipeline.Type = string(taskPreview.Type)
+						maxDurationPipeline.MaxDuration = buildInfo.EndTime - buildInfo.StartTime
+
+						maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
+					}
+				}
+			}
+		}
+		//比较maxDurationPipeline的MaxDuration的最大值
+		sort.SliceStable(maxDurationPipelines, func(i, j int) bool { return maxDurationPipelines[i].MaxDuration > maxDurationPipelines[j].MaxDuration })
+		buildStat := &models.BuildStat{}
+		buildStat.ProductName = productName
+		buildStat.TotalSuccess = totalSuccess
+		buildStat.TotalFailure = totalFailure
+		buildStat.TotalTimeout = totalTimeout
+		buildStat.TotalDuration = totalDuration
+		if len(maxDurationPipelines) > 0 {
+			buildStat.TotalBuildCount = len(maxDurationPipelines)
+			buildStat.MaxDuration = maxDurationPipelines[0].MaxDuration
+			buildStat.MaxDurationPipeline = maxDurationPipelines[0]
+		} else {
+			buildStat.TotalBuildCount = 0
+			buildStat.MaxDuration = 0
+			buildStat.MaxDurationPipeline = &models.PipelineInfo{}
+		}
+		buildStat.Date = taskDate
+		tt, _ := time.ParseInLocation(config.Date, taskDate, time.Local)
+		buildStat.CreateTime = tt.Unix()
+		buildStat.UpdateTime = time.Now().Unix()
+		buildStats = append(buildStats, buildStat)
+	}
+	return buildStats, nil
+}
+
+func GetworkflowV4BuildStatByProdutName(productName string, startTimestamp int64, log *zap.SugaredLogger) ([]*models.BuildStat, error) {
+	buildStats := []*models.BuildStat{}
+	option := &commonmongodb.ListWorkflowTaskV4Option{ProjectName: productName, CreateTime: startTimestamp}
+	cursor, err := commonmongodb.NewworkflowTaskv4Coll().ListByCursor(option)
+	if err != nil {
+		return buildStats, fmt.Errorf("workflow v4 list err:%v", err)
+	}
+	taskDateMap := make(map[string][]*commonmodels.WorkflowTask)
+	for cursor.Next(context.Background()) {
+		var workflowTask *commonmodels.WorkflowTask
+		if err := cursor.Decode(&workflowTask); err != nil {
+			return buildStats, fmt.Errorf("decode task err:%v", err)
+		}
+		time := time.Unix(workflowTask.CreateTime, 0)
+		date := time.Format(config.Date)
+		if _, isExist := taskDateMap[date]; isExist {
+			taskDateMap[date] = append(taskDateMap[date], workflowTask)
+		} else {
+			tasks := make([]*commonmodels.WorkflowTask, 0)
+			tasks = append(tasks, workflowTask)
+			taskDateMap[date] = tasks
+		}
+	}
+	if len(taskDateMap) == 0 {
+		localTime := time.Now().AddDate(0, 0, -1).In(time.Local)
+		date := localTime.Format(config.Date)
+		taskDateMap[date] = []*commonmodels.WorkflowTask{
+			{Stages: []*commonmodels.StageTask{}},
+		}
+	}
+
+	taskDateKeys := make([]string, 0, len(taskDateMap))
+	for taskDateMapKey := range taskDateMap {
+		taskDateKeys = append(taskDateKeys, taskDateMapKey)
+	}
+	sort.Strings(taskDateKeys)
+
+	for _, taskDate := range taskDateKeys {
+		var (
+			totalSuccess         = 0
+			totalFailure         = 0
+			totalTimeout         = 0
+			totalDuration        int64
+			maxDurationPipelines = make([]*models.PipelineInfo, 0)
+		)
+		//循环task任务获取需要的数据
+		for _, taskPreview := range taskDateMap[taskDate] {
+			stages := taskPreview.Stages
+			for _, stage := range stages {
+				for _, job := range stage.Jobs {
+					if job.JobType != string(config.JobZadigBuild) {
+						continue
+					}
+					if job.Status == config.StatusPassed {
+						totalSuccess++
+					} else if job.Status == config.StatusFailed {
+						totalFailure++
+					} else if job.Status == config.StatusTimeout {
+						totalTimeout++
+					} else {
+						continue
+					}
+					totalDuration += job.EndTime - job.StartTime
+					maxDurationPipeline := new(models.PipelineInfo)
+					maxDurationPipeline.PipelineName = taskPreview.WorkflowName
+					maxDurationPipeline.TaskID = taskPreview.TaskID
+					maxDurationPipeline.MaxDuration = job.EndTime - job.StartTime
+					maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
+
+				}
+			}
+		}
+		// get longgest duration.
+		sort.SliceStable(maxDurationPipelines, func(i, j int) bool { return maxDurationPipelines[i].MaxDuration > maxDurationPipelines[j].MaxDuration })
+		buildStat := &models.BuildStat{}
+		buildStat.ProductName = productName
+		buildStat.TotalSuccess = totalSuccess
+		buildStat.TotalFailure = totalFailure
+		buildStat.TotalTimeout = totalTimeout
+		buildStat.TotalDuration = totalDuration
+		if len(maxDurationPipelines) > 0 {
+			buildStat.TotalBuildCount = len(maxDurationPipelines)
+			buildStat.MaxDuration = maxDurationPipelines[0].MaxDuration
+			buildStat.MaxDurationPipeline = maxDurationPipelines[0]
+		} else {
+			buildStat.TotalBuildCount = 0
+			buildStat.MaxDuration = 0
+			buildStat.MaxDurationPipeline = &models.PipelineInfo{}
+		}
+		buildStat.Date = taskDate
+		tt, _ := time.ParseInLocation(config.Date, taskDate, time.Local)
+		buildStat.CreateTime = tt.Unix()
+		buildStat.UpdateTime = time.Now().Unix()
+		buildStats = append(buildStats, buildStat)
+	}
+	return buildStats, nil
+}
+
+func mergeBuildStat(buildStats []*models.BuildStat) []*models.BuildStat {
+	resp := []*models.BuildStat{}
+	buildMap := map[string][]*models.BuildStat{}
+	for _, buildStat := range buildStats {
+		key := strings.Join([]string{buildStat.ProductName, buildStat.Date}, "@")
+		if _, isExist := buildMap[key]; isExist {
+			buildMap[buildStat.Date] = append(buildMap[buildStat.Date], buildStat)
+		} else {
+			buildMap[buildStat.Date] = []*models.BuildStat{buildStat}
+		}
+	}
+	for _, stats := range buildMap {
+		buildStat := &models.BuildStat{}
+		maxDurationPipelines := make([]*models.PipelineInfo, 0)
+		for _, stat := range stats {
+			buildStat.ProductName = stat.ProductName
+			buildStat.Date = stat.Date
+			buildStat.TotalSuccess += stat.TotalSuccess
+			buildStat.TotalFailure += stat.TotalFailure
+			buildStat.TotalTimeout += stat.TotalTimeout
+			buildStat.TotalDuration += stat.TotalDuration
+			buildStat.CreateTime = stat.CreateTime
+			buildStat.UpdateTime = stat.UpdateTime
+			maxDurationPipelines = append(maxDurationPipelines, stat.MaxDurationPipeline)
+		}
+		if len(maxDurationPipelines) > 0 {
+			buildStat.TotalBuildCount = len(maxDurationPipelines)
+			buildStat.MaxDuration = maxDurationPipelines[0].MaxDuration
+			buildStat.MaxDurationPipeline = maxDurationPipelines[0]
+		} else {
+			buildStat.TotalBuildCount = 0
+			buildStat.MaxDuration = 0
+			buildStat.MaxDurationPipeline = &models.PipelineInfo{}
+		}
+		resp = append(resp, buildStat)
+	}
+	return resp
 }
 
 type dailyBuildStat struct {

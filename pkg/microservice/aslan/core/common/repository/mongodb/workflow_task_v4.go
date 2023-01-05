@@ -33,6 +33,7 @@ import (
 
 type ListWorkflowTaskV4Option struct {
 	WorkflowName    string
+	ProjectName     string
 	WorkflowNames   []string
 	CreateTime      int64
 	BeforeCreatTime bool
@@ -109,6 +110,9 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	}
 	if opt.WorkflowNames != nil {
 		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
+	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
 	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
@@ -277,6 +281,9 @@ func (c *WorkflowTaskv4Coll) ListByCursor(opt *ListWorkflowTaskV4Option) (*mongo
 	}
 	if opt.WorkflowNames != nil {
 		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
+	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
 	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
