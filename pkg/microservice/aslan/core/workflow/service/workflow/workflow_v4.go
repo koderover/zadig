@@ -102,6 +102,8 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	inputWorkflow.UpdateTime = time.Now().Unix()
 	inputWorkflow.ID = workflow.ID
 	inputWorkflow.HookCtls = workflow.HookCtls
+	inputWorkflow.JiraHookCtls = workflow.JiraHookCtls
+	inputWorkflow.GeneralHookCtls = workflow.GeneralHookCtls
 
 	for _, stage := range inputWorkflow.Stages {
 		for _, job := range stage.Jobs {
