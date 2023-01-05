@@ -86,7 +86,7 @@ func ListJiraProjects(c *gin.Context) {
 func SearchJiraIssues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Query("project"), c.Query("type"), c.Query("status"), c.Query("ne") != "")
+	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Query("project"), c.Query("type"), c.Query("status"), c.Query("ne") == "true")
 }
 
 func GetJiraTypes(c *gin.Context) {
