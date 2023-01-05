@@ -1758,18 +1758,13 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 			log.Errorf("project not found error:%s", err)
 		}
 
-		log.Infof("######## deleting external worklaods")
-
 		if tempProduct.IsHostProduct() {
 			workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
 			if err != nil {
 				log.Errorf("workflowStat not found error:%s", err)
 			}
-			log.Infof("####### start updating external workloads")
 			if workloadStat != nil {
-				log.Infof("####### external workloads count: %v", len(workloadStat.Workloads))
 				workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
-				log.Infof("####### external workloads count after handle: %v", len(workloadStat.Workloads))
 				if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
 					log.Errorf("update workloads fail error:%s", err)
 				}
