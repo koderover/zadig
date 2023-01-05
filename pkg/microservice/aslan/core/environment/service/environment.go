@@ -1764,7 +1764,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				log.Errorf("workflowStat not found error:%s", err)
 			}
 			if workloadStat != nil {
-				workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, productInfo.EnvName)
 				if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
 					log.Errorf("update workloads fail error:%s", err)
 				}
