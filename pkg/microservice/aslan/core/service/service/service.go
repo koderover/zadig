@@ -1031,12 +1031,14 @@ func getRenderedYaml(args *YamlValidatorReq) string {
 	variableMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(args.VariableYaml), &variableMap)
 	if err != nil {
+		log.Errorf("failed to get variable map, err: %s", err)
 		return args.Yaml
 	}
 
 	buf := bytes.NewBufferString("")
 	err = tmpl.Execute(buf, variableMap)
 	if err != nil {
+		log.Errorf("failed to execute template render, err: %s", err)
 		return args.Yaml
 	}
 	return buf.String()
