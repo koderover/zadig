@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -29,6 +30,8 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	gotemplate "text/template"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -138,8 +141,9 @@ type YamlPreview struct {
 }
 
 type YamlValidatorReq struct {
-	ServiceName string `json:"service_name"`
-	Yaml        string `json:"yaml,omitempty"`
+	ServiceName  string `json:"service_name"`
+	VariableYaml string `json:"variable_yaml"`
+	Yaml         string `json:"yaml,omitempty"`
 }
 
 type YamlViewServiceTemplateReq struct {
@@ -1013,12 +1017,41 @@ func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) set
 	return ips
 }
 
+func getRenderedYaml(args *YamlValidatorReq) string {
+	if len(args.VariableYaml) == 0 {
+		return args.Yaml
+	}
+	// yaml with go template grammar, yaml should be rendered with variable yaml
+	tmpl, err := gotemplate.New(fmt.Sprintf("%v", time.Now().Unix())).Parse(args.Yaml)
+	if err != nil {
+		log.Errorf("failed to parse as go template, err: %s", err)
+		return args.Yaml
+	}
+
+	variableMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(args.VariableYaml), &variableMap)
+	if err != nil {
+		log.Errorf("failed to get variable map, err: %s", err)
+		return args.Yaml
+	}
+
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, variableMap)
+	if err != nil {
+		log.Errorf("failed to execute template render, err: %s", err)
+		return args.Yaml
+	}
+	return buf.String()
+}
+
 func YamlValidator(args *YamlValidatorReq) []string {
 	errorDetails := make([]string, 0)
 	if args.Yaml == "" {
 		return errorDetails
 	}
 	yamlContent := util.ReplaceWrapLine(args.Yaml)
+	yamlContent = getRenderedYaml(args)
+
 	KubeYamls := SplitYaml(yamlContent)
 	for _, data := range KubeYamls {
 		yamlDataArray := SplitYaml(data)
