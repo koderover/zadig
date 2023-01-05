@@ -57,7 +57,6 @@ func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []s
 func (s *DockerBuildStep) Run(ctx context.Context) error {
 	start := time.Now()
 	log.Infof("Start docker build.")
-	time.Sleep(3 * time.Minute)
 	defer func() {
 		log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()

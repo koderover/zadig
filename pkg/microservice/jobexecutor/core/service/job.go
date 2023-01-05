@@ -125,7 +125,6 @@ func (j *Job) getUserEnvs() []string {
 		log.Errorf("get job output vars error: %v", err)
 	}
 	for _, output := range outputs {
-		fmt.Printf("@@@ output var: %s=%s\n", output.Name, output.Value)
 		envs = append(envs, fmt.Sprintf("%s=%s", output.Name, output.Value))
 	}
 
@@ -183,9 +182,7 @@ func (j *Job) collectJobResult(ctx context.Context) error {
 func (j *Job) getJobOutputVars(ctx context.Context) ([]*job.JobOutput, error) {
 	outputs := []*job.JobOutput{}
 	for _, outputName := range j.Ctx.Outputs {
-		fmt.Printf("@@@ output name: %s\n", outputName)
 		fileContents, err := ioutil.ReadFile(filepath.Join(job.JobOutputDir, outputName))
-		fmt.Printf("@@@ file: %s\n", fileContents)
 		if os.IsNotExist(err) {
 			continue
 		} else if err != nil {
