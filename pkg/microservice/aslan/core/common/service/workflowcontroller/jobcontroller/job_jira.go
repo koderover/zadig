@@ -54,6 +54,9 @@ func NewJiraJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workflow
 func (c *JiraJobCtl) Clean(ctx context.Context) {}
 
 func (c *JiraJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+	
 	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
@@ -86,5 +89,6 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		}
 		issue.Link = fmt.Sprintf("%s/browse/%s", info.JiraHost, issue.Key)
 	}
+	c.job.Status = config.StatusPassed
 	return
 }
