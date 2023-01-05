@@ -210,6 +210,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			}
 
 			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
+				log.Infof("######### found pk with current name skip")
 				continue
 			}
 
