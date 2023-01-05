@@ -873,6 +873,8 @@ func ListJiraHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) (
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrListJiraHook.AddErr(err)
 	}
+	//todo debug
+	logger.Infof("list jira hook: num %d", len(workflow.JiraHookCtls))
 	return workflow.JiraHookCtls, nil
 }
 
