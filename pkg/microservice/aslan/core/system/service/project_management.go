@@ -199,9 +199,15 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 					config.StatusCancelled: "取消",
 					config.StatusReject:    "拒绝",
 				}
-				msg := fmt.Sprintf("Zadig 工作流执行%s: ", statusMap[task.Status])
+				msg := ""
+				if task.Status == config.StatusPassed {
+					msg += "✅ "
+				} else {
+					msg += "❌ "
+				}
 				link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", config2.SystemAddress(), task.ProjectName, task.WorkflowName, task.TaskID)
-				err := jira2.SendComment(event.Issue.Key, msg, link, task.WorkflowDisplayName)
+				msg += fmt.Sprintf("Zadig 工作流执行%s: [%s|%s]", statusMap[task.Status], task.WorkflowDisplayName, link)
+				err := jira2.SendComment(event.Issue.Key, msg)
 				if err != nil {
 					log.Errorf("HandleJiraHookEventWaiter: send jira comment error: %v", err)
 				}

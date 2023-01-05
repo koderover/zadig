@@ -223,10 +223,25 @@ func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
 	return list, nil
 }
 
-func (s *IssueService) AddComment(key, comment, link, linkTitle string) error {
+func (s *IssueService) AddCommentV3(key, comment, link, linkTitle string) error {
 	url := s.client.Host + "/rest/api/3/issue/" + key + "/comment"
 
 	resp, err := s.client.R().SetContentType("application/json").SetBody(fmt.Sprintf(commentTmpl, comment, linkTitle, link)).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return errors.Errorf("get unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	return nil
+}
+
+func (s *IssueService) AddCommentV2(key, comment string) error {
+	url := s.client.Host + "/rest/api/2/issue/" + key + "/comment"
+
+	resp, err := s.client.R().SetBodyJsonMarshal(map[string]string{
+		"body": comment,
+	}).Post(url)
 	if err != nil {
 		return err
 	}

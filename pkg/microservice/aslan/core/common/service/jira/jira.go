@@ -52,11 +52,11 @@ func GetJiraInfo() (*JiraInfo, error) {
 	return jira, nil
 }
 
-func SendComment(key, message, link, linkTitle string) error {
+func SendComment(key, message string) error {
 	info, err := GetJiraInfo()
 	if err != nil {
 		return errors.Wrap(err, "get jira info")
 	}
 	client := jira.NewJiraClient(info.User, info.AccessToken, info.Host)
-	return client.Issue.AddComment(key, message, link, linkTitle)
+	return client.Issue.AddCommentV2(key, message)
 }
