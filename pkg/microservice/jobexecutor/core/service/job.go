@@ -125,6 +125,7 @@ func (j *Job) getUserEnvs() []string {
 		log.Errorf("get job output vars error: %v", err)
 	}
 	for _, output := range outputs {
+		fmt.Printf("@@@ output var: %s=%s\n", output.Name, output.Value)
 		envs = append(envs, fmt.Sprintf("%s=%s", output.Name, output.Value))
 	}
 
