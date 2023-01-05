@@ -197,7 +197,7 @@ func (s *IssueService) UpdateStatus(key, statusID string) error {
 type Transition struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
-	IsAvailable bool   `json:"isAvailable"`
+	IsAvailable *bool  `json:"isAvailable"`
 }
 
 func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
@@ -215,9 +215,10 @@ func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
 	}
 	var list []*Transition
 	for _, transition := range t.Transitions {
-		if transition.IsAvailable {
-			list = append(list, transition)
+		if transition.IsAvailable != nil && !*transition.IsAvailable {
+			continue
 		}
+		list = append(list, transition)
 	}
 	return list, nil
 }

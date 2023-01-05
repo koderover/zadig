@@ -809,6 +809,11 @@ func GeneralHookEventHandler(workflowName, hookName string, logger *zap.SugaredL
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
+	if !generalHook.Enabled {
+		errMsg := fmt.Sprintf("Not enabled general hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
 	_, err = CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
 		Name: setting.GeneralHookTaskCreator,
 	}, generalHook.WorkflowArg, logger)

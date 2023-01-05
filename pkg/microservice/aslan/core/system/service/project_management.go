@@ -165,6 +165,11 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
+	if !jiraHook.Enabled {
+		errMsg := fmt.Sprintf("Not enabled Jira hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
 	taskInfo, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 		Name: setting.JiraHookTaskCreator,
 	}, jiraHook.WorkflowArg, logger)
