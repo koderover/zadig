@@ -106,8 +106,6 @@ func BatchCreatePMHost(c *gin.Context) {
 		return
 	}
 
-	log.Infof("#########  pm data count: %v", len(args.Data))
-
 	for _, pmArg := range args.Data {
 		pmArg.ProjectName = c.Query("projectName")
 	}
