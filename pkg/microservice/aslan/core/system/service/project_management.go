@@ -173,6 +173,11 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
+	logger.With(
+		"issue-key", event.Issue.Key,
+		"workflow", workflowName,
+		"hook", hookName,
+	).Infof("HandleJiraHookEvent: create workflow success")
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
