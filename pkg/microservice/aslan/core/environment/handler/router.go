@@ -120,6 +120,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/custom_workload/cluster/:clusterID/namespace/:namespace", ListCustomWorkload)
 		kube.GET("/canary_service/cluster/:clusterID/namespace/:namespace", ListCanaryDeploymentServiceInfo)
 		kube.GET("/resources/cluster/:clusterID/namespace/:namespace", ListAllK8sResourcesInNamespace)
+
+		kube.GET("/workloads/:workloadType", ListWorkloads)
+		kube.GET("/workloads/:workloadType/:workloadName")
+		kube.GET("/resources/:resourceType")
+		kube.GET("/resources/:resourceType/:resourceName")
 	}
 
 	operations := router.Group("operations")
@@ -177,6 +182,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
 		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
+
 	}
 
 	// ---------------------------------------------------------------------------------------
