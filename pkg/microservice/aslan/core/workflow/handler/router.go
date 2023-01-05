@@ -192,7 +192,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/generalhook/:workflowName", CreateGeneralHookForWorkflowV4)
 		workflowV4.PUT("/generalhook/:workflowName", UpdateGeneralHookForWorkflowV4)
 		workflowV4.DELETE("/generalhook/:workflowName/:hookName", DeleteGeneralHookForWorkflowV4)
-		workflowV4.DELETE("/generalhook/:workflowName/:hookName/webhook", GeneralHookEventHandler)
+		workflowV4.POST("/generalhook/:workflowName/:hookName/webhook", GeneralHookEventHandler)
 		workflowV4.GET("/cron/preset", GetCronForWorkflowV4Preset)
 		workflowV4.GET("/cron", ListCronForWorkflowV4)
 		workflowV4.POST("/cron/:workflowName", CreateCronForWorkflowV4)
