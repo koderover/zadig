@@ -136,11 +136,20 @@ func (j *Job) Run(ctx context.Context) error {
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
-	if err := step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
-		return err
+	hasFailed := false
+	var respErr error
+	for _, stepInfo := range j.Ctx.Steps {
+		if hasFailed && !stepInfo.Onfailure {
+			continue
+		}
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
+			hasFailed = true
+			respErr = err
+		}
 	}
-	return nil
+	return respErr
 }
+
 func (j *Job) AfterRun(ctx context.Context) error {
 	return j.collectJobResult(ctx)
 }
@@ -174,7 +183,9 @@ func (j *Job) collectJobResult(ctx context.Context) error {
 func (j *Job) getJobOutputVars(ctx context.Context) ([]*job.JobOutput, error) {
 	outputs := []*job.JobOutput{}
 	for _, outputName := range j.Ctx.Outputs {
+		fmt.Printf("@@@ output name: %s\n", outputName)
 		fileContents, err := ioutil.ReadFile(filepath.Join(job.JobOutputDir, outputName))
+		fmt.Printf("@@@ file: %s\n", fileContents)
 		if os.IsNotExist(err) {
 			continue
 		} else if err != nil {
