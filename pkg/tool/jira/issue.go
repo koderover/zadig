@@ -121,7 +121,7 @@ func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) 
 			Status: func() []string {
 				var re []string
 				for _, s := range v.Statuses {
-					re = append(re, s.UntranslatedName)
+					re = append(re, s.Name)
 				}
 				return re
 			}(),
