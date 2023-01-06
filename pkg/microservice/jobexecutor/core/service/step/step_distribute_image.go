@@ -100,14 +100,14 @@ func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) e
 
 func getDockerHost(reg *step.RegistryNamespace) config.Host {
 	host := config.HostNewName(reg.RegAddr)
-	if strings.HasPrefix(reg.RegAddr, "http://") {
-		host.Scheme = "http"
-	}
 	host.User = reg.AccessKey
 	host.Pass = reg.SecretKey
 	host.RegCert = reg.TLSCert
 	if !reg.TLSEnabled {
 		host.TLS = config.TLSInsecure
+	}
+	if strings.HasPrefix(reg.RegAddr, "http://") {
+		host.TLS = config.TLSDisabled
 	}
 	return *host
 }
