@@ -38,15 +38,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func GetJira(log *zap.SugaredLogger) (*models.ProjectManagement, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJira()
-	if err != nil {
-		log.Errorf("GeJira error:%s", err)
-		return nil, err
-	}
-	return info, nil
-}
-
 func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement, error) {
 	list, err := mongodb.NewProjectManagementColl().List()
 	if err != nil {
@@ -117,7 +108,7 @@ func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
 	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Issue.GetTypes(project)
 }
 
-func SearchJiraIssues(project, _type, status string, ne bool) ([]*jira.Issue, error) {
+func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.Issue, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -131,6 +122,9 @@ func SearchJiraIssues(project, _type, status string, ne bool) ([]*jira.Issue, er
 	}
 	if _type != "" {
 		jql = append(jql, fmt.Sprintf(`type = "%s"`, _type))
+	}
+	if summary != "" {
+		jql = append(jql, fmt.Sprintf(`summary ~ "%s"`, _type))
 	}
 	if status != "" {
 		if ne {

@@ -71,7 +71,7 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		}
 		var id string
 		for _, transition := range list {
-			if transition.Name == c.jobTaskSpec.TargetStatus {
+			if transition.To.Name == c.jobTaskSpec.TargetStatus {
 				id = transition.ID
 				break
 			}

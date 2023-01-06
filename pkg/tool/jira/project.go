@@ -32,9 +32,7 @@ type ProjectService struct {
 
 // ListProjects https://developer.atlassian.com/cloud/jira/platform/rest/#api-api-2-project-get
 func (s *ProjectService) ListProjects() ([]string, error) {
-
 	list := make([]*Project, 0)
-
 	url := s.client.Host + "/rest/api/2/project"
 
 	resp, err := s.client.R().Get(url)

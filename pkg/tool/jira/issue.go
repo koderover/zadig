@@ -197,7 +197,17 @@ func (s *IssueService) UpdateStatus(key, statusID string) error {
 type Transition struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
+	To          To     `json:"to"`
 	IsAvailable *bool  `json:"isAvailable"`
+}
+
+type To struct {
+	Self           string         `json:"self"`
+	Description    string         `json:"description"`
+	IconURL        string         `json:"iconUrl"`
+	Name           string         `json:"name"`
+	ID             string         `json:"id"`
+	StatusCategory StatusCategory `json:"statusCategory"`
 }
 
 func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
