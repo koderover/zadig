@@ -134,7 +134,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		}
 	} else {
 		// if the specified key does not exist, we simply return error
-		c.Errorf("the deployment %s need to have label: %s on its metadata", deployment.Name, ZadigIstioIdentifierLabel)
+		c.Errorf("the deployment %s need to have label: %s on its spec.template.labels", deployment.Name, ZadigIstioIdentifierLabel)
 		return
 	}
 

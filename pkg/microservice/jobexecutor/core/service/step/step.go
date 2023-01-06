@@ -35,22 +35,7 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunSteps(ctx context.Context, steps []*meta.Step, workspace, paths string, envs, secretEnvs []string) error {
-	hasFailed := false
-	var respErr error
-	for _, stepInfo := range steps {
-		if hasFailed && !stepInfo.Onfailure {
-			continue
-		}
-		if err := runStep(ctx, stepInfo, workspace, paths, envs, secretEnvs); err != nil {
-			hasFailed = true
-			respErr = err
-		}
-	}
-	return respErr
-}
-
-func runStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string) error {
+func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string) error {
 	var stepInstance Step
 	var err error
 
