@@ -48,7 +48,12 @@ func (j *JiraJob) SetPreset() error {
 	return nil
 }
 
-func (j *JiraJob) MergeArgs(_ *commonmodels.Job) error {
+func (j *JiraJob) MergeArgs(args *commonmodels.Job) error {
+	j.spec = &commonmodels.JobTaskJiraSpec{}
+	if err := commonmodels.IToi(args, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
 	return nil
 }
 
