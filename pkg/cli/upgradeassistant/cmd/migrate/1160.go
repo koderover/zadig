@@ -48,10 +48,6 @@ func init() {
 }
 
 func V1150ToV1160() error {
-	if err := updateRolesForTesting(); err != nil {
-		log.Errorf("updateRolesForTesting err:%s", err)
-		return err
-	}
 	if err := migrateReleaseCenter(); err != nil {
 		log.Errorf("migrateReleaseCenter err:%s", err)
 		return err
