@@ -107,9 +107,7 @@ func getDockerHost(reg *step.RegistryNamespace) config.Host {
 		host.TLS = config.TLSInsecure
 	}
 	if strings.HasPrefix(reg.RegAddr, "http://") {
-		host.Scheme = "http"
 		host.TLS = config.TLSDisabled
 	}
-	fmt.Printf("@@@@ host: %+v", host)
 	return *host
 }
