@@ -408,6 +408,9 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 		} else {
 			return false, projectVerbMap, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
 		}
+		if role.Name == "read-project-only" {
+			continue
+		}
 		if rolebinding.Namespace != "*" {
 			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
 				verbSet := sets.NewString(verbs...)
