@@ -320,8 +320,8 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
+	log.Infof("####### listGroupServices current cost: %v ", time.Now().UnixMilli()-startTs)
 	startTs = time.Now().UnixMilli()
-	log.Infof("####### listGroupServices current cost :%v ", time.Now().UnixMilli()-startTs)
 
 	for _, service := range allServices {
 		wg.Add(1)
@@ -356,7 +356,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				gp.Status = setting.ClusterUnknown
 			}
 
-			log.Infof("************** fetch service status cost :%v ", time.Now().UnixMilli()-startTs)
+			log.Infof("************** fetch service: %s status cost: %v ", service.ServiceName, time.Now().UnixMilli()-startTs)
 			startTs = time.Now().UnixMilli()
 
 			// ingress may be multiple workloads
@@ -372,15 +372,17 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			mutex.Lock()
 			resp = append(resp, gp)
 			mutex.Unlock()
-			log.Infof("------------ fetch single ingress service cost :%v ", time.Now().UnixMilli()-startTs)
+			log.Infof("------------ fetch single ingress service cost: %v ", time.Now().UnixMilli()-startTs)
 		}(service)
 	}
 
-	log.Infof("####### listGroupServices current 2 cost :%v ", time.Now().UnixMilli()-startTs)
+	log.Infof("####### listGroupServices current 2 cost: %v ", time.Now().UnixMilli()-startTs)
+	startTs = time.Now().UnixMilli()
 
 	wg.Wait()
 
-	log.Infof("####### listGroupServices current cost 3 :%v ", time.Now().UnixMilli()-startTs)
+	log.Infof("####### listGroupServices current cost 3: %v ", time.Now().UnixMilli()-startTs)
+	startTs = time.Now().UnixMilli()
 
 	//把数据按照名称排序
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ServiceName < resp[j].ServiceName })
