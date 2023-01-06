@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -104,6 +105,9 @@ func getDockerHost(reg *step.RegistryNamespace) config.Host {
 	host.RegCert = reg.TLSCert
 	if !reg.TLSEnabled {
 		host.TLS = config.TLSInsecure
+	}
+	if strings.HasPrefix(reg.RegAddr, "http://") {
+		host.TLS = config.TLSDisabled
 	}
 	return *host
 }
