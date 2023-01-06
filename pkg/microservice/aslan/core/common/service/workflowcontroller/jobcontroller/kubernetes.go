@@ -839,7 +839,8 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
 			if err != nil || !found {
 				xl.Errorf("failed to get pod with label job-name=%s %v", jobName, err)
-				return config.StatusFailed, err.Error()
+				time.Sleep(defaultRetryInterval)
+				continue
 			}
 			// pod is still running
 			if job.Status.Active != 0 {
@@ -848,10 +849,11 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 					break
 				}
 
-				pods, err := getter.ListPodsWithRetryOption(namespace, labels.Set{"job-name": jobName}.AsSelector(), kubeClient, defaultRetryCount, defaultRetryInterval)
+				pods, err := getter.ListPods(namespace, labels.Set{"job-name": jobName}.AsSelector(), kubeClient)
 				if err != nil {
 					xl.Errorf("failed to find pod with label job-name=%s %v", jobName, err)
-					return config.StatusFailed, err.Error()
+					time.Sleep(defaultRetryInterval)
+					continue
 				}
 				var done, exists bool
 				var jobStatus commontypes.JobStatus
@@ -1053,6 +1055,18 @@ func GetObjectPath(subFolder, name string) string {
 	}
 
 	return strings.TrimLeft(name, "/")
+}
+
+func checkDogFoodExistsInContainerWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string, retryCount int, retryInterval time.Duration) (status commontypes.JobStatus, found bool, err error) {
+	for i := 0; i < retryCount; i++ {
+		status, found, err = checkDogFoodExistsInContainer(clientset, restConfig, namespace, pod, container)
+		if err == nil {
+			return
+		}
+		time.Sleep(retryInterval)
+	}
+
+	return
 }
 
 func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string) (commontypes.JobStatus, bool, error) {
