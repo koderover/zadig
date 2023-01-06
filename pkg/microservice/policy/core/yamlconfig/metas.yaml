@@ -256,49 +256,7 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
-          - method: GET
-            endpoint: /api/aslan/testing/test
-          - method: GET
-            endpoint: /api/aslan/testing/test/?*
-          - method: GET
-            endpoint: /api/aslan/testing/testdetail
-          - method: GET
-            endpoint: /api/aslan/workflow/workflow/testName/?*
-          - method: GET
-            endpoint: /api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*
-          - method: GET
-            endpoint: /api/aslan/testing/workspace/workflow/?*/taskId/?*
-          - method: GET
             endpoint: /api/v1/policy/permission/testing
-      - action: edit_test
-        alias: 编辑
-        description: ''
-        rules:
-          - method: PUT
-            endpoint: /api/aslan/testing/test
-          - method: GET
-            endpoint: /api/aslan/cluster/clusters
-      - action: delete_test
-        alias: 删除
-        description: ''
-        rules:
-          - method: DELETE
-            endpoint: /api/aslan/testing/test/?*
-      - action: create_test
-        alias: 新建
-        description: ''
-        rules:
-          - method: POST
-            endpoint: /api/aslan/testing/test
-          - method: GET
-            endpoint: /api/aslan/cluster/clusters
-      - action: run_test
-        alias: 执行
-        description: ''
-        rules:
-          - method: POST
-            endpoint: /api/aslan/testing/testtask
   - resource: DataCenter
     alias: 数据视图
     description: ''
