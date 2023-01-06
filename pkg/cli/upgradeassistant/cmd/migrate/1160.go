@@ -36,7 +36,6 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	policymongo "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -99,55 +98,6 @@ func V1150ToV1160() error {
 }
 
 func V1160ToV1150() error {
-	return nil
-}
-
-func updateRolesForTesting() error {
-	roles, err := policymongo.NewRoleColl().List()
-	if err != nil {
-		return fmt.Errorf("list roles error: %s", err)
-	}
-	var mRoles []mongo.WriteModel
-	for _, role := range roles {
-		if role.Namespace != "*" {
-			continue
-		}
-		for _, rule := range role.Rules {
-			if len(rule.Resources) == 0 {
-				continue
-			}
-			if rule.Resources[0] == "TestCenter" {
-				newVerbs := []string{}
-				for _, verb := range rule.Verbs {
-					if verb == "get_test" {
-						newVerbs = append(newVerbs, verb)
-					}
-				}
-				rule.Verbs = newVerbs
-			}
-		}
-		mRoles = append(mRoles,
-			mongo.NewUpdateOneModel().
-				SetFilter(bson.D{{"namespace", role.Namespace}, {"name", role.Name}}).
-				SetUpdate(bson.D{{"$set",
-					bson.D{
-						{"rules", role.Rules},
-					}},
-				}),
-		)
-		if len(mRoles) >= 50 {
-			log.Infof("update %d roles", len(mRoles))
-			if _, err := policymongo.NewRoleColl().BulkWrite(context.TODO(), mRoles); err != nil {
-				return fmt.Errorf("udpate workflowV4s error: %s", err)
-			}
-			mRoles = []mongo.WriteModel{}
-		}
-	}
-	if len(mRoles) > 0 {
-		if _, err := policymongo.NewRoleColl().BulkWrite(context.TODO(), mRoles); err != nil {
-			return fmt.Errorf("udpate roles stat error: %s", err)
-		}
-	}
 	return nil
 }
 
