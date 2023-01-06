@@ -232,6 +232,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	for _, svc := range allServices {
 		svcNameSet.Insert(svc.ServiceName)
 	}
+	log.Infof("####### services: %v", allServices)
 
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {

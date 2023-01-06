@@ -275,8 +275,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 
 			switch u.GetKind() {
 			case setting.Deployment:
-				d, found, err := getter.GetDeployment(namespace, u.GetName(), kubeClient)
-				if err != nil || !found {
+				d, err := getter.GetDeploymentByNameWithCache(u.GetName(), namespace, inf)
+				if err != nil {
 					//log.Warnf("failed to get deployment %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
@@ -284,8 +284,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(d, kubeClient, log))
 
 			case setting.StatefulSet:
-				sts, found, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
-				if err != nil || !found {
+				sts, err := getter.GetStatefulSetByNameWWithCache(namespace, u.GetName(), inf)
+				if err != nil {
 					//log.Warnf("failed to get statefulSet %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
@@ -326,8 +326,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				}
 
 			case setting.Service:
-				svc, found, err := getter.GetService(namespace, u.GetName(), kubeClient)
-				if err != nil || !found {
+				svc, err := getter.GetServiceByNameFromCache(namespace, u.GetName(), inf)
+				if err != nil {
 					//log.Warnf("no svc %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
