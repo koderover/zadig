@@ -124,7 +124,7 @@ func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.
 		jql = append(jql, fmt.Sprintf(`type = "%s"`, _type))
 	}
 	if summary != "" {
-		jql = append(jql, fmt.Sprintf(`summary ~ "%s"`, _type))
+		jql = append(jql, fmt.Sprintf(`summary ~ "%s"`, summary))
 	}
 	if status != "" {
 		if ne {
