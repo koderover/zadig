@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -136,17 +138,6 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 }
 
 func GetService(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
-	ret = &SvcResp{
-		ServiceName: serviceName,
-		EnvName:     envName,
-		ProductName: productName,
-		Services:    make([]*internalresource.Service, 0),
-		Ingress:     make([]*internalresource.Ingress, 0),
-		Scales:      make([]*internalresource.Workload, 0),
-	}
-
-	startTs := time.Now().UnixMilli()
-
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -170,7 +161,19 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	log.Infof("[[[[[[[[[[[[  GetService init k8s client cost %v ", time.Now().UnixMilli()-startTs)
+	return GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+}
+
+func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+	envName, productName := env.EnvName, env.ProductName
+	ret = &SvcResp{
+		ServiceName: serviceName,
+		EnvName:     envName,
+		ProductName: productName,
+		Services:    make([]*internalresource.Service, 0),
+		Ingress:     make([]*internalresource.Ingress, 0),
+		Scales:      make([]*internalresource.Workload, 0),
+	}
 
 	namespace := env.Namespace
 	switch env.Source {
@@ -272,7 +275,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
 
-		log.Infof("/////////////  render service cost: %v", time.Now().UnixMilli()-startTs)
+		log.Infof("/////////////  render service: %s cost: %v", svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
 		startTs = time.Now().UnixMilli()
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
@@ -345,10 +348,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
 			}
 		}
-
-		log.Infof("/////////////  get k8s resource cost: %v", time.Now().UnixMilli()-startTs)
+		log.Infof("/////////////  get k8s service: %s resource cost: %v", svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
 	}
-
 	return
 }
 
@@ -499,7 +500,8 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	return nil
 }
 
-func queryPodsStatus(namespace, envName, productName, serviceName string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
+func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
+	productName := productInfo.ProductName
 	ls := labels.Set{}
 	if productName != "" {
 		ls[setting.ProductLabel] = productName
@@ -507,14 +509,10 @@ func queryPodsStatus(namespace, envName, productName, serviceName string, inform
 	if serviceName != "" {
 		ls[setting.ServiceLabel] = serviceName
 	}
-	//return kube.GetSelectedPodsInfo(ls.AsSelector(), informer, log)
-	return collectPodsInfo(namespace, envName, productName, serviceName, log)
-}
-
-func collectPodsInfo(namespace, envName, productName, serviceName string, log *zap.SugaredLogger) (string, string, []string) {
 
 	startTs := time.Now().UnixMilli()
-	svcResp, err := GetService(envName, productName, serviceName, "", log)
+
+	svcResp, err := GetServiceImpl(serviceName, "", productInfo, kubeClient, clientset, informer, log)
 	if err != nil {
 		return setting.PodError, setting.PodNotReady, nil
 	}
@@ -555,7 +553,6 @@ func collectPodsInfo(namespace, envName, productName, serviceName string, log *z
 	}
 
 	return setting.PodRunning, ready, images
-
 }
 
 // validateServiceContainer validate container with envName like dev

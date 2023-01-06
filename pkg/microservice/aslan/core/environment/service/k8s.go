@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -60,10 +62,10 @@ type K8sService struct {
 // If service doesnt have pods, service status = success (all objects created) or failed (fail to create some objects).
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
-func (k *K8sService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
+func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) (string, string, []string) {
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
-		return queryPodsStatus(namespace, envName, productName, serviceTmpl.ServiceName, informer, k.log)
+		return queryPodsStatus(productInfo, serviceTmpl.ServiceName, kubeClient, clientset, informer, k.log)
 	}
 
 	return setting.PodSucceeded, setting.PodReady, []string{}
@@ -237,6 +239,12 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	startTs := time.Now().UnixMilli()
 	log.Infof("####### services: %v listGroupServices, start at :%v ", allServices, startTs)
 
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to kubeClient, err: %s", err)
+		return nil
+	}
+
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("failed to init client set, err: %s", err)
@@ -347,7 +355,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			gp.ProductName = serviceTmpl.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
-				gp.Status, gp.Ready, gp.Images = k.queryServiceStatus(productInfo.Namespace, envName, productName, serviceTmpl, informer)
+				gp.Status, gp.Ready, gp.Images = k.queryServiceStatus(serviceTmpl, productInfo, kubeClient, cls, informer)
 				// 如果产品正在创建中，且service status为ERROR（POD还没创建出来），则判断为Pending，尚未开始创建
 				if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
 					gp.Status = setting.PodPending
