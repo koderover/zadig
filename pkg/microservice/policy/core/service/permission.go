@@ -442,6 +442,9 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 				break
 			}
 		}
+		if len(verbs) == 0 {
+			delete(projectVerbMap, project)
+		}
 	}
 	return isSystemAdmin, projectVerbMap, nil
 }
