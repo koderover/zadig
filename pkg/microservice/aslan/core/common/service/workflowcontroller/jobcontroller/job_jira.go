@@ -64,9 +64,12 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 	}
 	client := jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost)
 	for _, issue := range c.jobTaskSpec.Issues {
+		issue.Link = fmt.Sprintf("%s/browse/%s", info.JiraHost, issue.Key)
+
 		list, err := client.Issue.GetTransitions(issue.Key)
 		if err != nil {
 			logError(c.job, fmt.Sprintf("GetTransitions issue %s error: %v", issue.Key, err), c.logger)
+			issue.Status = string(config.StatusFailed)
 			return
 		}
 		var id string
@@ -78,6 +81,7 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		}
 		if id == "" {
 			logError(c.job, fmt.Sprintf("Issue %s failed to find status %s transition id", issue.Key, c.jobTaskSpec.TargetStatus), c.logger)
+			issue.Status = string(config.StatusFailed)
 			return
 		}
 		err = client.Issue.UpdateStatus(issue.Key, id)
@@ -87,7 +91,6 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		} else {
 			issue.Status = string(config.StatusPassed)
 		}
-		issue.Link = fmt.Sprintf("%s/browse/%s", info.JiraHost, issue.Key)
 	}
 	c.job.Status = config.StatusPassed
 	return
