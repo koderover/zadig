@@ -193,7 +193,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			if !found || err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
-			scale := getStatefulSetWorkloadResource(statefulSet, kubeClient, log)
+			scale := getStatefulSetWorkloadResource(statefulSet, inf, log)
 			ret.Scales = append(ret.Scales, scale)
 			podLabels := labels.Set(statefulSet.Spec.Template.GetLabels())
 			for _, svc := range k8sServices {
@@ -207,7 +207,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			if !found || err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
-			scale := getDeploymentWorkloadResource(deploy, kubeClient, log)
+			scale := getDeploymentWorkloadResource(deploy, inf, log)
 			ret.Scales = append(ret.Scales, scale)
 			podLabels := labels.Set(deploy.Spec.Template.GetLabels())
 			for _, svc := range k8sServices {
@@ -275,7 +275,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
 
-		log.Infof("/////////////  render service: %s cost: %v", svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
+		log.Infof("/////////////  render service: %s:%s cost: %v", env.EnvName, svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
 		startTs = time.Now().UnixMilli()
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
@@ -294,16 +294,16 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 					continue
 				}
 
-				ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(d, kubeClient, log))
+				ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(d, inf, log))
 
 			case setting.StatefulSet:
-				sts, err := getter.GetStatefulSetByNameWWithCache(namespace, u.GetName(), inf)
+				sts, err := getter.GetStatefulSetByNameWWithCache(u.GetName(), namespace, inf)
 				if err != nil {
 					//log.Warnf("failed to get statefulSet %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
-				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, kubeClient, log))
+				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, inf, log))
 
 			case setting.Ingress:
 
@@ -339,7 +339,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				}
 
 			case setting.Service:
-				svc, err := getter.GetServiceByNameFromCache(namespace, u.GetName(), inf)
+				svc, err := getter.GetServiceByNameFromCache(u.GetName(), namespace, inf)
 				if err != nil {
 					//log.Warnf("no svc %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
@@ -348,7 +348,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
 			}
 		}
-		log.Infof("/////////////  get k8s service: %s resource cost: %v", svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
+		log.Infof("/////////////  get k8s service: %s:%s resource cost: %v", env.EnvName, svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
 	}
 	return
 }
@@ -516,7 +516,7 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 	if err != nil {
 		return setting.PodError, setting.PodNotReady, nil
 	}
-	log.Infof("++++++++++++ GetService cost %v", time.Now().UnixMilli()-startTs)
+	log.Infof("++++++++++++ GetService for env: %s cost %v", productInfo.EnvName, time.Now().UnixMilli()-startTs)
 
 	pods := make([]*resource.Pod, 0)
 	for _, svc := range svcResp.Scales {
@@ -604,8 +604,8 @@ func validateServiceContainer2(namespace, envName, productName, serviceName, con
 	}
 }
 
-func getDeploymentWorkloadResource(d *appsv1.Deployment, kubeClient client.Client, log *zap.SugaredLogger) *internalresource.Workload {
-	pods, err := getter.ListPods(d.Namespace, labels.SelectorFromValidatedSet(d.Spec.Selector.MatchLabels), kubeClient)
+func getDeploymentWorkloadResource(d *appsv1.Deployment, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(d.Spec.Selector.MatchLabels), informer)
 	if err != nil {
 		log.Warnf("Failed to get pods, err: %s", err)
 	}
@@ -613,8 +613,8 @@ func getDeploymentWorkloadResource(d *appsv1.Deployment, kubeClient client.Clien
 	return wrapper.Deployment(d).WorkloadResource(pods)
 }
 
-func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, kubeClient client.Client, log *zap.SugaredLogger) *internalresource.Workload {
-	pods, err := getter.ListPods(sts.Namespace, labels.SelectorFromValidatedSet(sts.Spec.Selector.MatchLabels), kubeClient)
+func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(sts.Spec.Selector.MatchLabels), informer)
 	if err != nil {
 		log.Warnf("Failed to get pods, err: %s", err)
 	}
