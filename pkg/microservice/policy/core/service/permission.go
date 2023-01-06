@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	aslanconfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	aslanmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	aslanmongo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/label"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogger) (*GetUserRulesByProjectResp, error) {
@@ -442,17 +444,103 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 }
 
 type ReleaseWorkflowResp struct {
-	Name        string                   `json:"name"`
-	DisplayName string                   `json:"display_name"`
-	Category    setting.WorkflowCategory `json:"category"`
-	Stages      []string                 `json:"stages"`
-	Project     string                   `json:"project"`
-	Description string                   `json:"description"`
-	CreatedBy   string                   `json:"created_by"`
-	CreateTime  int64                    `json:"create_time"`
-	UpdatedBy   string                   `json:"updated_by"`
-	UpdateTime  int64                    `json:"update_time"`
-	Verbs       []string                 `json:"verbs"`
+	Name                 string                   `json:"name"`
+	DisplayName          string                   `json:"display_name"`
+	Category             setting.WorkflowCategory `json:"category"`
+	Stages               []string                 `json:"stages"`
+	Project              string                   `json:"project"`
+	Description          string                   `json:"description"`
+	CreatedBy            string                   `json:"created_by"`
+	CreateTime           int64                    `json:"create_time"`
+	UpdatedBy            string                   `json:"updated_by"`
+	UpdateTime           int64                    `json:"update_time"`
+	RecentTask           *TaskInfo                `json:"recentTask"`
+	RecentSuccessfulTask *TaskInfo                `json:"recentSuccessfulTask"`
+	RecentFailedTask     *TaskInfo                `json:"recentFailedTask"`
+	AverageExecutionTime float64                  `json:"averageExecutionTime"`
+	SuccessRate          float64                  `json:"successRate"`
+	NeverRun             bool                     `json:"never_run"`
+	Verbs                []string                 `json:"verbs"`
+}
+
+type TaskInfo struct {
+	TaskID       int64  `json:"taskID"`
+	PipelineName string `json:"pipelineName"`
+	Status       string `json:"status"`
+	TaskCreator  string `json:"task_creator"`
+	CreateTime   int64  `json:"create_time"`
+}
+
+func getRecentTaskV4Info(workflow *ReleaseWorkflowResp, tasks []*aslanmodels.WorkflowTask) {
+	recentTask := &aslanmodels.WorkflowTask{}
+	recentFailedTask := &aslanmodels.WorkflowTask{}
+	recentSucceedTask := &aslanmodels.WorkflowTask{}
+	workflow.NeverRun = true
+	for _, task := range tasks {
+		if task.WorkflowName != workflow.Name {
+			continue
+		}
+		workflow.NeverRun = false
+		if task.TaskID > recentTask.TaskID {
+			recentTask = task
+		}
+		if task.Status == aslanconfig.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
+			recentSucceedTask = task
+		}
+		if task.Status == aslanconfig.StatusFailed && task.TaskID > recentFailedTask.TaskID {
+			recentFailedTask = task
+		}
+	}
+	if recentTask.TaskID > 0 {
+		workflow.RecentTask = &TaskInfo{
+			TaskID:       recentTask.TaskID,
+			PipelineName: recentTask.WorkflowName,
+			Status:       string(recentTask.Status),
+			TaskCreator:  recentTask.TaskCreator,
+			CreateTime:   recentTask.CreateTime,
+		}
+	}
+	if recentSucceedTask.TaskID > 0 {
+		workflow.RecentSuccessfulTask = &TaskInfo{
+			TaskID:       recentSucceedTask.TaskID,
+			PipelineName: recentSucceedTask.WorkflowName,
+			Status:       string(recentSucceedTask.Status),
+			TaskCreator:  recentSucceedTask.TaskCreator,
+			CreateTime:   recentSucceedTask.CreateTime,
+		}
+	}
+	if recentFailedTask.TaskID > 0 {
+		workflow.RecentFailedTask = &TaskInfo{
+			TaskID:       recentFailedTask.TaskID,
+			PipelineName: recentFailedTask.WorkflowName,
+			Status:       string(recentFailedTask.Status),
+			TaskCreator:  recentFailedTask.TaskCreator,
+			CreateTime:   recentFailedTask.CreateTime,
+		}
+	}
+}
+
+func getWorkflowStatMap(workflowNames []string, workflowType aslanconfig.PipelineType) map[string]*aslanmodels.WorkflowStat {
+	workflowStats, err := aslanmongo.NewWorkflowStatColl().FindWorkflowStat(&aslanmongo.WorkflowStatArgs{Names: workflowNames, Type: string(workflowType)})
+	if err != nil {
+		log.Warnf("Failed to list workflow stats, err: %s", err)
+	}
+	workflowStatMap := make(map[string]*aslanmodels.WorkflowStat)
+	for _, s := range workflowStats {
+		workflowStatMap[s.Name] = s
+	}
+	return workflowStatMap
+}
+
+func setWorkflowStat(workflow *ReleaseWorkflowResp, statMap map[string]*aslanmodels.WorkflowStat) {
+	if s, ok := statMap[workflow.Name]; ok {
+		total := float64(s.TotalSuccess + s.TotalFailure)
+		successful := float64(s.TotalSuccess)
+		totalDuration := float64(s.TotalDuration)
+
+		workflow.AverageExecutionTime = totalDuration / total
+		workflow.SuccessRate = successful / total
+	}
 }
 
 func setVerbToWorkflows(workflowsNameMap map[string]*ReleaseWorkflowResp, workflows []*ReleaseWorkflowResp, verbs []string) {
@@ -603,8 +691,21 @@ func GetUserReleaseWorkflows(uid string, log *zap.SugaredLogger) ([]*ReleaseWork
 			setVerbToWorkflows(respMap, []*ReleaseWorkflowResp{workflow}, verbs)
 		}
 	}
+	workflowNames := []string{}
+	for wokflowName := range respMap {
+		workflowNames = append(workflowNames, wokflowName)
+	}
+	tasks, _, err := aslanmongo.NewworkflowTaskv4Coll().List(&aslanmongo.ListWorkflowTaskV4Option{WorkflowNames: workflowNames})
+	if err != nil {
+		log.Errorf("fail to list workflow task :%v", err)
+		return workflowResp, fmt.Errorf("fail to list workflow task :%v", err)
+	}
+	workflowStatMap := getWorkflowStatMap(workflowNames, aslanconfig.WorkflowTypeV4)
+
 	for _, workflow := range respMap {
 		workflowResp = append(workflowResp, workflow)
+		getRecentTaskV4Info(workflow, tasks)
+		setWorkflowStat(workflow, workflowStatMap)
 	}
 	return workflowResp, nil
 }
