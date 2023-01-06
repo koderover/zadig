@@ -130,7 +130,7 @@ func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) 
 	return result, nil
 }
 
-func (s *IssueService) SearchByJQL(jql string) ([]*Issue, error) {
+func (s *IssueService) SearchByJQL(jql string, findAll bool) ([]*Issue, error) {
 	var re []*Issue
 	start := 0
 	for {
@@ -139,7 +139,7 @@ func (s *IssueService) SearchByJQL(jql string) ([]*Issue, error) {
 			return nil, err
 		}
 		re = append(re, list...)
-		if next == 0 {
+		if next == 0 || !findAll {
 			return re, nil
 		}
 		start = next

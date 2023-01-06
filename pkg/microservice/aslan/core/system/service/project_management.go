@@ -133,7 +133,8 @@ func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.
 			jql = append(jql, fmt.Sprintf(`status = "%s"`, status))
 		}
 	}
-	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Issue.SearchByJQL(strings.Join(jql, " AND "))
+	// Search all results only if the summary query exist
+	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
 }
 
 func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logger *zap.SugaredLogger) error {
