@@ -945,10 +945,15 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 		default:
 			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
-			if err != nil || !found {
+			if !found {
 				errMsg := fmt.Sprintf("failed to get pod with label job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
 				return config.StatusFailed, errors.New(errMsg)
+			}
+			if err != nil {
+				xl.Errorf("failed to get pod with label job-name=%s %v, retry", jobName, err)
+				time.Sleep(defaultRetryInterval)
+				continue
 			}
 			// pod is still running
 			if job.Status.Active != 0 {
@@ -959,9 +964,9 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 				pods, err := getter.ListPods(namespace, labels.Set{"job-name": jobName}.AsSelector(), kubeClient)
 				if err != nil {
-					errMsg := fmt.Sprintf("failed to find pod with label job-name=%s %v", jobName, err)
-					xl.Errorf(errMsg)
-					return config.StatusFailed, errors.New(errMsg)
+					xl.Errorf("failed to find pod with label job-name=%s %v, retry", jobName, err)
+					time.Sleep(defaultRetryInterval)
+					continue
 				}
 
 				var done, exists bool
@@ -976,7 +981,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					}
 
 					if !ipod.Finished() {
-						jobStatus, exists, err = checkDogFoodExistsInContainerWithRetryOption(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0], defaultRetryCount, defaultRetryInterval)
+						jobStatus, exists, err = checkDogFoodExistsInContainerWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0], defaultRetryCount, defaultRetryInterval)
 						if err != nil {
 							// Note:
 							// Currently, this error indicates "the target Pod cannot be accessed" or "the target Pod can be accessed, but the dog food file does not exist".
@@ -1012,7 +1017,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 	}
 }
 
-func checkDogFoodExistsInContainerWithRetryOption(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string, retryCount int, retryInterval time.Duration) (status commontypes.JobStatus, success bool, err error) {
+func checkDogFoodExistsInContainerWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string, retryCount int, retryInterval time.Duration) (status commontypes.JobStatus, success bool, err error) {
 	for i := 0; i < retryCount; i++ {
 		status, success, err = checkDogFoodExistsInContainer(clientset, restConfig, namespace, pod, container)
 		if err == nil {
