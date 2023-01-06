@@ -1091,9 +1091,18 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 			relatedSvcs, _ := GetAffectedServices(productRenderset.ProductTmpl, productRenderset.EnvName, &K8sRendersetArg{VariableYaml: args.DefaultValues}, log)
 			if relatedSvcs != nil {
 				svcSet := sets.NewString(relatedSvcs["services"]...)
+				log.Infof("####### svc set data is %v", svcSet.List())
+				svcVariableMap := make(map[string]*templatemodels.ServiceRender)
 				for _, svc := range productRenderset.ServiceVariables {
-					if svcSet.Has(svc.ServiceName) {
-						updatedSvcList = append(updatedSvcList, svc)
+					svcVariableMap[svc.ServiceName] = svc
+				}
+				for _, svc := range svcSet.List() {
+					if curVariable, ok := svcVariableMap[svc]; ok {
+						updatedSvcList = append(updatedSvcList, curVariable)
+					} else {
+						updatedSvcList = append(updatedSvcList, &templatemodels.ServiceRender{
+							ServiceName: svc,
+						})
 					}
 				}
 			}
@@ -1101,6 +1110,7 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 			updatedSvcList = productRenderset.ChartInfos
 		}
 	}
+	log.Infof("####### the count of ServiceRenders is %v", len(updatedSvcList))
 	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, productRenderset, args.DeployType, log)
 }
 
@@ -1410,6 +1420,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 }
 
 func updateK8sProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, userName, requestID string, log *zap.SugaredLogger) error {
+	log.Infof("####### the service render count is %d", len(productResp.ServiceRenders))
 	filter := func(service *commonmodels.ProductService) bool {
 		for _, sr := range productResp.ServiceRenders {
 			if sr.ServiceName == service.ServiceName {
