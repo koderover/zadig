@@ -135,11 +135,20 @@ func (j *Job) Run(ctx context.Context) error {
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
-	if err := step.RunSteps(ctx, j.Ctx.Steps, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
-		return err
+	hasFailed := false
+	var respErr error
+	for _, stepInfo := range j.Ctx.Steps {
+		if hasFailed && !stepInfo.Onfailure {
+			continue
+		}
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
+			hasFailed = true
+			respErr = err
+		}
 	}
-	return nil
+	return respErr
 }
+
 func (j *Job) AfterRun(ctx context.Context) error {
 	return j.collectJobResult(ctx)
 }
