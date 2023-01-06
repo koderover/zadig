@@ -424,6 +424,9 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 			} else {
 				verbSet := sets.NewString()
 				for _, rule := range role.Rules {
+					if len(rule.MatchAttributes) > 0 && rule.MatchAttributes[0].Key == "placeholder" {
+						continue
+					}
 					if rule.Resources[0] == resourceType {
 						verbSet.Insert(rule.Verbs...)
 					}
