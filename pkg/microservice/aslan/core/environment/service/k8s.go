@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -232,7 +233,9 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	for _, svc := range allServices {
 		svcNameSet.Insert(svc.ServiceName)
 	}
-	log.Infof("####### services: %v", allServices)
+
+	startTs := time.Now().UnixMilli()
+	log.Infof("####### services: %v listGroupServices, start at :%v ", allServices, startTs)
 
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
@@ -317,9 +320,13 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
+	startTs = time.Now().UnixMilli()
+	log.Infof("####### listGroupServices current cost :%v ", time.Now().UnixMilli()-startTs)
+
 	for _, service := range allServices {
 		wg.Add(1)
 		go func(service *commonmodels.ProductService) {
+			startTs := time.Now().UnixMilli()
 			defer wg.Done()
 			gp := &commonservice.ServiceResp{
 				ServiceName: service.ServiceName,
@@ -349,6 +356,9 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				gp.Status = setting.ClusterUnknown
 			}
 
+			log.Infof("************** fetch service status cost :%v ", time.Now().UnixMilli()-startTs)
+			startTs = time.Now().UnixMilli()
+
 			// ingress may be multiple workloads
 			hostInfo := make([]resource.HostInfo, 0)
 			for _, workload := range workloadMap[service.ServiceName] {
@@ -362,10 +372,15 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			mutex.Lock()
 			resp = append(resp, gp)
 			mutex.Unlock()
+			log.Infof("------------ fetch single ingress service cost :%v ", time.Now().UnixMilli()-startTs)
 		}(service)
 	}
 
+	log.Infof("####### listGroupServices current 2 cost :%v ", time.Now().UnixMilli()-startTs)
+
 	wg.Wait()
+
+	log.Infof("####### listGroupServices current cost 3 :%v ", time.Now().UnixMilli()-startTs)
 
 	//把数据按照名称排序
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ServiceName < resp[j].ServiceName })

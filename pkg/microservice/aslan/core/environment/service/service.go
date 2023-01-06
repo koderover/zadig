@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -144,6 +145,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		Scales:      make([]*internalresource.Workload, 0),
 	}
 
+	startTs := time.Now().UnixMilli()
+
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -166,6 +169,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		log.Errorf("Failed to create informer for namespace [%s] in cluster [%s], the error is: %s", env.Namespace, env.ClusterID, err)
 		return nil, e.ErrGetService.AddErr(err)
 	}
+
+	log.Infof("[[[[[[[[[[[[  GetService init k8s client cost %v ", time.Now().UnixMilli()-startTs)
 
 	namespace := env.Namespace
 	switch env.Source {
@@ -228,6 +233,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			return nil, e.ErrGetService.AddDesc("没有找到服务: " + serviceName)
 		}
 
+		startTs := time.Now().UnixMilli()
+
 		// 获取服务模板
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName: service.ServiceName,
@@ -264,6 +271,9 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		}
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
+
+		log.Infof("/////////////  render service cost: %v", time.Now().UnixMilli()-startTs)
+		startTs = time.Now().UnixMilli()
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
 		for _, item := range manifests {
@@ -335,6 +345,8 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
 			}
 		}
+
+		log.Infof("/////////////  get k8s resource cost: %v", time.Now().UnixMilli()-startTs)
 	}
 
 	return
@@ -500,10 +512,13 @@ func queryPodsStatus(namespace, envName, productName, serviceName string, inform
 }
 
 func collectPodsInfo(namespace, envName, productName, serviceName string, log *zap.SugaredLogger) (string, string, []string) {
+
+	startTs := time.Now().UnixMilli()
 	svcResp, err := GetService(envName, productName, serviceName, "", log)
 	if err != nil {
 		return setting.PodError, setting.PodNotReady, nil
 	}
+	log.Infof("++++++++++++ GetService cost %v", time.Now().UnixMilli()-startTs)
 
 	pods := make([]*resource.Pod, 0)
 	for _, svc := range svcResp.Scales {
