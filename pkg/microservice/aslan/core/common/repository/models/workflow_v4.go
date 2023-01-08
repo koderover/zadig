@@ -354,6 +354,22 @@ type ApolloNamespace struct {
 	KeyValList []*ApolloKV `bson:"kv" json:"kv" yaml:"kv"`
 }
 
+type MeegoTransitionJobSpec struct {
+	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
+	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
+	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
+	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
+	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
+}
+
+type MeegoWorkItemTransition struct {
+	ID             int    `bson:"id"               json:"id"               yaml:"id"`
+	Name           string `bson:"name"             json:"name"             yaml:"name"`
+	TransitionID   int64  `bson:"transition_id"    json:"transition_id"    yaml:"transition_id"`
+	TargetStateKey string `bson:"target_state_key" json:"target_state_key" yaml:"target_state_key"`
+	Status         string `bson:"status"           json:"status"           yaml:"status"`
+}
+
 type IstioJobTarget struct {
 	WorkloadName       string `bson:"workload_name"             json:"workload_name"             yaml:"workload_name"`
 	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`
