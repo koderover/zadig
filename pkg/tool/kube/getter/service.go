@@ -63,6 +63,10 @@ func ListServicesWithCache(selector labels.Selector, lister informers.SharedInfo
 	return lister.Core().V1().Services().Lister().List(selector)
 }
 
+func GetServiceByNameFromCache(name, namespace string, lister informers.SharedInformerFactory) (*corev1.Service, error) {
+	return lister.Core().V1().Services().Lister().Services(namespace).Get(name)
+}
+
 func ListServicesYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
 	return ListResourceYamlInCache(ns, selector, nil, ServiceGVK, cl)
 }
@@ -86,4 +90,3 @@ func setServiceGVK(service *corev1.Service) {
 	}
 	service.SetGroupVersionKind(gvk)
 }
-
