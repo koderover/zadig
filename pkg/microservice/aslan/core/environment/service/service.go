@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -31,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
