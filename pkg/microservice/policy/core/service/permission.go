@@ -412,6 +412,9 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 			continue
 		}
 		if rolebinding.Namespace != "*" {
+			if role.Namespace != "*" && role.Namespace != rolebinding.Namespace {
+				continue
+			}
 			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
 				verbSet := sets.NewString(verbs...)
 				for _, rule := range role.Rules {
