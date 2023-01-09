@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"sort"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -70,6 +72,14 @@ func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger)
 	}
 
 	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
+}
+
+var definitionMap = map[string]int{
+	"Template":       1,
+	"TestCenter":     2,
+	"ReleaseCenter":  3,
+	"DeliveryCenter": 4,
+	"DataCenter":     5,
 }
 
 func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
@@ -151,5 +161,8 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		res = append(res, pd)
 	}
+	sort.Slice(res, func(i, j int) bool {
+		return definitionMap[res[i].Resource] < definitionMap[res[j].Resource]
+	})
 	return res, nil
 }
