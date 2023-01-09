@@ -22,22 +22,15 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
-
-	"k8s.io/client-go/kubernetes"
-
-	"github.com/koderover/zadig/pkg/shared/kube/resource"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -49,8 +42,12 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type K8sService struct {
@@ -236,9 +233,6 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		svcNameSet.Insert(svc.ServiceName)
 	}
 
-	startTs := time.Now().UnixMilli()
-	log.Infof("####### services: %v listGroupServices, start at :%v ", allServices, startTs)
-
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("failed to kubeClient, err: %s", err)
@@ -328,13 +322,9 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
-	log.Infof("####### listGroupServices current cost: %v ", time.Now().UnixMilli()-startTs)
-	startTs = time.Now().UnixMilli()
-
 	for _, service := range allServices {
 		wg.Add(1)
 		go func(service *commonmodels.ProductService) {
-			startTs := time.Now().UnixMilli()
 			defer wg.Done()
 			gp := &commonservice.ServiceResp{
 				ServiceName: service.ServiceName,
@@ -364,9 +354,6 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				gp.Status = setting.ClusterUnknown
 			}
 
-			log.Infof("************** fetch service: %s status cost: %v ", service.ServiceName, time.Now().UnixMilli()-startTs)
-			startTs = time.Now().UnixMilli()
-
 			// ingress may be multiple workloads
 			hostInfo := make([]resource.HostInfo, 0)
 			for _, workload := range workloadMap[service.ServiceName] {
@@ -380,17 +367,10 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			mutex.Lock()
 			resp = append(resp, gp)
 			mutex.Unlock()
-			log.Infof("------------ fetch single ingress service cost: %v ", time.Now().UnixMilli()-startTs)
 		}(service)
 	}
 
-	log.Infof("####### listGroupServices current 2 cost: %v ", time.Now().UnixMilli()-startTs)
-	startTs = time.Now().UnixMilli()
-
 	wg.Wait()
-
-	log.Infof("####### listGroupServices current cost 3: %v ", time.Now().UnixMilli()-startTs)
-	startTs = time.Now().UnixMilli()
 
 	//把数据按照名称排序
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ServiceName < resp[j].ServiceName })

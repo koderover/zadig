@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -236,8 +235,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			return nil, e.ErrGetService.AddDesc("没有找到服务: " + serviceName)
 		}
 
-		startTs := time.Now().UnixMilli()
-
 		// 获取服务模板
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName: service.ServiceName,
@@ -274,9 +271,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 		}
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
-
-		log.Infof("/////////////  render service: %s:%s cost: %v", env.EnvName, svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
-		startTs = time.Now().UnixMilli()
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
 		for _, item := range manifests {
@@ -348,7 +342,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
 			}
 		}
-		log.Infof("/////////////  get k8s service: %s:%s resource cost: %v", env.EnvName, svcTmpl.ServiceName, time.Now().UnixMilli()-startTs)
 	}
 	return
 }
@@ -510,13 +503,10 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 		ls[setting.ServiceLabel] = serviceName
 	}
 
-	startTs := time.Now().UnixMilli()
-
 	svcResp, err := GetServiceImpl(serviceName, "", productInfo, kubeClient, clientset, informer, log)
 	if err != nil {
 		return setting.PodError, setting.PodNotReady, nil
 	}
-	log.Infof("++++++++++++ GetService for env: %s cost %v", productInfo.EnvName, time.Now().UnixMilli()-startTs)
 
 	pods := make([]*resource.Pod, 0)
 	for _, svc := range svcResp.Scales {
