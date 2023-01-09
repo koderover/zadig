@@ -453,6 +453,10 @@ const (
 const (
 	// WebhookTaskCreator ...
 	WebhookTaskCreator = "webhook"
+	// JiraHookTaskCreator ...
+	JiraHookTaskCreator = "jira_hook"
+	// GeneralHookCreator ...
+	GeneralHookTaskCreator = "general_hook"
 	// CronTaskCreator ...
 	CronTaskCreator = "timer"
 	// DefaultTaskRevoker ...
@@ -748,4 +752,16 @@ const (
 const (
 	LarkUserOpenID       = "open_id"
 	LarkDepartmentOpenID = "open_department_id"
+)
+
+// Project Management types
+const (
+	PMJira = "jira"
+	PMLark = "lark"
+)
+
+// Workflow variable source type
+const (
+	VariableSourceRuntime = "runtime"
+	VariableSourceOther   = "other"
 )
