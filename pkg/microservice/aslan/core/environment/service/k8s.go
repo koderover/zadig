@@ -27,7 +27,10 @@ import (
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -39,8 +42,12 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type K8sService struct {
@@ -52,10 +59,10 @@ type K8sService struct {
 // If service doesnt have pods, service status = success (all objects created) or failed (fail to create some objects).
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
-func (k *K8sService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
+func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) (string, string, []string) {
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
-		return queryPodsStatus(namespace, envName, productName, serviceTmpl.ServiceName, informer, k.log)
+		return queryPodsStatus(productInfo, serviceTmpl.ServiceName, kubeClient, clientset, informer, k.log)
 	}
 
 	return setting.PodSucceeded, setting.PodReady, []string{}
@@ -221,6 +228,100 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
 
+	svcNameSet := sets.NewString()
+	for _, svc := range allServices {
+		svcNameSet.Insert(svc.ServiceName)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to kubeClient, err: %s", err)
+		return nil
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to init client set, err: %s", err)
+		return nil
+	}
+
+	selector := labels.Set{setting.ProductLabel: productName}.AsSelector()
+	workloadMap := make(map[string][]*commonservice.Workload)
+	listDeployments, err := getter.ListDeploymentsWithCache(selector, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] get deployment list error: %v", productName, envName, err)
+		return nil
+	}
+
+	for _, v := range listDeployments {
+		serviceName := v.Labels[setting.ServiceLabel]
+		if !svcNameSet.Has(serviceName) {
+			continue
+		}
+		workload := &commonservice.Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.Deployment,
+			Images:     wrapper.Deployment(v).ImageInfos(),
+			Ready:      wrapper.Deployment(v).Ready(),
+			Annotation: v.Annotations,
+		}
+		workloadMap[serviceName] = append(workloadMap[serviceName], workload)
+	}
+	statefulSets, err := getter.ListStatefulSetsWithCache(selector, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] get sts list error: %v", productName, envName, err)
+		return nil
+	}
+	for _, v := range statefulSets {
+		serviceName := v.Labels[setting.ServiceLabel]
+		if !svcNameSet.Has(serviceName) {
+			continue
+		}
+		workload := &commonservice.Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Type:       setting.StatefulSet,
+			Images:     wrapper.StatefulSet(v).ImageInfos(),
+			Ready:      wrapper.StatefulSet(v).Ready(),
+			Annotation: v.Annotations,
+		}
+		workloadMap[serviceName] = append(workloadMap[serviceName], workload)
+	}
+
+	hostInfos := make([]resource.HostInfo, 0)
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", productInfo.ClusterID, err)
+		return nil
+	}
+	if kubeclient.VersionLessThan122(version) {
+		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	} else {
+		ingresses, err := getter.ListNetworkingV1Ingress(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ingress)...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	}
+
+	// get all services
+	k8sServices, err := getter.ListServicesWithCache(nil, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] list service error: %s", envName, productInfo.Namespace, err)
+		return nil
+	}
+
 	for _, service := range allServices {
 		wg.Add(1)
 		go func(service *commonmodels.ProductService) {
@@ -244,7 +345,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			gp.ProductName = serviceTmpl.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
-				gp.Status, gp.Ready, gp.Images = k.queryServiceStatus(productInfo.Namespace, envName, productName, serviceTmpl, informer)
+				gp.Status, gp.Ready, gp.Images = k.queryServiceStatus(serviceTmpl, productInfo, kubeClient, cls, informer)
 				// 如果产品正在创建中，且service status为ERROR（POD还没创建出来），则判断为Pending，尚未开始创建
 				if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
 					gp.Status = setting.PodPending
@@ -253,8 +354,16 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				gp.Status = setting.ClusterUnknown
 			}
 
-			//处理ingress信息
-			gp.Ingress = GetIngressInfo(productInfo, serviceTmpl, k.log)
+			// ingress may be multiple workloads
+			hostInfo := make([]resource.HostInfo, 0)
+			for _, workload := range workloadMap[service.ServiceName] {
+				hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
+			}
+			gp.Ingress = &commonservice.IngressInfo{
+				HostInfo: hostInfo,
+			}
+
+			//gp.Ingress = GetIngressInfo(productInfo, serviceTmpl, k.log)
 			mutex.Lock()
 			resp = append(resp, gp)
 			mutex.Unlock()
