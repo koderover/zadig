@@ -389,7 +389,7 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 	}
 	roleMap := make(map[string]*models.Role)
 	for _, role := range roles {
-		roleMap[role.Name] = role
+		roleMap[getRoleKey(role.Name, role.Namespace)] = role
 	}
 	var isSystemAdmin bool
 	projectVerbMap := make(map[string][]string)
@@ -403,7 +403,7 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 			continue
 		}
 		var role *models.Role
-		if roleRef, ok := roleMap[rolebinding.RoleRef.Name]; ok {
+		if roleRef, ok := roleMap[getRoleKey(rolebinding.RoleRef.Name, rolebinding.RoleRef.Namespace)]; ok {
 			role = roleRef
 		} else {
 			return false, projectVerbMap, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
@@ -412,9 +412,6 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 			continue
 		}
 		if rolebinding.Namespace != "*" {
-			if role.Namespace != "*" && role.Namespace != rolebinding.RoleRef.Namespace {
-				continue
-			}
 			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
 				verbSet := sets.NewString(verbs...)
 				for _, rule := range role.Rules {
@@ -453,6 +450,10 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 		}
 	}
 	return isSystemAdmin, projectVerbMap, nil
+}
+
+func getRoleKey(name, namespace string) string {
+	return strings.Join([]string{name, namespace}, "@")
 }
 
 type ReleaseWorkflowResp struct {
