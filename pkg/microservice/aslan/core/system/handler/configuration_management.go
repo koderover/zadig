@@ -29,7 +29,7 @@ func ListConfigurationManagement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListConfigurationManagement(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListConfigurationManagement(c.Query("type"), ctx.Logger)
 }
 
 func CreateConfigurationManagement(c *gin.Context) {

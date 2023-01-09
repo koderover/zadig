@@ -72,8 +72,7 @@ func (c *ConfigurationManagementColl) Create(ctx context.Context, args *models.C
 	return err
 }
 
-func (c *ConfigurationManagementColl) List(ctx context.Context) ([]*models.ConfigurationManagement, error) {
-	query := bson.M{}
+func (c *ConfigurationManagementColl) List(ctx context.Context, query bson.M) ([]*models.ConfigurationManagement, error) {
 	resp := make([]*models.ConfigurationManagement, 0)
 
 	cursor, err := c.Collection.Find(ctx, query)

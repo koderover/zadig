@@ -3,13 +3,15 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 
+	"github.com/pkg/errors"
+
 	"github.com/imroc/req/v3"
 	"github.com/tidwall/gjson"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -18,8 +20,12 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListConfigurationManagement(log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
-	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background())
+func ListConfigurationManagement(_type string, log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
+	query := bson.M{}
+	if _type != "" {
+		query = bson.M{"type": _type}
+	}
+	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), query)
 	if err != nil {
 		log.Errorf("list configuration management error: %v", err)
 		return nil, e.ErrListConfigurationManagement
@@ -129,6 +135,36 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 		return e.ErrValidateConfigurationManagement.AddDesc(fmt.Sprintf("unexpected HTTP status code %d when connecting to nacos", resp.StatusCode))
 	}
 	return nil
+}
+
+func GetApolloConfigByID(id string) (*commonmodels.ApolloConfig, error) {
+	resp, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get by id")
+	}
+	if resp.Type != setting.SourceFromApollo {
+		return nil, errors.Errorf("type %s is not apollo", resp.Type)
+	}
+	raw, err := json.Marshal(resp.AuthConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal auth config")
+	}
+	return getApolloConfigFromRaw(string(raw)), nil
+}
+
+func GetNacosConfigByID(id string) (*commonmodels.NacosConfig, error) {
+	resp, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get by id")
+	}
+	if resp.Type != setting.SourceFromNacos {
+		return nil, errors.Errorf("type %s is not nacos", resp.Type)
+	}
+	raw, err := json.Marshal(resp.AuthConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal auth config")
+	}
+	return getNacosConfigFromRaw(string(raw)), nil
 }
 
 func getApolloConfigFromRaw(raw string) *commonmodels.ApolloConfig {
