@@ -644,7 +644,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
 
 		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: findServiceFromIngress(hostInfos, workload, allServices),
+			HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
 		}
 
 		resp = append(resp, productRespInfo)
@@ -653,7 +653,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	return count, resp, nil
 }
 
-func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
+func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
 	if len(allServices) == 0 || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}

@@ -1091,9 +1091,17 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 			relatedSvcs, _ := GetAffectedServices(productRenderset.ProductTmpl, productRenderset.EnvName, &K8sRendersetArg{VariableYaml: args.DefaultValues}, log)
 			if relatedSvcs != nil {
 				svcSet := sets.NewString(relatedSvcs["services"]...)
+				svcVariableMap := make(map[string]*templatemodels.ServiceRender)
 				for _, svc := range productRenderset.ServiceVariables {
-					if svcSet.Has(svc.ServiceName) {
-						updatedSvcList = append(updatedSvcList, svc)
+					svcVariableMap[svc.ServiceName] = svc
+				}
+				for _, svc := range svcSet.List() {
+					if curVariable, ok := svcVariableMap[svc]; ok {
+						updatedSvcList = append(updatedSvcList, curVariable)
+					} else {
+						updatedSvcList = append(updatedSvcList, &templatemodels.ServiceRender{
+							ServiceName: svc,
+						})
 					}
 				}
 			}

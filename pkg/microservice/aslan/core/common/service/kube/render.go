@@ -93,7 +93,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	}
 
 	for k, v := range serviceDefaultValuesMap {
-		if _, ok := valuesMap[k]; !ok {
+		if _, ok := validKvMap[k]; !ok {
 			svcValidDefaultValueMap[k] = v
 		}
 	}
@@ -130,7 +130,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 
 	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars, serviceDefaultValues)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to extract variable for service: %s, err: %s", serviceName, err)
 	}
 	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(rs.DefaultValues, serviceVariable)
 	if err != nil {
