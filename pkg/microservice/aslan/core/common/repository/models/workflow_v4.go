@@ -332,6 +332,11 @@ type IstioRollBackJobSpec struct {
 	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
 }
 
+type ApolloJobSpec struct {
+	ApolloID      string             `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
+	NamespaceList []*ApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
+}
+
 type IstioJobTarget struct {
 	WorkloadName       string `bson:"workload_name"             json:"workload_name"             yaml:"workload_name"`
 	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`
