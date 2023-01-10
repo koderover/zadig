@@ -16,13 +16,19 @@
 
 package service
 
-import "github.com/koderover/zadig/pkg/tool/meego"
+import (
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/tool/meego"
+)
 
 func GetMeegoProjects() (*MeegoProjectResp, error) {
-	pluginID := "fake_plugin_id"
-	pluginSecret := "fake_plugin_secret"
-	userKey := "fake_user_key"
-	client, err := meego.NewClient("", pluginID, pluginSecret, userKey)
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+	if err != nil {
+		log.Errorf("failed to get meego info, err: %s", err)
+		return nil, err
+	}
+	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}
@@ -43,10 +49,12 @@ func GetMeegoProjects() (*MeegoProjectResp, error) {
 }
 
 func GetWorkItemTypeList(projectID string) (*MeegoWorkItemTypeResp, error) {
-	pluginID := "fake_plugin_id"
-	pluginSecret := "fake_plugin_secret"
-	userKey := "fake_user_key"
-	client, err := meego.NewClient("", pluginID, pluginSecret, userKey)
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+	if err != nil {
+		log.Errorf("failed to get meego info, err: %s", err)
+		return nil, err
+	}
+	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}
@@ -67,10 +75,12 @@ func GetWorkItemTypeList(projectID string) (*MeegoWorkItemTypeResp, error) {
 }
 
 func ListMeegoWorkItems(projectID, typeKey string, pageNum, pageSize int) (*MeegoWorkItemResp, error) {
-	pluginID := "fake_plugin_id"
-	pluginSecret := "fake_plugin_secret"
-	userKey := "fake_user_key"
-	client, err := meego.NewClient("", pluginID, pluginSecret, userKey)
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+	if err != nil {
+		log.Errorf("failed to get meego info, err: %s", err)
+		return nil, err
+	}
+	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}
@@ -93,10 +103,12 @@ func ListMeegoWorkItems(projectID, typeKey string, pageNum, pageSize int) (*Meeg
 }
 
 func ListAvailableWorkItemTransitions(projectID, typeKey string, workItemID int) (*MeegoTransitionResp, error) {
-	pluginID := "fake_plugin_id"
-	pluginSecret := "fake_plugin_secret"
-	userKey := "fake_user_key"
-	client, err := meego.NewClient("", pluginID, pluginSecret, userKey)
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+	if err != nil {
+		log.Errorf("failed to get meego info, err: %s", err)
+		return nil, err
+	}
+	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}

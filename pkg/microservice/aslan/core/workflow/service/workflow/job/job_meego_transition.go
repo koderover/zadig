@@ -67,6 +67,9 @@ func (j *MeegoTransitionJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
+	for _, task := range j.spec.WorkItems {
+		task.Status = string(config.StatusWaiting)
+	}
 	jobTask := &commonmodels.JobTask{
 		Name:    j.job.Name,
 		Key:     j.job.Name,

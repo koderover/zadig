@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/meego"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -83,6 +84,15 @@ func ValidateJira(info *models.ProjectManagement) error {
 	if err != nil {
 		log.Errorf("Validate jira error: %v", err)
 		return e.ErrValidateProjectManagement.AddDesc("failed to validate jira")
+	}
+	return nil
+}
+
+func ValidateMeego(info *models.ProjectManagement) error {
+	_, err := meego.NewClient(info.MeegoHost, info.MeegoPluginID, info.MeegoPluginSecret, info.MeegoUserKey)
+	if err != nil {
+		log.Errorf("Failed to create meego client, error: %s", err)
+		return e.ErrValidateProjectManagement.AddDesc("failed to validate meego")
 	}
 	return nil
 }
@@ -224,6 +234,7 @@ func checkType(_type string) error {
 	switch _type {
 	case setting.PMJira:
 	case setting.PMLark:
+	case setting.PMMeego:
 	default:
 		return errors.New("invalid pm type")
 	}

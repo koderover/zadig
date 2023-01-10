@@ -19,6 +19,7 @@ package meego
 import (
 	"errors"
 	"fmt"
+
 	"github.com/koderover/zadig/pkg/tool/log"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -210,7 +211,7 @@ type StatusTransitionResp struct {
 	Error        interface{} `json:"error"`
 }
 
-func (c *Client) StatusTransition(projectKey, workItemTypeKey string, workItemID, transitionID int) error {
+func (c *Client) StatusTransition(projectKey, workItemTypeKey string, workItemID int, transitionID int64) error {
 	statusTransitionAPI := fmt.Sprintf("%s/open_api/%s/workflow/%s/%d/node/state_change", c.Host, projectKey, workItemTypeKey, workItemID)
 
 	result := new(StatusTransitionResp)

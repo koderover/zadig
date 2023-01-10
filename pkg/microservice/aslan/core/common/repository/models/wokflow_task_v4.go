@@ -250,6 +250,14 @@ type JobIstioRollbackSpec struct {
 	Timeout     int64           `json:"timeout"      bson:"timeout"      yaml:"timeout"`
 }
 
+type MeegoTransitionSpec struct {
+	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
+	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
+	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
+	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
+	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
+}
+
 type JobTaskGrayRollbackSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
 	ClusterName      string `bson:"cluster_name"           json:"cluster_name"           yaml:"cluster_name"`

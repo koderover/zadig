@@ -72,6 +72,8 @@ func Validate(c *gin.Context) {
 	switch req.Type {
 	case setting.PMJira:
 		ctx.Err = service.ValidateJira(req)
+	case setting.PMMeego:
+		ctx.Err = service.ValidateMeego(req)
 	default:
 		ctx.Err = e.ErrValidateProjectManagement.AddDesc("invalid type")
 	}
