@@ -85,7 +85,7 @@ func ListMeegoWorkItems(projectID, typeKey, nameQuery string, pageNum, pageSize 
 		return nil, err
 	}
 
-	workItemList, err := client.GetWorkItemList(projectID, typeKey, pageNum, pageSize)
+	workItemList, err := client.GetWorkItemList(projectID, typeKey, nameQuery, pageNum, pageSize)
 	if err != nil {
 		return nil, err
 	}
