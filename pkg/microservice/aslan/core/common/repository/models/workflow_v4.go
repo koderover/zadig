@@ -355,6 +355,7 @@ type ApolloNamespace struct {
 }
 
 type MeegoTransitionJobSpec struct {
+	Source          string                     `bson:"source"             json:"source"`
 	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
 	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
 	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`

@@ -73,7 +73,9 @@ func ListMeegoWorkItems(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListMeegoWorkItems(projectID, typeKey, pageNum, pageSize)
+	nameQuery := c.Query("item_name")
+
+	ctx.Resp, ctx.Err = service.ListMeegoWorkItems(projectID, typeKey, nameQuery, pageNum, pageSize)
 }
 
 func ListAvailableWorkItemTransitions(c *gin.Context) {

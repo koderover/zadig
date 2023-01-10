@@ -26,6 +26,7 @@ import (
 )
 
 type GetWorkItemListReq struct {
+	WorkItemName     string   `json:"work_item_name,omitempty"`
 	WorkItemTypeKeys []string `json:"work_item_type_keys"`
 	WorkItemIDs      []int    `json:"work_item_ids,omitempty"`
 	PageSize         int      `json:"page_size"`
@@ -88,7 +89,7 @@ type StateFlowNode struct {
 	Status int    `json:"status"`
 }
 
-func (c *Client) GetWorkItemList(projectKey, workItemTypeKey string, pageNum, pageSize int) ([]*WorkItem, error) {
+func (c *Client) GetWorkItemList(projectKey, workItemTypeKey, nameQuery string, pageNum, pageSize int) ([]*WorkItem, error) {
 	api := fmt.Sprintf("%s/open_api/%s/work_item/filter", c.Host, projectKey)
 
 	result := new(GetWorkItemListResp)
@@ -106,6 +107,10 @@ func (c *Client) GetWorkItemList(projectKey, workItemTypeKey string, pageNum, pa
 		WorkItemTypeKeys: []string{workItemTypeKey},
 		PageSize:         realPageSize,
 		PageNum:          pageNumber,
+	}
+
+	if nameQuery != "" {
+		req.WorkItemName = nameQuery
 	}
 
 	_, err := httpclient.Post(api,

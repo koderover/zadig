@@ -74,7 +74,7 @@ func GetWorkItemTypeList(projectID string) (*MeegoWorkItemTypeResp, error) {
 	return &MeegoWorkItemTypeResp{WorkItemTypes: meegoWorkItemTypeList}, nil
 }
 
-func ListMeegoWorkItems(projectID, typeKey string, pageNum, pageSize int) (*MeegoWorkItemResp, error) {
+func ListMeegoWorkItems(projectID, typeKey, nameQuery string, pageNum, pageSize int) (*MeegoWorkItemResp, error) {
 	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
