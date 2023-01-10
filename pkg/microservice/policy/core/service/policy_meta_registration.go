@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"sort"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -72,12 +74,20 @@ func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger)
 	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
+var definitionMap = map[string]int{
+	"Template":       1,
+	"TestCenter":     2,
+	"DeliveryCenter": 3,
+	"ReleaseCenter":  4,
+	"DataCenter":     5,
+}
+
 func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
 	policieMetas, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
 	}
-	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
+	systemScopeSet := sets.NewString("Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter")
 	projectScopeSet := sets.NewString("Workflow", "Environment", "Test", "Delivery", "Build", "Service", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
@@ -151,5 +161,8 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		res = append(res, pd)
 	}
+	sort.Slice(res, func(i, j int) bool {
+		return definitionMap[res[i].Resource] < definitionMap[res[j].Resource]
+	})
 	return res, nil
 }
