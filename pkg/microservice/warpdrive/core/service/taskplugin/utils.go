@@ -52,7 +52,7 @@ func uploadFileToS3(access, secret, bucket, remote, local string) error {
 	return nil
 }
 
-//  选择最合适的dockerhost
+// 选择最合适的dockerhost
 func GetBestDockerHost(hostList []string, pipelineType, namespace string, log *zap.SugaredLogger) (string, error) {
 	bestHosts := []string{}
 	containerCount := 0
@@ -262,6 +262,7 @@ func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
 
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+		repoName = strings.Replace(repo.RepoName, ".", "_", -1)
 
 		repoIndex := fmt.Sprintf("REPO_%d", index)
 		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
