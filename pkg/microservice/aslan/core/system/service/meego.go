@@ -113,6 +113,7 @@ func ListAvailableWorkItemTransitions(projectID, typeKey string, workItemID int)
 		return nil, err
 	}
 
+	log.Infof("getting work item info for work item ID: %d", workItemID)
 	workItem, err := client.GetWorkItem(projectID, typeKey, workItemID)
 	if err != nil {
 		return nil, err
