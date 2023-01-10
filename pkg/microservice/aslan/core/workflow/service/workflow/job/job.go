@@ -293,6 +293,7 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
 
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+		repoName = strings.Replace(repo.RepoName, ".", "_", -1)
 
 		repoIndex := fmt.Sprintf("REPO_%d", index)
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
