@@ -49,6 +49,7 @@ require (
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mittwald/go-helm-client v0.11.3
 	github.com/moby/buildkit v0.10.4
+	github.com/nacos-group/nacos-sdk-go v1.1.3
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.2
@@ -108,8 +109,10 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
