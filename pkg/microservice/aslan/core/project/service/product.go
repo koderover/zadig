@@ -335,6 +335,7 @@ func saveProducts(products []*commonmodels.Product) error {
 		if err != nil {
 			return err
 		}
+		saveWorkloadStats(product.ClusterID, product.Namespace, product.ProductName, product.EnvName)
 	}
 	return nil
 }
@@ -414,6 +415,19 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 	}
 
 	return products, nil
+}
+
+func saveWorkloadStats(clusterID, namespace, productName, envName string) {
+	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		log.Errorf("failed to get workload stat data, err: %s", err)
+		return
+	}
+
+	workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, envName)
+	if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+		log.Errorf("update workloads fail error:%s", err)
+	}
 }
 
 // UpdateProject 更新项目
