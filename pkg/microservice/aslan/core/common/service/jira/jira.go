@@ -17,9 +17,12 @@
 package jira
 
 import (
+	"github.com/imroc/req/v3"
 	"github.com/pkg/errors"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/jira"
 )
 
@@ -33,6 +36,12 @@ type JiraInfo struct {
 }
 
 func GetJiraInfo() (*JiraInfo, error) {
+	host := config.AslanServiceAddress()
+	c := httpclient.New(
+		httpclient.SetHostURL(host + "/api/v1"),
+	)
+
+	req.C().R().Get(config.AslanServiceAddress() + "/api/v1")
 	resp, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
 		return nil, err
