@@ -72,7 +72,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewIstioRollbackJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobJira):
 		jobCtl = NewJiraJobCtl(job, workflowCtx, ack, logger)
-	case string(config.JobJira)
+	case string(config.JobApollo):
+		jobCtl = NewApolloJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
