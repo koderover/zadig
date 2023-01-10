@@ -62,6 +62,10 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		logError(c.job, err.Error(), c.logger)
 		return
 	}
+	if len(c.jobTaskSpec.Issues) == 0 {
+		logError(c.job, "issues not found in job spec", c.logger)
+		return
+	}
 	client := jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost)
 	for _, issue := range c.jobTaskSpec.Issues {
 		issue.Link = fmt.Sprintf("%s/browse/%s", info.JiraHost, issue.Key)
