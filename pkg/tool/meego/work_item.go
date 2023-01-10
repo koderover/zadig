@@ -167,7 +167,8 @@ func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int)
 		return nil, errors.New(errMsg)
 	}
 
-	for _, workItem := range result.Data {
+	for i, workItem := range result.Data {
+		log.Infof("workitem[%d] ID: %d", i, workItem.ID)
 		if workItem.ID == workItemID {
 			return workItem, nil
 		}
