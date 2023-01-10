@@ -137,36 +137,6 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 	return nil
 }
 
-func GetApolloConfigByID(id string) (*commonmodels.ApolloConfig, error) {
-	resp, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
-	if err != nil {
-		return nil, errors.Wrap(err, "get by id")
-	}
-	if resp.Type != setting.SourceFromApollo {
-		return nil, errors.Errorf("type %s is not apollo", resp.Type)
-	}
-	raw, err := json.Marshal(resp.AuthConfig)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal auth config")
-	}
-	return getApolloConfigFromRaw(string(raw)), nil
-}
-
-func GetNacosConfigByID(id string) (*commonmodels.NacosConfig, error) {
-	resp, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
-	if err != nil {
-		return nil, errors.Wrap(err, "get by id")
-	}
-	if resp.Type != setting.SourceFromNacos {
-		return nil, errors.Errorf("type %s is not nacos", resp.Type)
-	}
-	raw, err := json.Marshal(resp.AuthConfig)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal auth config")
-	}
-	return getNacosConfigFromRaw(string(raw)), nil
-}
-
 func getApolloConfigFromRaw(raw string) *commonmodels.ApolloConfig {
 	return &commonmodels.ApolloConfig{
 		ServerAddress: gjson.Get(raw, "server_address").String(),
