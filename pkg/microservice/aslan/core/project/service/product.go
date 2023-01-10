@@ -308,13 +308,13 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 
 // transferServices transfer service from external to zadig-host(spock)
 func transferServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
-	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProjectName)
+	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProductName)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, svc := range templateServices {
-		log.Infof("transfer service %s/%s ", projectInfo.ProjectName, svc.ServiceName)
+		log.Infof("transfer service %s/%s ", projectInfo.ProductName, svc.ServiceName)
 		svc.Source = setting.SourceFromZadig
 		svc.CreateBy = user
 		svc.EnvName = ""
@@ -346,7 +346,7 @@ func saveProducts(products []*commonmodels.Product) error {
 }
 
 func saveProject(projectInfo *template.Product) error {
-	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProjectName, projectInfo.ProductFeature, projectInfo.UpdateBy)
+	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.UpdateBy)
 }
 
 // build service and env data
@@ -357,7 +357,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name: projectInfo.ProjectName,
+		Name: projectInfo.ProductName,
 	})
 	if err != nil {
 		return nil, err
@@ -384,7 +384,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			Description: rendersetInfo.Description,
 		}
 
-		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProjectName, product.EnvName, logger)
+		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProductName, product.EnvName, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -418,7 +418,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		product.UpdateBy = user
 		product.Revision = 1
 
-		log.Infof("transfer project %s/%s ", projectInfo.ProjectName, product.EnvName)
+		log.Infof("transfer project %s/%s ", projectInfo.ProductName, product.EnvName)
 	}
 
 	return products, nil
