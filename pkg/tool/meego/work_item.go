@@ -143,8 +143,8 @@ func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int)
 	pageSize := 200
 
 	req := &GetWorkItemListReq{
-		WorkItemTypeKeys: []string{workItemTypeKey},
-		WorkItemIDs:      []int{workItemID},
+		WorkItemTypeKeys: []string{"6396d444f7bc5d78ff97046b"},
+		WorkItemIDs:      []int{3121184},
 		PageSize:         pageNum,
 		PageNum:          pageSize,
 	}
