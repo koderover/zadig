@@ -135,7 +135,7 @@ func (c *Client) GetWorkItemList(projectKey, workItemTypeKey, nameQuery string, 
 }
 
 func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int) (*WorkItem, error) {
-	api := fmt.Sprintf("%s/open_api/%s/work_item/filter", c.Host, "6388797c7efa66176062c4f2")
+	api := fmt.Sprintf("%s/open_api/%s/work_item/filter", c.Host, projectKey)
 
 	result := new(GetWorkItemListResp)
 
@@ -143,10 +143,10 @@ func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int)
 	pageSize := 200
 
 	req := &GetWorkItemListReq{
-		WorkItemTypeKeys: []string{"6396d444f7bc5d78ff97046b"},
-		WorkItemIDs:      []int{3121184},
-		PageSize:         pageNum,
-		PageNum:          pageSize,
+		WorkItemTypeKeys: []string{workItemTypeKey},
+		WorkItemIDs:      []int{workItemID},
+		PageSize:         pageSize,
+		PageNum:          pageNum,
 	}
 
 	_, err := httpclient.Post(api,
