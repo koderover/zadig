@@ -11,7 +11,6 @@ import (
 
 	"github.com/imroc/req/v3"
 	"github.com/tidwall/gjson"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -21,11 +20,7 @@ import (
 )
 
 func ListConfigurationManagement(_type string, log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
-	query := bson.M{}
-	if _type != "" {
-		query = bson.M{"type": _type}
-	}
-	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), query)
+	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), _type)
 	if err != nil {
 		log.Errorf("list configuration management error: %v", err)
 		return nil, e.ErrListConfigurationManagement
