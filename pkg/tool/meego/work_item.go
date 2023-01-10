@@ -135,7 +135,7 @@ func (c *Client) GetWorkItemList(projectKey, workItemTypeKey, nameQuery string, 
 }
 
 func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int) (*WorkItem, error) {
-	api := fmt.Sprintf("%s/open_api/%s/work_item/filter", c.Host, projectKey)
+	api := fmt.Sprintf("%s/open_api/%s/work_item/filter", c.Host, "6388797c7efa66176062c4f2")
 
 	result := new(GetWorkItemListResp)
 
