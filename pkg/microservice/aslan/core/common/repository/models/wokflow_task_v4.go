@@ -270,6 +270,21 @@ type JobTasK8sPatchSpec struct {
 	PatchItems []*PatchTaskItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
 }
 
+type IssueID struct {
+	Key    string `bson:"key" json:"key" yaml:"key"`
+	Name   string `bson:"name" json:"name" yaml:"name"`
+	Status string `bson:"status" json:"status" yaml:"status"`
+	Link   string `bson:"link" json:"link" yaml:"link"`
+}
+
+type JobTaskJiraSpec struct {
+	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	Source       string     `bson:"source" json:"source" yaml:"source"`
+}
+
 type PatchTaskItem struct {
 	ResourceName    string   `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
 	ResourceKind    string   `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`

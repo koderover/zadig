@@ -26,12 +26,13 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
-	"go.uber.org/zap"
 )
 
 const (
@@ -87,6 +88,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &IstioReleaseJob{job: job, workflow: workflow}
 	case config.JobIstioRollback:
 		resp = &IstioRollBackJob{job: job, workflow: workflow}
+	case config.JobJira:
+		resp = &JiraJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}

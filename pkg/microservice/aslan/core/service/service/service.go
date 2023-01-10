@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -29,6 +30,8 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	gotemplate "text/template"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -138,8 +141,9 @@ type YamlPreview struct {
 }
 
 type YamlValidatorReq struct {
-	ServiceName string `json:"service_name"`
-	Yaml        string `json:"yaml,omitempty"`
+	ServiceName  string `json:"service_name"`
+	VariableYaml string `json:"variable_yaml"`
+	Yaml         string `json:"yaml,omitempty"`
 }
 
 type YamlViewServiceTemplateReq struct {
@@ -545,6 +549,16 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	for _, externalEnvService := range otherExternalEnvServices {
 		externalEnvServiceM[externalEnvService.ServiceName] = externalEnvService
 	}
+
+	templateProductInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("failed to find template product: %s error: %s", productName, err)
+		return err
+	}
+
+	svcNeedAdd := sets.NewString()
+	svcNeedDelete := sets.NewString()
+
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
@@ -574,6 +588,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			}); err != nil {
 				log.Errorf("delete service in external env envName:%s error:%s", envName, err)
 			}
+			svcNeedDelete.Insert(v.Name)
 		// 添加workload的引用
 		case "add":
 			var bs []byte
@@ -583,6 +598,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			case setting.StatefulSet:
 				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, v.Name, kubeClient)
 			}
+			svcNeedAdd.Insert(v.Name)
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %s", err)
 				delete(diff, v.Name)
@@ -605,6 +621,19 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			}
 		}
 	}
+
+	// for host services, services are stored in template_product.services[0]
+	if len(templateProductInfo.Services) == 1 {
+		validServices := sets.NewString(templateProductInfo.Services[0]...)
+		validServices.Insert(svcNeedAdd.List()...)
+		validServices.Delete(svcNeedDelete.List()...)
+		templateProductInfo.Services[0] = validServices.List()
+		err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
+		if err != nil {
+			log.Errorf("failed to update service for product: %s, err: %s", templateProductInfo.ProductName, err)
+		}
+	}
+
 	// 删除 && 增加
 	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
@@ -1013,12 +1042,41 @@ func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) set
 	return ips
 }
 
+func getRenderedYaml(args *YamlValidatorReq) string {
+	if len(args.VariableYaml) == 0 {
+		return args.Yaml
+	}
+	// yaml with go template grammar, yaml should be rendered with variable yaml
+	tmpl, err := gotemplate.New(fmt.Sprintf("%v", time.Now().Unix())).Parse(args.Yaml)
+	if err != nil {
+		log.Errorf("failed to parse as go template, err: %s", err)
+		return args.Yaml
+	}
+
+	variableMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(args.VariableYaml), &variableMap)
+	if err != nil {
+		log.Errorf("failed to get variable map, err: %s", err)
+		return args.Yaml
+	}
+
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, variableMap)
+	if err != nil {
+		log.Errorf("failed to execute template render, err: %s", err)
+		return args.Yaml
+	}
+	return buf.String()
+}
+
 func YamlValidator(args *YamlValidatorReq) []string {
 	errorDetails := make([]string, 0)
 	if args.Yaml == "" {
 		return errorDetails
 	}
 	yamlContent := util.ReplaceWrapLine(args.Yaml)
+	yamlContent = getRenderedYaml(args)
+
 	KubeYamls := SplitYaml(yamlContent)
 	for _, data := range KubeYamls {
 		yamlDataArray := SplitYaml(data)

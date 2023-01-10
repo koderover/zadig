@@ -17,13 +17,13 @@ limitations under the License.
 package jira
 
 import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/imroc/req/v3"
 )
 
 // Client is jira RPC client
 type Client struct {
-	Host    string
-	Conn    *httpclient.Client
+	Host string
+	*req.Client
 	Issue   *IssueService
 	Project *ProjectService
 	Board   *BoardService
@@ -34,7 +34,10 @@ type Client struct {
 func NewJiraClient(username, password, host string) *Client {
 	c := &Client{
 		Host: host,
-		Conn: httpclient.New(httpclient.SetBasicAuth(username, password)),
+		Client: req.C().SetCommonBasicAuth(username, password).SetCommonHeaders(map[string]string{
+			"X-Force-Accept-Language": "true",
+			"Accept-Language":         "en-US,en",
+		}),
 	}
 
 	c.Issue = &IssueService{client: c}

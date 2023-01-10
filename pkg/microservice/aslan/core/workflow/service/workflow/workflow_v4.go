@@ -102,6 +102,8 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	inputWorkflow.UpdateTime = time.Now().Unix()
 	inputWorkflow.ID = workflow.ID
 	inputWorkflow.HookCtls = workflow.HookCtls
+	inputWorkflow.JiraHookCtls = workflow.JiraHookCtls
+	inputWorkflow.GeneralHookCtls = workflow.GeneralHookCtls
 
 	for _, stage := range inputWorkflow.Stages {
 		for _, job := range stage.Jobs {
@@ -674,6 +676,264 @@ func DeleteWebhookForWorkflowV4(workflowName, triggerName string, logger *zap.Su
 	}
 	if err := deleteGerritWebhook(existHook.MainRepo, workflowName); err != nil {
 		logger.Errorf("delete gerrit webhook failed: %v", err)
+	}
+	return nil
+}
+
+func CreateGeneralHookForWorkflowV4(workflowName string, arg *models.GeneralHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrCreateGeneralHook.AddErr(err)
+	}
+	for _, hook := range workflow.GeneralHookCtls {
+		if hook.Name == arg.Name {
+			errMsg := fmt.Sprintf("general hook %s already exists", arg.Name)
+			logger.Error(errMsg)
+			return e.ErrCreateGeneralHook.AddDesc(errMsg)
+		}
+	}
+	if err := validateHookNames([]string{arg.Name}); err != nil {
+		logger.Errorf(err.Error())
+		return e.ErrCreateGeneralHook.AddErr(err)
+	}
+	workflow.GeneralHookCtls = append(workflow.GeneralHookCtls, arg)
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to create general hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrCreateGeneralHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func GetGeneralHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.SugaredLogger) (*commonmodels.GeneralHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrGetGeneralHook.AddErr(err)
+	}
+	gHook := &commonmodels.GeneralHook{}
+	for _, hook := range workflow.GeneralHookCtls {
+		if hook.Name == hookName {
+			gHook = hook
+		}
+	}
+	if err := job.MergeArgs(workflow, gHook.WorkflowArg); err != nil {
+		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+		log.Error(errMsg)
+		return nil, e.ErrGetGeneralHook.AddDesc(errMsg)
+	}
+	gHook.WorkflowArg = workflow
+	gHook.WorkflowArg.GeneralHookCtls = nil
+	return gHook, nil
+}
+
+func ListGeneralHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*models.GeneralHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrListGeneralHook.AddErr(err)
+	}
+	return workflow.GeneralHookCtls, nil
+}
+
+func UpdateGeneralHookForWorkflowV4(workflowName string, arg *models.GeneralHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrUpdateGeneralHook.AddErr(err)
+	}
+	updated := false
+	for i, hook := range workflow.GeneralHookCtls {
+		if hook.Name == arg.Name {
+			workflow.GeneralHookCtls[i] = arg
+			updated = true
+		}
+	}
+	if !updated {
+		errMsg := fmt.Sprintf("failed to find general hook %s", arg.Name)
+		log.Error(errMsg)
+		return e.ErrUpdateGeneralHook.AddDesc(errMsg)
+	}
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to update general hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrUpdateGeneralHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func DeleteGeneralHookForWorkflowV4(workflowName, hookName string, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrDeleteGeneralHook.AddErr(err)
+	}
+	var list []*models.GeneralHook
+	for _, ctl := range workflow.GeneralHookCtls {
+		if ctl.Name == hookName {
+			continue
+		}
+		list = append(list, ctl)
+	}
+	if len(list) == len(workflow.GeneralHookCtls) {
+		errMsg := fmt.Sprintf("general hook %s not found", hookName)
+		log.Error(errMsg)
+		return e.ErrDeleteGeneralHook.AddDesc(errMsg)
+	}
+	workflow.GeneralHookCtls = list
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to delete general hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrDeleteGeneralHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func GeneralHookEventHandler(workflowName, hookName string, logger *zap.SugaredLogger) error {
+	workflowInfo, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	var generalHook *models.GeneralHook
+	for _, hook := range workflowInfo.GeneralHookCtls {
+		if hook.Name == hookName {
+			generalHook = hook
+			break
+		}
+	}
+	if generalHook == nil {
+		errMsg := fmt.Sprintf("Failed to find general hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	if !generalHook.Enabled {
+		errMsg := fmt.Sprintf("Not enabled general hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	_, err = CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
+		Name: setting.GeneralHookTaskCreator,
+	}, generalHook.WorkflowArg, logger)
+	if err != nil {
+		errMsg := fmt.Sprintf("HandleGeneralHookEvent: failed to create workflow task: %s", err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	logger.Infof("HandleGeneralHookEvent: workflow-%s hook-%s create workflow task success", workflowName, hookName)
+	return nil
+}
+
+func CreateJiraHookForWorkflowV4(workflowName string, arg *models.JiraHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrCreateJiraHook.AddErr(err)
+	}
+	for _, hook := range workflow.JiraHookCtls {
+		if hook.Name == arg.Name {
+			errMsg := fmt.Sprintf("jira hook %s already exists", arg.Name)
+			logger.Error(errMsg)
+			return e.ErrCreateJiraHook.AddDesc(errMsg)
+		}
+	}
+	if err := validateHookNames([]string{arg.Name}); err != nil {
+		logger.Errorf(err.Error())
+		return e.ErrCreateJiraHook.AddErr(err)
+	}
+	workflow.JiraHookCtls = append(workflow.JiraHookCtls, arg)
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to create jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrCreateJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.SugaredLogger) (*commonmodels.JiraHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrGetJiraHook.AddErr(err)
+	}
+	jiraHook := &commonmodels.JiraHook{}
+	for _, hook := range workflow.JiraHookCtls {
+		if hook.Name == hookName {
+			jiraHook = hook
+		}
+	}
+	if err := job.MergeArgs(workflow, jiraHook.WorkflowArg); err != nil {
+		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+		log.Error(errMsg)
+		return nil, e.ErrGetJiraHook.AddDesc(errMsg)
+	}
+	jiraHook.WorkflowArg = workflow
+	jiraHook.WorkflowArg.JiraHookCtls = nil
+	return jiraHook, nil
+}
+
+func ListJiraHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*models.JiraHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrListJiraHook.AddErr(err)
+	}
+	//todo debug
+	logger.Infof("list jira hook: num %d", len(workflow.JiraHookCtls))
+	return workflow.JiraHookCtls, nil
+}
+
+func UpdateJiraHookForWorkflowV4(workflowName string, arg *models.JiraHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrUpdateJiraHook.AddErr(err)
+	}
+	updated := false
+	for i, hook := range workflow.JiraHookCtls {
+		if hook.Name == arg.Name {
+			workflow.JiraHookCtls[i] = arg
+			updated = true
+		}
+	}
+	if !updated {
+		errMsg := fmt.Sprintf("failed to find jira hook %s", arg.Name)
+		log.Error(errMsg)
+		return e.ErrUpdateJiraHook.AddDesc(errMsg)
+	}
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to update jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrUpdateJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func DeleteJiraHookForWorkflowV4(workflowName, hookName string, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrDeleteJiraHook.AddErr(err)
+	}
+	var list []*models.JiraHook
+	for _, ctl := range workflow.JiraHookCtls {
+		if ctl.Name == hookName {
+			continue
+		}
+		list = append(list, ctl)
+	}
+	if len(list) == len(workflow.JiraHookCtls) {
+		errMsg := fmt.Sprintf("jira hook %s not found", hookName)
+		log.Error(errMsg)
+		return e.ErrDeleteJiraHook.AddDesc(errMsg)
+	}
+	workflow.JiraHookCtls = list
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to delete jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrDeleteJiraHook.AddDesc(errMsg)
 	}
 	return nil
 }

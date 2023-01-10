@@ -30,7 +30,7 @@ type envHandle interface {
 	createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, inf informers.SharedInformerFactory, kubeClient client.Client) error
 	listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp
 	updateService(args *SvcOptArgs) error
-	queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClient informers.SharedInformerFactory) (string, string, []string)
+	//queryServiceStatus( serviceTmpl *commonmodels.Service, kubeClient informers.SharedInformerFactory) (string, string, []string)
 }
 
 func envHandleFunc(projectType string, log *zap.SugaredLogger) envHandle {
