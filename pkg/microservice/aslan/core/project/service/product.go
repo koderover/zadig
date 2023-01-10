@@ -26,6 +26,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -331,7 +332,16 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 
 func saveProducts(products []*commonmodels.Product) error {
 	for _, product := range products {
-		err := commonrepo.NewProductColl().Update(product)
+
+		err := commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: product.ProductName,
+			EnvName:     product.EnvName,
+		})
+		if err != nil && err != mongo.ErrNoDocuments {
+			return err
+		}
+
+		err = commonrepo.NewProductColl().Update(product)
 		if err != nil {
 			return err
 		}
@@ -400,6 +410,18 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			})
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
+
+		// update workload stat
+		workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(product.ClusterID, product.Namespace)
+		if err != nil {
+			log.Errorf("workflowStat not found error:%s", err)
+		}
+		if workloadStat != nil {
+			workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, product.ProductName, product.EnvName)
+			if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+				log.Errorf("update workloads fail error:%s", err)
+			}
+		}
 
 		// mark service as only import
 		if product.ServiceDeployStrategy == nil {
