@@ -267,12 +267,14 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 }
 
 func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err error) {
+	log.Infof("starting transfer project: %s", projectName)
 	projectInfo, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
 
 	if !projectInfo.IsHostProduct() {
+		log.Infof("project: %s not host propject", projectName)
 		return e.ErrUpdateProduct.AddDesc("invalid project type")
 	}
 
@@ -289,12 +291,15 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 
 	projectInfo.ProductFeature.CreateEnvType = "system"
 
+	log.Infof("saving services for project: %s", projectName)
 	if err = saveServices(projectName, user, services); err != nil {
 		return err
 	}
+	log.Infof("saving products for project: %s", projectName)
 	if err = saveProducts(products); err != nil {
 		return err
 	}
+	log.Infof("saving project for project: %s", projectName)
 	if err = saveProject(projectInfo); err != nil {
 		return err
 	}
@@ -309,6 +314,7 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 	}
 
 	for _, svc := range templateServices {
+		log.Infof("transfer service %s/%s ", projectInfo.ProjectName, svc.ServiceName)
 		svc.Source = setting.SourceFromZadig
 		svc.CreateBy = user
 		svc.EnvName = ""
@@ -411,6 +417,8 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		product.Source = setting.SourceFromZadig
 		product.UpdateBy = user
 		product.Revision = 1
+
+		log.Infof("transfer project %s/%s ", projectInfo.ProjectName, product.EnvName)
 	}
 
 	return products, nil
