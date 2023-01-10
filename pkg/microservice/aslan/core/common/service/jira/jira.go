@@ -17,10 +17,16 @@
 package jira
 
 import (
+	"net/http"
+
+	"github.com/imroc/req/v3"
 	"github.com/pkg/errors"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/jira"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type JiraInfo struct {
@@ -33,23 +39,33 @@ type JiraInfo struct {
 }
 
 func GetJiraInfo() (*JiraInfo, error) {
-	resp, err := mongodb.NewProjectManagementColl().GetJira()
+	resp, err := req.C().R().Get(config.AslanServiceAddress() + "/api/system/project_management")
 	if err != nil {
-		return nil, err
+		log.Errorf("GetJiraInfo: send request error %v", err)
+		return nil, errors.Wrap(err, "send request")
 	}
-	// since in some case, db will return no error even if it does not have anything, we simply do a compatibility change
-	if resp == nil {
-		return nil, nil
+	if resp.GetStatusCode() != http.StatusOK {
+		log.Errorf("GetJiraInfo: unexpected status code %d", resp.GetStatusCode())
+		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+	}
+	var list []*commonmodels.ProjectManagement
+	if err := resp.UnmarshalJson(&list); err != nil {
+		log.Errorf("GetJiraInfo: unmarshal error %v", err)
+		return nil, errors.Wrap(err, "unmarshal")
 	}
 
-	jira := &JiraInfo{
-		Host:        resp.JiraHost,
-		User:        resp.JiraUser,
-		AccessToken: resp.JiraToken,
-		UpdatedAt:   resp.UpdatedAt,
+	for _, v := range list {
+		if v.Type == setting.PMJira {
+			return &JiraInfo{
+				Host:        v.JiraHost,
+				User:        v.JiraUser,
+				AccessToken: v.JiraToken,
+				UpdatedAt:   v.UpdatedAt,
+			}, nil
+		}
 	}
-
-	return jira, nil
+	log.Warnf("GetJiraInfo: not found")
+	return nil, nil
 }
 
 func SendComment(key, message string) error {
