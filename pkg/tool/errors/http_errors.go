@@ -805,4 +805,13 @@ var (
 	ErrCreateGeneralHook = NewHTTPError(6972, "创建 general hook 失败")
 	ErrUpdateGeneralHook = NewHTTPError(6973, "更新 general hook 失败")
 	ErrDeleteGeneralHook = NewHTTPError(6974, "删除 general hook 失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// meego hook releated Error Range: 6980 - 6989
+	//-----------------------------------------------------------------------------------------------
+	ErrGetMeegoHook    = NewHTTPError(6980, "获取飞书 hook 详情失败")
+	ErrListMeegoHook   = NewHTTPError(6981, "列出飞书 hook 失败")
+	ErrCreateMeegoHook = NewHTTPError(6982, "创建飞书 hook 失败")
+	ErrUpdateMeegoHook = NewHTTPError(6983, "更新飞书 hook 失败")
+	ErrDeleteMeegoHook = NewHTTPError(6984, "删除飞书 hook 失败")
 )
