@@ -90,6 +90,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &IstioRollBackJob{job: job, workflow: workflow}
 	case config.JobJira:
 		resp = &JiraJob{job: job, workflow: workflow}
+	case config.JobNacos:
+		resp = &NacosJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}

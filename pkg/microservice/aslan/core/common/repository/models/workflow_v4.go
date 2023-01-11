@@ -342,6 +342,21 @@ type IstioJobTarget struct {
 	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"-"`
 }
 
+type NacosJobSpec struct {
+	NacosID     string       `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
+	NamespaceID string       `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
+	NacosDatas  []*NacosData `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
+	DataFixed   bool         `bson:"data_fixed"       json:"data_fixed"       yaml:"data_fixed"`
+}
+
+type NacosData struct {
+	DataID  string `bson:"data_id"                 json:"data_id"                 yaml:"data_id"`
+	Group   string `bson:"group"                   json:"group"                   yaml:"group"`
+	Desc    string `bson:"description,omitempty"   json:"description,omitempty"   yaml:"description,omitempty"`
+	Format  string `bson:"format"                  json:"format"                  yaml:"-"`
+	Content string `bson:"content"                 json:"content"                 yaml:"-"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`

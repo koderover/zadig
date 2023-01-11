@@ -24,10 +24,11 @@ type NacosNamespace struct {
 }
 
 type NacosConfig struct {
-	DataID string `json:"data_id"`
-	Group  string `json:"group"`
-	Desc   string `json:"description,omitempty"`
-	Format string `json:"format"`
+	DataID  string `json:"data_id"`
+	Group   string `json:"group"`
+	Desc    string `json:"description,omitempty"`
+	Format  string `json:"format"`
+	Content string `json:"content"`
 }
 
 func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*NacosNamespace, error) {
