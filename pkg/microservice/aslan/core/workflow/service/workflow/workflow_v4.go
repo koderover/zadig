@@ -938,6 +938,116 @@ func DeleteJiraHookForWorkflowV4(workflowName, hookName string, logger *zap.Suga
 	return nil
 }
 
+func CreateMeegoHookForWorkflowV4(workflowName string, arg *models.MeegoHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrCreateJiraHook.AddErr(err)
+	}
+	for _, hook := range workflow.MeegoHookCtls {
+		if hook.Name == arg.Name {
+			errMsg := fmt.Sprintf("meego hook %s already exists", arg.Name)
+			logger.Error(errMsg)
+			return e.ErrCreateJiraHook.AddDesc(errMsg)
+		}
+	}
+	if err := validateHookNames([]string{arg.Name}); err != nil {
+		logger.Errorf(err.Error())
+		return e.ErrCreateJiraHook.AddErr(err)
+	}
+	workflow.MeegoHookCtls = append(workflow.MeegoHookCtls, arg)
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to create jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrCreateJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func GetMeegoHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.SugaredLogger) (*commonmodels.MeegoHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrGetJiraHook.AddErr(err)
+	}
+	meegoHook := &commonmodels.MeegoHook{}
+	for _, hook := range workflow.MeegoHookCtls {
+		if hook.Name == hookName {
+			meegoHook = hook
+		}
+	}
+	if err := job.MergeArgs(workflow, meegoHook.WorkflowArg); err != nil {
+		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+		log.Error(errMsg)
+		return nil, e.ErrGetJiraHook.AddDesc(errMsg)
+	}
+	meegoHook.WorkflowArg = workflow
+	meegoHook.WorkflowArg.MeegoHookCtls = nil
+	return meegoHook, nil
+}
+
+func ListMeegoHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*models.MeegoHook, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrListJiraHook.AddErr(err)
+	}
+	return workflow.MeegoHookCtls, nil
+}
+
+func UpdateMeegoHookForWorkflowV4(workflowName string, arg *models.MeegoHook, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrUpdateJiraHook.AddErr(err)
+	}
+	updated := false
+	for i, hook := range workflow.MeegoHookCtls {
+		if hook.Name == arg.Name {
+			workflow.MeegoHookCtls[i] = arg
+			updated = true
+		}
+	}
+	if !updated {
+		errMsg := fmt.Sprintf("failed to find jira hook %s", arg.Name)
+		log.Error(errMsg)
+		return e.ErrUpdateJiraHook.AddDesc(errMsg)
+	}
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to update jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrUpdateJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func DeleteMeegoHookForWorkflowV4(workflowName, hookName string, logger *zap.SugaredLogger) error {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		return e.ErrDeleteJiraHook.AddErr(err)
+	}
+	var list []*models.MeegoHook
+	for _, ctl := range workflow.MeegoHookCtls {
+		if ctl.Name == hookName {
+			continue
+		}
+		list = append(list, ctl)
+	}
+	if len(list) == len(workflow.MeegoHookCtls) {
+		errMsg := fmt.Sprintf("jira hook %s not found", hookName)
+		log.Error(errMsg)
+		return e.ErrDeleteJiraHook.AddDesc(errMsg)
+	}
+	workflow.MeegoHookCtls = list
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), workflow); err != nil {
+		errMsg := fmt.Sprintf("failed to delete jira hook for workflow %s, the error is: %v", workflowName, err)
+		log.Error(errMsg)
+		return e.ErrDeleteJiraHook.AddDesc(errMsg)
+	}
+	return nil
+}
+
 func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.SugaredLogger) error {
 	var workflows []commonrepo.WorkflowV4
 

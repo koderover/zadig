@@ -46,6 +46,7 @@ type WorkflowV4 struct {
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
+	MeegoHookCtls   []*MeegoHook             `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
 	GeneralHookCtls []*GeneralHook           `bson:"general_hook_ctls"   yaml:"-"                   json:"general_hook_ctls"`
 	NotificationID  string                   `bson:"notification_id"     yaml:"-"                   json:"notification_id"`
 	HookPayload     *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
@@ -439,6 +440,13 @@ type WorkflowV4Hook struct {
 }
 
 type JiraHook struct {
+	Name        string      `bson:"name" json:"name"`
+	Enabled     bool        `bson:"enabled" json:"enabled"`
+	Description string      `bson:"description" json:"description"`
+	WorkflowArg *WorkflowV4 `bson:"workflow_arg" json:"workflow_arg"`
+}
+
+type MeegoHook struct {
 	Name        string      `bson:"name" json:"name"`
 	Enabled     bool        `bson:"enabled" json:"enabled"`
 	Description string      `bson:"description" json:"description"`
