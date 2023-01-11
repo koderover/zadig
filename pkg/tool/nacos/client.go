@@ -14,31 +14,49 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package nacos
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/common/constant"
 )
 
-func GetNacosCli(nacosConfig *commonmodels.NacosConfig) (config_client.IConfigClient, error) {
+func GetNacosCli(serverAddr, userName, password string) (config_client.IConfigClient, error) {
 	clientConfig := constant.ClientConfig{
 		TimeoutMs:           5000,
 		NotLoadCacheAtStart: true,
 		LogLevel:            "error",
-		Username:            nacosConfig.UserName,
-		Password:            nacosConfig.Password,
+		Username:            userName,
+		Password:            password,
+	}
+	host, err := url.Parse(serverAddr)
+	if err != nil {
+		return nil, fmt.Errorf("parse nacos address error: %v", err)
+	}
+	if host.Path == "" {
+		host.Path = "/nacos"
+	}
+	var port uint64
+
+	if host.Port() != "" {
+		portInt, err := strconv.Atoi(host.Port())
+		if err != nil {
+			return nil, fmt.Errorf("parse nacos port error: %v", err)
+		}
+		port = uint64(portInt)
 	}
 
 	serverConfigs := []constant.ServerConfig{
 		{
-			// IpAddr: serverIP,
-			// Port:   uint64(serverPort),
-			// Scheme: schema,
+			IpAddr:      host.Hostname(),
+			Port:        port,
+			Scheme:      host.Scheme,
+			ContextPath: host.Path,
 		},
 	}
 

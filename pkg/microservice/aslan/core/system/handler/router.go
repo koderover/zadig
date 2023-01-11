@@ -299,6 +299,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dashboard.GET("/workflow/mine", GetMyWorkflow)
 		dashboard.GET("/environment/:name", GetMyEnvironment)
 	}
+	// get nacos info 
+	nacos := router.Group("nacos")
+	{
+		nacos.GET("/:nacosID", ListNacosNamespace)
+		nacos.GET("/:nacosID/namespace/:nacosNamespaceID", ListNacosGroup)
+		nacos.GET("/:nacosID/namespace/:nacosNamespaceID/group/:group", ListNacosConfig)
+	}
 }
 
 type OpenAPIRouter struct{}
