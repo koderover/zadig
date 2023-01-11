@@ -91,7 +91,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		err := client.Release(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace,
 			&apollo.ReleaseArgs{
 				ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
-				ReleaseComment: fmt.Sprintf("工作流 %s-%d 详情: %s", c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, link),
+				ReleaseComment: fmt.Sprintf("工作流 %s-%d\n详情: %s", c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, link),
 				ReleasedBy:     "zadig",
 			})
 		if err != nil {
