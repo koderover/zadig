@@ -69,7 +69,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		logError(c.job, fmt.Sprintf("get unexpected apollo config type %s", info.Type), c.logger)
 		return
 	}
-	var authInfo *commonmodels.ApolloConfig
+	authInfo := &commonmodels.ApolloConfig{}
 	err = commonmodels.IToi(info.AuthConfig, authInfo)
 	if err != nil {
 		logError(c.job, fmt.Sprintf("failed to get auth info, err: %v", err), c.logger)
