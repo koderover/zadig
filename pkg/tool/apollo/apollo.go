@@ -54,6 +54,9 @@ func (c *Client) ListNamespace(appID, env, cluster string) (list []*Namespace, e
 	if err != nil {
 		return nil, errors.Wrap(err, "send request")
 	}
+	if resp.GetStatusCode() != http.StatusOK {
+		return nil, errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
 	if err = resp.UnmarshalJson(&list); err != nil {
 		return nil, errors.Wrap(err, "unmarshal")
 	}
@@ -69,6 +72,9 @@ func (c *Client) GetNamespace(appID, env, cluster, namespace string) (*Namespace
 	}).Get(c.BaseURL + "/openapi/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}")
 	if err != nil {
 		return nil, errors.Wrap(err, "send request")
+	}
+	if resp.GetStatusCode() != http.StatusOK {
+		return nil, errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
 	}
 	result := new(Namespace)
 	if err = resp.UnmarshalJson(result); err != nil {

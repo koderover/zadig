@@ -24,6 +24,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/apollo"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type ApolloJob struct {
@@ -45,6 +48,32 @@ func (j *ApolloJob) SetPreset() error {
 	j.spec = &commonmodels.ApolloJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), j.spec.ApolloID)
+	if err != nil {
+		return errors.Errorf("failed to get apollo info from mongo: %v", err)
+	}
+	if info.Type != setting.SourceFromApollo {
+		return errors.Errorf("get unexpected type [%s] not type apollo", info.Type)
+	}
+	auth := &commonmodels.ApolloAuthConfig{}
+	if err = commonmodels.IToi(info.AuthConfig, auth); err != nil {
+		return errors.Errorf("failed to convert apollo auth config, err: %v", err)
+	}
+
+	client := apollo.NewClient(info.ServerAddress, auth.Token)
+	for _, namespace := range j.spec.NamespaceList {
+		result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+		if err != nil {
+			log.Warnf("Preset ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
+			continue
+		}
+		for _, item := range result.Items {
+			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
+				Key: item.Key,
+				Val: item.Value,
+			})
+		}
 	}
 	j.job.Spec = j.spec
 	return nil
