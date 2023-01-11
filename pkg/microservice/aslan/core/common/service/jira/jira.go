@@ -65,7 +65,7 @@ func GetJiraInfo() (*JiraInfo, error) {
 		}
 	}
 	log.Warnf("GetJiraInfo: not found")
-	return nil, nil
+	return nil, errors.New("not found")
 }
 
 func SendComment(key, message string) error {
