@@ -230,6 +230,46 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 	return nil
 }
 
+func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWebhookRequest, logger *zap.SugaredLogger) error {
+	workflowInfo, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	var meegoHook *models.MeegoHook
+	for _, hook := range workflowInfo.MeegoHookCtls {
+		if hook.Name == hookName {
+			meegoHook = hook
+			break
+		}
+	}
+	if meegoHook == nil {
+		errMsg := fmt.Sprintf("Failed to find Jira hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	if !meegoHook.Enabled {
+		errMsg := fmt.Sprintf("Not enabled Jira hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	_, err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+		Name: setting.MeegoHookTaskCreator,
+	}, meegoHook.WorkflowArg, logger)
+	if err != nil {
+		errMsg := fmt.Sprintf("HandleJiraHookEvent: failed to create workflow task: %s", err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	logger.With(
+		"work item id:", event.Payload.ID,
+		"workflow", workflowName,
+		"hook", hookName,
+	).Infof("HandleJiraHookEvent: create workflow success")
+	return nil
+}
+
 func checkType(_type string) error {
 	switch _type {
 	case setting.PMJira:

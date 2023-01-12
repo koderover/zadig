@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/tool/meego"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
@@ -107,4 +108,16 @@ func HandleJiraEvent(c *gin.Context) {
 	}
 
 	ctx.Err = service.HandleJiraHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
+}
+
+func HandleMeegoEvent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	event := new(meego.GeneralWebhookRequest)
+	if err := c.ShouldBindJSON(event); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.HandleMeegoHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
 }

@@ -18,8 +18,9 @@ package service
 
 import (
 	"errors"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"net/url"
+
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
