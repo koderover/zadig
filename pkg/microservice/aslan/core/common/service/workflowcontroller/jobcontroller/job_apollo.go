@@ -75,7 +75,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		logError(c.job, fmt.Sprintf("failed to get auth info, err: %v", err), c.logger)
 		return
 	}
-	link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", config2.SystemAddress(), c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.TaskID)
+	link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", config2.SystemAddress(), c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.TaskID, c.workflowCtx.WorkflowDisplayName)
 
 	var fail bool
 	client := apollo.NewClient(info.ServerAddress, authInfo.Token)
@@ -91,7 +91,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		err := client.Release(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace,
 			&apollo.ReleaseArgs{
 				ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
-				ReleaseComment: fmt.Sprintf("工作流 %s-%d\n详情: %s", c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, link),
+				ReleaseComment: fmt.Sprintf("工作流 %s\n详情: %s", c.workflowCtx.WorkflowDisplayName, link),
 				ReleasedBy:     "zadig",
 			})
 		if err != nil {
