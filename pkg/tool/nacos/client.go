@@ -61,6 +61,11 @@ type namespaceResp struct {
 	Data []*namespace `json:"data"`
 }
 
+const (
+	// if namespace id was empty, use default namespace id
+	defaultNamespaceID = "123456abcdefg"
+)
+
 func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
 	host, err := url.Parse(serverAddr)
 	if err != nil {
@@ -97,6 +102,20 @@ func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
 	}, nil
 }
 
+func setNamespaceID(namespaceID string) string {
+	if namespaceID == "" {
+		return defaultNamespaceID
+	}
+	return namespaceID
+}
+
+func getNamespaceID(namespaceID string) string {
+	if namespaceID == defaultNamespaceID {
+		return ""
+	}
+	return namespaceID
+}
+
 func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 	url := "/v1/console/namespaces"
 	res := &namespaceResp{}
@@ -106,7 +125,7 @@ func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 	resp := []*types.NacosNamespace{}
 	for _, namespace := range res.Data {
 		resp = append(resp, &types.NacosNamespace{
-			NamespaceID:    namespace.NamespaceID,
+			NamespaceID:    setNamespaceID(namespace.NamespaceID),
 			NamespacedName: namespace.NamespaceName,
 		})
 	}
@@ -114,6 +133,7 @@ func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 }
 
 func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
+	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
 	resp := []*types.NacosConfig{}
 	pageNum := 1
@@ -150,6 +170,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 }
 
 func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfig, error) {
+	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
 	res := &config{}
 	params := httpclient.SetQueryParams(map[string]string{
@@ -170,6 +191,7 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 }
 
 func (c *Client) UpdateConfig(dataID, group, namespaceID, content string) error {
+	namespaceID = getNamespaceID(namespaceID)
 	path := "/v1/cs/configs"
 	formValues := map[string]string{
 		"dataId":  dataID,
