@@ -18,6 +18,7 @@ package job
 
 import (
 	"context"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -48,12 +49,13 @@ func (j *NacosJob) SetPreset() error {
 		return err
 	}
 	j.job.Spec = j.spec
+	originNamespaceID := strings.ReplaceAll(j.spec.NamespaceID, setting.FixedValueMark, "")
 	client, err := getNacosClient(j.spec.NacosID)
 	if err != nil {
 		return errors.Errorf("get nacos client error: %v", err)
 	}
 	for i, data := range j.spec.NacosDatas {
-		newData, err := client.GetConfig(data.DataID, data.Group, j.spec.NamespaceID)
+		newData, err := client.GetConfig(data.DataID, data.Group, originNamespaceID)
 		if err != nil {
 			return errors.Errorf("get nacos config %s/%s error: %v", data.DataID, data.Group, err)
 		}
@@ -73,9 +75,22 @@ func (j *NacosJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
+		client, err := getNacosClient(j.spec.NacosID)
+		if err != nil {
+			return errors.Errorf("get nacos client error: %v", err)
+		}
 		j.spec.NamespaceID = argsSpec.NamespaceID
+		originNamespaceID := strings.ReplaceAll(j.spec.NamespaceID, setting.FixedValueMark, "")
 		if !j.spec.DataFixed {
-			j.spec.NacosDatas = argsSpec.NacosDatas
+			newNacosData := []*types.NacosConfig{}
+			for _, data := range argsSpec.NacosDatas {
+				newData, err := client.GetConfig(data.DataID, data.Group, originNamespaceID)
+				if err != nil {
+					return errors.Errorf("get nacos config %s/%s error: %v", data.DataID, data.Group, err)
+				}
+				newNacosData = append(newNacosData, newData)
+			}
+			j.spec.NacosDatas = newNacosData
 		}
 	}
 	return nil

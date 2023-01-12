@@ -24,10 +24,6 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 		log.Errorf("cannot find workflow %s, the error is: %v", args.WorkflowName, err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
-	if err := jobctl.RemoveFixedValueMarks(workflow); err != nil {
-		log.Errorf("%s remove fixed mark failed: %v", args.WorkflowName, err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
-	}
 
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
