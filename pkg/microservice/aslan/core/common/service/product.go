@@ -38,10 +38,10 @@ import (
 
 const SplitSymbol = "&"
 
-func FilterWorkloadsByEnv(exist []commonmodels.Workload, env string) []commonmodels.Workload {
+func FilterWorkloadsByEnv(exist []commonmodels.Workload, productName, env string) []commonmodels.Workload {
 	result := make([]commonmodels.Workload, 0)
 	for _, v := range exist {
-		if v.EnvName != env {
+		if v.EnvName != env || v.ProductName != productName {
 			result = append(result, v)
 		}
 	}

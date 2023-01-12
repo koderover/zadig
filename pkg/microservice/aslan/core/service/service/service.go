@@ -549,6 +549,16 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	for _, externalEnvService := range otherExternalEnvServices {
 		externalEnvServiceM[externalEnvService.ServiceName] = externalEnvService
 	}
+
+	templateProductInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("failed to find template product: %s error: %s", productName, err)
+		return err
+	}
+
+	svcNeedAdd := sets.NewString()
+	svcNeedDelete := sets.NewString()
+
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
@@ -578,6 +588,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			}); err != nil {
 				log.Errorf("delete service in external env envName:%s error:%s", envName, err)
 			}
+			svcNeedDelete.Insert(v.Name)
 		// 添加workload的引用
 		case "add":
 			var bs []byte
@@ -587,6 +598,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			case setting.StatefulSet:
 				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, v.Name, kubeClient)
 			}
+			svcNeedAdd.Insert(v.Name)
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %s", err)
 				delete(diff, v.Name)
@@ -609,6 +621,19 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			}
 		}
 	}
+
+	// for host services, services are stored in template_product.services[0]
+	if len(templateProductInfo.Services) == 1 {
+		validServices := sets.NewString(templateProductInfo.Services[0]...)
+		validServices.Insert(svcNeedAdd.List()...)
+		validServices.Delete(svcNeedDelete.List()...)
+		templateProductInfo.Services[0] = validServices.List()
+		err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
+		if err != nil {
+			log.Errorf("failed to update service for product: %s, err: %s", templateProductInfo.ProductName, err)
+		}
+	}
+
 	// 删除 && 增加
 	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
