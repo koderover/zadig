@@ -297,8 +297,8 @@ type JobTaskNacosSpec struct {
 }
 
 type NacosData struct {
-	types.NacosConfig
-	Error string `bson:"error"      json:"error"      yaml:"error"`
+	types.NacosConfig `bson:",inline" json:",inline" yaml:",inline"`
+	Error             string `bson:"error"      json:"error"      yaml:"error"`
 }
 
 type JobTaskApolloSpec struct {
