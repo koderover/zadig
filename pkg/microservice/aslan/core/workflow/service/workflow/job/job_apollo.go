@@ -101,8 +101,15 @@ func (j *ApolloJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Key:     j.job.Name,
 		JobType: string(config.JobApollo),
 		Spec: &commonmodels.JobTaskApolloSpec{
-			ApolloID:      j.spec.ApolloID,
-			NamespaceList: j.spec.NamespaceList,
+			ApolloID: j.spec.ApolloID,
+			NamespaceList: func() (list []*commonmodels.JobTaskApolloNamespace) {
+				for _, namespace := range j.spec.NamespaceList {
+					list = append(list, &commonmodels.JobTaskApolloNamespace{
+						ApolloNamespace: *namespace,
+					})
+				}
+				return list
+			}(),
 		},
 		Timeout: 0,
 	}

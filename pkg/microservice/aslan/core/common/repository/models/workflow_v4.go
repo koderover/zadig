@@ -337,6 +337,15 @@ type ApolloJobSpec struct {
 	NamespaceList []*ApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
 }
 
+type ApolloNamespace struct {
+	AppID      string      `bson:"appID" json:"appID" yaml:"appID"`
+	ClusterID  string      `bson:"clusterID" json:"clusterID" yaml:"clusterID"`
+	Env        string      `bson:"env" json:"env" yaml:"env"`
+	Namespace  string      `bson:"namespace" json:"namespace" yaml:"namespace"`
+	Type       string      `bson:"type" json:"type" yaml:"type"`
+	KeyValList []*ApolloKV `bson:"kv" json:"kv" yaml:"kv"`
+}
+
 type IstioJobTarget struct {
 	WorkloadName       string `bson:"workload_name"             json:"workload_name"             yaml:"workload_name"`
 	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`

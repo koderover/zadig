@@ -286,18 +286,13 @@ type JobTaskJiraSpec struct {
 }
 
 type JobTaskApolloSpec struct {
-	ApolloID      string             `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
-	NamespaceList []*ApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
+	ApolloID      string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
+	NamespaceList []*JobTaskApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
 }
 
-type ApolloNamespace struct {
-	AppID      string      `bson:"appID" json:"appID" yaml:"appID"`
-	ClusterID  string      `bson:"clusterID" json:"clusterID" yaml:"clusterID"`
-	Env        string      `bson:"env" json:"env" yaml:"env"`
-	Namespace  string      `bson:"namespace" json:"namespace" yaml:"namespace"`
-	Type       string      `bson:"type" json:"type" yaml:"type"`
-	Error      string      `bson:"error" json:"error" yaml:"error"`
-	KeyValList []*ApolloKV `bson:"kv" json:"kv" yaml:"kv"`
+type JobTaskApolloNamespace struct {
+	ApolloNamespace `bson:",inline" json:",inline" yaml:",inline"`
+	Error           string `bson:"error" json:"error" yaml:"error"`
 }
 
 type ApolloKV struct {
