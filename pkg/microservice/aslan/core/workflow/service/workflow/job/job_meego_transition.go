@@ -52,11 +52,6 @@ func (j *MeegoTransitionJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		j.job.Spec = j.spec
-		argsSpec := &commonmodels.MeegoTransitionJobSpec{}
-		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
-			return err
-		}
-		j.job.Spec = j.spec
 	}
 	return nil
 }
