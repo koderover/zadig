@@ -118,7 +118,10 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 	if err != nil {
 		return e.ErrInvalidParam.AddErr(err)
 	}
-	u = u.JoinPath("/nacos/v1/auth/login")
+	if u.Path == "" {
+		u.Path = "/nacos"
+	}
+	u = u.JoinPath("v1/auth/login")
 
 	resp, err := req.R().AddQueryParam("username", config.UserName).
 		AddQueryParam("password", config.Password).
