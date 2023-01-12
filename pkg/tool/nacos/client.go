@@ -190,7 +190,7 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 	}, nil
 }
 
-func (c *Client) UpdateConfig(dataID, group, namespaceID, content string) error {
+func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string) error {
 	namespaceID = getNamespaceID(namespaceID)
 	path := "/v1/cs/configs"
 	formValues := map[string]string{
@@ -198,6 +198,7 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content string) error 
 		"group":   group,
 		"tenant":  namespaceID,
 		"content": content,
+		"type":    setFormat(format),
 	}
 	if _, err := c.Client.Post(path, httpclient.SetFromData(formValues)); err != nil {
 		return errors.New("update nacos config failed")
@@ -217,6 +218,23 @@ func getFormat(format string) string {
 		return "XML"
 	case "html":
 		return "HTML"
+	default:
+		return "TEXT"
+	}
+}
+
+func setFormat(format string) string {
+	switch strings.ToLower(format) {
+	case "yaml":
+		return "yaml"
+	case "json":
+		return "json"
+	case "properties":
+		return "properties"
+	case "xml":
+		return "xml"
+	case "html":
+		return "html"
 	default:
 		return "text"
 	}

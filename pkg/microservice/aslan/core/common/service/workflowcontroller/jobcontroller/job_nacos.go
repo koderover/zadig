@@ -60,7 +60,7 @@ func (c *NacosJobCtl) Run(ctx context.Context) {
 		return
 	}
 	for _, data := range c.jobTaskSpec.NacosDatas {
-		if err := client.UpdateConfig(data.DataID, data.Group, c.jobTaskSpec.NamespaceID, data.Content); err != nil {
+		if err := client.UpdateConfig(data.DataID, data.Group, c.jobTaskSpec.NamespaceID, data.Content, data.Format); err != nil {
 			data.Error = err.Error()
 			logError(c.job, err.Error(), c.logger)
 			return
