@@ -48,7 +48,7 @@ func (j *MeegoTransitionJob) SetPreset() error {
 func (j *MeegoTransitionJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.MeegoTransitionJobSpec{}
-		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 			return err
 		}
 		j.job.Spec = j.spec
@@ -77,6 +77,5 @@ func (j *MeegoTransitionJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 }
 
 func (j *MeegoTransitionJob) LintJob() error {
-
 	return nil
 }
