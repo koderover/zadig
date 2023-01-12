@@ -208,7 +208,7 @@ func (c *Client) GetWorkFlowInfo(projectKey, workItemTypeKey string, workItemID 
 }
 
 type StatusTransitionReq struct {
-	TransitionID int `json:"transition_id"`
+	TransitionID int64 `json:"transition_id"`
 }
 
 type StatusTransitionResp struct {
@@ -222,7 +222,9 @@ func (c *Client) StatusTransition(projectKey, workItemTypeKey string, workItemID
 
 	result := new(StatusTransitionResp)
 
-	req := &StatusTransitionReq{}
+	req := &StatusTransitionReq{
+		TransitionID: transitionID,
+	}
 
 	_, err := httpclient.Post(statusTransitionAPI,
 		httpclient.SetBody(req),
