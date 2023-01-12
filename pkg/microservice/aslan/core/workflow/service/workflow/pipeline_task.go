@@ -165,8 +165,8 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	jiraInfo, _ := jira.GetJiraInfo()
-	if jiraInfo != nil {
+	_, err = jira.GetJiraInfo()
+	if err == nil {
 		jiraTask, err := AddPipelineJiraSubTask(pipeline, log)
 		if err != nil {
 			log.Errorf("add jira task error: %v", err)

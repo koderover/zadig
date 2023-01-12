@@ -313,6 +313,14 @@ type GrayRollbackTarget struct {
 	OriginReplica int    `bson:"-"                         json:"origin_replica"           yaml:"origin_replica,omitempty"`
 }
 
+type JiraJobSpec struct {
+	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	Source       string     `bson:"source" json:"source" yaml:"source"`
+}
+
 type IstioJobSpec struct {
 	First             bool              `bson:"first"              json:"first"              yaml:"first"`
 	ClusterID         string            `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`

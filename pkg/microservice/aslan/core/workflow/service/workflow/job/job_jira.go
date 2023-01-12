@@ -27,11 +27,11 @@ import (
 type JiraJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
-	spec     *commonmodels.JobTaskJiraSpec
+	spec     *commonmodels.JiraJobSpec
 }
 
 func (j *JiraJob) Instantiate() error {
-	j.spec = &commonmodels.JobTaskJiraSpec{}
+	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (j *JiraJob) Instantiate() error {
 }
 
 func (j *JiraJob) SetPreset() error {
-	j.spec = &commonmodels.JobTaskJiraSpec{}
+	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (j *JiraJob) SetPreset() error {
 }
 
 func (j *JiraJob) MergeArgs(args *commonmodels.Job) error {
-	j.spec = &commonmodels.JobTaskJiraSpec{}
+	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (j *JiraJob) MergeArgs(args *commonmodels.Job) error {
 
 func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
-	j.spec = &commonmodels.JobTaskJiraSpec{}
+	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
@@ -68,19 +68,21 @@ func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Name:    j.job.Name,
 		Key:     j.job.Name,
 		JobType: string(config.JobJira),
-		Spec:    j.spec,
+		Spec: &commonmodels.JobTaskJiraSpec{
+			ProjectID:    j.spec.ProjectID,
+			IssueType:    j.spec.IssueType,
+			Issues:       j.spec.Issues,
+			TargetStatus: j.spec.TargetStatus,
+		},
 		Timeout: 0,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
 func (j *JiraJob) LintJob() error {
-	j.spec = &commonmodels.JobTaskJiraSpec{}
+	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
-	}
-	if len(j.spec.Issues) == 0 {
-		return errors.New("issue list is empty")
 	}
 	switch j.spec.Source {
 	case setting.VariableSourceRuntime:
