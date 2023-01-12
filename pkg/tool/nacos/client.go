@@ -145,6 +145,26 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 	return resp, nil
 }
 
+func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfig, error) {
+	url := "/v1/cs/configs"
+	res := &config{}
+	header := httpclient.SetQueryParams(map[string]string{
+		"dataId": dataID,
+		"group":  group,
+		"tenant": namespaceID,
+		"show":   "all",
+	})
+	if _, err := c.Client.Get(url, header, httpclient.SetResult(res)); err != nil {
+		return nil, errors.Wrap(err, "list nacos config failed")
+	}
+	return &types.NacosConfig{
+		DataID:  res.DataID,
+		Group:   res.Group,
+		Format:  getFormat(res.Format),
+		Content: res.Content,
+	}, nil
+}
+
 func getFormat(format string) string {
 	switch strings.ToLower(format) {
 	case "yaml":

@@ -25,6 +25,6 @@ type NacosConfig struct {
 	DataID  string `bson:"data_id"                 json:"data_id"                 yaml:"data_id"`
 	Group   string `bson:"group"                   json:"group"                   yaml:"group"`
 	Desc    string `bson:"description,omitempty"   json:"description,omitempty"   yaml:"description,omitempty"`
-	Format  string `bson:"format"                  json:"format"                  yaml:"-"`
-	Content string `bson:"content"                 json:"content"                 yaml:"-"`
+	Format  string `bson:"format,omitempty"        json:"format,omitempty"        yaml:"format,omitempty"`
+	Content string `bson:"content,omitempty"       json:"content,omitempty"       yaml:"content,omitempty"`
 }
