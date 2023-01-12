@@ -141,8 +141,7 @@ func GetPluginToken(host, pluginID, pluginSecret string) (token string, expirati
 	body := &GetPluginTokenRequest{
 		PluginID:     pluginID,
 		PluginSecret: pluginSecret,
-		// TODO: this should be change to PluginTokenType once the tests passed
-		Type: VirtualPluginTokenType,
+		Type:         PluginTokenType,
 	}
 
 	result := new(GetPluginTokenResult)
