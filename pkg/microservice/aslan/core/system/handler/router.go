@@ -257,6 +257,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.GET("/:id", GetConfigurationManagement)
 		configuration.DELETE("/:id", DeleteConfigurationManagement)
 		configuration.POST("/validate", ValidateConfigurationManagement)
+		configuration.GET("/apollo", ValidateConfigurationManagement)
 	}
 
 	imapp := router.Group("im_app")

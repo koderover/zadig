@@ -74,6 +74,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewJiraJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobNacos):
 		jobCtl = NewNacosJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobApollo):
+		jobCtl = NewApolloJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

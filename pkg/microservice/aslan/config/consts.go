@@ -198,6 +198,7 @@ const (
 	JobIstioRollback        JobType = "istio-rollback"
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
+	JobApollo               JobType = "apollo"
 )
 
 const (
