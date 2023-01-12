@@ -30,6 +30,8 @@ import (
 type Client struct {
 	*httpclient.Client
 	serverAddr string
+	UserName   string
+	Password   string
 	token      string
 }
 
@@ -75,10 +77,10 @@ func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
 		SetResult(&result).
 		Post(loginURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "login nacos failed")
+		return nil, errors.New("login nacos failed")
 	}
 	if !resp.IsSuccess() {
-		return nil, errors.Wrap(err, "login nacos failed")
+		return nil, errors.New("login nacos failed")
 	}
 
 	c := httpclient.New(
@@ -90,6 +92,8 @@ func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
 		Client:     c,
 		serverAddr: serverAddr,
 		token:      result.AccessToken,
+		UserName:   userName,
+		Password:   password,
 	}, nil
 }
 
@@ -119,7 +123,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 		res := &configResp{}
 		numString := strconv.Itoa(pageNum)
 		sizeString := strconv.Itoa(pageSize)
-		header := httpclient.SetQueryParams(map[string]string{
+		params := httpclient.SetQueryParams(map[string]string{
 			"dataId":   "",
 			"group":    "",
 			"search":   "accurate",
@@ -127,7 +131,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 			"pageSize": sizeString,
 			"tenant":   namespaceID,
 		})
-		if _, err := c.Client.Get(url, header, httpclient.SetResult(res)); err != nil {
+		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 			return nil, errors.Wrap(err, "list nacos config failed")
 		}
 		for _, conf := range res.PageItems {
@@ -148,13 +152,13 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfig, error) {
 	url := "/v1/cs/configs"
 	res := &config{}
-	header := httpclient.SetQueryParams(map[string]string{
+	params := httpclient.SetQueryParams(map[string]string{
 		"dataId": dataID,
 		"group":  group,
 		"tenant": namespaceID,
 		"show":   "all",
 	})
-	if _, err := c.Client.Get(url, header, httpclient.SetResult(res)); err != nil {
+	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 		return nil, errors.Wrap(err, "list nacos config failed")
 	}
 	return &types.NacosConfig{
@@ -163,6 +167,20 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 		Format:  getFormat(res.Format),
 		Content: res.Content,
 	}, nil
+}
+
+func (c *Client) UpdateConfig(dataID, group, namespaceID, content string) error {
+	path := "/v1/cs/configs"
+	formValues := map[string]string{
+		"dataId":  dataID,
+		"group":   group,
+		"tenant":  namespaceID,
+		"content": content,
+	}
+	if _, err := c.Client.Post(path, httpclient.SetFromData(formValues)); err != nil {
+		return errors.Wrap(err, "update nacos config failed")
+	}
+	return nil
 }
 
 func getFormat(format string) string {

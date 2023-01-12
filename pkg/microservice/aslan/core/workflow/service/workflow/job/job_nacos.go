@@ -119,6 +119,8 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			NamespaceID:   j.spec.NamespaceID,
 			NamespaceName: namespaceName,
 			NacosAddr:     info.ServerAddress,
+			UserName:      client.UserName,
+			Password:      client.Password,
 			NacosDatas:    transNacosDatas(j.spec.NacosDatas),
 		},
 	}

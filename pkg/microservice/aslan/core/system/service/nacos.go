@@ -60,11 +60,6 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 	return resp, nil
 }
 
-func GetNacosConfig(nacosID, namespaceID, group, dataID string, log *zap.SugaredLogger) (*types.NacosConfig, error) {
-	resp := &types.NacosConfig{}
-	return resp, nil
-}
-
 func getNacosClient(nacosID string) (*nacos.Client, error) {
 	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), nacosID)
 	if err != nil {

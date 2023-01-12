@@ -303,7 +303,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	nacos := router.Group("nacos")
 	{
 		nacos.GET("/:nacosID", ListNacosNamespace)
-		nacos.GET("/:nacosID/namespace/:nacosNamespaceID", ListNacosConfig)
+		nacos.GET("/:nacosID/namespace/:nacosNamespaceID/config", ListNacosConfig)
 	}
 }
 

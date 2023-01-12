@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/tool/nacos"
 	"go.uber.org/zap"
 )
 
@@ -53,5 +54,17 @@ func (c *NacosJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
+	client, err := nacos.NewNacosClient(c.jobTaskSpec.NacosAddr, c.jobTaskSpec.UserName, c.jobTaskSpec.Password)
+	if err != nil {
+		logError(c.job, err.Error(), c.logger)
+		return
+	}
+	for _, data := range c.jobTaskSpec.NacosDatas {
+		if err := client.UpdateConfig(data.DataID, data.Group, c.jobTaskSpec.NamespaceID, data.Content); err != nil {
+			data.Error = err.Error()
+			logError(c.job, err.Error(), c.logger)
+			return
+		}
+	}
 	c.job.Status = config.StatusPassed
 }
