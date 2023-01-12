@@ -76,7 +76,12 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		logError(c.job, fmt.Sprintf("failed to get auth info, err: %v", err), c.logger)
 		return
 	}
-	link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?%s", config2.SystemAddress(), c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.TaskID, url.Values{"display_name": []string{c.workflowCtx.WorkflowDisplayName}}.Encode())
+	link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		config2.SystemAddress(),
+		c.workflowCtx.ProjectName,
+		c.workflowCtx.WorkflowName,
+		c.workflowCtx.TaskID,
+		url.QueryEscape(c.workflowCtx.WorkflowDisplayName))
 
 	var fail bool
 	client := apollo.NewClient(info.ServerAddress, authInfo.Token)
