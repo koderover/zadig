@@ -16,37 +16,66 @@ limitations under the License.
 
 package service
 
-import "go.uber.org/zap"
+import (
+	"context"
 
-type NacosNamespace struct {
-	NamespaceID    string `json:"namespace_id"`
-	NamespacedName string `json:"namespace_name"`
-}
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/nacos"
+	"github.com/koderover/zadig/pkg/types"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+)
 
-type NacosConfig struct {
-	DataID  string `json:"data_id"`
-	Group   string `json:"group"`
-	Desc    string `json:"description,omitempty"`
-	Format  string `json:"format"`
-	Content string `json:"content"`
-}
-
-func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*NacosNamespace, error) {
-	resp := []*NacosNamespace{}
+func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*types.NacosNamespace, error) {
+	client, err := getNacosClient(nacosID)
+	if err != nil {
+		err = errors.Wrap(err, "fail to get nacos client")
+		log.Error(err)
+		return []*types.NacosNamespace{}, err
+	}
+	resp, err := client.ListNamespaces()
+	if err != nil {
+		err = errors.Wrap(err, "fail to list nacos namespace")
+		log.Error(err)
+		return []*types.NacosNamespace{}, err
+	}
 	return resp, nil
 }
 
-func ListNacosGroup(nacosID, namespaceID string, log *zap.SugaredLogger) ([]string, error) {
-	resp := []string{}
+func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*types.NacosConfig, error) {
+	client, err := getNacosClient(nacosID)
+	if err != nil {
+		err = errors.Wrap(err, "fail to get nacos client")
+		log.Error(err)
+		return []*types.NacosConfig{}, err
+	}
+	resp, err := client.ListConfigs(namespaceID)
+	if err != nil {
+		err = errors.Wrap(err, "fail to list nacos config")
+		log.Error(err)
+		return []*types.NacosConfig{}, err
+	}
 	return resp, nil
 }
 
-func ListNacosConfig(nacosID, namespaceID, group string, log *zap.SugaredLogger) ([]*NacosConfig, error) {
-	resp := []*NacosConfig{}
+func GetNacosConfig(nacosID, namespaceID, group, dataID string, log *zap.SugaredLogger) (*types.NacosConfig, error) {
+	resp := &types.NacosConfig{}
 	return resp, nil
 }
 
-func GetNacosConfig(nacosID, namespaceID, group, dataID string, log *zap.SugaredLogger) (*NacosConfig, error) {
-	resp := &NacosConfig{}
-	return resp, nil
+func getNacosClient(nacosID string) (*nacos.Client, error) {
+	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), nacosID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get nacos info")
+	}
+	if info.Type != setting.SourceFromNacos {
+		return nil, errors.Wrap(err, "wrong config type")
+	}
+	auth := &commonmodels.NacosAuthConfig{}
+	if err = commonmodels.IToi(info.AuthConfig, auth); err != nil {
+		return nil, errors.Wrap(err, "convert auth data failed")
+	}
+	return nacos.NewNacosClient(info.ServerAddress, auth.UserName, auth.Password)
 }
