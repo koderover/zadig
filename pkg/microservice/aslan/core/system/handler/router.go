@@ -287,6 +287,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.GET("/jira/issue", SearchJiraIssues)
 		pm.GET("/jira/type", GetJiraTypes)
 		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
+		pm.POST("/meego/webhook/:workflowName/:hookName", HandleMeegoEvent)
 	}
 	// personal dashboard configuration
 	dashboard := router.Group("dashboard")
@@ -300,11 +301,21 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dashboard.GET("/workflow/mine", GetMyWorkflow)
 		dashboard.GET("/environment/:name", GetMyEnvironment)
 	}
+
 	// get nacos info
 	nacos := router.Group("nacos")
 	{
 		nacos.GET("/:nacosID", ListNacosNamespace)
 		nacos.GET("/:nacosID/namespace/:nacosNamespaceID", ListNacosConfig)
+	}
+
+	// feishu project management module
+	meego := router.Group("meego")
+	{
+		meego.GET("/projects", GetMeegoProjects)
+		meego.GET("/projects/:projectID/work_item/types", GetWorkItemTypeList)
+		meego.GET("/projects/:projectID/work_item", ListMeegoWorkItems)
+		meego.GET("/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
 	}
 }
 

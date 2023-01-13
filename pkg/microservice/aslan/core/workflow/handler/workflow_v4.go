@@ -258,6 +258,47 @@ func DeleteJiraHookForWorkflowV4(c *gin.Context) {
 	ctx.Err = workflow.DeleteJiraHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
 }
 
+func CreateMeegoHookForWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	jira := new(commonmodels.MeegoHook)
+	if err := c.ShouldBindJSON(jira); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = workflow.CreateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+}
+
+func GetMeegoHookForWorkflowV4Preset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = workflow.GetMeegoHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+}
+
+func ListMeegoHookForWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = workflow.ListMeegoHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
+}
+
+func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	jira := new(commonmodels.MeegoHook)
+	if err := c.ShouldBindJSON(jira); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = workflow.UpdateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+}
+
+func DeleteMeegoHookForWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Err = workflow.DeleteMeegoHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
+}
+
 func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

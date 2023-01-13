@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/meego"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -83,6 +84,26 @@ func ValidateJira(info *models.ProjectManagement) error {
 	if err != nil {
 		log.Errorf("Validate jira error: %v", err)
 		return e.ErrValidateProjectManagement.AddDesc("failed to validate jira")
+	}
+	return nil
+}
+
+func ValidateMeego(info *models.ProjectManagement) error {
+	token, _, err := meego.GetPluginToken(info.MeegoHost, info.MeegoPluginID, info.MeegoPluginSecret)
+	if err != nil {
+		log.Errorf("Failed to create meego client, error: %s", err)
+		return e.ErrValidateProjectManagement.AddDesc("failed to validate meego")
+	}
+	client := meego.Client{
+		Host:         info.MeegoHost,
+		PluginID:     info.MeegoPluginID,
+		PluginSecret: info.MeegoPluginSecret,
+		PluginToken:  token,
+		UserKey:      info.MeegoUserKey,
+	}
+	_, err = client.GetProjectList()
+	if err != nil {
+		return e.ErrValidateProjectManagement.AddDesc("failed to validate meego")
 	}
 	return nil
 }
@@ -221,10 +242,99 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 	return nil
 }
 
+func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWebhookRequest, logger *zap.SugaredLogger) error {
+	workflowInfo, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	var meegoHook *models.MeegoHook
+	for _, hook := range workflowInfo.MeegoHookCtls {
+		if hook.Name == hookName {
+			meegoHook = hook
+			break
+		}
+	}
+	if meegoHook == nil {
+		errMsg := fmt.Sprintf("Failed to find Jira hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	if !meegoHook.Enabled {
+		errMsg := fmt.Sprintf("Not enabled Jira hook %s", hookName)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	taskInfo, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+		Name: setting.MeegoHookTaskCreator,
+	}, meegoHook.WorkflowArg, logger)
+	if err != nil {
+		errMsg := fmt.Sprintf("HandleMeegoHookEvent: failed to create workflow task: %s", err)
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	logger.With(
+		"work item id:", event.Payload.ID,
+		"workflow", workflowName,
+		"hook", hookName,
+	).Infof("HandleMeegoHookEvent: create workflow success")
+	go func() {
+		meegoInfo, err := mongodb.NewProjectManagementColl().GetMeego()
+		if err != nil {
+			log.Errorf("failed to get meego info to create comment, error: %s", err)
+			return
+		}
+		meegoClient, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+		if err != nil {
+			log.Errorf("failed to create meego client to create comment, error: %s", err)
+			return
+		}
+		for {
+			time.Sleep(5 * time.Second)
+			task, err := mongodb.NewworkflowTaskv4Coll().Find(taskInfo.WorkflowName, taskInfo.TaskID)
+			if err != nil {
+				log.Errorf("HandleMeegoHookEventWaiter: failed to find task %s-%d, err: %v", taskInfo.WorkflowName, taskInfo.TaskID, err)
+				return
+			}
+			if lo.Contains([]config.Status{config.StatusPassed, config.StatusFailed, config.StatusTimeout, config.StatusCancelled, config.StatusReject}, task.Status) {
+				statusMap := map[config.Status]string{
+					config.StatusPassed:    "成功",
+					config.StatusFailed:    "失败",
+					config.StatusTimeout:   "超时",
+					config.StatusCancelled: "取消",
+					config.StatusReject:    "拒绝",
+				}
+				msg := ""
+				if task.Status == config.StatusPassed {
+					msg += "✅ "
+				} else {
+					msg += "❌ "
+				}
+				link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", config2.SystemAddress(),
+					task.ProjectName,
+					task.WorkflowName,
+					task.TaskID,
+					url.QueryEscape(task.WorkflowDisplayName),
+				)
+				msg += fmt.Sprintf("Zadig 工作流执行%s: %s", statusMap[task.Status], link)
+				_, err := meegoClient.Comment(event.Payload.ProjectKey, event.Payload.WorkItemTypeKey, event.Payload.ID, msg)
+				if err != nil {
+					log.Errorf("HandleMeegoHookEventWaiter: send meego comment error: %v", err)
+				}
+				log.Infof("HandleMeegoHookEventWaiter: send meego item %s comment success", event.Payload.ID)
+				return
+			}
+		}
+	}()
+	return nil
+}
+
 func checkType(_type string) error {
 	switch _type {
 	case setting.PMJira:
 	case setting.PMLark:
+	case setting.PMMeego:
 	default:
 		return errors.New("invalid pm type")
 	}

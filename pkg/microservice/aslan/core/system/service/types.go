@@ -18,8 +18,9 @@ package service
 
 import (
 	"errors"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"net/url"
+
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
@@ -145,4 +146,42 @@ type EnvService struct {
 type VMEnvService struct {
 	ServiceName string                    `json:"service_name"`
 	EnvStatus   []*commonmodels.EnvStatus `json:"env_status"`
+}
+
+type MeegoProjectResp struct {
+	Projects []*MeegoProject `json:"projects"`
+}
+
+type MeegoProject struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+type MeegoWorkItemTypeResp struct {
+	WorkItemTypes []*MeegoWorkItemType `json:"work_item_types"`
+}
+
+type MeegoWorkItemType struct {
+	TypeKey string `json:"type_key"`
+	Name    string `json:"name"`
+}
+
+type MeegoWorkItemResp struct {
+	WorkItems []*MeegoWorkItem `json:"work_items"`
+}
+
+type MeegoWorkItem struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	CurrentState string `json:"current_state"`
+}
+
+type MeegoTransitionResp struct {
+	TargetStatus []*MeegoWorkItemStatusTransition `json:"target_status"`
+}
+
+type MeegoWorkItemStatusTransition struct {
+	SourceStateKey string `json:"source_state_key"`
+	TargetStateKey string `json:"target_state_key"`
+	TransitionID   int64  `json:"transition_id"`
 }
