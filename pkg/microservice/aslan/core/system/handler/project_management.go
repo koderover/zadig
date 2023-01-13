@@ -18,7 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/tool/meego"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
@@ -26,6 +25,7 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/jira"
+	"github.com/koderover/zadig/pkg/tool/meego"
 )
 
 func ListProjectManagement(c *gin.Context) {

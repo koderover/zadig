@@ -269,7 +269,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 		Name: setting.MeegoHookTaskCreator,
 	}, meegoHook.WorkflowArg, logger)
 	if err != nil {
-		errMsg := fmt.Sprintf("HandleJiraHookEvent: failed to create workflow task: %s", err)
+		errMsg := fmt.Sprintf("HandleMeegoHookEvent: failed to create workflow task: %s", err)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
@@ -277,7 +277,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 		"work item id:", event.Payload.ID,
 		"workflow", workflowName,
 		"hook", hookName,
-	).Infof("HandleJiraHookEvent: create workflow success")
+	).Infof("HandleMeegoHookEvent: create workflow success")
 	go func() {
 		meegoInfo, err := mongodb.NewProjectManagementColl().GetMeego()
 		if err != nil {
@@ -293,7 +293,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 			time.Sleep(5 * time.Second)
 			task, err := mongodb.NewworkflowTaskv4Coll().Find(taskInfo.WorkflowName, taskInfo.TaskID)
 			if err != nil {
-				log.Errorf("HandleJiraHookEventWaiter: failed to find task %s-%d, err: %v", taskInfo.WorkflowName, taskInfo.TaskID, err)
+				log.Errorf("HandleMeegoHookEventWaiter: failed to find task %s-%d, err: %v", taskInfo.WorkflowName, taskInfo.TaskID, err)
 				return
 			}
 			if lo.Contains([]config.Status{config.StatusPassed, config.StatusFailed, config.StatusTimeout, config.StatusCancelled, config.StatusReject}, task.Status) {

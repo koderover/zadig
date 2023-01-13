@@ -370,7 +370,7 @@ type MeegoWorkItemTransition struct {
 	Name           string `bson:"name"             json:"name"             yaml:"name"`
 	TransitionID   int64  `bson:"transition_id"    json:"transition_id"    yaml:"transition_id"`
 	TargetStateKey string `bson:"target_state_key" json:"target_state_key" yaml:"target_state_key"`
-	Status         string `bson:"status"           json:"status"           yaml:"status"`
+	Status         string `bson:"status"           json:"status"           yaml:"status,omitempty"`
 }
 
 type IstioJobTarget struct {

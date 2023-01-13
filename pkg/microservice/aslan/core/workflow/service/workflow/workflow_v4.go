@@ -1046,7 +1046,7 @@ func DeleteMeegoHookForWorkflowV4(workflowName, hookName string, logger *zap.Sug
 		list = append(list, ctl)
 	}
 	if len(list) == len(workflow.MeegoHookCtls) {
-		errMsg := fmt.Sprintf("jira hook %s not found", hookName)
+		errMsg := fmt.Sprintf("meego hook %s not found", hookName)
 		log.Error(errMsg)
 		return e.ErrDeleteMeegoHook.AddDesc(errMsg)
 	}
