@@ -200,7 +200,7 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string
 		"content": content,
 		"type":    setFormat(format),
 	}
-	if _, err := c.Client.Post(path, httpclient.SetFromData(formValues)); err != nil {
+	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues)); err != nil {
 		return errors.New("update nacos config failed")
 	}
 	return nil
