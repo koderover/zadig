@@ -22,6 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type WorkflowTask struct {
@@ -282,6 +283,21 @@ type JobTaskJiraSpec struct {
 	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
 	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
 	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+}
+
+type JobTaskNacosSpec struct {
+	NacosID       string       `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
+	NamespaceID   string       `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
+	NamespaceName string       `bson:"namespace_name"   json:"namespace_name"   yaml:"namespace_name"`
+	NacosAddr     string       `bson:"nacos_addr"       json:"nacos_addr"       yaml:"nacos_addr"`
+	UserName      string       `bson:"user_name"        json:"user_name"        yaml:"user_name"`
+	Password      string       `bson:"password"         json:"password"         yaml:"password"`
+	NacosDatas    []*NacosData `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
+}
+
+type NacosData struct {
+	types.NacosConfig `bson:",inline" json:",inline" yaml:",inline"`
+	Error             string `bson:"error"      json:"error"      yaml:"error"`
 }
 
 type JobTaskApolloSpec struct {
