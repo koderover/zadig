@@ -66,3 +66,7 @@ func setJobGVK(job *batchv1.Job) {
 	}
 	job.SetGroupVersionKind(gvk)
 }
+
+func GetJobYaml(ns, name string, cl client.Client) ([]byte, bool, error) {
+	return GetResourceYamlInCache(ns, name, JobGVK, cl)
+}

@@ -50,6 +50,8 @@ type EnvResp struct {
 	IsPublic    bool     `json:"isPublic"`
 	ClusterName string   `json:"clusterName"`
 	ClusterID   string   `json:"cluster_id"`
+	Namespace   string   `json:"namespace"`
+	Alias       string   `json:"alias"`
 	Production  bool     `json:"production"`
 	Source      string   `json:"source"`
 	RegistryID  string   `json:"registry_id"`
@@ -136,6 +138,8 @@ type CreateSingleProductArg struct {
 	Namespace   string `json:"namespace"`
 	ClusterID   string `json:"cluster_id"`
 	RegistryID  string `json:"registry_id"`
+	Production  bool   `json:"production"`
+	Alias       string `json:"alias"`
 	BaseEnvName string `json:"base_env_name"`
 	BaseName    string `json:"base_name,omitempty"` // for collaboration mode
 

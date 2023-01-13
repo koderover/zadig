@@ -182,6 +182,55 @@ func ListAllK8sResourcesInNamespace(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListAllK8sResourcesInNamespace(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
+func ListK8sResOverview(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err := c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	queryParam.ResourceTypes = c.Param("workloadTypes")
+	if len(queryParam.ResourceTypes) == 0 {
+		queryParam.ResourceTypes = c.Param("resourceTypes")
+	}
+	ctx.Resp, ctx.Err = service.ListK8sResOverview(queryParam, ctx.Logger)
+}
+
+func GetK8sResourceYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err := c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetK8sResourceYaml(queryParam, ctx.Logger)
+}
+
+func GetK8sWorkflowDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err := c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	workloadType := c.Param("workload-type")
+	workloadName := c.Param("workload-name")
+
+	ctx.Resp, ctx.Err = service.GetWorkloadDetail(queryParam, workloadType, workloadName, ctx.Logger)
+}
+
 func GetResourceDeployStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -207,5 +256,5 @@ func GetReleaseDeployStatus(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), request, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), request)
 }

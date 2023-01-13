@@ -130,6 +130,8 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			UpdateBy:        env.UpdateBy,
 			RegistryID:      env.RegistryID,
 			ClusterID:       env.ClusterID,
+			Namespace:       env.Namespace,
+			Alias:           env.Alias,
 			BaseRefs:        baseRefs,
 			BaseName:        env.BaseName,
 			ShareEnvEnable:  env.ShareEnv.Enable,

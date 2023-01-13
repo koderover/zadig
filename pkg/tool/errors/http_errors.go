@@ -421,7 +421,9 @@ var (
 	// ErrCreateSecret ...
 	ErrCreateSecret = NewHTTPError(6401, "创建secret失败")
 	// ErrUpdateSecret ...
-	ErrUpdateSecret = NewHTTPError(6402, "更新secret失败")
+	ErrUpdateSecret     = NewHTTPError(6402, "更新secret失败")
+	ErrListK8sResources = NewHTTPError(6403, "列出资源失败")
+	ErrGetK8sResource   = NewHTTPError(6404, "查看资源详情失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Gitlab APIs Range: 6500 - 6519
