@@ -254,7 +254,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	_, err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+	taskInfo, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 		Name: setting.MeegoHookTaskCreator,
 	}, meegoHook.WorkflowArg, logger)
 	if err != nil {
@@ -267,6 +267,49 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 		"workflow", workflowName,
 		"hook", hookName,
 	).Infof("HandleJiraHookEvent: create workflow success")
+	go func() {
+		meegoInfo, err := mongodb.NewProjectManagementColl().GetMeego()
+		if err != nil {
+			log.Errorf("failed to get meego info to create comment, error: %s", err)
+			return
+		}
+		meegoClient, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+		if err != nil {
+			log.Errorf("failed to create meego client to create comment, error: %s", err)
+			return
+		}
+		for {
+			time.Sleep(5 * time.Second)
+			task, err := mongodb.NewworkflowTaskv4Coll().Find(taskInfo.WorkflowName, taskInfo.TaskID)
+			if err != nil {
+				log.Errorf("HandleJiraHookEventWaiter: failed to find task %s-%d, err: %v", taskInfo.WorkflowName, taskInfo.TaskID, err)
+				return
+			}
+			if lo.Contains([]config.Status{config.StatusPassed, config.StatusFailed, config.StatusTimeout, config.StatusCancelled, config.StatusReject}, task.Status) {
+				statusMap := map[config.Status]string{
+					config.StatusPassed:    "成功",
+					config.StatusFailed:    "失败",
+					config.StatusTimeout:   "超时",
+					config.StatusCancelled: "取消",
+					config.StatusReject:    "拒绝",
+				}
+				msg := ""
+				if task.Status == config.StatusPassed {
+					msg += "✅ "
+				} else {
+					msg += "❌ "
+				}
+				link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", config2.SystemAddress(), task.ProjectName, task.WorkflowName, task.TaskID)
+				msg += fmt.Sprintf("Zadig 工作流执行%s: [%s|%s]", statusMap[task.Status], task.WorkflowDisplayName, link)
+				_, err := meegoClient.Comment(event.Payload.ProjectKey, event.Payload.WorkItemTypeKey, event.Payload.ID, msg)
+				if err != nil {
+					log.Errorf("HandleMeegoHookEventWaiter: send meego comment error: %v", err)
+				}
+				log.Infof("HandleMeegoHookEventWaiter: send meego item %s comment success", event.Payload.ID)
+				return
+			}
+		}
+	}()
 	return nil
 }
 

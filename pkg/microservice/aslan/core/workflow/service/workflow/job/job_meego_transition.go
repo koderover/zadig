@@ -17,8 +17,11 @@
 package job
 
 import (
+	"errors"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 type MeegoTransitionJob struct {
@@ -57,6 +60,10 @@ func (j *MeegoTransitionJob) MergeArgs(args *commonmodels.Job) error {
 }
 
 func (j *MeegoTransitionJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+	if err != nil {
+		return nil, errors.New("failed to find meego integration info")
+	}
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.MeegoTransitionJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -65,6 +72,7 @@ func (j *MeegoTransitionJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	for _, task := range j.spec.WorkItems {
 		task.Status = string(config.StatusWaiting)
 	}
+	j.spec.Link = meegoInfo.MeegoHost
 	jobTask := &commonmodels.JobTask{
 		Name:    j.job.Name,
 		Key:     j.job.Name,

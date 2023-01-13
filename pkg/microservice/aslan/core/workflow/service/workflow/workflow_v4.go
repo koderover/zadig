@@ -639,6 +639,9 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 	}
 	workflowHook.Repos = repos
 	workflowHook.WorkflowArg = workflow
+	workflowHook.WorkflowArg.JiraHookCtls = nil
+	workflowHook.WorkflowArg.MeegoHookCtls = nil
+	workflowHook.WorkflowArg.GeneralHookCtls = nil
 	workflowHook.WorkflowArg.HookCtls = nil
 	return workflowHook, nil
 }
@@ -725,7 +728,10 @@ func GetGeneralHookForWorkflowV4Preset(workflowName, hookName string, logger *za
 		return nil, e.ErrGetGeneralHook.AddDesc(errMsg)
 	}
 	gHook.WorkflowArg = workflow
+	gHook.WorkflowArg.JiraHookCtls = nil
+	gHook.WorkflowArg.MeegoHookCtls = nil
 	gHook.WorkflowArg.GeneralHookCtls = nil
+	gHook.WorkflowArg.HookCtls = nil
 	return gHook, nil
 }
 
@@ -872,6 +878,9 @@ func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.S
 	}
 	jiraHook.WorkflowArg = workflow
 	jiraHook.WorkflowArg.JiraHookCtls = nil
+	jiraHook.WorkflowArg.MeegoHookCtls = nil
+	jiraHook.WorkflowArg.GeneralHookCtls = nil
+	jiraHook.WorkflowArg.HookCtls = nil
 	return jiraHook, nil
 }
 
@@ -881,8 +890,6 @@ func ListJiraHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) (
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrListJiraHook.AddErr(err)
 	}
-	//todo debug
-	logger.Infof("list jira hook: num %d", len(workflow.JiraHookCtls))
 	return workflow.JiraHookCtls, nil
 }
 
@@ -983,7 +990,10 @@ func GetMeegoHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.
 		return nil, e.ErrGetMeegoHook.AddDesc(errMsg)
 	}
 	meegoHook.WorkflowArg = workflow
+	meegoHook.WorkflowArg.JiraHookCtls = nil
 	meegoHook.WorkflowArg.MeegoHookCtls = nil
+	meegoHook.WorkflowArg.GeneralHookCtls = nil
+	meegoHook.WorkflowArg.HookCtls = nil
 	return meegoHook, nil
 }
 

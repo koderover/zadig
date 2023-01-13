@@ -361,6 +361,7 @@ type MeegoTransitionJobSpec struct {
 	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
 	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
 	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
+	Link            string                     `bson:"link"               json:"link"               yaml:"link"`
 	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
 }
 
