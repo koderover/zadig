@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@ limitations under the License.
 package wrapper
 
 import (
-	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
 )
 
 // deployment is the wrapper for appsv1.Deployment type.

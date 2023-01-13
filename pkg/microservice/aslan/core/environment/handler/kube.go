@@ -225,8 +225,8 @@ func GetK8sWorkflowDetail(c *gin.Context) {
 		return
 	}
 
-	workloadType := c.Param("workload-type")
-	workloadName := c.Param("workload-name")
+	workloadType := c.Param("workloadType")
+	workloadName := c.Param("workloadName")
 
 	ctx.Resp, ctx.Err = service.GetWorkloadDetail(queryParam, workloadType, workloadName, ctx.Logger)
 }
