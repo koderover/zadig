@@ -310,7 +310,12 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 				} else {
 					msg += "❌ "
 				}
-				link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", config2.SystemAddress(), task.ProjectName, task.WorkflowName, task.TaskID)
+				link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", config2.SystemAddress(),
+					task.ProjectName,
+					task.WorkflowName,
+					task.TaskID,
+					url.QueryEscape(task.WorkflowDisplayName),
+				)
 				msg += fmt.Sprintf("Zadig 工作流执行%s: %s", statusMap[task.Status], link)
 				_, err := meegoClient.Comment(event.Payload.ProjectKey, event.Payload.WorkItemTypeKey, event.Payload.ID, msg)
 				if err != nil {
