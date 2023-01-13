@@ -16,6 +16,8 @@ limitations under the License.
 
 package jira
 
+import "github.com/pkg/errors"
+
 // Project ...
 type Project struct {
 	ID   string `json:"id,omitempty"`
@@ -28,17 +30,28 @@ type ProjectService struct {
 	client *Client
 }
 
-//// ListProjects https://developer.atlassian.com/cloud/jira/platform/rest/#api-api-2-project-get
-//func (s *ProjectService) ListProjects() ([]*Project, error) {
-//
-//	resp := make([]*Project, 0)
-//
-//	url := s.client.Host + "/rest/api/2/project"
-//
-//	err := s.client.Conn.CallWithJson(context.Background(), &resp, "GET", url, "")
-//
-//	return resp, err
-//}
+// ListProjects https://developer.atlassian.com/cloud/jira/platform/rest/#api-api-2-project-get
+func (s *ProjectService) ListProjects() ([]string, error) {
+	list := make([]*Project, 0)
+	url := s.client.Host + "/rest/api/2/project"
+
+	resp, err := s.client.R().Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+	}
+	if err = resp.UnmarshalJson(&list); err != nil {
+		return nil, errors.Wrap(err, "unmarshal")
+	}
+
+	var name []string
+	for _, project := range list {
+		name = append(name, project.Key)
+	}
+	return name, nil
+}
 
 //// ListComponents ...
 //func (s *ProjectService) ListComponents(projectKey string) ([]*Component, error) {

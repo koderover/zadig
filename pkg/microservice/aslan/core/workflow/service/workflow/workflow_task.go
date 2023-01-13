@@ -44,6 +44,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/jira"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
@@ -713,8 +714,8 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			subTasks = append(subTasks, distributeTasks...)
 		}
 
-		jiraInfo, _ := systemconfig.New().GetJiraInfo()
-		if jiraInfo != nil {
+		_, err = jira.GetJiraInfo()
+		if err == nil {
 			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
 			if err != nil {
 				log.Errorf("add jira task error: %v", err)

@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+
+	"github.com/pkg/errors"
 
 	"github.com/imroc/req/v3"
 	"github.com/tidwall/gjson"
@@ -18,8 +19,8 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListConfigurationManagement(log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
-	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background())
+func ListConfigurationManagement(_type string, log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
+	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), _type)
 	if err != nil {
 		log.Errorf("list configuration management error: %v", err)
 		return nil, e.ErrListConfigurationManagement
@@ -117,7 +118,10 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 	if err != nil {
 		return e.ErrInvalidParam.AddErr(err)
 	}
-	u = u.JoinPath("/nacos/v1/auth/login")
+	if u.Path == "" {
+		u.Path = "/nacos"
+	}
+	u = u.JoinPath("v1/auth/login")
 
 	resp, err := req.R().AddQueryParam("username", config.UserName).
 		AddQueryParam("password", config.Password).

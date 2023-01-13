@@ -196,6 +196,9 @@ const (
 	JobK8sPatch             JobType = "k8s-resource-patch"
 	JobIstioRelease         JobType = "istio-release"
 	JobIstioRollback        JobType = "istio-rollback"
+	JobJira                 JobType = "jira"
+	JobNacos                JobType = "nacos"
+	JobApollo               JobType = "apollo"
 )
 
 const (

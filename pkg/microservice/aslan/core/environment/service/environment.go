@@ -1091,9 +1091,17 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 			relatedSvcs, _ := GetAffectedServices(productRenderset.ProductTmpl, productRenderset.EnvName, &K8sRendersetArg{VariableYaml: args.DefaultValues}, log)
 			if relatedSvcs != nil {
 				svcSet := sets.NewString(relatedSvcs["services"]...)
+				svcVariableMap := make(map[string]*templatemodels.ServiceRender)
 				for _, svc := range productRenderset.ServiceVariables {
-					if svcSet.Has(svc.ServiceName) {
-						updatedSvcList = append(updatedSvcList, svc)
+					svcVariableMap[svc.ServiceName] = svc
+				}
+				for _, svc := range svcSet.List() {
+					if curVariable, ok := svcVariableMap[svc]; ok {
+						updatedSvcList = append(updatedSvcList, curVariable)
+					} else {
+						updatedSvcList = append(updatedSvcList, &templatemodels.ServiceRender{
+							ServiceName: svc,
+						})
 					}
 				}
 			}
@@ -1757,13 +1765,14 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 		if err != nil {
 			log.Errorf("project not found error:%s", err)
 		}
-		if tempProduct.ProductFeature != nil && tempProduct.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+
+		if tempProduct.IsHostProduct() {
 			workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
 			if err != nil {
 				log.Errorf("workflowStat not found error:%s", err)
 			}
 			if workloadStat != nil {
-				workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, productInfo.EnvName)
 				if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
 					log.Errorf("update workloads fail error:%s", err)
 				}

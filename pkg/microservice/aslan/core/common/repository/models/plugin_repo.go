@@ -40,6 +40,7 @@ type PluginRepo struct {
 type PluginTemplate struct {
 	Name        string    `bson:"name"             json:"name"             yaml:"name"`
 	IsOffical   bool      `bson:"is_offical"       json:"is_offical"       yaml:"is_offical"`
+	Category    string    `bson:"category"         json:"category"         yaml:"category"`
 	Description string    `bson:"description"      json:"description"      yaml:"description"`
 	RepoURL     string    `bson:"repo_url"         json:"repo_url"         yaml:"-"`
 	Version     string    `bson:"version"          json:"version"          yaml:"version"`

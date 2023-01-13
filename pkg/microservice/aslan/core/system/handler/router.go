@@ -257,6 +257,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.GET("/:id", GetConfigurationManagement)
 		configuration.DELETE("/:id", DeleteConfigurationManagement)
 		configuration.POST("/validate", ValidateConfigurationManagement)
+		configuration.GET("/apollo", ValidateConfigurationManagement)
 	}
 
 	imapp := router.Group("im_app")
@@ -275,6 +276,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.POST("/:id/webhook", LarkEventHandler)
 	}
 
+	pm := router.Group("project_management")
+	{
+		pm.GET("", ListProjectManagement)
+		pm.POST("", CreateProjectManagement)
+		pm.POST("/validate", Validate)
+		pm.PATCH("/:id", UpdateProjectManagement)
+		pm.DELETE("/:id", DeleteProjectManagement)
+		pm.GET("/jira/project", ListJiraProjects)
+		pm.GET("/jira/issue", SearchJiraIssues)
+		pm.GET("/jira/type", GetJiraTypes)
+		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
+	}
 	// personal dashboard configuration
 	dashboard := router.Group("dashboard")
 	{
@@ -286,6 +299,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dashboard.GET("/workflow/running", GetRunningWorkflow)
 		dashboard.GET("/workflow/mine", GetMyWorkflow)
 		dashboard.GET("/environment/:name", GetMyEnvironment)
+	}
+	// get nacos info
+	nacos := router.Group("nacos")
+	{
+		nacos.GET("/:nacosID", ListNacosNamespace)
+		nacos.GET("/:nacosID/namespace/:nacosNamespaceID", ListNacosConfig)
 	}
 }
 

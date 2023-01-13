@@ -89,3 +89,9 @@ func SetTLSClientConfig(config *tls.Config) ClientFunc {
 		c.Client.SetTLSClientConfig(config)
 	}
 }
+
+func SetClientHeader(header, value string) ClientFunc {
+	return func(c *Client) {
+		c.Client.SetHeader(header, value)
+	}
+}

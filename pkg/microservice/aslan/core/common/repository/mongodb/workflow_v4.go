@@ -29,6 +29,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -42,6 +43,7 @@ type ListWorkflowV4Option struct {
 	ProjectName string
 	DisplayName string
 	Names       []string
+	Category    setting.WorkflowCategory
 }
 
 func NewWorkflowV4Coll() *WorkflowV4Coll {
@@ -183,6 +185,9 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 	}
 	if len(opt.Names) > 0 {
 		query["name"] = bson.M{"$in": opt.Names}
+	}
+	if opt.Category != "" {
+		query["category"] = opt.Category
 	}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {

@@ -52,6 +52,13 @@ func (ifs IssueFields) String() string {
 	return strings.Join(ifs, ",")
 }
 
+type Event struct {
+	Timestamp          int64  `json:"timestamp"`
+	WebhookEvent       string `json:"webhookEvent"`
+	IssueEventTypeName string `json:"issue_event_type_name"`
+	Issue              *Issue `json:"issue"`
+}
+
 // Issue IssueResult:Issues
 type Issue struct {
 	ID     string  `bson:"id,omitempty"     json:"id,omitempty"`
