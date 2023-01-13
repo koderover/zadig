@@ -39,6 +39,9 @@ func (s *ProjectService) ListProjects() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+	}
 	if err = resp.UnmarshalJson(&list); err != nil {
 		return nil, errors.Wrap(err, "unmarshal")
 	}

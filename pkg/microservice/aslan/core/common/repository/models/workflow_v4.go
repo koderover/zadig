@@ -313,6 +313,14 @@ type GrayRollbackTarget struct {
 	OriginReplica int    `bson:"-"                         json:"origin_replica"           yaml:"origin_replica,omitempty"`
 }
 
+type JiraJobSpec struct {
+	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	Source       string     `bson:"source" json:"source" yaml:"source"`
+}
+
 type IstioJobSpec struct {
 	First             bool              `bson:"first"              json:"first"              yaml:"first"`
 	ClusterID         string            `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
@@ -330,6 +338,20 @@ type IstioRollBackJobSpec struct {
 	Namespace string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
 	Timeout   int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
 	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
+}
+
+type ApolloJobSpec struct {
+	ApolloID      string             `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
+	NamespaceList []*ApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
+}
+
+type ApolloNamespace struct {
+	AppID      string      `bson:"appID" json:"appID" yaml:"appID"`
+	ClusterID  string      `bson:"clusterID" json:"clusterID" yaml:"clusterID"`
+	Env        string      `bson:"env" json:"env" yaml:"env"`
+	Namespace  string      `bson:"namespace" json:"namespace" yaml:"namespace"`
+	Type       string      `bson:"type" json:"type" yaml:"type"`
+	KeyValList []*ApolloKV `bson:"kv" json:"kv" yaml:"kv"`
 }
 
 type IstioJobTarget struct {

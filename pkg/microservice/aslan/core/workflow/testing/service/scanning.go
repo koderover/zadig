@@ -256,7 +256,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		if repoInfo.PR > 0 && len(repoInfo.PRs) == 0 {
 			repoInfo.PRs = []int{repoInfo.PR}
 		}
-
+		repoInfo.RepoNamespace = repoInfo.GetRepoNamespace()
 		repos = append(repos, repoInfo)
 	}
 

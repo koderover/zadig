@@ -20,10 +20,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/pkg/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 
 	policymongo "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 )
@@ -36,6 +42,10 @@ func init() {
 func V1160ToV1170() error {
 	if err := updateRolesForTesting(); err != nil {
 		log.Errorf("updateRolesForTesting err:%s", err)
+		return err
+	}
+	if err := migrateJiraInfo(); err != nil {
+		log.Errorf("migrateJiraInfo err: %v", err)
 		return err
 	}
 	return nil
@@ -92,4 +102,40 @@ func updateRolesForTesting() error {
 		}
 	}
 	return nil
+}
+
+func migrateJiraInfo() error {
+	list, err := mongodb.NewProjectManagementColl().List()
+	if err == nil {
+		for _, management := range list {
+			if management.Type == setting.PMJira {
+				log.Warnf("migrateJiraInfo: find V1170 jira info, skip migrate")
+				return nil
+			}
+		}
+	}
+
+	type JiraOld struct {
+		Host        string `bson:"host"`
+		User        string `bson:"user"`
+		AccessToken string `bson:"access_token"`
+	}
+	coll := mongotool.Database(config.MongoDatabase()).Collection("jira")
+	info := &JiraOld{}
+	err = coll.FindOne(context.Background(), bson.M{}).Decode(info)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Info("migrateJiraInfo: not found old jira info, done")
+			return nil
+		}
+		return err
+	}
+
+	log.Infof("migrateJiraInfo: find info, host: %s user: %s", info.Host, info.User)
+	return mongodb.NewProjectManagementColl().Create(&commonmodels.ProjectManagement{
+		Type:      setting.PMJira,
+		JiraHost:  info.Host,
+		JiraUser:  info.User,
+		JiraToken: info.AccessToken,
+	})
 }

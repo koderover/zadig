@@ -110,6 +110,9 @@ func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) 
 	if err != nil {
 		return nil, err
 	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+	}
 	var list []*IssueTypeDefinition
 	if err = resp.UnmarshalJson(&list); err != nil {
 		return nil, err
@@ -155,6 +158,9 @@ func (s *IssueService) searchByJQL(jql string, start int) ([]*Issue, int, error)
 	}).Get(url)
 	if err != nil {
 		return nil, 0, err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, 0, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
 	}
 	type tmp struct {
 		StartAt    int      `json:"startAt"`
@@ -215,6 +221,9 @@ func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
 	resp, err := s.client.R().Get(url)
 	if err != nil {
 		return nil, err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
 	}
 	type tmp struct {
 		Transitions []*Transition `json:"transitions"`

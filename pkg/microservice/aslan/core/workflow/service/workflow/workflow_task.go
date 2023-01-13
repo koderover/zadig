@@ -714,8 +714,8 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			subTasks = append(subTasks, distributeTasks...)
 		}
 
-		jiraInfo, _ := jira.GetJiraInfo()
-		if jiraInfo != nil {
+		_, err = jira.GetJiraInfo()
+		if err == nil {
 			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
 			if err != nil {
 				log.Errorf("add jira task error: %v", err)

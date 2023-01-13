@@ -282,7 +282,21 @@ type JobTaskJiraSpec struct {
 	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
 	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
 	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
-	Source       string     `bson:"source" json:"source" yaml:"source"`
+}
+
+type JobTaskApolloSpec struct {
+	ApolloID      string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
+	NamespaceList []*JobTaskApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
+}
+
+type JobTaskApolloNamespace struct {
+	ApolloNamespace `bson:",inline" json:",inline" yaml:",inline"`
+	Error           string `bson:"error" json:"error" yaml:"error"`
+}
+
+type ApolloKV struct {
+	Key string `bson:"key" json:"key" yaml:"key"`
+	Val string `bson:"val" json:"val" yaml:"val"`
 }
 
 type PatchTaskItem struct {
