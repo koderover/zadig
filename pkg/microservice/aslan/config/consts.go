@@ -199,6 +199,7 @@ const (
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
+	JobMeegoTransition      JobType = "meego-transition"
 )
 
 const (

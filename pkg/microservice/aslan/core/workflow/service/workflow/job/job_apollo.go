@@ -24,7 +24,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/apollo"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -49,19 +48,12 @@ func (j *ApolloJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), j.spec.ApolloID)
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), j.spec.ApolloID)
 	if err != nil {
 		return errors.Errorf("failed to get apollo info from mongo: %v", err)
 	}
-	if info.Type != setting.SourceFromApollo {
-		return errors.Errorf("get unexpected type [%s] not type apollo", info.Type)
-	}
-	auth := &commonmodels.ApolloAuthConfig{}
-	if err = commonmodels.IToi(info.AuthConfig, auth); err != nil {
-		return errors.Errorf("failed to convert apollo auth config, err: %v", err)
-	}
 
-	client := apollo.NewClient(info.ServerAddress, auth.Token)
+	client := apollo.NewClient(info.ServerAddress, info.Token)
 	for _, namespace := range j.spec.NamespaceList {
 		result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
 		if err != nil {
@@ -124,7 +116,7 @@ func (j *ApolloJob) LintJob() error {
 	if len(j.spec.NamespaceList) == 0 {
 		return errors.New("issue list is empty")
 	}
-	if _, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), j.spec.ApolloID); err != nil {
+	if _, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), j.spec.ApolloID); err != nil {
 		return errors.Errorf("not found apollo in mongo, err: %v", err)
 	}
 	return nil

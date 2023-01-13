@@ -19,13 +19,12 @@ package service
 import (
 	"context"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/nacos"
-	"github.com/koderover/zadig/pkg/types"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/nacos"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*types.NacosNamespace, error) {
@@ -61,16 +60,9 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 }
 
 func getNacosClient(nacosID string) (*nacos.Client, error) {
-	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), nacosID)
+	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), nacosID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get nacos info")
 	}
-	if info.Type != setting.SourceFromNacos {
-		return nil, errors.Wrap(err, "wrong config type")
-	}
-	auth := &commonmodels.NacosAuthConfig{}
-	if err = commonmodels.IToi(info.AuthConfig, auth); err != nil {
-		return nil, errors.Wrap(err, "convert auth data failed")
-	}
-	return nacos.NewNacosClient(info.ServerAddress, auth.UserName, auth.Password)
+	return nacos.NewNacosClient(info.ServerAddress, info.UserName, info.Password)
 }

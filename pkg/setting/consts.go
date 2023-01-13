@@ -455,7 +455,9 @@ const (
 	WebhookTaskCreator = "webhook"
 	// JiraHookTaskCreator ...
 	JiraHookTaskCreator = "jira_hook"
-	// GeneralHookCreator ...
+	// MeegoHookTaskCreator ...
+	MeegoHookTaskCreator = "meego_hook"
+	// GeneralHookTaskCreator ...
 	GeneralHookTaskCreator = "general_hook"
 	// CronTaskCreator ...
 	CronTaskCreator = "timer"
@@ -756,8 +758,9 @@ const (
 
 // Project Management types
 const (
-	PMJira = "jira"
-	PMLark = "lark"
+	PMJira  = "jira"
+	PMLark  = "lark"
+	PMMeego = "meego"
 )
 
 // Workflow variable source type

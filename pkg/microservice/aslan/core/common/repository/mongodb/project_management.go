@@ -113,3 +113,14 @@ func (c *ProjectManagementColl) GetJira() (*models.ProjectManagement, error) {
 	}
 	return jira, nil
 }
+
+func (c *ProjectManagementColl) GetMeego() (*models.ProjectManagement, error) {
+	meego := &models.ProjectManagement{}
+	query := bson.M{"type": setting.PMMeego}
+
+	err := c.Collection.FindOne(context.TODO(), query).Decode(meego)
+	if err != nil {
+		return nil, err
+	}
+	return meego, nil
+}

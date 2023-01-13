@@ -94,6 +94,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &NacosJob{job: job, workflow: workflow}
 	case config.JobApollo:
 		resp = &ApolloJob{job: job, workflow: workflow}
+	case config.JobMeegoTransition:
+		resp = &MeegoTransitionJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}

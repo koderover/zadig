@@ -76,6 +76,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewNacosJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobApollo):
 		jobCtl = NewApolloJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobMeegoTransition):
+		jobCtl = NewMeegoTransitionJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
