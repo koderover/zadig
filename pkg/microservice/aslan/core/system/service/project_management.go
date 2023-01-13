@@ -211,6 +211,7 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 				err := jira2.SendComment(event.Issue.Key, msg)
 				if err != nil {
 					log.Errorf("HandleJiraHookEventWaiter: send jira comment error: %v", err)
+					return
 				}
 				log.Infof("HandleJiraHookEventWaiter: send jira issue %s comment success", event.Issue.Key)
 				return

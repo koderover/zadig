@@ -20,6 +20,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -27,7 +29,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/nacos"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/pkg/errors"
 )
 
 type NacosJob struct {
@@ -96,7 +97,7 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	j.job.Spec = j.spec
 
-	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), j.spec.NacosID)
+	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), j.spec.NacosID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get nacos info")
 	}
@@ -149,16 +150,9 @@ func transNacosDatas(confs []*types.NacosConfig) []*commonmodels.NacosData {
 }
 
 func getNacosClient(nacosID string) (*nacos.Client, error) {
-	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), nacosID)
+	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), nacosID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get nacos info")
 	}
-	if info.Type != setting.SourceFromNacos {
-		return nil, errors.Wrap(err, "wrong config type")
-	}
-	auth := &commonmodels.NacosAuthConfig{}
-	if err = commonmodels.IToi(info.AuthConfig, auth); err != nil {
-		return nil, errors.Wrap(err, "convert auth data failed")
-	}
-	return nacos.NewNacosClient(info.ServerAddress, auth.UserName, auth.Password)
+	return nacos.NewNacosClient(info.ServerAddress, info.UserName, info.Password)
 }
