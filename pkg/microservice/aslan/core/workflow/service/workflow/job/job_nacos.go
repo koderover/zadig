@@ -24,6 +24,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/nacos"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/pkg/errors"
@@ -52,15 +53,18 @@ func (j *NacosJob) SetPreset() error {
 	originNamespaceID := strings.ReplaceAll(j.spec.NamespaceID, setting.FixedValueMark, "")
 	client, err := getNacosClient(j.spec.NacosID)
 	if err != nil {
-		return errors.Errorf("get nacos client error: %v", err)
+		return errors.Errorf("fail to init nacos client: %v, please check nacos configuration", err)
 	}
-	for i, data := range j.spec.NacosDatas {
+	newDatas := []*types.NacosConfig{}
+	for _, data := range j.spec.NacosDatas {
 		newData, err := client.GetConfig(data.DataID, data.Group, originNamespaceID)
 		if err != nil {
-			return errors.Errorf("get nacos config %s/%s error: %v", data.DataID, data.Group, err)
+			log.Errorf("get nacos config %s/%s error: %v", data.DataID, data.Group, err)
+			continue
 		}
-		j.spec.NacosDatas[i] = newData
+		newDatas = append(newDatas, newData)
 	}
+	j.spec.NacosDatas = newDatas
 	return nil
 }
 
