@@ -89,9 +89,20 @@ func ValidateJira(info *models.ProjectManagement) error {
 }
 
 func ValidateMeego(info *models.ProjectManagement) error {
-	_, _, err := meego.GetPluginToken(info.MeegoHost, info.MeegoPluginID, info.MeegoPluginSecret)
+	token, _, err := meego.GetPluginToken(info.MeegoHost, info.MeegoPluginID, info.MeegoPluginSecret)
 	if err != nil {
 		log.Errorf("Failed to create meego client, error: %s", err)
+		return e.ErrValidateProjectManagement.AddDesc("failed to validate meego")
+	}
+	client := meego.Client{
+		Host:         info.MeegoHost,
+		PluginID:     info.MeegoPluginID,
+		PluginSecret: info.MeegoPluginSecret,
+		PluginToken:  token,
+		UserKey:      info.MeegoUserKey,
+	}
+	_, err = client.GetProjectList()
+	if err != nil {
 		return e.ErrValidateProjectManagement.AddDesc("failed to validate meego")
 	}
 	return nil
