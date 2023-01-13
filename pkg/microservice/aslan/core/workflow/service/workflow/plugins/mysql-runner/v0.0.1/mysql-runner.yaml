@@ -1,8 +1,8 @@
 name: "MySQL 数据库变更"
 version: "v0.0.1"
+category: data-change
 description: "针对 MySQL 数据库执行 SQL 变量"
 image: koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1
-
 inputs:
   - name: mysql_host
     description: "mysql host"
