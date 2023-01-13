@@ -251,6 +251,7 @@ type JobIstioRollbackSpec struct {
 }
 
 type MeegoTransitionSpec struct {
+	Link            string                     `bson:"link"               json:"link"               yaml:"link"`
 	Source          string                     `bson:"source"             json:"source"             yaml:"source"`
 	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
 	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
