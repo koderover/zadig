@@ -945,15 +945,15 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 		default:
 			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
-			if !found {
-				errMsg := fmt.Sprintf("failed to get pod with label job-name=%s %v", jobName, err)
-				xl.Errorf(errMsg)
-				return config.StatusFailed, errors.New(errMsg)
-			}
 			if err != nil {
 				xl.Errorf("failed to get pod with label job-name=%s %v, retry", jobName, err)
 				time.Sleep(defaultRetryInterval)
 				continue
+			}
+			if !found {
+				errMsg := fmt.Sprintf("failed to get pod with label job-name=%s %v", jobName, err)
+				xl.Errorf(errMsg)
+				return config.StatusFailed, errors.New(errMsg)
 			}
 			// pod is still running
 			if job.Status.Active != 0 {

@@ -17,8 +17,6 @@ limitations under the License.
 package getter
 
 import (
-	"time"
-
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,17 +42,6 @@ func ListJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1
 		res = append(res, &jobs.Items[i])
 	}
 	return res, err
-}
-
-func GetJobWithRetryOption(ns, name string, cl client.Client, retryCount int, retryInterval time.Duration) (job *batchv1.Job, found bool, err error) {
-	for i := 0; i < retryCount; i++ {
-		job, found, err = GetJob(ns, name, cl)
-		if err == nil {
-			return
-		}
-		time.Sleep(retryInterval)
-	}
-	return
 }
 
 func GetJob(ns, name string, cl client.Client) (*batchv1.Job, bool, error) {
