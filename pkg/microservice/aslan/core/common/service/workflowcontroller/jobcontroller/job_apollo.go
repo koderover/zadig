@@ -28,7 +28,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/apollo"
 )
 
@@ -61,19 +60,9 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	info, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), c.jobTaskSpec.ApolloID)
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), c.jobTaskSpec.ApolloID)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
-		return
-	}
-	if info.Type != setting.SourceFromApollo {
-		logError(c.job, fmt.Sprintf("get unexpected apollo config type %s", info.Type), c.logger)
-		return
-	}
-	authInfo := &commonmodels.ApolloConfig{}
-	err = commonmodels.IToi(info.AuthConfig, authInfo)
-	if err != nil {
-		logError(c.job, fmt.Sprintf("failed to get auth info, err: %v", err), c.logger)
 		return
 	}
 	link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
@@ -84,7 +73,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		url.QueryEscape(c.workflowCtx.WorkflowDisplayName))
 
 	var fail bool
-	client := apollo.NewClient(info.ServerAddress, authInfo.Token)
+	client := apollo.NewClient(info.ServerAddress, info.Token)
 	for _, namespace := range c.jobTaskSpec.NamespaceList {
 		for _, kv := range namespace.KeyValList {
 			err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, "zadig")
