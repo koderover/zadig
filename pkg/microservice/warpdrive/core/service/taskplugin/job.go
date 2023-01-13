@@ -473,7 +473,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		TaskType:     string(taskType),
 		PipelineType: string(pipelineTask.Type),
 	})
-	
+
 	// 引用集成到系统中的私有镜像仓库的访问权限
 	ImagePullSecrets := []corev1.LocalObjectReference{
 		{
@@ -887,7 +887,7 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 			}
 
 			for _, pod := range pods {
-				if pod.Status.Phase == corev1.PodRunning {
+				if pod.Status.Phase != corev1.PodPending {
 					started = true
 					break
 				}
