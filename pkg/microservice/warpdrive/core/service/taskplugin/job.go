@@ -890,7 +890,7 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 			}
 
 			for _, pod := range pods {
-				if pod.Status.Phase == corev1.PodRunning {
+				if pod.Status.Phase != corev1.PodPending {
 					started = true
 					break
 				}
