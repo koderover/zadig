@@ -509,6 +509,60 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
+			TemplateName: "飞书工作项状态及业务变更",
+			BuildIn:      true,
+			Description:  "支持自动化执行飞书工作项状态变更",
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "构建",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+				{
+					Name:     "测试",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "test",
+							JobType: config.JobZadigTesting,
+							Spec:    commonmodels.ZadigTestingJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "飞书工作项变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "lark-update",
+							JobType: config.JobMeegoTransition,
+							Spec:    commonmodels.MeegoTransitionJobSpec{},
+						},
+					},
+				},
+			},
+		},
+		{
 			TemplateName: "多阶段灰度",
 			Description:  "支持自动化执行多阶段的灰度发布，结合人工审批，确保灰度过程可控",
 			BuildIn:      true,
