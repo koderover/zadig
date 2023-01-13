@@ -820,10 +820,17 @@ func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crC
 				podList, err := getter.ListPods(namespace, labels.Set(getJobLabels(&JobLabel{
 					JobName: jobName,
 				})).AsSelector(), kubeClient)
-				for _, pod := range podList {
-					pod.Status.Phase == corev1.PodPending
+				if err != nil {
+					xl.Errorf("list pod failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
+					time.Sleep(time.Second)
+					continue
 				}
-				return config.StatusRunning
+				for _, pod := range podList {
+					if pod.Status.Phase != corev1.PodPending {
+						xl.Infof("waitJobStart: pod status %s namespace:%s, jobName:%s podList num %d", pod.Status.Phase, namespace, jobName, len(podList))
+						return config.StatusRunning
+					}
+				}
 			}
 		}
 		time.Sleep(time.Second)
