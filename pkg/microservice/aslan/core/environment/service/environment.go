@@ -2698,7 +2698,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	for _, group := range args.Services {
 		serviceCount = serviceCount + len(group)
 	}
-	if serviceCount == 0 {
+	if serviceCount == 0 && !args.Production {
 		log.Errorf("[%s][P:%s] not service found", envName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.FindProductServiceErrMsg)
 	}
