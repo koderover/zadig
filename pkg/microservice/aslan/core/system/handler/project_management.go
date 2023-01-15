@@ -25,6 +25,7 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/jira"
+	"github.com/koderover/zadig/pkg/tool/meego"
 )
 
 func ListProjectManagement(c *gin.Context) {
@@ -72,6 +73,8 @@ func Validate(c *gin.Context) {
 	switch req.Type {
 	case setting.PMJira:
 		ctx.Err = service.ValidateJira(req)
+	case setting.PMMeego:
+		ctx.Err = service.ValidateMeego(req)
 	default:
 		ctx.Err = e.ErrValidateProjectManagement.AddDesc("invalid type")
 	}
@@ -105,4 +108,16 @@ func HandleJiraEvent(c *gin.Context) {
 	}
 
 	ctx.Err = service.HandleJiraHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
+}
+
+func HandleMeegoEvent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	event := new(meego.GeneralWebhookRequest)
+	if err := c.ShouldBindJSON(event); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.HandleMeegoHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
 }

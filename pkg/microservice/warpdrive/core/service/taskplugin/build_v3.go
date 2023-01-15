@@ -217,9 +217,9 @@ func (p *BuildTaskV3Plugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 
 // Wait ...
 func (p *BuildTaskV3Plugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
+	status, err := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetBuildStatusCompleted(status)
-
+	p.Task.Error = err.Error()
 	if status == config.StatusPassed {
 		if p.Task.DockerBuildStatus == nil {
 			p.Task.DockerBuildStatus = &task.DockerBuildStatus{}

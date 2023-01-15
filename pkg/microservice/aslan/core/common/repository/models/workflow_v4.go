@@ -46,6 +46,7 @@ type WorkflowV4 struct {
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
+	MeegoHookCtls   []*MeegoHook             `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
 	GeneralHookCtls []*GeneralHook           `bson:"general_hook_ctls"   yaml:"-"                   json:"general_hook_ctls"`
 	NotificationID  string                   `bson:"notification_id"     yaml:"-"                   json:"notification_id"`
 	HookPayload     *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
@@ -354,6 +355,24 @@ type ApolloNamespace struct {
 	KeyValList []*ApolloKV `bson:"kv" json:"kv" yaml:"kv"`
 }
 
+type MeegoTransitionJobSpec struct {
+	Source          string                     `bson:"source"             json:"source"`
+	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
+	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
+	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
+	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
+	Link            string                     `bson:"link"               json:"link"               yaml:"link"`
+	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
+}
+
+type MeegoWorkItemTransition struct {
+	ID             int    `bson:"id"               json:"id"               yaml:"id"`
+	Name           string `bson:"name"             json:"name"             yaml:"name"`
+	TransitionID   int64  `bson:"transition_id"    json:"transition_id"    yaml:"transition_id"`
+	TargetStateKey string `bson:"target_state_key" json:"target_state_key" yaml:"target_state_key"`
+	Status         string `bson:"status"           json:"status"           yaml:"status,omitempty"`
+}
+
 type IstioJobTarget struct {
 	WorkloadName       string `bson:"workload_name"             json:"workload_name"             yaml:"workload_name"`
 	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`
@@ -362,6 +381,13 @@ type IstioJobTarget struct {
 	Image              string `bson:"image"                     json:"image"                     yaml:"-"`
 	CurrentReplica     int    `bson:"current_replica,omitempty" json:"current_replica,omitempty" yaml:"-"`
 	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"-"`
+}
+
+type NacosJobSpec struct {
+	NacosID     string               `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
+	NamespaceID string               `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
+	NacosDatas  []*types.NacosConfig `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
+	DataFixed   bool                 `bson:"data_fixed"       json:"data_fixed"       yaml:"data_fixed"`
 }
 
 type JobProperties struct {
@@ -415,6 +441,13 @@ type WorkflowV4Hook struct {
 }
 
 type JiraHook struct {
+	Name        string      `bson:"name" json:"name"`
+	Enabled     bool        `bson:"enabled" json:"enabled"`
+	Description string      `bson:"description" json:"description"`
+	WorkflowArg *WorkflowV4 `bson:"workflow_arg" json:"workflow_arg"`
+}
+
+type MeegoHook struct {
 	Name        string      `bson:"name" json:"name"`
 	Enabled     bool        `bson:"enabled" json:"enabled"`
 	Description string      `bson:"description" json:"description"`
