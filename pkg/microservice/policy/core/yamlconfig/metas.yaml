@@ -696,6 +696,8 @@ metas:
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/envRecycle'
           - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/alias'
+          - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/renderset'
           - method: PUT
             endpoint: /api/aslan/service/workloads

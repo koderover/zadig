@@ -255,7 +255,6 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
 	}
 	if opt.Production != nil {
-		//query["$or"] = []bson.M{{"type": bson.M{"$ne": "image"}}, {"type": "image", "image_size": bson.M{"$ne": nil}}}
 		query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
 	}
 
