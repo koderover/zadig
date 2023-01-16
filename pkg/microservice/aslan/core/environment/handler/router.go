@@ -121,9 +121,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/canary_service/cluster/:clusterID/namespace/:namespace", ListCanaryDeploymentServiceInfo)
 		kube.GET("/resources/cluster/:clusterID/namespace/:namespace", ListAllK8sResourcesInNamespace)
 
-		kube.GET("/workloads/:workloadTypes", ListK8sResOverview)
+		kube.GET("/workloads/:workloadType", ListK8sResOverview)
 		kube.GET("/workloads/:workloadType/:workloadName", GetK8sWorkflowDetail)
-		kube.GET("/resources/:resourceTypes", ListK8sResOverview)
+		kube.GET("/resources/:resourceType", ListK8sResOverview)
 		kube.GET("/yaml", GetK8sResourceYaml)
 	}
 
