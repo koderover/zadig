@@ -151,6 +151,7 @@ func GetBuildStatByProdutName(productName string, startTimestamp int64, log *zap
 						maxDurationPipeline := new(models.PipelineInfo)
 						maxDurationPipeline.PipelineName = taskP.WorkflowName
 						maxDurationPipeline.TaskID = taskP.TaskID
+						maxDurationPipeline.Type = string(config.WorkflowTypeV4)
 						maxDurationPipeline.MaxDuration = job.EndTime - job.StartTime
 						maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
 
