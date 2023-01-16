@@ -123,10 +123,10 @@ func GetBuildStatByProdutName(productName string, startTimestamp int64, log *zap
 							totalDuration += buildInfo.EndTime - buildInfo.StartTime
 							maxDurationPipeline := new(models.PipelineInfo)
 							maxDurationPipeline.PipelineName = taskP.PipelineName
+							maxDurationPipeline.DisplayName = taskP.PipelineDisplayName
 							maxDurationPipeline.TaskID = taskP.TaskID
 							maxDurationPipeline.Type = string(taskP.Type)
 							maxDurationPipeline.MaxDuration = buildInfo.EndTime - buildInfo.StartTime
-
 							maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
 						}
 					}
@@ -150,6 +150,7 @@ func GetBuildStatByProdutName(productName string, startTimestamp int64, log *zap
 						totalDuration += job.EndTime - job.StartTime
 						maxDurationPipeline := new(models.PipelineInfo)
 						maxDurationPipeline.PipelineName = taskP.WorkflowName
+						maxDurationPipeline.DisplayName = taskP.WorkflowDisplayName
 						maxDurationPipeline.TaskID = taskP.TaskID
 						maxDurationPipeline.Type = string(config.WorkflowTypeV4)
 						maxDurationPipeline.MaxDuration = job.EndTime - job.StartTime
@@ -369,18 +370,58 @@ type buildStatLatestTen struct {
 }
 
 func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]*buildStatLatestTen, error) {
+	cursor, err := commonmongodb.NewworkflowTaskv4Coll().ListByCursor(&commonmongodb.ListWorkflowTaskV4Option{ProjectNames: productNames, IsSort: true})
+	if err != nil {
+		log.Errorf("list workflow v4 err: %v", err)
+		return nil, fmt.Errorf("list workflow v4 err: %v", err)
+	}
+	latestPipelines := make([]*buildStatLatestTen, 0)
+	for cursor.Next(context.Background()) {
+		var workflowTask commonmodels.WorkflowTask
+		if err := cursor.Decode(&workflowTask); err != nil {
+			return nil, fmt.Errorf("decode workflow v4 task err:%v", err)
+		}
+		containBuild := false
+		for _, stage := range workflowTask.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType != string(config.JobZadigBuild) {
+					continue
+				}
+				containBuild = true
+			}
+		}
+		if !containBuild {
+			continue
+		}
+		latestPipelines = append(latestPipelines, &buildStatLatestTen{
+			PipelineInfo: &models.PipelineInfo{
+				TaskID:       workflowTask.TaskID,
+				Type:         string(config.WorkflowTypeV4),
+				PipelineName: workflowTask.WorkflowName,
+				DisplayName:  workflowTask.WorkflowDisplayName,
+			},
+			ProductName: workflowTask.ProjectName,
+			Duration:    workflowTask.EndTime - workflowTask.StartTime,
+			Status:      string(workflowTask.Status),
+			TaskCreator: workflowTask.TaskCreator,
+			CreateTime:  workflowTask.CreateTime,
+		})
+		if len(latestPipelines) >= config.LatestDay {
+			break
+		}
+	}
 	latestTenTasks, err := commonmongodb.NewTaskColl().ListAllTasks(&commonmongodb.ListAllTaskOption{Type: config.WorkflowType, Limit: config.LatestDay, Skip: 0, ProductNames: productNames})
 	if err != nil {
 		log.Errorf("pipeline ListAllTasks err:%v", err)
 		return nil, fmt.Errorf("pipeline ListAllTasks err:%v", err)
 	}
-	latestTenPipelines := make([]*buildStatLatestTen, 0)
 	for _, latestTask := range latestTenTasks {
 		buildStatLatestTen := &buildStatLatestTen{
 			PipelineInfo: &models.PipelineInfo{
 				TaskID:       latestTask.TaskID,
 				Type:         string(latestTask.Type),
 				PipelineName: latestTask.PipelineName,
+				DisplayName:  latestTask.PipelineDisplayName,
 			},
 			ProductName: latestTask.ProductName,
 			Duration:    latestTask.EndTime - latestTask.StartTime,
@@ -388,10 +429,13 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 			TaskCreator: latestTask.TaskCreator,
 			CreateTime:  latestTask.CreateTime,
 		}
-		latestTenPipelines = append(latestTenPipelines, buildStatLatestTen)
+		latestPipelines = append(latestPipelines, buildStatLatestTen)
 	}
+	sort.SliceStable(latestPipelines, func(i, j int) bool {
+		return latestPipelines[i].CreateTime < latestPipelines[j].CreateTime
+	})
 
-	return latestTenPipelines, nil
+	return latestPipelines[:10], nil
 }
 
 func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string, log *zap.SugaredLogger) ([]*buildStatLatestTen, error) {
