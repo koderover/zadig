@@ -154,12 +154,15 @@ func CreateProduct(c *gin.Context) {
 	if err != nil {
 		log.Infof("CreateProduct failed to get request data, err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
 	}
 
 	if createParam.Type == setting.K8SDeployType || createParam.Type == setting.HelmDeployType {
 		createArgs := make([]*service.CreateSingleProductArg, 0)
 		if err = json.Unmarshal(data, &createArgs); err != nil {
 			log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+			ctx.Err = e.ErrInvalidParam.AddErr(err)
+			return
 		}
 
 		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
