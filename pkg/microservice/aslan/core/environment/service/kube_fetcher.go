@@ -276,8 +276,8 @@ func ListDeployments(page, pageSize int, namespace string, kc client.Client, inf
 	return resp.handlePageFilter(page, pageSize), nil
 }
 
-func ListStatefulSets(page, pageSize int, namespace string, kc client.Client) (*K8sResourceResp, error) {
-	stss, err := getter.ListStatefulSets(namespace, nil, kc)
+func ListStatefulSets(page, pageSize int, namespace string, kc client.Client, informer informers.SharedInformerFactory) (*K8sResourceResp, error) {
+	stss, err := getter.ListStatefulSetsWithCache(nil, informer)
 	if err != nil {
 		return nil, err
 	}
@@ -415,8 +415,8 @@ func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Cli
 	return resp.handlePageFilter(page, pageSize), nil
 }
 
-func ListServices(page, pageSize int, namespace string, kc client.Client) (*K8sResourceResp, error) {
-	services, err := getter.ListServices(namespace, nil, kc)
+func ListServices(page, pageSize int, namespace string, kc client.Client, informer informers.SharedInformerFactory) (*K8sResourceResp, error) {
+	services, err := getter.ListServicesWithCache(nil, informer)
 	if err != nil {
 		return nil, err
 	}

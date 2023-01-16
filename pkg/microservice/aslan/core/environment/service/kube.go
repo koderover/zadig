@@ -774,7 +774,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 	case "deployments":
 		return ListDeployments(page, pageSize, namespace, kubeClient, inf)
 	case "statefulsets":
-		return ListStatefulSets(page, pageSize, namespace, kubeClient)
+		return ListStatefulSets(page, pageSize, namespace, kubeClient, inf)
 	case "daemonsets":
 		return ListDaemonSets(page, pageSize, namespace, kubeClient)
 	case "jobs":
@@ -782,7 +782,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 	case "cronjobs":
 		return ListCronJobs(page, pageSize, productInfo.ClusterID, namespace, kubeClient)
 	case "services":
-		return ListServices(page, pageSize, namespace, kubeClient)
+		return ListServices(page, pageSize, namespace, kubeClient, inf)
 	case "ingresses":
 		return ListIngressOverview(page, pageSize, clusterID, namespace, kubeClient, log)
 	case "pvcs":
