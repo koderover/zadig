@@ -432,10 +432,14 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 		latestPipelines = append(latestPipelines, buildStatLatestTen)
 	}
 	sort.SliceStable(latestPipelines, func(i, j int) bool {
-		return latestPipelines[i].CreateTime < latestPipelines[j].CreateTime
+		return latestPipelines[i].CreateTime > latestPipelines[j].CreateTime
 	})
 
-	return latestPipelines[:10], nil
+	if len(latestPipelines) >= 10 {
+		latestPipelines = latestPipelines[:10]
+	}
+
+	return latestPipelines, nil
 }
 
 func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string, log *zap.SugaredLogger) ([]*buildStatLatestTen, error) {
