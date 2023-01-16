@@ -746,6 +746,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (interf
 		Name:    args.ProjectName,
 		EnvName: args.EnvName,
 	})
+	log.Infof("####### query param: %+v", *args)
 
 	if err != nil {
 		return nil, e.ErrListK8sResources.AddErr(fmt.Errorf("failed to get product info, err: %s", err))

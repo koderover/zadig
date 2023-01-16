@@ -193,9 +193,9 @@ func ListK8sResOverview(c *gin.Context) {
 		return
 	}
 
-	queryParam.ResourceTypes = c.Param("workloadTypes")
+	queryParam.ResourceTypes = c.Param("workloadType")
 	if len(queryParam.ResourceTypes) == 0 {
-		queryParam.ResourceTypes = c.Param("resourceTypes")
+		queryParam.ResourceTypes = c.Param("resourceType")
 	}
 	ctx.Resp, ctx.Err = service.ListK8sResOverview(queryParam, ctx.Logger)
 }
