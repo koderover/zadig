@@ -759,10 +759,10 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
-		return n, e.ErrListK8sResources.AddDesc(err.Error())
+		return nil, e.ErrListK8sResources.AddDesc(err.Error())
 	}
 
-	informer, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
 	if err != nil {
 		return nil, e.ErrListGroups.AddDesc(err.Error())
 	}
@@ -772,7 +772,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 
 	switch args.ResourceTypes {
 	case "deployments":
-		return ListDeployments(page, pageSize, namespace, kubeClient, informer)
+		return ListDeployments(page, pageSize, namespace, kubeClient, inf)
 	case "statefulsets":
 		return ListStatefulSets(page, pageSize, namespace, kubeClient)
 	case "daemonsets":
