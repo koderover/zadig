@@ -385,33 +385,33 @@ func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Cli
 			})
 		}
 		resp.Count += len(cronJobs)
+	} else {
+		cronJobV1Betas, err := getter.ListCronJobsV1Beta(namespace, nil, kc)
+		if err != nil {
+			return nil, err
+		}
+		for _, job := range cronJobV1Betas {
+			wrappedRes := wrapper.CronJobV1Beta(job)
+			suspend := false
+			if job.Spec.Suspend != nil {
+				suspend = *job.Spec.Suspend
+			}
+			lastSchedule := ""
+			if job.Status.LastScheduleTime != nil {
+				lastSchedule = duration.HumanDuration(time.Now().Sub(job.Status.LastScheduleTime.Time))
+			}
+			resp.Workloads = append(resp.Workloads, &WorkloadCronJob{
+				ResourceCommon: getWorkloadCommonInfo(wrappedRes, setting.CronJob, job.CreationTimestamp.Time),
+				Schedule:       job.Spec.Schedule,
+				Suspend:        suspend,
+				Active:         len(job.Status.Active),
+				LastSchedule:   lastSchedule,
+				Age:            wrappedRes.GetAge(),
+			})
+		}
+		resp.Count += len(cronJobV1Betas)
 	}
 
-	cronJobV1Betas, err := getter.ListCronJobsV1Beta(namespace, nil, kc)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, job := range cronJobV1Betas {
-		wrappedRes := wrapper.CronJobV1Beta(job)
-		suspend := false
-		if job.Spec.Suspend != nil {
-			suspend = *job.Spec.Suspend
-		}
-		lastSchedule := ""
-		if job.Status.LastScheduleTime != nil {
-			lastSchedule = duration.HumanDuration(time.Now().Sub(job.Status.LastScheduleTime.Time))
-		}
-		resp.Workloads = append(resp.Workloads, &WorkloadCronJob{
-			ResourceCommon: getWorkloadCommonInfo(wrappedRes, setting.CronJob, job.CreationTimestamp.Time),
-			Schedule:       job.Spec.Schedule,
-			Suspend:        suspend,
-			Active:         len(job.Status.Active),
-			LastSchedule:   lastSchedule,
-			Age:            wrappedRes.GetAge(),
-		})
-	}
-	resp.Count += len(cronJobV1Betas)
 	return resp.handlePageFilter(page, pageSize), nil
 }
 
