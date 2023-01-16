@@ -784,6 +784,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 				{
 					Name:     "istio 流量 60%",
 					Parallel: true,
+					Approval: &commonmodels.Approval{
+						Enabled:     true,
+						Description: "Confirm to release 60%",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
+					},
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "istio-60",
@@ -801,6 +810,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 				{
 					Name:     "istio 流量 100%",
 					Parallel: true,
+					Approval: &commonmodels.Approval{
+						Enabled:     true,
+						Description: "Confirm to release 100%",
+						Type:        config.NativeApproval,
+						NativeApproval: &commonmodels.NativeApproval{
+							Timeout:         60,
+							NeededApprovers: 1,
+						},
+					},
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "istio-100",
