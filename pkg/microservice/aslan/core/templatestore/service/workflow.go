@@ -455,6 +455,49 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
+			TemplateName: "Apollo 配置及业务变更",
+			BuildIn:      true,
+			Description:  "支持自动化执行 apollo 配置变更",
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "构建",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "Apollo 配置变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "apollo-update",
+							JobType: config.JobApollo,
+							Spec:    commonmodels.ApolloJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			TemplateName: "JIRA 问题状态及业务变更",
 			BuildIn:      true,
 			Description:  "支持自动化执行 JIRA 问题状态变更",
