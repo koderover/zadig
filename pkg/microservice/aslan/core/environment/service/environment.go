@@ -1734,7 +1734,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 			}()
 
-			if isDelete {
+			if isDelete && !productInfo.Production {
 				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
 						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
@@ -1840,7 +1840,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					commonservice.SendMessage(username, title, content, requestID, log)
 				}
 			}()
-			if isDelete {
+			if isDelete && !productInfo.Production {
 				// Delete Cluster level resources
 				err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
 				if err != nil {

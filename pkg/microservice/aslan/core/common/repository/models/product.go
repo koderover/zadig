@@ -68,7 +68,7 @@ type Product struct {
 	// New Since v1.16.0, used to determine whether to install resources
 	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 
-	// For product environment
+	// For production environment
 	Production bool   `json:"production" bson:"production"`
 	Alias      string `json:"alias" bson:"alias"`
 }
