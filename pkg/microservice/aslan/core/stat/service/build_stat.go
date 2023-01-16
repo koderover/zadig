@@ -192,17 +192,17 @@ func getTaskDateMap(productName string, startTimestamp int64) (map[string][]inte
 		return taskDateMap, fmt.Errorf("pipeline list err:%v", err)
 	}
 	for cursor.Next(context.Background()) {
-		var workflowTask *taskmodels.Task
+		var workflowTask taskmodels.Task
 		if err := cursor.Decode(&workflowTask); err != nil {
-			return taskDateMap, fmt.Errorf("decode task err:%v", err)
+			return taskDateMap, fmt.Errorf("decode workflow task err:%v", err)
 		}
 		time := time.Unix(workflowTask.CreateTime, 0)
 		date := time.Format(config.Date)
 		if _, isExist := taskDateMap[date]; isExist {
-			taskDateMap[date] = append(taskDateMap[date], workflowTask)
+			taskDateMap[date] = append(taskDateMap[date], &workflowTask)
 		} else {
 			tasks := make([]interface{}, 0)
-			tasks = append(tasks, workflowTask)
+			tasks = append(tasks, &workflowTask)
 			taskDateMap[date] = tasks
 		}
 	}
@@ -212,17 +212,17 @@ func getTaskDateMap(productName string, startTimestamp int64) (map[string][]inte
 		return taskDateMap, fmt.Errorf("workflow v4 list err:%v", err)
 	}
 	for v4Cursor.Next(context.Background()) {
-		var workflowTask *commonmodels.WorkflowTask
+		var workflowTask commonmodels.WorkflowTask
 		if err := cursor.Decode(&workflowTask); err != nil {
-			return taskDateMap, fmt.Errorf("decode task err:%v", err)
+			return taskDateMap, fmt.Errorf("decode workflow v4 task err:%v", err)
 		}
 		time := time.Unix(workflowTask.CreateTime, 0)
 		date := time.Format(config.Date)
 		if _, isExist := taskDateMap[date]; isExist {
-			taskDateMap[date] = append(taskDateMap[date], workflowTask)
+			taskDateMap[date] = append(taskDateMap[date], &workflowTask)
 		} else {
 			tasks := make([]interface{}, 0)
-			tasks = append(tasks, workflowTask)
+			tasks = append(tasks, &workflowTask)
 			taskDateMap[date] = tasks
 		}
 	}
