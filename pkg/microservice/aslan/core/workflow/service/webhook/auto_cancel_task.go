@@ -47,10 +47,20 @@ func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error 
 
 		// 判断当前任务和上一个任务是不是由同一个代码库的同一个pr触发的
 		// 不是同一个仓库的同一个pr，跳过
-		if autoCancelOpt.MainRepo.CodehostID != task.TriggerBy.CodehostID ||
-			autoCancelOpt.MainRepo.RepoOwner != task.TriggerBy.RepoOwner ||
-			autoCancelOpt.MainRepo.RepoName != task.TriggerBy.RepoName ||
-			autoCancelOpt.MergeRequestID != task.TriggerBy.MergeRequestID {
+		if autoCancelOpt.Type == AutoCancelPR &&
+			(autoCancelOpt.MainRepo.CodehostID != task.TriggerBy.CodehostID ||
+				autoCancelOpt.MainRepo.RepoOwner != task.TriggerBy.RepoOwner ||
+				autoCancelOpt.MainRepo.RepoName != task.TriggerBy.RepoName ||
+				autoCancelOpt.MergeRequestID != task.TriggerBy.MergeRequestID) {
+			continue
+		}
+
+		// check whether the task is triggered by the same git branch push event
+		if autoCancelOpt.Type == AutoCancelPush &&
+			(autoCancelOpt.MainRepo.CodehostID != task.TriggerBy.CodehostID ||
+				autoCancelOpt.MainRepo.RepoOwner != task.TriggerBy.RepoOwner ||
+				autoCancelOpt.MainRepo.RepoName != task.TriggerBy.RepoName ||
+				autoCancelOpt.Ref != task.TriggerBy.Ref) {
 			continue
 		}
 

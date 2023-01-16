@@ -182,6 +182,7 @@ type WorkflowTaskArgs struct {
 
 	// webhook触发工作流任务时，触发任务的repo信息、prID和commitID
 	MergeRequestID string `bson:"merge_request_id" json:"merge_request_id"`
+	Ref            string `bson:"ref" json:"ref"`
 	CommitID       string `bson:"commit_id"        json:"commit_id"`
 	Source         string `bson:"source"           json:"source"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
@@ -228,6 +229,7 @@ type TestTaskArgs struct {
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
 	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
+	Ref            string `bson:"ref" json:"ref"`
 }
 
 type Slack struct {

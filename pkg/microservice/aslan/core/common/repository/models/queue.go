@@ -85,6 +85,8 @@ type TriggerBy struct {
 	MergeRequestID string `json:"merge_request_id,omitempty" bson:"merge_request_id,omitempty"`
 	// 触发此次任务的commit id
 	CommitID string `bson:"commit_id,omitempty" json:"commit_id,omitempty"`
+	// the git branch which triggered this task
+	Ref string `bson:"ref" json:"ref"`
 }
 
 type ServiceTaskArgs struct {
