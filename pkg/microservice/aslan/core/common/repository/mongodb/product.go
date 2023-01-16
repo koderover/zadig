@@ -443,6 +443,17 @@ func (c *ProductColl) UpdateProductRecycleDay(envName, productName string, recyc
 	return err
 }
 
+func (c *ProductColl) UpdateProductAlias(envName, productName, alias string) error {
+	query := bson.M{"env_name": envName, "product_name": productName}
+
+	change := bson.M{"$set": bson.M{
+		"alias": alias,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
 func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 	change := bson.M{"$set": bson.M{

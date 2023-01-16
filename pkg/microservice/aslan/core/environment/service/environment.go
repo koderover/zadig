@@ -699,6 +699,24 @@ func UpdateProductRecycleDay(envName, productName string, recycleDay int) error 
 	return commonrepo.NewProductColl().UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
+func UpdateProductAlias(envName, productName, alias string) error {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to query product info, name %s", envName))
+	}
+	if !productInfo.Production {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("cannot set alias for non-production environment %s", envName))
+	}
+	err = commonrepo.NewProductColl().UpdateProductAlias(envName, productName, alias)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	return nil
+}
+
 func buildContainerMap(cs []*models.Container) map[string]*models.Container {
 	containerMap := make(map[string]*models.Container)
 	for _, c := range cs {

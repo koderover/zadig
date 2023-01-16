@@ -317,6 +317,18 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	ctx.Err = service.UpdateProductRecycleDay(envName, projectName, recycleDay)
 }
 
+func UpdateProductAlias(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	arg := new(commonmodels.Product)
+	if err := c.BindJSON(arg); err != nil {
+		return
+	}
+
+	ctx.Err = service.UpdateProductAlias(c.Param("name"), c.Query("projectName"), arg.Alias)
+}
+
 func AffectedServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -329,7 +341,6 @@ func AffectedServices(c *gin.Context) {
 	}
 
 	arg := new(service.K8sRendersetArg)
-
 	if err := c.BindJSON(arg); err != nil {
 		return
 	}

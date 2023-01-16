@@ -145,6 +145,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name", GetProduct)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
+		environments.PUT("/:name/alias", UpdateProductAlias)
 		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
