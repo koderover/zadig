@@ -288,13 +288,13 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 							autoCancelOpt.CommitID = commitID
 							autoCancelOpt.Type = AutoCancelPR
 							prID = ev.PullRequest.Number
-							hookPayload = &commonmodels.HookPayload{
-								Owner:  ev.Repository.Owner.Login,
-								Repo:   ev.Repository.Name,
-								Branch: ev.PullRequest.Base.Ref,
-								Ref:    ev.PullRequest.Head.Sha,
-								IsPr:   true,
-							}
+						}
+						hookPayload = &commonmodels.HookPayload{
+							Owner:  ev.Repository.Owner.Login,
+							Repo:   ev.Repository.Name,
+							Branch: ev.PullRequest.Base.Ref,
+							Ref:    ev.PullRequest.Head.Sha,
+							IsPr:   true,
 						}
 					case *gitee.PushEvent:
 						ref = ev.Ref
@@ -302,6 +302,13 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 						autoCancelOpt.Ref = ref
 						autoCancelOpt.CommitID = commitID
 						autoCancelOpt.Type = AutoCancelPush
+						hookPayload = &commonmodels.HookPayload{
+							Owner:  ev.Repository.Owner.Login,
+							Repo:   ev.Repository.Name,
+							Branch: ref,
+							Ref:    commitID,
+							IsPr:   true,
+						}
 					}
 					if autoCancelOpt.Type != "" {
 						err := AutoCancelTask(autoCancelOpt, log)
