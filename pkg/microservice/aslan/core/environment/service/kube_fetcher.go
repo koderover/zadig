@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/informers"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -72,8 +74,8 @@ type SortableByCreationTime interface {
 
 type K8sResourceResp struct {
 	Count     int                      `json:"count"`
-	Workloads []interface{}            `json:"workloads"`
-	Resources []SortableByCreationTime `json:"resources"`
+	Workloads []interface{}            `json:"workloads,omitempty"`
+	Resources []SortableByCreationTime `json:"resources,omitempty"`
 }
 
 type WorkloadDaemonSet struct {
@@ -252,8 +254,8 @@ func getWorkloadCommonInfo(item WorkloadItem, workloadType string, creationTime 
 	return resp
 }
 
-func ListDeployments(page, pageSize int, namespace string, kc client.Client) (*K8sResourceResp, error) {
-	deployments, err := getter.ListDeployments(namespace, nil, kc)
+func ListDeployments(page, pageSize int, namespace string, kc client.Client, informer informers.SharedInformerFactory) (*K8sResourceResp, error) {
+	deployments, err := getter.ListDeploymentsWithCache(nil, informer)
 	if err != nil {
 		return nil, err
 	}

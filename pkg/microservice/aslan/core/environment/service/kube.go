@@ -58,6 +58,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
@@ -740,13 +741,12 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 	return resp, nil
 }
 
-func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (interface{}, error) {
+func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sResourceResp, error) {
 
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProjectName,
 		EnvName: args.EnvName,
 	})
-	log.Infof("####### query param: %+v", *args)
 
 	if err != nil {
 		return nil, e.ErrListK8sResources.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
@@ -757,12 +757,22 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (interf
 		return nil, e.ErrListK8sResources.AddErr(err)
 	}
 
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return n, e.ErrListK8sResources.AddDesc(err.Error())
+	}
+
+	informer, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	if err != nil {
+		return nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+
 	page, pageSize := args.Page, args.PageSize
 	clusterID, namespace := productInfo.ClusterID, productInfo.Namespace
 
 	switch args.ResourceTypes {
 	case "deployments":
-		return ListDeployments(page, pageSize, namespace, kubeClient)
+		return ListDeployments(page, pageSize, namespace, kubeClient, informer)
 	case "statefulsets":
 		return ListStatefulSets(page, pageSize, namespace, kubeClient)
 	case "daemonsets":
