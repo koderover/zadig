@@ -363,6 +363,7 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           templateProduct.ProductName,
 		ShareEnvEnable: util.GetBoolPointer(false),
+		Production:     util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return nil, err

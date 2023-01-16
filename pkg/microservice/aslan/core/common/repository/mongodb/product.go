@@ -60,6 +60,8 @@ type ProductListOptions struct {
 	ShareEnvEnable  *bool
 	ShareEnvIsBase  *bool
 	ShareEnvBaseEnv *string
+
+	Production *bool
 }
 
 type projectEnvs struct {
@@ -251,6 +253,9 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	}
 	if opt.ShareEnvBaseEnv != nil {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
+	}
+	if opt.Production != nil {
+		query["production"] = *opt.Production
 	}
 
 	ctx := context.Background()
