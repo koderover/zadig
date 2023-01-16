@@ -817,8 +817,7 @@ func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crC
 			if err != nil {
 				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
 			}
-			if job != nil && job.Status.Active > 0 {
-				// Active status contains both pending and running pods
+			if job != nil {
 				// Should ensure the status of pod is running
 				podList, err := getter.ListPods(namespace, labels.Set(getJobLabels(&JobLabel{
 					JobName: jobName,
