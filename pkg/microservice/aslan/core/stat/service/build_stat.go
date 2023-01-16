@@ -398,7 +398,7 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 				TaskID:       workflowTask.TaskID,
 				Type:         string(config.WorkflowTypeV4),
 				PipelineName: workflowTask.WorkflowName,
-				DisplayName:  workflowTask.WorkflowDisplayName,
+				DisplayName:  getDisplayName(workflowTask.WorkflowName, workflowTask.WorkflowDisplayName),
 			},
 			ProductName: workflowTask.ProjectName,
 			Duration:    workflowTask.EndTime - workflowTask.StartTime,
@@ -421,7 +421,7 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 				TaskID:       latestTask.TaskID,
 				Type:         string(latestTask.Type),
 				PipelineName: latestTask.PipelineName,
-				DisplayName:  latestTask.PipelineDisplayName,
+				DisplayName:  getDisplayName(latestTask.PipelineName, latestTask.PipelineDisplayName),
 			},
 			ProductName: latestTask.ProductName,
 			Duration:    latestTask.EndTime - latestTask.StartTime,
@@ -464,9 +464,17 @@ func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string
 			TaskCreator:  task.TaskCreator,
 			CreateTime:   task.CreateTime,
 		}
+		buildStatLatestTen.DisplayName = getDisplayName(buildStatLatestTen.PipelineName, buildStatLatestTen.DisplayName)
 		latestTenPipelines = append(latestTenPipelines, buildStatLatestTen)
 	}
 	return latestTenPipelines, nil
+}
+
+func getDisplayName(name, displayName string) string {
+	if displayName != "" {
+		return displayName
+	}
+	return name
 }
 
 type buildTrend struct {
