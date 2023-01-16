@@ -213,7 +213,7 @@ func getTaskDateMap(productName string, startTimestamp int64) (map[string][]inte
 	}
 	for v4Cursor.Next(context.Background()) {
 		var workflowTask commonmodels.WorkflowTask
-		if err := cursor.Decode(&workflowTask); err != nil {
+		if err := v4Cursor.Decode(&workflowTask); err != nil {
 			return taskDateMap, fmt.Errorf("decode workflow v4 task err:%v", err)
 		}
 		time := time.Unix(workflowTask.CreateTime, 0)
