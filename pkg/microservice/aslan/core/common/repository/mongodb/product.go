@@ -255,7 +255,10 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
 	}
 	if opt.Production != nil {
-		query["production"] = *opt.Production
+		query["production"] = bson.M{"$in": bson.A{
+			bson.M{"$or": opt.InProjects},
+			bson.M{"$exists": false},
+		}}
 	}
 
 	ctx := context.Background()
