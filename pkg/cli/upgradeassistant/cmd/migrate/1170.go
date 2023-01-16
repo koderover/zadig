@@ -27,11 +27,13 @@ import (
 	"github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templatemongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	statmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/mongodb"
+	statservice "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
+	policymongo "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-
-	policymongo "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 )
 
 func init() {
@@ -46,6 +48,10 @@ func V1160ToV1170() error {
 	}
 	if err := migrateJiraInfo(); err != nil {
 		log.Errorf("migrateJiraInfo err: %v", err)
+		return err
+	}
+	if err := updateDataStat(); err != nil {
+		log.Errorf("updateDataStat err: %v", err)
 		return err
 	}
 	return nil
@@ -138,4 +144,61 @@ func migrateJiraInfo() error {
 		JiraUser:  info.User,
 		JiraToken: info.AccessToken,
 	})
+}
+
+func updateDataStat() error {
+	logger := log.SugaredLogger()
+	allProducts, err := templatemongodb.NewProductColl().List()
+	if err != nil {
+		logger.Errorf("BuildStat ProductTmpl List err:%v", err)
+		return fmt.Errorf("BuildStat ProductTmpl List err:%v", err)
+	}
+	for _, product := range allProducts {
+		buildStats, err := statservice.GetBuildStatByProdutName(product.ProductName, 0, logger)
+		if err != nil {
+			logger.Errorf("BuildStat ProductTmpl List err:%v", err)
+			return fmt.Errorf("BuildStat ProductTmpl List err:%v", err)
+		}
+		for _, buildStat := range buildStats {
+			err := statmongodb.NewBuildStatColl().Create(buildStat)
+			if err != nil { //插入失败就更新
+				err = statmongodb.NewBuildStatColl().Update(buildStat)
+				if err != nil {
+					log.Errorf("BuildStat Update err:%v", err)
+					continue
+				}
+			}
+		}
+		deployStats, err := statservice.GetDeployStatByProdutName(product.ProductName, 0, logger)
+		if err != nil {
+			logger.Errorf("DeployStats ProductTmpl List err:%v", err)
+			return fmt.Errorf("DeployStats ProductTmpl List err:%v", err)
+		}
+		for _, deployStat := range deployStats {
+			err := statmongodb.NewDeployStatColl().Create(deployStat)
+			if err != nil { //插入失败就更新
+				err = statmongodb.NewDeployStatColl().Update(deployStat)
+				if err != nil {
+					log.Errorf("DeployStat Update err:%v", err)
+					continue
+				}
+			}
+		}
+		testStats, err := statservice.GetTestStatByProdutName(product.ProductName, 0, logger)
+		if err != nil {
+			logger.Errorf("TestStat ProductTmpl List err:%v", err)
+			return fmt.Errorf("TestStat ProductTmpl List err:%v", err)
+		}
+		for _, testStat := range testStats {
+			err := statmongodb.NewTestStatColl().Create(testStat)
+			if err != nil { //插入失败就更新
+				err = statmongodb.NewTestStatColl().Update(testStat)
+				if err != nil {
+					log.Errorf("TestStat Update err:%v", err)
+					continue
+				}
+			}
+		}
+	}
+	return nil
 }
