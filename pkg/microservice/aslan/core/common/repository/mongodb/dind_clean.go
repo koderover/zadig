@@ -51,9 +51,24 @@ func (c *DindCleanColl) EnsureIndex(ctx context.Context) error {
 	return nil
 }
 
+func (c *DindCleanColl) UpdateStatusInfo(args *models.DindClean) error {
+	if args == nil {
+		return errors.New("nil dind clean info")
+	}
+	args.Name = "dind_clean"
+	query := bson.M{"name": args.Name}
+	change := bson.M{"$set": bson.M{
+		"status":           args.Status,
+		"dind_clean_infos": args.DindCleanInfos,
+		"update_time":      time.Now().Unix(),
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *DindCleanColl) Upsert(args *models.DindClean) error {
 	if args == nil {
-		return errors.New("nil dind_clean info")
+		return errors.New("nil dind clean info")
 	}
 
 	args.Name = "dind_clean"
