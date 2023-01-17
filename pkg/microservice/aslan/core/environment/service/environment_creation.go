@@ -32,44 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-// create empty renderset for product env in host projects
-func prepareHostProductCreation(productObj *commonmodels.Product, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
-	// insert renderset info into db
-	err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
-		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-		EnvName:       arg.EnvName,
-		ProductTmpl:   arg.ProductName,
-		UpdateBy:      productObj.UpdateBy,
-		IsDefault:     false,
-		DefaultValues: arg.DefaultValues,
-		ChartInfos:    productObj.ServiceRenders,
-		YamlData:      geneYamlData(arg.ValuesData),
-	}, log)
-	if err != nil {
-		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
-	}
-
-	renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-		Name:        commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-		EnvName:     arg.EnvName,
-		IsDefault:   false,
-		ProductTmpl: productObj.ProductName,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find renderset of product: %s/%s, err: %s", arg.ProductName, arg.EnvName, err)
-	}
-
-	if renderset != nil {
-		productObj.Render = &commonmodels.RenderInfo{
-			Name:        renderset.Name,
-			Revision:    renderset.Revision,
-			ProductTmpl: productObj.ProductName,
-		}
-	}
-	return nil
-}
-
 // fill product services and chart infos and insert renderset data
 func prepareHelmProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
 	err := validateArgs(arg.ValuesData)
@@ -207,10 +169,6 @@ func createSingleHostProduct(templateProduct *templatemodels.Product, requestID,
 		Alias:           arg.Alias,
 	}
 
-	err := prepareHostProductCreation(productObj, arg, log)
-	if err != nil {
-		return err
-	}
 	return CreateProduct(userName, requestID, productObj, log)
 }
 
