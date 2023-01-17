@@ -151,6 +151,27 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	return nil
 }
 
+func createSingleHostProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
+	productObj := &commonmodels.Product{
+		ProductName:     templateProduct.ProductName,
+		Enabled:         false,
+		EnvName:         arg.EnvName,
+		UpdateBy:        userName,
+		IsPublic:        true,
+		ClusterID:       arg.ClusterID,
+		Namespace:       arg.Namespace,
+		Source:          setting.SourceFromExternal,
+		IsOpenSource:    templateProduct.IsOpensource,
+		IsForkedProduct: false,
+		RegistryID:      registryID,
+		IsExisted:       arg.IsExisted,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
+	}
+
+	return CreateProduct(userName, requestID, productObj, log)
+}
+
 func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
 		ProductName:     templateProduct.ProductName,
@@ -178,6 +199,27 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		return err
 	}
 	return CreateProduct(userName, requestID, productObj, log)
+}
+
+// CreateHostProductionProduct creates environment for host project, this function only creates production environment
+func CreateHostProductionProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil || templateProduct == nil {
+		if err != nil {
+			log.Errorf("failed to query product %s, err %s ", productName, err.Error())
+		}
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
+	}
+
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		arg.Production = true
+		err = createSingleHostProduct(templateProduct, requestID, userName, arg.RegistryID, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
 }
 
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
