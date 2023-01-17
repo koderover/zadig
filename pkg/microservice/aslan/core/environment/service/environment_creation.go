@@ -32,6 +32,44 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
+// create empty renderset for product env in host projects
+func prepareHostProductCreation(productObj *commonmodels.Product, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
+	// insert renderset info into db
+	err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		EnvName:       arg.EnvName,
+		ProductTmpl:   arg.ProductName,
+		UpdateBy:      productObj.UpdateBy,
+		IsDefault:     false,
+		DefaultValues: arg.DefaultValues,
+		ChartInfos:    productObj.ServiceRenders,
+		YamlData:      geneYamlData(arg.ValuesData),
+	}, log)
+	if err != nil {
+		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+	}
+
+	renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		Name:        commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		EnvName:     arg.EnvName,
+		IsDefault:   false,
+		ProductTmpl: productObj.ProductName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find renderset of product: %s/%s, err: %s", arg.ProductName, arg.EnvName, err)
+	}
+
+	if renderset != nil {
+		productObj.Render = &commonmodels.RenderInfo{
+			Name:        renderset.Name,
+			Revision:    renderset.Revision,
+			ProductTmpl: productObj.ProductName,
+		}
+	}
+	return nil
+}
+
 // fill product services and chart infos and insert renderset data
 func prepareHelmProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
 	err := validateArgs(arg.ValuesData)
@@ -151,6 +189,31 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	return nil
 }
 
+func createSingleHostProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
+	productObj := &commonmodels.Product{
+		ProductName:     templateProduct.ProductName,
+		Enabled:         false,
+		EnvName:         arg.EnvName,
+		UpdateBy:        userName,
+		IsPublic:        true,
+		ClusterID:       arg.ClusterID,
+		Namespace:       arg.Namespace,
+		Source:          setting.SourceFromExternal,
+		IsOpenSource:    templateProduct.IsOpensource,
+		IsForkedProduct: false,
+		RegistryID:      registryID,
+		IsExisted:       arg.IsExisted,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
+	}
+
+	err := prepareHostProductCreation(productObj, arg, log)
+	if err != nil {
+		return err
+	}
+	return CreateProduct(userName, requestID, productObj, log)
+}
+
 func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
 		ProductName:     templateProduct.ProductName,
@@ -178,6 +241,27 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		return err
 	}
 	return CreateProduct(userName, requestID, productObj, log)
+}
+
+// CreateHostProductionProduct creates environment for host project, this function only creates production environment
+func CreateHostProductionProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil || templateProduct == nil {
+		if err != nil {
+			log.Errorf("failed to query product %s, err %s ", productName, err.Error())
+		}
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
+	}
+
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		arg.Production = true
+		err = createSingleHostProduct(templateProduct, requestID, userName, arg.RegistryID, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
 }
 
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
