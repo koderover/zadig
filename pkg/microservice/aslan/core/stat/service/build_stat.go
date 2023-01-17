@@ -56,8 +56,8 @@ func GetAllPipelineTask(log *zap.SugaredLogger) error {
 	for _, product := range allProducts {
 		buildStats, err := GetBuildStatByProdutName(product.ProductName, createTime, log)
 		if err != nil {
-			log.Errorf("list workkflow build stat err: %v", err)
-			return fmt.Errorf("list workkflow build stat err: %v", err)
+			log.Errorf("list workflow build stat err: %v", err)
+			return fmt.Errorf("list workflow build stat err: %v", err)
 		}
 		for _, buildStat := range buildStats {
 			err := mongodb.NewBuildStatColl().Create(buildStat)
