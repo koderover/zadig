@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/now"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -450,8 +451,7 @@ func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string
 	}
 	latestTenPipelines := make([]*buildStatLatestTen, 0)
 	for _, buidStat := range maxTenDurationBuildStats {
-		log.Errorf("@@@@ pipeline: %s %d %s", buidStat.MaxDurationPipeline.PipelineName, buidStat.MaxDurationPipeline.TaskID, buidStat.Date)
-		task, err := commonmongodb.NewTaskColl().Find(buidStat.MaxDurationPipeline.TaskID, buidStat.MaxDurationPipeline.PipelineName, config.PipelineType(buidStat.MaxDurationPipeline.Type))
+		task, err := getTaskDetail(buidStat.MaxDurationPipeline.Type, buidStat.MaxDurationPipeline.PipelineName, buidStat.MaxDurationPipeline.TaskID)
 		if err != nil {
 			log.Errorf("PipelineTask Find err:%v", err)
 			continue
@@ -459,8 +459,8 @@ func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string
 
 		buildStatLatestTen := &buildStatLatestTen{
 			PipelineInfo: buidStat.MaxDurationPipeline,
-			ProductName:  task.ProductName,
-			Duration:     task.EndTime - task.StartTime,
+			ProductName:  task.Project,
+			Duration:     task.Duration,
 			Status:       string(task.Status),
 			TaskCreator:  task.TaskCreator,
 			CreateTime:   task.CreateTime,
@@ -476,6 +476,41 @@ func getDisplayName(name, displayName string) string {
 		return displayName
 	}
 	return name
+}
+
+type TaskPreview struct {
+	Project     string
+	Duration    int64
+	Status      string
+	TaskCreator string
+	CreateTime  int64
+}
+
+func getTaskDetail(taskType, workflowName string, taskID int64) (*TaskPreview, error) {
+	if config.PipelineType(taskType) == config.WorkflowTypeV4 {
+		task, err := commonmongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+		if err != nil {
+			return nil, errors.Errorf("find workflow v4 task err:%v", err)
+		}
+		return &TaskPreview{
+			Project:     task.ProjectName,
+			Duration:    task.EndTime - task.StartTime,
+			Status:      string(task.Status),
+			TaskCreator: task.TaskCreator,
+			CreateTime:  task.CreateTime,
+		}, nil
+	}
+	task, err := commonmongodb.NewTaskColl().Find(taskID, workflowName, config.PipelineType(taskType))
+	if err != nil {
+		return nil, errors.Errorf("find workflow task err:%v", err)
+	}
+	return &TaskPreview{
+		Project:     task.ProductName,
+		Duration:    task.EndTime - task.StartTime,
+		Status:      string(task.Status),
+		TaskCreator: task.TaskCreator,
+		CreateTime:  task.CreateTime,
+	}, nil
 }
 
 type buildTrend struct {
