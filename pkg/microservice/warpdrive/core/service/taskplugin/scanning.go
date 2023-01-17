@@ -280,7 +280,9 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 func (p *ScanPlugin) Wait(ctx context.Context) {
 	status, err := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
-	p.Task.Error = err.Error()
+	if err != nil {
+		p.Task.Error = err.Error()
+	}
 }
 
 func (p *ScanPlugin) tmpSetTaskTimeout(durationInSeconds int) {
