@@ -450,6 +450,7 @@ func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string
 	}
 	latestTenPipelines := make([]*buildStatLatestTen, 0)
 	for _, buidStat := range maxTenDurationBuildStats {
+		log.Errorf("@@@@ pipeline: %s %d %s", buidStat.MaxDurationPipeline.PipelineName, buidStat.MaxDurationPipeline.TaskID, buidStat.Date)
 		task, err := commonmongodb.NewTaskColl().Find(buidStat.MaxDurationPipeline.TaskID, buidStat.MaxDurationPipeline.PipelineName, config.PipelineType(buidStat.MaxDurationPipeline.Type))
 		if err != nil {
 			log.Errorf("PipelineTask Find err:%v", err)
