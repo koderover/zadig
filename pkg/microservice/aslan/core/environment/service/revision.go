@@ -80,7 +80,11 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 		projectNames = append(projectNames, v.ProductName)
 	}
 
-	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}, InProjects: projectNames})
+	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown},
+		InProjects:    projectNames,
+		Production:    util.GetBoolPointer(false),
+	})
 	if err != nil {
 		log.Errorf("Collection.Product.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())

@@ -95,17 +95,6 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		return nil, e.ErrListEnvs.AddDesc(err.Error())
 	}
 
-	clusterMap := make(map[string]*commonmodels.K8SCluster)
-	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
-	if err != nil {
-		log.Errorf("Failed to list clusters in db, err: %s", err)
-		return nil, err
-	}
-
-	for _, cls := range clusters {
-		clusterMap[cls.ID.Hex()] = cls
-	}
-
 	var res []*EnvResp
 	reg, _, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
@@ -118,17 +107,11 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		return nil, err
 	}
 	for _, env := range envs {
-		clusterID := env.ClusterID
-		production := false
 		clusterName := ""
-		cluster, ok := clusterMap[clusterID]
 		if len(env.RegistryID) == 0 {
 			env.RegistryID = reg.ID.Hex()
 		}
-		if ok {
-			production = cluster.Production
-			clusterName = cluster.Name
-		}
+
 		var baseRefs []string
 		if cmSet, ok := envCMMap[collaboration.BuildEnvCMMapKey(env.ProductName, env.EnvName)]; ok {
 			baseRefs = append(baseRefs, cmSet.List()...)
@@ -140,13 +123,15 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			IsExisted:       env.IsExisted,
 			ClusterName:     clusterName,
 			Source:          env.Source,
-			Production:      production,
+			Production:      env.Production,
 			Status:          env.Status,
 			Error:           env.Error,
 			UpdateTime:      env.UpdateTime,
 			UpdateBy:        env.UpdateBy,
 			RegistryID:      env.RegistryID,
 			ClusterID:       env.ClusterID,
+			Namespace:       env.Namespace,
+			Alias:           env.Alias,
 			BaseRefs:        baseRefs,
 			BaseName:        env.BaseName,
 			ShareEnvEnable:  env.ShareEnv.Enable,
@@ -712,6 +697,24 @@ func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.
 
 func UpdateProductRecycleDay(envName, productName string, recycleDay int) error {
 	return commonrepo.NewProductColl().UpdateProductRecycleDay(envName, productName, recycleDay)
+}
+
+func UpdateProductAlias(envName, productName, alias string) error {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to query product info, name %s", envName))
+	}
+	if !productInfo.Production {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("cannot set alias for non-production environment %s", envName))
+	}
+	err = commonrepo.NewProductColl().UpdateProductAlias(envName, productName, alias)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	return nil
 }
 
 func buildContainerMap(cs []*models.Container) map[string]*models.Container {
@@ -1731,7 +1734,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 			}()
 
-			if isDelete {
+			if isDelete && !productInfo.Production {
 				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
 						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
@@ -1837,7 +1840,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					commonservice.SendMessage(username, title, content, requestID, log)
 				}
 			}()
-			if isDelete {
+			if isDelete && !productInfo.Production {
 				// Delete Cluster level resources
 				err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
 				if err != nil {
@@ -2713,7 +2716,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	for _, group := range args.Services {
 		serviceCount = serviceCount + len(group)
 	}
-	if serviceCount == 0 {
+	if serviceCount == 0 && !args.Production {
 		log.Errorf("[%s][P:%s] not service found", envName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.FindProductServiceErrMsg)
 	}

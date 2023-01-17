@@ -168,6 +168,8 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		IsExisted:       arg.IsExisted,
 		EnvConfigs:      arg.EnvConfigs,
 		ShareEnv:        arg.ShareEnv,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
 	}
 
 	// fill services and chart infos of product
@@ -285,6 +287,8 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 		IsExisted:       arg.IsExisted,
 		EnvConfigs:      arg.EnvConfigs,
 		ShareEnv:        arg.ShareEnv,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
 		//Vars:            arg.Vars,
 	}
 	if len(arg.BaseEnvName) > 0 {
