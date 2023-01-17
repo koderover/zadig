@@ -164,7 +164,8 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 		if srcStorage.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
 		}
-		s3client, err := s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Region, srcStorage.Insecure, forcedPathStyle)
+		var s3client *s3tool.Client
+		s3client, err = s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Region, srcStorage.Insecure, forcedPathStyle)
 		if err != nil {
 			p.Log.Errorf("failed to create s3 client source storage %s: %v", srcStorage.GetURI(), err)
 			return
