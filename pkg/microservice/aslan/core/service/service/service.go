@@ -624,14 +624,32 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 
 	// for host services, services are stored in template_product.services[0]
 	if len(templateProductInfo.Services) == 1 {
-		validServices := sets.NewString(templateProductInfo.Services[0]...)
-		validServices.Insert(svcNeedAdd.List()...)
-		validServices.Delete(svcNeedDelete.List()...)
-		templateProductInfo.Services[0] = validServices.List()
-		err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
-		if err != nil {
-			log.Errorf("failed to update service for product: %s, err: %s", templateProductInfo.ProductName, err)
-		}
+
+		func() {
+			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+			if err != nil {
+				log.Errorf("ListWorkloads ListExternalServicesBy err:%s", err)
+				return
+			}
+			productServiceNames := sets.NewString()
+			for _, productService := range productServices {
+				productServiceNames.Insert(productService.ServiceName)
+			}
+			// add services in external env data
+			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+			})
+			for _, serviceInExternalEnv := range servicesInExternalEnv {
+				productServiceNames.Insert(serviceInExternalEnv.ServiceName)
+			}
+
+			templateProductInfo.Services[0] = productServiceNames.List()
+			err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
+			if err != nil {
+				log.Errorf("failed to update service for product: %s, err: %s", templateProductInfo.ProductName, err)
+			}
+		}()
+
 	}
 
 	// 删除 && 增加
