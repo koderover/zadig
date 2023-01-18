@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
-
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
