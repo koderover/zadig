@@ -643,10 +643,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				productServiceNames.Insert(serviceInExternalEnv.ServiceName)
 			}
 
-			//validServices := sets.NewString(templateProductInfo.Services[0]...)
-			//validServices.Insert(svcNeedAdd.List()...)
-			//validServices.Delete(svcNeedDelete.List()...)
-			log.Infof("###### the productServiceNames list is %v ", productServiceNames.List())
 			templateProductInfo.Services[0] = productServiceNames.List()
 			err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
 			if err != nil {
