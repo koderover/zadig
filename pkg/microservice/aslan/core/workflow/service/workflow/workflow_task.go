@@ -721,6 +721,9 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				log.Errorf("add jira task error: %v", err)
 				return nil, e.ErrCreateTask.AddErr(fmt.Errorf("add jira task error: %v", err))
 			}
+			//todo debug
+			fmt.Println("debug jira2")
+			fmt.Println(jiraTask)
 			subTasks = append(subTasks, jiraTask)
 		}
 
@@ -1535,6 +1538,10 @@ func AddJiraSubTask(moduleName, target, serviceName, productName, buildName stri
 		for _, repo := range module.TargetRepos {
 			if repo.Service.ServiceName == serviceName {
 				repos = append(repos, repo.Repos...)
+				//todo debug
+				fmt.Println("debug jira")
+				fmt.Println(repos)
+				break
 			}
 		}
 	}
