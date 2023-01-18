@@ -1529,7 +1529,15 @@ func AddJiraSubTask(moduleName, target, serviceName, productName, buildName stri
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
-	repos = append(repos, module.Repos...)
+	if module.TemplateID == "" {
+		repos = append(repos, module.Repos...)
+	} else {
+		for _, repo := range module.TargetRepos {
+			if repo.Service.ServiceName == serviceName {
+				repos = append(repos, repo.Repos...)
+			}
+		}
+	}
 
 	jira.Builds = repos
 	return jira.ToSubTask()
