@@ -99,7 +99,24 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	reg, _, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("FindDefaultRegistry error: %v", err)
-		return nil, err
+		return nil, e.ErrListEnvs.AddErr(err)
+	}
+
+	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
+	if err != nil {
+		log.Errorf("failed to list clusters, err: %s", err)
+		return nil, e.ErrListEnvs.AddErr(err)
+	}
+	clusterMap := make(map[string]*models.K8SCluster)
+	for _, cluster := range clusters {
+		clusterMap[cluster.ID.Hex()] = cluster
+	}
+	getClusterName := func(clusterID string) string {
+		cluster, ok := clusterMap[clusterID]
+		if ok {
+			return cluster.Name
+		}
+		return ""
 	}
 
 	envCMMap, err := collaboration.GetEnvCMMap([]string{projectName}, log)
@@ -107,7 +124,6 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		return nil, err
 	}
 	for _, env := range envs {
-		clusterName := ""
 		if len(env.RegistryID) == 0 {
 			env.RegistryID = reg.ID.Hex()
 		}
@@ -121,7 +137,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			Name:            env.EnvName,
 			IsPublic:        env.IsPublic,
 			IsExisted:       env.IsExisted,
-			ClusterName:     clusterName,
+			ClusterName:     getClusterName(env.ClusterID),
 			Source:          env.Source,
 			Production:      env.Production,
 			Status:          env.Status,
