@@ -1533,7 +1533,7 @@ func AddJiraSubTask(moduleName, target, serviceName, productName, buildName stri
 		repos = append(repos, module.Repos...)
 	} else {
 		for _, repo := range module.Targets {
-			if repo.ServiceName == serviceName {
+			if repo.ServiceName == serviceName && repo.ServiceModule == moduleName {
 				repos = append(repos, repo.Repos...)
 				break
 			}
