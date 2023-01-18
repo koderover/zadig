@@ -53,7 +53,12 @@ func GetOverviewStat(log *zap.SugaredLogger) (*Overview, error) {
 		log.Errorf("Failed to get workflow count err:%s", err)
 		return nil, err
 	}
-	overview.WorkflowCount = int(workflowCount)
+	workflowV4Count, err := commonrepo.NewWorkflowV4Coll().Count()
+	if err != nil {
+		log.Errorf("Failed to get workflow v4 count err:%s", err)
+		return nil, err
+	}
+	overview.WorkflowCount = int(workflowCount + workflowV4Count)
 
 	envCount, err := commonrepo.NewProductColl().EnvCount()
 	if err != nil {

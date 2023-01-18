@@ -714,6 +714,9 @@ func (c *TaskColl) ListByCursor(option *ListAllTaskOption) (*mongo.Cursor, error
 		return nil, errors.New("nil list pipeline option")
 	}
 	query := bson.M{"is_deleted": false}
+	if option.ProductName != "" {
+		query["product_name"] = option.ProductName
+	}
 	if len(option.ProductNames) > 0 {
 		query["product_name"] = bson.M{"$in": option.ProductNames}
 	}

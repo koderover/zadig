@@ -174,6 +174,18 @@ func (c *WorkflowV4Coll) Create(obj *models.WorkflowV4) (string, error) {
 	return ID.Hex(), err
 }
 
+func (c *WorkflowV4Coll) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64) ([]*models.WorkflowV4, int64, error) {
 	resp := make([]*models.WorkflowV4, 0)
 	query := bson.M{}
