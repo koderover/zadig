@@ -1535,8 +1535,8 @@ func AddJiraSubTask(moduleName, target, serviceName, productName, buildName stri
 	if module.TemplateID == "" {
 		repos = append(repos, module.Repos...)
 	} else {
-		for _, repo := range module.TargetRepos {
-			if repo.Service.ServiceName == serviceName {
+		for _, repo := range module.Targets {
+			if repo.ServiceName == serviceName {
 				repos = append(repos, repo.Repos...)
 				//todo debug
 				fmt.Println("debug jira")
