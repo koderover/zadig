@@ -716,7 +716,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 		_, err = jira.GetJiraInfo()
 		if err == nil {
-			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
+			jiraTask, err := AddJiraSubTask(target.Name, target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
 			if err != nil {
 				log.Errorf("add jira task error: %v", err)
 				return nil, e.ErrCreateTask.AddErr(fmt.Errorf("add jira task error: %v", err))
@@ -1529,7 +1529,16 @@ func AddJiraSubTask(moduleName, target, serviceName, productName, buildName stri
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
-	repos = append(repos, module.Repos...)
+	if module.TemplateID == "" {
+		repos = append(repos, module.Repos...)
+	} else {
+		for _, repo := range module.Targets {
+			if repo.ServiceName == serviceName && repo.ServiceModule == moduleName {
+				repos = append(repos, repo.Repos...)
+				break
+			}
+		}
+	}
 
 	jira.Builds = repos
 	return jira.ToSubTask()
