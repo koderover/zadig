@@ -272,6 +272,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
+					log.Errorf("@@@@ mrid: %s", mergeRequestID)
 
 					// 3. create task with args
 					if resp, err := testingservice.CreateTestTask(args, log); err != nil {
