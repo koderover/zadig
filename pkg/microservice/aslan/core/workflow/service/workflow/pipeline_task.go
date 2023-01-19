@@ -631,9 +631,11 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			} else {
 				testArg.Builds = testing.Repos
 				pr, _ := strconv.Atoi(args.MergeRequestID)
-
+				//todo debug
+				log.Infof("debug test: pr %d", pr)
 				for i, build := range testArg.Builds {
 					if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
+						log.Infof("debug test: pr add %d", pr)
 						testArg.Builds[i].PR = pr
 						testArg.Builds[i].PRs = []int{pr}
 					}
