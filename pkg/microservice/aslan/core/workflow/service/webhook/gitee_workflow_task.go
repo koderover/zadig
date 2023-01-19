@@ -317,7 +317,7 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 							mErr = multierror.Append(mErr, err)
 						}
 
-						if notification == nil {
+						if autoCancelOpt.Type == AutoCancelPR && notification == nil {
 							notification, err = scmnotify.NewService().SendInitWebhookComment(
 								item.MainRepo, prID, baseURI, false, false, false, false, log,
 							)
@@ -334,6 +334,7 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 
 					args := matcher.UpdateTaskArgs(prod, item.WorkflowArgs, item.MainRepo, requestID)
 					args.MergeRequestID = mergeRequestID
+					args.Ref = ref
 					args.CommitID = commitID
 					args.Source = setting.SourceFromGitee
 					args.CodehostID = item.MainRepo.CodehostID
