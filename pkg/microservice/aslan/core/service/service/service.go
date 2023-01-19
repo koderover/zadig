@@ -33,8 +33,6 @@ import (
 	gotemplate "text/template"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
-
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -50,6 +48,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"

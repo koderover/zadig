@@ -51,7 +51,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.GET("/:name", GetServiceTemplateOption)
 		k8s.POST("", GetServiceTemplateProductName, CreateServiceTemplate)
 		k8s.PUT("/:name/variable", UpdateServiceVariable)
-		k8s.PUT("/:name/envStatus", UpdateServiceTemplate)
 		k8s.PUT("", UpdateServiceTemplate)
 		k8s.PUT("/yaml/validator", YamlValidator)
 		k8s.PUT("/:name/yaml/view", YamlViewServiceTemplate) // Deprecated
