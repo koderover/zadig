@@ -90,9 +90,6 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 						env.EnvName + "-" + envStatus.HostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
 					taskMap[key] = true
 
-					//if _, ok := c.lastServiceSchedulers[key]; ok && reflect.DeepEqual(svc, c.lastServiceSchedulers[key]) {
-					//	continue
-					//}
 					c.lastServiceSchedulers[key] = serviceRevision
 
 					if scheduler, ok := c.Schedulers[key]; ok {
