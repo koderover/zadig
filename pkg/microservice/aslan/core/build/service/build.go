@@ -313,7 +313,6 @@ func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
 			modifiedSvcBuildMap[newSvcModule.ServiceName] = currentBuild.Name
 		}
 	}
-	log.Infof("####### the svc build map is %v", modifiedSvcBuildMap)
 
 	for serviceName, buildName := range modifiedSvcBuildMap {
 		opt := &commonrepo.ServiceFindOption{
