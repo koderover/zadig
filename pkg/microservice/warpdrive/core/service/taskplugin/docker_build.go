@@ -227,7 +227,9 @@ func (p *DockerBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 func (p *DockerBuildPlugin) Wait(ctx context.Context) {
 	status, err := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
-	p.Task.Error = err.Error()
+	if err != nil {
+		p.Task.Error = err.Error()
+	}
 }
 
 // Complete ...

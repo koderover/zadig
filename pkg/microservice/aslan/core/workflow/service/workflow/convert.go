@@ -108,6 +108,7 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 		ServiceName:             task.ServiceName,
 		TaskArgs:                task.TaskArgs,
 		WorkflowArgs:            task.WorkflowArgs,
+		ScanningArgs:            task.ScanningArgs,
 		TestArgs:                task.TestArgs,
 		ServiceTaskArgs:         task.ServiceTaskArgs,
 		ArtifactPackageTaskArgs: task.ArtifactPackageTaskArgs,

@@ -285,7 +285,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					args.Ref = ref
 					args.MergeRequestID = mergeRequestID
 					args.CommitID = commitID
-					args.Source = setting.SourceFromGitee
+					args.Source = item.MainRepo.Source
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName

@@ -56,6 +56,7 @@ type Queue struct {
 	ServiceName             string                       `bson:"service_name,omitempty"                     json:"service_name,omitempty"`
 	TaskArgs                *TaskArgs                    `bson:"task_args,omitempty"                        json:"task_args,omitempty"`     // TaskArgs job parameters for single-service workflow
 	WorkflowArgs            *WorkflowTaskArgs            `bson:"workflow_args"                              json:"workflow_args,omitempty"` // WorkflowArgs job parameters for multi-service workflow
+	ScanningArgs            *ScanningArgs                `bson:"scanning_args,omitempty"                    json:"scanning_args,omitempty"` // ScanningArgs argument for scanning tasks
 	TestArgs                *TestTaskArgs                `bson:"test_args,omitempty"                        json:"test_args,omitempty"`     // TestArgs parameters for testing
 	ServiceTaskArgs         *ServiceTaskArgs             `bson:"service_args,omitempty"                     json:"service_args,omitempty"`  // ServiceTaskArgs parameters for script-deployed workflows
 	ArtifactPackageTaskArgs *ArtifactPackageTaskArgs     `bson:"artifact_package_args,omitempty"            json:"artifact_package_args,omitempty"`

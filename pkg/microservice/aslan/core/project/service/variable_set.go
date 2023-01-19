@@ -31,9 +31,10 @@ import (
 )
 
 type VariableSetFindOption struct {
-	ID      string `json:"id"`
-	PerPage int    `json:"perPage"`
-	Page    int    `json:"page"`
+	ID          string `json:"id" form:"id"`
+	PerPage     int    `json:"perPage" form:"perPage"`
+	Page        int    `json:"page" form:"page"`
+	ProjectName string `json:"projectName" form:"projectName"`
 }
 
 type VariableSetListResp struct {
@@ -51,6 +52,9 @@ type CreateVariableSetRequest struct {
 }
 
 func CreateVariableSet(args *CreateVariableSetRequest) error {
+	if args.ProjectName == "" {
+		return errors.ErrCreateVariableSet.AddErr(fmt.Errorf("project name can't be nil"))
+	}
 	modelData := &commonmodels.VariableSet{
 		Name:         args.Name,
 		Description:  args.Description,
@@ -146,8 +150,9 @@ func ListVariableSets(option *VariableSetFindOption, log *zap.SugaredLogger) (*V
 		option.PerPage = 20
 	}
 	count, variablesets, err := commonrepo.NewVariableSetColl().List(&commonrepo.VariableSetFindOption{
-		Page:    option.Page,
-		PerPage: option.PerPage,
+		Page:        option.Page,
+		PerPage:     option.PerPage,
+		ProjectName: option.ProjectName,
 	})
 	if err != nil {
 		log.Errorf("ListVariableSets err:%v", err)

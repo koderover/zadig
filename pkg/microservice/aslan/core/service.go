@@ -297,6 +297,7 @@ func initDatabase() {
 		commonrepo.NewPluginRepoColl(),
 		commonrepo.NewWorkflowViewColl(),
 		commonrepo.NewWorkflowV4TemplateColl(),
+		commonrepo.NewVariableSetColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

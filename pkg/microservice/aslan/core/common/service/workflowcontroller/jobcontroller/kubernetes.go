@@ -302,11 +302,6 @@ echo $result > %s
 							Args:            jobTaskSpec.Plugin.Args,
 							Command:         jobTaskSpec.Plugin.Cmds,
 							Lifecycle: &corev1.Lifecycle{
-								PostStart: &corev1.LifecycleHandler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p %s", job.JobOutputDir)},
-									},
-								},
 								PreStop: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{"/bin/sh", "-c", collectJobOutputCommand},
@@ -319,6 +314,10 @@ echo $result > %s
 									Name:      "zadig-context",
 									MountPath: ZadigContextDir,
 								},
+								{
+									Name:      "zadig-output",
+									MountPath: job.JobOutputDir,
+								},
 							},
 							Resources: getResourceRequirements(resReq, resReqSpec),
 
@@ -329,6 +328,12 @@ echo $result > %s
 					Volumes: []corev1.Volume{
 						{
 							Name: "zadig-context",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "zadig-output",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
@@ -817,8 +822,7 @@ func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crC
 			if err != nil {
 				xl.Errorf("get job failed, namespace:%s, jobName:%s, err:%v", namespace, jobName, err)
 			}
-			if job != nil && job.Status.Active > 0 {
-				// Active status contains both pending and running pods
+			if job != nil {
 				// Should ensure the status of pod is running
 				podList, err := getter.ListPods(namespace, labels.Set(getJobLabels(&JobLabel{
 					JobName: jobName,

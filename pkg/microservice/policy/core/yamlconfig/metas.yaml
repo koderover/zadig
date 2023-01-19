@@ -331,6 +331,12 @@ metas:
             endpoint: /api/aslan/template/build
           - method: POST
             endpoint: /api/aslan/template/workflow
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/department/?*
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/user
+          - method: GET
+            endpoint: /api/aslan/system/im_app
       - action: get_template
         alias: 查看
         description: 查看
@@ -377,6 +383,12 @@ metas:
             endpoint: /api/aslan/template/yaml/validateVariable
           - method: PUT
             endpoint: /api/aslan/template/workflow
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/department/?*
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/user
+          - method: GET
+            endpoint: /api/aslan/system/im_app
       - action: delete_template
         alias: 删除
         description: 删除
@@ -695,6 +707,8 @@ metas:
             endpoint: /api/aslan/service/pm/healthCheckUpdate
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/envRecycle'
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/alias'
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/renderset'
           - method: PUT

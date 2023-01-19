@@ -48,6 +48,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -624,14 +625,32 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 
 	// for host services, services are stored in template_product.services[0]
 	if len(templateProductInfo.Services) == 1 {
-		validServices := sets.NewString(templateProductInfo.Services[0]...)
-		validServices.Insert(svcNeedAdd.List()...)
-		validServices.Delete(svcNeedDelete.List()...)
-		templateProductInfo.Services[0] = validServices.List()
-		err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
-		if err != nil {
-			log.Errorf("failed to update service for product: %s, err: %s", templateProductInfo.ProductName, err)
-		}
+
+		func() {
+			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+			if err != nil {
+				log.Errorf("ListWorkloads ListExternalServicesBy err:%s", err)
+				return
+			}
+			productServiceNames := sets.NewString()
+			for _, productService := range productServices {
+				productServiceNames.Insert(productService.ServiceName)
+			}
+			// add services in external env data
+			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+			})
+			for _, serviceInExternalEnv := range servicesInExternalEnv {
+				productServiceNames.Insert(serviceInExternalEnv.ServiceName)
+			}
+
+			templateProductInfo.Services[0] = productServiceNames.List()
+			err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
+			if err != nil {
+				log.Errorf("failed to update service for product: %s, err: %s", templateProductInfo.ProductName, err)
+			}
+		}()
+
 	}
 
 	// 删除 && 增加
@@ -892,6 +911,35 @@ func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 
 		if existEnv && existHost {
 			envStatuses = append(envStatuses, envStatus)
+		}
+	}
+
+	// for pm services, fill env status data
+	if args.Type == setting.PMDeployType {
+		validStatusMap := make(map[string]*commonmodels.EnvStatus)
+		for _, status := range envStatuses {
+			validStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
+		}
+
+		envStatus, err := pm.GenerateEnvStatus(currentService.EnvConfigs, log.SugaredLogger())
+		if err != nil {
+			log.Errorf("failed to generate env status")
+			return err
+		}
+		defaultStatusMap := make(map[string]*commonmodels.EnvStatus)
+		for _, status := range envStatus {
+			defaultStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
+		}
+
+		for k, _ := range defaultStatusMap {
+			if vv, ok := validStatusMap[k]; ok {
+				defaultStatusMap[k] = vv
+			}
+		}
+
+		envStatuses = make([]*commonmodels.EnvStatus, 0)
+		for _, v := range defaultStatusMap {
+			envStatuses = append(envStatuses, v)
 		}
 	}
 

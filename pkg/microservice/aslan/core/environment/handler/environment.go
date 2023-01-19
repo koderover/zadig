@@ -104,9 +104,12 @@ func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs [
 		envNameList = append(envNameList, arg.EnvName)
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, ctx.Logger, envNameList...)
-	if param.Type == setting.K8SDeployType {
+	switch param.Type {
+	case setting.K8SDeployType:
 		ctx.Err = service.CreateYamlProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
-	} else {
+	case setting.SourceFromExternal:
+		ctx.Err = service.CreateHostProductionProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+	default:
 		ctx.Err = service.CreateHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	}
 }
@@ -154,12 +157,15 @@ func CreateProduct(c *gin.Context) {
 	if err != nil {
 		log.Infof("CreateProduct failed to get request data, err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
 	}
 
-	if createParam.Type == setting.K8SDeployType || createParam.Type == setting.HelmDeployType {
+	if createParam.Type == setting.K8SDeployType || createParam.Type == setting.HelmDeployType || createParam.Type == setting.SourceFromExternal {
 		createArgs := make([]*service.CreateSingleProductArg, 0)
 		if err = json.Unmarshal(data, &createArgs); err != nil {
 			log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+			ctx.Err = e.ErrInvalidParam.AddErr(err)
+			return
 		}
 
 		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
@@ -317,6 +323,18 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	ctx.Err = service.UpdateProductRecycleDay(envName, projectName, recycleDay)
 }
 
+func UpdateProductAlias(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	arg := new(commonmodels.Product)
+	if err := c.BindJSON(arg); err != nil {
+		return
+	}
+
+	ctx.Err = service.UpdateProductAlias(c.Param("name"), c.Query("projectName"), arg.Alias)
+}
+
 func AffectedServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -329,7 +347,6 @@ func AffectedServices(c *gin.Context) {
 	}
 
 	arg := new(service.K8sRendersetArg)
-
 	if err := c.BindJSON(arg); err != nil {
 		return
 	}

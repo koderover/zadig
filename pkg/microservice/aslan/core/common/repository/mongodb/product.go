@@ -60,6 +60,8 @@ type ProductListOptions struct {
 	ShareEnvEnable  *bool
 	ShareEnvIsBase  *bool
 	ShareEnvBaseEnv *string
+
+	Production *bool
 }
 
 type projectEnvs struct {
@@ -252,6 +254,9 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	if opt.ShareEnvBaseEnv != nil {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
 	}
+	if opt.Production != nil {
+		query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+	}
 
 	ctx := context.Background()
 	opts := options.Find()
@@ -437,6 +442,17 @@ func (c *ProductColl) UpdateProductRecycleDay(envName, productName string, recyc
 
 	change := bson.M{"$set": bson.M{
 		"recycle_day": recycleDay,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
+func (c *ProductColl) UpdateProductAlias(envName, productName, alias string) error {
+	query := bson.M{"env_name": envName, "product_name": productName}
+
+	change := bson.M{"$set": bson.M{
+		"alias": alias,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 

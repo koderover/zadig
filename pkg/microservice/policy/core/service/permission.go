@@ -463,10 +463,10 @@ type ReleaseWorkflowResp struct {
 	Stages               []string                 `json:"stages"`
 	Project              string                   `json:"project"`
 	Description          string                   `json:"description"`
-	CreatedBy            string                   `json:"created_by"`
-	CreateTime           int64                    `json:"create_time"`
-	UpdatedBy            string                   `json:"updated_by"`
-	UpdateTime           int64                    `json:"update_time"`
+	CreatedBy            string                   `json:"createdBy"`
+	CreateTime           int64                    `json:"createTime"`
+	UpdatedBy            string                   `json:"updatedBy"`
+	UpdateTime           int64                    `json:"updateTime"`
 	RecentTask           *TaskInfo                `json:"recentTask"`
 	RecentSuccessfulTask *TaskInfo                `json:"recentSuccessfulTask"`
 	RecentFailedTask     *TaskInfo                `json:"recentFailedTask"`
