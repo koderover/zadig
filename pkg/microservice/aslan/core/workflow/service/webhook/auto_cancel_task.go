@@ -129,27 +129,33 @@ func AutoCancelWorkflowTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *
 
 func AutoCancelTestTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *zap.SugaredLogger) error {
 	if autoCancelOpt == nil || task == nil || task.TestArgs == nil {
+		log.Infof("debug test1")
 		return nil
 	}
 
 	test, err := commonrepo.NewTestingColl().Find(task.TestArgs.TestName, task.TestArgs.ProductName)
 	if err != nil {
+		log.Infof("debug test1")
 		log.Errorf("find test failed, test name:%s, error: %v", task.TestArgs.TestName, err)
 		return err
 	}
 
 	if test.HookCtl == nil || len(test.HookCtl.Items) == 0 {
+		log.Infof("debug test2")
 		return nil
 	}
 
 	for _, item := range test.HookCtl.Items {
+		log.Infof("debug test3")
 		// TODO:testing support webhook as code trigger.yaml
 		if item.AutoCancel {
+			log.Infof("debug test4")
 			if err := commonservice.CancelTask(task.TaskCreator, task.PipelineName, task.TaskID, task.Type, task.ReqID, log); err != nil {
 				log.Errorf("CancelRunningTask failed,task.TaskCreator:%s, task.PipelineName:%s, task.TaskID:%d, task.Type:%s, error: %v", task.TaskCreator, task.PipelineName, task.TaskID, task.Type, err)
 				continue
 			}
 		}
+		log.Infof("debug test5")
 	}
 
 	return nil
