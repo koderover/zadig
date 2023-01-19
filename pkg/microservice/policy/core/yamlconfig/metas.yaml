@@ -332,6 +332,10 @@ metas:
           - method: POST
             endpoint: /api/aslan/template/workflow
           - method: GET
+            endpoint: /api/aslan/system/lark/?*/department/?*
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/user
+          - method: GET
             endpoint: /api/aslan/system/im_app
       - action: get_template
         alias: 查看
@@ -379,6 +383,10 @@ metas:
             endpoint: /api/aslan/template/yaml/validateVariable
           - method: PUT
             endpoint: /api/aslan/template/workflow
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/department/?*
+          - method: GET
+            endpoint: /api/aslan/system/lark/?*/user
           - method: GET
             endpoint: /api/aslan/system/im_app
       - action: delete_template
