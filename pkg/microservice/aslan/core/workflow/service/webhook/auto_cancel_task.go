@@ -28,7 +28,8 @@ import (
 )
 
 func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error {
-	if autoCancelOpt == nil || autoCancelOpt.MergeRequestID == "" || autoCancelOpt.CommitID == "" {
+	if autoCancelOpt == nil || autoCancelOpt.CommitID == "" {
+		log.Warnf("AuthCancelTask: invalid args, return")
 		return nil
 	}
 
@@ -61,6 +62,8 @@ func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error 
 				autoCancelOpt.MainRepo.RepoOwner != task.TriggerBy.RepoOwner ||
 				autoCancelOpt.MainRepo.RepoName != task.TriggerBy.RepoName ||
 				autoCancelOpt.Ref != task.TriggerBy.Ref) {
+			// todo debug
+			log.Infof("AuthCancelTask: commit skip")
 			continue
 		}
 
