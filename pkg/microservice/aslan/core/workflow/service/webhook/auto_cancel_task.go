@@ -17,6 +17,8 @@ limitations under the License.
 package webhook
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -64,6 +66,14 @@ func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error 
 				autoCancelOpt.Ref != task.TriggerBy.Ref) {
 			// todo debug
 			log.Infof("AuthCancelTask: commit skip")
+			fmt.Println(autoCancelOpt.MainRepo.CodehostID)
+			fmt.Println(task.TriggerBy.CodehostID)
+			fmt.Println(autoCancelOpt.MainRepo.RepoOwner)
+			fmt.Println(task.TriggerBy.RepoOwner)
+			fmt.Println(autoCancelOpt.MainRepo.RepoName)
+			fmt.Println(task.TriggerBy.RepoName)
+			fmt.Println(autoCancelOpt.Ref)
+			fmt.Println(task.TriggerBy.Ref)
 			continue
 		}
 
