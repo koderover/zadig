@@ -371,22 +371,54 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 			return "执行失败"
 		},
 		"jobType": func(jobType string) string {
-			if jobType == string(config.JobZadigBuild) {
+			switch jobType {
+			case string(config.JobZadigBuild):
 				return "构建"
-			} else if jobType == string(config.JobZadigDeploy) {
+			case string(config.JobZadigDeploy):
 				return "部署"
-			} else if jobType == string(config.JobZadigHelmDeploy) {
+			case string(config.JobZadigHelmDeploy):
 				return "helm部署"
-			} else if jobType == string(config.JobCustomDeploy) {
+			case string(config.JobCustomDeploy):
 				return "自定义部署"
-			} else if jobType == string(config.JobFreestyle) {
+			case string(config.JobFreestyle):
 				return "通用任务"
-			} else if jobType == string(config.JobPlugin) {
+			case string(config.JobPlugin):
 				return "自定义任务"
-			} else if jobType == string(config.JobZadigTesting) {
+			case string(config.JobZadigTesting):
 				return "测试"
+			case string(config.JobZadigScanning):
+				return "代码扫描"
+			case string(config.JobZadigDistributeImage):
+				return "镜像分发"
+			case string(config.JobK8sBlueGreenDeploy):
+				return "蓝绿部署"
+			case string(config.JobK8sBlueGreenRelease):
+				return "蓝绿发布"
+			case string(config.JobK8sCanaryDeploy):
+				return "金丝雀部署"
+			case string(config.JobK8sCanaryRelease):
+				return "金丝雀发布"
+			case string(config.JobK8sGrayRelease):
+				return "灰度发布"
+			case string(config.JobK8sGrayRollback):
+				return "灰度回滚"
+			case string(config.JobK8sPatch):
+				return "更新 k8s YAML"
+			case string(config.JobIstioRelease):
+				return "istio 发布"
+			case string(config.JobIstioRollback):
+				return "istio 回滚"
+			case string(config.JobJira):
+				return "jira 问题状态变更"
+			case string(config.JobNacos):
+				return "Nacos 配置变更"
+			case string(config.JobApollo):
+				return "Apollo 配置变更"
+			case string(config.JobMeegoTransition):
+				return "飞书工作项状态变更"
+			default:
+				return string(jobType)
 			}
-			return string(jobType)
 		},
 	}).Parse(tplcontent))
 
