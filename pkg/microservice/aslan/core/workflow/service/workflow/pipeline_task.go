@@ -635,7 +635,9 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 				for i, build := range testArg.Builds {
 					if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
 						testArg.Builds[i].PR = pr
-						testArg.Builds[i].PRs = []int{pr}
+						if pr != 0 {
+							testArg.Builds[i].PRs = []int{pr}
+						}
 					}
 				}
 
