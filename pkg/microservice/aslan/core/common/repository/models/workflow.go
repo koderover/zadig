@@ -180,7 +180,7 @@ type WorkflowTaskArgs struct {
 	// NotificationID is the id of scmnotify.Notification
 	NotificationID string `bson:"notification_id" json:"notification_id"`
 
-	// webhook触发工作流任务时，触发任务的repo信息、prID和commitID
+	// webhook触发工作流任务时，触发任务的repo信息、prID和commitID、分支信息
 	MergeRequestID string `bson:"merge_request_id" json:"merge_request_id"`
 	Ref            string `bson:"ref" json:"ref"`
 	CommitID       string `bson:"commit_id"        json:"commit_id"`
