@@ -289,20 +289,32 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	return nil
 }
 
+// TODO how about this situation? multiple builds bound with same service
 func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
-	deleteServices := sets.NewString()
+	modifiedSvcBuildMap := make(map[string]string)
+
 	currentServiceModuleKey := sets.NewString()
+	oldServiceModuleKey := sets.NewString()
 	for _, currentServiceModule := range currentBuild.Targets {
 		currentServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", currentServiceModule.ProductName, currentServiceModule.ServiceName, currentServiceModule.ServiceModule))
+	}
+	for _, oldServiceModule := range oldBuild.Targets {
+		oldServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule))
 	}
 
 	for _, oldServiceModule := range oldBuild.Targets {
 		if !currentServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule)) {
-			deleteServices.Insert(oldServiceModule.ServiceName)
+			modifiedSvcBuildMap[oldServiceModule.ServiceName] = ""
 		}
 	}
 
-	for _, serviceName := range deleteServices.List() {
+	for _, newSvcModule := range currentBuild.Targets {
+		if !oldServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", newSvcModule.ProductName, newSvcModule.ServiceName, newSvcModule.ServiceModule)) {
+			modifiedSvcBuildMap[newSvcModule.ServiceName] = currentBuild.Name
+		}
+	}
+
+	for serviceName, buildName := range modifiedSvcBuildMap {
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   serviceName,
 			Type:          setting.PMDeployType,
@@ -326,7 +338,7 @@ func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
 			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
 			return err
 		}
-		resp.BuildName = ""
+		resp.BuildName = buildName
 		if err := commonrepo.NewServiceColl().Create(resp); err != nil {
 			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
 			return err
