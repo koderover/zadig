@@ -130,7 +130,7 @@ func (c *VariableSetColl) Delete(id string) error {
 func (c *VariableSetColl) List(option *VariableSetFindOption) (int64, []*models.VariableSet, error) {
 	resp := make([]*models.VariableSet, 0)
 	query := bson.M{}
-	query["$or"] = []bson.M{{"project_name": bson.M{"$eq": option.ProjectName}}, {"production": bson.M{"$exists": false}}}
+	query["$or"] = []bson.M{{"project_name": bson.M{"$eq": option.ProjectName}}, {"project_name": bson.M{"$exists": false}}}
 
 	ctx := context.Background()
 
