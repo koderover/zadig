@@ -22,7 +22,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-	
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
