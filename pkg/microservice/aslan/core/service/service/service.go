@@ -1039,6 +1039,7 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 			changeEnvStatus = append(changeEnvStatus, v)
 		}
 	}
+	log.Infof("####### the count of env status is %v", len(changeEnvStatus))
 	// generate env status for this env
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,
