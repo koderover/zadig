@@ -310,9 +310,10 @@ func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
 
 	for _, newSvcModule := range currentBuild.Targets {
 		if !oldServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", newSvcModule.ProductName, newSvcModule.ServiceName, newSvcModule.ServiceModule)) {
-			modifiedSvcBuildMap[newSvcModule.ServiceName] = newSvcModule.BuildName
+			modifiedSvcBuildMap[newSvcModule.ServiceName] = currentBuild.Name
 		}
 	}
+	log.Infof("####### the svc build map is %v", modifiedSvcBuildMap)
 
 	for serviceName, buildName := range modifiedSvcBuildMap {
 		opt := &commonrepo.ServiceFindOption{
