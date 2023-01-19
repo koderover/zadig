@@ -38,9 +38,10 @@ type VariableSetColl struct {
 }
 
 type VariableSetFindOption struct {
-	ID      string `json:"id"`
-	PerPage int    `json:"perPage"`
-	Page    int    `json:"page"`
+	ID          string `json:"id"`
+	PerPage     int    `json:"perPage"`
+	Page        int    `json:"page"`
+	ProjectName string `json:"projectName"`
 }
 
 func NewVariableSetColl() *VariableSetColl {
@@ -56,8 +57,11 @@ func (c *VariableSetColl) GetCollectionName() string {
 
 func (c *VariableSetColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
-		Keys:    bson.M{"repo_name": 1},
-		Options: options.Index().SetUnique(false),
+		Keys: bson.D{
+			bson.E{Key: "name", Value: 1},
+			bson.E{Key: "project_name", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
 	}
 	_, err := c.Indexes().CreateOne(ctx, mod)
 	return err
@@ -126,6 +130,7 @@ func (c *VariableSetColl) Delete(id string) error {
 func (c *VariableSetColl) List(option *VariableSetFindOption) (int64, []*models.VariableSet, error) {
 	resp := make([]*models.VariableSet, 0)
 	query := bson.M{}
+	query["$or"] = []bson.M{{"project_name": bson.M{"$eq": option.ProjectName}}, {"production": bson.M{"$exists": false}}}
 
 	ctx := context.Background()
 

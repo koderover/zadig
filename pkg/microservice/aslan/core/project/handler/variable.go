@@ -56,6 +56,7 @@ func CreateVariableSet(c *gin.Context) {
 		return
 	}
 	args.UserName = ctx.UserName
+	args.ProjectName = c.Query("projectName")
 
 	ctx.Err = service.CreateVariableSet(args)
 }
