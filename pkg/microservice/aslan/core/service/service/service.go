@@ -33,6 +33,8 @@ import (
 	gotemplate "text/template"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -913,6 +915,35 @@ func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 		}
 	}
 
+	// for pm services, fill env status data
+	if args.Type == setting.PMDeployType {
+		validStatusMap := make(map[string]*commonmodels.EnvStatus)
+		for _, status := range envStatuses {
+			validStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
+		}
+
+		envStatus, err := pm.GenerateEnvStatus(currentService.EnvConfigs, log.SugaredLogger())
+		if err != nil {
+			log.Errorf("failed to generate env status")
+			return err
+		}
+		defaultStatusMap := make(map[string]*commonmodels.EnvStatus)
+		for _, status := range envStatus {
+			defaultStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
+		}
+
+		for k, _ := range defaultStatusMap {
+			if vv, ok := validStatusMap[k]; ok {
+				defaultStatusMap[k] = vv
+			}
+		}
+
+		envStatuses = make([]*commonmodels.EnvStatus, 0)
+		for _, v := range defaultStatusMap {
+			envStatuses = append(envStatuses, v)
+		}
+	}
+
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
@@ -1039,7 +1070,6 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 			changeEnvStatus = append(changeEnvStatus, v)
 		}
 	}
-	log.Infof("####### the count of env status is %v", len(changeEnvStatus))
 	// generate env status for this env
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,
