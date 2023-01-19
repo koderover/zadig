@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -268,7 +267,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.MergeRequestID = mergeRequestID
 					args.CommitID = commitID
-					args.Source = setting.SourceFromGitee
+					args.Source = item.MainRepo.Source
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
