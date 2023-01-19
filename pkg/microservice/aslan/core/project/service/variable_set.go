@@ -31,10 +31,10 @@ import (
 )
 
 type VariableSetFindOption struct {
-	ID          string `json:"id"`
-	PerPage     int    `json:"perPage"`
-	Page        int    `json:"page"`
-	ProjectName string `json:"projectName"`
+	ID          string `json:"id" form:"id"`
+	PerPage     int    `json:"perPage" form:"perPage"`
+	Page        int    `json:"page" form:"page"`
+	ProjectName string `json:"projectName" form:"projectName"`
 }
 
 type VariableSetListResp struct {
