@@ -107,6 +107,7 @@ func (c *VariableSetColl) Update(id string, args *models.VariableSet) error {
 		"name":          args.Name,
 		"description":   args.Description,
 		"variable_yaml": args.VariableYaml,
+		"project_name":  args.ProjectName,
 		"updated_by":    args.UpdatedBy,
 		"updated_at":    time.Now().Unix(),
 	}}
