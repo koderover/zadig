@@ -124,7 +124,6 @@ func ListKubeEvents(env string, productName string, name string, rtype string, l
 		return res, err
 	}
 
-	log.Infof("####### the kind is %v name is %v", rtype, name)
 	selector := fields.Set{"involvedObject.name": name, "involvedObject.kind": rtype}.AsSelector()
 	events, err := getter.ListEvents(product.Namespace, selector, kubeClient)
 
