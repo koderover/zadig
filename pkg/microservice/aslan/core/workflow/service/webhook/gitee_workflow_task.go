@@ -23,8 +23,9 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/types"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -270,40 +271,24 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 						continue
 					}
 
-					var mergeRequestID, commitID string
+					var mergeRequestID, commitID, ref string
+					var prID int
 					var hookPayload *commonmodels.HookPayload
-					if ev, isPr := event.(*gitee.PullRequestEvent); isPr {
+					autoCancelOpt := &AutoCancelOpt{
+						TaskType:     config.WorkflowType,
+						MainRepo:     item.MainRepo,
+						WorkflowArgs: item.WorkflowArgs,
+					}
+					switch ev := event.(type) {
+					case *gitee.PullRequestEvent:
 						if ev.PullRequest != nil && ev.PullRequest.Number != 0 && ev.PullRequest.Head != nil && ev.PullRequest.Head.Sha != "" {
 							mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
 							commitID = ev.PullRequest.Head.Sha
-							autoCancelOpt := &AutoCancelOpt{
-								MergeRequestID: mergeRequestID,
-								CommitID:       commitID,
-								TaskType:       config.WorkflowType,
-								MainRepo:       item.MainRepo,
-								WorkflowArgs:   item.WorkflowArgs,
-							}
-							err := AutoCancelTask(autoCancelOpt, log)
-							if err != nil {
-								log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
-								mErr = multierror.Append(mErr, err)
-							}
-
-							if notification == nil {
-								notification, err = scmnotify.NewService().SendInitWebhookComment(
-									item.MainRepo, ev.PullRequest.Number, baseURI, false, false, false, false, log,
-								)
-								if err != nil {
-									log.Errorf("failed to init webhook comment due to %s", err)
-									mErr = multierror.Append(mErr, err)
-								}
-							}
+							autoCancelOpt.MergeRequestID = mergeRequestID
+							autoCancelOpt.CommitID = commitID
+							autoCancelOpt.Type = AutoCancelPR
+							prID = ev.PullRequest.Number
 						}
-
-						if notification != nil {
-							item.WorkflowArgs.NotificationID = notification.ID.Hex()
-						}
-
 						hookPayload = &commonmodels.HookPayload{
 							Owner:  ev.Repository.Owner.Login,
 							Repo:   ev.Repository.Name,
@@ -311,10 +296,45 @@ func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, l
 							Ref:    ev.PullRequest.Head.Sha,
 							IsPr:   true,
 						}
+					case *gitee.PushEvent:
+						ref = ev.Ref
+						commitID = ev.After
+						autoCancelOpt.Ref = ref
+						autoCancelOpt.CommitID = commitID
+						autoCancelOpt.Type = AutoCancelPush
+						hookPayload = &commonmodels.HookPayload{
+							Owner:  ev.Repository.Owner.Login,
+							Repo:   ev.Repository.Name,
+							Branch: ref,
+							Ref:    commitID,
+							IsPr:   true,
+						}
+					}
+					if autoCancelOpt.Type != "" {
+						err := AutoCancelTask(autoCancelOpt, log)
+						if err != nil {
+							log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
+							mErr = multierror.Append(mErr, err)
+						}
+
+						if autoCancelOpt.Type == AutoCancelPR && notification == nil {
+							notification, err = scmnotify.NewService().SendInitWebhookComment(
+								item.MainRepo, prID, baseURI, false, false, false, false, log,
+							)
+							if err != nil {
+								log.Errorf("failed to init webhook comment due to %s", err)
+								mErr = multierror.Append(mErr, err)
+							}
+						}
+					}
+
+					if notification != nil {
+						item.WorkflowArgs.NotificationID = notification.ID.Hex()
 					}
 
 					args := matcher.UpdateTaskArgs(prod, item.WorkflowArgs, item.MainRepo, requestID)
 					args.MergeRequestID = mergeRequestID
+					args.Ref = ref
 					args.CommitID = commitID
 					args.Source = setting.SourceFromGitee
 					args.CodehostID = item.MainRepo.CodehostID

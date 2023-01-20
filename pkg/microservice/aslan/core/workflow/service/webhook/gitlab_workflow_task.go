@@ -605,32 +605,42 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 
 			isMergeRequest := false
-			var mergeRequestID, commitID string
-			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
-				isMergeRequest = true
-
-				// 如果是merge request，且该webhook触发器配置了自动取消，
-				// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
+			var mergeRequestID, commitID, ref string
+			autoCancelOpt := &AutoCancelOpt{
+				TaskType:     config.WorkflowType,
+				MainRepo:     item.MainRepo,
+				WorkflowArgs: workFlowArgs,
+				IsYaml:       item.IsYaml,
+				AutoCancel:   item.AutoCancel,
+				YamlHookPath: item.YamlPath,
+			}
+			switch ev := event.(type) {
+			case *gitlab.MergeEvent:
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
-				autoCancelOpt := &AutoCancelOpt{
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
-					TaskType:       config.WorkflowType,
-					MainRepo:       item.MainRepo,
-					WorkflowArgs:   workFlowArgs,
-					IsYaml:         item.IsYaml,
-					AutoCancel:     item.AutoCancel,
-					YamlHookPath:   item.YamlPath,
-				}
+				autoCancelOpt.MergeRequestID = mergeRequestID
+				autoCancelOpt.CommitID = commitID
+				autoCancelOpt.Type = AutoCancelPR
+			case *gitlab.PushEvent:
+				ref = ev.Ref
+				log.Infof("gitlab ref")
+				b, _ := json.MarshalIndent(ev, "", "  ")
+				log.Infof(string(b))
+				commitID = ev.After
+				autoCancelOpt.Ref = ref
+				autoCancelOpt.CommitID = commitID
+				autoCancelOpt.Type = AutoCancelPush
+			}
+			log.Infof("debug gitlab1")
+			if autoCancelOpt.Type != "" {
 				err := AutoCancelTask(autoCancelOpt, log)
 				if err != nil {
 					log.Errorf("failed to auto cancel workflow task when receive event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 				}
-				if notification == nil {
+				if autoCancelOpt.Type == AutoCancelPR && notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, false, false, log,
+						item.MainRepo, prID, baseURI, false, false, false, false, log,
 					)
 				}
 			}
@@ -641,6 +651,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 			args := matcher.UpdateTaskArgs(prod, workFlowArgs, item.MainRepo, requestID)
 			args.MergeRequestID = mergeRequestID
+			args.Ref = ref
 			args.CommitID = commitID
 			args.Source = setting.SourceFromGitlab
 			args.CodehostID = item.MainRepo.CodehostID

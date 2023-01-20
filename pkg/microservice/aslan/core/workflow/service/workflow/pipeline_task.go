@@ -631,7 +631,6 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			} else {
 				testArg.Builds = testing.Repos
 				pr, _ := strconv.Atoi(args.MergeRequestID)
-
 				for i, build := range testArg.Builds {
 					if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
 						testArg.Builds[i].PR = pr
