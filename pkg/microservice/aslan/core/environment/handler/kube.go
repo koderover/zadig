@@ -44,11 +44,6 @@ func ListKubeEvents(c *gin.Context) {
 	name := c.Query("name")
 	rtype := c.Query("type")
 
-	//if !(rtype == setting.Deployment || rtype == setting.StatefulSet) {
-	//	ctx.Resp = make([]interface{}, 0)
-	//	return
-	//}
-
 	ctx.Resp, ctx.Err = service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
 }
 
