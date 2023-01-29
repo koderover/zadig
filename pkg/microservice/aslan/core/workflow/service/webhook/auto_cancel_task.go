@@ -144,10 +144,15 @@ func AutoCancelTestTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *zap.
 }
 
 func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error {
+	//todo debug
+	logger := log.With("name", "debug cancel")
+	logger.Info("start")
 	if autoCancelOpt == nil || autoCancelOpt.CommitID == "" {
+		logger.Info("return 1")
 		return nil
 	}
 	if !autoCancelOpt.AutoCancel {
+		logger.Info("return 2")
 		return nil
 	}
 
@@ -160,6 +165,7 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 	for _, task := range tasks {
 		if task.TaskCreator != setting.WebhookTaskCreator ||
 			task.WorkflowArgs.HookPayload == nil {
+			logger.Info("continue 1")
 			continue
 		}
 
@@ -169,6 +175,7 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 				autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
 				autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||
 				autoCancelOpt.MergeRequestID != task.WorkflowArgs.HookPayload.MergeRequestID) {
+			logger.Info("continue 2")
 			continue
 		}
 
@@ -178,11 +185,13 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 				autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
 				autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||
 				autoCancelOpt.Ref != task.WorkflowArgs.HookPayload.Ref) {
+			logger.Info("continue 3")
 			continue
 		}
 
 		// for tasks under the same pr, if the commitID is the same, it means that this commit has triggered multiple tasks of the same type, which cannot be canceled each other and need to be skipped
 		if task.WorkflowArgs.HookPayload.CommitID == autoCancelOpt.CommitID {
+			logger.Info("continue 4")
 			continue
 		}
 		if err = workflowcontroller.CancelWorkflowTask(task.TaskCreator, task.WorkflowName, task.TaskID, log); err != nil {

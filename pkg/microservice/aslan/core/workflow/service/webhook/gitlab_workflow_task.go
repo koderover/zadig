@@ -628,7 +628,6 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				autoCancelOpt.CommitID = commitID
 				autoCancelOpt.Type = AutoCancelPush
 			}
-			log.Infof("debug gitlab1")
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelTask(autoCancelOpt, log)
 				if err != nil {
