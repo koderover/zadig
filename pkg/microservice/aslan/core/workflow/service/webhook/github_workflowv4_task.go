@@ -294,9 +294,13 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					autoCancelOpt.Ref = ref
 					autoCancelOpt.CommitID = commitID
 					hookPayload = &commonmodels.HookPayload{
-						Ref:      ref,
-						IsPr:     false,
-						CommitID: commitID,
+						Owner:      *ev.Repo.Owner.Login,
+						Repo:       *ev.Repo.Name,
+						Ref:        ref,
+						IsPr:       false,
+						CodehostID: item.MainRepo.CodehostID,
+						DeliveryID: deliveryID,
+						CommitID:   commitID,
 					}
 				}
 			}
