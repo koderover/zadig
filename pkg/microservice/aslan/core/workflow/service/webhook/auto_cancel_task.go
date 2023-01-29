@@ -29,7 +29,7 @@ import (
 
 func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error {
 	if autoCancelOpt == nil || autoCancelOpt.CommitID == "" {
-		log.Warnf("AuthCancelTask: invalid args, return")
+		log.Warnf("AutoCancelTask: invalid args, return")
 		return nil
 	}
 

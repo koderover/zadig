@@ -623,9 +623,6 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				autoCancelOpt.Type = AutoCancelPR
 			case *gitlab.PushEvent:
 				ref = ev.Ref
-				log.Infof("gitlab ref")
-				b, _ := json.MarshalIndent(ev, "", "  ")
-				log.Infof(string(b))
 				commitID = ev.After
 				autoCancelOpt.Ref = ref
 				autoCancelOpt.CommitID = commitID

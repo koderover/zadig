@@ -393,6 +393,8 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 						if ev.GetRef() != "" && ev.HeadCommit != nil && ev.HeadCommit.SHA != nil {
 							ref = ev.GetRef()
 							commitID = *ev.HeadCommit.SHA
+							autoCancelOpt.Ref = ref
+							autoCancelOpt.CommitID = commitID
 							autoCancelOpt.Type = AutoCancelPush
 						}
 						hookPayload = &commonmodels.HookPayload{
