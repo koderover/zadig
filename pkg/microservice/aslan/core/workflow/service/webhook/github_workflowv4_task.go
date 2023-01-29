@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -289,6 +290,9 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 			case *github.PushEvent:
 				// todo debug
 				log.Info("autocancel 3")
+				b, _ := json.MarshalIndent(ev, "", "  ")
+				log.Infof(string(b))
+				
 				if ev.GetRef() != "" && ev.HeadCommit != nil && ev.HeadCommit.SHA != nil {
 					log.Info("autocancel 4")
 					ref = ev.GetRef()
