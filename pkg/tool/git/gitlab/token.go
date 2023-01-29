@@ -48,7 +48,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	ch, err := systemconfig.New().GetCodeHost(id)
+	ch, err := systemconfig.New().GetRawCodeHost(id)
 
 	if err != nil {
 		return "", fmt.Errorf("get codehost info error: [%s]", err)
