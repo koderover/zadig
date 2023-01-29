@@ -287,7 +287,10 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					CommitID:       commitID,
 				}
 			case *github.PushEvent:
+				// todo debug
+				log.Info("autocancel 3")
 				if ev.GetRef() != "" && ev.HeadCommit != nil && ev.HeadCommit.SHA != nil {
+					log.Info("autocancel 4")
 					ref = ev.GetRef()
 					commitID = *ev.HeadCommit.SHA
 					autoCancelOpt.Type = AutoCancelPush
@@ -304,7 +307,10 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					}
 				}
 			}
+			// todo debug
+			log.Info("autocancel 1")
 			if autoCancelOpt.Type != "" {
+				log.Info("autocancel 2")
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {
 					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
