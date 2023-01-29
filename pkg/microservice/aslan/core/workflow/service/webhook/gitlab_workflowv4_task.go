@@ -346,25 +346,23 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			var mergeRequestID, commitID string
-			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
 
+			autoCancelOpt := &AutoCancelOpt{
+				TaskType:     config.WorkflowType,
+				MainRepo:     item.MainRepo,
+				AutoCancel:   item.AutoCancel,
+				WorkflowName: workflow.Name,
+			}
+			var mergeRequestID, commitID, ref string
+			var iid int
+			switch ev := event.(type) {
+			case *gitlab.MergeEvent:
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
-				autoCancelOpt := &AutoCancelOpt{
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
-					TaskType:       config.WorkflowType,
-					MainRepo:       item.MainRepo,
-					AutoCancel:     item.AutoCancel,
-					WorkflowName:   workflow.Name,
-				}
-				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
-				if err != nil {
-					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
-					mErr = multierror.Append(mErr, err)
-				}
-
+				iid = ev.ObjectAttributes.IID
+				autoCancelOpt.Type = AutoCancelPR
+				autoCancelOpt.MergeRequestID = mergeRequestID
+				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
@@ -374,13 +372,35 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					CommitID:       commitID,
 					CodehostID:     eventRepo.CodehostID,
 				}
-
-				if notification == nil {
+			case *gitlab.PushEvent:
+				ref = ev.Ref
+				commitID = ev.After
+				autoCancelOpt.Type = AutoCancelPush
+				autoCancelOpt.Ref = ref
+				autoCancelOpt.CommitID = commitID
+				hookPayload = &commonmodels.HookPayload{
+					Owner:      eventRepo.RepoOwner,
+					Repo:       eventRepo.RepoName,
+					Branch:     eventRepo.Branch,
+					Ref:        ref,
+					IsPr:       false,
+					CommitID:   commitID,
+					CodehostID: eventRepo.CodehostID,
+				}
+			}
+			if autoCancelOpt.Type != "" {
+				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
+				if err != nil {
+					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
+					mErr = multierror.Append(mErr, err)
+				}
+				if autoCancelOpt.Type == AutoCancelPR && notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, false, true, log,
+						item.MainRepo, iid, baseURI, false, false, false, true, log,
 					)
 				}
 			}
+
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)

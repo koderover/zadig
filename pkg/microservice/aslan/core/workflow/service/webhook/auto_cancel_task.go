@@ -144,7 +144,7 @@ func AutoCancelTestTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *zap.
 }
 
 func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error {
-	if autoCancelOpt == nil || autoCancelOpt.MergeRequestID == "" || autoCancelOpt.CommitID == "" {
+	if autoCancelOpt == nil || autoCancelOpt.CommitID == "" {
 		return nil
 	}
 	if !autoCancelOpt.AutoCancel {
@@ -164,10 +164,20 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 		}
 
 		// not the same pr of the same repo, skip
-		if autoCancelOpt.MainRepo.CodehostID != task.WorkflowArgs.HookPayload.CodehostID ||
-			autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
-			autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||
-			autoCancelOpt.MergeRequestID != task.WorkflowArgs.HookPayload.MergeRequestID {
+		if autoCancelOpt.Type == AutoCancelPR &&
+			(autoCancelOpt.MainRepo.CodehostID != task.WorkflowArgs.HookPayload.CodehostID ||
+				autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
+				autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||
+				autoCancelOpt.MergeRequestID != task.WorkflowArgs.HookPayload.MergeRequestID) {
+			continue
+		}
+
+		// not the same ref of the same repo, skip
+		if autoCancelOpt.Type == AutoCancelPush &&
+			(autoCancelOpt.MainRepo.CodehostID != task.WorkflowArgs.HookPayload.CodehostID ||
+				autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
+				autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||
+				autoCancelOpt.Ref != task.WorkflowArgs.HookPayload.Ref) {
 			continue
 		}
 
