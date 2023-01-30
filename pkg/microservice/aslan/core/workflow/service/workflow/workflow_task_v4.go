@@ -187,6 +187,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.Sugare
 
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
+			jobPresetSkiped(job)
 			if err := jobctl.SetPreset(job, workflow); err != nil {
 				log.Errorf("cannot get workflow %s preset, the error is: %v", workflowName, err)
 				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
@@ -198,6 +199,18 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.Sugare
 		return workflow, err
 	}
 	return workflow, nil
+}
+
+func jobPresetSkiped(job *commonmodels.Job) {
+	if job.RunPolicy == config.ForceRun {
+		job.Skipped = false
+		return
+	}
+	if job.RunPolicy == config.DefaultNotRun {
+		job.Skipped = true
+		return
+	}
+	job.Skipped = false
 }
 
 func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogger) error {
@@ -294,7 +307,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			Approval: stage.Approval,
 		}
 		for _, job := range stage.Jobs {
-			if job.Skipped {
+			if jobSkiped(job) {
 				continue
 			}
 			// TODO: move this logic to job controller
@@ -360,6 +373,13 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	}
 
 	return resp, nil
+}
+
+func jobSkiped(job *commonmodels.Job) bool {
+	if job.RunPolicy == config.ForceRun {
+		return false
+	}
+	return job.Skipped
 }
 
 func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
