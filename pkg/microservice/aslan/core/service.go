@@ -372,6 +372,7 @@ func InitializeUserDBAndTables() {
 		configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
 	))
 	db, err := sql.Open("mysql", connectStr)
+	log.Infof("connect str is %s", connectStr)
 	if err != nil {
 		log.Errorf("failed to open sql: %s, err: %s", connectStr, err)
 		log.Panic(err)
