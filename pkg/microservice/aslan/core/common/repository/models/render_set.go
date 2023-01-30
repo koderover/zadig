@@ -28,51 +28,58 @@ type RenderSet struct {
 	Name     string `bson:"name"                     json:"name"`
 	Revision int64  `bson:"revision"                 json:"revision"`
 	// 可以为空，空时为产品模板默认的渲染集，非空时为环境的渲染集
-	EnvName       string                        `bson:"env_name,omitempty"       json:"env_name,omitempty"`
-	ProductTmpl   string                        `bson:"product_tmpl"             json:"product_tmpl"`
-	Team          string                        `bson:"team,omitempty"           json:"team,omitempty"`
-	UpdateTime    int64                         `bson:"update_time"              json:"update_time"`
-	UpdateBy      string                        `bson:"update_by"                json:"update_by"`
-	IsDefault     bool                          `bson:"is_default"               json:"is_default"`
-	DefaultValues string                        `bson:"default_values,omitempty"       json:"default_values,omitempty"`
-	YamlData      *templatemodels.CustomYaml    `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
-	KVs           []*templatemodels.RenderKV    `bson:"kvs,omitempty"            json:"kvs,omitempty"`
-	ChartInfos    []*templatemodels.RenderChart `bson:"chart_infos,omitempty"    json:"chart_infos,omitempty"`
-	Description   string                        `bson:"description,omitempty"    json:"description,omitempty"`
+	EnvName     string `bson:"env_name,omitempty"             json:"env_name,omitempty"`
+	ProductTmpl string `bson:"product_tmpl"                   json:"product_tmpl"`
+	Team        string `bson:"team,omitempty"                 json:"team,omitempty"`
+	UpdateTime  int64  `bson:"update_time"                    json:"update_time"`
+	UpdateBy    string `bson:"update_by"                      json:"update_by"`
+	IsDefault   bool   `bson:"is_default"                     json:"is_default"`
+	// yaml content, used as 'global variables' for both k8s/helm projects
+	DefaultValues string                     `bson:"default_values,omitempty"       json:"default_values,omitempty"`
+	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	//KVs              []*templatemodels.RenderKV      `bson:"kvs,omitempty"                  json:"kvs,omitempty"`               // deprecated since 1.16.0
+	ServiceVariables []*templatemodels.ServiceRender `bson:"service_variables,omitempty"    json:"service_variables,omitempty"` // new since 1.16.0 replace kvs
+	ChartInfos       []*templatemodels.ServiceRender `bson:"chart_infos,omitempty"          json:"chart_infos,omitempty"`
+	Description      string                          `bson:"description,omitempty"          json:"description,omitempty"`
 }
 
 func (RenderSet) TableName() string {
 	return "render_set"
 }
 
-func (m *RenderSet) GetKeyValueMap() map[string]string {
-	resp := make(map[string]string)
-	for _, kv := range m.KVs {
-		resp[kv.Key] = kv.Value
-	}
-	return resp
-}
+//func (m *RenderSet) GetKeyValueMap() map[string]string {
+//	resp := make(map[string]string)
+//	for _, kv := range m.KVs {
+//		resp[kv.Key] = kv.Value
+//	}
+//	return resp
+//}
 
 // SetKVAlias ...
-func (m *RenderSet) SetKVAlias() {
-	if m == nil || len(m.KVs) == 0 {
-		return
-	}
-	for _, kv := range m.KVs {
-		if kv != nil {
-			kv.SetAlias()
-		}
-
-	}
-}
+//func (m *RenderSet) SetKVAlias() {
+//	if m == nil || len(m.KVs) == 0 {
+//		return
+//	}
+//	for _, kv := range m.KVs {
+//		if kv != nil {
+//			kv.SetAlias()
+//		}
+//
+//	}
+//}
 
 func (m *RenderSet) Diff(target *RenderSet) bool {
-	if m.IsDefault != target.IsDefault || reflect.DeepEqual(m.KVs, target.KVs) {
+	//if m.IsDefault != target.IsDefault || reflect.DeepEqual(m.KVs, target.KVs) {
+	if m.DefaultValues == target.DefaultValues {
 		return false
 	}
 	return true
 }
 
 func (m *RenderSet) HelmRenderDiff(target *RenderSet) bool {
-	return !reflect.DeepEqual(m.ChartInfos, target.ChartInfos)
+	return !m.Diff(target) || !reflect.DeepEqual(m.ChartInfos, target.ChartInfos)
+}
+
+func (m *RenderSet) K8sServiceRenderDiff(target *RenderSet) bool {
+	return !m.Diff(target) || !reflect.DeepEqual(m.ServiceVariables, target.ServiceVariables)
 }

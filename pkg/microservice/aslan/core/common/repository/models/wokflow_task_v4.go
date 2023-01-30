@@ -22,6 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type WorkflowTask struct {
@@ -249,6 +250,16 @@ type JobIstioRollbackSpec struct {
 	Timeout     int64           `json:"timeout"      bson:"timeout"      yaml:"timeout"`
 }
 
+type MeegoTransitionSpec struct {
+	Link            string                     `bson:"link"               json:"link"               yaml:"link"`
+	Source          string                     `bson:"source"             json:"source"             yaml:"source"`
+	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
+	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
+	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
+	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
+	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
+}
+
 type JobTaskGrayRollbackSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
 	ClusterName      string `bson:"cluster_name"           json:"cluster_name"           yaml:"cluster_name"`
@@ -268,6 +279,50 @@ type JobTasK8sPatchSpec struct {
 	ClusterID  string           `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
 	Namespace  string           `bson:"namespace"              json:"namespace"              yaml:"namespace"`
 	PatchItems []*PatchTaskItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+}
+
+type IssueID struct {
+	Key    string `bson:"key" json:"key" yaml:"key"`
+	Name   string `bson:"name" json:"name" yaml:"name"`
+	Status string `bson:"status" json:"status" yaml:"status"`
+	Link   string `bson:"link" json:"link" yaml:"link"`
+}
+
+type JobTaskJiraSpec struct {
+	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+}
+
+type JobTaskNacosSpec struct {
+	NacosID       string       `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
+	NamespaceID   string       `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
+	NamespaceName string       `bson:"namespace_name"   json:"namespace_name"   yaml:"namespace_name"`
+	NacosAddr     string       `bson:"nacos_addr"       json:"nacos_addr"       yaml:"nacos_addr"`
+	UserName      string       `bson:"user_name"        json:"user_name"        yaml:"user_name"`
+	Password      string       `bson:"password"         json:"password"         yaml:"password"`
+	NacosDatas    []*NacosData `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
+}
+
+type NacosData struct {
+	types.NacosConfig `bson:",inline" json:",inline" yaml:",inline"`
+	Error             string `bson:"error"      json:"error"      yaml:"error"`
+}
+
+type JobTaskApolloSpec struct {
+	ApolloID      string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
+	NamespaceList []*JobTaskApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
+}
+
+type JobTaskApolloNamespace struct {
+	ApolloNamespace `bson:",inline" json:",inline" yaml:",inline"`
+	Error           string `bson:"error" json:"error" yaml:"error"`
+}
+
+type ApolloKV struct {
+	Key string `bson:"key" json:"key" yaml:"key"`
+	Val string `bson:"val" json:"val" yaml:"val"`
 }
 
 type PatchTaskItem struct {

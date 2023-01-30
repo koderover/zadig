@@ -100,12 +100,12 @@ func BatchCreatePMHost(c *gin.Context) {
 		log.Errorf("BatchCreatePMHost json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "批量新增", "项目资源-主机管理", "", string(data), ctx.Logger)
-
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid physical machine args")
 		return
 	}
+
 	for _, pmArg := range args.Data {
 		pmArg.ProjectName = c.Query("projectName")
 	}

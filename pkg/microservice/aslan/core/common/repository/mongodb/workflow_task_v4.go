@@ -33,11 +33,14 @@ import (
 
 type ListWorkflowTaskV4Option struct {
 	WorkflowName    string
+	ProjectName     string
+	ProjectNames    []string
 	WorkflowNames   []string
 	CreateTime      int64
 	BeforeCreatTime bool
 	Limit           int
 	Skip            int
+	IsSort          bool
 }
 
 type WorkflowTaskv4Coll struct {
@@ -110,6 +113,9 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	if opt.WorkflowNames != nil {
 		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
 	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
+	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
 	if opt.CreateTime > 0 {
@@ -140,6 +146,21 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 		return nil, 0, err
 	}
 	return resp, count, nil
+}
+
+func (c *WorkflowTaskv4Coll) GetLatest(workflowName string) (*models.WorkflowTask, error) {
+	resp := new(models.WorkflowTask)
+	query := bson.M{}
+	query["workflow_name"] = workflowName
+
+	findOption := options.FindOne()
+	findOption.SetSort(bson.D{{"create_time", -1}})
+
+	err := c.FindOne(context.TODO(), query, findOption).Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *WorkflowTaskv4Coll) FindTodoTasksByWorkflowName(workflowName string) ([]*models.WorkflowTask, error) {
@@ -263,6 +284,12 @@ func (c *WorkflowTaskv4Coll) ListByCursor(opt *ListWorkflowTaskV4Option) (*mongo
 	if opt.WorkflowNames != nil {
 		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
 	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
+	}
+	if len(opt.ProjectNames) > 0 {
+		query["product_name"] = bson.M{"$in": opt.ProjectNames}
+	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
 	if opt.CreateTime > 0 {
@@ -273,5 +300,10 @@ func (c *WorkflowTaskv4Coll) ListByCursor(opt *ListWorkflowTaskV4Option) (*mongo
 		query["create_time"] = bson.M{comparison: opt.CreateTime}
 	}
 
-	return c.Collection.Find(context.TODO(), query)
+	opts := options.Find()
+	if opt.IsSort {
+		opts.SetSort(bson.D{{"create_time", -1}})
+	}
+
+	return c.Collection.Find(context.TODO(), query, opts)
 }

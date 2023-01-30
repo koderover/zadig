@@ -22,6 +22,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/util/yaml"
+
+	"github.com/koderover/zadig/pkg/tool/log"
+
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -60,12 +65,12 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 			serviceNames.Insert(serviceName)
 		}
 	}
-	tmpl.ChartInfos = make([]*templatemodels.RenderChart, 0)
+	tmpl.ChartInfos = make([]*templatemodels.ServiceRender, 0)
 	for _, renderChart := range renderSet.ChartInfos {
 		if !serviceNames.Has(renderChart.ServiceName) {
 			continue
 		}
-		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.RenderChart{
+		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.ServiceRender{
 			ServiceName:    renderChart.ServiceName,
 			ChartVersion:   renderChart.ChartVersion,
 			ValuesYaml:     renderChart.ValuesYaml,
@@ -125,14 +130,155 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, *models.RenderSet, error) {
+func clipVariableYaml(variableYaml string, validKeys []string) string {
+	if len(variableYaml) == 0 {
+		return variableYaml
+	}
+	if len(validKeys) == 0 {
+		return ""
+	}
+	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
+	if err != nil {
+		log.Errorf("failed to clip variable yaml, err: %s", err)
+		return variableYaml
+	}
+	return clippedYaml
+}
+
+func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) string {
+	if serviceTemplate == nil {
+		return variableYaml
+	}
+	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
+	if err != nil {
+		log.Errorf("failed to merge variable yaml, err: %s", err)
+		return variableYaml
+	}
+	return clipVariableYaml(string(mergedYaml), serviceTemplate.ServiceVars)
+}
+
+func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
+	var productInfo *models.Product
+	var err error
+	if len(envName) > 0 {
+		productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    productName,
+			EnvName: envName,
+		})
+	}
+
+	if err != nil && err != mongo.ErrNoDocuments {
+		return nil, nil, err
+	}
+	if err != nil {
+		productInfo = nil
+	}
+
+	serviceVarsMap := make(map[string][]string)
+	svcRenders := make(map[string]*templatemodels.ServiceRender)
+
+	// product template svcs
+	templateSvcs, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find template svcs, err: %s", err)
+	}
+	templateSvcMap := make(map[string]*models.Service)
+	for _, svc := range templateSvcs {
+		svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
+			ServiceName:  svc.ServiceName,
+			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+		}
+		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+		templateSvcMap[svc.ServiceName] = svc
+	}
+
+	// svc used in products
+	productSvcMap := make(map[string]*models.ProductService)
+	if productInfo != nil {
+		svcs, err := GetProductUsedTemplateSvcs(productInfo)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, svc := range svcs {
+			svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
+				ServiceName:  svc.ServiceName,
+				OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+			}
+			serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+		}
+		productSvcMap = productInfo.GetServiceMap()
+	}
+
+	var rendersetObj *models.RenderSet
+	if productInfo != nil {
+		// svc render in renderchart
+		opt := &commonrepo.RenderSetFindOption{
+			ProductTmpl: productName,
+			EnvName:     envName,
+			Name:        productInfo.Render.Name,
+			Revision:    productInfo.Render.Revision,
+		}
+		rendersetObj, _, err = commonrepo.NewRenderSetColl().FindRenderSet(opt)
+		if err == nil {
+			for _, svcRender := range rendersetObj.ServiceVariables {
+				if _, ok := svcRenders[svcRender.ServiceName]; ok {
+					svcRenders[svcRender.ServiceName] = svcRender
+				}
+			}
+		}
+	}
+
+	validSvcs := sets.NewString(strings.Split(serviceName, ",")...)
+	filter := func(name string) bool {
+		// if service name is not set, use the current services in product
+		if len(serviceName) == 0 {
+			_, ok := productSvcMap[name]
+			return ok
+		}
+		return validSvcs.Has(name)
+	}
+
+	ret := make([]*K8sSvcRenderArg, 0)
+	for name, svcRender := range svcRenders {
+		if !filter(name) {
+			continue
+		}
+		rArg := &K8sSvcRenderArg{
+			ServiceName: svcRender.ServiceName,
+		}
+		if svcRender.OverrideYaml != nil {
+			rArg.VariableYaml = clipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
+			rArg.LatestVariableYaml = latestVariableYaml(rArg.VariableYaml, templateSvcMap[svcRender.ServiceName])
+		}
+		ret = append(ret, rArg)
+	}
+	return ret, rendersetObj, nil
+}
+
+func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
 
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
+	renderRevision := int64(0)
+	ret := make([]*HelmSvcRenderArg, 0)
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+
+	if err != nil && err != mongo.ErrNoDocuments {
+		return nil, nil, err
+	}
+
+	if err == nil {
+		renderSetName = productInfo.Render.Name
+		renderRevision = productInfo.Render.Revision
+	}
 
 	opt := &commonrepo.RenderSetFindOption{
 		ProductTmpl: productName,
 		EnvName:     envName,
 		Name:        renderSetName,
+		Revision:    renderRevision,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
@@ -143,9 +289,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		return nil, nil, nil
 	}
 
-	ret := make([]*RenderChartArg, 0)
-
-	matchedRenderChartModels := make([]*templatemodels.RenderChart, 0)
+	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
 	if len(serviceName) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
@@ -160,7 +304,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	}
 
 	for _, singleChart := range matchedRenderChartModels {
-		rcaObj := new(RenderChartArg)
+		rcaObj := &HelmSvcRenderArg{}
 		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
 		err = FillGitNamespace(rendersetObj.YamlData)
@@ -500,7 +644,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
 
 		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: findServiceFromIngress(hostInfos, workload, allServices),
+			HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
 		}
 
 		resp = append(resp, productRespInfo)
@@ -509,7 +653,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	return count, resp, nil
 }
 
-func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
+func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
 	if len(allServices) == 0 || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}

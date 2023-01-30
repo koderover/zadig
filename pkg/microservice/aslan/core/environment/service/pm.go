@@ -18,7 +18,6 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -28,7 +27,6 @@ import (
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -44,19 +42,19 @@ type PMService struct {
 	log *zap.SugaredLogger
 }
 
-func (p *PMService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
-	p.log.Infof("queryServiceStatus of service: %s of product: %s in namespace %s", serviceTmpl.ServiceName, productName, namespace)
-	pipelineName := fmt.Sprintf("%s-%s-%s", serviceTmpl.ServiceName, envName, "job")
-	taskObj, err := commonrepo.NewTaskColl().FindTask(pipelineName, config.ServiceType)
-	if err != nil {
-		return setting.PodError, setting.PodNotReady, []string{}
-	}
-	if taskObj.Status == setting.PodCreated {
-		return setting.PodPending, setting.PodNotReady, []string{}
-	}
-
-	return queryPodsStatus(namespace, "", productName, serviceTmpl.ServiceName, informer, p.log)
-}
+//func (p *PMService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
+//	p.log.Infof("queryServiceStatus of service: %s of product: %s in namespace %s", serviceTmpl.ServiceName, productName, namespace)
+//	pipelineName := fmt.Sprintf("%s-%s-%s", serviceTmpl.ServiceName, envName, "job")
+//	taskObj, err := commonrepo.NewTaskColl().FindTask(pipelineName, config.ServiceType)
+//	if err != nil {
+//		return setting.PodError, setting.PodNotReady, []string{}
+//	}
+//	if taskObj.Status == setting.PodCreated {
+//		return setting.PodPending, setting.PodNotReady, []string{}
+//	}
+//
+//	return queryPodsStatus(namespace, "", productName, serviceTmpl.ServiceName, informer, p.log)
+//}
 
 func (p *PMService) updateService(args *SvcOptArgs) error {
 	svc := &commonmodels.ProductService{

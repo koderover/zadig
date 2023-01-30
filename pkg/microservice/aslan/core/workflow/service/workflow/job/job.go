@@ -26,12 +26,13 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
-	"go.uber.org/zap"
 )
 
 const (
@@ -87,6 +88,14 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &IstioReleaseJob{job: job, workflow: workflow}
 	case config.JobIstioRollback:
 		resp = &IstioRollBackJob{job: job, workflow: workflow}
+	case config.JobJira:
+		resp = &JiraJob{job: job, workflow: workflow}
+	case config.JobNacos:
+		resp = &NacosJob{job: job, workflow: workflow}
+	case config.JobApollo:
+		resp = &ApolloJob{job: job, workflow: workflow}
+	case config.JobMeegoTransition:
+		resp = &MeegoTransitionJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}
@@ -290,6 +299,7 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
 
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+		repoName = strings.Replace(repo.RepoName, ".", "_", -1)
 
 		repoIndex := fmt.Sprintf("REPO_%d", index)
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})

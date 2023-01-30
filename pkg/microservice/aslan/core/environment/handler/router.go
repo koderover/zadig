@@ -120,6 +120,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/custom_workload/cluster/:clusterID/namespace/:namespace", ListCustomWorkload)
 		kube.GET("/canary_service/cluster/:clusterID/namespace/:namespace", ListCanaryDeploymentServiceInfo)
 		kube.GET("/resources/cluster/:clusterID/namespace/:namespace", ListAllK8sResourcesInNamespace)
+
+		kube.GET("/workloads/:workloadType", ListK8sResOverview)
+		kube.GET("/workloads/:workloadType/:workloadName", GetK8sWorkflowDetail)
+		kube.GET("/resources/:resourceType", ListK8sResOverview)
+		kube.GET("/yaml", GetK8sResourceYaml)
 	}
 
 	operations := router.Group("operations")
@@ -140,9 +145,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name", GetProduct)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
+		environments.PUT("/:name/alias", UpdateProductAlias)
+		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
 		environments.PUT("/:name/helm/charts", UpdateHelmProductCharts)
 		environments.PUT("/:name/syncVariables", SyncHelmProductRenderset)
 		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
@@ -175,6 +183,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
 		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
+
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -185,6 +194,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		rendersets.GET("/renderchart", GetServiceRenderCharts)
 		rendersets.GET("/default-values", GetProductDefaultValues)
 		rendersets.GET("/yamlContent", GetYamlContent)
+		rendersets.GET("/variables", GetServiceVariables)
 	}
 
 	// ---------------------------------------------------------------------------------------

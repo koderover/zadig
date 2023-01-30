@@ -120,7 +120,7 @@ func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.Suga
 		stages := []string{}
 		for _, stage := range template.Stages {
 			if stage.Approval != nil && stage.Approval.Enabled {
-				stages = append(stages, "人工审核")
+				stages = append(stages, "人工审批")
 			}
 			stages = append(stages, stage.Name)
 		}
@@ -352,8 +352,264 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
+			TemplateName: "多环境服务变更",
+			BuildIn:      true,
+			Description:  "支持一次构建部署多个环境",
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "构建",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "部署环境1",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy-env-1",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+				{
+					Name:     "镜像分发",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "image-distribute",
+							JobType: config.JobZadigDistributeImage,
+							Spec: commonmodels.ZadigDistributeImageJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+				{
+					Name:     "部署环境2",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy-env-2",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "image-distribute",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "Nacos 配置及业务变更",
+			BuildIn:      true,
+			Description:  "支持自动化执行 nacos 配置变更",
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "构建",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "Nacos 配置变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "nacos-update",
+							JobType: config.JobNacos,
+							Spec:    commonmodels.NacosJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "Apollo 配置及业务变更",
+			BuildIn:      true,
+			Description:  "支持自动化执行 apollo 配置变更",
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "构建",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "Apollo 配置变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "apollo-update",
+							JobType: config.JobApollo,
+							Spec:    commonmodels.ApolloJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "JIRA 问题状态及业务变更",
+			BuildIn:      true,
+			Description:  "支持自动化执行 JIRA 问题状态变更",
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "构建",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+				{
+					Name:     "测试",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "test",
+							JobType: config.JobZadigTesting,
+							Spec:    commonmodels.ZadigTestingJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "JIRA 问题状态变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "jira-update",
+							JobType: config.JobJira,
+							Spec: commonmodels.JiraJobSpec{
+								Source: setting.VariableSourceRuntime,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "飞书工作项状态及业务变更",
+			BuildIn:      true,
+			Description:  "支持自动化执行飞书工作项状态变更",
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "构建",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "build",
+							JobType: config.JobZadigBuild,
+							Spec:    commonmodels.ZadigBuildJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "deploy",
+							JobType: config.JobZadigDeploy,
+							Spec: commonmodels.ZadigDeployJobSpec{
+								Source:  config.SourceFromJob,
+								JobName: "build",
+							},
+						},
+					},
+				},
+				{
+					Name:     "测试",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "test",
+							JobType: config.JobZadigTesting,
+							Spec:    commonmodels.ZadigTestingJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "飞书工作项变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "lark-update",
+							JobType: config.JobMeegoTransition,
+							Spec:    commonmodels.MeegoTransitionJobSpec{},
+						},
+					},
+				},
+			},
+		},
+		{
 			TemplateName: "多阶段灰度",
-			Description:  "支持自动化执行多阶段的灰度发布，结合人工审核，确保灰度过程可控",
+			Description:  "支持自动化执行多阶段的灰度发布，结合人工审批，确保灰度过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
@@ -423,7 +679,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "蓝绿发布",
-			Description:  "支持自动化执行蓝绿发布，结合人工审核，确保蓝绿过程可控",
+			Description:  "支持自动化执行蓝绿发布，结合人工审批，确保蓝绿过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
@@ -464,7 +720,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "金丝雀发布",
-			Description:  "支持自动化执行金丝雀发布，结合人工审核，确保金丝雀发布过程可控",
+			Description:  "支持自动化执行金丝雀发布，结合人工审批，确保金丝雀发布过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
@@ -506,30 +762,33 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		},
 		{
 			TemplateName: "istio发布",
-			Description:  "结合灰度发布以及更新 istio Virtual Service YAML 配置任务，完成新版本灰度上线过程",
+			Description:  "支持  istio 灰度发布，结合人工审批，确保发布过程可控",
 			BuildIn:      true,
 			Category:     setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "灰度20%",
+					Name:     "istio 流量 20%",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "gray-20",
-							JobType: config.JobK8sGrayRelease,
-							Spec: commonmodels.GrayReleaseJobSpec{
-								DeployTimeout: 10,
-								GrayScale:     20,
+							Name:    "istio-20",
+							JobType: config.JobIstioRelease,
+							Spec: commonmodels.IstioJobSpec{
+								First:             true,
+								ClusterID:         setting.LocalClusterID,
+								Timeout:           10,
+								ReplicaPercentage: 100,
+								Weight:            20,
 							},
 						},
 					},
 				},
 				{
-					Name:     "istio流量切换20%",
+					Name:     "istio 流量 60%",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:     true,
-						Description: "Confirm switch 20% reaffic",
+						Description: "Confirm to release 60%",
 						Type:        config.NativeApproval,
 						NativeApproval: &commonmodels.NativeApproval{
 							Timeout:         60,
@@ -538,55 +797,24 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "istio-20",
-							JobType: config.JobK8sPatch,
-							Spec: commonmodels.K8sPatchJobSpec{
-								ClusterID: setting.LocalClusterID,
-								Namespace: "default",
-								PatchItems: []*commonmodels.PatchItem{
-									{
-										PatchContent: `spec:
-  hosts:
-  - demo-service
-  http:
-  - route:
-    - destination:
-        host: demo-service
-        subset: origin
-        weight: {{.originWeight}}
-    - destination:
-        host: demo-service
-        subset: gray
-        weight: {{.grayWeight}}`,
-										PatchStrategy:   "merge",
-										ResourceGroup:   "networking.istio.io",
-										ResourceKind:    "VirtualService",
-										ResourceName:    "istio-demo-vs",
-										ResourceVersion: "v1beta1",
-										Params: []*commonmodels.Param{
-											{
-												Name:       "originWeight",
-												ParamsType: "string",
-												Value:      "80",
-											},
-											{
-												Name:       "grayWeight",
-												ParamsType: "string",
-												Value:      "20",
-											},
-										},
-									},
-								},
+							Name:    "istio-60",
+							JobType: config.JobIstioRelease,
+							Spec: commonmodels.IstioJobSpec{
+								First:             false,
+								FromJob:           "istio-20",
+								Timeout:           10,
+								ReplicaPercentage: 100,
+								Weight:            60,
 							},
 						},
 					},
 				},
 				{
-					Name:     "istio流量切换100%",
+					Name:     "istio 流量 100%",
 					Parallel: true,
 					Approval: &commonmodels.Approval{
 						Enabled:     true,
-						Description: "Confirm switch 100 traffic",
+						Description: "Confirm to release 100%",
 						Type:        config.NativeApproval,
 						NativeApproval: &commonmodels.NativeApproval{
 							Timeout:         60,
@@ -596,25 +824,166 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "istio-100",
-							JobType: config.JobK8sPatch,
-							Spec: commonmodels.K8sPatchJobSpec{
-								ClusterID: setting.LocalClusterID,
-								Namespace: "default",
-								PatchItems: []*commonmodels.PatchItem{
-									{
-										PatchContent: `spec:
-  hosts:
-  - demo-service
-  http:
-  - route:
-    - destination:
-        host: demo-service
-        subset: origin`,
-										PatchStrategy:   "merge",
-										ResourceGroup:   "networking.istio.io",
-										ResourceKind:    "VirtualService",
-										ResourceName:    "istio-demo-vs",
-										ResourceVersion: "v1beta1",
+							JobType: config.JobIstioRelease,
+							Spec: commonmodels.IstioJobSpec{
+								First:             false,
+								FromJob:           "istio-20",
+								Timeout:           10,
+								ReplicaPercentage: 100,
+								Weight:            100,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "Nacos 配置变更及服务升级",
+			Description:  "支持自动化执行 nacos 配置变更和镜像更新",
+			BuildIn:      true,
+			Category:     setting.ReleaseWorkflow,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "Nacos 配置变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "nacos-update",
+							JobType: config.JobNacos,
+							Spec:    commonmodels.NacosJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "Kubernetes 部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "k8s-deploy",
+							JobType: config.JobCustomDeploy,
+							Spec: commonmodels.CustomDeployJobSpec{
+								Timeout: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "Apollo 配置变更及服务升级",
+			Description:  "支持自动化执行 apollo 配置变更和镜像更新",
+			BuildIn:      true,
+			Category:     setting.ReleaseWorkflow,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "Apollo 配置变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "appllo-update",
+							JobType: config.JobApollo,
+							Spec:    commonmodels.ApolloJobSpec{},
+						},
+					},
+				},
+				{
+					Name:     "Kubernetes 部署",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "k8s-deploy",
+							JobType: config.JobCustomDeploy,
+							Spec: commonmodels.CustomDeployJobSpec{
+								Timeout: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			TemplateName: "DMS 数据变更及服务升级",
+			Description:  "支持自动化创建并跟踪 DMS 数据变更工单和镜像更新",
+			BuildIn:      true,
+			Category:     setting.ReleaseWorkflow,
+			Stages: []*commonmodels.WorkflowStage{
+				{
+					Name:     "DMS 数据变更",
+					Parallel: true,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "dms-update",
+							JobType: config.JobPlugin,
+							Spec: commonmodels.PluginJobSpec{
+								Properties: &commonmodels.JobProperties{
+									Timeout:         60,
+									ResourceRequest: "low",
+									ResReqSpec:      setting.LowRequestSpec,
+								},
+								Plugin: &commonmodels.PluginTemplate{
+									Name:        "DMS 数据变更工单",
+									IsOffical:   true,
+									Category:    "",
+									Description: "创建并跟踪 DMS 数据变更工单",
+									Version:     "v0.0.1",
+									Image:       "koderover.tencentcloudcr.com/koderover-public/dms-approval:v0.0.1",
+									Envs: []*commonmodels.Env{
+										{
+											Name:  "AK",
+											Value: "$(inputs.AK)",
+										},
+										{
+											Name:  "SK",
+											Value: "$(inputs.SK)",
+										},
+										{
+											Name:  "DBS",
+											Value: "$(inputs.DBS)",
+										},
+										{
+											Name:  "AFFECT_ROWS",
+											Value: "$(inputs.AFFECT_ROWS)",
+										},
+										{
+											Name:  "EXEC_SQL",
+											Value: "$(inputs.EXEC_SQL)",
+										},
+										{
+											Name:  "COMMENT",
+											Value: "$(inputs.COMMENT)",
+										},
+									},
+									Inputs: []*commonmodels.Param{
+										{
+											Name:        "AK",
+											Description: "aliyun account AK",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "SK",
+											Description: "aliyun account AK",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "DBS",
+											Description: "databases to operate, separated by commas, eg: test@127.0.0.1:3306,test@127.0.0.1:3306",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "AFFECT_ROWS",
+											Description: "affect rows",
+											ParamsType:  "string",
+										},
+										{
+											Name:        "EXEC_SQL",
+											Description: "sql to exexute",
+											ParamsType:  "text",
+										},
+										{
+											Name:        "COMMENT",
+											Description: "comment message",
+											ParamsType:  "string",
+										},
 									},
 								},
 							},
@@ -622,25 +991,14 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "灰度100%",
+					Name:     "Kubernetes 部署",
 					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm release to 100%",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
-						},
-					},
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "gray-100",
-							JobType: config.JobK8sGrayRelease,
-							Spec: commonmodels.GrayReleaseJobSpec{
-								FromJob:       "gray-20",
-								DeployTimeout: 10,
-								GrayScale:     100,
+							Name:    "k8s-deploy",
+							JobType: config.JobCustomDeploy,
+							Spec: commonmodels.CustomDeployJobSpec{
+								Timeout: 10,
 							},
 						},
 					},

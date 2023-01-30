@@ -32,9 +32,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	configbase "github.com/koderover/zadig/pkg/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/setting"
@@ -107,7 +109,11 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		return fmt.Errorf("can't find connector")
 	}
 
-	config := si.Config.(*ldap.Config)
+	config := new(ldap.Config)
+	err = commonmodels.IToi(si.Config, config)
+	if err != nil {
+		return err
+	}
 	l, err := ldapv3.Dial("tcp", config.Host)
 	if err != nil {
 		logger.Errorf("ldap dial host:%s error, error msg:%s", config.Host, err)
@@ -215,9 +221,9 @@ func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, 
 	if user == nil {
 		return nil, nil
 	}
-	userSetting, err := orm.GetUserSettingByUid(uid, core.DB)
+	userSetting, err := mongodb.NewUserSettingColl().GetUserSettingByUid(uid)
 	if err != nil {
-		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
+		logger.Errorf("GetUser GetUserSettingByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
 	ret := &types.UserSetting{
@@ -359,7 +365,7 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		logger.Errorf("DeleteUserByUID DeleteUserLoginByUid:%s error, error msg:%s", uid, err.Error())
 		return err
 	}
-	err = orm.DeleteUserSettingByUid(uid, tx)
+	err = mongodb.NewUserSettingColl().DeleteUserSettingByUid(uid)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("DeleteUserByUID DeleteUserSettingByUid:%s error, error msg:%s", uid, err.Error())
@@ -494,7 +500,7 @@ func UpdateUserSetting(uid string, args *UserSetting) error {
 		LogBgColor:   args.LogBgColor,
 		LogFontColor: args.LogFontColor,
 	}
-	err := orm.UpsertUserSetting(userSetting, core.DB)
+	err := mongodb.NewUserSettingColl().UpsertUserSetting(userSetting)
 	if err != nil {
 		return e.ErrUpdateUser.AddErr(err)
 	}

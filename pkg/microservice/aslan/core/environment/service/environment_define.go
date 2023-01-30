@@ -50,6 +50,8 @@ type EnvResp struct {
 	IsPublic    bool     `json:"isPublic"`
 	ClusterName string   `json:"clusterName"`
 	ClusterID   string   `json:"cluster_id"`
+	Namespace   string   `json:"namespace"`
+	Alias       string   `json:"alias"`
 	Production  bool     `json:"production"`
 	Source      string   `json:"source"`
 	RegistryID  string   `json:"registry_id"`
@@ -105,14 +107,19 @@ type EstimateValuesArg struct {
 }
 
 type EnvRenderChartArg struct {
-	ChartValues []*commonservice.RenderChartArg `json:"chartValues"`
+	ChartValues []*commonservice.HelmSvcRenderArg `json:"chartValues"`
 }
 
 type EnvRendersetArg struct {
-	DefaultValues     string                          `json:"defaultValues"`
-	ValuesData        *commonservice.ValuesDataArgs   `json:"valuesData"`
-	ChartValues       []*commonservice.RenderChartArg `json:"chartValues"`
-	UpdateServiceTmpl bool                            `json:"updateServiceTmpl"`
+	DeployType        string                            `json:"-"`
+	DefaultValues     string                            `json:"defaultValues"`
+	ValuesData        *commonservice.ValuesDataArgs     `json:"valuesData"`
+	ChartValues       []*commonservice.HelmSvcRenderArg `json:"chartValues"`
+	UpdateServiceTmpl bool                              `json:"updateServiceTmpl"`
+}
+
+type K8sRendersetArg struct {
+	VariableYaml string `json:"variable_yaml"`
 }
 
 type ProductK8sServiceCreationInfo struct {
@@ -121,7 +128,7 @@ type ProductK8sServiceCreationInfo struct {
 }
 
 type ProductHelmServiceCreationInfo struct {
-	*commonservice.RenderChartArg
+	*commonservice.HelmSvcRenderArg
 	DeployStrategy string `json:"deploy_strategy"`
 }
 
@@ -131,16 +138,20 @@ type CreateSingleProductArg struct {
 	Namespace   string `json:"namespace"`
 	ClusterID   string `json:"cluster_id"`
 	RegistryID  string `json:"registry_id"`
+	Production  bool   `json:"production"`
+	Alias       string `json:"alias"`
 	BaseEnvName string `json:"base_env_name"`
 	BaseName    string `json:"base_name,omitempty"` // for collaboration mode
 
+	DefaultValues string `json:"default_values"`
+	// TODO fix me
+	HelmDefaultValues string `json:"defaultValues"`
 	// for helm products
-	DefaultValues string                            `json:"defaultValues"`
-	ValuesData    *commonservice.ValuesDataArgs     `json:"valuesData"`
-	ChartValues   []*ProductHelmServiceCreationInfo `json:"chartValues"`
+	ValuesData  *commonservice.ValuesDataArgs     `json:"valuesData"`
+	ChartValues []*ProductHelmServiceCreationInfo `json:"chartValues"`
 
 	// for k8s products
-	Vars     []*templatemodels.RenderKV         `json:"vars"`
+	//Vars     []*templatemodels.RenderKV         `json:"vars"`
 	Services [][]*ProductK8sServiceCreationInfo `json:"services"`
 
 	IsExisted bool `json:"is_existed"`
@@ -152,11 +163,11 @@ type CreateSingleProductArg struct {
 }
 
 type UpdateMultiHelmProductArg struct {
-	ProductName     string                          `json:"productName"`
-	EnvNames        []string                        `json:"envNames"`
-	ChartValues     []*commonservice.RenderChartArg `json:"chartValues"`
-	DeletedServices []string                        `json:"deletedServices"`
-	ReplacePolicy   string                          `json:"replacePolicy"` // TODO logic not implemented
+	ProductName     string                            `json:"productName"`
+	EnvNames        []string                          `json:"envNames"`
+	ChartValues     []*commonservice.HelmSvcRenderArg `json:"chartValues"`
+	DeletedServices []string                          `json:"deletedServices"`
+	ReplacePolicy   string                            `json:"replacePolicy"` // TODO logic not implemented
 }
 
 type RawYamlResp struct {
@@ -168,7 +179,7 @@ type ReleaseInstallParam struct {
 	Namespace    string
 	ReleaseName  string
 	MergedValues string
-	RenderChart  *templatemodels.RenderChart
+	RenderChart  *templatemodels.ServiceRender
 	serviceObj   *commonmodels.Service
 	DryRun       bool
 }
@@ -189,12 +200,21 @@ type UpdateEnvRequest struct {
 
 // ------------ used for api of getting deploy status of k8s resource/helm release
 
-type DeployStatusCheckRequest struct {
-	EnvName   string                     `json:"env_name"`
-	Services  []string                   `json:"services"`
-	ClusterID string                     `json:"cluster_id"`
-	Namespace string                     `json:"namespace"`
-	Vars      []*templatemodels.RenderKV `json:"vars"`
+type K8sDeployStatusCheckRequest struct {
+	EnvName       string                           `json:"env_name"`
+	Services      []*commonservice.K8sSvcRenderArg `json:"services"`
+	ClusterID     string                           `json:"cluster_id"`
+	Namespace     string                           `json:"namespace"`
+	DefaultValues string                           `json:"default_values"`
+	//Vars      []*templatemodels.RenderKV `json:"vars"`
+}
+
+type HelmDeployStatusCheckRequest struct {
+	EnvName   string   `json:"env_name"`
+	Services  []string `json:"services"`
+	ClusterID string   `json:"cluster_id"`
+	Namespace string   `json:"namespace"`
+	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
 type DeployStatus string

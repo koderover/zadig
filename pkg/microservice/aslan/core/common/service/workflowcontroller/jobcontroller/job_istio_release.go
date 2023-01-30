@@ -86,6 +86,9 @@ func (c *IstioReleaseJobCtl) Clean(ctx context.Context) {
 }
 
 func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+
 	var err error
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
@@ -131,7 +134,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		}
 	} else {
 		// if the specified key does not exist, we simply return error
-		c.Errorf("the deployment %s need to have label: %s on its metadata", deployment.Name, ZadigIstioIdentifierLabel)
+		c.Errorf("the deployment %s need to have label: %s on its spec.template.labels", deployment.Name, ZadigIstioIdentifierLabel)
 		return
 	}
 

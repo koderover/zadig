@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"gitee.com/openeuler/go-gitee/gitee"
@@ -32,6 +33,8 @@ import (
 type Client struct {
 	*gitee.APIClient
 }
+
+var mu = &sync.RWMutex{}
 
 func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) *Client {
 	var (
@@ -55,6 +58,8 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 	}
 
 	if accessToken != "" {
+		mu.Lock()
+		defer mu.Unlock()
 		ch, err := systemconfig.New().GetCodeHost(id)
 		// The normal expiration time is 86400
 		if err == nil && (time.Now().Unix()-ch.UpdatedAt) >= 86000 {

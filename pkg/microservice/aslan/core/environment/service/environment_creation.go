@@ -39,9 +39,9 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		return fmt.Errorf("failed to validate args: %s", err)
 	}
 
-	productObj.ChartInfos = make([]*templatemodels.RenderChart, 0)
+	productObj.ServiceRenders = make([]*templatemodels.ServiceRender, 0)
 	// chart infos in template product
-	templateChartInfoMap := make(map[string]*templatemodels.RenderChart)
+	templateChartInfoMap := make(map[string]*templatemodels.ServiceRender)
 	for _, tc := range templateProduct.ChartInfos {
 		templateChartInfoMap[tc.ServiceName] = tc
 	}
@@ -49,16 +49,16 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	serviceDeployStrategy := make(map[string]string)
 
 	// user custom chart values
-	cvMap := make(map[string]*templatemodels.RenderChart)
+	cvMap := make(map[string]*templatemodels.ServiceRender)
 	for _, singleCV := range arg.ChartValues {
 		tc, ok := templateChartInfoMap[singleCV.ServiceName]
 		if !ok {
 			return fmt.Errorf("failed to find chart info in product, serviceName: %s productName: %s", singleCV.ServiceName, templateProduct.ProjectName)
 		}
-		chartInfo := &templatemodels.RenderChart{}
+		chartInfo := &templatemodels.ServiceRender{}
 		singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion)
 		chartInfo.ValuesYaml = tc.ValuesYaml
-		productObj.ChartInfos = append(productObj.ChartInfos, chartInfo)
+		productObj.ServiceRenders = append(productObj.ServiceRenders, chartInfo)
 		cvMap[singleCV.ServiceName] = chartInfo
 		serviceDeployStrategy[singleCV.ServiceName] = singleCV.DeployStrategy
 	}
@@ -115,21 +115,61 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+	err = commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
 		UpdateBy:      productObj.UpdateBy,
 		IsDefault:     false,
 		DefaultValues: arg.DefaultValues,
-		ChartInfos:    productObj.ChartInfos,
+		ChartInfos:    productObj.ServiceRenders,
 		YamlData:      geneYamlData(arg.ValuesData),
 	}, log)
 	if err != nil {
 		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
 		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
 	}
+
+	renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		Name:        commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		EnvName:     arg.EnvName,
+		IsDefault:   false,
+		ProductTmpl: productObj.ProductName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find renderset of product: %s/%s, err: %s", arg.ProductName, arg.EnvName, err)
+	}
+
+	if renderset != nil {
+		productObj.Render = &commonmodels.RenderInfo{
+			Name:        renderset.Name,
+			Revision:    renderset.Revision,
+			ProductTmpl: productObj.ProductName,
+		}
+	}
+
 	return nil
+}
+
+func createSingleHostProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
+	productObj := &commonmodels.Product{
+		ProductName:     templateProduct.ProductName,
+		Enabled:         false,
+		EnvName:         arg.EnvName,
+		UpdateBy:        userName,
+		IsPublic:        true,
+		ClusterID:       arg.ClusterID,
+		Namespace:       arg.Namespace,
+		Source:          setting.SourceFromExternal,
+		IsOpenSource:    templateProduct.IsOpensource,
+		IsForkedProduct: false,
+		RegistryID:      registryID,
+		IsExisted:       arg.IsExisted,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
+	}
+
+	return CreateProduct(userName, requestID, productObj, log)
 }
 
 func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
@@ -149,6 +189,8 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		IsExisted:       arg.IsExisted,
 		EnvConfigs:      arg.EnvConfigs,
 		ShareEnv:        arg.ShareEnv,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
 	}
 
 	// fill services and chart infos of product
@@ -157,6 +199,27 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		return err
 	}
 	return CreateProduct(userName, requestID, productObj, log)
+}
+
+// CreateHostProductionProduct creates environment for host project, this function only creates production environment
+func CreateHostProductionProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil || templateProduct == nil {
+		if err != nil {
+			log.Errorf("failed to query product %s, err %s ", productName, err.Error())
+		}
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
+	}
+
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		arg.Production = true
+		err = createSingleHostProduct(templateProduct, requestID, userName, arg.RegistryID, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
 }
 
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
@@ -205,7 +268,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 	return errList.ErrorOrNil()
 }
 
-func prepareK8sProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg) error {
+func prepareK8sProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateChartInfoMap := templateProduct.AllServiceInfoMap()
 	// validate the service is in product
 	for _, createdSvcGroup := range arg.Services {
@@ -231,6 +294,21 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 		productObj.Services = append(productObj.Services, sg)
 	}
 	productObj.ServiceDeployStrategy = serviceDeployStrategy
+
+	// insert renderset info into db
+	err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+		Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		EnvName:          arg.EnvName,
+		ProductTmpl:      arg.ProductName,
+		UpdateBy:         productObj.UpdateBy,
+		IsDefault:        false,
+		DefaultValues:    arg.DefaultValues,
+		ServiceVariables: productObj.ServiceRenders,
+	}, log)
+	if err != nil {
+		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+	}
 	return nil
 }
 
@@ -251,14 +329,25 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 		IsExisted:       arg.IsExisted,
 		EnvConfigs:      arg.EnvConfigs,
 		ShareEnv:        arg.ShareEnv,
-		Vars:            arg.Vars,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
+		//Vars:            arg.Vars,
 	}
 	if len(arg.BaseEnvName) > 0 {
 		productObj.BaseEnvName = arg.BaseEnvName
 	}
 
+	for _, svg := range arg.Services {
+		for _, sv := range svg {
+			productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{
+				ServiceName:  sv.ServiceName,
+				OverrideYaml: &templatemodels.CustomYaml{YamlContent: sv.VariableYaml},
+			})
+		}
+	}
+
 	// fill services and chart infos of product
-	err := prepareK8sProductCreation(templateProduct, productObj, arg)
+	err := prepareK8sProductCreation(templateProduct, productObj, arg, log)
 	if err != nil {
 		return err
 	}

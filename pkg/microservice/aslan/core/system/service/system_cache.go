@@ -49,7 +49,7 @@ const (
 	CleanStatusFailed   = "failed"
 )
 
-//SetCron set the docker clean cron
+// SetCron set the docker clean cron
 func SetCron(cron string, cronEnabled bool, logger *zap.SugaredLogger) error {
 	dindCleans, err := commonrepo.NewDindCleanColl().List()
 	if err != nil {
@@ -110,9 +110,7 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		}
 		dindClean.Status = CleanStatusCleaning
 		dindClean.DindCleanInfos = []*commonmodels.DindCleanInfo{}
-		dindClean.Cron = dindCleans[0].Cron
-		dindClean.CronEnabled = dindCleans[0].CronEnabled
-		if err := commonrepo.NewDindCleanColl().Upsert(dindClean); err != nil {
+		if err := commonrepo.NewDindCleanColl().UpdateStatusInfo(dindClean); err != nil {
 			return e.ErrUpdateDindClean.AddErr(err)
 		}
 	}
@@ -120,11 +118,9 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 	dindPods, err := getDindPods()
 	if err != nil {
 		logger.Errorf("Failed to list dind pods: %s", err)
-		return commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+		return commonrepo.NewDindCleanColl().UpdateStatusInfo(&commonmodels.DindClean{
 			Status:         CleanStatusFailed,
 			DindCleanInfos: []*commonmodels.DindCleanInfo{},
-			Cron:           dindCleans[0].Cron,
-			CronEnabled:    dindCleans[0].CronEnabled,
 		})
 	}
 	logger.Infof("Total dind Pods to be cleaned up: %d", len(dindPods))
@@ -178,22 +174,24 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		res <- &commonmodels.DindClean{
 			Status:         status,
 			DindCleanInfos: dindInfos,
-			Cron:           dindCleans[0].Cron,
-			CronEnabled:    dindCleans[0].CronEnabled,
 		}
 
 	}(res)
 
 	select {
 	case <-timeout.Done():
-		commonrepo.NewDindCleanColl().Upsert(&commonmodels.DindClean{
+		err = commonrepo.NewDindCleanColl().UpdateStatusInfo(&commonmodels.DindClean{
 			Status:         CleanStatusFailed,
 			DindCleanInfos: []*commonmodels.DindCleanInfo{},
-			Cron:           dindCleans[0].Cron,
-			CronEnabled:    dindCleans[0].CronEnabled,
 		})
+		if err != nil {
+			logger.Errorf("failed to update dind clean info, err: %s", err.Error())
+		}
 	case info := <-res:
-		commonrepo.NewDindCleanColl().Upsert(info)
+		err = commonrepo.NewDindCleanColl().UpdateStatusInfo(info)
+		if err != nil {
+			logger.Errorf("failed to update dind clean info, err: %s", err.Error())
+		}
 	}
 
 	return nil

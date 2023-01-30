@@ -26,7 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
-	commonmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/models"
@@ -46,14 +45,14 @@ type serviceTotalInfo struct {
 }
 
 func InitDeployStat(log *zap.SugaredLogger) error {
-	option := &commonmongodb.ListAllTaskOption{Type: config.WorkflowType}
 	count, err := mongodb.NewDeployStatColl().FindCount()
 	if err != nil {
 		log.Errorf("deployStat FindCount err:%v", err)
 		return fmt.Errorf("deployStat FindCount err:%v", err)
 	}
+	var createTime int64
 	if count > 0 {
-		option.CreateTime = time.Now().AddDate(0, 0, -1).Unix()
+		createTime = time.Now().AddDate(0, 0, -1).Unix()
 	}
 	//获取所有的项目名称
 	allProducts, err := templaterepo.NewProductColl().List()
@@ -62,54 +61,54 @@ func InitDeployStat(log *zap.SugaredLogger) error {
 		return fmt.Errorf("deployStat ProductTmpl List err:%v", err)
 	}
 	for _, product := range allProducts {
-		option.ProductNames = []string{product.ProductName}
-		allTasks, err := commonmongodb.NewTaskColl().ListAllTasks(option)
+		deployStats, err := GetDeployStatByProdutName(product.ProductName, createTime, log)
 		if err != nil {
-			log.Errorf("pipeline list err:%v", err)
-			return fmt.Errorf("pipeline list err:%v", err)
+			log.Errorf("list workkflow deploy stat err: %v", err)
+			return fmt.Errorf("list workkflow deploy stat err: %v", err)
 		}
-		taskDateMap := make(map[string][]*taskmodels.Task)
-		if len(allTasks) > 0 {
-			//将task的时间戳转成日期，以日期为单位分组
-			for _, task := range allTasks {
-				createTime := time.Unix(task.CreateTime, 0)
-				date := createTime.Format(config.Date)
-				if _, isExist := taskDateMap[date]; isExist {
-					taskDateMap[date] = append(taskDateMap[date], task)
-				} else {
-					tasks := make([]*taskmodels.Task, 0)
-					tasks = append(tasks, task)
-					taskDateMap[date] = tasks
+		for _, deployStat := range deployStats {
+			err := mongodb.NewDeployStatColl().Create(deployStat)
+			if err != nil {
+				err = mongodb.NewDeployStatColl().Update(deployStat)
+				if err != nil {
+					log.Errorf("deployStat Update err:%v", err)
+					continue
 				}
 			}
-		} else {
-			currentTime := time.Now().AddDate(0, 0, -1).In(time.Local)
-			date := currentTime.Format(config.Date)
-			taskDateMap[date] = []*taskmodels.Task{
-				{Stages: []*commonmodels.Stage{}},
-			}
 		}
+	}
+	return nil
+}
 
-		taskDateKeys := make([]string, 0, len(taskDateMap))
-		for taskDateMapKey := range taskDateMap {
-			taskDateKeys = append(taskDateKeys, taskDateMapKey)
-		}
-		sort.Strings(taskDateKeys)
+func GetDeployStatByProdutName(productName string, startTimestamp int64, log *zap.SugaredLogger) ([]*models.DeployStat, error) {
+	deployStats := []*models.DeployStat{}
+	taskDateMap, err := getTaskDateMap(productName, startTimestamp)
+	if err != nil {
+		return deployStats, err
+	}
 
-		for _, taskDate := range taskDateKeys {
-			var (
-				totalTaskSuccess           = 0
-				totalTaskFailure           = 0
-				totalDeploySuccess         = 0
-				totalDeployFailure         = 0
-				deployServiceInfos         = make([]*serviceInfo, 0)
-				maxDeployFailureServiceMap = make(map[string][]*serviceInfo)
-				serviceInfoTotals          = make([]*serviceTotalInfo, 0)
-			)
-			//循环task任务获取需要的数据
-			for _, taskPreview := range taskDateMap[taskDate] {
-				stages := taskPreview.Stages
-				taskStatus := taskPreview.Status
+	taskDateKeys := make([]string, 0, len(taskDateMap))
+	for taskDateMapKey := range taskDateMap {
+		taskDateKeys = append(taskDateKeys, taskDateMapKey)
+	}
+	sort.Strings(taskDateKeys)
+
+	for _, taskDate := range taskDateKeys {
+		var (
+			totalTaskSuccess           = 0
+			totalTaskFailure           = 0
+			totalDeploySuccess         = 0
+			totalDeployFailure         = 0
+			deployServiceInfos         = make([]*serviceInfo, 0)
+			maxDeployFailureServiceMap = make(map[string][]*serviceInfo)
+			serviceInfoTotals          = make([]*serviceTotalInfo, 0)
+		)
+		//循环task任务获取需要的数据
+		for _, taskPreview := range taskDateMap[taskDate] {
+			switch taskP := taskPreview.(type) {
+			case *taskmodels.Task:
+				stages := taskP.Stages
+				taskStatus := taskP.Status
 				switch taskStatus {
 				case config.StatusPassed:
 					totalTaskSuccess++
@@ -143,72 +142,107 @@ func InitDeployStat(log *zap.SugaredLogger) error {
 						}
 					}
 				}
-			}
-			//以服务名称分组
-			for _, svcInfo := range deployServiceInfos {
-				if _, isExsit := maxDeployFailureServiceMap[svcInfo.ServiceName]; isExsit {
-					maxDeployFailureServiceMap[svcInfo.ServiceName] = append(maxDeployFailureServiceMap[svcInfo.ServiceName], svcInfo)
-				} else {
-					serviceInfos := make([]*serviceInfo, 0)
-					serviceInfos = append(serviceInfos, svcInfo)
-					maxDeployFailureServiceMap[svcInfo.ServiceName] = serviceInfos
-				}
-			}
-			//统计部署次数最高和失败最高的服务
-			for serviceName, serviceInfos := range maxDeployFailureServiceMap {
-				totalDeploy := 0
-				totalFailure := 0
-				for _, serviceInfo := range serviceInfos {
-					totalFailure += serviceInfo.DeployFailure
-					totalDeploy += totalFailure + serviceInfo.DeploySuccess
-				}
-				serviceTotalInfo := &serviceTotalInfo{
-					ServiceName:        serviceName,
-					DeployTotal:        totalDeploy,
-					DeployTotalFailure: totalFailure,
-				}
-				serviceInfoTotals = append(serviceInfoTotals, serviceTotalInfo)
-			}
-
-			deployStat := new(models.DeployStat)
-			deployStat.ProductName = product.ProductName
-			deployStat.TotalTaskSuccess = totalTaskSuccess
-			deployStat.TotalTaskFailure = totalTaskFailure
-			deployStat.TotalDeploySuccess = totalDeploySuccess
-			deployStat.TotalDeployFailure = totalDeployFailure
-			deployStat.Date = taskDate
-			tt, _ := time.ParseInLocation(config.Date, taskDate, time.Local)
-			deployStat.CreateTime = tt.Unix()
-			deployStat.UpdateTime = time.Now().Unix()
-			if len(serviceInfoTotals) > 0 {
-				sort.SliceStable(serviceInfoTotals, func(i, j int) bool { return serviceInfoTotals[i].DeployTotal > serviceInfoTotals[j].DeployTotal })
-				deployStat.MaxDeployServiceNum = serviceInfoTotals[0].DeployTotal
-				deployStat.MaxDeployServiceFailureNum = serviceInfoTotals[0].DeployTotalFailure
-				deployStat.MaxDeployServiceName = serviceInfoTotals[0].ServiceName
-
-				sort.SliceStable(serviceInfoTotals, func(i, j int) bool {
-					return serviceInfoTotals[i].DeployTotalFailure > serviceInfoTotals[j].DeployTotalFailure
-				})
-				deployStat.MaxDeployFailureServiceNum = serviceInfoTotals[0].DeployTotalFailure
-				deployStat.MaxDeployFailureServiceName = serviceInfoTotals[0].ServiceName
-			} else {
-				deployStat.MaxDeployServiceNum = 0
-				deployStat.MaxDeployServiceFailureNum = 0
-				deployStat.MaxDeployServiceName = ""
-				deployStat.MaxDeployFailureServiceNum = 0
-				deployStat.MaxDeployFailureServiceName = ""
-			}
-			err := mongodb.NewDeployStatColl().Create(deployStat)
-			if err != nil { //插入失败就更新
-				err = mongodb.NewDeployStatColl().Update(deployStat)
-				if err != nil {
-					log.Errorf("deployStat Update err:%v", err)
-					continue
+			case *commonmodels.WorkflowTask:
+				stages := taskP.Stages
+				for _, stage := range stages {
+					for _, job := range stage.Jobs {
+						switch job.JobType {
+						case string(config.JobZadigDeploy):
+							jobTaskSpec := &commonmodels.JobTaskDeploySpec{}
+							if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+								continue
+							}
+							serviceInfo := new(serviceInfo)
+							serviceInfo.ServiceName = jobTaskSpec.ServiceName
+							if job.Status == config.StatusPassed {
+								totalDeploySuccess++
+								serviceInfo.DeploySuccess = 1
+							} else if job.Status == config.StatusFailed {
+								totalDeployFailure++
+								serviceInfo.DeployFailure = 1
+							} else {
+								continue
+							}
+							deployServiceInfos = append(deployServiceInfos, serviceInfo)
+						case string(config.JobZadigHelmDeploy):
+							jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{}
+							if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+								continue
+							}
+							serviceInfo := new(serviceInfo)
+							serviceInfo.ServiceName = jobTaskSpec.ServiceName
+							if job.Status == config.StatusPassed {
+								totalDeploySuccess++
+								serviceInfo.DeploySuccess = 1
+							} else if job.Status == config.StatusFailed {
+								totalDeployFailure++
+								serviceInfo.DeployFailure = 1
+							} else {
+								continue
+							}
+							deployServiceInfos = append(deployServiceInfos, serviceInfo)
+						}
+					}
 				}
 			}
 		}
+		//以服务名称分组
+		for _, svcInfo := range deployServiceInfos {
+			if _, isExsit := maxDeployFailureServiceMap[svcInfo.ServiceName]; isExsit {
+				maxDeployFailureServiceMap[svcInfo.ServiceName] = append(maxDeployFailureServiceMap[svcInfo.ServiceName], svcInfo)
+			} else {
+				serviceInfos := make([]*serviceInfo, 0)
+				serviceInfos = append(serviceInfos, svcInfo)
+				maxDeployFailureServiceMap[svcInfo.ServiceName] = serviceInfos
+			}
+		}
+		//统计部署次数最高和失败最高的服务
+		for serviceName, serviceInfos := range maxDeployFailureServiceMap {
+			totalDeploy := 0
+			totalFailure := 0
+			for _, serviceInfo := range serviceInfos {
+				totalFailure += serviceInfo.DeployFailure
+				totalDeploy += totalFailure + serviceInfo.DeploySuccess
+			}
+			serviceTotalInfo := &serviceTotalInfo{
+				ServiceName:        serviceName,
+				DeployTotal:        totalDeploy,
+				DeployTotalFailure: totalFailure,
+			}
+			serviceInfoTotals = append(serviceInfoTotals, serviceTotalInfo)
+		}
+
+		deployStat := new(models.DeployStat)
+		deployStat.ProductName = productName
+		deployStat.TotalTaskSuccess = totalTaskSuccess
+		deployStat.TotalTaskFailure = totalTaskFailure
+		deployStat.TotalDeploySuccess = totalDeploySuccess
+		deployStat.TotalDeployFailure = totalDeployFailure
+		deployStat.Date = taskDate
+		tt, _ := time.ParseInLocation(config.Date, taskDate, time.Local)
+		deployStat.CreateTime = tt.Unix()
+		deployStat.UpdateTime = time.Now().Unix()
+		if len(serviceInfoTotals) > 0 {
+			sort.SliceStable(serviceInfoTotals, func(i, j int) bool { return serviceInfoTotals[i].DeployTotal > serviceInfoTotals[j].DeployTotal })
+			deployStat.MaxDeployServiceNum = serviceInfoTotals[0].DeployTotal
+			deployStat.MaxDeployServiceFailureNum = serviceInfoTotals[0].DeployTotalFailure
+			deployStat.MaxDeployServiceName = serviceInfoTotals[0].ServiceName
+
+			sort.SliceStable(serviceInfoTotals, func(i, j int) bool {
+				return serviceInfoTotals[i].DeployTotalFailure > serviceInfoTotals[j].DeployTotalFailure
+			})
+			deployStat.MaxDeployFailureServiceNum = serviceInfoTotals[0].DeployTotalFailure
+			deployStat.MaxDeployFailureServiceName = serviceInfoTotals[0].ServiceName
+		} else {
+			deployStat.MaxDeployServiceNum = 0
+			deployStat.MaxDeployServiceFailureNum = 0
+			deployStat.MaxDeployServiceName = ""
+			deployStat.MaxDeployFailureServiceNum = 0
+			deployStat.MaxDeployFailureServiceName = ""
+		}
+		deployStats = append(deployStats, deployStat)
 	}
-	return nil
+	return deployStats, nil
 }
 
 type deployStatTotal struct {

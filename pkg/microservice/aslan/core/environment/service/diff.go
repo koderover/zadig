@@ -22,6 +22,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -97,10 +98,24 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 			return resp, err
 		}
 	}
-	resp.Current.Yaml = commonservice.RenderValueForString(oldService.Yaml, oldRender)
+	//resp.Current.Yaml = commonservice.RenderValueForString(oldService.Yaml, oldRender)
+
+	resp.Current.Yaml, err = kube.RenderServiceYaml(oldService.Yaml, "", "", oldRender, oldService.ServiceVars, oldService.VariableYaml)
+	if err != nil {
+		log.Error("failed to RenderServiceYaml, err: %s", err)
+		return nil, err
+	}
+
 	resp.Current.Revision = oldService.Revision
 	resp.Current.UpdateBy = oldService.CreateBy
-	resp.Latest.Yaml = commonservice.RenderValueForString(newService.Yaml, newRender)
+
+	resp.Latest.Yaml, err = kube.RenderServiceYaml(newService.Yaml, "", "", newRender, newService.ServiceVars, newService.VariableYaml)
+	if err != nil {
+		log.Error("failed to RenderServiceYaml, err: %s", err)
+		return nil, err
+	}
+
+	//resp.Latest.Yaml = commonservice.RenderValueForString(newService.Yaml, newRender)
 	resp.Latest.Revision = newService.Revision
 	resp.Latest.UpdateBy = newService.CreateBy
 	return resp, nil

@@ -44,11 +44,6 @@ func ListKubeEvents(c *gin.Context) {
 	name := c.Query("name")
 	rtype := c.Query("type")
 
-	if !(rtype == setting.Deployment || rtype == setting.StatefulSet) {
-		ctx.Resp = make([]interface{}, 0)
-		return
-	}
-
 	ctx.Resp, ctx.Err = service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
 }
 
@@ -182,11 +177,60 @@ func ListAllK8sResourcesInNamespace(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListAllK8sResourcesInNamespace(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
+func ListK8sResOverview(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err := c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	queryParam.ResourceTypes = c.Param("workloadType")
+	if len(queryParam.ResourceTypes) == 0 {
+		queryParam.ResourceTypes = c.Param("resourceType")
+	}
+	ctx.Resp, ctx.Err = service.ListK8sResOverview(queryParam, ctx.Logger)
+}
+
+func GetK8sResourceYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err := c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetK8sResourceYaml(queryParam, ctx.Logger)
+}
+
+func GetK8sWorkflowDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err := c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	workloadType := c.Param("workloadType")
+	workloadName := c.Param("workloadName")
+
+	ctx.Resp, ctx.Err = service.GetWorkloadDetail(queryParam, workloadType, workloadName, ctx.Logger)
+}
+
 func GetResourceDeployStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	request := &service.DeployStatusCheckRequest{}
+	request := &service.K8sDeployStatusCheckRequest{}
 	err := c.BindJSON(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
@@ -200,12 +244,12 @@ func GetReleaseDeployStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	request := &service.DeployStatusCheckRequest{}
+	request := &service.HelmDeployStatusCheckRequest{}
 	err := c.BindJSON(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), request, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), request)
 }

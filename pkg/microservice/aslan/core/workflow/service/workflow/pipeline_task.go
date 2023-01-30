@@ -37,10 +37,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/jira"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -165,8 +165,8 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	jiraInfo, _ := systemconfig.New().GetJiraInfo()
-	if jiraInfo != nil {
+	_, err = jira.GetJiraInfo()
+	if err == nil {
 		jiraTask, err := AddPipelineJiraSubTask(pipeline, log)
 		if err != nil {
 			log.Errorf("add jira task error: %v", err)
@@ -436,8 +436,18 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 	if t.Type == config.TestType {
 		stages := make([]*commonmodels.Stage, 0)
 		testName := strings.Replace(t.PipelineName, "-job", "", 1)
+		var mrID string
+		var source string
+		var repoOwner string
+		var repoName string
 
-		if testTask, err := TestArgsToTestSubtask(&commonmodels.TestTaskArgs{ProductName: t.ProductName, TestName: testName, TestTaskCreator: userName}, t, log); err == nil {
+		if t.TestArgs != nil {
+			mrID = t.TestArgs.MergeRequestID
+			source = t.TestArgs.Source
+			repoOwner = t.TestArgs.RepoOwner
+			repoName = t.TestArgs.RepoName
+		}
+		if testTask, err := TestArgsToTestSubtask(&commonmodels.TestTaskArgs{ProductName: t.ProductName, TestName: testName, TestTaskCreator: userName, MergeRequestID: mrID, Source: source, RepoOwner: repoOwner, RepoName: repoName}, t, log); err == nil {
 			FmtBuilds(testTask.JobCtx.Builds, log)
 			if testSubTask, err := testTask.ToSubTask(); err == nil {
 				AddSubtaskToStage(&stages, testSubTask, testTask.TestModuleName)
@@ -621,10 +631,12 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			} else {
 				testArg.Builds = testing.Repos
 				pr, _ := strconv.Atoi(args.MergeRequestID)
-
 				for i, build := range testArg.Builds {
-					if build.Source == args.Source {
+					if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
 						testArg.Builds[i].PR = pr
+						if pr != 0 {
+							testArg.Builds[i].PRs = []int{pr}
+						}
 					}
 				}
 

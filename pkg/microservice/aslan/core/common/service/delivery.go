@@ -374,13 +374,13 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 		product.Namespace = productInfo.Namespace
 	}
 
-	if pipelineTask.Render != nil {
-		if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, false, product.EnvName, log); err == nil {
-			product.Vars = renderSet.KVs
-		} else {
-			log.Warnf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)
-		}
-	}
+	//if pipelineTask.Render != nil {
+	//	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, false, product.EnvName, log); err == nil {
+	//		product.Vars = renderSet.KVs
+	//	} else {
+	//		log.Warnf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)
+	//	}
+	//}
 
 	//返回中的ProductName即产品模板的名称
 	product.Render = pipelineTask.Render
@@ -480,7 +480,11 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
 		}
 
-		parsedYaml := RenderValueForString(svcTmpl.Yaml, newRender)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, newRender, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
+		if err != nil {
+			log.Errorf("RenderServiceYaml failed, err: %s", err)
+			return "", err
+		}
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceName, parsedYaml)
 		// 替换服务模板容器镜像为用户指定镜像

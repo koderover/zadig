@@ -70,6 +70,15 @@ exemption_urls:
     - endpoint: api/aslan/system/lark/?*/webhook
       methods:
         - POST
+    - endpoint: api/aslan/system/project_management/jira/webhook/?*/?*
+      methods:
+        - POST
+    - endpoint: api/aslan/system/project_management/meego/webhook/?*/?*
+      methods:
+        - POST
+    - endpoint: api/aslan/workflow/v4/generalhook/?*/?*/webhook
+      methods:
+        - POST
     - endpoint: api/aslan/testing/report
       methods:
         - GET

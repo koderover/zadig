@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,54 +18,51 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func DeleteJira(c *gin.Context) {
+func CreateOrUpdateDashboardConfiguration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = service.DeleteJira(ctx.Logger)
-}
 
-func GetJira(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	encryptedKey := c.Query("encryptedKey")
-	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+	args := new(service.DashBoardConfig)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid dashboard config")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GeJira(encryptedKey, ctx.Logger)
+
+	ctx.Err = service.CreateOrUpdateDashboardConfiguration(ctx.UserName, ctx.UserID, args, ctx.Logger)
 }
 
-func GetJiraInternal(c *gin.Context) {
+func GetDashboardConfiguration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GeJiraInternal(ctx.Logger)
+
+	ctx.Resp, ctx.Err = service.GetDashboardConfiguration(ctx.UserName, ctx.UserID, ctx.Logger)
 }
 
-func CreateJira(c *gin.Context) {
+func GetRunningWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.Jira)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp, ctx.Err = service.CreateJira(req, ctx.Logger)
+
+	ctx.Resp, ctx.Err = service.GetRunningWorkflow(ctx.Logger)
 }
 
-func UpdateJira(c *gin.Context) {
+func GetMyWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.Jira)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp, ctx.Err = service.UpdateJira(req, ctx.Logger)
+
+	ctx.Resp, ctx.Err = service.GetMyWorkflow(c.Request.Header, ctx.UserName, ctx.UserID, c.Query("card_id"), ctx.Logger)
+}
+
+func GetMyEnvironment(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	envName := c.Param("name")
+
+	ctx.Resp, ctx.Err = service.GetMyEnvironment(projectName, envName, ctx.UserName, ctx.UserID, ctx.Logger)
 }

@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
+	gitlab2 "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/gitee"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -304,12 +305,19 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 		remoteName = "origin"
 	}
 	base := path.Join(config.S3StoragePath(), repoName)
-	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
-		if err != nil {
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
+	// we should not use the cache stored on local disk since files stored in remove gerrit server may be changed
+	_ = os.RemoveAll(base)
+	// TODO there may by concurrency issues since same directory are used by multiple requests
+	err := command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
+	if err != nil {
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
+	//if _, err := os.Stat(base); os.IsNotExist(err) {
+	//	err = command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
+	//	if err != nil {
+	//		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	//	}
+	//}
 
 	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	commit, err := gerritCli.GetCommitByBranch(repoName, branchName)
@@ -755,7 +763,12 @@ func validateServiceUpdateGithub(detail *systemconfig.CodeHost, serviceName, rep
 func validateServiceUpdateGitlab(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
 	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 
-	gitlabClient, err := gitlab.NewOAuthClient(detail.AccessToken, gitlab.WithBaseURL(detail.Address))
+	newToken, err := gitlab2.UpdateGitlabToken(detail.ID, detail.AccessToken)
+	if err != nil {
+		log.Errorf("failed to update gitlab token, err: %s", err)
+		return err
+	}
+	gitlabClient, err := gitlab.NewOAuthClient(newToken, gitlab.WithBaseURL(detail.Address))
 	if err != nil {
 		log.Errorf("failed to prepare gitlab client, the error is:%+v", err)
 		return e.ErrValidateServiceUpdate.AddDesc(err.Error())

@@ -36,6 +36,7 @@ type PipelineInfo struct {
 	PipelineName string `bson:"pipeline_name"           json:"pipelineName"`
 	Type         string `bson:"type"                    json:"type"`
 	MaxDuration  int64  `bson:"max_duration"            json:"maxDuration"`
+	DisplayName  string `bson:"display_name"            json:"displayName"`
 }
 
 type BuildStatOption struct {

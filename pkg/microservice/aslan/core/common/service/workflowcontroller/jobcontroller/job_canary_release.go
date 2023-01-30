@@ -24,6 +24,8 @@ import (
 	"go.uber.org/zap"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/pkg/errors"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
@@ -31,7 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/pkg/errors"
 )
 
 type CanaryReleaseJobCtl struct {
@@ -75,6 +76,8 @@ func (c *CanaryReleaseJobCtl) Clean(ctx context.Context) {
 }
 
 func (c *CanaryReleaseJobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
 	if err := c.run(ctx); err != nil {
 		return
 	}

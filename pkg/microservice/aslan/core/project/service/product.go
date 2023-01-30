@@ -26,6 +26,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -146,7 +147,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
 		IsDefault:   true,
-		KVs:         kvs,
+		//KVs:         kvs,
 	}, log)
 
 	if err != nil {
@@ -223,7 +224,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
 		IsDefault:   true,
-		KVs:         kvs,
+		//KVs:         kvs,
 	}, log); err != nil {
 		log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 	}
@@ -236,16 +237,16 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 			ProductTmpl: args.ProductName,
 			UpdateBy:    args.UpdateBy,
 			IsDefault:   false,
-			KVs:         envVars.Vars,
+			//KVs:         envVars.Vars,
 		}, log); err != nil {
 			log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 		}
 	}
 
-	// 更新子环境渲染集
-	if err = commonservice.UpdateSubRenderSet(args.ProductName, kvs, log); err != nil {
-		log.Warnf("ProductTmpl.Update UpdateSubRenderSet error: %v", err)
-	}
+	//// 更新子环境渲染集
+	//if err = commonservice.UpdateSubRenderSet(args.ProductName, kvs, log); err != nil {
+	//	log.Warnf("ProductTmpl.Update UpdateSubRenderSet error: %v", err)
+	//}
 
 	return nil
 }
@@ -303,12 +304,13 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 
 // transferServices transfer service from external to zadig-host(spock)
 func transferServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
-	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProjectName)
+	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProductName)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, svc := range templateServices {
+		log.Infof("transfer service %s/%s ", projectInfo.ProductName, svc.ServiceName)
 		svc.Source = setting.SourceFromZadig
 		svc.CreateBy = user
 		svc.EnvName = ""
@@ -331,16 +333,26 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 
 func saveProducts(products []*commonmodels.Product) error {
 	for _, product := range products {
-		err := commonrepo.NewProductColl().Update(product)
+
+		err := commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: product.ProductName,
+			EnvName:     product.EnvName,
+		})
+		if err != nil && err != mongo.ErrNoDocuments {
+			return err
+		}
+
+		err = commonrepo.NewProductColl().Update(product)
 		if err != nil {
 			return err
 		}
+		saveWorkloadStats(product.ClusterID, product.Namespace, product.ProductName, product.EnvName)
 	}
 	return nil
 }
 
 func saveProject(projectInfo *template.Product) error {
-	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProjectName, projectInfo.ProductFeature, projectInfo.UpdateBy)
+	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.UpdateBy)
 }
 
 // build service and env data
@@ -351,7 +363,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name: projectInfo.ProjectName,
+		Name: projectInfo.ProductName,
 	})
 	if err != nil {
 		return nil, err
@@ -378,7 +390,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			Description: rendersetInfo.Description,
 		}
 
-		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProjectName, product.EnvName, logger)
+		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProductName, product.EnvName, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -396,15 +408,21 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 				Type:        svcTemplate.Type,
 				Revision:    svcTemplate.Revision,
 				Containers:  svcTemplate.Containers,
-				Render: &commonmodels.RenderInfo{
-					Name:        rendersetInfo.Name,
-					Revision:    rendersetInfo.Revision,
-					ProductTmpl: rendersetInfo.ProductTmpl,
-					Description: rendersetInfo.Description,
-				},
 			})
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
+
+		// update workload stat
+		workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(product.ClusterID, product.Namespace)
+		if err != nil {
+			log.Errorf("workflowStat not found error:%s", err)
+		}
+		if workloadStat != nil {
+			workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, product.ProductName, product.EnvName)
+			if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+				log.Errorf("update workloads fail error:%s", err)
+			}
+		}
 
 		// mark service as only import
 		if product.ServiceDeployStrategy == nil {
@@ -417,9 +435,23 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		product.Source = setting.SourceFromZadig
 		product.UpdateBy = user
 		product.Revision = 1
+		log.Infof("transfer project %s/%s ", projectInfo.ProductName, product.EnvName)
 	}
 
 	return products, nil
+}
+
+func saveWorkloadStats(clusterID, namespace, productName, envName string) {
+	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		log.Errorf("failed to get workload stat data, err: %s", err)
+		return
+	}
+
+	workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, envName)
+	if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+		log.Errorf("update workloads fail error:%s", err)
+	}
 }
 
 // UpdateProject 更新项目
@@ -652,6 +684,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	return nil
 }
 
+// ForkProduct Deprecated
 func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
@@ -711,7 +744,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 		EnvName:         args.EnvName,
 		Services:        svcs,
 		Source:          setting.HelmDeployType,
-		ChartInfos:      prodTmpl.ChartInfos,
+		ServiceRenders:  prodTmpl.ChartInfos,
 		IsForkedProduct: true,
 	}
 

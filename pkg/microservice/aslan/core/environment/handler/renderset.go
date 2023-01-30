@@ -41,7 +41,19 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+}
+
+func GetServiceVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("projectName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {

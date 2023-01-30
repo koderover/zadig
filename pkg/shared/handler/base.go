@@ -29,7 +29,7 @@ import (
 	"go.uber.org/zap"
 
 	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
-	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
@@ -150,11 +150,11 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 		Status:      0,
 		CreatedAt:   time.Now().Unix(),
 	}
-	operationLogID, err := systemservice.InsertOperation(req, logger)
+	err := mongodb.NewOperationLogColl().Insert(req)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
-	c.Set("operationLogID", operationLogID.OperationLogID)
+	c.Set("operationLogID", req.ID.Hex())
 }
 
 func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, requestBody string, logger *zap.SugaredLogger, targets ...string) {
@@ -170,11 +170,11 @@ func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, me
 		Status:      0,
 		CreatedAt:   time.Now().Unix(),
 	}
-	operationLogID, err := systemservice.InsertOperation(req, logger)
+	err := mongodb.NewOperationLogColl().Insert(req)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
-	c.Set("operationLogID", operationLogID.OperationLogID)
+	c.Set("operationLogID", req.ID.Hex())
 }
 
 // responseHelper recursively finds all nil slice in the given interface,

@@ -63,6 +63,10 @@ func ListDeploymentsWithCache(selector labels.Selector, lister informers.SharedI
 	return lister.Apps().V1().Deployments().Lister().List(selector)
 }
 
+func GetDeploymentByNameWithCache(name, namespace string, lister informers.SharedInformerFactory) (*appsv1.Deployment, error) {
+	return lister.Apps().V1().Deployments().Lister().Deployments(namespace).Get(name)
+}
+
 func ListDeploymentsYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
 	return ListResourceYamlInCache(ns, selector, nil, DeploymentGVK, cl)
 }

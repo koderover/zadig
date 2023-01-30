@@ -35,9 +35,9 @@ type AccessToken struct {
 	CreatedAt    int    `json:"created_at"`
 }
 
-var CodeHostLockMap sync.Map
-
 const TokenExpirationThreshold int64 = 7000
+
+var mu = &sync.RWMutex{}
 
 func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	// if accessToken is empty, then it is either of ssh token type or username/password, we return empty
@@ -45,10 +45,8 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		return "", nil
 	}
 
-	lockInterface, _ := CodeHostLockMap.LoadOrStore(id, &sync.RWMutex{})
-	lock := lockInterface.(*sync.RWMutex)
-	lock.Lock()
-	defer lock.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 
 	ch, err := systemconfig.New().GetCodeHost(id)
 
@@ -56,28 +54,48 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		return "", fmt.Errorf("get codehost info error: [%s]", err)
 	}
 
+	oldToken := ch.AccessToken
+
 	if time.Now().Unix()-ch.UpdatedAt <= TokenExpirationThreshold {
 		return ch.AccessToken, nil
 	}
 
-	log.Infof("Starting to refresh gitlab token")
+	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
 	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
 	if err != nil {
 		return "", err
 	}
 
-	ch.AccessToken = token.AccessToken
-	ch.RefreshToken = token.RefreshToken
-	ch.UpdatedAt = int64(token.CreatedAt)
+	newCodehost := &systemconfig.CodeHost{
+		ID:                 ch.ID,
+		Address:            ch.Address,
+		Type:               ch.Type,
+		AccessToken:        token.AccessToken,
+		RefreshToken:       token.RefreshToken,
+		Namespace:          ch.Namespace,
+		Region:             ch.Region,
+		AccessKey:          ch.AccessKey,
+		SecretKey:          ch.SecretKey,
+		Username:           ch.Username,
+		Password:           ch.Password,
+		EnableProxy:        ch.EnableProxy,
+		UpdatedAt:          time.Now().Unix(),
+		Alias:              ch.Alias,
+		AuthType:           ch.AuthType,
+		SSHKey:             ch.SSHKey,
+		PrivateAccessToken: ch.PrivateAccessToken,
+	}
+
+	log.Infof("the update time of the codehost is: %d", newCodehost.UpdatedAt)
 
 	// Since the new token is valid, we simply log the error
 	// No error will be returned, only the new token is returned
-	if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
+	if err = systemconfig.New().UpdateCodeHost(ch.ID, newCodehost); err != nil {
 		log.Errorf("failed to update codehost, err: %s", err)
 	}
 
-	log.Infof("gitlab token for client [%d] changed from [%s] to [%s]", id, accessToken, token.AccessToken)
+	log.Infof("gitlab token for client [%d] changed from [%s] to [%s]", id, oldToken, token.AccessToken)
 
 	return token.AccessToken, nil
 }

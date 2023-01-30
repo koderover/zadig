@@ -453,6 +453,12 @@ const (
 const (
 	// WebhookTaskCreator ...
 	WebhookTaskCreator = "webhook"
+	// JiraHookTaskCreator ...
+	JiraHookTaskCreator = "jira_hook"
+	// MeegoHookTaskCreator ...
+	MeegoHookTaskCreator = "meego_hook"
+	// GeneralHookTaskCreator ...
+	GeneralHookTaskCreator = "general_hook"
 	// CronTaskCreator ...
 	CronTaskCreator = "timer"
 	// DefaultTaskRevoker ...
@@ -748,4 +754,17 @@ const (
 const (
 	LarkUserOpenID       = "open_id"
 	LarkDepartmentOpenID = "open_department_id"
+)
+
+// Project Management types
+const (
+	PMJira  = "jira"
+	PMLark  = "lark"
+	PMMeego = "meego"
+)
+
+// Workflow variable source type
+const (
+	VariableSourceRuntime = "runtime"
+	VariableSourceOther   = "other"
 )
