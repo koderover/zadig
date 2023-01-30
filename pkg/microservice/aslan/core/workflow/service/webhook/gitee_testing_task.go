@@ -230,7 +230,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					mErr = multierror.Append(mErr, err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
-					var mergeRequestID, commitID, ref string
+					var mergeRequestID, commitID, ref, eventType string
 					prID := 0
 					autoCancelOpt := &AutoCancelOpt{
 						TaskType: config.TestType,
@@ -239,20 +239,24 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					}
 					switch ev := event.(type) {
 					case *gitee.PullRequestEvent:
+						eventType = EventTypePR
 						if ev.PullRequest != nil && ev.PullRequest.Number != 0 && ev.PullRequest.Head != nil && ev.PullRequest.Head.Sha != "" {
 							mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
 							commitID = ev.PullRequest.Head.Sha
 							autoCancelOpt.MergeRequestID = mergeRequestID
 							autoCancelOpt.CommitID = commitID
-							autoCancelOpt.Type = AutoCancelPR
+							autoCancelOpt.Type = EventTypePR
 							prID = ev.PullRequest.Number
 						}
 					case *gitee.PushEvent:
+						eventType = EventTypePush
 						ref = ev.Ref
 						commitID = ev.After
 						autoCancelOpt.Ref = ref
 						autoCancelOpt.CommitID = commitID
-						autoCancelOpt.Type = AutoCancelPush
+						autoCancelOpt.Type = EventTypePush
+					case *gitee.TagPushEvent:
+						eventType = EventTypeTag
 					}
 
 					if autoCancelOpt.Type != "" {
@@ -281,6 +285,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.Ref = ref
+					args.EventType = eventType
 					args.MergeRequestID = mergeRequestID
 					args.CommitID = commitID
 					args.Source = item.MainRepo.Source

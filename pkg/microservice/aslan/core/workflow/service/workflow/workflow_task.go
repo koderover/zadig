@@ -822,6 +822,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		MergeRequestID: args.MergeRequestID,
 		CommitID:       args.CommitID,
 		Ref:            args.Ref,
+		EventType:      args.EventType,
 	}
 	task := &taskmodels.Task{
 		TaskID:              nextTaskID,

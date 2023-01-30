@@ -42,19 +42,15 @@ func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error 
 	for _, task := range tasks {
 		if task.TaskCreator != setting.WebhookTaskCreator ||
 			task.Type != autoCancelOpt.TaskType ||
-			task.TriggerBy == nil {
-			continue
-		}
-
-		// Task which trigger by PR event or Push event should not cancel each other
-		if (autoCancelOpt.Type == AutoCancelPR && task.TriggerBy.MergeRequestID == "") ||
-			(autoCancelOpt.Type == AutoCancelPush && task.TriggerBy.MergeRequestID != "") {
+			task.TriggerBy == nil ||
+			// Task which trigger by an event type should not cancel tasks triggered by other event type
+			task.TriggerBy.EventType != autoCancelOpt.Type {
 			continue
 		}
 
 		// 判断当前任务和上一个任务是不是由同一个代码库的同一个pr触发的
 		// 不是同一个仓库的同一个pr，跳过
-		if autoCancelOpt.Type == AutoCancelPR &&
+		if autoCancelOpt.Type == EventTypePR &&
 			(autoCancelOpt.MainRepo.CodehostID != task.TriggerBy.CodehostID ||
 				autoCancelOpt.MainRepo.RepoOwner != task.TriggerBy.RepoOwner ||
 				autoCancelOpt.MainRepo.RepoName != task.TriggerBy.RepoName ||
@@ -63,7 +59,7 @@ func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error 
 		}
 
 		// check whether the task is triggered by the same git branch push event
-		if autoCancelOpt.Type == AutoCancelPush &&
+		if autoCancelOpt.Type == EventTypePush &&
 			(autoCancelOpt.MainRepo.CodehostID != task.TriggerBy.CodehostID ||
 				autoCancelOpt.MainRepo.RepoOwner != task.TriggerBy.RepoOwner ||
 				autoCancelOpt.MainRepo.RepoName != task.TriggerBy.RepoName ||
@@ -165,18 +161,14 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 
 	for _, task := range tasks {
 		if task.TaskCreator != setting.WebhookTaskCreator ||
-			task.WorkflowArgs.HookPayload == nil {
-			continue
-		}
-
-		// Task which trigger by PR event or Push event should not cancel each other
-		if (autoCancelOpt.Type == AutoCancelPR && task.WorkflowArgs.HookPayload.MergeRequestID == "") ||
-			(autoCancelOpt.Type == AutoCancelPush && task.WorkflowArgs.HookPayload.MergeRequestID != "") {
+			task.WorkflowArgs.HookPayload == nil ||
+			// Task which trigger by an event type should not cancel tasks triggered by other event type
+			task.WorkflowArgs.HookPayload.EventType != autoCancelOpt.Type {
 			continue
 		}
 
 		// not the same pr of the same repo, skip
-		if autoCancelOpt.Type == AutoCancelPR &&
+		if autoCancelOpt.Type == EventTypePR &&
 			(autoCancelOpt.MainRepo.CodehostID != task.WorkflowArgs.HookPayload.CodehostID ||
 				autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
 				autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||
@@ -185,7 +177,7 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 		}
 
 		// not the same ref of the same repo, skip
-		if autoCancelOpt.Type == AutoCancelPush &&
+		if autoCancelOpt.Type == EventTypePush &&
 			(autoCancelOpt.MainRepo.CodehostID != task.WorkflowArgs.HookPayload.CodehostID ||
 				autoCancelOpt.MainRepo.RepoOwner != task.WorkflowArgs.HookPayload.Owner ||
 				autoCancelOpt.MainRepo.RepoName != task.WorkflowArgs.HookPayload.Repo ||

@@ -262,14 +262,15 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 				AutoCancel:   item.AutoCancel,
 				WorkflowName: workflow.Name,
 			}
-			var mergeRequestID, commitID, ref string
+			var mergeRequestID, commitID, ref, eventType string
 			var prID int
 			switch ev := event.(type) {
 			case *gitee.PullRequestEvent:
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
 				commitID = ev.PullRequest.Head.Sha
 				prID = ev.PullRequest.Number
-				autoCancelOpt.Type = AutoCancelPR
+				autoCancelOpt.Type = eventType
 				autoCancelOpt.CommitID = commitID
 				autoCancelOpt.MergeRequestID = mergeRequestID
 				hookPayload = &commonmodels.HookPayload{
@@ -280,11 +281,13 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					EventType:      eventType,
 				}
 			case *gitee.PushEvent:
+				eventType = EventTypePush
 				ref = ev.Ref
 				commitID = ev.After
-				autoCancelOpt.Type = AutoCancelPush
+				autoCancelOpt.Type = eventType
 				autoCancelOpt.CommitID = commitID
 				autoCancelOpt.Ref = ref
 				hookPayload = &commonmodels.HookPayload{
@@ -295,7 +298,10 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 					Ref:        ref,
 					IsPr:       false,
 					CommitID:   commitID,
+					EventType:  eventType,
 				}
+			case *gitee.TagPushEvent:
+				eventType = EventTypeTag
 			}
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
@@ -304,7 +310,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 					mErr = multierror.Append(mErr, err)
 				}
 
-				if autoCancelOpt.Type == AutoCancelPR && notification == nil {
+				if autoCancelOpt.Type == EventTypePR && notification == nil {
 					notification, err = scmnotify.NewService().SendInitWebhookComment(
 						item.MainRepo, prID, baseURI, false, false, false, true, log,
 					)

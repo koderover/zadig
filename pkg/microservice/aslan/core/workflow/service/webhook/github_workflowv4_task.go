@@ -267,12 +267,13 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 				AutoCancel:   item.AutoCancel,
 				WorkflowName: workflow.Name,
 			}
-			var mergeRequestID, commitID, ref string
+			var mergeRequestID, commitID, ref, eventType string
 			switch ev := event.(type) {
 			case *github.PullRequestEvent:
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
 				commitID = *ev.PullRequest.Head.SHA
-				autoCancelOpt.Type = AutoCancelPR
+				autoCancelOpt.Type = eventType
 				autoCancelOpt.MergeRequestID = mergeRequestID
 				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
@@ -285,12 +286,14 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					DeliveryID:     deliveryID,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					EventType:      eventType,
 				}
 			case *github.PushEvent:
 				if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
+					eventType = EventTypePush
 					ref = ev.GetRef()
 					commitID = ev.GetHeadCommit().GetID()
-					autoCancelOpt.Type = AutoCancelPush
+					autoCancelOpt.Type = eventType
 					autoCancelOpt.Ref = ref
 					autoCancelOpt.CommitID = commitID
 					hookPayload = &commonmodels.HookPayload{
@@ -301,7 +304,13 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 						CodehostID: item.MainRepo.CodehostID,
 						DeliveryID: deliveryID,
 						CommitID:   commitID,
+						EventType:  eventType,
 					}
+				}
+			case *github.CreateEvent:
+				eventType = EventTypeTag
+				hookPayload = &commonmodels.HookPayload{
+					EventType: eventType,
 				}
 			}
 			if autoCancelOpt.Type != "" {

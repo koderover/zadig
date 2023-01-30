@@ -353,14 +353,15 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 				AutoCancel:   item.AutoCancel,
 				WorkflowName: workflow.Name,
 			}
-			var mergeRequestID, commitID, ref string
+			var mergeRequestID, commitID, ref, eventType string
 			var prID int
 			switch ev := event.(type) {
 			case *gitlab.MergeEvent:
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
 				prID = ev.ObjectAttributes.IID
-				autoCancelOpt.Type = AutoCancelPR
+				autoCancelOpt.Type = eventType
 				autoCancelOpt.MergeRequestID = mergeRequestID
 				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
@@ -371,11 +372,13 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
 					CodehostID:     eventRepo.CodehostID,
+					EventType:      eventType,
 				}
 			case *gitlab.PushEvent:
+				eventType = EventTypePush
 				ref = ev.Ref
 				commitID = ev.After
-				autoCancelOpt.Type = AutoCancelPush
+				autoCancelOpt.Type = EventTypePush
 				autoCancelOpt.Ref = ref
 				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
@@ -386,6 +389,12 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					IsPr:       false,
 					CommitID:   commitID,
 					CodehostID: eventRepo.CodehostID,
+					EventType:  eventType,
+				}
+			case *gitlab.TagEvent:
+				eventType = EventTypeTag
+				hookPayload = &commonmodels.HookPayload{
+					EventType: eventType,
 				}
 			}
 			if autoCancelOpt.Type != "" {
@@ -394,7 +403,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 				}
-				if autoCancelOpt.Type == AutoCancelPR && notification == nil {
+				if autoCancelOpt.Type == EventTypePR && notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
 						item.MainRepo, prID, baseURI, false, false, false, true, log,
 					)
