@@ -390,20 +390,20 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					case *github.PushEvent:
 						// if event type is push，and this webhook trigger enabled auto cancel
 						// should cancel tasks triggered by the same git branch push event.
-						if ev.GetRef() != "" && ev.HeadCommit != nil && ev.HeadCommit.SHA != nil {
+						if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
 							ref = ev.GetRef()
-							commitID = *ev.HeadCommit.SHA
+							commitID = ev.GetHeadCommit().GetID()
 							autoCancelOpt.Ref = ref
 							autoCancelOpt.CommitID = commitID
 							autoCancelOpt.Type = AutoCancelPush
-						}
-						hookPayload = &commonmodels.HookPayload{
-							Owner:      *ev.Repo.Owner.Login,
-							Repo:       *ev.Repo.Name,
-							Branch:     ref,
-							Ref:        commitID,
-							IsPr:       true,
-							DeliveryID: deliveryID,
+							hookPayload = &commonmodels.HookPayload{
+								Owner:      *ev.Repo.Owner.Login,
+								Repo:       *ev.Repo.Name,
+								Branch:     ref,
+								Ref:        commitID,
+								IsPr:       false,
+								DeliveryID: deliveryID,
+							}
 						}
 					}
 					// if event type is not PR or push, skip
