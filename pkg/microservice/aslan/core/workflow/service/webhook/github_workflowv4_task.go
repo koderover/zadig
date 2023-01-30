@@ -17,7 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -288,13 +287,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					CommitID:       commitID,
 				}
 			case *github.PushEvent:
-				// todo debug
-				log.Info("autocancel 3")
-				b, _ := json.MarshalIndent(ev, "", "  ")
-				log.Infof(string(b))
-
 				if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
-					log.Info("autocancel 4")
 					ref = ev.GetRef()
 					commitID = ev.GetHeadCommit().GetID()
 					autoCancelOpt.Type = AutoCancelPush
@@ -311,10 +304,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					}
 				}
 			}
-			// todo debug
-			log.Info("autocancel 1")
 			if autoCancelOpt.Type != "" {
-				log.Info("autocancel 2")
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {
 					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)

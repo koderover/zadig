@@ -354,12 +354,12 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 				WorkflowName: workflow.Name,
 			}
 			var mergeRequestID, commitID, ref string
-			var iid int
+			var prID int
 			switch ev := event.(type) {
 			case *gitlab.MergeEvent:
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
-				iid = ev.ObjectAttributes.IID
+				prID = ev.ObjectAttributes.IID
 				autoCancelOpt.Type = AutoCancelPR
 				autoCancelOpt.MergeRequestID = mergeRequestID
 				autoCancelOpt.CommitID = commitID
@@ -396,7 +396,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 				}
 				if autoCancelOpt.Type == AutoCancelPR && notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, iid, baseURI, false, false, false, true, log,
+						item.MainRepo, prID, baseURI, false, false, false, true, log,
 					)
 				}
 			}
