@@ -46,6 +46,12 @@ func AutoCancelTask(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogger) error 
 			continue
 		}
 
+		// Task which trigger by PR event or Push event should not cancel each other
+		if (autoCancelOpt.Type == AutoCancelPR && task.TriggerBy.MergeRequestID == "") ||
+			(autoCancelOpt.Type == AutoCancelPush && task.TriggerBy.MergeRequestID != "") {
+			continue
+		}
+
 		// 判断当前任务和上一个任务是不是由同一个代码库的同一个pr触发的
 		// 不是同一个仓库的同一个pr，跳过
 		if autoCancelOpt.Type == AutoCancelPR &&
@@ -160,6 +166,12 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 	for _, task := range tasks {
 		if task.TaskCreator != setting.WebhookTaskCreator ||
 			task.WorkflowArgs.HookPayload == nil {
+			continue
+		}
+
+		// Task which trigger by PR event or Push event should not cancel each other
+		if (autoCancelOpt.Type == AutoCancelPR && task.WorkflowArgs.HookPayload.MergeRequestID == "") ||
+			(autoCancelOpt.Type == AutoCancelPush && task.WorkflowArgs.HookPayload.MergeRequestID != "") {
 			continue
 		}
 
