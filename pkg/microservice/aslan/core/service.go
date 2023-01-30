@@ -367,11 +367,13 @@ func InitializeUserDBAndTables() {
 	if len(mysql) == 0 {
 		return
 	}
-	db, err := sql.Open("mysql", fmt.Sprintf(
+	connectStr := fmt.Sprintf(fmt.Sprintf(
 		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
 		configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
 	))
+	db, err := sql.Open("mysql", connectStr)
 	if err != nil {
+		log.Errorf("failed to open sql: %s, err: %s", connectStr, err)
 		log.Panic(err)
 	}
 	defer db.Close()
@@ -379,6 +381,7 @@ func InitializeUserDBAndTables() {
 	_, err = db.Exec(initSql)
 
 	if err != nil {
+		log.Errorf("failed to execute sql: %s, err: %s", initSql, err)
 		log.Panic(err)
 	}
 }
