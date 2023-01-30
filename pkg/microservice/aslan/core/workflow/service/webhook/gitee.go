@@ -79,9 +79,10 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
 		}
 
-		if err := updateServiceTemplateByGiteeEvent(req.RequestURI, log); err != nil {
-			errorList = multierror.Append(errorList, err)
-		}
+		//todo must undo
+		//if err := updateServiceTemplateByGiteeEvent(req.RequestURI, log); err != nil {
+		//	errorList = multierror.Append(errorList, err)
+		//}
 		// build webhook
 		wg.Add(1)
 		go func() {
