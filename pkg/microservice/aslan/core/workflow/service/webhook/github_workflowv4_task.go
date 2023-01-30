@@ -292,11 +292,11 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 				log.Info("autocancel 3")
 				b, _ := json.MarshalIndent(ev, "", "  ")
 				log.Infof(string(b))
-				
-				if ev.GetRef() != "" && ev.HeadCommit != nil && ev.HeadCommit.SHA != nil {
+
+				if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
 					log.Info("autocancel 4")
 					ref = ev.GetRef()
-					commitID = *ev.HeadCommit.SHA
+					commitID = ev.GetHeadCommit().GetID()
 					autoCancelOpt.Type = AutoCancelPush
 					autoCancelOpt.Ref = ref
 					autoCancelOpt.CommitID = commitID
