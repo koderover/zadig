@@ -17,6 +17,8 @@ limitations under the License.
 package systemconfig
 
 import (
+	"fmt"
+
 	emailservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/service"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -32,6 +34,9 @@ func (c *Client) GetEmailHost() (*Email, error) {
 	resp, err := emailservice.GetEmailHostInternal(log.SugaredLogger())
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("failed to find email host config")
 	}
 	res := &Email{
 		Name:     resp.Name,
