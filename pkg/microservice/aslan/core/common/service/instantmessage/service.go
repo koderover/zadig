@@ -340,7 +340,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				}
 				var prInfo string
 				var prInfoList []string
-				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", BranchTagTypeBranch, "", "", ""
+				branchTag, commitID, commitMsg, gitCommitURL := "", "", "", ""
 				for idx, buildRepo := range buildSt.JobCtx.Builds {
 					//todo only debug
 					fmt.Println("test-pr")
@@ -349,7 +349,6 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
 						if buildRepo.Tag != "" {
-							branchTagType = BranchTagTypeTag
 							branchTag = buildRepo.Tag
 						}
 						if len(buildRepo.CommitID) > 8 {
@@ -386,7 +385,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						sort.Ints(buildRepo.PRs)
 						for _, id := range buildRepo.PRs {
 							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
-							prInfoList = append(prInfoList, fmt.Sprintf("[PR-#%d](%s)", id, link))
+							prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
 						}
 					}
 				}
@@ -403,7 +402,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 					(buildSt.JobCtx.FileArchiveCtx != nil || buildSt.JobCtx.DockerBuildCtx != nil)) {
 					buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.JobCtx.Image)
 				}
-				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s-%s %s[%s](%s) \n", branchTagType, branchTag, prInfo, commitID, gitCommitURL)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s) \n", branchTag, prInfo, commitID, gitCommitURL)
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
 				build = append(build, buildElemTemp)
 			}
