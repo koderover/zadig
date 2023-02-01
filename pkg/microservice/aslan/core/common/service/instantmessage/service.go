@@ -342,10 +342,6 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				var prInfoList []string
 				branchTag, commitID, commitMsg, gitCommitURL := "", "", "", ""
 				for idx, buildRepo := range buildSt.JobCtx.Builds {
-					//todo only debug
-					fmt.Println("test-pr")
-					fmt.Println(buildRepo.PR)
-					fmt.Println(buildRepo.PRs)
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
 						if buildRepo.Tag != "" {
