@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -195,6 +196,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				}
 				branchTag, branchTagType, commitID, gitCommitURL := "", BranchTagTypeBranch, "", ""
 				commitMsgs := []string{}
+				var prInfoList []string
+				var prInfo string
 				for idx, buildRepo := range repos {
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
@@ -205,10 +208,39 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						if len(buildRepo.CommitID) > 8 {
 							commitID = buildRepo.CommitID[0:8]
 						}
+						var prLinkBuilder func(baseURL, owner, repoName string, prID int) string
+						switch buildRepo.Source {
+						case types.ProviderGithub:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pull/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGitee:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pulls/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGitlab:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/merge_requests/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGerrit:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%d", baseURL, prID)
+							}
+						}
+						prInfoList = []string{}
+						sort.Ints(buildRepo.PRs)
+						for _, id := range buildRepo.PRs {
+							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
+							prInfoList = append(prInfoList, fmt.Sprintf("[PR-#%d](%s)", id, link))
+						}
 						commitMsg := strings.Trim(buildRepo.CommitMessage, "\n")
 						commitMsgs = strings.Split(commitMsg, "\n")
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
+				}
+				if len(prInfoList) != 0 {
+					// need an extra space at the end
+					prInfo = strings.Join(prInfoList, " ") + " "
 				}
 				image := ""
 				for _, env := range jobSpec.Properties.Envs {
@@ -217,7 +249,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					}
 				}
 				if len(commitID) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s-%s %s[%s](%s) \n", branchTagType, branchTag, prInfo, commitID, gitCommitURL)
 					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
 					if len(commitMsgs) == 1 {
 						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])

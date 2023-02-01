@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -365,23 +366,24 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						switch buildRepo.Source {
 						case types.ProviderGithub:
 							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%s/%s/pull/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
+								return fmt.Sprintf("%s/%s/%s/pull/%d", baseURL, owner, repoName, prID)
 							}
 						case types.ProviderGitee:
 							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%s/%s/pulls/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
+								return fmt.Sprintf("%s/%s/%s/pulls/%d", baseURL, owner, repoName, prID)
 							}
 						case types.ProviderGitlab:
 							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%s/%s/merge_requests/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
+								return fmt.Sprintf("%s/%s/%s/merge_requests/%d", baseURL, owner, repoName, prID)
 							}
 						case types.ProviderGerrit:
 							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%d", buildRepo.Address, buildRepo.PR)
+								return fmt.Sprintf("%s/%d", baseURL, prID)
 							}
 						}
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 						prInfoList = []string{}
+						sort.Ints(buildRepo.PRs)
 						for _, id := range buildRepo.PRs {
 							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
 							prInfoList = append(prInfoList, fmt.Sprintf("[PR-#%d](%s)", id, link))
