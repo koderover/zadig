@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
@@ -336,7 +337,9 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if err != nil {
 					return "", "", nil, err
 				}
-				branchTag, branchTagType, commitID, commitMsg, gitCommitURL, prURL, prID := "", BranchTagTypeBranch, "", "", "", "", 0
+				var prInfo string
+				var prInfoList []string
+				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", BranchTagTypeBranch, "", "", ""
 				for idx, buildRepo := range buildSt.JobCtx.Builds {
 					//todo only debug
 					fmt.Println("test-pr")
@@ -358,16 +361,38 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						if len(commitMsg) > CommitMsgInterceptLength {
 							commitMsg = commitMsg[0:CommitMsgInterceptLength]
 						}
+						var prLinkBuilder func(baseURL, owner, repoName string, prID int) string
+						switch buildRepo.Source {
+						case types.ProviderGithub:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pull/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
+							}
+						case types.ProviderGitee:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pulls/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
+							}
+						case types.ProviderGitlab:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/merge_requests/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
+							}
+						case types.ProviderGerrit:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%d", buildRepo.Address, buildRepo.PR)
+							}
+						}
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
-						prID = buildRepo.PR
-						prURL = fmt.Sprintf("%s/%s/%s/pull/%d", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, buildRepo.PR)
+						prInfoList = []string{}
+						for _, id := range buildRepo.PRs {
+							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
+							prInfoList = append(prInfoList, fmt.Sprintf("[PR-#%d](%s)", id, link))
+						}
 					}
 				}
-				prInfo := ""
-				if prID != 0 {
+				if len(prInfoList) != 0 {
 					// need an extra space at the end
-					prInfo = fmt.Sprintf("[PullRequest-#%d](%s) ", prID, prURL)
+					prInfo = strings.Join(prInfoList, " ") + " "
 				}
+
 				if buildSt.BuildStatus.Status == "" {
 					buildSt.BuildStatus.Status = config.StatusNotRun
 				}
