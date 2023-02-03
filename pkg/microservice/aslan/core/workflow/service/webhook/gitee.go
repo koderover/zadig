@@ -79,6 +79,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
 		}
 
+		// FIXME: this func maybe panic if any errors occurred, just like gitee token expired
 		if err := updateServiceTemplateByGiteeEvent(req.RequestURI, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}

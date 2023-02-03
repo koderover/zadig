@@ -169,7 +169,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					mErr = multierror.Append(mErr, err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
-					var mergeRequestID, commitID, ref string
+					var mergeRequestID, commitID, ref, eventType string
 					var prID int
 					autoCancelOpt := &AutoCancelOpt{
 						TaskType: config.TestType,
@@ -178,18 +178,22 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					}
 					switch ev := event.(type) {
 					case *gitlab.MergeEvent:
+						eventType = EventTypePR
 						mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 						commitID = ev.ObjectAttributes.LastCommit.ID
 						prID = ev.ObjectAttributes.IID
 						autoCancelOpt.MergeRequestID = mergeRequestID
 						autoCancelOpt.CommitID = commitID
-						autoCancelOpt.Type = AutoCancelPR
+						autoCancelOpt.Type = eventType
 					case *gitlab.PushEvent:
+						eventType = EventTypePush
 						ref = ev.Ref
 						commitID = ev.After
 						autoCancelOpt.Ref = ref
 						autoCancelOpt.CommitID = commitID
-						autoCancelOpt.Type = AutoCancelPush
+						autoCancelOpt.Type = eventType
+					case *gitlab.TagEvent:
+						eventType = EventTypeTag
 					}
 					if autoCancelOpt.Type != "" {
 						err := AutoCancelTask(autoCancelOpt, log)
@@ -198,7 +202,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 							mErr = multierror.Append(mErr, err)
 						}
 						// 发送本次commit的通知
-						if autoCancelOpt.Type == AutoCancelPR && notification == nil {
+						if autoCancelOpt.Type == EventTypePR && notification == nil {
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
 								item.MainRepo, prID, baseURI, false, true, false, false, log,
 							)
@@ -212,6 +216,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.MergeRequestID = mergeRequestID
 					args.Ref = ref
+					args.EventType = eventType
 					args.CommitID = commitID
 					args.Source = setting.SourceFromGitlab
 					args.CodehostID = item.MainRepo.CodehostID
