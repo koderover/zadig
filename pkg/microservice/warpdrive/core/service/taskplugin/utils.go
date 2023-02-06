@@ -251,7 +251,7 @@ func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes
 	}
 	kubeClientReader, err := kubeclient.GetKubeAPIReader(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get api reader: %s", err)
 	}
 
 	return controllerRuntimeClient, clientset, restConfig, kubeClientReader, nil

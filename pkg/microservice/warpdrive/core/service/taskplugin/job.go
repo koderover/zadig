@@ -903,7 +903,7 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 				if !podReadyTimeout {
 					continue
 				}
-				if err := isPodFailed(pod.Name, namespace, kubeClient, xl); err != nil {
+				if err := isPodFailed(pod.Name, namespace, apiReader, xl); err != nil {
 					return config.StatusFailed, err
 				}
 			}
