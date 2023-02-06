@@ -46,6 +46,7 @@ func InitializeScanningTaskPlugin(taskType config.TaskType) TaskPlugin {
 		kubeClient: krkubeclient.Client(),
 		clientset:  krkubeclient.Clientset(),
 		restConfig: krkubeclient.RESTConfig(),
+		apiReader:  krkubeclient.APIReader(),
 	}
 }
 
