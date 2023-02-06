@@ -65,6 +65,7 @@ type TestPlugin struct {
 	restConfig    *rest.Config
 	Task          *task.Testing
 	Log           *zap.SugaredLogger
+	Timeout       <-chan time.Time
 }
 
 func (p *TestPlugin) SetAckFunc(func()) {
@@ -286,12 +287,15 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.Task.Error = msg
 		return
 	}
-
-	p.Task.TaskStatus = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
+	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
+	p.Task.TaskStatus, err = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Timeout, p.Log)
+	if err != nil {
+		p.Task.Error = err.Error()
+	}
 }
 
 func (p *TestPlugin) Wait(ctx context.Context) {
-	status, err := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
+	status, err := waitJobEndWithFile(ctx, p.TaskTimeout(), p.Timeout, p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
 	if err != nil {
 		p.Task.Error = err.Error()
