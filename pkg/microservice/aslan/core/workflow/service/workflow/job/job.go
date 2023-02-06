@@ -115,7 +115,20 @@ func SetPreset(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	if err != nil {
 		return err
 	}
+	JobPresetSkiped(job)
 	return jobCtl.SetPreset()
+}
+
+func JobPresetSkiped(job *commonmodels.Job) {
+	if job.RunPolicy == config.ForceRun {
+		job.Skipped = false
+		return
+	}
+	if job.RunPolicy == config.DefaultNotRun {
+		job.Skipped = true
+		return
+	}
+	job.Skipped = false
 }
 
 func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int64) ([]*commonmodels.JobTask, error) {
@@ -258,16 +271,12 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 	}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			jobCtl, err := InitJobCtl(job, workflow)
-			if err != nil {
-				return err
-			}
-			if err := jobCtl.SetPreset(); err != nil {
+			if err := SetPreset(job, workflow); err != nil {
 				return err
 			}
 			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
 			if jobArgs, ok := argsMap[jobKey]; ok {
-				job.Skipped = jobArgs.Skipped
+				job.Skipped = JobSkiped(jobArgs)
 				jobCtl, err := InitJobCtl(job, workflow)
 				if err != nil {
 					return err
@@ -279,6 +288,13 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 		}
 	}
 	return nil
+}
+
+func JobSkiped(job *commonmodels.Job) bool {
+	if job.RunPolicy == config.ForceRun {
+		return false
+	}
+	return job.Skipped
 }
 
 // use service name and service module hash to generate job name
