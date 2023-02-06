@@ -394,9 +394,6 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	p.Log.Infof("succeed to create build job %s", p.JobName)
 
 	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
-	if p.apiReader == nil {
-		p.Log.Errorf("@@@@ nil api reader: cluster %s", p.Task.ClusterID)
-	}
 	p.Task.TaskStatus, err = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.apiReader, p.Timeout, p.Log)
 	if err != nil {
 		p.Task.Error = err.Error()
