@@ -57,6 +57,7 @@ type ScanPlugin struct {
 	kubeClient    client.Client
 	clientset     kubernetes.Interface
 	restConfig    *rest.Config
+	apiReader     client.Reader
 	Task          *task.Scanning
 	Log           *zap.SugaredLogger
 	Timeout       <-chan time.Time
@@ -103,7 +104,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	default:
 		p.KubeNamespace = setting.AttachedClusterNamespace
 
-		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		crClient, clientset, restConfig, apiReader, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
 			p.Log.Error(err)
 			p.Task.Status = config.StatusFailed
@@ -114,6 +115,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.kubeClient = crClient
 		p.clientset = clientset
 		p.restConfig = restConfig
+		p.apiReader = apiReader
 	}
 
 	// Since only one repository is supported per scanning, we just hard code it
@@ -275,7 +277,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	p.Log.Infof("succeed to create build job %s", p.JobName)
 	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
-	p.Task.Status, err = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Timeout, p.Log)
+	p.Task.Status, err = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.apiReader, p.Timeout, p.Log)
 	if err != nil {
 		p.Task.Error = err.Error()
 	}

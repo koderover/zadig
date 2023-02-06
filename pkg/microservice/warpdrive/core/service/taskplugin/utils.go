@@ -234,23 +234,27 @@ func ToExtensionTask(sb map[string]interface{}) (*task.Extension, error) {
 	return extension, nil
 }
 
-func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
+func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, crClient.Reader, error) {
 	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
 	}
 
 	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
 	}
 
 	restConfig, err := kubeclient.GetRESTConfig(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+	}
+	kubeClientReader, err := kubeclient.GetKubeAPIReader(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
 	}
 
-	return controllerRuntimeClient, clientset, restConfig, nil
+	return controllerRuntimeClient, clientset, restConfig, kubeClientReader, nil
 }
 
 // InstantiateBuildSysVariables instantiate system variables for build module

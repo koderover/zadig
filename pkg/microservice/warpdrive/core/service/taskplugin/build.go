@@ -68,6 +68,7 @@ type BuildTaskPlugin struct {
 	kubeClient    client.Client
 	clientset     kubernetes.Interface
 	restConfig    *rest.Config
+	apiReader     client.Reader
 	Task          *task.Build
 	Log           *zap.SugaredLogger
 	Timeout       <-chan time.Time
@@ -143,7 +144,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	default:
 		p.KubeNamespace = setting.AttachedClusterNamespace
 
-		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		crClient, clientset, restConfig, apiReader, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
 			p.Log.Error(err)
 			p.Task.TaskStatus = config.StatusFailed
@@ -155,6 +156,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.kubeClient = crClient
 		p.clientset = clientset
 		p.restConfig = restConfig
+		p.apiReader = apiReader
 	}
 
 	dockerhosts := common.NewDockerHosts(pipelineTask.ConfigPayload.HubServerAddr, p.Log)
@@ -391,7 +393,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	p.Log.Infof("succeed to create build job %s", p.JobName)
 
 	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
-	p.Task.TaskStatus, err = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Timeout, p.Log)
+	p.Task.TaskStatus, err = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.apiReader, p.Timeout, p.Log)
 	if err != nil {
 		p.Task.Error = err.Error()
 	}

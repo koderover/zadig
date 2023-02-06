@@ -857,7 +857,7 @@ func waitJobEnd(ctx context.Context, taskTimeout int, timeout <-chan time.Time, 
 	return waitJobEndWithFile(ctx, taskTimeout, timeout, namspace, jobName, false, kubeClient, clientset, restConfig, xl)
 }
 
-func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient client.Client, timeout <-chan time.Time, xl *zap.SugaredLogger) (status config.Status, err error) {
+func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient client.Client, apiReader client.Reader, timeout <-chan time.Time, xl *zap.SugaredLogger) (status config.Status, err error) {
 	xl.Infof("Wait job to start: %s/%s", namespace, jobName)
 	waitPodReadyTimeout := time.After(120 * time.Second)
 
@@ -917,10 +917,10 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 	return config.StatusRunning, nil
 }
 
-func isPodFailed(podName, namespace string, kubeClient client.Client, xl *zap.SugaredLogger) error {
+func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.SugaredLogger) error {
 	xl.Errorf("@@@@pod name: %s", podName)
 	selector := fields.Set{"involvedObject.name": podName, "involvedObject.kind": setting.Pod}.AsSelector()
-	events, err := getter.ListEvents(namespace, selector, kubeClient)
+	events, err := getter.ListEvents(namespace, selector, apiReader)
 	if err != nil {
 		// list events error is not fatal
 		xl.Errorf("list events failed: %s", err)

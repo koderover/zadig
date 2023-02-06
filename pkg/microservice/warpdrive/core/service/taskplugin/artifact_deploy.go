@@ -120,7 +120,7 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 	default:
 		p.KubeNamespace = setting.AttachedClusterNamespace
 
-		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		crClient, clientset, restConfig, _, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
 			p.Log.Error(err)
 			p.Task.TaskStatus = config.StatusFailed
