@@ -22,6 +22,8 @@ import (
 	"path"
 	"strings"
 
+	"go.uber.org/zap"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -32,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
 )
 
 const (
@@ -270,7 +271,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
-
+		// init debug before step
+		debugBeforeStep := &commonmodels.StepTask{
+			Name:     build.ServiceName + "-debug_before",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugBefore,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
 		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
@@ -284,7 +291,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
-
+		// init debug after step
+		debugAfterStep := &commonmodels.StepTask{
+			Name:     build.ServiceName + "-debug_after",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugAfter,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 		// init docker build step
 		if buildInfo.PostBuild.DockerBuild != nil {
 			dockefileContent := ""
