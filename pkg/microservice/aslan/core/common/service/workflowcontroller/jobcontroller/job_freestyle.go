@@ -51,6 +51,7 @@ type FreestyleJobCtl struct {
 	kubeclient  crClient.Client
 	clientset   kubernetes.Interface
 	restConfig  *rest.Config
+	apiServer   crClient.Reader
 	paths       *string
 	jobTaskSpec *commonmodels.JobTaskFreestyleSpec
 	ack         func()
@@ -117,10 +118,11 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.kubeclient = krkubeclient.Client()
 		c.clientset = krkubeclient.Clientset()
 		c.restConfig = krkubeclient.RESTConfig()
+		c.apiServer = krkubeclient.APIReader()
 	default:
 		c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
 
-		crClient, clientset, restConfig, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
+		crClient, clientset, restConfig, apiServer, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
 		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
@@ -128,6 +130,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.kubeclient = crClient
 		c.clientset = clientset
 		c.restConfig = restConfig
+		c.apiServer = apiServer
 	}
 
 	// decide which docker host to use.
@@ -218,8 +221,12 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 }
 
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
+	var err error
 	taskTimeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
-	c.job.Status = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger)
+	if err != nil {
+		c.job.Error = err.Error()
+	}
 	if c.job.Status == config.StatusRunning {
 		c.ack()
 	} else {

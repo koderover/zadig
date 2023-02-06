@@ -37,11 +37,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -76,23 +79,27 @@ const (
 	defaultRetryInterval = time.Second * 3
 )
 
-func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
+func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, crClient.Reader, error) {
 	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
 	}
 
 	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
 	}
 
 	restConfig, err := kubeclient.GetRESTConfig(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+	}
+	kubeClientReader, err := kubeclient.GetKubeAPIReader(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to get api reader: %s", err)
 	}
 
-	return controllerRuntimeClient, clientset, restConfig, nil
+	return controllerRuntimeClient, clientset, restConfig, kubeClientReader, nil
 }
 
 type JobLabel struct {
@@ -766,16 +773,19 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 func int32Ptr(i int32) *int32 { return &i }
 func int64Ptr(i int64) *int64 { return &i }
 
-func WaitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
-	status := waitJobStart(ctx, namespace, jobName, kubeClient, xl)
+func WaitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, apiServer crClient.Reader, xl *zap.SugaredLogger) config.Status {
+	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
+	status, err := waitJobStart(ctx, namespace, jobName, kubeClient, apiServer, timeout, xl)
+	if err != nil {
+		xl.Errorf("wait job start error: %v", err)
+	}
 	if status != config.StatusRunning {
 		return status
 	}
-	return waitPlainJobEnd(ctx, taskTimeout, namespace, jobName, kubeClient, xl)
+	return waitPlainJobEnd(ctx, taskTimeout, timeout, namespace, jobName, kubeClient, xl)
 }
 
-func waitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
-	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
+func waitPlainJobEnd(ctx context.Context, taskTimeout int, timeout <-chan time.Time, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
 	// wait for the job to end.
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
 	for {
@@ -803,20 +813,22 @@ func waitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName st
 
 		time.Sleep(time.Second * 1)
 	}
-
 }
 
-func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crClient.Client, xl *zap.SugaredLogger) config.Status {
+func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crClient.Client, apiReader client.Reader, timeout <-chan time.Time, xl *zap.SugaredLogger) (config.Status, error) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
 	xl.Infof("Timeout of preparing Pod: %s.", 120*time.Second)
-	podTimeout := time.After(120 * time.Second)
+	waitPodReadyTimeout := time.After(120 * time.Second)
 
+	var podReadyTimeout bool
 	for {
 		select {
 		case <-ctx.Done():
-			return config.StatusCancelled
-		case <-podTimeout:
-			return config.StatusTimeout
+			return config.StatusCancelled, nil
+		case <-timeout:
+			return config.StatusTimeout, fmt.Errorf("wait job ready timeout")
+		case <-waitPodReadyTimeout:
+			podReadyTimeout = true
 		default:
 			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
 			if err != nil {
@@ -835,13 +847,42 @@ func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crC
 				for _, pod := range podList {
 					if pod.Status.Phase != corev1.PodPending {
 						xl.Infof("waitJobStart: pod status %s namespace:%s, jobName:%s podList num %d", pod.Status.Phase, namespace, jobName, len(podList))
-						return config.StatusRunning
+						return config.StatusRunning, nil
+					}
+					// if pod is still pending afer 2 minutes, check pod events if is failed already
+					if !podReadyTimeout {
+						continue
+					}
+					if err := isPodFailed(pod.Name, namespace, apiReader, xl); err != nil {
+						return config.StatusFailed, err
 					}
 				}
 			}
 		}
 		time.Sleep(time.Second)
 	}
+}
+
+func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.SugaredLogger) error {
+	selector := fields.Set{"involvedObject.name": podName, "involvedObject.kind": setting.Pod}.AsSelector()
+	events, err := getter.ListEvents(namespace, selector, apiReader)
+	if err != nil {
+		// list events error is not fatal
+		xl.Errorf("list events failed: %s", err)
+		return nil
+	}
+	var mErr error
+	for _, event := range events {
+		if event.Type != "Warning" {
+			continue
+		}
+		// FailedScheduling means there is not enough resource to schedule the pod, so we should not fail the pod
+		if event.Reason == "FailedScheduling" {
+			continue
+		}
+		mErr = multierror.Append(mErr, multierror.Flatten(fmt.Errorf("pod %s/%s event: %s", namespace, podName, event.Message)))
+	}
+	return mErr
 }
 
 func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status, errMsg string) {
