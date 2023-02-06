@@ -918,6 +918,7 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 }
 
 func isPodFailed(podName, namespace string, kubeClient client.Client, xl *zap.SugaredLogger) error {
+	xl.Errorf("@@@@pod name: %s", podName)
 	selector := fields.Set{"involvedObject.name": podName, "involvedObject.kind": setting.Pod}.AsSelector()
 	events, err := getter.ListEvents(namespace, selector, kubeClient)
 	if err != nil {
@@ -927,6 +928,7 @@ func isPodFailed(podName, namespace string, kubeClient client.Client, xl *zap.Su
 	}
 	var mErr error
 	for _, event := range events {
+		xl.Errorf("@@@@event type: %s,event reason: %s", event.Type, event.Reason)
 		if event.Type != "Warning" {
 			continue
 		}
