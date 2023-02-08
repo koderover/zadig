@@ -392,6 +392,15 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	return task.OriginWorkflowArgs, nil
 }
 
+func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set bool, position string, logger *zap.SugaredLogger) error {
+	panic("implement me")
+	if err != nil {
+		logger.Errorf("set workflowTaskV4 breakpoint error: %s", err)
+		return e.ErrSetBreakpoint.AddErr(err)
+	}
+	return nil
+}
+
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
 	err := commonrepo.NewworkflowTaskv4Coll().Update(
 		id,

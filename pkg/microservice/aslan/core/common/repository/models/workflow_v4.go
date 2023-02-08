@@ -43,6 +43,7 @@ type WorkflowV4 struct {
 	UpdatedBy       string                   `bson:"updated_by"          yaml:"updated_by"          json:"updated_by"`
 	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
 	MultiRun        bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
+	Debug           bool                     `bson:"debug"               yaml:"debug"               json:"debug"`
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
@@ -101,8 +102,10 @@ type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
 	// only for webhook workflow args to skip some tasks.
-	Skipped bool        `bson:"skipped"        yaml:"skipped"  json:"skipped"`
-	Spec    interface{} `bson:"spec"           yaml:"spec"     json:"spec"`
+	Skipped          bool        `bson:"skipped"        yaml:"skipped"  json:"skipped"`
+	BreakpointBefore bool        `bson:"breakpoint_before"  yaml:"breakpoint_before" json:"breakpoint_before"`
+	BreakpointAfter  bool        `bson:"breakpoint_after"  yaml:"breakpoint_after"  json:"breakpoint_after"`
+	Spec             interface{} `bson:"spec"           yaml:"spec"     json:"spec"`
 }
 
 type CustomDeployJobSpec struct {
