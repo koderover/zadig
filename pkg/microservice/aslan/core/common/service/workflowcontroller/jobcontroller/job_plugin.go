@@ -186,7 +186,9 @@ func (c *PluginJobCtl) complete(ctx context.Context) {
 
 	if err := saveContainerLog(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {
 		c.logger.Error(err)
-		c.job.Error = err.Error()
+		if c.job.Error == "" {
+			c.job.Error = err.Error()
+		}
 		return
 	}
 }
