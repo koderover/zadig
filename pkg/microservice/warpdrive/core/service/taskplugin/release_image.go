@@ -80,6 +80,7 @@ type ReleaseImagePlugin struct {
 	Log           *zap.SugaredLogger
 	httpClient    *httpclient.Client
 	StorageURI    string
+	Timeout       <-chan time.Time
 }
 
 func (p *ReleaseImagePlugin) SetAckFunc(func()) {
@@ -248,6 +249,7 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 		p.Task.Error = msg
 		return
 	}
+	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
 	p.Log.Infof("succeed to create image job %s", p.JobName)
 }
 
@@ -265,7 +267,7 @@ func (p *ReleaseImagePlugin) Wait(ctx context.Context) {
 			p.SetStatus(config.StatusPassed)
 		}
 	}()
-	status, err = waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
+	status, err = waitJobEnd(ctx, p.TaskTimeout(), p.Timeout, p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	distributeEndtime := time.Now().Unix()
 	for _, distribute := range p.Task.DistributeInfo {
 		distribute.DistributeEndTime = distributeEndtime

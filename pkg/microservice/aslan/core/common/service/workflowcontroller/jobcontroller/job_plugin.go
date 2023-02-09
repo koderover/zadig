@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
@@ -41,6 +42,7 @@ type PluginJobCtl struct {
 	kubeclient  crClient.Client
 	clientset   kubernetes.Interface
 	restConfig  *rest.Config
+	apiServer   crClient.Reader
 	jobTaskSpec *commonmodels.JobTaskPluginSpec
 	ack         func()
 }
@@ -95,10 +97,11 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 		c.kubeclient = krkubeclient.Client()
 		c.clientset = krkubeclient.Clientset()
 		c.restConfig = krkubeclient.RESTConfig()
+		c.apiServer = krkubeclient.APIReader()
 	default:
 		c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
 
-		crClient, clientset, restConfig, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
+		crClient, clientset, restConfig, apiServer, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
 		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
@@ -106,6 +109,7 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 		c.kubeclient = crClient
 		c.clientset = clientset
 		c.restConfig = restConfig
+		c.apiServer = apiServer
 	}
 
 	jobLabel := &JobLabel{
@@ -144,13 +148,18 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 }
 
 func (c *PluginJobCtl) wait(ctx context.Context) {
-	c.job.Status = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	var err error
+	timeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, timeout, c.logger)
+	if err != nil {
+		c.logger.Errorf("wait job start error: %v", err)
+	}
 	if c.job.Status == config.StatusRunning {
 		c.ack()
 	} else {
 		return
 	}
-	status := waitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	status := waitPlainJobEnd(ctx, int(c.jobTaskSpec.Properties.Timeout), timeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
 	c.job.Status = status
 }
 
@@ -177,7 +186,9 @@ func (c *PluginJobCtl) complete(ctx context.Context) {
 
 	if err := saveContainerLog(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {
 		c.logger.Error(err)
-		c.job.Error = err.Error()
+		if c.job.Error == "" {
+			c.job.Error = err.Error()
+		}
 		return
 	}
 }
