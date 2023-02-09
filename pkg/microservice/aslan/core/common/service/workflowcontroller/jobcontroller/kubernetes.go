@@ -870,7 +870,6 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 		xl.Errorf("list events failed: %s", err)
 		return nil
 	}
-	// var mErr error
 	var errMsg string
 	for _, event := range events {
 		if event.Type != "Warning" {
@@ -881,7 +880,6 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 			continue
 		}
 		errMsg = errMsg + fmt.Sprintf("pod %s/%s event: %s\n", namespace, podName, event.Message)
-		// mErr = multierror.Append(mErr, multierror.Flatten(fmt.Errorf("pod %s/%s event: %s", namespace, podName, event.Message)))
 	}
 	if errMsg != "" {
 		return errors.New(errMsg)
