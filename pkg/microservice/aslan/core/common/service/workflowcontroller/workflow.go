@@ -108,6 +108,11 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", taskID, workflowName)
 }
 
+func (c *workflowCtl) setWorkflowStatus(status config.Status) {
+	c.workflowTask.Status = status
+	c.ack()
+}
+
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if c.workflowTask.GlobalContext == nil {
 		c.workflowTask.GlobalContext = make(map[string]string)
@@ -148,6 +153,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		GlobalContextSet:          c.setGlobalContext,
 		GlobalContextEach:         c.globalContextEach,
 		ClusterIDAdd:              c.addCluterID,
+		SetStatus:                 c.setWorkflowStatus,
 	}
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {

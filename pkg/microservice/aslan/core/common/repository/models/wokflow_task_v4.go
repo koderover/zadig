@@ -390,4 +390,5 @@ type WorkflowTaskCtx struct {
 	GlobalContextSet          func(key, value string)
 	GlobalContextEach         func(f func(k, v string) bool)
 	ClusterIDAdd              func(clusterID string)
+	SetStatus                 func(status config.Status)
 }
