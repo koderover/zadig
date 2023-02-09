@@ -44,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -871,7 +870,8 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 		xl.Errorf("list events failed: %s", err)
 		return nil
 	}
-	var mErr error
+	// var mErr error
+	var errMsg string
 	for _, event := range events {
 		if event.Type != "Warning" {
 			continue
@@ -880,9 +880,13 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 		if event.Reason == "FailedScheduling" {
 			continue
 		}
-		mErr = multierror.Append(mErr, multierror.Flatten(fmt.Errorf("pod %s/%s event: %s", namespace, podName, event.Message)))
+		errMsg = errMsg + fmt.Sprintf("pod %s/%s event: %s\n", namespace, podName, event.Message)
+		// mErr = multierror.Append(mErr, multierror.Flatten(fmt.Errorf("pod %s/%s event: %s", namespace, podName, event.Message)))
 	}
-	return mErr
+	if errMsg != "" {
+		return errors.New(errMsg)
+	}
+	return nil
 }
 
 func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status, errMsg string) {
