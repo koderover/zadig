@@ -148,7 +148,7 @@ func initWorkflowV4TaskStats() error {
 	}
 	if len(ms) > 0 {
 		if _, err := mongodb.NewWorkflowStatColl().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s stat error: %s", err)
+			return fmt.Errorf("update workflowV4s stat error: %s", err)
 		}
 	}
 	return nil
@@ -185,7 +185,7 @@ func addDisplayNameToWorkflowV4() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowv4s", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4s error: %s", err)
+				return fmt.Errorf("update workflowV4s error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -193,7 +193,7 @@ func addDisplayNameToWorkflowV4() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowv4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s error: %s", err)
+			return fmt.Errorf("update workflowV4s error: %s", err)
 		}
 	}
 
@@ -225,7 +225,7 @@ func addDisplayNameToWorkflowV4() error {
 		if len(mTasks) >= 50 {
 			log.Infof("update %d workflowv4 tasks", len(mTasks))
 			if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
-				return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+				return fmt.Errorf("update workflowV4 tasks error: %s", err)
 			}
 			mTasks = []mongo.WriteModel{}
 		}
@@ -233,7 +233,7 @@ func addDisplayNameToWorkflowV4() error {
 	if len(mTasks) > 0 {
 		log.Infof("update %d workflowv4 tasks", len(mTasks))
 		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
-			return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+			return fmt.Errorf("update workflowV4 tasks error: %s", err)
 		}
 	}
 
@@ -319,7 +319,7 @@ func addDisplayNameToWorkflow() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflows", len(ms))
 			if _, err := mongodb.NewWorkflowColl().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflows error: %s", err)
+				return fmt.Errorf("update workflows error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -327,7 +327,7 @@ func addDisplayNameToWorkflow() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflows", len(ms))
 		if _, err := mongodb.NewWorkflowColl().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflows error: %s", err)
+			return fmt.Errorf("update workflows error: %s", err)
 		}
 	}
 
@@ -359,7 +359,7 @@ func addDisplayNameToWorkflow() error {
 		if len(mTasks) >= 50 {
 			log.Infof("update %d workflow tasks", len(mTasks))
 			if _, err := mongodb.NewTaskColl().BulkWrite(context.TODO(), mTasks); err != nil {
-				return fmt.Errorf("udpate workflow tasks error: %s", err)
+				return fmt.Errorf("update workflow tasks error: %s", err)
 			}
 			mTasks = []mongo.WriteModel{}
 		}
@@ -367,7 +367,7 @@ func addDisplayNameToWorkflow() error {
 	if len(mTasks) > 0 {
 		log.Infof("update %d workflow tasks", len(mTasks))
 		if _, err := mongodb.NewTaskColl().BulkWrite(context.TODO(), mTasks); err != nil {
-			return fmt.Errorf("udpate workflow tasks error: %s", err)
+			return fmt.Errorf("update workflow tasks error: %s", err)
 		}
 	}
 	return nil
