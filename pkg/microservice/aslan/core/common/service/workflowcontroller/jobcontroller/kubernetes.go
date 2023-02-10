@@ -379,7 +379,14 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
 	}
 
-	jobExecutorBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
+	jobExecutorBootingScript = fmt.Sprintf("mkdir %sdebug;", ZadigContextDir)
+	if jobTask.BreakpointBefore {
+		jobExecutorBootingScript += fmt.Sprintf("touch %sdebug/breakpoint_before;", ZadigContextDir)
+	}
+	if jobTask.BreakpointAfter {
+		jobExecutorBootingScript += fmt.Sprintf("touch %sdebug/breakpoint_after;", ZadigContextDir)
+	}
+	jobExecutorBootingScript += fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
 
 	labels := getJobLabels(&JobLabel{
 		JobType: string(jobType),

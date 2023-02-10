@@ -393,12 +393,54 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 }
 
 func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set bool, position string, logger *zap.SugaredLogger) error {
-	panic("implement me")
-	if err != nil {
-		logger.Errorf("set workflowTaskV4 breakpoint error: %s", err)
-		return e.ErrSetBreakpoint.AddErr(err)
+	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
+	if w == nil {
+		logger.Error("set workflowTaskV4 breakpoint failed: not found task")
+		return e.ErrSetBreakpoint.AddDesc("工作流任务已完成或不存在")
 	}
-	return nil
+	w.Lock()
+	var ack func()
+	defer func() {
+		if ack != nil {
+			ack()
+		}
+		w.Unlock()
+	}()
+	var task *commonmodels.JobTask
+FOR:
+	for _, stage := range w.WorkflowTask.Stages {
+		for _, jobTask := range stage.Jobs {
+			if jobTask.Name == jobName {
+				task = jobTask
+				break FOR
+			}
+		}
+	}
+	if task == nil {
+		logger.Error("set workflowTaskV4 breakpoint failed: not found job")
+		return e.ErrSetBreakpoint.AddDesc("Job不存在")
+	}
+	// job task has not run, update data in memory and ack
+	if task.Status == "" {
+		switch position {
+		case "before":
+			task.BreakpointBefore = set
+			ack = w.Ack
+		case "after":
+			task.BreakpointAfter = set
+			ack = w.Ack
+		}
+		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
+		return nil
+	}
+	if task.Status == config.StatusRunning {
+
+	}
+	if task.Status == config.StatusPrepare {
+		return e.ErrSetBreakpoint.AddDesc("Job正在准备中，无法设置断点，请稍后再试")
+	}
+	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
+	return e.ErrSetBreakpoint.AddDesc("Job 状态无法设置断点")
 }
 
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
