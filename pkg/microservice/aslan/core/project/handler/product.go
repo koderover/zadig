@@ -38,8 +38,8 @@ func GetProductTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productTemplateName := c.Param("name")
-	ctx.Resp, ctx.Err = commonservice.GetProductTemplate(productTemplateName, ctx.Logger)
+	productTemplatName := c.Param("name")
+	ctx.Resp, ctx.Err = commonservice.GetProductTemplate(productTemplatName, ctx.Logger)
 }
 
 func GetProductTemplateServices(c *gin.Context) {
