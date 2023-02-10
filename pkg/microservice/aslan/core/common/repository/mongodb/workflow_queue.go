@@ -29,7 +29,7 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type ListWorkflowQueueOption struct {
+type ListWorfklowQueueOption struct {
 	WorkflowName string
 	Status       config.Status
 }
@@ -64,7 +64,7 @@ func (c *WorkflowQueueColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *WorkflowQueueColl) List(opt *ListWorkflowQueueOption) ([]*models.WorkflowQueue, error) {
+func (c *WorkflowQueueColl) List(opt *ListWorfklowQueueOption) ([]*models.WorkflowQueue, error) {
 	query := bson.M{}
 	if opt != nil {
 		if opt.WorkflowName != "" {

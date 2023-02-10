@@ -90,14 +90,14 @@ func updateRolesForTesting() error {
 		if len(mRoles) >= 50 {
 			log.Infof("update %d roles", len(mRoles))
 			if _, err := policymongo.NewRoleColl().BulkWrite(context.TODO(), mRoles); err != nil {
-				return fmt.Errorf("update workflowV4s error: %s", err)
+				return fmt.Errorf("udpate workflowV4s error: %s", err)
 			}
 			mRoles = []mongo.WriteModel{}
 		}
 	}
 	if len(mRoles) > 0 {
 		if _, err := policymongo.NewRoleColl().BulkWrite(context.TODO(), mRoles); err != nil {
-			return fmt.Errorf("update roles stat error: %s", err)
+			return fmt.Errorf("udpate roles stat error: %s", err)
 		}
 	}
 	return nil

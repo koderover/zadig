@@ -185,7 +185,7 @@ func changePolicyCollectionName() error {
 		opts := options.Replace().SetUpsert(true)
 		_, err := newPolicyMetaColl().ReplaceOne(context.TODO(), query, v, opts)
 		if err != nil {
-			log.Errorf("replace one err:%v ,resource:%v", err, v.Resource)
+			log.Errorf("relace one err:%v ,resource:%v", err, v.Resource)
 		}
 	}
 	//delete collection
