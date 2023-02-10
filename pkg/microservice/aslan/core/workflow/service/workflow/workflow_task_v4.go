@@ -25,6 +25,8 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -41,6 +43,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	larktool "github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
@@ -434,13 +439,75 @@ FOR:
 		return nil
 	}
 	if task.Status == config.StatusRunning {
-
+		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+		if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
+			logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
+			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败")
+		}
+		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+		if err != nil {
+			logger.Errorf("set workflowTaskV4 breakpoint failed: list pods %v", err)
+			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods")
+		}
+		if len(pods) == 0 {
+			logger.Error("set workflowTaskV4 breakpoint failed: list pods num 0")
+			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods num 0")
+		}
+		pod := pods[0]
+		switch pod.Status.Phase {
+		case corev1.PodRunning:
+		default:
+			logger.Errorf("set workflowTaskV4 breakpoint failed: pod status is %s", pod.Status.Phase)
+			return e.ErrSetBreakpoint.AddDesc(fmt.Sprintf("Job 状态 %s 无法修改断点", pod.Status.Phase))
+		}
+		exec := func(cmd string) bool {
+			opt := podexec.ExecOptions{
+				Namespace:     jobTaskSpec.Properties.Namespace,
+				PodName:       pod.Name,
+				ContainerName: pod.Spec.Containers[0].Name,
+				Command:       []string{"sh", "-c", cmd},
+			}
+			_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+			logger.Errorf("set workflowTaskV4 breakpoint exec %s error: %s", cmd, stderr)
+			return success
+		}
+		touchOrRemove := func(set bool) string {
+			if set {
+				return "touch"
+			}
+			return "rm"
+		}
+		switch position {
+		case "before":
+			if exec("ls /zadig/debug/shell_step") {
+				logger.Error("set workflowTaskV4 before breakpoint failed: shell step has started")
+				return e.ErrSetBreakpoint.AddDesc("Job 已开始运行脚本，无法修改前断点")
+			}
+			exec(fmt.Sprintf("%s /zadig/debug/breakpoint_%s", touchOrRemove(set), position))
+		case "after":
+			if !exec("ls /zadig/debug/shell_step_done") {
+				logger.Error("set workflowTaskV4 after breakpoint failed: shell step has been done")
+				return e.ErrSetBreakpoint.AddDesc("Job 已运行完脚本，无法修改后断点")
+			}
+			exec(fmt.Sprintf("%s /zadig/debug/breakpoint_%s", touchOrRemove(set), position))
+		}
+		// update data in memory and ack
+		switch position {
+		case "before":
+			task.BreakpointBefore = set
+			ack = w.Ack
+		case "after":
+			task.BreakpointAfter = set
+			ack = w.Ack
+		}
+		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
+		return nil
 	}
 	if task.Status == config.StatusPrepare {
-		return e.ErrSetBreakpoint.AddDesc("Job正在准备中，无法设置断点，请稍后再试")
+		return e.ErrSetBreakpoint.AddDesc("Job正在准备中，无法修改断点，请稍后再试")
 	}
 	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
-	return e.ErrSetBreakpoint.AddDesc("Job 状态无法设置断点")
+	return e.ErrSetBreakpoint.AddDesc("Job 状态无法修改断点")
 }
 
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {

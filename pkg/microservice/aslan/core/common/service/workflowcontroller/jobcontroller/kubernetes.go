@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -30,6 +29,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -894,8 +895,10 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 	return nil
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status, errMsg string) {
+func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, jobTask *commonmodels.JobTask, ack func(), xl *zap.SugaredLogger) (status config.Status, errMsg string) {
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
+	// debugStage is used to record which debug stage the job has reached
+	var debugStageBefore, debugStageBeforeDone, debugStageAfter, debugStageAfterDone bool
 	for {
 		select {
 		case <-ctx.Done():
@@ -931,7 +934,6 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 				}
 				var done, exists bool
 				var jobStatus commontypes.JobStatus
-
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
@@ -941,6 +943,42 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 						return config.StatusFailed, ""
 					}
 					if !ipod.Finished() {
+						// check container whether is stuck in debug stage by checking stage file, if so, update job status to debug
+						if !debugStageBefore {
+							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+								ZadigContextDir+"debug/debug_before", defaultRetryCount, defaultRetryInterval); found {
+								jobTask.Status = config.StatusDebugBefore
+								ack()
+								debugStageBefore = true
+							}
+						}
+						if debugStageBefore && !debugStageBeforeDone {
+							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+								ZadigContextDir+"debug/debug_before_done", defaultRetryCount, defaultRetryInterval); found {
+								jobTask.Status = config.StatusRunning
+								ack()
+								debugStageBeforeDone = true
+							}
+						}
+						if !debugStageAfter {
+							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+								ZadigContextDir+"debug/debug_after", defaultRetryCount, defaultRetryInterval); found {
+								jobTask.Status = config.StatusDebugAfter
+								ack()
+								debugStageAfter = true
+								// if job in debug_after step, it is necessary to check debug_before step
+								debugStageBefore = true
+							}
+						}
+						if debugStageAfter && !debugStageAfterDone {
+							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+								ZadigContextDir+"debug/debug_after_done", defaultRetryCount, defaultRetryInterval); found {
+								jobTask.Status = config.StatusRunning
+								ack()
+								debugStageAfterDone = true
+							}
+						}
+
 						jobStatus, exists, err = checkDogFoodExistsInContainerWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0], defaultRetryCount, defaultRetryInterval)
 						if err != nil {
 							// Note:
@@ -1129,6 +1167,36 @@ func GetObjectPath(subFolder, name string) string {
 	}
 
 	return strings.TrimLeft(name, "/")
+}
+
+func checkFileExistWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container, filePath string, retryCount int, retryInterval time.Duration) (bool, error) {
+	opt := podexec.ExecOptions{
+		Command:       []string{"ls", filePath},
+		Namespace:     namespace,
+		PodName:       pod,
+		ContainerName: container,
+	}
+	_, stderr, success, err := kubeExecWithRetry(clientset, restConfig, opt, retryCount, retryInterval)
+	if !success {
+		return false, err
+	}
+	if stderr == "" {
+		return true, nil
+	}
+	return false, errors.Errorf("check file exist failed, stderr: %s", stderr)
+}
+
+func kubeExecWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, options podexec.ExecOptions, retryCount int, retryInterval time.Duration) (stdout, stderr string, success bool, err error) {
+	for i := 0; i < retryCount; i++ {
+		stdout, stderr, success, err = podexec.KubeExec(clientset, restConfig, options)
+		if success || stdout != "" || stderr != "" {
+			return
+		}
+		// this fail maybe caused by connecting to k8s, so we should retry
+		time.Sleep(retryInterval)
+	}
+
+	return
 }
 
 func checkDogFoodExistsInContainerWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string, retryCount int, retryInterval time.Duration) (status commontypes.JobStatus, found bool, err error) {

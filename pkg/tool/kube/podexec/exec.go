@@ -84,9 +84,9 @@ func KubeExec(kclient kubernetes.Interface, restConfig *rest.Config, options Exe
 
 	if err != nil {
 		if _, ok := err.(exec.ExitError); ok {
-			return "", "", false, nil
+			return "", strings.TrimSpace(stderr.String()), false, nil
 		}
-		return "", "", false, err
+		return "", strings.TrimSpace(stderr.String()), false, err
 	}
 
 	if options.PreserveWhitespace {

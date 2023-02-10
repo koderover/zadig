@@ -115,6 +115,8 @@ const (
 	StatusPrepare        Status = "prepare"
 	StatusReject         Status = "reject"
 	StatusWaitingApprove Status = "waitforapprove"
+	StatusDebugBefore    Status = "debug_before"
+	StatusDebugAfter     Status = "debug_after"
 )
 
 type TaskStatus string
