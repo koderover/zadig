@@ -102,10 +102,11 @@ type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
 	// only for webhook workflow args to skip some tasks.
-	Skipped          bool        `bson:"skipped"        yaml:"skipped"  json:"skipped"`
-	BreakpointBefore bool        `bson:"breakpoint_before"  yaml:"breakpoint_before" json:"breakpoint_before"`
-	BreakpointAfter  bool        `bson:"breakpoint_after"  yaml:"breakpoint_after"  json:"breakpoint_after"`
-	Spec             interface{} `bson:"spec"           yaml:"spec"     json:"spec"`
+	Skipped          bool                `bson:"skipped"        yaml:"skipped"  json:"skipped"`
+	BreakpointBefore bool                `bson:"breakpoint_before"  yaml:"breakpoint_before" json:"breakpoint_before"`
+	BreakpointAfter  bool                `bson:"breakpoint_after"  yaml:"breakpoint_after"  json:"breakpoint_after"`
+	Spec             interface{}         `bson:"spec"           yaml:"spec"     json:"spec"`
+	RunPolicy        config.JobRunPolicy `bson:"run_policy"   yaml:"run_policy" json:"run_policy"`
 }
 
 type CustomDeployJobSpec struct {

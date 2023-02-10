@@ -172,7 +172,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	defaultS3, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
-		return resp, err
+		return resp, fmt.Errorf("find default s3 storage error: %v", err)
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
@@ -226,7 +226,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
 		if err != nil {
-			return resp, err
+			return resp, fmt.Errorf("find cluster: %s error: %v", buildInfo.PreBuild.ClusterID, err)
 		}
 
 		if clusterInfo.Cache.MediumType == "" {
@@ -355,7 +355,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if buildInfo.PostBuild.ObjectStorageUpload != nil && buildInfo.PostBuild.ObjectStorageUpload.Enabled {
 			modelS3, err := commonrepo.NewS3StorageColl().Find(buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID)
 			if err != nil {
-				return resp, err
+				return resp, fmt.Errorf("find object storage: %s failed, err: %v", buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID, err)
 			}
 			s3 := modelS3toS3(modelS3)
 			s3.Subfolder = ""

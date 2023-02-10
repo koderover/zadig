@@ -105,7 +105,7 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 func Instantiate(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	ctl, err := InitJobCtl(job, workflow)
 	if err != nil {
-		return err
+		return warpJobError(job.Name, err)
 	}
 	return ctl.Instantiate()
 }
@@ -113,15 +113,28 @@ func Instantiate(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error
 func SetPreset(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
-		return err
+		return warpJobError(job.Name, err)
 	}
+	JobPresetSkiped(job)
 	return jobCtl.SetPreset()
+}
+
+func JobPresetSkiped(job *commonmodels.Job) {
+	if job.RunPolicy == config.ForceRun {
+		job.Skipped = false
+		return
+	}
+	if job.RunPolicy == config.DefaultNotRun {
+		job.Skipped = true
+		return
+	}
+	job.Skipped = false
 }
 
 func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int64) ([]*commonmodels.JobTask, error) {
 	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
-		return []*commonmodels.JobTask{}, err
+		return []*commonmodels.JobTask{}, warpJobError(job.Name, err)
 	}
 	return jobCtl.ToJobs(taskID)
 }
@@ -129,7 +142,7 @@ func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int
 func LintJob(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
-		return err
+		return warpJobError(job.Name, err)
 	}
 	return jobCtl.LintJob()
 }
@@ -140,25 +153,25 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 			if job.JobType == config.JobZadigBuild {
 				jobCtl := &BuildJob{job: job, workflow: workflow}
 				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return err
+					return warpJobError(job.Name, err)
 				}
 			}
 			if job.JobType == config.JobFreestyle {
 				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
 				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return err
+					return warpJobError(job.Name, err)
 				}
 			}
 			if job.JobType == config.JobZadigTesting {
 				jobCtl := &TestingJob{job: job, workflow: workflow}
 				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return err
+					return warpJobError(job.Name, err)
 				}
 			}
 			if job.JobType == config.JobZadigScanning {
 				jobCtl := &ScanningJob{job: job, workflow: workflow}
 				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return err
+					return warpJobError(job.Name, err)
 				}
 			}
 		}
@@ -212,7 +225,7 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 				jobCtl := &BuildJob{job: job, workflow: workflow}
 				buildRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, err
+					return resp, warpJobError(job.Name, err)
 				}
 				resp = append(resp, buildRepos...)
 			}
@@ -220,7 +233,7 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
 				freeStyleRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, err
+					return resp, warpJobError(job.Name, err)
 				}
 				resp = append(resp, freeStyleRepos...)
 			}
@@ -228,7 +241,7 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 				jobCtl := &TestingJob{job: job, workflow: workflow}
 				testingRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, err
+					return resp, warpJobError(job.Name, err)
 				}
 				resp = append(resp, testingRepos...)
 			}
@@ -236,7 +249,7 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 				jobCtl := &ScanningJob{job: job, workflow: workflow}
 				scanningRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, err
+					return resp, warpJobError(job.Name, err)
 				}
 				resp = append(resp, scanningRepos...)
 			}
@@ -258,27 +271,30 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 	}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			jobCtl, err := InitJobCtl(job, workflow)
-			if err != nil {
-				return err
-			}
-			if err := jobCtl.SetPreset(); err != nil {
-				return err
+			if err := SetPreset(job, workflow); err != nil {
+				return warpJobError(job.Name, err)
 			}
 			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
 			if jobArgs, ok := argsMap[jobKey]; ok {
-				job.Skipped = jobArgs.Skipped
+				job.Skipped = JobSkiped(jobArgs)
 				jobCtl, err := InitJobCtl(job, workflow)
 				if err != nil {
-					return err
+					return warpJobError(job.Name, err)
 				}
 				if err := jobCtl.MergeArgs(jobArgs); err != nil {
-					return err
+					return warpJobError(job.Name, err)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func JobSkiped(job *commonmodels.Job) bool {
+	if job.RunPolicy == config.ForceRun {
+		return false
+	}
+	return job.Skipped
 }
 
 // use service name and service module hash to generate job name
@@ -484,4 +500,8 @@ func getEnvFromCommitMsg(commitMsg string) []*commonmodels.KeyVal {
 		}
 	}
 	return resp
+}
+
+func warpJobError(jobName string, err error) error {
+	return fmt.Errorf("[job: %s] %v", jobName, err)
 }

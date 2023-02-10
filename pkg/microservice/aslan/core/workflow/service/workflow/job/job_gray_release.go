@@ -76,7 +76,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	firstJob := false
 	if j.spec.FromJob != "" {
 		if j.spec.GrayScale > 100 {
-			return resp, fmt.Errorf("release job: %s release percentage cannot largger than 100%", j.job.Name)
+			return resp, fmt.Errorf("release job: %s release percentage cannot largger than 100", j.job.Name)
 		}
 		found := false
 		for _, stage := range j.workflow.Stages {
@@ -105,7 +105,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
 		if err != nil {
-			return resp, fmt.Errorf("Failed to get kube client, err: %v", err)
+			return resp, fmt.Errorf("failed to get kube client, err: %v", err)
 		}
 		for _, target := range j.spec.Targets {
 			deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
@@ -155,7 +155,7 @@ func (j *GrayReleaseJob) LintJob() error {
 		return err
 	}
 	if j.spec.GrayScale > 100 {
-		return fmt.Errorf("release job: [%s] release percentage cannot largger than 100%", j.job.Name)
+		return fmt.Errorf("release job: [%s] release percentage cannot largger than 100", j.job.Name)
 	}
 	// from job was empty means it is the first deploy job.
 	if j.spec.FromJob == "" {

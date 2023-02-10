@@ -138,7 +138,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	defaultS3, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
-		return resp, err
+		return resp, fmt.Errorf("failed to find default s3 storage, error: %v", err)
 	}
 
 	for _, testing := range j.spec.TestModules {
@@ -176,7 +176,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
 		if err != nil {
-			return resp, err
+			return resp, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
 		}
 
 		if clusterInfo.Cache.MediumType == "" {

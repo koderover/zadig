@@ -63,6 +63,7 @@ type JenkinsBuildPlugin struct {
 	FileName      string
 	Task          *task.JenkinsBuild
 	Log           *zap.SugaredLogger
+	Timeout       <-chan time.Time
 
 	ack func()
 }
@@ -198,12 +199,13 @@ func (j *JenkinsBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 		j.Task.Error = msg
 		return
 	}
+	j.Timeout = time.After(time.Duration(j.TaskTimeout()) * time.Second)
 	j.Log.Infof("succeed to create jenkins build job %s", j.JobName)
 }
 
 // Wait ...
 func (j *JenkinsBuildPlugin) Wait(ctx context.Context) {
-	jobStatus, err := waitJobEnd(ctx, j.TaskTimeout(), j.KubeNamespace, j.JobName, j.kubeClient, j.clientset, j.restConfig, j.Log)
+	jobStatus, err := waitJobEnd(ctx, j.TaskTimeout(), j.Timeout, j.KubeNamespace, j.JobName, j.kubeClient, j.clientset, j.restConfig, j.Log)
 	if err != nil {
 		j.SetStatus(config.StatusFailed)
 		msg := fmt.Sprintf("failed to wait job end, error: %s", err)

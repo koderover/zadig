@@ -162,6 +162,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 				Content: conf.Content,
 			})
 		}
+		pageNum++
 		if len(res.PageItems) < pageSize {
 			end = true
 		}

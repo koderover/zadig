@@ -272,6 +272,11 @@ func (c *workflowCtl) CleanShareStorage() {
 			c.logger.Errorf("can't init k8s client: %v", err)
 			continue
 		}
+		kubeApiServer, err := kubeclient.GetKubeAPIReader(config.HubServerAddress(), clusterID)
+		if err != nil {
+			c.logger.Errorf("can't init k8s api reader: %v", err)
+			continue
+		}
 		job, err := jobcontroller.BuildCleanJob(cleanJobName, clusterID, c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 		if err != nil {
 			c.logger.Errorf("build clean job error: %v", err)
@@ -287,7 +292,7 @@ func (c *workflowCtl) CleanShareStorage() {
 				c.logger.Errorf("delete job error: %v", err)
 			}
 		}(kubeClient, cleanJobName, namespace)
-		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, c.logger)
+		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, kubeApiServer, c.logger)
 		c.logger.Infof("clean job %s finished, status: %s", cleanJobName, status)
 	}
 }

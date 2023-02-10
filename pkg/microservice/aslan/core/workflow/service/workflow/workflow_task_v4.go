@@ -315,7 +315,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			Approval: stage.Approval,
 		}
 		for _, job := range stage.Jobs {
-			if job.Skipped {
+			if jobctl.JobSkiped(job) {
 				continue
 			}
 			// TODO: move this logic to job controller
