@@ -52,7 +52,7 @@ func (j *DeployJob) SetPreset() error {
 
 	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
 	}
 	if project.ProductFeature != nil {
 		j.spec.DeployType = project.ProductFeature.DeployType
@@ -99,7 +99,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
-		return resp, err
+		return resp, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
 	}
 
 	productServiceMap := product.GetServiceMap()
@@ -107,7 +107,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if project.ProductFeature != nil && project.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(j.workflow.Project, j.spec.Env)
 		if err != nil {
-			return resp, err
+			return resp, fmt.Errorf("failed to list external workload, err: %v", err)
 		}
 		for _, service := range productServices {
 			productServiceMap[service.ServiceName] = &commonmodels.ProductService{

@@ -103,7 +103,7 @@ func (j *GrayRollbackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
 	if err != nil {
-		return resp, fmt.Errorf("Failed to get kube client, err: %v", err)
+		return resp, fmt.Errorf("failed to get kube client, err: %v", err)
 	}
 	for _, target := range j.spec.Targets {
 		deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)

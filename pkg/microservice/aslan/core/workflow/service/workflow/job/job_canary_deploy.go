@@ -84,7 +84,7 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
 	if err != nil {
 		logger.Errorf("Failed to get kube client, err: %v", err)
-		return resp, err
+		return resp, fmt.Errorf("failed to get kube client: %s, err: %v", j.spec.ClusterID, err)
 	}
 
 	for _, target := range j.spec.Targets {
