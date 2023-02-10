@@ -98,7 +98,7 @@ func getWorkspaceBasePath(pipelineName string) (string, error) {
 
 	base := path.Join(config.S3StoragePath(), pipe.Name)
 
-	if exsit, err := util.PathExists(base); !exsit {
+	if exist, err := util.PathExists(base); !exist {
 		return "", err
 	}
 

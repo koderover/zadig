@@ -170,7 +170,7 @@ func removeWebhook(t *task, logger *zap.Logger) {
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.address)
 	default:
-		t.err = fmt.Errorf("invaild source: %s", t.from)
+		t.err = fmt.Errorf("invalid source: %s", t.from)
 		t.doneCh <- struct{}{}
 		return
 	}
@@ -249,7 +249,7 @@ func addWebhook(t *task, logger *zap.Logger) {
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.address)
 	default:
-		t.err = fmt.Errorf("invaild source: %s", t.from)
+		t.err = fmt.Errorf("invalid source: %s", t.from)
 		t.doneCh <- struct{}{}
 		return
 	}

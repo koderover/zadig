@@ -188,7 +188,7 @@ func GetDeployStatByProdutName(productName string, startTimestamp int64, log *za
 		}
 		//以服务名称分组
 		for _, svcInfo := range deployServiceInfos {
-			if _, isExsit := maxDeployFailureServiceMap[svcInfo.ServiceName]; isExsit {
+			if _, isExist := maxDeployFailureServiceMap[svcInfo.ServiceName]; isExist {
 				maxDeployFailureServiceMap[svcInfo.ServiceName] = append(maxDeployFailureServiceMap[svcInfo.ServiceName], svcInfo)
 			} else {
 				serviceInfos := make([]*serviceInfo, 0)
