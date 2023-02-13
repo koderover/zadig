@@ -76,6 +76,7 @@ type WorkflowTaskPreview struct {
 	ProjectName         string                `bson:"project_name"              json:"project_name"`
 	Error               string                `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool                  `bson:"is_restart"                json:"is_restart"`
+	Debug               bool                  `bson:"debug"                     json:"debug"`
 }
 
 type StageTaskPreview struct {
@@ -681,6 +682,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		EndTime:             task.EndTime,
 		Error:               task.Error,
 		IsRestart:           task.IsRestart,
+		Debug:               task.IsDebug,
 	}
 	for _, stage := range task.Stages {
 		resp.Stages = append(resp.Stages, &StageTaskPreview{
