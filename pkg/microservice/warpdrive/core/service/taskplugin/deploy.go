@@ -26,6 +26,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -511,12 +512,39 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 			if ready {
 				p.Task.TaskStatus = config.StatusPassed
 			}
-
+			if workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels) != nil {
+				p.Task.TaskStatus = config.StatusFailed
+				p.Task.Error = err.Error()
+			}
 			if p.IsTaskDone() {
 				return
 			}
 		}
 	}
+}
+
+func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string) error {
+	for _, label := range labelMaps {
+		selector := labels.Set(label).AsSelector()
+		pods, err := getter.ListPods(namespace, selector, kubeClient)
+		if err != nil {
+			return err
+		}
+		for _, pod := range pods {
+			allContainerStatuses := make([]corev1.ContainerStatus, 0)
+			allContainerStatuses = append(allContainerStatuses, pod.Status.InitContainerStatuses...)
+			allContainerStatuses = append(allContainerStatuses, pod.Status.ContainerStatuses...)
+			for _, cs := range allContainerStatuses {
+				if cs.State.Waiting != nil {
+					switch cs.State.Waiting.Reason {
+					case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff", "ErrImageNeverPull":
+						return fmt.Errorf("pod: %s, %s: %s", pod.Name, cs.State.Waiting.Reason, cs.State.Waiting.Message)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (p *DeployTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
