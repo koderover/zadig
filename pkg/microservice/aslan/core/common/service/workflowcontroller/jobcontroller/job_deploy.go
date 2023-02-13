@@ -337,10 +337,15 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 
 		default:
 			time.Sleep(time.Second * 2)
+			c.logger.Error("@@@ default ticker")
 			ready := true
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
+				if workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels) != nil {
+					logError(c.job, err.Error(), c.logger)
+					return
+				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)
@@ -385,11 +390,6 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 						break L
 					}
 				}
-			}
-
-			if workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels) != nil {
-				logError(c.job, err.Error(), c.logger)
-				return
 			}
 
 			if ready {

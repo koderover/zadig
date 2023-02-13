@@ -459,10 +459,16 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 
 		default:
 			time.Sleep(time.Second * 2)
+			p.Log.Error("@@@ default ticker")
 			ready := true
 			var err error
 		L:
 			for _, resource := range p.Task.ReplaceResources {
+				if workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels) != nil {
+					p.Task.TaskStatus = config.StatusFailed
+					p.Task.Error = err.Error()
+					return
+				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(p.Task.Namespace, resource.Name, p.kubeClient)
@@ -511,10 +517,6 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 
 			if ready {
 				p.Task.TaskStatus = config.StatusPassed
-			}
-			if workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels) != nil {
-				p.Task.TaskStatus = config.StatusFailed
-				p.Task.Error = err.Error()
 			}
 			if p.IsTaskDone() {
 				return
