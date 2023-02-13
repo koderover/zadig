@@ -459,7 +459,6 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 
 		default:
 			time.Sleep(time.Second * 2)
-			p.Log.Error("@@@ default ticker")
 			ready := true
 			var err error
 		L:

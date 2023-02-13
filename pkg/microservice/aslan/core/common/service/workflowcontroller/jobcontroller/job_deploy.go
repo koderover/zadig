@@ -337,7 +337,6 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 
 		default:
 			time.Sleep(time.Second * 2)
-			c.logger.Error("@@@ default ticker")
 			ready := true
 			var err error
 		L:
