@@ -464,7 +464,7 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range p.Task.ReplaceResources {
-				if workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels) != nil {
+				if err := workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels); err != nil {
 					p.Task.TaskStatus = config.StatusFailed
 					p.Task.Error = err.Error()
 					return

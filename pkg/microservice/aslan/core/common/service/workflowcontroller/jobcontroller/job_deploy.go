@@ -342,7 +342,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
-				if workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels) != nil {
+				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels); err != nil {
 					logError(c.job, err.Error(), c.logger)
 					return
 				}
