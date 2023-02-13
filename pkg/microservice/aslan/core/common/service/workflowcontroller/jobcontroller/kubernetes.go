@@ -945,7 +945,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 					if !ipod.Finished() {
 						// check container whether is stuck in debug stage by checking stage file, if so, update job status to debug
 						if !debugStageBefore {
-							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
 								ZadigContextDir+"debug/debug_before", defaultRetryCount, defaultRetryInterval); found {
 								jobTask.Status = config.StatusDebugBefore
 								ack()
@@ -953,7 +953,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 							}
 						}
 						if debugStageBefore && !debugStageBeforeDone {
-							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
 								ZadigContextDir+"debug/debug_before_done", defaultRetryCount, defaultRetryInterval); found {
 								jobTask.Status = config.StatusRunning
 								ack()
@@ -961,17 +961,17 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 							}
 						}
 						if !debugStageAfter {
-							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
 								ZadigContextDir+"debug/debug_after", defaultRetryCount, defaultRetryInterval); found {
 								jobTask.Status = config.StatusDebugAfter
 								ack()
 								debugStageAfter = true
-								// if job in debug_after step, it is necessary to check debug_before step
+								// if job in debug_after step, it is unnecessary to check debug_before step
 								debugStageBefore = true
 							}
 						}
 						if debugStageAfter && !debugStageAfterDone {
-							if found, _ := checkFileExistWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
+							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
 								ZadigContextDir+"debug/debug_after_done", defaultRetryCount, defaultRetryInterval); found {
 								jobTask.Status = config.StatusRunning
 								ack()
@@ -1169,7 +1169,7 @@ func GetObjectPath(subFolder, name string) string {
 	return strings.TrimLeft(name, "/")
 }
 
-func checkFileExistWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container, filePath string, retryCount int, retryInterval time.Duration) (bool, error) {
+func checkFileExistsWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container, filePath string, retryCount int, retryInterval time.Duration) (bool, error) {
 	opt := podexec.ExecOptions{
 		Command:       []string{"ls", filePath},
 		Namespace:     namespace,
