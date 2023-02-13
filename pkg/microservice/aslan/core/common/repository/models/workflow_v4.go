@@ -43,8 +43,8 @@ type WorkflowV4 struct {
 	UpdatedBy       string                   `bson:"updated_by"          yaml:"updated_by"          json:"updated_by"`
 	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
 	MultiRun        bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
-	Debug           bool                     `bson:"debug"               yaml:"debug"               json:"debug"`
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
+	Debug           bool                     `bson:"debug"               yaml:"-"               json:"debug"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
 	MeegoHookCtls   []*MeegoHook             `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`

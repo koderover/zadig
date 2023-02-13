@@ -184,6 +184,18 @@ func EnableDebugWorkflowTaskV4(c *gin.Context) {
 	ctx.Err = workflow.EnableDebugWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
 }
 
+func StopDebugWorkflowTaskJobV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	ctx.Err = workflow.StopDebugWorkflowTaskJobV4(c.Param("workflowName"), c.Param("jobName"), taskID, c.Param("position"), ctx.Logger)
+}
+
 func ApproveStage(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

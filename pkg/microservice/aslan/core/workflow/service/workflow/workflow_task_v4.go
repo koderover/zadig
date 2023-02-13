@@ -312,6 +312,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.MultiRun = workflow.MultiRun
 	workflowTask.ShareStorages = workflow.ShareStorages
+	workflowTask.IsDebug = workflow.Debug
 
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
@@ -438,6 +439,7 @@ FOR:
 		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
 		return nil
 	}
+	// job task is running, check whether shell step has run, and touch breakpoint file
 	if task.Status == config.StatusRunning {
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
@@ -508,6 +510,103 @@ FOR:
 	}
 	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
 	return e.ErrSetBreakpoint.AddDesc("Job 状态无法修改断点")
+}
+
+func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {
+	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
+	if w == nil {
+		logger.Error("set workflowTaskV4 breakpoint failed: not found task")
+		return e.ErrSetBreakpoint.AddDesc("工作流任务已完成或不存在")
+	}
+	w.Lock()
+	var ack func()
+	defer func() {
+		if ack != nil {
+			ack()
+		}
+		w.Unlock()
+	}()
+	t := w.WorkflowTask
+	if t.IsDebug {
+		return e.ErrInvalidParam.AddDesc("任务已开启调试模式")
+	}
+	t.IsDebug = true
+	ack = w.Ack
+	logger.Infof("enable workflowTaskV4 debug mode success: %s-%d", workflowName, taskID)
+	return nil
+}
+
+func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, position string, logger *zap.SugaredLogger) error {
+	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
+	if w == nil {
+		logger.Error("stop debug workflowTaskV4 job failed: not found task")
+		return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
+	}
+	w.Lock()
+	var ack func()
+	defer func() {
+		if ack != nil {
+			ack()
+		}
+		w.Unlock()
+	}()
+
+	var task *commonmodels.JobTask
+FOR:
+	for _, stage := range w.WorkflowTask.Stages {
+		for _, jobTask := range stage.Jobs {
+			if jobTask.Name == jobName {
+				task = jobTask
+				break FOR
+			}
+		}
+	}
+	if task == nil {
+		logger.Error("stop workflowTaskV4 debug shell failed: not found job")
+		return e.ErrStopDebugShell.AddDesc("Job不存在")
+	}
+	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
+		logger.Errorf("stop workflowTaskV4 debug shell failed: IToi %v", err)
+		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
+	}
+	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+	if err != nil {
+		logger.Errorf("stop workflowTaskV4 debug shell failed: list pods %v", err)
+		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods")
+	}
+	if len(pods) == 0 {
+		logger.Error("stop workflowTaskV4 debug shell failed: list pods num 0")
+		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods num 0")
+	}
+	pod := pods[0]
+	switch pod.Status.Phase {
+	case corev1.PodRunning:
+	default:
+		logger.Errorf("stop workflowTaskV4 debug shell failed: pod status is %s", pod.Status.Phase)
+		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("Job 状态 %s 无法结束调试", pod.Status.Phase))
+	}
+	exec := func(cmd string) bool {
+		opt := podexec.ExecOptions{
+			Namespace:     jobTaskSpec.Properties.Namespace,
+			PodName:       pod.Name,
+			ContainerName: pod.Spec.Containers[0].Name,
+			Command:       []string{"sh", "-c", cmd},
+		}
+		_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+		logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
+		return success
+	}
+
+	if !exec(fmt.Sprintf("ls /zadig/debug/breakpoint_%s", position)) {
+		logger.Errorf("set workflowTaskV4 %s breakpoint failed: not found file", position)
+		return e.ErrStopDebugShell.AddDesc("未找到断点文件")
+	}
+	exec(fmt.Sprintf("rm /zadig/debug/breakpoint_%s", position))
+
+	ack = w.Ack
+	logger.Infof("stop workflowTaskV4 debug shell success: %s-%d", workflowName, taskID)
+	return nil
 }
 
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
