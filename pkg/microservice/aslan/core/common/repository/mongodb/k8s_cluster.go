@@ -215,6 +215,7 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id stri
 			"kube_config":     cluster.KubeConfig,
 			"type":            cluster.Type,
 			"share_storage":   cluster.ShareStorage,
+			"provider":        cluster.Provider,
 		}},
 	)
 
