@@ -89,13 +89,15 @@ type StageTaskPreview struct {
 }
 
 type JobTaskPreview struct {
-	Name      string        `bson:"name"           json:"name"`
-	JobType   string        `bson:"type"           json:"type"`
-	Status    config.Status `bson:"status"         json:"status"`
-	StartTime int64         `bson:"start_time"     json:"start_time,omitempty"`
-	EndTime   int64         `bson:"end_time"       json:"end_time,omitempty"`
-	Error     string        `bson:"error"          json:"error"`
-	Spec      interface{}   `bson:"spec"           json:"spec"`
+	Name             string        `bson:"name"           json:"name"`
+	JobType          string        `bson:"type"           json:"type"`
+	Status           config.Status `bson:"status"         json:"status"`
+	StartTime        int64         `bson:"start_time"     json:"start_time,omitempty"`
+	EndTime          int64         `bson:"end_time"       json:"end_time,omitempty"`
+	Error            string        `bson:"error"          json:"error"`
+	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
+	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`
+	Spec             interface{}   `bson:"spec"           json:"spec"`
 }
 
 type ZadigBuildJobSpec struct {
@@ -711,12 +713,14 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 	resp := []*JobTaskPreview{}
 	for _, job := range jobs {
 		jobPreview := &JobTaskPreview{
-			Name:      job.Name,
-			Status:    job.Status,
-			StartTime: job.StartTime,
-			EndTime:   job.EndTime,
-			Error:     job.Error,
-			JobType:   job.JobType,
+			Name:             job.Name,
+			Status:           job.Status,
+			StartTime:        job.StartTime,
+			EndTime:          job.EndTime,
+			Error:            job.Error,
+			JobType:          job.JobType,
+			BreakpointBefore: job.BreakpointBefore,
+			BreakpointAfter:  job.BreakpointAfter,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):
