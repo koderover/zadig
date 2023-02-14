@@ -70,7 +70,7 @@ func (c *CanaryReleaseJobCtl) Clean(ctx context.Context) {
 	}
 
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, canarydeploymentName, kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, canarydeploymentName, time.Duration(c.timeout())*time.Second, kubeClient); err != nil {
 		c.logger.Errorf("delete canary deployment %s error: %v", canarydeploymentName, err)
 	}
 }
@@ -95,7 +95,7 @@ func (c *CanaryReleaseJobCtl) run(ctx context.Context) error {
 	}
 
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, canarydeploymentName, c.kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, canarydeploymentName, time.Duration(c.timeout())*time.Second, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete canary deployment %s error: %v", canarydeploymentName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
