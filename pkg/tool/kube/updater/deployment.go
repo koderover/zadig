@@ -107,3 +107,12 @@ func DeleteDeploymentAndWait(ns, name string, cl client.Client) error {
 		},
 	}, cl)
 }
+
+func DeleteDeploymentAndWaitWithTimeout(ns, name string, timeout time.Duration, cl client.Client) error {
+	return deleteObjectAndWaitWithTimeout(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+	}, cl, timeout)
+}
