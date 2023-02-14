@@ -364,7 +364,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 				switch config.JobType(jobTask.JobType) {
 				case config.JobFreestyle, config.JobZadigTesting, config.JobZadigBuild, config.JobZadigScanning:
 					if workflowTask.IsDebug {
-						job.BreakpointBefore = true
+						jobTask.BreakpointBefore = true
 					}
 				}
 			}
