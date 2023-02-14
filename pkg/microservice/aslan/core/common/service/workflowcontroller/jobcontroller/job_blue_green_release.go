@@ -79,7 +79,7 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 		return
 	}
 	// clear intermediate state resources
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueWorkloadName, kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueWorkloadName, config.DefaultDeleteDeploymentTimeout, kubeClient); err != nil {
 		c.logger.Errorf("delete old deployment error: %v", err)
 	}
 	// if it was the first time blue-green deployment, clean the origin labels.
@@ -142,7 +142,7 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 		c.jobTaskSpec.Events.Error(msg)
 		c.ack()
 	}
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, config.DefaultDeleteDeploymentTimeout, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete old deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 		logError(c.job, msg, c.logger)
 		return
