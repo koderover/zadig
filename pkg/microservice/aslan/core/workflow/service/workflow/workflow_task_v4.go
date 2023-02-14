@@ -354,19 +354,21 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 				}
 			}
 
-			// add breakpoint_before when workflowTask is debug mode
-			switch job.JobType {
-			case config.JobFreestyle, config.JobZadigTesting, config.JobBuild, config.JobZadigScanning:
-				if workflowTask.IsDebug {
-					job.BreakpointBefore = true
-				}
-			}
-
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
 				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
 				return resp, e.ErrCreateTask.AddDesc(err.Error())
 			}
+			// add breakpoint_before when workflowTask is debug mode
+			for _, jobTask := range jobs {
+				switch config.JobType(jobTask.JobType) {
+				case config.JobFreestyle, config.JobZadigTesting, config.JobZadigBuild, config.JobZadigScanning:
+					if workflowTask.IsDebug {
+						job.BreakpointBefore = true
+					}
+				}
+			}
+
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
 		}
 		if len(stageTask.Jobs) > 0 {
