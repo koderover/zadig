@@ -530,7 +530,7 @@ func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.Su
 	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
 	if w == nil {
 		logger.Error("set workflowTaskV4 breakpoint failed: not found task")
-		return e.ErrSetBreakpoint.AddDesc("工作流任务已完成或不存在")
+		return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
 	}
 	w.Lock()
 	var ack func()
@@ -542,7 +542,7 @@ func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.Su
 	}()
 	t := w.WorkflowTask
 	if t.IsDebug {
-		return e.ErrInvalidParam.AddDesc("任务已开启调试模式")
+		return e.ErrStopDebugShell.AddDesc("任务已开启调试模式")
 	}
 	t.IsDebug = true
 	ack = w.Ack
