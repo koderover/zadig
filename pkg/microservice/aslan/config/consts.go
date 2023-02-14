@@ -18,6 +18,7 @@ package config
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -365,3 +366,5 @@ const (
 	TestJobHTMLReportStepName    = "html-report-step"
 	TestJobArchiveResultStepName = "archive-result-step"
 )
+
+const DefaultDeleteDeploymentTimeout = 10 * time.Minute

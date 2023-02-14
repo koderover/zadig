@@ -196,6 +196,22 @@ func deleteObjectAndWait(obj client.Object, cl client.Client) error {
 	})
 }
 
+func deleteObjectAndWaitWithTimeout(obj client.Object, cl client.Client, timeout time.Duration) error {
+	err := deleteObjectWithDefaultOptions(obj, cl)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	return wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
+		found, err := getter.GetResourceInCache(obj.GetNamespace(), obj.GetName(), obj, cl)
+		if err != nil {
+			return false, err
+		}
+
+		return !found, nil
+	})
+}
+
 // TODO: LOU: improve it
 // deleteObjectsAndWait deletes the objects and wait till all of them are gone.
 func deleteObjectsAndWait(ns string, selector labels.Selector, obj client.Object, gvk schema.GroupVersionKind, cl client.Client) error {
