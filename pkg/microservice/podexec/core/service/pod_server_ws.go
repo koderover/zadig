@@ -175,9 +175,9 @@ FOR:
 
 	script := ""
 	for _, env := range jobTaskSpec.Properties.Envs {
-		script += fmt.Sprintf("export %s=%s", env.Key, env.Value)
+		script += fmt.Sprintf("export %s=%s\n", env.Key, env.Value)
 	}
-	script += "/bin/sh"
+	script += "bash\n"
 
 	err = ExecPod(krkubeclient.Clientset(), krkubeclient.RESTConfig(), []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
 	if err != nil {
