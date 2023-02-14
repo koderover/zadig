@@ -64,11 +64,12 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 		}
 		resp.Data = append(resp.Data, spmap)
 	}
+	resp.Total = len(services)
 
 	return resp, nil
 }
 
-func GetProductionK8sService(productName, serviceName string, log *zap.SugaredLogger) (*service.ServiceProductMap, error) {
+func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLogger) (*service.ServiceProductMap, error) {
 	var err error
 	resp := new(service.ServiceProductMap)
 	productTmpl, err := templaterepo.NewProductColl().Find(productName)
@@ -79,8 +80,8 @@ func GetProductionK8sService(productName, serviceName string, log *zap.SugaredLo
 
 	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
-		Type:        setting.K8SDeployType,
 		ProductName: productName,
+		Type:        setting.K8SDeployType,
 	})
 
 	if err != nil {
@@ -103,16 +104,6 @@ func CreateK8sProductionService(productName string, serviceObject *models.Servic
 	if err != nil {
 		log.Errorf("Failed to find project %s, err: %s", serviceObject.ProductName, err)
 		return nil, e.ErrInvalidParam.AddErr(err)
-	}
-
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName:   serviceObject.ServiceName,
-		ProductName:   serviceObject.ProductName,
-		ExcludeStatus: setting.ProductStatusDeleting,
-	}
-	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
-	if notFoundErr == nil && serviceTmpl != nil {
-		return nil, fmt.Errorf("service:%s already exists", serviceTmpl.ServiceName)
 	}
 
 	err = ensureProductionServiceTmpl(serviceObject, log)

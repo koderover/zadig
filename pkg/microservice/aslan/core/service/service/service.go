@@ -65,13 +65,11 @@ import (
 type ServiceOption struct {
 	ServiceModules []*ServiceModule           `json:"service_module"`
 	SystemVariable []*Variable                `json:"system_variable"`
-	CustomVariable []*templatemodels.RenderKV `json:"custom_variable"`
-	//TemplateVariable []*Variable                `json:"template_variable" // Deprecated`
-	VariableYaml string                     `json:"variable_yaml"`
-	ServiceVars  []string                   `json:"service_vars"`
-	VariableKVs  []*commonmodels.VariableKV `json:"variable_kvs"`
-	Yaml         string                     `json:"yaml"`
-	Service      *commonmodels.Service      `json:"service,omitempty"`
+	VariableYaml   string                     `json:"variable_yaml"`
+	ServiceVars    []string                   `json:"service_vars"`
+	VariableKVs    []*commonmodels.VariableKV `json:"variable_kvs"`
+	Yaml           string                     `json:"yaml"`
+	Service        *commonmodels.Service      `json:"service,omitempty"`
 }
 
 type ServiceModule struct {

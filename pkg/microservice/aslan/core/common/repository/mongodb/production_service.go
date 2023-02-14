@@ -120,18 +120,13 @@ func (c *ProductionServiceColl) Find(opt *ServiceFindOption) (*models.Service, e
 }
 
 func (c *ProductionServiceColl) ListMaxRevisions(serviceType string) ([]*models.Service, error) {
-	var srs []bson.D
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
 	}
 	if serviceType != "" {
 		pre["type"] = serviceType
 	}
-	post := bson.M{
-		"_id": bson.M{"$in": srs},
-	}
-
-	return c.listMaxRevisions(pre, post)
+	return c.listMaxRevisions(pre, nil)
 }
 
 func (c *ProductionServiceColl) UpdateServiceVariables(args *models.Service) error {
