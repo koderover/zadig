@@ -106,6 +106,9 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 	if !stage.Approval.Enabled {
 		return nil
 	}
+	workflowCtx.SetStatus(config.StatusWaitingApprove)
+	defer workflowCtx.SetStatus(config.StatusRunning)
+
 	switch stage.Approval.Type {
 	case config.NativeApproval:
 		return waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
