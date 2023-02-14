@@ -297,6 +297,8 @@ var (
 	// ErrStopDebugShell
 	ErrStopDebugShell = NewHTTPError(6171, "结束调试步骤失败")
 
+	// ErrGetDebugShell
+	ErrGetDebugShell = NewHTTPError(6172, "获取调试 Shell 失败")
 	//-----------------------------------------------------------------------------------------------
 	// Keystore APIs Range: 6180 - 6189
 	//-----------------------------------------------------------------------------------------------

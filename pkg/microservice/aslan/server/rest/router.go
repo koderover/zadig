@@ -137,6 +137,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	podexec := router.Group("/api/podexec")
 	{
 		podexec.GET("/:productName/:namespace/:podName/:containerName/podExec/:envName", podexecservice.ServeWs)
+		podexec.GET("/debug/:workflowName/:jobName/task/:taskID", podexecservice.DebugWorkflow)
 	}
 
 	// inject policy APIs
