@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -173,9 +174,13 @@ FOR:
 		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("Job 状态 %s 无法启动调试终端", pod.Status.Phase))
 	}
 
-	script := ""
+	var envs []string
 	for _, env := range jobTaskSpec.Properties.Envs {
-		script += fmt.Sprintf("export %s=%s\n", env.Key, env.Value)
+		envs = append(envs, fmt.Sprintf("%s=%s", env.Key, env.Value))
+	}
+	script := ""
+	if len(envs) != 0 {
+		script += "env " + strings.Join(envs, " ") + " "
 	}
 	script += "bash\n"
 
