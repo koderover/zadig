@@ -453,7 +453,8 @@ FOR:
 		return nil
 	}
 	// job task is running, check whether shell step has run, and touch breakpoint file
-	if task.Status == config.StatusRunning {
+	// if job task status is debug_after, only breakpoint operation can do is unset breakpoint_after, which should be done by StopDebugWorkflowTaskJobV4
+	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore {
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
 			logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
