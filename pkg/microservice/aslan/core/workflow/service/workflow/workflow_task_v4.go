@@ -501,7 +501,7 @@ FOR:
 			}
 			exec(fmt.Sprintf("%s /zadig/debug/breakpoint_%s", touchOrRemove(set), position))
 		case "after":
-			if !exec("ls /zadig/debug/shell_step_done") {
+			if exec("ls /zadig/debug/shell_step_done") {
 				logger.Error("set workflowTaskV4 after breakpoint failed: shell step has been done")
 				return e.ErrSetBreakpoint.AddDesc("Job 已运行完脚本，无法修改后断点")
 			}
