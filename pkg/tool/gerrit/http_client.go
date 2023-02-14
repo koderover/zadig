@@ -60,6 +60,9 @@ func (c *HTTPClient) UpsertWebhook(repoName, webhookName string, events []string
 		MaxTries:  setting.MaxTries,
 		SslVerify: false,
 	}
+	for _, event := range events {
+		gerritWebhook.Events = append(gerritWebhook.Events, string(event))
+	}
 	if _, err := c.Put(webhookURL, httpclient.SetBody(gerritWebhook)); err != nil {
 		return fmt.Errorf("create gerrit webhook err:%v", err)
 	}
