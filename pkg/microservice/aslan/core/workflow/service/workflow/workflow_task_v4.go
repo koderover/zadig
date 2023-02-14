@@ -454,7 +454,8 @@ FOR:
 	}
 	// job task is running, check whether shell step has run, and touch breakpoint file
 	// if job task status is debug_after, only breakpoint operation can do is unset breakpoint_after, which should be done by StopDebugWorkflowTaskJobV4
-	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore {
+	// if job task status is prepare, setting breakpoints has a low probability of not taking effect, and the current design allows for this flaw
+	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore || task.Status == config.StatusPrepare {
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
 			logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
@@ -518,9 +519,6 @@ FOR:
 		}
 		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
 		return nil
-	}
-	if task.Status == config.StatusPrepare {
-		return e.ErrSetBreakpoint.AddDesc("Job正在准备中，无法修改断点，请稍后再试")
 	}
 	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
 	return e.ErrSetBreakpoint.AddDesc("Job 状态无法修改断点")
