@@ -34,6 +34,7 @@ type Product struct {
 	AutoDeploy          *AutoDeployPolicy     `bson:"auto_deploy"               json:"auto_deploy"`
 	Timeout             int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services            [][]string            `bson:"services"                  json:"services"`
+	ProductionServices  [][]string            `bson:"production_services"       json:"production_services"`
 	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
 	Vars                []*RenderKV           `bson:"-"                         json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`

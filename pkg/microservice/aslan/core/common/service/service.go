@@ -84,25 +84,26 @@ type ServiceTmplObject struct {
 }
 
 type ServiceProductMap struct {
-	Service                 string                    `json:"service_name"`
-	Source                  string                    `json:"source"`
-	Type                    string                    `json:"type"`
-	Product                 []string                  `json:"product"`
-	ProductName             string                    `json:"product_name"`
-	Containers              []*commonmodels.Container `json:"containers,omitempty"`
-	Visibility              string                    `json:"visibility,omitempty"`
-	CodehostID              int                       `json:"codehost_id"`
-	RepoOwner               string                    `json:"repo_owner"`
-	RepoNamespace           string                    `json:"repo_namespace"`
-	RepoName                string                    `json:"repo_name"`
-	RepoUUID                string                    `json:"repo_uuid"`
-	BranchName              string                    `json:"branch_name"`
-	LoadPath                string                    `json:"load_path"`
-	LoadFromDir             bool                      `json:"is_dir"`
-	GerritRemoteName        string                    `json:"gerrit_remote_name,omitempty"`
-	CreateFrom              interface{}               `json:"create_from"`
-	AutoSync                bool                      `json:"auto_sync"`
-	EstimatedMergedVariable string                    `json:"estimated_merged_variable"`
+	Service          string                    `json:"service_name"`
+	Source           string                    `json:"source"`
+	Type             string                    `json:"type"`
+	Product          []string                  `json:"product"`
+	ProductName      string                    `json:"product_name"`
+	Containers       []*commonmodels.Container `json:"containers,omitempty"`
+	Visibility       string                    `json:"visibility,omitempty"`
+	CodehostID       int                       `json:"codehost_id"`
+	RepoOwner        string                    `json:"repo_owner"`
+	RepoNamespace    string                    `json:"repo_namespace"`
+	RepoName         string                    `json:"repo_name"`
+	RepoUUID         string                    `json:"repo_uuid"`
+	BranchName       string                    `json:"branch_name"`
+	LoadPath         string                    `json:"load_path"`
+	LoadFromDir      bool                      `json:"is_dir"`
+	GerritRemoteName string                    `json:"gerrit_remote_name,omitempty"`
+	CreateFrom       interface{}               `json:"create_from"`
+	AutoSync         bool                      `json:"auto_sync"`
+	//estimated merged variable is set when the service is created from template
+	EstimatedMergedVariable string `json:"estimated_merged_variable"`
 }
 
 var (

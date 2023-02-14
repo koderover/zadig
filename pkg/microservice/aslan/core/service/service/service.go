@@ -282,49 +282,6 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		}
 	}
 
-	//renderKVs, err := commonservice.ListServicesRenderKeys([]*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}, log)
-	//if err != nil {
-	//	log.Errorf("ListServicesRenderKeys %s error: %v", args.ServiceName, err)
-	//	return nil, e.ErrCreateTemplate.AddDesc(err.Error())
-	//}
-	//serviceOption.CustomVariable = renderKVs
-
-	//prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
-	//if err != nil {
-	//	errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", args.ProductName, err)
-	//	log.Error(errMsg)
-	//	return nil, e.ErrGetProduct.AddDesc(errMsg)
-	//}
-
-	//err = commonservice.FillProductTemplateVars([]*templatemodels.Product{prodTmpl}, log)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//if prodTmpl.Vars != nil {
-	//	renderKVsMap := make(map[string]*templatemodels.RenderKV)
-	//for _, serviceRenderKV := range renderKVs {
-	//	renderKVsMap[serviceRenderKV.Key] = serviceRenderKV
-	//}
-	//productRenderEnvs := make([]*templatemodels.RenderKV, 0)
-	//for _, envVar := range prodTmpl.Vars {
-	//	delete(renderKVsMap, envVar.Key)
-	//	renderEnv := &templatemodels.RenderKV{
-	//		Key:      envVar.Key,
-	//		Value:    envVar.Value,
-	//		Alias:    envVar.Alias,
-	//		State:    envVar.State,
-	//		Services: envVar.Services,
-	//	}
-	//	productRenderEnvs = append(productRenderEnvs, renderEnv)
-	//}
-	//
-	//for _, envVar := range renderKVsMap {
-	//	envVar.State = config.KeyStateNew
-	//	productRenderEnvs = append(productRenderEnvs, envVar)
-	//}
-	//serviceOption.CustomVariable = productRenderEnvs
-	//}
-
 	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub ||
 		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromGitee {
 		serviceOption.Yaml = args.Yaml
@@ -1663,7 +1620,7 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 		}
 	}
 
-	args.Containers = uniqeSlice(srvContainers)
+	args.Containers = uniqueSlice(srvContainers)
 	return nil
 }
 
@@ -1849,7 +1806,7 @@ func SplitYaml(yaml string) []string {
 	return strings.Split(yaml, setting.YamlFileSeperator)
 }
 
-func uniqeSlice(elements []*commonmodels.Container) []*commonmodels.Container {
+func uniqueSlice(elements []*commonmodels.Container) []*commonmodels.Container {
 	existing := make(map[string]bool)
 	ret := make([]*commonmodels.Container, 0)
 	for _, elem := range elements {
