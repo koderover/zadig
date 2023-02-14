@@ -69,13 +69,12 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 	return resp, nil
 }
 
-func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLogger) (*service.ServiceProductMap, error) {
+func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLogger) (*commonmodels.Service, error) {
 	var err error
-	resp := new(service.ServiceProductMap)
 	productTmpl, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("Can not find project %s, error: %s", productName, err)
-		return resp, e.ErrListTemplate.AddDesc(err.Error())
+		return nil, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
 	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -86,16 +85,9 @@ func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLo
 
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
-		return resp, e.ErrListTemplate.AddDesc(err.Error())
+		return nil, e.ErrListTemplate.AddDesc(err.Error())
 	}
-
-	resp.Service = serviceObject.ServiceName
-	resp.Type = serviceObject.Type
-	resp.Source = serviceObject.Source
-	resp.ProductName = serviceObject.ProductName
-	resp.Containers = serviceObject.Containers
-	resp.Visibility = serviceObject.Visibility
-	return resp, nil
+	return serviceObject, nil
 }
 
 func CreateK8sProductionService(productName string, serviceObject *models.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -216,10 +208,10 @@ func UpdateProductionServiceVariables(args *commonservice.ServiceTmplObject) err
 	return nil
 }
 
-func DeleteProductionServiceTemplate(serviceName, serviceType, productName string, log *zap.SugaredLogger) error {
+func DeleteProductionServiceTemplate(serviceName, productName string, log *zap.SugaredLogger) error {
 	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting)
 	if err != nil {
-		errMsg := fmt.Sprintf("[service.UpdateStatus] %s-%s error: %v", serviceName, serviceType, err)
+		errMsg := fmt.Sprintf("productuion service %s delete error: %v", serviceName, err)
 		log.Error(errMsg)
 		return e.ErrDeleteTemplate.AddDesc(errMsg)
 	}

@@ -94,5 +94,5 @@ func DeleteProductionService(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-生产服务", c.Param("name"), "", ctx.Logger)
 
-	ctx.Err = svcservice.DeleteProductionServiceTemplate(c.Param("name"), c.Param("type"), c.Query("projectName"), ctx.Logger)
+	ctx.Err = svcservice.DeleteProductionServiceTemplate(c.Param("name"), c.Query("projectName"), ctx.Logger)
 }
