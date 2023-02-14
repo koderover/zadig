@@ -67,6 +67,8 @@ func (s *DebugStep) Run(ctx context.Context) error {
 	log.Infof("debug step %s is waiting for breakpoint file remove", s.Type)
 	for _, err := os.Stat(path); err == nil; {
 		time.Sleep(time.Second)
+		// todo debug
+		log.Infof("debug step %s is waiting for breakpoint file remove", s.Type)
 	}
 	log.Infof("debug step %s done", s.Type)
 	return nil
