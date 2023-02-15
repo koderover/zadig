@@ -18,6 +18,9 @@ package rest
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/tool/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerfiles "github.com/swaggo/files"
 	ginswagger "github.com/swaggo/gin-swagger"
 
@@ -53,6 +56,17 @@ import (
 	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
 	_ "github.com/koderover/zadig/pkg/microservice/aslan/server/rest/doc"
 )
+
+func init() {
+	// initialization for prometheus metrics
+	prometheus.MustRegister(metrics.RunningWorkflows)
+	prometheus.MustRegister(metrics.PendingWorkflows)
+	prometheus.MustRegister(metrics.RequestTotal)
+
+	// setting fake data just for demo
+	metrics.SetRunningWorkflows(2)
+	metrics.SetPendingWorkflows(1)
+}
 
 // @title Zadig aslan service REST APIs
 // @version 1.0
@@ -163,6 +177,9 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	}
 
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
+
+	// prometheus metrics API
+	router.GET("/api/metrics", gin.WrapH(promhttp.Handler()))
 }
 
 type injector interface {
