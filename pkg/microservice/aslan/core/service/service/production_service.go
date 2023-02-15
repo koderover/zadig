@@ -98,24 +98,21 @@ func CreateK8sProductionService(productName string, serviceObject *models.Servic
 		return nil, e.ErrInvalidParam.AddErr(err)
 	}
 
-	err = ensureProductionServiceTmpl(serviceObject, log)
-	if err != nil {
-		return nil, e.ErrCreateTeam.AddErr(err)
-	}
-
 	currentSvc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName:   serviceObject.ServiceName,
 		ProductName:   serviceObject.ProductName,
 		Type:          setting.K8SDeployType,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	})
-	log.Infof("###### err is %v, currentSvc is %v", err, currentSvc)
 	if err == nil && currentSvc != nil {
-		log.Infof("###### yaml is %s, variableYaml is %s", serviceObject.Yaml, serviceObject.VariableYaml)
-		log.Infof("###### yaml is %s, variableYaml is %s", currentSvc.Yaml, currentSvc.VariableYaml)
 		if currentSvc.Yaml == serviceObject.Yaml && currentSvc.VariableYaml == serviceObject.VariableYaml {
 			return getProductionServiceOption(currentSvc, log)
 		}
+	}
+
+	err = ensureProductionServiceTmpl(serviceObject, log)
+	if err != nil {
+		return nil, e.ErrCreateTeam.AddErr(err)
 	}
 
 	// delete the service with same revision
