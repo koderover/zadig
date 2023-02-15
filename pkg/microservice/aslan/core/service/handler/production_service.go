@@ -49,15 +49,6 @@ func CreateK8sProductionService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.Service)
-	//data, err := c.GetRawData()
-	//if err != nil {
-	//	log.Errorf("CreateK8sProductionService c.GetRawData() err : %v", err)
-	//}
-	//if err = json.Unmarshal(data, args); err != nil {
-	//	log.Errorf("CreateK8sProductionService json.Unmarshal err : %v", err)
-	//}
-	//c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -92,7 +83,7 @@ func DeleteProductionService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-生产服务", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", c.Param("name")), "", ctx.Logger)
 
 	ctx.Err = svcservice.DeleteProductionServiceTemplate(c.Param("name"), c.Query("projectName"), ctx.Logger)
 }

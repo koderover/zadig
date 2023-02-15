@@ -103,6 +103,21 @@ func CreateK8sProductionService(productName string, serviceObject *models.Servic
 		return nil, e.ErrCreateTeam.AddErr(err)
 	}
 
+	currentSvc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName:   serviceObject.ServiceName,
+		ProductName:   serviceObject.ProductName,
+		Type:          setting.K8SDeployType,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	log.Infof("###### err is %v, currentSvc is %v", err, currentSvc)
+	if err == nil && currentSvc != nil {
+		log.Infof("###### yaml is %s, variableYaml is %s", serviceObject.Yaml, serviceObject.VariableYaml)
+		log.Infof("###### yaml is %s, variableYaml is %s", currentSvc.Yaml, currentSvc.VariableYaml)
+		if currentSvc.Yaml == serviceObject.Yaml && currentSvc.VariableYaml == serviceObject.VariableYaml {
+			return getProductionServiceOption(currentSvc, log)
+		}
+	}
+
 	// delete the service with same revision
 	if err := commonrepo.NewProductionServiceColl().Delete(serviceObject.ServiceName, serviceObject.ProductName, setting.ProductStatusDeleting, serviceObject.Revision); err != nil {
 		log.Errorf("ServiceTmpl.delete %s error: %v", serviceObject.ServiceName, err)
@@ -209,7 +224,7 @@ func UpdateProductionServiceVariables(args *commonservice.ServiceTmplObject) err
 }
 
 func DeleteProductionServiceTemplate(serviceName, productName string, log *zap.SugaredLogger) error {
-	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting)
+	err := commonrepo.NewProductionServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting)
 	if err != nil {
 		errMsg := fmt.Sprintf("productuion service %s delete error: %v", serviceName, err)
 		log.Error(errMsg)

@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -158,6 +159,23 @@ func (c *ProductionServiceColl) UpdateServiceContainers(args *models.Service) er
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *ProductionServiceColl) UpdateStatus(serviceName, productName, status string) error {
+	if serviceName == "" {
+		return fmt.Errorf("serviceName is empty")
+	}
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	query := bson.M{"service_name": serviceName, "product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"status": status,
+	}}
+
+	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
 }
 
