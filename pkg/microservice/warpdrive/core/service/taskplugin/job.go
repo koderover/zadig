@@ -37,6 +37,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -851,19 +852,22 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 
 // waitJobEnd
 // Returns job status
-func waitJobEnd(ctx context.Context, taskTimeout int, namspace, jobName string, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (config.Status, error) {
-	return waitJobEndWithFile(ctx, taskTimeout, namspace, jobName, false, kubeClient, clientset, restConfig, xl)
+func waitJobEnd(ctx context.Context, taskTimeout int, timeout <-chan time.Time, namspace, jobName string, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (config.Status, error) {
+	return waitJobEndWithFile(ctx, taskTimeout, timeout, namspace, jobName, false, kubeClient, clientset, restConfig, xl)
 }
 
-func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
+func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient client.Client, apiReader client.Reader, timeout <-chan time.Time, xl *zap.SugaredLogger) (status config.Status, err error) {
 	xl.Infof("Wait job to start: %s/%s", namespace, jobName)
-	podTimeout := time.After(120 * time.Second)
+	waitPodReadyTimeout := time.After(120 * time.Second)
 
 	var started bool
+	var podReadyTimeout bool
 	for {
 		select {
-		case <-podTimeout:
-			return config.StatusTimeout
+		case <-timeout:
+			return config.StatusTimeout, fmt.Errorf("wait job ready timeout")
+		case <-waitPodReadyTimeout:
+			podReadyTimeout = true
 		default:
 			time.Sleep(time.Second)
 
@@ -894,6 +898,13 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 					started = true
 					break
 				}
+				// if pod is still pending afer 2 minutes, check pod events if is failed already
+				if !podReadyTimeout {
+					continue
+				}
+				if err := isPodFailed(pod.Name, namespace, apiReader, xl); err != nil {
+					return config.StatusFailed, err
+				}
 			}
 		}
 
@@ -902,14 +913,37 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 		}
 	}
 
-	return config.StatusRunning
+	return config.StatusRunning, nil
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status, err error) {
-	xl.Infof("wait job to start: %s/%s", namespace, jobName)
-	timeout := time.After(time.Duration(taskTimeout) * time.Second)
-	podTimeout := time.After(120 * time.Second)
+func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.SugaredLogger) error {
+	selector := fields.Set{"involvedObject.name": podName, "involvedObject.kind": setting.Pod}.AsSelector()
+	events, err := getter.ListEvents(namespace, selector, apiReader)
+	if err != nil {
+		// list events error is not fatal
+		xl.Errorf("list events failed: %s", err)
+		return nil
+	}
+	var errMsg string
+	for _, event := range events {
+		if event.Type != "Warning" {
+			continue
+		}
+		// FailedScheduling means there is not enough resource to schedule the pod, so we should not fail the pod
+		if event.Reason == "FailedScheduling" {
+			continue
+		}
+		errMsg = errMsg + fmt.Sprintf("pod %s/%s event: %s\n", namespace, podName, event.Message)
+	}
+	if errMsg != "" {
+		return errors.New(errMsg)
+	}
+	return nil
+}
 
+func waitJobEndWithFile(ctx context.Context, taskTimeout int, timeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status, err error) {
+	xl.Infof("wait job to start: %s/%s", namespace, jobName)
+	podTimeout := time.After(120 * time.Second)
 	xl.Infof("Timeout of preparing Pod: %s. Timeout of running task: %s.", 120*time.Second, time.Duration(taskTimeout)*time.Second)
 
 	var started bool

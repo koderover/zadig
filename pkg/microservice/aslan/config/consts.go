@@ -18,6 +18,7 @@ package config
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -365,3 +366,13 @@ const (
 	TestJobHTMLReportStepName    = "html-report-step"
 	TestJobArchiveResultStepName = "archive-result-step"
 )
+
+type JobRunPolicy string
+
+const (
+	DefaultRun    JobRunPolicy = ""                // default run this job
+	DefaultNotRun JobRunPolicy = "default_not_run" // default not run this job
+	ForceRun      JobRunPolicy = "force_run"       // force run this job
+)
+
+const DefaultDeleteDeploymentTimeout = 10 * time.Minute

@@ -108,6 +108,7 @@ func CreateTestTask(args *commonmodels.TestTaskArgs, log *zap.SugaredLogger) (*C
 		MergeRequestID: args.MergeRequestID,
 		CommitID:       args.CommitID,
 		Ref:            args.Ref,
+		EventType:      args.EventType,
 	}
 	task := &task.Task{
 		TaskID:        nextTaskID,

@@ -56,13 +56,45 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 					mErr = multierror.Append(err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
-					var mergeRequestID, commitID string
-					if ev, isPr := event.(*github.PullRequestEvent); isPr {
-						mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
-						commitID = *ev.PullRequest.Head.SHA
+					var mergeRequestID, commitID, ref, eventType string
+					autoCancelOpt := &AutoCancelOpt{
+						TaskType: config.TestType,
+						MainRepo: item.MainRepo,
+						TestArgs: item.TestArgs,
 					}
+					switch ev := event.(type) {
+					case *github.PullRequestEvent:
+						eventType = EventTypePR
+						if ev.PullRequest != nil && ev.PullRequest.Number != nil && ev.PullRequest.Head != nil && ev.PullRequest.Head.SHA != nil {
+							mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
+							commitID = *ev.PullRequest.Head.SHA
+							autoCancelOpt.MergeRequestID = mergeRequestID
+							autoCancelOpt.Type = eventType
+						}
+					case *github.PushEvent:
+						if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
+							eventType = EventTypePush
+							ref = ev.GetRef()
+							commitID = ev.GetHeadCommit().GetID()
+							autoCancelOpt.Type = eventType
+							autoCancelOpt.Ref = ref
+							autoCancelOpt.CommitID = commitID
+						}
+					case *github.CreateEvent:
+						eventType = EventTypeTag
+					}
+					if autoCancelOpt.Type != "" {
+						err := AutoCancelTask(autoCancelOpt, log)
+						if err != nil {
+							log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
+							mErr = multierror.Append(mErr, err)
+						}
+					}
+
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.MergeRequestID = mergeRequestID
+					args.Ref = ref
+					args.EventType = eventType
 					args.CommitID = commitID
 					args.Source = setting.SourceFromGithub
 					args.CodehostID = item.MainRepo.CodehostID

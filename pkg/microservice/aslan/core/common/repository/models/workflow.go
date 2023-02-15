@@ -183,6 +183,7 @@ type WorkflowTaskArgs struct {
 	// webhook触发工作流任务时，触发任务的repo信息、prID和commitID、分支信息
 	MergeRequestID string `bson:"merge_request_id" json:"merge_request_id"`
 	Ref            string `bson:"ref" json:"ref"`
+	EventType      string `bson:"event_type" json:"event_type"`
 	CommitID       string `bson:"commit_id"        json:"commit_id"`
 	Source         string `bson:"source"           json:"source"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
@@ -230,6 +231,7 @@ type TestTaskArgs struct {
 	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
 	Ref            string `bson:"ref" json:"ref"`
+	EventType      string `bson:"event_type" json:"event_type"`
 }
 
 type Slack struct {
@@ -370,6 +372,7 @@ type HookPayload struct {
 	CommitID       string `bson:"commit_id"        json:"commit_id,omitempty"`
 	DeliveryID     string `bson:"delivery_id"      json:"delivery_id,omitempty"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
+	EventType      string `bson:"event_type"       json:"event_type"`
 }
 
 type TargetArgs struct {

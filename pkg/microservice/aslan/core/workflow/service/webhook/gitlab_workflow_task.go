@@ -605,7 +605,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 
 			isMergeRequest := false
-			var mergeRequestID, commitID, ref string
+			var mergeRequestID, commitID, ref, eventType string
 			autoCancelOpt := &AutoCancelOpt{
 				TaskType:     config.WorkflowType,
 				MainRepo:     item.MainRepo,
@@ -616,29 +616,29 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 			switch ev := event.(type) {
 			case *gitlab.MergeEvent:
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
 				autoCancelOpt.MergeRequestID = mergeRequestID
 				autoCancelOpt.CommitID = commitID
-				autoCancelOpt.Type = AutoCancelPR
+				autoCancelOpt.Type = eventType
 			case *gitlab.PushEvent:
+				eventType = EventTypePush
 				ref = ev.Ref
-				log.Infof("gitlab ref")
-				b, _ := json.MarshalIndent(ev, "", "  ")
-				log.Infof(string(b))
 				commitID = ev.After
 				autoCancelOpt.Ref = ref
 				autoCancelOpt.CommitID = commitID
-				autoCancelOpt.Type = AutoCancelPush
+				autoCancelOpt.Type = eventType
+			case *gitlab.TagEvent:
+				eventType = EventTypeTag
 			}
-			log.Infof("debug gitlab1")
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelTask(autoCancelOpt, log)
 				if err != nil {
 					log.Errorf("failed to auto cancel workflow task when receive event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 				}
-				if autoCancelOpt.Type == AutoCancelPR && notification == nil {
+				if autoCancelOpt.Type == EventTypePR && notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
 						item.MainRepo, prID, baseURI, false, false, false, false, log,
 					)
@@ -652,6 +652,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			args := matcher.UpdateTaskArgs(prod, workFlowArgs, item.MainRepo, requestID)
 			args.MergeRequestID = mergeRequestID
 			args.Ref = ref
+			args.EventType = eventType
 			args.CommitID = commitID
 			args.Source = setting.SourceFromGitlab
 			args.CodehostID = item.MainRepo.CodehostID

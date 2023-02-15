@@ -87,7 +87,8 @@ type TriggerBy struct {
 	// 触发此次任务的commit id
 	CommitID string `bson:"commit_id,omitempty" json:"commit_id,omitempty"`
 	// the git branch which triggered this task
-	Ref string `bson:"ref" json:"ref"`
+	Ref       string `bson:"ref" json:"ref"`
+	EventType string `bson:"event_type" json:"event_type"`
 }
 
 type ServiceTaskArgs struct {

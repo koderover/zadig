@@ -336,6 +336,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		Type:           args.Type,
 		KubeConfig:     args.KubeConfig,
 		ShareStorage:   args.ShareStorage,
+		Provider:       args.Provider,
 	}
 
 	cluster, err = s.UpdateCluster(id, cluster, logger)

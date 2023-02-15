@@ -562,8 +562,9 @@ func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, reques
 }
 
 const (
-	AutoCancelPR   = "pr"
-	AutoCancelPush = "push"
+	EventTypePR   = "pr"
+	EventTypePush = "push"
+	EventTypeTag  = "tag"
 )
 
 type AutoCancelOpt struct {

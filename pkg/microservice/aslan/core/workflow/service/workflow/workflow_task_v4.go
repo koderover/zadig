@@ -28,12 +28,14 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
@@ -231,6 +233,25 @@ type CreateWorkflowTaskV4Args struct {
 	UserID string
 }
 
+func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
+	resp := &CreateTaskV4Resp{
+		ProjectName:  args.Project,
+		WorkflowName: args.Name,
+	}
+	workflow, err := mongodb.NewWorkflowV4Coll().Find(args.Name)
+	if err != nil {
+		errMsg := fmt.Sprintf("cannot find workflow %s, the error is: %v", args.Name, err)
+		log.Error(errMsg)
+		return resp, e.ErrCreateTask.AddDesc(errMsg)
+	}
+	if err := job.MergeArgs(workflow, args); err != nil {
+		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+		log.Error(errMsg)
+		return resp, e.ErrCreateTask.AddDesc(errMsg)
+	}
+	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{Name: triggerName}, workflow, log)
+}
+
 func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
 	resp := &CreateTaskV4Resp{
 		ProjectName:  workflow.Project,
@@ -294,7 +315,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			Approval: stage.Approval,
 		}
 		for _, job := range stage.Jobs {
-			if job.Skipped {
+			if jobctl.JobSkiped(job) {
 				continue
 			}
 			// TODO: move this logic to job controller

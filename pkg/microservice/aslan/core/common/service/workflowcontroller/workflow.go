@@ -108,6 +108,11 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", taskID, workflowName)
 }
 
+func (c *workflowCtl) setWorkflowStatus(status config.Status) {
+	c.workflowTask.Status = status
+	c.ack()
+}
+
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if c.workflowTask.GlobalContext == nil {
 		c.workflowTask.GlobalContext = make(map[string]string)
@@ -148,6 +153,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		GlobalContextSet:          c.setGlobalContext,
 		GlobalContextEach:         c.globalContextEach,
 		ClusterIDAdd:              c.addCluterID,
+		SetStatus:                 c.setWorkflowStatus,
 	}
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {
@@ -268,6 +274,11 @@ func (c *workflowCtl) CleanShareStorage() {
 			c.logger.Errorf("can't init k8s client: %v", err)
 			continue
 		}
+		kubeApiServer, err := kubeclient.GetKubeAPIReader(config.HubServerAddress(), clusterID)
+		if err != nil {
+			c.logger.Errorf("can't init k8s api reader: %v", err)
+			continue
+		}
 		job, err := jobcontroller.BuildCleanJob(cleanJobName, clusterID, c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 		if err != nil {
 			c.logger.Errorf("build clean job error: %v", err)
@@ -283,7 +294,7 @@ func (c *workflowCtl) CleanShareStorage() {
 				c.logger.Errorf("delete job error: %v", err)
 			}
 		}(kubeClient, cleanJobName, namespace)
-		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, c.logger)
+		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, kubeApiServer, c.logger)
 		c.logger.Infof("clean job %s finished, status: %s", cleanJobName, status)
 	}
 }

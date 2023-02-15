@@ -18,11 +18,13 @@ package workflow
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -217,6 +219,14 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
+	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
+	if err != nil {
+		return resp, errors.Errorf("failed to get custom workflow favorite data, err: %v", err)
+	}
+	favoriteSet := sets.NewString()
+	for _, f := range favorites {
+		favoriteSet.Insert(f.Name)
+	}
 	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
 
 	for _, workflowModel := range workflowV4List {
@@ -248,6 +258,9 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		}
 		if workflowModel.Category == setting.ReleaseWorkflow {
 			workflow.WorkflowType = string(setting.ReleaseWorkflow)
+		}
+		if favoriteSet.Has(workflow.Name) {
+			workflow.IsFavorite = true
 		}
 		getRecentTaskV4Info(workflow, tasks)
 		setWorkflowStat(workflow, workflowStatMap)
@@ -821,9 +834,7 @@ func GeneralHookEventHandler(workflowName, hookName string, logger *zap.SugaredL
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	_, err = CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
-		Name: setting.GeneralHookTaskCreator,
-	}, generalHook.WorkflowArg, logger)
+	_, err = CreateWorkflowTaskV4ByBuildInTrigger(setting.JiraHookTaskCreator, generalHook.WorkflowArg, logger)
 	if err != nil {
 		errMsg := fmt.Sprintf("HandleGeneralHookEvent: failed to create workflow task: %s", err)
 		logger.Error(errMsg)

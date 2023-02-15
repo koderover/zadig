@@ -26,6 +26,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -73,6 +74,22 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		Name:   ctx.UserName,
 		UserID: ctx.UserID,
 	}, args, ctx.Logger)
+}
+
+func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.WorkflowV4)
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	triggerName := c.Query("triggerName")
+	if triggerName == "" {
+		triggerName = setting.DefaultTaskRevoker
+	}
+	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
 }
 
 func ListWorkflowTaskV4(c *gin.Context) {

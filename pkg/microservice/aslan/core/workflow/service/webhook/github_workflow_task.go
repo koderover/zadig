@@ -362,7 +362,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 						continue
 					}
 
-					var mergeRequestID, commitID, ref string
+					var mergeRequestID, commitID, ref, eventType string
 					var hookPayload *commonmodels.HookPayload
 					autoCancelOpt := &AutoCancelOpt{
 						TaskType:     config.WorkflowType,
@@ -371,13 +371,14 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					}
 					switch ev := event.(type) {
 					case *github.PullRequestEvent:
+						eventType = EventTypePR
 						// 如果是merge request，且该webhook触发器配置了自动取消，
 						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
 						if ev.PullRequest != nil && ev.PullRequest.Number != nil && ev.PullRequest.Head != nil && ev.PullRequest.Head.SHA != nil {
 							mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
 							commitID = *ev.PullRequest.Head.SHA
 							autoCancelOpt.MergeRequestID = mergeRequestID
-							autoCancelOpt.Type = AutoCancelPR
+							autoCancelOpt.Type = eventType
 						}
 						hookPayload = &commonmodels.HookPayload{
 							Owner:      *ev.Repo.Owner.Login,
@@ -386,23 +387,30 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 							Ref:        *ev.PullRequest.Head.SHA,
 							IsPr:       true,
 							DeliveryID: deliveryID,
+							EventType:  eventType,
 						}
 					case *github.PushEvent:
 						// if event type is push，and this webhook trigger enabled auto cancel
 						// should cancel tasks triggered by the same git branch push event.
-						if ev.GetRef() != "" && ev.HeadCommit != nil && ev.HeadCommit.SHA != nil {
+						if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
+							eventType = EventTypePush
 							ref = ev.GetRef()
-							commitID = *ev.HeadCommit.SHA
-							autoCancelOpt.Type = AutoCancelPush
+							commitID = ev.GetHeadCommit().GetID()
+							autoCancelOpt.Ref = ref
+							autoCancelOpt.CommitID = commitID
+							autoCancelOpt.Type = eventType
+							hookPayload = &commonmodels.HookPayload{
+								Owner:      *ev.Repo.Owner.Login,
+								Repo:       *ev.Repo.Name,
+								Branch:     ref,
+								Ref:        commitID,
+								IsPr:       false,
+								DeliveryID: deliveryID,
+								EventType:  eventType,
+							}
 						}
-						hookPayload = &commonmodels.HookPayload{
-							Owner:      *ev.Repo.Owner.Login,
-							Repo:       *ev.Repo.Name,
-							Branch:     ref,
-							Ref:        commitID,
-							IsPr:       true,
-							DeliveryID: deliveryID,
-						}
+					case *github.CreateEvent:
+						eventType = EventTypeTag
 					}
 					// if event type is not PR or push, skip
 					if autoCancelOpt.Type != "" {
@@ -416,6 +424,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					args := matcher.UpdateTaskArgs(prod, item.WorkflowArgs, item.MainRepo, requestID)
 					args.MergeRequestID = mergeRequestID
 					args.Ref = ref
+					args.EventType = eventType
 					args.CommitID = commitID
 					args.Source = setting.SourceFromGithub
 					args.CodehostID = item.MainRepo.CodehostID
