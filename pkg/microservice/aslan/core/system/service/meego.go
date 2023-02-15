@@ -118,18 +118,26 @@ func ListAvailableWorkItemTransitions(projectID, typeKey string, workItemID int)
 		return nil, err
 	}
 
-	transitions, err := client.GetWorkFlowInfo(projectID, typeKey, workItemID)
+	transitions, stateInfoList, err := client.GetWorkFlowInfo(projectID, typeKey, workItemID)
 	if err != nil {
 		return nil, err
+	}
+
+	targetStateMap := make(map[string]string)
+
+	for _, stateInfo := range stateInfoList {
+		targetStateMap[stateInfo.ID] = stateInfo.Name
 	}
 
 	availableTransition := make([]*MeegoWorkItemStatusTransition, 0)
 	for _, transition := range transitions {
 		if workItem.WorkItemStatus.StateKey == transition.SourceStateKey {
 			availableTransition = append(availableTransition, &MeegoWorkItemStatusTransition{
-				SourceStateKey: transition.SourceStateKey,
-				TargetStateKey: transition.TargetStateKey,
-				TransitionID:   transition.TransitionID,
+				SourceStateKey:  transition.SourceStateKey,
+				SourceStateName: targetStateMap[transition.SourceStateKey],
+				TargetStateKey:  transition.TargetStateKey,
+				TargetStateName: targetStateMap[transition.TargetStateKey],
+				TransitionID:    transition.TransitionID,
 			})
 		}
 	}
