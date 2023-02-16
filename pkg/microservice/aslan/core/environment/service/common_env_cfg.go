@@ -276,7 +276,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 	switch args.CommonEnvCfgType {
 	case config.CommonEnvCfgTypeConfigMap:
 		cm := &corev1.ConfigMap{}
-		err = json.Unmarshal(js, cm)
+		err = yaml.Unmarshal([]byte(args.YamlData), cm)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}
