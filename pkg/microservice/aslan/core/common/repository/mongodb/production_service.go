@@ -179,6 +179,15 @@ func (c *ProductionServiceColl) UpdateStatus(serviceName, productName, status st
 	return err
 }
 
+func (c *ProductionServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
+	m := bson.M{
+		"product_name": productName,
+		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+
+	return c.listMaxRevisions(m, nil)
+}
+
 func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
 	var pipeResp []*grouped
 	pipeline := []bson.M{

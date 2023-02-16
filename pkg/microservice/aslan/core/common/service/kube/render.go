@@ -82,12 +82,17 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		return "", fmt.Errorf("failed to get flat map for service default variable, err: %s", err)
 	}
 
+	wildcard := false
+	if len(serviceVars) == 0 && serviceVars[0] == "*" {
+		wildcard = true
+	}
+
 	// keys defined in service vars
 	keysSet := sets.NewString(serviceVars...)
 	validKvMap, svcValidDefaultValueMap := make(map[string]interface{}), make(map[string]interface{})
 
 	for k, v := range valuesMap {
-		if keysSet.Has(k) {
+		if wildcard || keysSet.Has(k) {
 			validKvMap[k] = v
 		}
 	}
@@ -119,8 +124,12 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	return string(bs), err
 }
 
+// RenderServiceYaml render service yaml with default values and service variable
+// serviceVars = []{*} means all variable are service vars
 func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet, serviceVars []string, serviceDefaultValues string) (string, error) {
 	if rs == nil {
+		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
+		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
 		return originYaml, nil
 	}
 	tmpl, err := gotemplate.New(fmt.Sprintf("%s:%s", productName, serviceName)).Parse(originYaml)

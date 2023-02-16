@@ -237,3 +237,12 @@ func FlattenKvs(yamlContent string) ([]*models.VariableKV, error) {
 	}
 	return ret, nil
 }
+
+func KVToYaml(kvs []*models.VariableKV) (string, error) {
+	yamlMap := make(map[string]interface{})
+	for _, kv := range kvs {
+		yamlMap[kv.Key] = kv.Value
+	}
+	bs, err := yaml.Marshal(yamlMap)
+	return string(bs), err
+}

@@ -70,6 +70,15 @@ type SvcOptArgs struct {
 	UpdateServiceTmpl bool
 }
 
+type PreviewServiceArgs struct {
+	ProductName           string                     `json:"product_name"`
+	EnvName               string                     `json:"env_name"`
+	ServiceName           string                     `json:"service_name"`
+	UpdateServiceRevision bool                       `json:"update_service_revision"`
+	ServiceModules        []*commonmodels.Container  `json:"service_modules"`
+	VariableKVS           []*commonmodels.VariableKV `json:"variable_kvs"`
+}
+
 type RestartScaleArgs struct {
 	Type        string `json:"type"`
 	ProductName string `json:"product_name"`
@@ -199,4 +208,18 @@ const (
 type MatchedEnv struct {
 	EnvName   string
 	Namespace string
+}
+
+type EnvService struct {
+	ServiceName    string                     `json:"service_name"`
+	ServiceModules []*commonmodels.Container  `json:"service_modules"`
+	VariableYaml   string                     `json:"variable_yaml"`
+	VariableKVs    []*commonmodels.VariableKV `json:"variable_kvs"`
+	Updatable      bool                       `json:"updatable"`
+}
+
+type EnvServices struct {
+	ProductName string        `json:"product_name"`
+	EnvName     string        `json:"env_name"`
+	Services    []*EnvService `json:"services"`
 }

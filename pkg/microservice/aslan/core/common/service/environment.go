@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/pkg/util/yaml"
+	sysyaml "gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 
@@ -782,4 +783,13 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 		}
 	}
 	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
+}
+
+func KVToYaml(kvs []*models.VariableKV) (string, error) {
+	yamlMap := make(map[string]interface{})
+	for _, kv := range kvs {
+		yamlMap[kv.Key] = kv.Value
+	}
+	bs, err := sysyaml.Marshal(yamlMap)
+	return string(bs), err
 }

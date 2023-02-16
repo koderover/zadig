@@ -132,6 +132,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		operations.GET("", GetOperationLogs)
 	}
 
+	// production environments
+	production := router.Group("production")
+	{
+		production.GET("/environmentsForUpdate", ListProductionEnvs)
+		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// 产品管理接口(环境)
 	// ---------------------------------------------------------------------------------------
@@ -164,9 +171,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/helm/charts", GetChartInfos)
 		environments.GET("/:name/helm/images", GetImageInfos)
 
+		environments.GET("/:name/services", ListSvcsInEnv)
 		environments.PUT("/:name/services", DeleteProductServices)
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
+		environments.POST("/:name/services/:serviceName/preview", PreviewService)
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
 		environments.POST("/:name/services/:serviceName/restartNew", RestartWorkload)
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)

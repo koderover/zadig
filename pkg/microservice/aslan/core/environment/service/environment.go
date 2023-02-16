@@ -159,56 +159,6 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	return res, nil
 }
 
-//func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
-//	for _, product := range products {
-//		if product.Source == setting.SourceFromExternal || product.Source == setting.SourceFromHelm {
-//			continue
-//		}
-//		renderName := product.Namespace
-//		var revision int64
-//		// if the environment is backtracking, render.name will be different with product.Namespace
-//		if product.Render != nil {
-//			revision = product.Render.Revision
-//			renderName = product.Render.Name
-//		}
-//
-//		//renderSet, err := commonservice.GetRenderSet(renderName, revision, false, product.EnvName, log)
-//		//if err != nil {
-//		//	log.Errorf("Failed to find render set, productName: %s, namespace: %s,  err: %s", product.ProductName, product.Namespace, err)
-//		//	return e.ErrGetRenderSet.AddDesc(err.Error())
-//		//}
-//
-//		//product.Vars = renderSet.KVs[:]
-//		//
-//		//// Note. the service property of kv pair stored in DB is not accuracy
-//		//// from v1.14.0 we should fetch related service data real-time
-//		//if len(product.Vars) == 0 {
-//		//	return nil
-//		//}
-//
-//		templateSvcsOfProduct, err := commonservice.GetProductUsedTemplateSvcs(product)
-//		if err != nil {
-//			log.Errorf("failed to get service templates applied in product, err: %s", err)
-//			return nil
-//		}
-//
-//		renderKvs, err := commonservice.ListRenderKeysByTemplateSvc(templateSvcsOfProduct, log)
-//		if err != nil {
-//			log.Errorf("failed to get render kvs in product, err: %s", err)
-//			return nil
-//		}
-//
-//		relatedSvcs := make(map[string][]string)
-//		for _, key := range renderKvs {
-//			relatedSvcs[key.Key] = key.Services
-//		}
-//		for _, varInfo := range product.Vars {
-//			varInfo.Services = relatedSvcs[varInfo.Key]
-//		}
-//	}
-//	return nil
-//}
-
 var mutexAutoCreate sync.RWMutex
 
 func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredLogger) []*EnvStatus {

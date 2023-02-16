@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -33,7 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -50,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 func GetServiceContainer(envName, productName, serviceName, container string, log *zap.SugaredLogger) error {
@@ -133,6 +137,114 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	}
 
 	return nil
+}
+
+func ListServicesInEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
+	latestSvcs, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
+	}
+
+	return buildServiceInfoInEnv(env, latestSvcs, log)
+}
+
+func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
+	latestSvcs, err := commonrepo.NewProductionServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for product %s:%s", productName, envName))
+	}
+
+	return buildServiceInfoInEnv(env, latestSvcs, log)
+}
+
+func GetOverrideYamlAndKV(rc *template.ServiceRender) (string, []*models.VariableKV, error) {
+	if rc.OverrideYaml == nil {
+		return "", nil, nil
+	}
+	variableYaml := rc.OverrideYaml.YamlContent
+	flatMap, err := converter.YamlToFlatMap([]byte(variableYaml))
+	if err != nil {
+		return variableYaml, nil, errors.Wrapf(err, "failed to convert yaml to flat map for service %s", rc.ServiceName)
+	} else {
+		kvs := make([]*models.VariableKV, 0)
+		for k, v := range flatMap {
+			kvs = append(kvs, &models.VariableKV{
+				Key:   k,
+				Value: v,
+			})
+		}
+		return variableYaml, kvs, nil
+	}
+}
+
+func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, log *zap.SugaredLogger) (*EnvServices, error) {
+	productName, envName := productInfo.ProductName, productInfo.EnvName
+	ret := &EnvServices{
+		ProductName: productName,
+		EnvName:     envName,
+		Services:    make([]*EnvService, 0),
+	}
+
+	rendersetInfo, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		ProductTmpl: productName,
+		EnvName:     envName,
+		IsDefault:   false,
+	})
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find renderset for env %s:%s", productName, envName))
+	}
+	if !exists {
+		rendersetInfo = &models.RenderSet{}
+	}
+
+	templateSvcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range templateSvcs {
+		templateSvcMap[svc.ServiceName] = svc
+	}
+
+	svcUpdatable := func(svcName string, revision int64) bool {
+		if svc, ok := templateSvcMap[svcName]; ok {
+			return svc.Revision != revision
+		}
+		return false
+	}
+
+	variables := func(svcName string) (string, []*commonmodels.VariableKV) {
+		for _, svcRender := range rendersetInfo.ServiceVariables {
+			if svcRender.ServiceName == svcName {
+				vy, kvs, err := GetOverrideYamlAndKV(svcRender)
+				if err != nil {
+					log.Warnf("failed to get override yaml and kv for service %s, the error is: %s", svcName, err)
+				}
+				return vy, kvs
+			}
+		}
+		return "", nil
+	}
+
+	for serviceName, productSvc := range productInfo.GetServiceMap() {
+		svc := &EnvService{
+			ServiceName:    serviceName,
+			ServiceModules: productSvc.Containers,
+			Updatable:      svcUpdatable(serviceName, productSvc.Revision),
+		}
+		svc.VariableYaml, svc.VariableKVs = variables(serviceName)
+		ret.Services = append(ret.Services, svc)
+	}
+
+	return ret, nil
 }
 
 func GetService(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
@@ -343,6 +455,118 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 		}
 	}
 	return
+}
+
+// ReplaceImages replace images in yaml with new images
+func ReplaceImages(rawYaml string, images []*commonmodels.Container) (string, error) {
+	return rawYaml, nil
+}
+
+func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffResult, error) {
+	productObj, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
+	})
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
+	newVaraible, err := commonservice.KVToYaml(args.VariableKVS)
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
+	ret := &SvcDiffResult{
+		Current: TmplYaml{},
+		Latest:  TmplYaml{},
+	}
+
+	prodSvc := productObj.GetServiceMap()[args.ServiceName]
+
+	if prodSvc == nil && !args.UpdateServiceRevision {
+		return nil, e.ErrPreviewYaml.AddDesc(fmt.Sprintf("failed to find service %s in product %s/%s", args.ServiceName, args.ProductName, args.EnvName))
+	}
+
+	var curServiceTmp, latestServiceTmp *commonmodels.Service
+	if prodSvc != nil {
+		svcOpt := &commonrepo.ServiceFindOption{
+			ServiceName:         args.ServiceName,
+			ProductName:         args.ProductName,
+			Revision:            prodSvc.Revision,
+			IgnoreNoDocumentErr: false,
+		}
+		curServiceTmp, err = commonrepo.NewProductionServiceColl().Find(svcOpt)
+		if err != nil {
+			return nil, e.ErrPreviewYaml.AddDesc("查找service template失败")
+		}
+
+		curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			ProductTmpl: productObj.ProductName,
+			EnvName:     productObj.EnvName,
+			IsDefault:   false,
+		})
+		if err != nil {
+			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find renderset for %s/%s", productObj.ProductName, productObj.EnvName))
+		}
+
+		currentYaml, err := kube.RenderServiceYaml(curServiceTmp.Yaml, args.ProductName, productObj.EnvName, curRenderset, []string{"*"}, curServiceTmp.VariableYaml)
+		if err != nil {
+			return nil, e.ErrPreviewYaml.AddErr(err)
+		}
+
+		currentYaml, err = ReplaceImages(currentYaml, prodSvc.Containers)
+		if err != nil {
+			return nil, e.ErrPreviewYaml.AddErr(err)
+		}
+
+		ret.Current.Yaml = currentYaml
+		ret.Current.UpdateBy = curServiceTmp.CreateBy
+	}
+
+	fakeRenderset := &commonmodels.RenderSet{
+		ProductTmpl: productObj.ProductName,
+		EnvName:     productObj.EnvName,
+		ServiceVariables: []*template.ServiceRender{
+			{
+				ServiceName: args.ServiceName,
+				OverrideYaml: &template.CustomYaml{
+					YamlContent: newVaraible,
+				},
+			},
+		},
+	}
+
+	if !args.UpdateServiceRevision {
+		latestServiceTmp = curServiceTmp
+	} else {
+		latestServiceTmp, err = commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+			ServiceName:         args.ServiceName,
+			ProductName:         args.ProductName,
+			ExcludeStatus:       setting.ProductStatusDeleting,
+			IgnoreNoDocumentErr: true,
+		})
+		if err != nil {
+			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find latest service %s/%s", args.ProductName, args.ServiceName))
+		}
+		if latestServiceTmp == nil {
+			latestServiceTmp = curServiceTmp
+		}
+	}
+
+	// replace images
+	latestYaml, err := kube.RenderServiceYaml(latestServiceTmp.Yaml, args.ProductName, productObj.EnvName, fakeRenderset, []string{"*"}, latestServiceTmp.VariableYaml)
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
+	latestYaml, err = ReplaceImages(latestYaml, args.ServiceModules)
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
+	ret.Latest.Yaml = latestYaml
+	ret.Latest.UpdateBy = latestServiceTmp.CreateBy
+	return ret, nil
 }
 
 // RestartService 在kube中, 如果资源存在就更新不存在就创建

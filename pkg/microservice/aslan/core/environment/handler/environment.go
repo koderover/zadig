@@ -76,6 +76,24 @@ func ListProducts(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListProducts(projectName, envNames, ctx.Logger)
 }
 
+func ListProductionEnvs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	envNames, found := internalhandler.GetResourcesInHeader(c)
+	if found && len(envNames) == 0 {
+		ctx.Resp = []*service.ProductResp{}
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListProductionEnvs(projectName, envNames, ctx.Logger)
+}
+
 func UpdateMultiProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

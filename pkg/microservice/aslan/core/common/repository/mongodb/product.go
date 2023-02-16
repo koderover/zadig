@@ -255,7 +255,11 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
 	}
 	if opt.Production != nil {
-		query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		if *opt.Production {
+			query["production"] = true
+		} else {
+			query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		}
 	}
 
 	ctx := context.Background()
