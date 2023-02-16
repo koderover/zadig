@@ -139,6 +139,15 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 	return workflow, err
 }
 
+func FindWorkflowV4Raw(name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
+		return workflow, e.ErrFindWorkflow.AddErr(err)
+	}
+	return workflow, err
+}
+
 func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
 	if err != nil {

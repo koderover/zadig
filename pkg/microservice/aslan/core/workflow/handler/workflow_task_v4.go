@@ -70,6 +70,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流v4任务", args.Name, string(data), ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 		Name:   ctx.UserName,
 		UserID: ctx.UserID,
@@ -89,6 +90,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 	if triggerName == "" {
 		triggerName = setting.DefaultTaskRevoker
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流v4任务", args.Name, getBody(c), ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
 }
 
@@ -131,6 +133,7 @@ func CancelWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "取消", "工作流v4任务", c.Param("workflowName"), "", ctx.Logger)
 	ctx.Err = workflow.CancelWorkflowTaskV4(ctx.UserName, c.Param("workflowName"), taskID, ctx.Logger)
 }
 
@@ -143,6 +146,7 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "克隆", "工作流v4任务", c.Param("workflowName"), "", ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CloneWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
 }
 
