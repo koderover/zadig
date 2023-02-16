@@ -479,7 +479,7 @@ func UpdateCronForWorkflowV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProductName, "更新", "工作流v4-cron", req.WorkflowV4Args.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, req.WorkflowV4Args.Project, "更新", "工作流v4-cron", req.WorkflowV4Args.Name, getBody(c), ctx.Logger)
 	ctx.Err = workflow.UpdateCronForWorkflowV4(req, ctx.Logger)
 }
 
