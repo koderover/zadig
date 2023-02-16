@@ -56,21 +56,14 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.WorkflowV4)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateWorkflowTaskv4 c.GetRawData() err : %s", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流v4任务", args.Name, string(data), ctx.Logger)
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流v4任务", args.Name, data, ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 		Name:   ctx.UserName,
 		UserID: ctx.UserID,

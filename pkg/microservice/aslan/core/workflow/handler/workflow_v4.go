@@ -49,21 +49,13 @@ func CreateWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.WorkflowV4)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateWorkflowv4 c.GetRawData() err : %s", err)
-	}
-	if err = yaml.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateWorkflowv4 json.Unmarshal err : %s", err)
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.ShouldBindYAML(&args); err != nil {
+	data := getBody(c)
+	if err := yaml.Unmarshal([]byte(data), args); err != nil {
+		log.Errorf("CreateWorkflowv4 yaml.Unmarshal err : %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "工作流v4", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "工作流v4", args.Name, data, ctx.Logger)
 	ctx.Err = workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger)
 }
 
@@ -122,20 +114,13 @@ func UpdateWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.WorkflowV4)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateWorkflowV4 c.GetRawData() err : %s", err)
-	}
-	if err = yaml.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateWorkflowV4 json.Unmarshal err : %s", err)
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.ShouldBindYAML(&args); err != nil {
+	data := getBody(c)
+	if err := yaml.Unmarshal([]byte(data), args); err != nil {
+		log.Errorf("UpdateWorkflowV4 yaml.Unmarshal err : %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "更新", "工作流v4", args.Name, string(data), ctx.Logger)
 	ctx.Err = workflow.UpdateWorkflowV4(c.Param("name"), ctx.UserName, args, ctx.Logger)
 }
