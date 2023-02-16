@@ -182,7 +182,6 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 }
 
 func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
-	//js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	cm := &corev1.ConfigMap{}
 	err := yaml.Unmarshal([]byte(args.YamlData), cm)
 	if err != nil {

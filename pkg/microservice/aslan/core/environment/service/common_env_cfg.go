@@ -178,7 +178,7 @@ func getResourceYamlAndName(sourceYaml []byte, namespace, productName string, re
 	switch resType {
 	case config.CommonEnvCfgTypeConfigMap:
 		cm := &corev1.ConfigMap{}
-		err = json.Unmarshal(sourceYaml, cm)
+		err = yaml.Unmarshal(sourceYaml, cm)
 		if err != nil {
 			return
 		}
