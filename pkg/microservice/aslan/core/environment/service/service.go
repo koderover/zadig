@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/types"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -32,6 +34,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -457,9 +460,70 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 	return
 }
 
+func updateCronJobImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
+	res := new(types.CronjobResource)
+	if err := yaml.Unmarshal([]byte(yamlStr), &res); err != nil {
+		return yamlStr, fmt.Errorf("unmarshal Resource error: %v", err)
+	}
+	for _, val := range res.Spec.Template.Spec.Template.Spec.Containers {
+		containerName := val["name"].(string)
+		if image, ok := imageMap[containerName]; ok {
+			val["image"] = image.Image
+		}
+	}
+
+	bs, err := yaml.Marshal(res)
+	return string(bs), err
+}
+
+func updateContainerImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
+	res := new(types.KubeResource)
+	if err := yaml.Unmarshal([]byte(yamlStr), &res); err != nil {
+		return yamlStr, fmt.Errorf("unmarshal Resource error: %v", err)
+	}
+
+	for _, container := range res.Spec.Template.Spec.Containers {
+		containerName := container["name"].(string)
+		if image, ok := imageMap[containerName]; ok {
+			container["image"] = image.Image
+		}
+	}
+
+	bs, err := yaml.Marshal(res)
+	return string(bs), err
+}
+
 // ReplaceImages replace images in yaml with new images
 func ReplaceImages(rawYaml string, images []*commonmodels.Container) (string, error) {
-	return rawYaml, nil
+	imageMap := make(map[string]*commonmodels.Container)
+	for _, image := range images {
+		imageMap[image.Name] = image
+	}
+
+	splitYams := util.SplitYaml(rawYaml)
+	yamlStrs := make([]string, 0)
+	var err error
+	for _, yamlStr := range splitYams {
+		resKind := new(types.KubeResourceKind)
+		if err := yaml.Unmarshal([]byte(yamlStr), &resKind); err != nil {
+			return "", fmt.Errorf("unmarshal ResourceKind error: %v", err)
+		}
+
+		if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
+			yamlStr, err = updateContainerImages(yamlStr, imageMap)
+			if err != nil {
+				return "", err
+			}
+		} else if resKind.Kind == setting.CronJob {
+			yamlStr, err = updateCronJobImages(yamlStr, imageMap)
+			if err != nil {
+				return "", err
+			}
+		}
+		yamlStrs = append(yamlStrs, yamlStr)
+	}
+
+	return util.JoinYamls(yamlStrs), nil
 }
 
 func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffResult, error) {
@@ -471,7 +535,7 @@ func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffR
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
 
-	newVaraible, err := commonservice.KVToYaml(args.VariableKVS)
+	newVariable, err := commonservice.KVToYaml(args.VariableKVS)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
@@ -530,7 +594,7 @@ func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffR
 			{
 				ServiceName: args.ServiceName,
 				OverrideYaml: &template.CustomYaml{
-					YamlContent: newVaraible,
+					YamlContent: newVariable,
 				},
 			},
 		},

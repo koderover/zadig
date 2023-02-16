@@ -162,7 +162,7 @@ func ensureProductionServiceTmpl(args *commonmodels.Service, log *zap.SugaredLog
 
 	args.Yaml = util.ReplaceWrapLine(args.Yaml)
 	args.RenderedYaml = util.ReplaceWrapLine(args.RenderedYaml)
-	args.KubeYamls = SplitYaml(args.RenderedYaml)
+	args.KubeYamls = util.SplitYaml(args.RenderedYaml)
 
 	// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
 	// errors will only be logged here
@@ -206,7 +206,7 @@ func UpdateProductionServiceVariables(args *commonservice.ServiceTmplObject) err
 	}
 
 	currentService.RenderedYaml = util.ReplaceWrapLine(currentService.RenderedYaml)
-	currentService.KubeYamls = SplitYaml(currentService.RenderedYaml)
+	currentService.KubeYamls = util.SplitYaml(currentService.RenderedYaml)
 	oldContainers := currentService.Containers
 	if err := setCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)
