@@ -624,11 +624,13 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 			}
 			spec.Env = taskJobSpec.Env
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
-			spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
-				ServiceName:   taskJobSpec.ServiceName,
-				ServiceModule: taskJobSpec.ServiceModule,
-				Image:         taskJobSpec.Image,
-			})
+			for _, imageAndmodule := range taskJobSpec.ServiceAndImages {
+				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+					ServiceName:   taskJobSpec.ServiceName,
+					ServiceModule: imageAndmodule.ServiceModule,
+					Image:         imageAndmodule.Image,
+				})
+			}
 			jobPreview.Spec = spec
 		case string(config.JobZadigHelmDeploy):
 			jobPreview.JobType = string(config.JobZadigDeploy)

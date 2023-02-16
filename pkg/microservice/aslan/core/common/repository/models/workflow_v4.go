@@ -153,13 +153,22 @@ type ServiceAndBuild struct {
 
 type ZadigDeployJobSpec struct {
 	Env                string `bson:"env"                      yaml:"env"                         json:"env"`
+	Production         bool   `bson:"production"               yaml:"production"                  json:"production"`
 	DeployType         string `bson:"deploy_type"              yaml:"-"                           json:"deploy_type"`
 	SkipCheckRunStatus bool   `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
-	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName          string             `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
+	Services         []*DeployService   `bson:"services"         yaml:"services"                 json:"services"`
+}
+
+type DeployService struct {
+	ServiceName  string    `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	KeyVals      []*KeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	UpdateConfig bool      `bson:"update_config"       yaml:"update_config"    json:"update_config"`
 }
 
 type ServiceAndImage struct {

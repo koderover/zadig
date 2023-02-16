@@ -167,22 +167,33 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 	}
 	if j.spec.DeployType == setting.K8SDeployType {
+		deployServiceMap := map[string][]*commonmodels.ServiceAndImage{}
 		for _, deploy := range j.spec.ServiceAndImages {
-			if err := checkServiceExsistsInEnv(productServiceMap, deploy.ServiceName, j.spec.Env); err != nil {
-				return resp, err
-			}
+			deployServiceMap[deploy.ServiceName] = append(deployServiceMap[deploy.ServiceName], deploy)
+		}
+		for serviceName, deploys := range deployServiceMap {
 			jobTaskSpec := &commonmodels.JobTaskDeploySpec{
 				Env:                j.spec.Env,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
-				ServiceName:        deploy.ServiceName,
+				ServiceName:        serviceName,
 				ServiceType:        setting.K8SDeployType,
-				ServiceModule:      deploy.ServiceModule,
 				ClusterID:          product.ClusterID,
-				Image:              deploy.Image,
+				Production:         j.spec.Production,
+				DeployContents:     j.spec.DeployContents,
+			}
+			for _, deploy := range deploys {
+				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
+					return resp, err
+				}
+				jobTaskSpec.ServiceAndImages = append(jobTaskSpec.ServiceAndImages, &commonmodels.DeployServiceModule{
+					Image:         deploy.Image,
+					ServiceModule: deploy.ServiceModule,
+				})
+
 			}
 			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + "-" + j.job.Name),
-				Key:     strings.Join([]string{j.job.Name, deploy.ServiceName, deploy.ServiceModule}, "."),
+				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
+				Key:     strings.Join([]string{j.job.Name, serviceName}, "."),
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
 			}

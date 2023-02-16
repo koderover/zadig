@@ -98,16 +98,25 @@ type JobTaskCustomDeploySpec struct {
 }
 
 type JobTaskDeploySpec struct {
-	Env                string              `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string              `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	ServiceType        string              `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	ServiceModule      string              `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
-	SkipCheckRunStatus bool                `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
-	Image              string              `bson:"image"                            json:"image"                               yaml:"image"`
-	ClusterID          string              `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	Timeout            int                 `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources   []Resource          `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
-	RelatedPodLabels   []map[string]string `bson:"-"                                json:"-"                                   yaml:"-"`
+	Env                string                 `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string                 `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	Production         bool                   `bson:"production"                       json:"production"                          yaml:"production"`
+	DeployContents     []config.DeployContent `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
+	KeyVals            []*KeyVal              `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
+	UpdateConfig       bool                   `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
+	YamlContent        string                 `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	ServiceAndImages   []*DeployServiceModule `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
+	ServiceType        string                 `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ClusterID          string                 `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int                    `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource             `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	RelatedPodLabels   []map[string]string    `bson:"-"                                json:"-"                                   yaml:"-"`
+}
+
+type DeployServiceModule struct {
+	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
+	Image         string `bson:"image"                            json:"image"                               yaml:"image"`
 }
 
 type Resource struct {
