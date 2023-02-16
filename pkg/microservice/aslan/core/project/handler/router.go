@@ -48,6 +48,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.DELETE("/:name", DeleteProductTemplate)
 	}
 
+	production := router.Group("production/products")
+	{
+		production.PATCH("/:name", UpdateProductionServiceOrchestration)
+	}
+
 	openSource := router.Group("opensource")
 	{
 		openSource.POST("/:productName/fork", ForkProduct)
