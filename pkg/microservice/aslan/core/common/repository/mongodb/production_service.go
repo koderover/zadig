@@ -48,11 +48,19 @@ func NewProductionServiceColl() *ProductionServiceColl {
 
 func (c *ProductionServiceColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
-		Keys:    map[string]int{"product_name": 1, "service_name": 1, "revision": 1},
-		Options: nil,
+		Keys: bson.D{
+			bson.E{Key: "product_name", Value: 1},
+			bson.E{Key: "service_name", Value: 1},
+			bson.E{Key: "revision", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
 	}
 	_, err := c.Indexes().CreateOne(ctx, mod)
 	return err
+}
+
+func (c *ProductionServiceColl) GetCollectionName() string {
+	return c.coll
 }
 
 func (c *ProductionServiceColl) Create(args *models.Service) error {

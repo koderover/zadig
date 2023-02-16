@@ -178,7 +178,7 @@ func getResourceYamlAndName(sourceYaml []byte, namespace, productName string, re
 	switch resType {
 	case config.CommonEnvCfgTypeConfigMap:
 		cm := &corev1.ConfigMap{}
-		err = json.Unmarshal(sourceYaml, cm)
+		err = yaml.Unmarshal(sourceYaml, cm)
 		if err != nil {
 			return
 		}
@@ -276,7 +276,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 	switch args.CommonEnvCfgType {
 	case config.CommonEnvCfgTypeConfigMap:
 		cm := &corev1.ConfigMap{}
-		err = json.Unmarshal(js, cm)
+		err = yaml.Unmarshal([]byte(args.YamlData), cm)
 		if err != nil {
 			return e.ErrUpdateResource.AddErr(err)
 		}

@@ -25,8 +25,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -269,6 +271,30 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	return nil
 }
 
+func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string) error {
+	for _, label := range labelMaps {
+		selector := labels.Set(label).AsSelector()
+		pods, err := getter.ListPods(namespace, selector, kubeClient)
+		if err != nil {
+			return err
+		}
+		for _, pod := range pods {
+			allContainerStatuses := make([]corev1.ContainerStatus, 0)
+			allContainerStatuses = append(allContainerStatuses, pod.Status.InitContainerStatuses...)
+			allContainerStatuses = append(allContainerStatuses, pod.Status.ContainerStatuses...)
+			for _, cs := range allContainerStatuses {
+				if cs.State.Waiting != nil {
+					switch cs.State.Waiting.Reason {
+					case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff", "ErrImageNeverPull":
+						return fmt.Errorf("pod: %s, %s: %s", pod.Name, cs.State.Waiting.Reason, cs.State.Waiting.Message)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (c *DeployJobCtl) wait(ctx context.Context) {
 	timeout := time.After(time.Duration(c.timeout()) * time.Second)
 
@@ -315,6 +341,10 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
+				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels); err != nil {
+					logError(c.job, err.Error(), c.logger)
+					return
+				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)
