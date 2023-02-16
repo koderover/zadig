@@ -270,6 +270,7 @@ func initDatabase() {
 		commonrepo.NewRenderSetColl(),
 		commonrepo.NewS3StorageColl(),
 		commonrepo.NewServiceColl(),
+		commonrepo.NewProductionServiceColl(),
 		commonrepo.NewStrategyColl(),
 		commonrepo.NewStatsColl(),
 		commonrepo.NewSubscriptionColl(),
