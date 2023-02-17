@@ -34,6 +34,15 @@ import (
 	"github.com/koderover/zadig/pkg/util/converter"
 )
 
+type GeneSvcYamlOption struct {
+	ProductName    string
+	EnvName        string
+	ServiceName    string
+	UpdateRevision bool
+	VariableYaml   string
+	UnInstall      bool
+}
+
 func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
 	valuesMap, err := converter.YamlToFlatMap([]byte(variableYaml))
 	if err != nil {
@@ -122,6 +131,12 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 
 	bs, err := yaml.Marshal(validKvMap)
 	return string(bs), err
+}
+
+// GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
+// and returns the service yaml, used service revision
+func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
+	return "", 0, nil
 }
 
 // RenderServiceYaml render service yaml with default values and service variable
