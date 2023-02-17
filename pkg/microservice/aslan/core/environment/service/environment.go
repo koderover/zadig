@@ -59,7 +59,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -122,10 +121,10 @@ func ListProducts(userID, projectName string, envNames []string, log *zap.Sugare
 		return ""
 	}
 
-	list, err := service.ListFavorites(&mongodb.FavoriteArgs{
+	list, err := commonservice.ListFavorites(&mongodb.FavoriteArgs{
 		UserID:      userID,
 		ProductName: projectName,
-		Type:        service.FavoriteTypeEnv,
+		Type:        commonservice.FavoriteTypeEnv,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "list favorite environments")
