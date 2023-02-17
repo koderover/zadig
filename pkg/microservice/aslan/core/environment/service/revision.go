@@ -419,12 +419,12 @@ func isRenderedStringUpdatable(currentSvc, nextSvc *commonmodels.Service, curren
 
 	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender, currentSvcVars, currentSvc.VariableYaml)
 	if err != nil {
-		log.Error("failed to check is RenderedString updatable, err: %s", err)
+		log.Errorf("failed to check is RenderedString updatable, err: %s", err)
 		return false
 	}
 	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender, nextSvcVars, nextSvc.VariableYaml)
 	if err != nil {
-		log.Error("failed to check is RenderedString updatable, err: %s", err)
+		log.Errorf("failed to check is RenderedString updatable, err: %s", err)
 		return false
 	}
 	if currentString != nextString {

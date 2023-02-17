@@ -159,6 +159,26 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	return
 }
 
+func validateSvc(services [][]string, validServices sets.String) error {
+	usedServiceSet := sets.NewString()
+	for _, serviceSeq := range services {
+		for _, singleSvc := range serviceSeq {
+			if usedServiceSet.Has(singleSvc) {
+				return fmt.Errorf("duplicated service:%s", singleSvc)
+			}
+			if !validServices.Has(singleSvc) {
+				return fmt.Errorf("invalid service:%s", singleSvc)
+			}
+			usedServiceSet.Insert(singleSvc)
+			validServices.Delete(singleSvc)
+		}
+	}
+	if validServices.Len() > 0 {
+		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	}
+	return nil
+}
+
 func UpdateServiceOrchestration(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
 	templateProductInfo, err := templaterepo.NewProductColl().Find(name)
 	if err != nil {
@@ -168,26 +188,13 @@ func UpdateServiceOrchestration(name string, services [][]string, updateBy strin
 
 	//validate services
 	validServices := sets.NewString()
-	usedServiceSet := sets.NewString()
 	for _, serviceList := range templateProductInfo.Services {
 		validServices.Insert(serviceList...)
 	}
 
-	for _, serviceSeq := range services {
-		for _, service := range serviceSeq {
-			if usedServiceSet.Has(service) {
-				return fmt.Errorf("duplicated service:%s", service)
-			}
-			if !validServices.Has(service) {
-				return fmt.Errorf("service:%s not in valid service list", service)
-			}
-			usedServiceSet.Insert(service)
-			validServices.Delete(service)
-		}
-	}
-
-	if validServices.Len() > 0 {
-		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	err = validateSvc(services, validServices)
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
 	}
 
 	if err = templaterepo.NewProductColl().UpdateServiceOrchestration(name, services, updateBy); err != nil {
@@ -206,26 +213,13 @@ func UpdateProductionServiceOrchestration(name string, services [][]string, upda
 
 	//validate services
 	validServices := sets.NewString()
-	usedServiceSet := sets.NewString()
-	for _, serviceList := range templateProductInfo.Services {
+	for _, serviceList := range templateProductInfo.ProductionServices {
 		validServices.Insert(serviceList...)
 	}
 
-	for _, serviceSeq := range services {
-		for _, service := range serviceSeq {
-			if usedServiceSet.Has(service) {
-				return fmt.Errorf("duplicated service:%s", service)
-			}
-			if !validServices.Has(service) {
-				return fmt.Errorf("service:%s not in valid service list", service)
-			}
-			usedServiceSet.Insert(service)
-			validServices.Delete(service)
-		}
-	}
-
-	if validServices.Len() > 0 {
-		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	err = validateSvc(services, validServices)
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
 	}
 
 	if err = templaterepo.NewProductColl().UpdateProductionServiceOrchestration(name, services, updateBy); err != nil {

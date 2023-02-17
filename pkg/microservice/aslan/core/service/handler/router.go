@@ -48,6 +48,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		productionservices.GET("", ListProductionServices)
 		productionservices.GET("/:name/k8s", GetProductionK8sService)
+		productionservices.GET("/:name", GetProductionK8sServiceOption)
 		productionservices.POST("k8s", CreateK8sProductionService)
 		productionservices.PUT("/:name/k8s/variable", UpdateK8sProductionServiceVariables)
 		productionservices.DELETE("/:name", DeleteProductionService)

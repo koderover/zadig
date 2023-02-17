@@ -74,7 +74,7 @@ func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLo
 	productTmpl, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("Can not find project %s, error: %s", productName, err)
-		return nil, e.ErrListTemplate.AddDesc(err.Error())
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
 	}
 
 	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -85,9 +85,28 @@ func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLo
 
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
-		return nil, e.ErrListTemplate.AddDesc(err.Error())
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
 	}
 	return serviceObject, nil
+}
+
+func GetProductionK8sServiceOption(serviceName, productName string, log *zap.SugaredLogger) (*ServiceOption, error) {
+	_, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("Can not find project %s, error: %s", productName, err)
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
+	}
+
+	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+		Type:        setting.K8SDeployType,
+	})
+
+	if err != nil {
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
+	}
+	return getProductionServiceOption(serviceObject, log)
 }
 
 func CreateK8sProductionService(productName string, serviceObject *models.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
