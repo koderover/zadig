@@ -546,6 +546,8 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 
 		ret.Current.Yaml = currentYaml
 		ret.Current.UpdateBy = curServiceTmp.CreateBy
+	} else {
+		curServiceTmp = latestServiceTmp
 	}
 
 	fakeRenderset := &commonmodels.RenderSet{

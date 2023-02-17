@@ -175,7 +175,7 @@ func updateContainerImages(yamlStr string, imageMap map[string]*commonmodels.Con
 	return string(bs), err
 }
 
-// ReplaceImages replace images in yaml with new images
+// ReplaceWorkloadImages  replace images in yaml with new images
 func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (string, error) {
 	imageMap := make(map[string]*commonmodels.Container)
 	for _, image := range images {
@@ -240,70 +240,84 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
-	var prodSvcTemplate, latestSvcTemplate, usedSvcTemplate *commonmodels.Service
 
-	productSvcRevision := int64(0)
-	if curProductSvc != nil {
-		productSvcRevision = curProductSvc.Revision
+	// nothing to render when trying to uninstall a service which is not deployed
+	if option.UnInstall && curProductSvc == nil {
+		return "", 0, nil
 	}
 
-	prodSvcTemplate, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ProductName:   option.ProductName,
-		ServiceName:   option.ServiceName,
-		ExcludeStatus: setting.ProductStatusDeleting,
-		Revision:      productSvcRevision,
-	}, productInfo.Production)
-	if err != nil {
-		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, productSvcRevision)
-	}
-	if prodSvcTemplate == nil {
-		return "", 0, fmt.Errorf("failed to find service template %s used in product %s", option.ServiceName, option.EnvName)
-	}
+	var prodSvcTemplate, latestSvcTemplate *commonmodels.Service
 
 	latestSvcTemplate, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ProductName:   option.ProductName,
-		ServiceName:   option.ServiceName,
-		ExcludeStatus: setting.ProductStatusDeleting,
-		Revision:      0,
+		ProductName:         option.ProductName,
+		ServiceName:         option.ServiceName,
+		ExcludeStatus:       setting.ProductStatusDeleting,
+		Revision:            0,
+		IgnoreNoDocumentErr: true,
 	}, productInfo.Production)
 	if err != nil {
 		return "", 0, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
 	}
 
-	usedSvcTemplate = prodSvcTemplate
+	if curProductSvc != nil {
+		prodSvcTemplate, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ProductName:   option.ProductName,
+			ServiceName:   option.ServiceName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+			Revision:      curProductSvc.Revision,
+		}, productInfo.Production)
+		if err != nil {
+			return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
+		}
+	} else {
+		prodSvcTemplate = latestSvcTemplate
+	}
+
 	// use latest service revision
-	if option.UpdateServiceRevision && latestSvcTemplate != nil {
-		productSvcRevision = latestSvcTemplate.Revision
-		usedSvcTemplate = latestSvcTemplate
+	if latestSvcTemplate == nil || !option.UpdateServiceRevision {
+		latestSvcTemplate = prodSvcTemplate
+	}
+	if latestSvcTemplate == nil {
+		return "", 0, fmt.Errorf("failed to find service template %s used in product %s", option.ServiceName, option.EnvName)
 	}
 
-	if productSvcRevision == 0 {
-		return "", 0, fmt.Errorf("failed to find service template %s", option.ServiceName)
-	}
-
-	curContainers := usedSvcTemplate.Containers
+	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
 		curContainers = curProductSvc.Containers
 	}
 
-	fakeRenderset := &commonmodels.RenderSet{
-		ProductTmpl: option.ProductName,
-		EnvName:     option.EnvName,
-		ServiceVariables: []*template.ServiceRender{
-			{
-				ServiceName: option.ServiceName,
-				OverrideYaml: &template.CustomYaml{
-					YamlContent: option.VariableYaml,
+	var usedRenderset *commonmodels.RenderSet
+	if option.UnInstall {
+		usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			ProductTmpl: productInfo.ProductName,
+			EnvName:     productInfo.EnvName,
+			IsDefault:   false,
+			Revision:    productInfo.Render.Revision,
+		})
+		if err != nil {
+			return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
+		}
+	} else {
+		usedRenderset = &commonmodels.RenderSet{
+			ProductTmpl: productInfo.ProductName,
+			EnvName:     productInfo.EnvName,
+			ServiceVariables: []*template.ServiceRender{
+				{
+					ServiceName: option.ServiceName,
+					OverrideYaml: &template.CustomYaml{
+						YamlContent: option.VariableYaml,
+					},
 				},
 			},
-		},
+		}
 	}
-	fullRenderedYaml, err := RenderServiceYaml(usedSvcTemplate.Yaml, option.ProductName, option.ServiceName, fakeRenderset, []string{"*"}, usedSvcTemplate.VariableYaml)
+
+	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, []string{"*"}, latestSvcTemplate.VariableYaml)
 	if err != nil {
 		return "", 0, err
 	}
-	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergeContainers(curContainers, usedSvcTemplate.Containers))
-	return fullRenderedYaml, int(productSvcRevision), err
+	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergeContainers(curContainers, latestSvcTemplate.Containers))
+	return fullRenderedYaml, int(latestSvcTemplate.Revision), err
 }
 
 // RenderServiceYaml render service yaml with default values and service variable
