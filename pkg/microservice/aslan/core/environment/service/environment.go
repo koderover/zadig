@@ -45,6 +45,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -57,6 +59,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -88,7 +91,7 @@ func GetProductDeployType(projectName string) (string, error) {
 	return setting.K8SDeployType, nil
 }
 
-func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
+func ListProducts(userID, projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
 		log.Errorf("Failed to list envs, err: %s", err)
@@ -118,6 +121,23 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		}
 		return ""
 	}
+
+	list, err := service.ListFavorites(&mongodb.FavoriteArgs{
+		UserID:      userID,
+		ProductName: projectName,
+		Type:        service.FavoriteTypeEnv,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "list favorite environments")
+	}
+	// add personal favorite data in response
+	favSet := sets.NewString(func() []string {
+		var nameList []string
+		for _, fav := range list {
+			nameList = append(nameList, fav.Name)
+		}
+		return nameList
+	}()...)
 
 	envCMMap, err := collaboration.GetEnvCMMap([]string{projectName}, log)
 	if err != nil {
@@ -153,6 +173,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			ShareEnvEnable:  env.ShareEnv.Enable,
 			ShareEnvIsBase:  env.ShareEnv.IsBase,
 			ShareEnvBaseEnv: env.ShareEnv.BaseEnv,
+			IsFavorite:      favSet.Has(env.EnvName),
 		})
 	}
 
