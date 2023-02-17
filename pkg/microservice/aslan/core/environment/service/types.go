@@ -216,6 +216,7 @@ type EnvService struct {
 	VariableYaml   string                     `json:"variable_yaml"`
 	VariableKVs    []*commonmodels.VariableKV `json:"variable_kvs"`
 	Updatable      bool                       `json:"updatable"`
+	Deployed       bool                       `json:"deployed"`
 }
 
 type EnvServices struct {

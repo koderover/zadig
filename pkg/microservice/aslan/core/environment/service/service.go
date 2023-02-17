@@ -172,14 +172,10 @@ func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLo
 	return buildServiceInfoInEnv(env, latestSvcs, log)
 }
 
-func GetOverrideYamlAndKV(rc *template.ServiceRender) (string, []*models.VariableKV, error) {
-	if rc.OverrideYaml == nil {
-		return "", nil, nil
-	}
-	variableYaml := rc.OverrideYaml.YamlContent
-	flatMap, err := converter.YamlToFlatMap([]byte(variableYaml))
+func GeneKVFromYaml(yamlContent string) ([]*models.VariableKV, error) {
+	flatMap, err := converter.YamlToFlatMap([]byte(yamlContent))
 	if err != nil {
-		return variableYaml, nil, errors.Wrapf(err, "failed to convert yaml to flat map for service %s", rc.ServiceName)
+		return nil, errors.Wrapf(err, "failed to convert yaml to flat map")
 	} else {
 		kvs := make([]*models.VariableKV, 0)
 		for k, v := range flatMap {
@@ -188,8 +184,16 @@ func GetOverrideYamlAndKV(rc *template.ServiceRender) (string, []*models.Variabl
 				Value: v,
 			})
 		}
-		return variableYaml, kvs, nil
+		return kvs, nil
 	}
+}
+
+func GetOverrideYamlAndKV(rc *template.ServiceRender) (string, []*models.VariableKV, error) {
+	if rc.OverrideYaml == nil || rc.OverrideYaml.YamlContent == "" {
+		return "", nil, nil
+	}
+	kvs, err := GeneKVFromYaml(rc.OverrideYaml.YamlContent)
+	return rc.OverrideYaml.YamlContent, kvs, err
 }
 
 func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, log *zap.SugaredLogger) (*EnvServices, error) {
@@ -237,13 +241,31 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return "", nil
 	}
 
+	prodSvcList := sets.NewString()
 	for serviceName, productSvc := range productInfo.GetServiceMap() {
+		prodSvcList.Insert(serviceName)
 		svc := &EnvService{
 			ServiceName:    serviceName,
 			ServiceModules: productSvc.Containers,
 			Updatable:      svcUpdatable(serviceName, productSvc.Revision),
+			Deployed:       true,
 		}
 		svc.VariableYaml, svc.VariableKVs = variables(serviceName)
+		ret.Services = append(ret.Services, svc)
+	}
+
+	for _, templateSvc := range templateSvcs {
+		if prodSvcList.Has(templateSvc.ServiceName) {
+			continue
+		}
+		svc := &EnvService{
+			ServiceName:    templateSvc.ServiceName,
+			ServiceModules: templateSvc.Containers,
+			Updatable:      true,
+			Deployed:       false,
+		}
+		svc.VariableYaml = templateSvc.VariableYaml
+		svc.VariableKVs, _ = GeneKVFromYaml(templateSvc.VariableYaml)
 		ret.Services = append(ret.Services, svc)
 	}
 
