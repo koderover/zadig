@@ -83,7 +83,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	}
 
 	wildcard := false
-	if len(serviceVars) == 0 && serviceVars[0] == "*" {
+	if len(serviceVars) == 1 && serviceVars[0] == "*" {
 		wildcard = true
 	}
 
