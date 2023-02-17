@@ -23,6 +23,15 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
+	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/pkg/errors"
+
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -35,12 +44,12 @@ import (
 )
 
 type GeneSvcYamlOption struct {
-	ProductName    string
-	EnvName        string
-	ServiceName    string
-	UpdateRevision bool
-	VariableYaml   string
-	UnInstall      bool
+	ProductName           string
+	EnvName               string
+	ServiceName           string
+	UpdateServiceRevision bool
+	VariableYaml          string
+	UnInstall             bool
 }
 
 func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
@@ -133,10 +142,168 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	return string(bs), err
 }
 
+func updateCronJobImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
+	res := new(types.CronjobResource)
+	if err := yaml.Unmarshal([]byte(yamlStr), &res); err != nil {
+		return yamlStr, fmt.Errorf("unmarshal Resource error: %v", err)
+	}
+	for _, val := range res.Spec.Template.Spec.Template.Spec.Containers {
+		containerName := val["name"].(string)
+		if image, ok := imageMap[containerName]; ok {
+			val["image"] = image.Image
+		}
+	}
+
+	bs, err := yaml.Marshal(res)
+	return string(bs), err
+}
+
+func updateContainerImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
+	res := new(types.KubeResource)
+	if err := yaml.Unmarshal([]byte(yamlStr), &res); err != nil {
+		return yamlStr, fmt.Errorf("unmarshal Resource error: %v", err)
+	}
+
+	for _, container := range res.Spec.Template.Spec.Containers {
+		containerName := container["name"].(string)
+		if image, ok := imageMap[containerName]; ok {
+			container["image"] = image.Image
+		}
+	}
+
+	bs, err := yaml.Marshal(res)
+	return string(bs), err
+}
+
+// ReplaceImages replace images in yaml with new images
+func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (string, error) {
+	imageMap := make(map[string]*commonmodels.Container)
+	for _, image := range images {
+		imageMap[image.Name] = image
+	}
+
+	splitYams := util.SplitYaml(rawYaml)
+	yamlStrs := make([]string, 0)
+	var err error
+	for _, yamlStr := range splitYams {
+		resKind := new(types.KubeResourceKind)
+		if err := yaml.Unmarshal([]byte(yamlStr), &resKind); err != nil {
+			return "", fmt.Errorf("unmarshal ResourceKind error: %v", err)
+		}
+
+		if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
+			yamlStr, err = updateContainerImages(yamlStr, imageMap)
+			if err != nil {
+				return "", err
+			}
+		} else if resKind.Kind == setting.CronJob {
+			yamlStr, err = updateCronJobImages(yamlStr, imageMap)
+			if err != nil {
+				return "", err
+			}
+		}
+		yamlStrs = append(yamlStrs, yamlStr)
+	}
+
+	return util.JoinYamls(yamlStrs), nil
+}
+
+func mergeContainers(curContainers, newContainers []*commonmodels.Container) []*commonmodels.Container {
+	curContainerMap := make(map[string]*commonmodels.Container)
+	for _, container := range curContainers {
+		curContainerMap[container.Name] = container
+	}
+	for _, container := range newContainers {
+		curContainerMap[container.Name] = container
+	}
+	var containers []*commonmodels.Container
+	for _, container := range curContainerMap {
+		containers = append(containers, container)
+	}
+	return containers
+}
+
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
-	return "", 0, nil
+	_, err := templaterepo.NewProductColl().Find(option.ProductName)
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
+	}
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName: option.EnvName,
+		Name:    option.ProductName,
+	})
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find product %s", option.ProductName)
+	}
+
+	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
+	var prodSvcTemplate, latestSvcTemplate, usedSvcTemplate *commonmodels.Service
+
+	productSvcRevision := int64(0)
+	if curProductSvc != nil {
+		productSvcRevision = curProductSvc.Revision
+	}
+
+	prodSvcTemplate, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName:   option.ProductName,
+		ServiceName:   option.ServiceName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+		Revision:      productSvcRevision,
+	}, productInfo.Production)
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, productSvcRevision)
+	}
+	if prodSvcTemplate == nil {
+		return "", 0, fmt.Errorf("failed to find service template %s used in product %s", option.ServiceName, option.EnvName)
+	}
+
+	latestSvcTemplate, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName:   option.ProductName,
+		ServiceName:   option.ServiceName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+		Revision:      0,
+	}, productInfo.Production)
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
+	}
+
+	usedSvcTemplate = prodSvcTemplate
+	// use latest service revision
+	if option.UpdateServiceRevision && latestSvcTemplate != nil {
+		productSvcRevision = latestSvcTemplate.Revision
+		usedSvcTemplate = latestSvcTemplate
+	}
+
+	if productSvcRevision == 0 {
+		return "", 0, fmt.Errorf("failed to find service template %s", option.ServiceName)
+	}
+
+	curContainers := usedSvcTemplate.Containers
+	if curProductSvc != nil {
+		curContainers = curProductSvc.Containers
+	}
+
+	fakeRenderset := &commonmodels.RenderSet{
+		ProductTmpl: option.ProductName,
+		EnvName:     option.EnvName,
+		ServiceVariables: []*template.ServiceRender{
+			{
+				ServiceName: option.ServiceName,
+				OverrideYaml: &template.CustomYaml{
+					YamlContent: option.VariableYaml,
+				},
+			},
+		},
+	}
+	fullRenderedYaml, err := RenderServiceYaml(usedSvcTemplate.Yaml, option.ProductName, option.ServiceName, fakeRenderset, []string{"*"}, usedSvcTemplate.VariableYaml)
+	if err != nil {
+		return "", 0, err
+	}
+	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergeContainers(curContainers, usedSvcTemplate.Containers))
+	return fullRenderedYaml, int(productSvcRevision), err
 }
 
 // RenderServiceYaml render service yaml with default values and service variable
@@ -188,41 +355,6 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 
 	return originYaml, nil
 }
-
-//func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
-//	if rs == nil {
-//		return origin
-//	}
-//	rs.SetKVAlias()
-//	for _, v := range rs.KVs {
-//		if v.State == "unused" {
-//			continue
-//		}
-//		origin = replaceAliasValue(origin, v)
-//	}
-//	return origin
-//}
-
-//func replaceAliasValue(origin string, v *templatemodels.RenderKV) string {
-//	for {
-//		idx := strings.Index(origin, v.Alias)
-//		if idx < 0 {
-//			break
-//		}
-//		spaces := ""
-//		start := 0
-//		for i := idx - 1; i >= 0; i-- {
-//			if string(origin[i]) != " " {
-//				break
-//			}
-//			start++
-//		}
-//		spaces = origin[idx-start : idx]
-//		valueStr := strings.Replace(v.Value, "\n", fmt.Sprintf("%s%s", "\n", spaces), -1)
-//		origin = strings.Replace(origin, v.Alias, valueStr, 1)
-//	}
-//	return origin
-//}
 
 // RenderEnvService renders service with particular revision and service vars in environment
 func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService) (yaml string, err error) {

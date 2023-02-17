@@ -16,13 +16,16 @@ limitations under the License.
 
 package workflowcontroller
 
+import "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+
 type ProductServiceDeployInfo struct {
-	ProductName  string
-	EnvName      string
-	ServiceName  string
-	Uninstall    bool
-	Revision     int
-	VariableYaml string
+	ProductName     string
+	EnvName         string
+	ServiceName     string
+	Uninstall       bool
+	ServiceRevision int
+	VariableYaml    string
+	Containers      []*models.Container
 }
 
 // UpdateProductServiceDeployInfo updates deploy info of service for some product

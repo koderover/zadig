@@ -71,13 +71,8 @@ type HelmSvcRenderArg struct {
 }
 
 type K8sSvcRenderArg struct {
-	EnvName     string `json:"env_name,omitempty"`
-	ServiceName string `json:"service_name,omitempty"`
-	//ChartVersion   string                     `json:"chartVersion,omitempty"`
-	//OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
-	//OverrideYaml   string                     `json:"overrideYaml,omitempty"`
-	//ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
-	//YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
+	EnvName            string `json:"env_name,omitempty"`
+	ServiceName        string `json:"service_name,omitempty"`
 	VariableYaml       string `json:"variable_yaml"`
 	LatestVariableYaml string `json:"latest_variable_yaml"`
 	DeployStrategy     string `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
@@ -226,10 +221,6 @@ func GetRenderSet(renderName string, revision int64, isDefault bool, envName str
 	} else if !found {
 		return &commonmodels.RenderSet{}, nil
 	}
-	//err = SetRenderDataStatus(resp, log)
-	//if err != nil {
-	//	return resp, err
-	//}
 
 	return resp, nil
 }
@@ -258,18 +249,6 @@ func ValidateRenderSet(productName, renderName, envName string, serviceInfo *tem
 			log.Errorf("find renderset[%s] error: %v", renderName, err)
 			return resp, err
 		}
-	}
-	if serviceInfo == nil {
-		//if err := IsAllKeyCovered(resp, log); err != nil {
-		//	log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
-		//	return resp, err
-		//}
-	} else {
-		//  单个服务是否全覆盖判断
-		//if err := IsAllKeyCoveredService(serviceInfo.Owner, serviceInfo.Name, resp); err != nil {
-		//	log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
-		//	return resp, err
-		//}
 	}
 	return resp, nil
 }
@@ -306,19 +285,6 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 }
 
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	//opt := &commonrepo.RenderSetFindOption{
-	//	Name:        args.Name,
-	//	ProductTmpl: args.ProductTmpl,
-	//	EnvName:     args.EnvName,
-	//}
-	//rs, err := commonrepo.NewRenderSetColl().Find(opt)
-	//if rs != nil && err == nil {
-	//	if rs.Diff(args) {
-	//		args.IsDefault = rs.IsDefault
-	//	} else {
-	//		return nil
-	//	}
-	//}
 	return createRenderset(args, log)
 }
 
@@ -374,28 +340,6 @@ func UpdateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return nil
 }
 
-//func ListRenderKeysByTemplateSvc(serviceTmpls []*models.Service, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
-//	renderSvcMap := make(map[string][]string)
-//	resp := make([]*templatemodels.RenderKV, 0)
-//	for _, serviceTmpl := range serviceTmpls {
-//		findRenderAlias(serviceTmpl.ServiceName, serviceTmpl.Yaml, renderSvcMap)
-//	}
-//
-//	for key, val := range renderSvcMap {
-//		rk := &templatemodels.RenderKV{
-//			Alias:    key,
-//			Services: val,
-//		}
-//		rk.SetKeys()
-//		rk.RemoveDupServices()
-//
-//		resp = append(resp, rk)
-//	}
-//
-//	sort.SliceStable(resp, func(i, j int) bool { return resp[i].Key < resp[j].Key })
-//	return resp, nil
-//}
-
 func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
 	renderSvcMap := make(map[string][]string)
 	resp := make([]*templatemodels.RenderKV, 0)
@@ -425,99 +369,6 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].Key < resp[j].Key })
 	return resp, nil
 }
-
-//func SetRenderDataStatus(rs *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-//	availableKeys, serviceMap, err := listTmplRenderKeysMap(rs.ProductTmpl, log)
-//	if err != nil {
-//		return err
-//	}
-//
-//	respKVs := make([]*templatemodels.RenderKV, 0)
-//	for _, kv := range rs.KVs {
-//
-//		_, ok := availableKeys[kv.Key]
-//		if ok {
-//			// 如果渲染配置KEY在服务和配置模板中存在
-//			presentKv := &templatemodels.RenderKV{
-//				Key:      kv.Key,
-//				Value:    kv.Value,
-//				State:    config.KeyStatePresent,
-//				Services: availableKeys[kv.Key],
-//			}
-//			respKVs = append(respKVs, presentKv)
-//		} else {
-//			// 如果渲染配置KEY在服务和配置模板中不存在, 说明KEY并没有使用到
-//			unusedKV := &templatemodels.RenderKV{
-//				Key:      kv.Key,
-//				Value:    kv.Value,
-//				State:    config.KeyStateUnused,
-//				Services: []string{},
-//			}
-//			respKVs = append(respKVs, unusedKV)
-//		}
-//	}
-//
-//	kvMap := rs.GetKeyValueMap()
-//	for key, val := range availableKeys {
-//		if _, ok := kvMap[key]; !ok {
-//			// 在服务和配置模板中找到新配置
-//			newKV := &templatemodels.RenderKV{
-//				Key:      key,
-//				State:    config.KeyStateNew,
-//				Services: val,
-//			}
-//			respKVs = append(respKVs, newKV)
-//		}
-//	}
-//
-//	// 如果kv来源于共享服务，需要从该共享服务所属项目的renderset中获取value
-//	for _, kv := range respKVs {
-//		if kv.Value != "" {
-//			continue
-//		}
-//		kv.Value, _ = getValueFromSharedRenderSet(kv, rs.ProductTmpl, serviceMap, log)
-//	}
-//
-//	rs.KVs = respKVs
-//
-//	rs.SetKVAlias()
-//	return nil
-//}
-
-//func UpdateSubRenderSet(name string, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) error {
-//	renderSets, err := commonrepo.NewRenderSetColl().List(&commonrepo.RenderSetListOption{ProductTmpl: name})
-//	if err != nil {
-//		return fmt.Errorf("service.UpdateSubRenderSet RenderSet.List %v", err)
-//	}
-//
-//	for _, renderSet := range renderSets {
-//		if renderSet.IsDefault {
-//			continue
-//		}
-//
-//		mapping := renderSet.GetKeyValueMap()
-//
-//		newKvs := make([]*templatemodels.RenderKV, 0)
-//
-//		for _, kv := range kvs {
-//			if v, ok := mapping[kv.Key]; ok {
-//				newKvs = append(newKvs, &templatemodels.RenderKV{Key: kv.Key, Value: v})
-//			} else {
-//				newKvs = append(newKvs, &templatemodels.RenderKV{Key: kv.Key, Value: kv.Value})
-//			}
-//		}
-//
-//		renderSet.KVs = newKvs
-//
-//		err = CreateRenderSet(renderSet, log)
-//
-//		if err != nil {
-//			return fmt.Errorf("service.UpdateSubRenderSet UpddateExistRenderSet %v", err)
-//		}
-//	}
-//
-//	return nil
-//}
 
 func DeleteRenderSet(productName string, log *zap.SugaredLogger) error {
 	if err := commonrepo.NewRenderSetColl().Delete(productName); err != nil {
@@ -552,74 +403,6 @@ func ValidateKVs(kvs []*templatemodels.RenderKV, services []*templatemodels.Serv
 	return nil
 }
 
-//func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
-//	if rs == nil {
-//		return origin
-//	}
-//	rs.SetKVAlias()
-//	for _, v := range rs.KVs {
-//		if v.State == "unused" {
-//			continue
-//		}
-//		origin = replaceAliasValue(origin, v)
-//	}
-//	return origin
-//}
-
-//func replaceAliasValue(origin string, v *templatemodels.RenderKV) string {
-//	for {
-//		idx := strings.Index(origin, v.Alias)
-//		if idx < 0 {
-//			break
-//		}
-//		spaces := ""
-//		start := 0
-//		for i := idx - 1; i >= 0; i-- {
-//			if string(origin[i]) != " " {
-//				break
-//			}
-//			start++
-//		}
-//		spaces = origin[idx-start : idx]
-//		valueStr := strings.Replace(v.Value, "\n", fmt.Sprintf("%s%s", "\n", spaces), -1)
-//		origin = strings.Replace(origin, v.Alias, valueStr, 1)
-//	}
-//	return origin
-//}
-
-// getRenderSetValue 获取render set的value
-//func getValueFromSharedRenderSet(kv *templatemodels.RenderKV, productName string, serviceMap map[string]*templatemodels.ServiceInfo, log *zap.SugaredLogger) (string, error) {
-//	targetProduct := ""
-//	for _, serviceName := range kv.Services {
-//		info := serviceMap[serviceName]
-//		if info != nil && info.Owner != productName {
-//			targetProduct = info.Owner
-//			break
-//		}
-//	}
-//	if targetProduct == "" {
-//		return "", nil
-//	}
-//
-//	renderSetOpt := &commonrepo.RenderSetFindOption{
-//		Name:      targetProduct,
-//		IsDefault: true,
-//		Revision:  0,
-//	}
-//	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-//	if err != nil {
-//		log.Errorf("RenderSet.Find failed, ProductName:%s, error:%v", targetProduct, err)
-//		return "", err
-//	}
-//	for _, originKv := range renderSet.KVs {
-//		if originKv.Key == kv.Key {
-//			return originKv.Value, nil
-//		}
-//	}
-//
-//	return "", nil
-//}
-
 func findRenderAlias(serviceName, value string, rendSvc map[string][]string) {
 	aliases := config.RenderTemplateAlias.FindAllString(value, -1)
 	for _, alias := range aliases {
@@ -640,53 +423,6 @@ func listTmplRenderKeysMap(productTmplName string, log *zap.SugaredLogger) (map[
 
 	return resp, serviceMap, nil
 }
-
-// IsAllKeyCovered 检查是否覆盖所有产品key
-//func IsAllKeyCovered(arg *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-//	// 允许不关联产品
-//	if arg.ProductTmpl == "" {
-//		return nil
-//	}
-//	availableKeys, _, err := listTmplRenderKeysMap(arg.ProductTmpl, log)
-//	if err != nil {
-//		return err
-//	}
-//
-//	kvMap := arg.GetKeyValueMap()
-//	for key := range availableKeys {
-//		if _, ok := kvMap[key]; !ok {
-//			return fmt.Errorf("key [%s] does not exist", key)
-//		}
-//	}
-//	return nil
-//}
-
-// IsAllKeyCoveredService 检查是否覆盖所有服务key
-//func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet) error {
-//	opt := &commonrepo.ServiceFindOption{
-//		ServiceName:   serviceName,
-//		ProductName:   productName,
-//		Type:          setting.K8SDeployType,
-//		ExcludeStatus: setting.ProductStatusDeleting,
-//	}
-//
-//	serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
-//	if err != nil {
-//		return err
-//	}
-//
-//	renderAlias := config.RenderTemplateAlias.FindAllString(serviceTmpl.Yaml, -1)
-//
-//	kvMap := arg.GetKeyValueMap()
-//	for _, k := range renderAlias {
-//		kv := templatemodels.RenderKV{Alias: k}
-//		kv.SetKeys()
-//		if _, ok := kvMap[kv.Key]; !ok {
-//			return fmt.Errorf("key [%s] does not exist", k)
-//		}
-//	}
-//	return nil
-//}
 
 func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 	if args == nil {

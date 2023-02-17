@@ -20,22 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -57,6 +44,17 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func GetServiceContainer(envName, productName, serviceName, container string, log *zap.SugaredLogger) error {
@@ -482,73 +480,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 	return
 }
 
-func updateCronJobImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
-	res := new(types.CronjobResource)
-	if err := yaml.Unmarshal([]byte(yamlStr), &res); err != nil {
-		return yamlStr, fmt.Errorf("unmarshal Resource error: %v", err)
-	}
-	for _, val := range res.Spec.Template.Spec.Template.Spec.Containers {
-		containerName := val["name"].(string)
-		if image, ok := imageMap[containerName]; ok {
-			val["image"] = image.Image
-		}
-	}
-
-	bs, err := yaml.Marshal(res)
-	return string(bs), err
-}
-
-func updateContainerImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
-	res := new(types.KubeResource)
-	if err := yaml.Unmarshal([]byte(yamlStr), &res); err != nil {
-		return yamlStr, fmt.Errorf("unmarshal Resource error: %v", err)
-	}
-
-	for _, container := range res.Spec.Template.Spec.Containers {
-		containerName := container["name"].(string)
-		if image, ok := imageMap[containerName]; ok {
-			container["image"] = image.Image
-		}
-	}
-
-	bs, err := yaml.Marshal(res)
-	return string(bs), err
-}
-
-// ReplaceImages replace images in yaml with new images
-func ReplaceImages(rawYaml string, images []*commonmodels.Container) (string, error) {
-	imageMap := make(map[string]*commonmodels.Container)
-	for _, image := range images {
-		imageMap[image.Name] = image
-	}
-
-	splitYams := util.SplitYaml(rawYaml)
-	yamlStrs := make([]string, 0)
-	var err error
-	for _, yamlStr := range splitYams {
-		resKind := new(types.KubeResourceKind)
-		if err := yaml.Unmarshal([]byte(yamlStr), &resKind); err != nil {
-			return "", fmt.Errorf("unmarshal ResourceKind error: %v", err)
-		}
-
-		if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
-			yamlStr, err = updateContainerImages(yamlStr, imageMap)
-			if err != nil {
-				return "", err
-			}
-		} else if resKind.Kind == setting.CronJob {
-			yamlStr, err = updateCronJobImages(yamlStr, imageMap)
-			if err != nil {
-				return "", err
-			}
-		}
-		yamlStrs = append(yamlStrs, yamlStr)
-	}
-
-	return util.JoinYamls(yamlStrs), nil
-}
-
-func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffResult, error) {
+func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
 	productObj, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -569,11 +501,18 @@ func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffR
 
 	prodSvc := productObj.GetServiceMap()[args.ServiceName]
 
-	if prodSvc == nil && !args.UpdateServiceRevision {
-		return nil, e.ErrPreviewYaml.AddDesc(fmt.Sprintf("failed to find service %s in product %s/%s", args.ServiceName, args.ProductName, args.EnvName))
+	var curServiceTmp, latestServiceTmp *commonmodels.Service
+
+	latestServiceTmp, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName:         args.ServiceName,
+		ProductName:         args.ProductName,
+		ExcludeStatus:       setting.ProductStatusDeleting,
+		IgnoreNoDocumentErr: true,
+	}, productObj.Production)
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find latest service %s/%s", args.ProductName, args.ServiceName))
 	}
 
-	var curServiceTmp, latestServiceTmp *commonmodels.Service
 	if prodSvc != nil {
 		svcOpt := &commonrepo.ServiceFindOption{
 			ServiceName:         args.ServiceName,
@@ -581,9 +520,9 @@ func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffR
 			Revision:            prodSvc.Revision,
 			IgnoreNoDocumentErr: false,
 		}
-		curServiceTmp, err = commonrepo.NewProductionServiceColl().Find(svcOpt)
+		curServiceTmp, err = repository.QueryTemplateService(svcOpt, productObj.Production)
 		if err != nil {
-			return nil, e.ErrPreviewYaml.AddDesc("查找service template失败")
+			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find service template: %s", svcOpt.ServiceName))
 		}
 
 		curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
@@ -600,7 +539,7 @@ func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffR
 			return nil, e.ErrPreviewYaml.AddErr(err)
 		}
 
-		currentYaml, err = ReplaceImages(currentYaml, prodSvc.Containers)
+		currentYaml, err = kube.ReplaceWorkloadImages(currentYaml, prodSvc.Containers)
 		if err != nil {
 			return nil, e.ErrPreviewYaml.AddErr(err)
 		}
@@ -622,30 +561,20 @@ func PreviewService(args *PreviewServiceArgs, log *zap.SugaredLogger) (*SvcDiffR
 		},
 	}
 
-	if !args.UpdateServiceRevision {
+	if latestServiceTmp == nil || !args.UpdateServiceRevision {
 		latestServiceTmp = curServiceTmp
-	} else {
-		latestServiceTmp, err = commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-			ServiceName:         args.ServiceName,
-			ProductName:         args.ProductName,
-			ExcludeStatus:       setting.ProductStatusDeleting,
-			IgnoreNoDocumentErr: true,
-		})
-		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find latest service %s/%s", args.ProductName, args.ServiceName))
-		}
-		if latestServiceTmp == nil {
-			latestServiceTmp = curServiceTmp
-		}
+	}
+	if latestServiceTmp == nil {
+		return nil, e.ErrPreviewYaml.AddDesc(fmt.Sprintf("failed to find available service %s for product %s/%s", args.ServiceName, args.ProductName, args.EnvName))
 	}
 
-	// replace images
 	latestYaml, err := kube.RenderServiceYaml(latestServiceTmp.Yaml, args.ProductName, productObj.EnvName, fakeRenderset, []string{"*"}, latestServiceTmp.VariableYaml)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
 
-	latestYaml, err = ReplaceImages(latestYaml, args.ServiceModules)
+	// replace images
+	latestYaml, err = kube.ReplaceWorkloadImages(latestYaml, args.ServiceModules)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
