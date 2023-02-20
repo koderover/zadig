@@ -162,7 +162,7 @@ var (
 	ErrUnForkProduct = NewHTTPError(6063, "删除Fork环境失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// Product Service APIs Range: 6080 - 6099 AND 7000 -7099
+	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199
 	//-----------------------------------------------------------------------------------------------
 
 	// ErrRestartService ...
@@ -207,10 +207,10 @@ var (
 	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
 
 	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
-	ErrPreviewYaml              = NewHTTPError(7000, "预览Yaml失败")
+	ErrPreviewYaml              = NewHTTPError(6150, "预览Yaml失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// it report APIs Range: 6100 - 6199
+	// it report APIs Range: 6100 - 6149
 	//-----------------------------------------------------------------------------------------------
 
 	// ErrGetItReport ...
