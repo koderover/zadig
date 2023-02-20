@@ -223,6 +223,30 @@ func mergeContainers(curContainers, newContainers []*commonmodels.Container) []*
 	return containers
 }
 
+// FetchCurrentAppliedYaml generates full yaml of some service currently applied in Zadig
+// and returns the service yaml, currently used service revision
+func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
+	_, err := templaterepo.NewProductColl().Find(option.ProductName)
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
+	}
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName: option.EnvName,
+		Name:    option.ProductName,
+	})
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find product %s", option.ProductName)
+	}
+
+	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
+	if curProductSvc == nil {
+		return "", 0, nil
+	}
+
+	return "", 0, nil
+}
+
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
