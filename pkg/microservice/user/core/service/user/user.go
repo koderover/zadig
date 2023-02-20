@@ -575,7 +575,7 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.SugaredLogger) (*models.User, error) {
 	user, err := orm.GetUser(syncUserInfo.Account, syncUserInfo.IdentityType, core.DB)
 	if err != nil {
-		logger.Error("SyncUser get user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
+		logger.Errorf("SyncUser get user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
 		return nil, err
 	}
 	tx := core.DB.Begin()
@@ -596,7 +596,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 		err = orm.CreateUser(user, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Error("SyncUser create user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
+			logger.Errorf("SyncUser create user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
 			return nil, err
 		}
 	} else {
@@ -607,14 +607,14 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 		}, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Error("SyncUser update user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
+			logger.Errorf("SyncUser update user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
 			return nil, err
 		}
 	}
 	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLoginType, tx)
 	if err != nil {
 		tx.Rollback()
-		logger.Error("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
+		logger.Errorf("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
 		return nil, err
 	}
 	ifLoggedIn := false
@@ -623,6 +623,8 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 	}
 	err = login.CheckSignature(ifLoggedIn, logger)
 	if err != nil {
+		tx.Rollback()
+		logger.Errorf("UpdateLoginInfo check signature fail, user:%s, error msg:%s", user.UID, err.Error())
 		return nil, err
 	}
 	if userLogin != nil {
@@ -630,7 +632,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 		err = orm.UpdateUserLogin(user.UID, userLogin, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Error("UpdateLoginInfo update user:%s login error, error msg:%s", user.UID, err.Error())
+			logger.Errorf("UpdateLoginInfo update user:%s login error, error msg:%s", user.UID, err.Error())
 			return nil, err
 		}
 	} else {
@@ -646,7 +648,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 		err = orm.CreateUserLogin(userLoginModel, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Error("UpdateLoginInfo create user:%s login error, error msg:%s", user.UID, err.Error())
+			logger.Errorf("UpdateLoginInfo create user:%s login error, error msg:%s", user.UID, err.Error())
 			return nil, err
 		}
 	}
