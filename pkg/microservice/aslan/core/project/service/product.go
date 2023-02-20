@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -111,7 +113,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	// do not save vars
 	args.Vars = nil
 
-	err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log)
+	err = render.ValidateKVs(kvs, args.AllServiceInfos(), log)
 	if err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
@@ -142,7 +144,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	}
 
 	// 创建一个默认的渲染集
-	err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+	err = render.CreateRenderSet(&commonmodels.RenderSet{
 		Name:        args.ProductName,
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
@@ -234,7 +236,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	kvs := args.Vars
 	args.Vars = nil
 
-	if err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
+	if err = render.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
 		log.Warnf("ProductTmpl.Update ValidateKVs error: %v", err)
 	}
 
@@ -251,7 +253,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		return
 	}
 	// 更新默认的渲染集
-	if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+	if err = render.CreateRenderSet(&commonmodels.RenderSet{
 		Name:        args.ProductName,
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
@@ -263,7 +265,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 
 	for _, envVars := range args.EnvVars {
 		//创建环境变量
-		if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+		if err = render.CreateRenderSet(&commonmodels.RenderSet{
 			EnvName:     envVars.EnvName,
 			Name:        args.ProductName,
 			ProductTmpl: args.ProductName,
@@ -410,7 +412,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			UpdateBy:    user,
 			IsDefault:   false,
 		}
-		err = commonservice.ForceCreateReaderSet(rendersetInfo, logger)
+		err = render.ForceCreateReaderSet(rendersetInfo, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -600,7 +602,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}
 
-	if err = commonservice.DeleteRenderSet(productName, log); err != nil {
+	if err = render.DeleteRenderSet(productName, log); err != nil {
 		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %s", err)
 		return err
 	}

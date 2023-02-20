@@ -21,8 +21,11 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/yaml"
 	"github.com/pkg/errors"
 )
 
@@ -105,10 +108,11 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 	}
 
+	if productInfo.Services == nil {
+		productInfo.Services = make([][]*models.ProductService, 0)
+	}
+
 	if !deployInfo.Uninstall {
-		if productInfo.Services == nil {
-			productInfo.Services = make([][]*models.ProductService, 0)
-		}
 		if productSvc == nil {
 			productSvc = &models.ProductService{
 				ProductName: deployInfo.ProductName,
@@ -119,19 +123,64 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 		if svcRender == nil {
 			svcRender = &template.ServiceRender{
-				ServiceName: deployInfo.ServiceName,
+				ServiceName:  deployInfo.ServiceName,
+				OverrideYaml: &template.CustomYaml{},
 			}
 			curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, svcRender)
+		}
+
+		mergedVariable := deployInfo.VariableYaml
+		if svcRender.OverrideYaml != nil {
+			mergedVariableBs, err := yaml.Merge([][]byte{[]byte(svcRender.OverrideYaml.YamlContent), []byte(deployInfo.VariableYaml)})
+			if err != nil {
+				return errors.Wrapf(err, "failed to merge variable yaml for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
+			}
+			mergedVariable = string(mergedVariableBs)
 		}
 
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
 		svcRender.OverrideYaml = &template.CustomYaml{
-			YamlContent: deployInfo.VariableYaml,
+			YamlContent: mergedVariable,
 		}
-	} else {
 
+		err = render.CreateRenderSet(curRenderset, log.SugaredLogger())
+		if err != nil {
+			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
+		}
+		productInfo.Render.Revision = curRenderset.Revision
+	} else {
+		filteredRenders := make([]*template.ServiceRender, 0)
+		for _, svcRender := range curRenderset.ServiceVariables {
+			if svcRender.ServiceName == deployInfo.ServiceName {
+				continue
+			}
+			filteredRenders = append(filteredRenders, svcRender)
+		}
+		curRenderset.ServiceVariables = filteredRenders
+
+		svcGroups := make([][]*models.ProductService, 0)
+		for _, svcGroup := range productInfo.Services {
+			newGroup := make([]*models.ProductService, 0)
+			for _, svc := range svcGroup {
+				if svc.ServiceName == deployInfo.ServiceName {
+					continue
+				}
+				newGroup = append(newGroup, svc)
+			}
+			svcGroups = append(svcGroups, newGroup)
+		}
+		productInfo.Services = svcGroups
+
+		err = commonrepo.NewRenderSetColl().Update(curRenderset)
+		if err != nil {
+			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
+		}
 	}
 
+	err = commonrepo.NewProductColl().Update(productInfo)
+	if err != nil {
+		return errors.Wrapf(err, "failed to update product %s", deployInfo.ProductName)
+	}
 	return nil
 }

@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/client-go/informers"
@@ -145,7 +147,7 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 
 	renderSet := &commonmodels.RenderSet{}
 	if product.Render != nil {
-		renderSet, err = commonservice.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
+		renderSet, err = render.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
 		if err != nil {
 			log.Errorf("GetRenderSet %s error: %v", product.ProductName, err)
 			return ingressInfo

@@ -56,6 +56,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -1341,7 +1342,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		}
 	}
 
-	if err = commonservice.CreateK8sHelmRenderSet(
+	if err = render.CreateK8sHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:             productResp.Namespace,
 			EnvName:          envName,
@@ -1919,7 +1920,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 	renderset.ChartInfos = rcs
 
 	// create new renderset
-	if err := commonservice.CreateK8sHelmRenderSet(renderset, log); err != nil {
+	if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
 		log.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2635,7 +2636,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	} else {
 		switch args.Source {
 		case setting.HelmDeployType:
-			err = commonservice.CreateK8sHelmRenderSet(
+			err = render.CreateK8sHelmRenderSet(
 				&commonmodels.RenderSet{
 					Name:        renderSetName,
 					Revision:    0,
@@ -2647,7 +2648,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 				log,
 			)
 		default:
-			err = commonservice.CreateRenderSet(
+			err = render.CreateRenderSet(
 				&commonmodels.RenderSet{
 					Name:             renderSetName,
 					Revision:         0,
@@ -3175,7 +3176,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		newChartInfos = append(newChartInfos, latestChartInfo)
 	}
 
-	if err = commonservice.CreateK8sHelmRenderSet(
+	if err = render.CreateK8sHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:          productResp.Render.Name,
 			EnvName:       envName,
