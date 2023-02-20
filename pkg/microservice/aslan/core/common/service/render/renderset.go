@@ -257,20 +257,6 @@ func findRenderAlias(serviceName, value string, rendSvc map[string][]string) {
 	}
 }
 
-func listTmplRenderKeysMap(productTmplName string, log *zap.SugaredLogger) (map[string][]string, map[string]*templatemodels.ServiceInfo, error) {
-	resp := make(map[string][]string)
-	keys, serviceMap, err := listTmplRenderKeys(productTmplName, log)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, key := range keys {
-		resp[key.Key] = key.Services
-	}
-
-	return resp, serviceMap, nil
-}
-
 func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 	if args == nil {
 		return errors.New("nil RenderSet")
@@ -280,7 +266,6 @@ func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 		return errors.New("empty render set name")
 	}
 
-	// 设置新的版本号
 	rev, err := commonrepo.NewCounterColl().GetNextSeq("renderset:" + args.Name)
 	if err != nil {
 		return fmt.Errorf("get next render set revision error: %v", err)

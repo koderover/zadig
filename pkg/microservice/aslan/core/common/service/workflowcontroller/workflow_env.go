@@ -71,7 +71,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		Name:    deployInfo.ProductName,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "failed to find product %s", deployInfo.ProductName)
+		return errors.Wrapf(err, "failed to find product %s:%s", deployInfo.ProductName, deployInfo.EnvName)
 	}
 
 	productSvc := productInfo.GetServiceMap()[deployInfo.ServiceName]
