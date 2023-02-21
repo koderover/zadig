@@ -319,7 +319,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		// init archive step
-		if buildInfo.PostBuild.FileArchive != nil && buildInfo.PostBuild.FileArchive.FileLocation != "" {
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.FileArchive != nil && buildInfo.PostBuild.FileArchive.FileLocation != "" {
 			uploads := []*step.Upload{
 				{
 					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
@@ -339,7 +339,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		// init object storage step
-		if buildInfo.PostBuild.ObjectStorageUpload != nil && buildInfo.PostBuild.ObjectStorageUpload.Enabled {
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.ObjectStorageUpload != nil && buildInfo.PostBuild.ObjectStorageUpload.Enabled {
 			modelS3, err := commonrepo.NewS3StorageColl().Find(buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID)
 			if err != nil {
 				return resp, fmt.Errorf("find object storage: %s failed, err: %v", buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID, err)
@@ -367,7 +367,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		// init psot build shell step
-		if buildInfo.PostBuild.Scripts != "" {
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.Scripts != "" {
 			scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
 			shellStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-post-shell",
