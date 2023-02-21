@@ -286,7 +286,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 
 		// init docker build step
-		if buildInfo.PostBuild.DockerBuild != nil {
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.DockerBuild != nil {
 			dockefileContent := ""
 			if buildInfo.PostBuild.DockerBuild.TemplateID != "" {
 				if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(buildInfo.PostBuild.DockerBuild.TemplateID, logger); err == nil {
