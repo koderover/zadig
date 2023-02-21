@@ -446,7 +446,9 @@ func getServicesWithMaxRevisionInEnv(projectName, envName string) ([]*commonmode
 					log.Infof("debug 5")
 					return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", service.ProductName)
 				}
-				log.Infof("debug 6 %+v", sharedServices[0])
+				if len(sharedServices) > 0 {
+					log.Infof("debug 6 %+v", sharedServices[0])
+				}
 				allServices = append(allServices, sharedServices...)
 			}
 		}
