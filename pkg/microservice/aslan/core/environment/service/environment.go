@@ -439,7 +439,7 @@ func getServicesWithMaxRevisionInEnv(projectName, envName string) ([]*commonmode
 					ServiceName: service.ServiceName,
 				})
 				if err != nil {
-					return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", sourceProject)
+					return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", service.ProductName)
 				}
 				allServices = append(allServices, sharedServices...)
 			}
