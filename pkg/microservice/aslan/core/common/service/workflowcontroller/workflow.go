@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -146,8 +146,8 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		WorkflowTaskCreatorEmail:  c.workflowTask.TaskCreatorEmail,
 		Workspace:                 "/workspace",
 		DistDir:                   fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
-		DockerMountDir:            fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewV4(), time.Now().Unix()),
-		ConfigMapMountDir:         fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewV4(), time.Now().Unix()),
+		DockerMountDir:            fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
+		ConfigMapMountDir:         fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
 		WorkflowKeyVals:           c.workflowTask.KeyVals,
 		GlobalContextGet:          c.getGlobalContext,
 		GlobalContextSet:          c.setGlobalContext,
