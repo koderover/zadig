@@ -414,6 +414,7 @@ func getServicesWithMaxRevisionInEnv(projectName, envName string) ([]*commonmode
 		}
 	}
 
+	log.Infof("debug 1 %s-%s", envName, projectName)
 	p, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		EnvName: envName,
 		Name:    projectName,
@@ -424,14 +425,17 @@ func getServicesWithMaxRevisionInEnv(projectName, envName string) ([]*commonmode
 	if len(p) == 0 {
 		return nil, errors.New("getServicesWithMaxRevision: list product with env num 0")
 	}
+	log.Infof("debug 2 %s", p[0].ProductName)
 
 	for _, serviceList := range p[0].Services {
 		for _, service := range serviceList {
 			if service.ProductName != projectName {
+				log.Infof("debug 3 %s-%s", service.ProductName, service.ServiceName)
 				_, exist := lo.Find(allServices, func(item *models.Service) bool {
 					return item.ProductName == service.ProductName && item.ServiceName == service.ServiceName
 				})
 				if exist {
+					log.Infof("debug 4")
 					continue
 				}
 				sharedServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
@@ -439,8 +443,10 @@ func getServicesWithMaxRevisionInEnv(projectName, envName string) ([]*commonmode
 					ServiceName: service.ServiceName,
 				})
 				if err != nil {
+					log.Infof("debug 5")
 					return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", service.ProductName)
 				}
+				log.Infof("debug 6 %+v", sharedServices[0])
 				allServices = append(allServices, sharedServices...)
 			}
 		}
