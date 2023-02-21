@@ -304,8 +304,9 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 			var maxServiceTmpl *commonmodels.Service
 			var err error
 			s, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-				ServiceName: service.ServiceName,
-				ProductName: productName,
+				ServiceName:         service.ServiceName,
+				ProductName:         productName,
+				IgnoreNoDocumentErr: true,
 			})
 			if err != nil {
 				return nil, errors.Wrap(err, "check shared service updated")
