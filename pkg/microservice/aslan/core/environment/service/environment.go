@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -374,6 +375,80 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 	return allServices, nil
 }
 
+func getServicesWithMaxRevisionInEnv(projectName, envName string) ([]*commonmodels.Service, error) {
+	// list services with max revision defined in project
+	allServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: projectName})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find services in project %s", projectName)
+	}
+
+	prodTmpl, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find project: %s", projectName)
+	}
+
+	// list services with max revision of shared services
+	if prodTmpl.SharedServices != nil {
+		servicesByProject := make(map[string][]string)
+		for _, serviceInfo := range prodTmpl.SharedServices {
+			servicesByProject[serviceInfo.Owner] = append(servicesByProject[serviceInfo.Owner], serviceInfo.Name)
+		}
+
+		for sourceProject, services := range servicesByProject {
+			inService := make([]*templatemodels.ServiceInfo, 0)
+			for _, serviceName := range services {
+				inService = append(inService, &templatemodels.ServiceInfo{
+					Name:  serviceName,
+					Owner: sourceProject,
+				})
+			}
+
+			sharedServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+				ProductName: sourceProject,
+				InServices:  inService,
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", sourceProject)
+			}
+			allServices = append(allServices, sharedServices...)
+		}
+	}
+
+	p, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		EnvName: envName,
+		Name:    projectName,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "list product with env")
+	}
+	if len(p) == 0 {
+		return nil, errors.New("getServicesWithMaxRevision: list product with env num 0")
+	}
+
+	for _, serviceList := range p[0].Services {
+		for _, service := range serviceList {
+			if service.ProductName != projectName {
+				_, exist := lo.Find(allServices, func(item *models.Service) bool {
+					return item.ProductName == service.ProductName && item.ServiceName == service.ServiceName
+				})
+				if exist {
+					continue
+				}
+				sharedServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+					ProductName: service.ProductName,
+					ServiceName: service.ServiceName,
+				})
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", sourceProject)
+				}
+				allServices = append(allServices, sharedServices...)
+			}
+		}
+	}
+
+	return allServices, nil
+}
+
 // TODO need optimize
 // cvm and k8s yaml projects should not be handled together
 func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, filter svcUpgradeFilter, log *zap.SugaredLogger) (err error) {
@@ -395,7 +470,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	var prodRevs *ProductRevision
 
 	// list services with max revision of project
-	allServices, err = getServicesWithMaxRevision(productName)
+	allServices, err = getServicesWithMaxRevisionInEnv(productName, envName)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %s", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
