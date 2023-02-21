@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -174,7 +176,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 		svc.OverrideYaml = &template.CustomYaml{YamlContent: args.ServiceRev.VariableYaml}
 	}
-	err = commonservice.CreateK8sHelmRenderSet(curRenderset, k.log)
+	err = render.CreateK8sHelmRenderSet(curRenderset, k.log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
 	}

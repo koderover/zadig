@@ -74,7 +74,7 @@ func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLo
 	productTmpl, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("Can not find project %s, error: %s", productName, err)
-		return nil, e.ErrListTemplate.AddDesc(err.Error())
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
 	}
 
 	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -85,9 +85,28 @@ func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLo
 
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
-		return nil, e.ErrListTemplate.AddDesc(err.Error())
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
 	}
 	return serviceObject, nil
+}
+
+func GetProductionK8sServiceOption(serviceName, productName string, log *zap.SugaredLogger) (*ServiceOption, error) {
+	_, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("Can not find project %s, error: %s", productName, err)
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
+	}
+
+	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+		Type:        setting.K8SDeployType,
+	})
+
+	if err != nil {
+		return nil, e.ErrGetTemplate.AddDesc(err.Error())
+	}
+	return getProductionServiceOption(serviceObject, log)
 }
 
 func CreateK8sProductionService(productName string, serviceObject *models.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -162,7 +181,7 @@ func ensureProductionServiceTmpl(args *commonmodels.Service, log *zap.SugaredLog
 
 	args.Yaml = util.ReplaceWrapLine(args.Yaml)
 	args.RenderedYaml = util.ReplaceWrapLine(args.RenderedYaml)
-	args.KubeYamls = SplitYaml(args.RenderedYaml)
+	args.KubeYamls = util.SplitYaml(args.RenderedYaml)
 
 	// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
 	// errors will only be logged here
@@ -206,7 +225,7 @@ func UpdateProductionServiceVariables(args *commonservice.ServiceTmplObject) err
 	}
 
 	currentService.RenderedYaml = util.ReplaceWrapLine(currentService.RenderedYaml)
-	currentService.KubeYamls = SplitYaml(currentService.RenderedYaml)
+	currentService.KubeYamls = util.SplitYaml(currentService.RenderedYaml)
 	oldContainers := currentService.Containers
 	if err := setCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)

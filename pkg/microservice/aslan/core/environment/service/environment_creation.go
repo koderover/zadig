@@ -19,6 +19,8 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
@@ -115,7 +117,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	err = commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	err = render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
@@ -296,7 +298,7 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 	productObj.ServiceDeployStrategy = serviceDeployStrategy
 
 	// insert renderset info into db
-	err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:          arg.EnvName,
 		ProductTmpl:      arg.ProductName,

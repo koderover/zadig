@@ -56,6 +56,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -158,56 +159,6 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 
 	return res, nil
 }
-
-//func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
-//	for _, product := range products {
-//		if product.Source == setting.SourceFromExternal || product.Source == setting.SourceFromHelm {
-//			continue
-//		}
-//		renderName := product.Namespace
-//		var revision int64
-//		// if the environment is backtracking, render.name will be different with product.Namespace
-//		if product.Render != nil {
-//			revision = product.Render.Revision
-//			renderName = product.Render.Name
-//		}
-//
-//		//renderSet, err := commonservice.GetRenderSet(renderName, revision, false, product.EnvName, log)
-//		//if err != nil {
-//		//	log.Errorf("Failed to find render set, productName: %s, namespace: %s,  err: %s", product.ProductName, product.Namespace, err)
-//		//	return e.ErrGetRenderSet.AddDesc(err.Error())
-//		//}
-//
-//		//product.Vars = renderSet.KVs[:]
-//		//
-//		//// Note. the service property of kv pair stored in DB is not accuracy
-//		//// from v1.14.0 we should fetch related service data real-time
-//		//if len(product.Vars) == 0 {
-//		//	return nil
-//		//}
-//
-//		templateSvcsOfProduct, err := commonservice.GetProductUsedTemplateSvcs(product)
-//		if err != nil {
-//			log.Errorf("failed to get service templates applied in product, err: %s", err)
-//			return nil
-//		}
-//
-//		renderKvs, err := commonservice.ListRenderKeysByTemplateSvc(templateSvcsOfProduct, log)
-//		if err != nil {
-//			log.Errorf("failed to get render kvs in product, err: %s", err)
-//			return nil
-//		}
-//
-//		relatedSvcs := make(map[string][]string)
-//		for _, key := range renderKvs {
-//			relatedSvcs[key.Key] = key.Services
-//		}
-//		for _, varInfo := range product.Vars {
-//			varInfo.Services = relatedSvcs[varInfo.Key]
-//		}
-//	}
-//	return nil
-//}
 
 var mutexAutoCreate sync.RWMutex
 
@@ -1391,7 +1342,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		}
 	}
 
-	if err = commonservice.CreateK8sHelmRenderSet(
+	if err = render.CreateK8sHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:             productResp.Namespace,
 			EnvName:          envName,
@@ -1969,7 +1920,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 	renderset.ChartInfos = rcs
 
 	// create new renderset
-	if err := commonservice.CreateK8sHelmRenderSet(renderset, log); err != nil {
+	if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
 		log.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2685,7 +2636,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	} else {
 		switch args.Source {
 		case setting.HelmDeployType:
-			err = commonservice.CreateK8sHelmRenderSet(
+			err = render.CreateK8sHelmRenderSet(
 				&commonmodels.RenderSet{
 					Name:        renderSetName,
 					Revision:    0,
@@ -2697,7 +2648,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 				log,
 			)
 		default:
-			err = commonservice.CreateRenderSet(
+			err = render.CreateRenderSet(
 				&commonmodels.RenderSet{
 					Name:             renderSetName,
 					Revision:         0,
@@ -3225,7 +3176,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		newChartInfos = append(newChartInfos, latestChartInfo)
 	}
 
-	if err = commonservice.CreateK8sHelmRenderSet(
+	if err = render.CreateK8sHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:          productResp.Render.Name,
 			EnvName:       envName,

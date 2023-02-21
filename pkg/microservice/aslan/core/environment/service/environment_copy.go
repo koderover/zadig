@@ -19,6 +19,8 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/hashicorp/go-multierror"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -171,7 +173,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 				}
 			}
 
-			err = commonservice.ForceCreateReaderSet(&newRenderset, log)
+			err = render.ForceCreateReaderSet(&newRenderset, log)
 			if err != nil {
 				return err
 			}
@@ -328,7 +330,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 
 	// insert renderset info into db
 	if len(productInfo.ServiceRenders) > 0 {
-		err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+		err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 			EnvName:       arg.EnvName,
 			ProductTmpl:   arg.ProductName,

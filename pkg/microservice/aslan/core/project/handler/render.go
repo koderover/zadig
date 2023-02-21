@@ -19,10 +19,11 @@ package handler
 import (
 	"strconv"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -57,7 +58,7 @@ func GetRenderSetInfo(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetRenderSetInfo(c.Param("name"), revision)
+	ctx.Resp, ctx.Err = render.GetRenderSetInfo(c.Param("name"), revision)
 }
 
 func UpdateRenderSet(c *gin.Context) {
@@ -70,5 +71,5 @@ func UpdateRenderSet(c *gin.Context) {
 		return
 	}
 	args.UpdateBy = ctx.UserName
-	ctx.Err = service.UpdateRenderSet(args, ctx.Logger)
+	ctx.Err = render.UpdateRenderSet(args, ctx.Logger)
 }

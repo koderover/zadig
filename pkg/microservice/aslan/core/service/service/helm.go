@@ -29,6 +29,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/27149chen/afero"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/otiai10/copy"
@@ -1652,7 +1654,7 @@ func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName
 	}
 
 	//添加renderset
-	if err := commonservice.CreateK8sHelmRenderSet(
+	if err := render.CreateK8sHelmRenderSet(
 		&models.RenderSet{
 			Name:        productName,
 			Revision:    0,
@@ -1672,7 +1674,7 @@ func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName
 		IsDefault:   true,
 	}
 
-	if err := commonservice.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
+	if err := render.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
 		log.Error(fmt.Errorf("failed to create renderset, name: %s, err: %s", newRenderset.Name, err))
 		return
 	}

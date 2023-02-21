@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -111,7 +113,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	// do not save vars
 	args.Vars = nil
 
-	err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log)
+	err = render.ValidateKVs(kvs, args.AllServiceInfos(), log)
 	if err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
@@ -142,7 +144,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	}
 
 	// 创建一个默认的渲染集
-	err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+	err = render.CreateRenderSet(&commonmodels.RenderSet{
 		Name:        args.ProductName,
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
@@ -159,6 +161,26 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	return
 }
 
+func validateSvc(services [][]string, validServices sets.String) error {
+	usedServiceSet := sets.NewString()
+	for _, serviceSeq := range services {
+		for _, singleSvc := range serviceSeq {
+			if usedServiceSet.Has(singleSvc) {
+				return fmt.Errorf("duplicated service:%s", singleSvc)
+			}
+			if !validServices.Has(singleSvc) {
+				return fmt.Errorf("invalid service:%s", singleSvc)
+			}
+			usedServiceSet.Insert(singleSvc)
+			validServices.Delete(singleSvc)
+		}
+	}
+	if validServices.Len() > 0 {
+		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	}
+	return nil
+}
+
 func UpdateServiceOrchestration(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
 	templateProductInfo, err := templaterepo.NewProductColl().Find(name)
 	if err != nil {
@@ -168,26 +190,13 @@ func UpdateServiceOrchestration(name string, services [][]string, updateBy strin
 
 	//validate services
 	validServices := sets.NewString()
-	usedServiceSet := sets.NewString()
 	for _, serviceList := range templateProductInfo.Services {
 		validServices.Insert(serviceList...)
 	}
 
-	for _, serviceSeq := range services {
-		for _, service := range serviceSeq {
-			if usedServiceSet.Has(service) {
-				return fmt.Errorf("duplicated service:%s", service)
-			}
-			if !validServices.Has(service) {
-				return fmt.Errorf("service:%s not in valid service list", service)
-			}
-			usedServiceSet.Insert(service)
-			validServices.Delete(service)
-		}
-	}
-
-	if validServices.Len() > 0 {
-		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	err = validateSvc(services, validServices)
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
 	}
 
 	if err = templaterepo.NewProductColl().UpdateServiceOrchestration(name, services, updateBy); err != nil {
@@ -206,26 +215,13 @@ func UpdateProductionServiceOrchestration(name string, services [][]string, upda
 
 	//validate services
 	validServices := sets.NewString()
-	usedServiceSet := sets.NewString()
-	for _, serviceList := range templateProductInfo.Services {
+	for _, serviceList := range templateProductInfo.ProductionServices {
 		validServices.Insert(serviceList...)
 	}
 
-	for _, serviceSeq := range services {
-		for _, service := range serviceSeq {
-			if usedServiceSet.Has(service) {
-				return fmt.Errorf("duplicated service:%s", service)
-			}
-			if !validServices.Has(service) {
-				return fmt.Errorf("service:%s not in valid service list", service)
-			}
-			usedServiceSet.Insert(service)
-			validServices.Delete(service)
-		}
-	}
-
-	if validServices.Len() > 0 {
-		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	err = validateSvc(services, validServices)
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
 	}
 
 	if err = templaterepo.NewProductColl().UpdateProductionServiceOrchestration(name, services, updateBy); err != nil {
@@ -240,7 +236,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	kvs := args.Vars
 	args.Vars = nil
 
-	if err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
+	if err = render.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
 		log.Warnf("ProductTmpl.Update ValidateKVs error: %v", err)
 	}
 
@@ -257,7 +253,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		return
 	}
 	// 更新默认的渲染集
-	if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+	if err = render.CreateRenderSet(&commonmodels.RenderSet{
 		Name:        args.ProductName,
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
@@ -269,7 +265,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 
 	for _, envVars := range args.EnvVars {
 		//创建环境变量
-		if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+		if err = render.CreateRenderSet(&commonmodels.RenderSet{
 			EnvName:     envVars.EnvName,
 			Name:        args.ProductName,
 			ProductTmpl: args.ProductName,
@@ -416,7 +412,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			UpdateBy:    user,
 			IsDefault:   false,
 		}
-		err = commonservice.ForceCreateReaderSet(rendersetInfo, logger)
+		err = render.ForceCreateReaderSet(rendersetInfo, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -606,7 +602,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}
 
-	if err = commonservice.DeleteRenderSet(productName, log); err != nil {
+	if err = render.DeleteRenderSet(productName, log); err != nil {
 		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %s", err)
 		return err
 	}

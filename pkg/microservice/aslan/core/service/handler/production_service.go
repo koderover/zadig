@@ -44,6 +44,13 @@ func GetProductionK8sService(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetProductionK8sService(c.Param("name"), c.Query("projectName"), ctx.Logger)
 }
 
+func GetProductionK8sServiceOption(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetProductionK8sServiceOption(c.Param("name"), c.Query("projectName"), ctx.Logger)
+}
+
 func CreateK8sProductionService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

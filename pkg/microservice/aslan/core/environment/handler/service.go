@@ -28,6 +28,24 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+func ListSvcsInEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	envName := c.Param("name")
+	productName := c.Query("projectName")
+
+	ctx.Resp, ctx.Err = service.ListServicesInEnv(envName, productName, ctx.Logger)
+}
+
+func ListSvcsInProductionEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	envName := c.Param("name")
+	productName := c.Query("projectName")
+
+	ctx.Resp, ctx.Err = service.ListServicesInProductionEnv(envName, productName, ctx.Logger)
+}
+
 func GetService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -53,6 +71,23 @@ func RestartService(c *gin.Context) {
 		"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")),
 		"", ctx.Logger, args.EnvName)
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
+}
+
+func PreviewService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.PreviewServiceArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	args.ProductName = c.Query("projectName")
+	args.EnvName = c.Param("name")
+	args.ServiceName = c.Param("serviceName")
+
+	ctx.Resp, ctx.Err = service.PreviewService(args, ctx.Logger)
 }
 
 func UpdateService(c *gin.Context) {

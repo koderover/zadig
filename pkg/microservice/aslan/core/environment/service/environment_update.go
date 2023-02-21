@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
@@ -372,7 +374,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return err
 	}
 
-	renderSet, err := commonservice.CreateRenderSetByMerge(
+	renderSet, err := render.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
 			Name:             exitedProd.Namespace,
 			EnvName:          envName,
@@ -493,7 +495,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	// 检查renderset是否覆盖产品所有key
-	renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
+	renderSet, err := render.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())

@@ -28,6 +28,8 @@ import (
 	templ "text/template"
 	"time"
 
+	"github.com/koderover/zadig/pkg/util"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -448,7 +450,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		return resp, nil
 
 	} else if resp.Source == setting.SourceFromGUI {
-		yamls := strings.Split(resp.Yaml, "---")
+		yamls := util.SplitYaml(resp.Yaml)
 		for _, y := range yamls {
 			data, err := yaml.YAMLToJSON([]byte(y))
 			if err != nil {
