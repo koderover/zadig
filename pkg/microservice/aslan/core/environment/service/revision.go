@@ -407,7 +407,7 @@ func getMaxServiceRevision(services []*commonmodels.Service, serviceName, produc
 		}
 	}
 	if resp.ServiceName == "" {
-		return resp, fmt.Errorf("[%s] no service found", serviceName)
+		return resp, fmt.Errorf("[%s-%s] no service found", serviceName, productName)
 	}
 	return resp, nil
 }
