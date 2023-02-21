@@ -100,8 +100,18 @@ func containerLogStream(ctx context.Context, streamChan chan interface{}, namesp
 		default:
 			line, err := buf.ReadString('\n')
 			if err == nil {
-				line = strings.TrimSpace(line)
-				streamChan <- line
+				if strings.ContainsRune(line, '\r') {
+					segments := strings.Split(line, "\r")
+					for _, segment := range segments {
+						segment = string('\r') + segment
+						if len(segment) > 0 {
+							streamChan <- segment
+						}
+					}
+				} else {
+					line = strings.TrimSpace(line)
+					streamChan <- line
+				}
 			}
 			if err == io.EOF {
 				line = strings.TrimSpace(line)
