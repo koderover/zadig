@@ -96,13 +96,13 @@ func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log 
 
 func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) error {
 	serviceTmpls, err := GetGerritServiceTemplates()
-	log.Infof("updateServiceTemplateByGerritEvent service templates: %v", serviceTmpls)
 	if err != nil {
 		log.Errorf("updateServiceTemplateByGerritEvent Failed to get gerrit service templates, error: %v", err)
 		return err
 	}
 	errs := &multierror.Error{}
 	for _, serviceTmpl := range serviceTmpls {
+		log.Infof("updateServiceTemplateByGerritEvent service template: %v", serviceTmpl.ServiceName)
 		if strings.Contains(uri, "?") {
 			if !strings.Contains(uri, serviceTmpl.ServiceName) {
 				continue
@@ -172,6 +172,9 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 				errs = multierror.Append(errs, err)
 			}
 		}
+
+		log.Infof("newYamlContent: %s", newYamlContent)
+		log.Infof("oldYamlContent: %s", oldYamlContent)
 
 		if strings.Compare(newYamlContent, oldYamlContent) != 0 || service.Type == setting.HelmDeployType {
 			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.LoadPath)
