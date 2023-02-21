@@ -41,7 +41,7 @@ func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (
 	}
 
 	// list services with max revision of project
-	allServiceTmpls, err := getServicesWithMaxRevision(productName)
+	allServiceTmpls, err := getServicesWithMaxRevisionInEnv(productName, envName)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %v", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
