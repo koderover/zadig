@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -147,7 +148,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	}
 
 	// 交叉对比已创建的服务组和服务组模板
-	prodRev.ServiceRevisions, err = compareGroupServicesRev(prodTmpl.Services, product, allServiceTmpls, newRender, oldRender, log)
+	prodRev.ServiceRevisions, err = compareGroupServicesRev(prodTmpl.Services, product, allServiceTmpls, newRender, oldRender, product.ProductName, log)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
@@ -181,7 +182,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 // - maxServices: distinted service and max revision
 // - maxConfigs: distincted service config and max revision
 func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.Product, allServiceTmpls []*commonmodels.Service,
-	newRender *commonmodels.RenderSet, oldRender *commonmodels.RenderSet, log *zap.SugaredLogger) ([]*SvcRevision, error) {
+	newRender *commonmodels.RenderSet, oldRender *commonmodels.RenderSet, productName string, log *zap.SugaredLogger) ([]*SvcRevision, error) {
 
 	var serviceRev []*SvcRevision
 	svcList := make([]*commonmodels.ProductService, 0)
@@ -224,7 +225,7 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	}
 
 	var err error
-	serviceRev, err = compareServicesRev(svcTmplNameList, svcList, allServiceTmpls, newRender, oldRender, log)
+	serviceRev, err = compareServicesRev(svcTmplNameList, svcList, allServiceTmpls, newRender, oldRender, productName, log)
 	if err != nil {
 		log.Errorf("Failed to compare service revision, %s:%s, Error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return serviceRev, e.ErrListProductsRevision.AddDesc(err.Error())
@@ -239,7 +240,7 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 // - maxServices: distinted service and max revision
 // - maxConfigs: distincted service config and max revision
 func compareServicesRev(serviceTmplNames []string, services []*commonmodels.ProductService, allServiceTmpls []*commonmodels.Service,
-	newRender *commonmodels.RenderSet, oldRender *commonmodels.RenderSet, log *zap.SugaredLogger) ([]*SvcRevision, error) {
+	newRender *commonmodels.RenderSet, oldRender *commonmodels.RenderSet, productName string, log *zap.SugaredLogger) ([]*SvcRevision, error) {
 
 	serviceRevs := make([]*SvcRevision, 0)
 
@@ -299,11 +300,46 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 			}
 			serviceRevs = append(serviceRevs, serviceRev)
 		} else {
-			maxServiceTmpl, err := getMaxServiceRevision(allServiceTmpls, service.ServiceName, service.ProductName)
+			var serviceRev *SvcRevision
+			var maxServiceTmpl *commonmodels.Service
+			var err error
+			s, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				ProductName: productName,
+			})
 			if err != nil {
-				log.Errorf("Failed to get max service revision. Service: %s; Prodcut: %s; Error: %v",
-					service.ServiceName, service.ProductName, err)
-				return serviceRevs, err
+				return nil, errors.Wrap(err, "check shared service updated")
+			}
+			if service.ProductName != productName && s != nil {
+				maxServiceTmpl = s
+				serviceRev = &SvcRevision{
+					ServiceName:     service.ServiceName,
+					Type:            service.Type,
+					CurrentRevision: service.Revision,
+					Error:           service.Error,
+					NextRevision:    maxServiceTmpl.Revision,
+					Updatable:       true,
+					SharedUpdated:   true,
+				}
+			} else {
+				maxServiceTmpl, err = getMaxServiceRevision(allServiceTmpls, service.ServiceName, service.ProductName)
+				if err != nil {
+					log.Errorf("Failed to get max service revision. Service: %s; Prodcut: %s; Error: %v",
+						service.ServiceName, service.ProductName, err)
+					return serviceRevs, err
+				}
+
+				serviceRev = &SvcRevision{
+					ServiceName:     service.ServiceName,
+					Type:            service.Type,
+					CurrentRevision: service.Revision,
+					Error:           service.Error,
+					NextRevision:    maxServiceTmpl.Revision,
+				}
+
+				if serviceRev.NextRevision > serviceRev.CurrentRevision {
+					serviceRev.Updatable = true
+				}
 			}
 
 			currentServiceTmpl, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -317,19 +353,6 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 					service.ServiceName, service.ProductName, service.Type, service.Revision, err)
 				return serviceRevs, err
 			}
-
-			serviceRev := &SvcRevision{
-				ServiceName:     service.ServiceName,
-				Type:            service.Type,
-				CurrentRevision: service.Revision,
-				Error:           service.Error,
-				NextRevision:    maxServiceTmpl.Revision,
-			}
-
-			if serviceRev.NextRevision > serviceRev.CurrentRevision {
-				serviceRev.Updatable = true
-			}
-
 			// 容器化部署方式才需要设置镜像
 			// 容器化部署方式才需要对比配置文件
 			if service.Type == setting.K8SDeployType {

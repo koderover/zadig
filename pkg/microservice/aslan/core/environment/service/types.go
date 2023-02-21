@@ -53,6 +53,7 @@ type SvcRevision struct {
 	Containers        []*commonmodels.Container `json:"containers,omitempty"`
 	UpdateServiceTmpl bool                      `json:"update_service_tmpl"`
 	VariableYaml      string                    `json:"variable_yaml"`
+	SharedUpdated     bool                      `json:"shared_updated"`
 }
 
 type ProductIngressInfo struct {

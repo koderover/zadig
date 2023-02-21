@@ -598,7 +598,9 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				}
 				service.Revision = svcRev.NextRevision
 				service.Containers = svcRev.Containers
-				service.ProductName = productName
+				if svcRev.SharedUpdated {
+					service.ProductName = productName
+				}
 			}
 			groupSvcs = append(groupSvcs, service)
 
