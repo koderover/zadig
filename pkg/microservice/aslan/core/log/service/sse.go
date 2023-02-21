@@ -18,7 +18,6 @@ package service
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -91,9 +90,7 @@ func containerLogStream(ctx context.Context, streamChan chan interface{}, namesp
 		}
 	}()
 
-	scanner := bufio.NewScanner(out)
-	scanner.Split(CarriageReturnSplitter)
-	scanner.Scan()
+	buf := bufio.NewReader(out)
 
 	for {
 		select {
@@ -101,44 +98,36 @@ func containerLogStream(ctx context.Context, streamChan chan interface{}, namesp
 			log.Infof("Connection is closed, container log stream stopped")
 			return
 		default:
-			for scanner.Scan() {
-				line := scanner.Text()
-				log.Infof("line: %s", line)
-				newLine := strings.TrimSpace(strings.TrimSuffix(line, string('\n')))
-				streamChan <- newLine
+			line, err := buf.ReadString('\n')
+			if err == nil {
+				if strings.ContainsRune(line, '\r') {
+					segments := strings.Split(line, "\r")
+					for _, segment := range segments {
+						segment = segment + string('\r')
+						if len(segment) > 0 {
+							streamChan <- segment
+						}
+					}
+				} else {
+					line = strings.TrimSpace(line)
+					streamChan <- line
+				}
 			}
-
-			if scanner.Err() == io.EOF {
+			if err == io.EOF {
+				line = strings.TrimSpace(line)
+				if len(line) > 0 {
+					streamChan <- line
+				}
 				log.Infof("No more input is available, container log stream stopped")
 				return
-			} else if scanner.Err() != nil {
+			}
+
+			if err != nil {
 				log.Errorf("scan container log stream error: %v", err)
 				return
 			}
 		}
 	}
-}
-
-func CarriageReturnSplitter(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-	if i := bytes.IndexByte(data, '\n'); i >= 0 {
-		// The line ends with a newline character
-		return i + 1, data[0:i], nil
-	}
-	if i := bytes.IndexByte(data, '\r'); i >= 0 {
-		if len(data) > i+1 && data[i+1] == '\n' {
-			// The line ends with a carriage return and newline sequence
-			return i + 2, data[0:i], nil
-		}
-		// The line ends with a carriage return character
-		return i + 1, data[0:i], nil
-	}
-	if atEOF {
-		return len(data), data, nil
-	}
-	return 0, nil, nil
 }
 
 func parseServiceName(fullServiceName, serviceModule string) (string, string) {
