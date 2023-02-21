@@ -191,7 +191,7 @@ func compareGroupServicesRev(servicesTmpl [][]string, productInfo *commonmodels.
 	}
 
 	for _, service := range svcList {
-		log.Infof("debug8 %s-%s", service.ProductName, service.ServiceName)
+		log.Infof("%s debug8 %s-%s", productInfo.Namespace, service.ProductName, service.ServiceName)
 	}
 
 	for _, svcsTmpl := range servicesTmpl {
