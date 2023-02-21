@@ -103,6 +103,7 @@ func containerLogStream(ctx context.Context, streamChan chan interface{}, namesp
 		default:
 			for scanner.Scan() {
 				line := scanner.Text()
+				log.Infof("line: %s", line)
 				newLine := strings.TrimSpace(strings.TrimSuffix(line, string('\n')))
 				streamChan <- newLine
 			}
