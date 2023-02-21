@@ -240,11 +240,39 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
+
+	// service not installed, nothing to return
 	if curProductSvc == nil {
 		return "", 0, nil
 	}
 
-	return "", 0, nil
+	prodSvcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName:   option.ProductName,
+		ServiceName:   option.ServiceName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+		Revision:      curProductSvc.Revision,
+	}, productInfo.Production)
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
+	}
+
+	var usedRenderset *commonmodels.RenderSet
+	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: productInfo.ProductName,
+		EnvName:     productInfo.EnvName,
+		IsDefault:   false,
+		Revision:    productInfo.Render.Revision,
+	})
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
+	}
+
+	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, []string{"*"}, prodSvcTemplate.VariableYaml)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return fullRenderedYaml, 0, nil
 }
 
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)

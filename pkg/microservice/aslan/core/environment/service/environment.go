@@ -35,8 +35,6 @@ import (
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -66,7 +64,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -2250,7 +2247,6 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 
 	productName := env.ProductName
 	envName := env.EnvName
-	namespace := env.Namespace
 
 	// 获取服务模板
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
@@ -2274,307 +2270,54 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		resources = append(resources, u)
 	}
 
+	preResourceYaml := ""
 	// compatibility: prevSvc.Render could be null when prev update failed
 	if prevSvc != nil && preRenderInfo != nil {
-		err = removeOldResources(resources, env, prevSvc, preRenderInfo, kubeClient, log)
+		preResourceYaml, err = getOldSvcYaml(env, prevSvc, preRenderInfo, log)
 		if err != nil {
-			log.Errorf("Failed to remove old resources, error: %v", err)
-			errList = multierror.Append(errList, err)
-			return nil, errList
+			return nil, errors.Wrapf(err, "get old svc yaml failed")
 		}
 	}
 
-	labels := getPredefinedLabels(productName, service.ServiceName)
-	clusterLabels := getPredefinedClusterLabels(productName, service.ServiceName, envName)
-	var res []*unstructured.Unstructured
-
-	for _, u := range resources {
-		switch u.GetKind() {
-		case setting.Ingress:
-			ls := kube.MergeLabels(labels, u.GetLabels())
-
-			u.SetNamespace(namespace)
-			u.SetLabels(ls)
-
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-		case setting.Service:
-			u.SetNamespace(namespace)
-			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
-
-			if _, ok := u.GetLabels()["endpoints"]; !ok {
-				selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector")
-				err := unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector")
-				if err != nil {
-					// should not have happened
-					panic(err)
-				}
-			}
-
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-			if istioClient != nil {
-				err = EnsureUpdateZadigService(context.TODO(), env, u.GetName(), kubeClient, istioClient)
-				if err != nil {
-					log.Errorf("Failed to update Zadig service %s for env %s of product %s: %s", u.GetName(), env.EnvName, env.ProductName, err)
-					errList = multierror.Append(errList, err)
-					continue
-				}
-			}
-		case setting.Deployment, setting.StatefulSet:
-			// compatibility flag, We add a match label in spec.selector field pre 1.10.
-			needSelectorLabel := false
-
-			u.SetNamespace(namespace)
-			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
-
-			switch u.GetKind() {
-			case setting.Deployment:
-				needSelectorLabel = deploymentSelectorLabelExists(u.GetName(), namespace, informer, log)
-			case setting.StatefulSet:
-				needSelectorLabel = statefulsetSelectorLabelExists(u.GetName(), namespace, informer, log)
-			}
-
-			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
-			if err != nil {
-				podLabels = nil
-			}
-			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
-			if err != nil {
-				log.Errorf("merge label failed err:%s", err)
-				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
-			}
-
-			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
-			if err != nil {
-				podAnnotations = nil
-			}
-			err = unstructured.SetNestedStringMap(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
-			if err != nil {
-				log.Errorf("merge annotation failed err:%s", err)
-				u.Object = setFieldValueIsNotExist(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
-			}
-
-			if needSelectorLabel {
-				// Inject selector: s-product and s-service
-				selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
-				if err != nil {
-					selector = nil
-				}
-
-				err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
-				if err != nil {
-					log.Errorf("merge selector failed err:%s", err)
-					u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
-				}
-			}
-
-			jsonData, err := u.MarshalJSON()
-			if err != nil {
-				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-			obj, err := serializer.NewDecoder().JSONToRuntimeObject(jsonData)
-			if err != nil {
-				log.Errorf("Failed to convert JSON to Object, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-			switch res := obj.(type) {
-			case *appsv1.Deployment:
-				// Inject imagePullSecrets if qn-registry-secret is not set
-				applySystemImagePullSecrets(&res.Spec.Template.Spec)
-
-				err = updater.CreateOrPatchDeployment(res, kubeClient)
-				if err != nil {
-					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
-					errList = multierror.Append(errList, err)
-					continue
-				}
-			case *appsv1.StatefulSet:
-				// Inject imagePullSecrets if qn-registry-secret is not set
-				applySystemImagePullSecrets(&res.Spec.Template.Spec)
-
-				err = updater.CreateOrPatchStatefulSet(res, kubeClient)
-				if err != nil {
-					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
-					errList = multierror.Append(errList, err)
-					continue
-				}
-			default:
-				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
-				continue
-			}
-
-		case setting.Job:
-			jsonData, err := u.MarshalJSON()
-			if err != nil {
-				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-			obj, err := serializer.NewDecoder().JSONToJob(jsonData)
-			if err != nil {
-				log.Errorf("Failed to convert JSON to Job, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-			obj.Namespace = namespace
-			obj.ObjectMeta.Labels = kube.MergeLabels(labels, obj.ObjectMeta.Labels)
-			obj.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.Template.ObjectMeta.Labels)
-
-			// Inject imagePullSecrets if qn-registry-secret is not set
-			applySystemImagePullSecrets(&obj.Spec.Template.Spec)
-
-			if err := updater.DeleteJobAndWait(namespace, obj.Name, kubeClient); err != nil {
-				log.Errorf("Failed to delete Job, error: %v", err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-			if err := updater.CreateJob(obj, kubeClient); err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-		case setting.CronJob:
-			jsonData, err := u.MarshalJSON()
-			if err != nil {
-				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-			obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
-			if err != nil {
-				log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-			obj.Namespace = namespace
-			obj.ObjectMeta.Labels = kube.MergeLabels(labels, obj.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
-
-			// Inject imagePullSecrets if qn-registry-secret is not set
-			applySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
-
-			err = updater.CreateOrPatchCronJob(obj, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-		case setting.ClusterRole, setting.ClusterRoleBinding:
-			u.SetLabels(kube.MergeLabels(clusterLabels, u.GetLabels()))
-
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-		default:
-			u.SetNamespace(namespace)
-			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
-
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-		}
-
-		res = append(res, u)
+	resourceApplyParam := &commonservice.ResourceApplyParam{
+		ProductName:         productName,
+		ServiceName:         service.ServiceName,
+		EnvName:             envName,
+		CurrentResourceYaml: preResourceYaml,
+		UpdateResourceYaml:  parsedYaml,
+		Informer:            informer,
+		KubeClient:          kubeClient,
+		IstioClient:         istioClient,
+		InjectSecrets:       true,
+		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
-
-	return res, errList.ErrorOrNil()
+	return commonservice.CreateOrPatchResource(resourceApplyParam, log)
 }
 
-func removeOldResources(
-	items []*unstructured.Unstructured,
-	env *commonmodels.Product,
+func getOldSvcYaml(env *commonmodels.Product,
 	oldService *commonmodels.ProductService,
 	oldRenderInfo *commonmodels.RenderInfo,
-	kubeClient client.Client,
-	log *zap.SugaredLogger,
-) error {
+	log *zap.SugaredLogger) (string, error) {
+
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        oldRenderInfo.Name,
 		Revision:    oldRenderInfo.Revision,
 		EnvName:     env.EnvName,
 		ProductTmpl: env.ProductName,
+		IsDefault:   false,
 	}
 	oldRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		log.Errorf("find renderset[%s/%d] error: %v", opt.Name, opt.Revision, err)
-		return err
+		return "", err
 	}
 
 	parsedYaml, err := kube.RenderEnvService(env, oldRenderset, oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
-		return err
+		return "", err
 	}
-
-	itemsMap := make(map[string]*unstructured.Unstructured)
-	for _, u := range items {
-		itemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
-	}
-
-	manifests := releaseutil.SplitManifests(parsedYaml)
-	oldItemsMap := make(map[string]*unstructured.Unstructured)
-	for _, item := range manifests {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		if err != nil {
-			log.Errorf("Failed to covert from yaml to Unstructured, yaml is %s", item)
-			continue
-		}
-
-		oldItemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
-	}
-
-	for name, item := range oldItemsMap {
-		_, exists := itemsMap[name]
-		item.SetNamespace(env.Namespace)
-		if !exists {
-			if err = updater.DeleteUnstructured(item, kubeClient); err != nil {
-				log.Errorf(
-					"failed to remove old item %s/%s/%s from %s/%d: %v",
-					env.Namespace,
-					item.GetName(),
-					item.GetKind(),
-					oldService.ServiceName,
-					oldService.Revision, err)
-				continue
-			}
-			log.Infof(
-				"succeed to remove old item %s/%s/%s from %s/%d",
-				env.Namespace,
-				item.GetName(),
-				item.GetKind(),
-				oldService.ServiceName,
-				oldService.Revision)
-		}
-	}
-
-	return nil
+	return parsedYaml, nil
 }
 
 func waitResourceRunning(
@@ -2719,40 +2462,6 @@ func preCreateNSAndSecret(productFeature *templatemodels.ProductFeature) bool {
 		return true
 	}
 	return false
-}
-
-func getPredefinedLabels(product, service string) map[string]string {
-	ls := make(map[string]string)
-	ls["s-product"] = product
-	ls["s-service"] = service
-	return ls
-}
-
-func getPredefinedClusterLabels(product, service, envName string) map[string]string {
-	labels := getPredefinedLabels(product, service)
-	labels[setting.EnvNameLabel] = envName
-	return labels
-}
-
-func applyUpdatedAnnotations(annotations map[string]string) map[string]string {
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
-	annotations[setting.UpdatedByLabel] = fmt.Sprintf("%d", time.Now().Unix())
-	return annotations
-}
-
-func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
-	for _, secret := range podSpec.ImagePullSecrets {
-		if secret.Name == setting.DefaultImagePullSecret {
-			return
-		}
-	}
-	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets,
-		corev1.LocalObjectReference{
-			Name: setting.DefaultImagePullSecret,
-		})
 }
 
 func ensureKubeEnv(namespace, registryId string, customLabels map[string]string, enableShare bool, kubeClient client.Client, log *zap.SugaredLogger) error {
@@ -3391,55 +3100,4 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 		}
 	}
 	return errList.ErrorOrNil()
-}
-
-func setFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fields ...string) map[string]interface{} {
-	m := obj
-	for _, field := range fields[:len(fields)-1] {
-		if val, ok := m[field]; ok {
-			if valMap, ok := val.(map[string]interface{}); ok {
-				m = valMap
-			} else {
-				newVal := make(map[string]interface{})
-				m[field] = newVal
-				m = newVal
-			}
-		}
-	}
-	m[fields[len(fields)-1]] = value
-	return obj
-}
-
-func deploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
-	deployment, err := informer.Apps().V1().Deployments().Lister().Deployments(namespace).Get(resourceName)
-	// default we assume the deployment is new so we don't need to add selector labels
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			log.Errorf("Failed to find deployment in the namespace: %s, the error is: %s", namespace, err)
-		}
-		return false
-	}
-	// since the 2 predefined labels are always together, we just check for only one
-	// if the match label exists, we return true. otherwise we return false
-	if _, ok := deployment.Spec.Selector.MatchLabels["s-product"]; ok {
-		return true
-	}
-	return false
-}
-
-func statefulsetSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
-	sts, err := informer.Apps().V1().StatefulSets().Lister().StatefulSets(namespace).Get(resourceName)
-	// default we assume the deployment is new so we don't need to add selector labels
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			log.Errorf("Failed to find deployment in the namespace: %s, the error is: %s", namespace, err)
-		}
-		return false
-	}
-	// since the 2 predefined labels are always together, we just check for only one
-	// if the match label exists, we return true. otherwise we return false
-	if _, ok := sts.Spec.Selector.MatchLabels["s-product"]; ok {
-		return true
-	}
-	return false
 }
