@@ -527,6 +527,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 
 		log.Infof("------- finding render set for %s/%s/%d", productObj.ProductName, productObj.EnvName, prodSvc.Revision)
 		curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			Name:        productObj.Render.Name,
 			ProductTmpl: productObj.ProductName,
 			EnvName:     productObj.EnvName,
 			IsDefault:   false,
