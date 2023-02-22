@@ -732,6 +732,16 @@ func DeleteProduct(c *gin.Context) {
 	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, is_delete, ctx.Logger)
 }
 
+func DeleteProductionProduct(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "生产环境", envName, "", ctx.Logger, envName)
+	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
+}
+
 func DeleteProductServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -777,37 +787,46 @@ func ListGroups(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
-	serviceName := c.Query("serviceName")
-	perPageStr := c.Query("perPage")
-	pageStr := c.Query("page")
-	var (
-		count   int
-		perPage int
-		err     error
-		page    int
-	)
-	if perPageStr == "" {
-		perPage = setting.PerPage
-	} else {
-		perPage, err = strconv.Atoi(perPageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
-			return
-		}
+	var count int
+
+	envGroupRequest := new(service.EnvGroupRequest)
+	err := c.BindQuery(envGroupRequest)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
+		return
+	}
+	if envGroupRequest.PerPage == 0 {
+		envGroupRequest.PerPage = setting.PerPage
+	}
+	if envGroupRequest.Page == 0 {
+		envGroupRequest.Page = 1
 	}
 
-	if pageStr == "" {
-		page = 1
-	} else {
-		page, err = strconv.Atoi(pageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
-			return
-		}
+	ctx.Resp, count, ctx.Err = service.ListGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, false, ctx.Logger)
+	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
+}
+
+func ListProductionGroups(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	var count int
+
+	envGroupRequest := new(service.EnvGroupRequest)
+	err := c.BindQuery(envGroupRequest)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
+		return
+	}
+	if envGroupRequest.PerPage == 0 {
+		envGroupRequest.PerPage = setting.PerPage
+	}
+	if envGroupRequest.Page == 0 {
+		envGroupRequest.Page = 1
 	}
 
-	ctx.Resp, count, ctx.Err = service.ListGroups(serviceName, envName, projectName, perPage, page, ctx.Logger)
+	ctx.Resp, count, ctx.Err = service.ListProductionGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, ctx.Logger)
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 

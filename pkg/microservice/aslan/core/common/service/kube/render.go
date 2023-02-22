@@ -262,6 +262,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		EnvName:     productInfo.EnvName,
 		IsDefault:   false,
 		Revision:    productInfo.Render.Revision,
+		Name:        productInfo.Render.Name,
 	})
 	if err != nil {
 		return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
@@ -345,6 +346,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 			EnvName:     productInfo.EnvName,
 			IsDefault:   false,
 			Revision:    productInfo.Render.Revision,
+			Name:        productInfo.Render.Name,
 		})
 		if err != nil {
 			return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)

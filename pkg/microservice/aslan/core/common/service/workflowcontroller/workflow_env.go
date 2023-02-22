@@ -95,6 +95,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		EnvName:     deployInfo.EnvName,
 		IsDefault:   false,
 		Revision:    productInfo.Render.Revision,
+		Name:        productInfo.Render.Name,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to find renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)

@@ -42,7 +42,14 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func ListGroups(serviceName, envName, productName string, perPage, page int, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {
+type EnvGroupRequest struct {
+	ProjectName string `form:"projectName"`
+	Page        int    `form:"page"`
+	PerPage     int    `form:"perPage"`
+	ServiceName string `form:"serviceName"`
+}
+
+func ListGroups(serviceName, envName, productName string, perPage, page int, production bool, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {
 	var (
 		count           = 0
 		allServices     = make([]*commonmodels.ProductService, 0)
@@ -50,7 +57,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 		resp            = make([]*commonservice.ServiceResp, 0)
 	)
 
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)

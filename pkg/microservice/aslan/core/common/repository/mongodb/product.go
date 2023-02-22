@@ -35,9 +35,10 @@ import (
 )
 
 type ProductFindOptions struct {
-	Name      string
-	EnvName   string
-	Namespace string
+	Name       string
+	EnvName    string
+	Namespace  string
+	Production *bool
 }
 
 // ClusterId is a primitive.ObjectID{}.Hex()
@@ -144,6 +145,13 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	}
 	if opt.Namespace != "" {
 		query["namespace"] = opt.Namespace
+	}
+	if opt.Production != nil {
+		if *opt.Production {
+			query["production"] = true
+		} else {
+			query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		}
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(res)
