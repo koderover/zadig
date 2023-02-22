@@ -525,7 +525,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find service template: %s", svcOpt.ServiceName))
 		}
 
-		log.Infof("------- finding render set for %s/%s/%s", productObj.ProductName, productObj.EnvName, prodSvc.Revision)
+		log.Infof("------- finding render set for %s/%s/%d", productObj.ProductName, productObj.EnvName, prodSvc.Revision)
 		curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 			ProductTmpl: productObj.ProductName,
 			EnvName:     productObj.EnvName,
@@ -536,6 +536,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find renderset for %s/%s", productObj.ProductName, productObj.EnvName))
 		}
 
+		log.Infof("-------- staring render service yaml for %s/%s/%d", productObj.ProductName, productObj.EnvName, prodSvc.Revision)
 		currentYaml, err := kube.RenderServiceYaml(curServiceTmp.Yaml, args.ProductName, productObj.EnvName, curRenderset, []string{"*"}, curServiceTmp.VariableYaml)
 		if err != nil {
 			return nil, e.ErrPreviewYaml.AddErr(err)
