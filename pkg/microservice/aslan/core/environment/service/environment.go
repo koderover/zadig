@@ -86,8 +86,13 @@ func GetProductDeployType(projectName string) (string, error) {
 	return setting.K8SDeployType, nil
 }
 
-func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
+func ListProducts(projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:                projectName,
+		InEnvs:              envNames,
+		IsSortByProductName: true,
+		Production:          util.GetBoolPointer(production),
+	})
 	if err != nil {
 		log.Errorf("Failed to list envs, err: %s", err)
 		return nil, e.ErrListEnvs.AddDesc(err.Error())
