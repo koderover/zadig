@@ -136,7 +136,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	production := router.Group("production")
 	{
 		production.GET("/environmentsForUpdate", ListProductionEnvs)
+		production.GET("/environments", ListProductionEnvs)
+		production.DELETE("/environments/:name", ListProductionEnvs)
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
+
+		kube.GET("/pods/:podName/file", DownloadFileFromPod)
 	}
 
 	// ---------------------------------------------------------------------------------------
