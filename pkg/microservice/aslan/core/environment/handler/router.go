@@ -140,7 +140,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.DELETE("/environments/:name", ListProductionEnvs)
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
 
-		kube.GET("/pods/:podName/file", DownloadFileFromPod)
+		kube.GET("kube/pods/:podName/file", DownloadFileFromPod)
 	}
 
 	// ---------------------------------------------------------------------------------------
