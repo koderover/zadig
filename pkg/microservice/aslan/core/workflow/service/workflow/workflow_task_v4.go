@@ -437,7 +437,7 @@ FOR:
 	}
 	if task == nil {
 		logger.Error("set workflowTaskV4 breakpoint failed: not found job")
-		return e.ErrSetBreakpoint.AddDesc("Job不存在")
+		return e.ErrSetBreakpoint.AddDesc("当前任务不存在")
 	}
 	// job task has not run, update data in memory and ack
 	if task.Status == "" {
@@ -475,7 +475,7 @@ FOR:
 		case corev1.PodRunning:
 		default:
 			logger.Errorf("set workflowTaskV4 breakpoint failed: pod status is %s", pod.Status.Phase)
-			return e.ErrSetBreakpoint.AddDesc(fmt.Sprintf("Job 状态 %s 无法修改断点", pod.Status.Phase))
+			return e.ErrSetBreakpoint.AddDesc(fmt.Sprintf("当前任务状态 %s 无法修改断点", pod.Status.Phase))
 		}
 		exec := func(cmd string) bool {
 			opt := podexec.ExecOptions{
@@ -498,13 +498,13 @@ FOR:
 		case "before":
 			if exec("ls /zadig/debug/shell_step") {
 				logger.Error("set workflowTaskV4 before breakpoint failed: shell step has started")
-				return e.ErrSetBreakpoint.AddDesc("Job 已开始运行脚本，无法修改前断点")
+				return e.ErrSetBreakpoint.AddDesc("当前任务已开始运行脚本，无法修改前断点")
 			}
 			exec(fmt.Sprintf("%s /zadig/debug/breakpoint_%s", touchOrRemove(set), position))
 		case "after":
 			if exec("ls /zadig/debug/shell_step_done") {
 				logger.Error("set workflowTaskV4 after breakpoint failed: shell step has been done")
-				return e.ErrSetBreakpoint.AddDesc("Job 已运行完脚本，无法修改后断点")
+				return e.ErrSetBreakpoint.AddDesc("当前任务已运行完脚本，无法修改后断点")
 			}
 			exec(fmt.Sprintf("%s /zadig/debug/breakpoint_%s", touchOrRemove(set), position))
 		}
@@ -521,7 +521,7 @@ FOR:
 		return nil
 	}
 	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
-	return e.ErrSetBreakpoint.AddDesc("Job 状态无法修改断点")
+	return e.ErrSetBreakpoint.AddDesc("当前任务状态无法修改断点 ")
 }
 
 func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {

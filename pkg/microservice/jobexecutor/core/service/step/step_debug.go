@@ -42,7 +42,6 @@ func NewDebugStep(_type string, workspace string, envs, secretEnvs []string) (*D
 }
 
 func (s *DebugStep) Run(ctx context.Context) error {
-	log.Infof("%s debug step is running.", s.Type)
 	path := fmt.Sprintf("/zadig/debug/breakpoint_%s", s.Type)
 	_, err := os.Stat(path)
 	if err != nil {
@@ -64,7 +63,7 @@ func (s *DebugStep) Run(ctx context.Context) error {
 		}
 	}()
 
-	log.Infof("debug step %s is waiting for breakpoint file remove", s.Type)
+	log.Infof("Running debugger %s job, Use debugger console.", s.Type)
 	for _, err := os.Stat(path); err == nil; {
 		time.Sleep(time.Second)
 		_, err = os.Stat(path)
