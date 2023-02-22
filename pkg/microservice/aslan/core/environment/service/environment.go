@@ -246,6 +246,11 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 			continue
 		}
 
+		if exitedProd.Production {
+			errList = multierror.Append(errList, e.ErrUpdateEnv.AddDesc("production env can not be updated"))
+			continue
+		}
+
 		exitedProd.EnsureRenderInfo()
 		rendersetInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: exitedProd.Render.Name, Revision: exitedProd.Render.Revision, EnvName: arg.EnvName})
 		if err != nil {
@@ -491,72 +496,8 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					}
 				}()
 			}
-
-			//if svcRev.Updatable || commonutil.DeployStrategyChanged(svcRev.ServiceName, existedProd.ServiceDeployStrategy, deployStrategy) {
-			//	service := &commonmodels.ProductService{
-			//		ServiceName: svcRev.ServiceName,
-			//		ProductName: prodService.ProductName,
-			//		Type:        svcRev.Type,
-			//		Revision:    svcRev.NextRevision,
-			//	}
-			//	service.Containers = svcRev.Containers
-			//
-			//	if svcRev.Type == setting.K8SDeployType && util.InStringArray(service.ServiceName, updateRevisionSvcs) {
-			//		log.Infof("[Namespace:%s][Product:%s][Service:%s][IsNew:%v] upsert service",
-			//			envName, productName, svcRev.ServiceName, svcRev.New)
-			//		wg.Add(1)
-			//		go func() {
-			//			defer wg.Done()
-			//			if !commonutil.ServiceDeployed(svcRev.ServiceName, deployStrategy) {
-			//				return
-			//			}
-			//			_, errUpsertService := upsertService(
-			//				updateProd,
-			//				service,
-			//				existedServices[service.ServiceName],
-			//				renderSet, oldProductRender, inf, kubeClient, istioClient, log)
-			//			if errUpsertService != nil {
-			//				service.Error = errUpsertService.Error()
-			//			} else {
-			//				service.Error = ""
-			//			}
-			//		}()
-			//	}
-			//	groupServices = append(groupServices, service)
-			//} else {
-			//	prodService.Containers = svcRev.Containers
-			//	groupServices = append(groupServices, prodService)
-			//}
 		}
 		wg.Wait()
-
-		////merge new and old services
-		//var updateGroup []*commonmodels.ProductService
-		//newServiceMap := make(map[string]*commonmodels.ProductService)
-		//for _, service := range groupServices {
-		//	newServiceMap[service.ServiceName] = service
-		//}
-		//oldServiceMap := make(map[string]*commonmodels.ProductService)
-		//for _, existedGroupServices := range existedProd.Services {
-		//	for _, service := range existedGroupServices {
-		//		if util.InStringArray(service.ServiceName, deletedServices) {
-		//			continue
-		//		}
-		//		oldServiceMap[service.ServiceName] = service
-		//		if newService, ok := newServiceMap[service.ServiceName]; ok {
-		//			if util.InStringArray(service.ServiceName, updateRevisionSvcs) {
-		//				updateGroup = append(updateGroup, newService)
-		//			} else {
-		//				updateGroup = append(updateGroup, service)
-		//			}
-		//		}
-		//	}
-		//}
-		//for _, newService := range groupServices {
-		//	if _, ok := oldServiceMap[newService.ServiceName]; !ok && !util.InStringArray(newService.ServiceName, deletedServices) && util.InStringArray(newService.ServiceName, updateRevisionSvcs) {
-		//		updateGroup = append(updateGroup, newService)
-		//	}
-		//}
 
 		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupSvcs)
 		if err != nil {
@@ -1850,6 +1791,9 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 		log.Errorf("find product error: %v", err)
 		return err
 	}
+	if productInfo.Production {
+		return fmt.Errorf("can not delete services from production environemnts")
+	}
 	if getProjectType(productName) == setting.HelmDeployType {
 		return deleteHelmProductServices(userName, requestID, productInfo, serviceNames, log)
 	}
@@ -2225,6 +2169,10 @@ func getProjectType(productName string) string {
 func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
+	if env.Production {
+		log.Errorf("services in production environments can't be upserted")
+		return nil, nil
+	}
 	isUpdate := prevSvc == nil
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {

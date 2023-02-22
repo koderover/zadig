@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	sysyaml "gopkg.in/yaml.v3"
@@ -137,6 +139,9 @@ func clipVariableYaml(variableYaml string, validKeys []string) string {
 	if len(validKeys) == 0 {
 		return ""
 	}
+	if len(validKeys) == 1 && validKeys[0] == "*" {
+		return variableYaml
+	}
 	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
 	if err != nil {
 		log.Errorf("failed to clip variable yaml, err: %s", err)
@@ -155,6 +160,64 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 		return variableYaml
 	}
 	return clipVariableYaml(string(mergedYaml), serviceTemplate.ServiceVars)
+}
+
+func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, error) {
+	var productInfo *models.Product
+	var err error
+	productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(true),
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to find envrionment : %s/%s, error: %s ", productName, envName))
+	}
+
+	prodSvc := productInfo.GetServiceMap()[serviceName]
+	if prodSvc == nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to find service : %s/%s/%s", productName, envName, serviceName))
+	}
+
+	prodTemplateSvc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: productName,
+		ServiceName: serviceName,
+		Revision:    prodSvc.Revision,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Errorf("failed to find production service : %s/%s/%s", productName, envName, serviceName).Error())
+	}
+
+	svcRender := &templatemodels.ServiceRender{}
+	// svc render in renderchart
+	opt := &commonrepo.RenderSetFindOption{
+		ProductTmpl: productName,
+		EnvName:     envName,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+	}
+	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
+	}
+	if !existed {
+		return nil, fmt.Errorf("render set not found : %s/%s", productName, envName)
+	}
+	for _, sRender := range rendersetObj.ServiceVariables {
+		svcRender = sRender
+		break
+	}
+
+	ret := make([]*K8sSvcRenderArg, 0)
+	rArg := &K8sSvcRenderArg{
+		ServiceName: svcRender.ServiceName,
+	}
+	if svcRender.OverrideYaml != nil {
+		prodTemplateSvc.ServiceVars = setting.ServiceVarWildCard
+		rArg.VariableYaml = latestVariableYaml(svcRender.OverrideYaml.YamlContent, prodTemplateSvc)
+	}
+	ret = append(ret, rArg)
+	return ret, nil
 }
 
 func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
@@ -261,8 +324,9 @@ func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.Sugared
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(false),
 	})
 
 	if err != nil && err != mongo.ErrNoDocuments {

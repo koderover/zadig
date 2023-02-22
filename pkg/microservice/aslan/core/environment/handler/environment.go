@@ -270,14 +270,6 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	//force, _ := strconv.ParseBool(c.Query("force")
-	//serviceNames := sets.String{}
-	//for _, kv := range args.Vars {
-	//	for _, s := range kv.Services {
-	//		serviceNames.Insert(s)
-	//	}
-	//}
-
 	ctx.Err = service.UpdateCVMProduct(envName, projectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)

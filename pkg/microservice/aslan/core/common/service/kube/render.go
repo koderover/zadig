@@ -268,10 +268,15 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
 	}
 
-	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, []string{"*"}, prodSvcTemplate.VariableYaml)
+	if productInfo.Production {
+		prodSvcTemplate.ServiceVars = setting.ServiceVarWildCard
+	}
+
+	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, prodSvcTemplate.ServiceVars, prodSvcTemplate.VariableYaml)
 	if err != nil {
 		return "", 0, err
 	}
+	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 
 	return fullRenderedYaml, 0, nil
 }
@@ -366,10 +371,16 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		}
 	}
 
-	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, []string{"*"}, latestSvcTemplate.VariableYaml)
+	if productInfo.Production {
+		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
+	}
+
+	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, latestSvcTemplate.ServiceVars, latestSvcTemplate.VariableYaml)
 	if err != nil {
 		return "", 0, err
 	}
+	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+
 	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergeContainers(curContainers, latestSvcTemplate.Containers))
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), err
 }
@@ -432,13 +443,16 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		Type:        service.Type,
 		Revision:    service.Revision,
 	}
-	svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
+	svcTmpl, err := repository.QueryTemplateService(opt, prod.Production)
 	if err != nil {
 		return "", err
 	}
 
-	// Note only the keys in TemplateService.ServiceVar can work
+	if prod.Production {
+		svcTmpl.ServiceVars = setting.ServiceVarWildCard
+	}
 
+	// Note only the keys in TemplateService.ServiceVar can work
 	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
 	if err != nil {
 		log.Error("failed to render service yaml, err: %s", err)

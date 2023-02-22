@@ -273,7 +273,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 }
 
 func GetService(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(false)}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
@@ -355,36 +355,20 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 		}
 	default:
-		var service *commonmodels.ProductService
-		for _, svcArray := range env.Services {
-			for _, svc := range svcArray {
-				if svc.ServiceName != serviceName {
-					continue
-				} else {
-					service = svc
-					break
-				}
-			}
-		}
-
+		service := env.GetServiceMap()[serviceName]
 		if service == nil {
-			return nil, e.ErrGetService.AddDesc("没有找到服务: " + serviceName)
+			return nil, e.ErrGetService.AddDesc("failed to find service: %s in environment: %s")
 		}
 
-		// 获取服务模板
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName: service.ServiceName,
 			ProductName: service.ProductName,
 			Type:        service.Type,
 			Revision:    service.Revision,
-			//ExcludeStatus: setting.ProductStatusDeleting,
 		}
-
-		svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
+		svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
 		if err != nil {
-			return nil, e.ErrGetService.AddDesc(
-				fmt.Sprintf("服务模板未找到 %s:%d", service.ServiceName, service.Revision),
-			)
+			return nil, errors.Wrapf(err, "failed to find service template: %s:%d", service.ServiceName, service.Revision)
 		}
 
 		env.EnsureRenderInfo()
@@ -400,6 +384,9 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
 		}
 
+		if env.Production {
+			svcTmpl.ServiceVars = setting.ServiceVarWildCard
+		}
 		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
@@ -538,10 +525,14 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find renderset for %s/%s", productObj.ProductName, productObj.EnvName))
 		}
 
-		currentYaml, err := kube.RenderServiceYaml(curServiceTmp.Yaml, args.ProductName, productObj.EnvName, curRenderset, []string{"*"}, curServiceTmp.VariableYaml)
+		if productObj.Production {
+			curServiceTmp.ServiceVars = setting.ServiceVarWildCard
+		}
+		currentYaml, err := kube.RenderServiceYaml(curServiceTmp.Yaml, args.ProductName, productObj.EnvName, curRenderset, curServiceTmp.ServiceVars, curServiceTmp.VariableYaml)
 		if err != nil {
 			return nil, e.ErrPreviewYaml.AddErr(err)
 		}
+		currentYaml = kube.ParseSysKeys(productObj.Namespace, productObj.EnvName, productObj.ProductName, curServiceTmp.ServiceName, currentYaml)
 
 		currentYaml, err = kube.ReplaceWorkloadImages(currentYaml, prodSvc.Containers)
 		if err != nil {
@@ -574,10 +565,14 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		return nil, e.ErrPreviewYaml.AddDesc(fmt.Sprintf("failed to find available service %s for product %s/%s", args.ServiceName, args.ProductName, args.EnvName))
 	}
 
-	latestYaml, err := kube.RenderServiceYaml(latestServiceTmp.Yaml, args.ProductName, productObj.EnvName, fakeRenderset, []string{"*"}, latestServiceTmp.VariableYaml)
+	if productObj.Production {
+		latestServiceTmp.ServiceVars = setting.ServiceVarWildCard
+	}
+	latestYaml, err := kube.RenderServiceYaml(latestServiceTmp.Yaml, args.ProductName, productObj.EnvName, fakeRenderset, latestServiceTmp.ServiceVars, latestServiceTmp.VariableYaml)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
+	latestYaml = kube.ParseSysKeys(productObj.Namespace, productObj.EnvName, productObj.ProductName, latestServiceTmp.ServiceName, latestYaml)
 
 	// replace images
 	latestYaml, err = kube.ReplaceWorkloadImages(latestYaml, args.ServiceModules)

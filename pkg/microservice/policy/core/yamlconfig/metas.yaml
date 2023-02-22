@@ -817,6 +817,8 @@ metas:
         rules:
           - method: GET
             endpoint: "/api/aslan/environment/production/environments"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/groups"
       - action: create_production_environment
         alias: 新建
         description: ""
@@ -829,6 +831,8 @@ metas:
         rules:
           - method: GET
             endpoint: "/api/aslan/environment/production/environmentsForUpdate"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
       - action: delete_production_environment
         alias: 删除
         description: ""

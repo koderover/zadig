@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,7 +38,7 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 	var yamls [][]byte
 	res := make([]string, 0)
 
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName, Production: util.GetBoolPointer(false)})
 	if err != nil {
 		log.Errorf("failed to find env [%s][%s] %v", envName, productName, err)
 		return res
