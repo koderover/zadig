@@ -49,15 +49,15 @@ func ListProductionGroups(serviceName, envName, productName string, perPage, pag
 }
 
 func GetServiceInProductionEnv(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(false)}
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(true)}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find env %s/%s", productName, envName))
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to create kubernetes client for cluster id: %s", env.ClusterID))
 	}
 
 	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
