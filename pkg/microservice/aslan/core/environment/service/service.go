@@ -279,7 +279,12 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	return GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	ret.Workloads = nil
+	return ret, nil
 }
 
 func toDeploymentWorkload(v *appsv1.Deployment) *commonservice.Workload {
