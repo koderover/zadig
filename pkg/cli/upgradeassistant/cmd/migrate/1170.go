@@ -19,14 +19,18 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	policymongo "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -45,6 +49,10 @@ func V1160ToV1170() error {
 	}
 	if err := migrateJiraInfo(); err != nil {
 		log.Errorf("migrateJiraInfo err: %v", err)
+		return err
+	}
+	if err := migrateSharedService(); err != nil {
+		log.Errorf("migrateSharedService err: %v", err)
 		return err
 	}
 	return nil
@@ -137,4 +145,130 @@ func migrateJiraInfo() error {
 		JiraUser:  info.User,
 		JiraToken: info.AccessToken,
 	})
+}
+
+func migrateSharedService() error {
+	type ServiceInfo struct {
+		ServiceName string
+		ProductName string
+		Deleted     bool
+	}
+
+	sharedServiceListInEnvMap := map[string]map[string]*ServiceInfo{}
+	sharedServiceInfoList := map[string]*ServiceInfo{}
+
+	productTemplates, err := template.NewProductColl().ListWithOption(
+		&template.ProductListOpt{},
+	)
+	if err != nil {
+		return errors.Wrap(err, "list product templates")
+	}
+	for _, productTemplate := range productTemplates {
+		for _, sharedService := range productTemplate.SharedServices {
+			if _, ok := sharedServiceListInEnvMap[productTemplate.ProductName]; !ok {
+				sharedServiceListInEnvMap[productTemplate.ProductName] = make(map[string]*ServiceInfo)
+			}
+			s := &ServiceInfo{
+				ServiceName: sharedService.Name,
+				ProductName: sharedService.Owner,
+			}
+			sharedServiceListInEnvMap[productTemplate.ProductName][sharedService.Name] = s
+			sharedServiceInfoList[s.ProductName+"-"+s.ServiceName] = s
+		}
+	}
+
+	allProductEnvs, err := mongodb.NewProductColl().List(nil)
+	if err != nil {
+		return errors.Wrap(err, "list products")
+	}
+	for _, project := range allProductEnvs {
+		needUpdate := false
+		for _, services := range project.Services {
+			for _, service := range services {
+				if service.ProductName != project.ProductName {
+					if _, ok := sharedServiceListInEnvMap[project.ProductName]; !ok {
+						sharedServiceListInEnvMap[project.ProductName] = make(map[string]*ServiceInfo)
+					}
+					if _, ok := sharedServiceListInEnvMap[project.ProductName][service.ServiceName]; ok {
+						service.ProductName = project.ProductName
+						needUpdate = true
+						continue
+					}
+					s := &ServiceInfo{
+						ServiceName: service.ServiceName,
+						ProductName: service.ProductName,
+						Deleted:     true,
+					}
+					sharedServiceListInEnvMap[project.ProductName][service.ServiceName] = s
+					sharedServiceInfoList[service.ProductName+"-"+service.ServiceName] = s
+					log.Debugf("migrateSharedService: find service %s-%s only in product env %s", service.ProductName, service.ServiceName, project.Namespace)
+				}
+			}
+		}
+		if needUpdate {
+			err := mongodb.NewProductColl().Update(project)
+			if err != nil {
+				return errors.Wrap(err, "update shared service in product env")
+			}
+			log.Infof("migrateSharedService: update shared service in product %s success", project.Namespace)
+		}
+	}
+
+	if len(sharedServiceListInEnvMap) == 0 {
+		log.Infof("migrateSharedService: not found shared service in any env")
+		_, err = mongodb.NewServiceColl().UpdateMany(context.Background(),
+			bson.M{}, bson.M{"visibility": "private"}, options.Update().SetUpsert(false))
+		if err != nil {
+			return errors.Wrap(err, "update service visibility")
+		}
+		return nil
+	}
+
+	sharedServiceAllRevisionData := map[string][]*commonmodels.Service{}
+	for key, service := range sharedServiceInfoList {
+		result, err := mongodb.NewServiceColl().ListServiceAllRevisionsAndStatus(service.ServiceName, service.ProductName)
+		if err != nil {
+			log.Warnf("not found shared service %s-%s", service.ProductName, service.ServiceName)
+			continue
+		}
+		sharedServiceAllRevisionData[key] = result
+	}
+	for projectName, serviceList := range sharedServiceListInEnvMap {
+		for _, service := range serviceList {
+			if sharedServiceAllRevision, ok := sharedServiceAllRevisionData[service.ProductName+"-"+service.ServiceName]; ok {
+				var updateList []interface{}
+				for _, sharedService := range sharedServiceAllRevision {
+					sharedService.ProductName = projectName
+					sharedService.CreateBy = setting.SystemUser
+					sharedService.CreateTime = time.Now().Unix()
+					if service.Deleted {
+						sharedService.Status = setting.ProductStatusDeleting
+					}
+					updateList = append(updateList, sharedService)
+				}
+				_, err = mongodb.NewServiceColl().InsertMany(context.Background(), updateList)
+				if err != nil {
+					return errors.Wrapf(err, "insert service %s-%s data to %s", service.ProductName, service.ServiceName, projectName)
+				}
+				log.Infof("migrateSharedService: copy service %s-%s data to %s", service.ProductName, service.ServiceName, projectName)
+			} else {
+				log.Warnf("migrateSharedService: not found shared service %s-%s revision data", service.ProductName, service.ServiceName)
+			}
+		}
+	}
+	_, err = mongodb.NewServiceColl().UpdateMany(context.Background(),
+		bson.M{}, bson.M{"$set": bson.M{"visibility": "private"}}, options.Update().SetUpsert(false))
+	if err != nil {
+		return errors.Wrap(err, "update service visibility")
+	}
+	log.Infof("update all service template visibility")
+
+	_, err = template.NewProductColl().UpdateMany(context.Background(),
+		bson.M{}, bson.M{"$set": bson.M{"shared_services": nil}}, options.Update().SetUpsert(false))
+	if err != nil {
+		return errors.Wrap(err, "remove product template shared service")
+	}
+	log.Infof("clean all product template shared service")
+
+	return nil
 }
