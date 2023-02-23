@@ -119,29 +119,34 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.apiReader = apiReader
 	}
 
+	repoList := make([]*task.Repository, 0)
+
 	// Since only one repository is supported per scanning, we just hard code it
-	repo := &task.Repository{
-		Source:             p.Task.Repos[0].Source,
-		RepoOwner:          p.Task.Repos[0].RepoNamespace,
-		RepoName:           p.Task.Repos[0].RepoName,
-		Branch:             p.Task.Repos[0].Branch,
-		PR:                 p.Task.Repos[0].PR,
-		PRs:                p.Task.Repos[0].PRs,
-		Tag:                p.Task.Repos[0].Tag,
-		OauthToken:         p.Task.Repos[0].OauthToken,
-		Address:            p.Task.Repos[0].Address,
-		Username:           p.Task.Repos[0].Username,
-		Password:           p.Task.Repos[0].Password,
-		EnableProxy:        p.Task.Repos[0].EnableProxy,
-		RemoteName:         p.Task.Repos[0].RemoteName,
-		SubModules:         p.Task.Repos[0].SubModules,
-		CheckoutPath:       p.Task.Repos[0].CheckoutPath,
-		AuthType:           p.Task.Repos[0].AuthType,
-		SSHKey:             p.Task.Repos[0].SSHKey,
-		PrivateAccessToken: p.Task.Repos[0].PrivateAccessToken,
-	}
-	if repo.RemoteName == "" {
-		repo.RemoteName = "origin"
+	for _, taskRepo := range p.Task.Repos {
+		repo := &task.Repository{
+			Source:             taskRepo.Source,
+			RepoOwner:          taskRepo.RepoNamespace,
+			RepoName:           taskRepo.RepoName,
+			Branch:             taskRepo.Branch,
+			PR:                 taskRepo.PR,
+			PRs:                taskRepo.PRs,
+			Tag:                taskRepo.Tag,
+			OauthToken:         taskRepo.OauthToken,
+			Address:            taskRepo.Address,
+			Username:           taskRepo.Username,
+			Password:           taskRepo.Password,
+			EnableProxy:        taskRepo.EnableProxy,
+			RemoteName:         taskRepo.RemoteName,
+			SubModules:         taskRepo.SubModules,
+			CheckoutPath:       taskRepo.CheckoutPath,
+			AuthType:           taskRepo.AuthType,
+			SSHKey:             taskRepo.SSHKey,
+			PrivateAccessToken: taskRepo.PrivateAccessToken,
+		}
+		if repo.RemoteName == "" {
+			repo.RemoteName = "origin"
+		}
+		repoList = append(repoList, repo)
 	}
 
 	jobCtx := JobCtxBuilder{
@@ -149,7 +154,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		PipelineCtx: pipelineCtx,
 		Installs:    p.Task.InstallCtx,
 		JobCtx: task.JobCtx{
-			Builds: []*task.Repository{repo},
+			Builds: repoList,
 		},
 	}
 
