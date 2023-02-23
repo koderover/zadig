@@ -33,6 +33,10 @@ func DeleteFavorite(args *mongodb.FavoriteArgs) error {
 	return mongodb.NewFavoriteColl().Delete(args)
 }
 
+func DeleteManyFavorites(args *mongodb.FavoriteArgs) error {
+	return mongodb.NewFavoriteColl().DeleteManyByArgs(args)
+}
+
 func ListFavorites(args *mongodb.FavoriteArgs) ([]*models.Favorite, error) {
 	return mongodb.NewFavoriteColl().List(args)
 }

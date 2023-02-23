@@ -45,13 +45,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	mongotemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -1710,6 +1709,15 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return err
+	}
+
+	err = commonservice.DeleteManyFavorites(&mongodb.FavoriteArgs{
+		ProductName: productName,
+		Name:        envName,
+		Type:        commonservice.FavoriteTypeEnv,
+	})
+	if err != nil {
+		log.Errorf("DeleteManyFavorites product-%s env-%s error: %v", productName, envName, err)
 	}
 
 	// delete informer's cache
