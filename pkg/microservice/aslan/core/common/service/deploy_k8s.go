@@ -178,7 +178,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		Name:    applyParam.ProductName,
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find product %s", applyParam.ProductName)
+		return nil, errors.Wrapf(err, "CreateOrPatchResource failed to find product %s/%s", applyParam.ProductName, applyParam.EnvName)
 	}
 
 	namespace, productName, envName := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName
