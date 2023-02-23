@@ -43,7 +43,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -170,27 +169,11 @@ func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLo
 	return buildServiceInfoInEnv(env, latestSvcs, log)
 }
 
-func GeneKVFromYaml(yamlContent string) ([]*models.VariableKV, error) {
-	flatMap, err := converter.YamlToFlatMap([]byte(yamlContent))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert yaml to flat map")
-	} else {
-		kvs := make([]*models.VariableKV, 0)
-		for k, v := range flatMap {
-			kvs = append(kvs, &models.VariableKV{
-				Key:   k,
-				Value: v,
-			})
-		}
-		return kvs, nil
-	}
-}
-
 func GetOverrideYamlAndKV(rc *template.ServiceRender) (string, []*models.VariableKV, error) {
 	if rc.OverrideYaml == nil || rc.OverrideYaml.YamlContent == "" {
 		return "", nil, nil
 	}
-	kvs, err := GeneKVFromYaml(rc.OverrideYaml.YamlContent)
+	kvs, err := kube.GeneKVFromYaml(rc.OverrideYaml.YamlContent)
 	return rc.OverrideYaml.YamlContent, kvs, err
 }
 
@@ -265,7 +248,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			Deployed:       false,
 		}
 		svc.VariableYaml = templateSvc.VariableYaml
-		svc.VariableKVs, _ = GeneKVFromYaml(templateSvc.VariableYaml)
+		svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.VariableYaml)
 		ret.Services = append(ret.Services, svc)
 	}
 

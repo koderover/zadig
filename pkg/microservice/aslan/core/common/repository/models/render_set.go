@@ -62,3 +62,11 @@ func (m *RenderSet) HelmRenderDiff(target *RenderSet) bool {
 func (m *RenderSet) K8sServiceRenderDiff(target *RenderSet) bool {
 	return !m.Diff(target) || !reflect.DeepEqual(m.ServiceVariables, target.ServiceVariables)
 }
+
+func (m *RenderSet) GetServiceRenderMap() map[string]*templatemodels.ServiceRender {
+	serviceRenderMap := make(map[string]*templatemodels.ServiceRender)
+	for _, render := range m.ServiceVariables {
+		serviceRenderMap[render.ServiceName] = render
+	}
+	return serviceRenderMap
+}
