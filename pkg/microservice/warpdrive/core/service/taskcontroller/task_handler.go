@@ -279,7 +279,7 @@ func (h *ExecHandler) SendNotification() {
 		xl.Errorf("marshal Notify error: %v", err)
 		return
 	}
-	
+
 	if err := h.Sender.Publish(setting.TopicNotification, nb); err != nil {
 		xl.Errorf("publish [%s] error: %v", setting.TopicNotification, err)
 		return
@@ -331,7 +331,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 			if deployTask.ServiceType != setting.HelmDeployType {
 				continue
 			}
-			workerConcurrency = 1
+			//workerConcurrency = 1
 			pluginInstance := plugins.InitializeHelmDeployTaskPlugin(config.TaskDeploy)
 			pluginInstance.Task = deployTask
 			if _, ok := pluginsByService[deployTask.ServiceName]; !ok {
