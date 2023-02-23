@@ -105,6 +105,7 @@ type SvcResp struct {
 	EnvName     string                       `json:"env_name"`
 	ProductName string                       `json:"product_name"`
 	GroupName   string                       `json:"group_name"`
+	Workloads   []*commonservice.Workload    `json:"-"`
 }
 
 func (pr *ProductRevision) GroupsUpdated() bool {

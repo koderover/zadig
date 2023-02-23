@@ -282,6 +282,30 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 	return GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
 }
 
+func toDeploymentWorkload(v *appsv1.Deployment) *commonservice.Workload {
+	workload := &commonservice.Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Type:       setting.Deployment,
+		Images:     wrapper.Deployment(v).ImageInfos(),
+		Ready:      wrapper.Deployment(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
+}
+
+func toStsWorkload(v *appsv1.StatefulSet) *commonservice.Workload {
+	workload := &commonservice.Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Type:       setting.StatefulSet,
+		Images:     wrapper.StatefulSet(v).ImageInfos(),
+		Ready:      wrapper.StatefulSet(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
+}
+
 func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
 	envName, productName := env.EnvName, env.ProductName
 	ret = &SvcResp{
@@ -313,6 +337,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			}
 			scale := getStatefulSetWorkloadResource(statefulSet, inf, log)
 			ret.Scales = append(ret.Scales, scale)
+			ret.Workloads = append(ret.Workloads, toStsWorkload(statefulSet))
 			podLabels := labels.Set(statefulSet.Spec.Template.GetLabels())
 			for _, svc := range k8sServices {
 				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
@@ -326,6 +351,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
 			scale := getDeploymentWorkloadResource(deploy, inf, log)
+			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deploy))
 			ret.Scales = append(ret.Scales, scale)
 			podLabels := labels.Set(deploy.Spec.Template.GetLabels())
 			for _, svc := range k8sServices {
@@ -395,7 +421,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				}
 
 				ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(d, inf, log))
-
+				ret.Workloads = append(ret.Workloads, toDeploymentWorkload(d))
 			case setting.StatefulSet:
 				sts, err := getter.GetStatefulSetByNameWWithCache(u.GetName(), namespace, inf)
 				if err != nil {
@@ -404,7 +430,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				}
 
 				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, inf, log))
-
+				ret.Workloads = append(ret.Workloads, toStsWorkload(sts))
 			case setting.Ingress:
 
 				version, err := clientset.Discovery().ServerVersion()
@@ -715,31 +741,29 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	return nil
 }
 
-func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
-	productName := productInfo.ProductName
-	ls := labels.Set{}
-	if productName != "" {
-		ls[setting.ProductLabel] = productName
+func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *ZadigServiceStatusResp {
+	resp := &ZadigServiceStatusResp{
+		ServiceName: serviceName,
+		PodStatus:   setting.PodError,
+		Ready:       setting.PodNotReady,
+		Ingress:     nil,
+		Images:      nil,
 	}
-	if serviceName != "" {
-		ls[setting.ServiceLabel] = serviceName
-	}
-
 	svcResp, err := GetServiceImpl(serviceName, "", productInfo, kubeClient, clientset, informer, log)
 	if err != nil {
-		return setting.PodError, setting.PodNotReady, nil
+		return resp
 	}
+	resp.Ingress = svcResp.Ingress
+	resp.Workloads = svcResp.Workloads
 
 	pods := make([]*resource.Pod, 0)
 	for _, svc := range svcResp.Scales {
 		pods = append(pods, svc.Pods...)
 	}
 
-	log.Infof("############ find pods count: %v", len(pods))
-	log.Infof("############ find ingress count: %v", len(svcResp.Ingress))
-
 	if len(pods) == 0 {
-		return setting.PodNonStarted, setting.PodNotReady, nil
+		resp.PodStatus, resp.Ready = setting.PodNonStarted, setting.PodNotReady
+		return resp
 	}
 
 	imageSet := sets.String{}
@@ -748,7 +772,7 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 			imageSet.Insert(container.Image)
 		}
 	}
-	images := imageSet.List()
+	resp.Images = imageSet.List()
 
 	ready := setting.PodReady
 
@@ -759,15 +783,18 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 			continue
 		}
 		if !pod.Ready {
-			return setting.PodUnstable, setting.PodNotReady, images
+			resp.PodStatus, resp.Ready = setting.PodUnstable, setting.PodNotReady
+			return resp
 		}
 	}
 
 	if len(pods) == succeededPods {
-		return string(corev1.PodSucceeded), setting.JobReady, images
+		resp.PodStatus, resp.Ready = string(corev1.PodSucceeded), setting.JobReady
+		return resp
 	}
 
-	return setting.PodRunning, ready, images
+	resp.PodStatus, resp.Ready = setting.PodRunning, ready
+	return resp
 }
 
 // validateServiceContainer validate container with envName like dev
