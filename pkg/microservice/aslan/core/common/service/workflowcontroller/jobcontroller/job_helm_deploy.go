@@ -18,7 +18,6 @@ package jobcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -532,10 +531,6 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 		// image url assigned into repo + image(tag)
 		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
 		ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
-
-		fmt.Println("qqqqwwww")
-		b, _ := json.MarshalIndent(ret, "", "	")
-		fmt.Printf("%s", string(b))
 		return ret, nil
 	}
 
