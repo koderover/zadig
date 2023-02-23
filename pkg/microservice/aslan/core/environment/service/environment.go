@@ -48,6 +48,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	mongotemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -86,7 +87,7 @@ func GetProductDeployType(projectName string) (string, error) {
 	return setting.K8SDeployType, nil
 }
 
-func ListProducts(projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
+func ListProducts(userID, projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:                projectName,
 		InEnvs:              envNames,
@@ -122,6 +123,23 @@ func ListProducts(projectName string, envNames []string, production bool, log *z
 		return ""
 	}
 
+	list, err := commonservice.ListFavorites(&mongodb.FavoriteArgs{
+		UserID:      userID,
+		ProductName: projectName,
+		Type:        commonservice.FavoriteTypeEnv,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "list favorite environments")
+	}
+	// add personal favorite data in response
+	favSet := sets.NewString(func() []string {
+		var nameList []string
+		for _, fav := range list {
+			nameList = append(nameList, fav.Name)
+		}
+		return nameList
+	}()...)
+
 	envCMMap, err := collaboration.GetEnvCMMap([]string{projectName}, log)
 	if err != nil {
 		return nil, err
@@ -156,6 +174,7 @@ func ListProducts(projectName string, envNames []string, production bool, log *z
 			ShareEnvEnable:  env.ShareEnv.Enable,
 			ShareEnvIsBase:  env.ShareEnv.IsBase,
 			ShareEnvBaseEnv: env.ShareEnv.BaseEnv,
+			IsFavorite:      favSet.Has(env.EnvName),
 		})
 	}
 
@@ -1584,6 +1603,15 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return err
+	}
+
+	err = commonservice.DeleteManyFavorites(&mongodb.FavoriteArgs{
+		ProductName: productName,
+		Name:        envName,
+		Type:        commonservice.FavoriteTypeEnv,
+	})
+	if err != nil {
+		log.Errorf("DeleteManyFavorites product-%s env-%s error: %v", productName, envName, err)
 	}
 
 	// delete informer's cache

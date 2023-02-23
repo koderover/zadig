@@ -68,7 +68,7 @@ type GetWorkflowResp struct {
 type NodesConnections struct {
 	WorkflowNodes  []*WorkflowNode  `json:"workflow_nodes"`
 	Connections    []*Connection    `json:"connections"`
-	StateflowNodes []*StateFlowNode `json:"stateflow_nodes"`
+	StateflowNodes []*StateFlowNode `json:"state_flow_nodes"`
 }
 
 type WorkflowNode struct {
@@ -177,7 +177,7 @@ func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int)
 	return nil, errors.New("no work item found")
 }
 
-func (c *Client) GetWorkFlowInfo(projectKey, workItemTypeKey string, workItemID int) ([]*Connection, error) {
+func (c *Client) GetWorkFlowInfo(projectKey, workItemTypeKey string, workItemID int) ([]*Connection, []*StateFlowNode, error) {
 	getWorkflowInfoAPI := fmt.Sprintf("%s/open_api/%s/work_item/%s/%d/workflow/query", c.Host, projectKey, workItemTypeKey, workItemID)
 
 	result := new(GetWorkflowResp)
@@ -195,16 +195,16 @@ func (c *Client) GetWorkFlowInfo(projectKey, workItemTypeKey string, workItemID 
 
 	if err != nil {
 		log.Errorf("error occurred when getting meego workflow status list, error: %s", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	if result.ErrorCode != 0 {
 		errMsg := fmt.Sprintf("error response when getting meego workflow status list, error code: %d, error message: %s, error: %+v", result.ErrorCode, result.ErrorMessage, result.Error)
 		log.Error(errMsg)
-		return nil, errors.New(errMsg)
+		return nil, nil, errors.New(errMsg)
 	}
 
-	return result.Data.Connections, nil
+	return result.Data.Connections, result.Data.StateflowNodes, nil
 }
 
 type StatusTransitionReq struct {

@@ -39,8 +39,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func ListProductionEnvs(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
-	return ListProducts(projectName, envNames, true, log)
+func ListProductionEnvs(userId string, projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
+	return ListProducts(userId, projectName, envNames, true, log)
 }
 
 // ListProductionGroups TODO we need to verify if the access to the production environment is allowed

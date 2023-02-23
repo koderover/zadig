@@ -181,7 +181,9 @@ type MeegoTransitionResp struct {
 }
 
 type MeegoWorkItemStatusTransition struct {
-	SourceStateKey string `json:"source_state_key"`
-	TargetStateKey string `json:"target_state_key"`
-	TransitionID   int64  `json:"transition_id"`
+	SourceStateKey  string `json:"source_state_key"`
+	SourceStateName string `json:"source_state_name"`
+	TargetStateKey  string `json:"target_state_key"`
+	TargetStateName string `json:"target_state_name"`
+	TransitionID    int64  `json:"transition_id"`
 }

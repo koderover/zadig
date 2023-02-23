@@ -58,6 +58,7 @@ type EnvResp struct {
 	BaseRefs    []string `json:"base_refs"`
 	BaseName    string   `json:"base_name"`
 	IsExisted   bool     `json:"is_existed"`
+	IsFavorite  bool     `json:"is_favorite"`
 
 	// New Since v1.11.0
 	ShareEnvEnable  bool   `json:"share_env_enable"`

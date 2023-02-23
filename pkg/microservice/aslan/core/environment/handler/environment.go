@@ -73,7 +73,7 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProducts(projectName, envNames, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envNames, false, ctx.Logger)
 }
 
 func ListProductionEnvs(c *gin.Context) {
@@ -91,7 +91,7 @@ func ListProductionEnvs(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProductionEnvs(projectName, envNames, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envNames, ctx.Logger)
 }
 
 func UpdateMultiProducts(c *gin.Context) {

@@ -142,7 +142,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 
 			if !skip {
 				if e := cli.SetReview(
-					notify.ProjectID,
+					notify.RepoName,
 					notify.PrID,
 					fmt.Sprintf(""+
 						"%s %s %s",

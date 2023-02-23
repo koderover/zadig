@@ -46,18 +46,30 @@ func GetBuildStat(c *gin.Context) {
 	}, ctx.Logger)
 }
 
+type OpenAPIGetBuildStatArgs struct {
+	StartDate int64  `json:"startDate"      form:"startDate,default:0"`
+	EndDate   int64  `json:"endDate"        form:"endDate,default:0"`
+	Project   string `json:"project"        form:"project"`
+}
+
 func GetBuildStatForOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(GetBuildStatArgs)
+	args := new(OpenAPIGetBuildStatArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildStats(&models.BuildStatOption{
+	queryArgs := &models.BuildStatOption{
 		StartDate: args.StartDate,
 		EndDate:   args.EndDate,
-	}, ctx.Logger)
+	}
+
+	if args.Project != "" {
+		queryArgs.ProductNames = []string{args.Project}
+	}
+
+	ctx.Resp, ctx.Err = service.GetBuildStats(queryArgs, ctx.Logger)
 }
