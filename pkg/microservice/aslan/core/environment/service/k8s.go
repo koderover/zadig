@@ -372,7 +372,10 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 					gp.Status = setting.PodPending
 				}
 
-				// ingress may be multiple workloads
+				log.Infof("----------- workloads count %d", len(statusResp.Workloads))
+				log.Infof("----------- service count %d", len(k8sServices))
+				log.Infof("----------- hostInfos count %d", len(hostInfos))
+
 				hostInfo := make([]resource.HostInfo, 0)
 				for _, workload := range statusResp.Workloads {
 					hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
