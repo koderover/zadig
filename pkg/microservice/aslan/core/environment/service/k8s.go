@@ -340,9 +340,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				Revision:    service.Revision,
 				ProductName: service.ProductName,
 			}, productInfo.Production)
-			//serviceTmpl, err := commonservice.GetServiceTemplate(
-			//	service.ServiceName, setting.K8SDeployType, service.ProductName, "", service.Revision, k.log,
-			//)
+
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()

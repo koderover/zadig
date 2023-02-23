@@ -735,6 +735,9 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 		pods = append(pods, svc.Pods...)
 	}
 
+	log.Infof("############ find pods count: %v", len(pods))
+	log.Infof("############ find ingress count: %v", len(svcResp.Ingress))
+
 	if len(pods) == 0 {
 		return setting.PodNonStarted, setting.PodNotReady, nil
 	}
