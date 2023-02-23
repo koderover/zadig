@@ -223,6 +223,10 @@ func mergeContainers(curContainers, newContainers []*commonmodels.Container) []*
 	return containers
 }
 
+func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.VariableKV, error) {
+	return nil, nil
+}
+
 // FetchCurrentAppliedYaml generates full yaml of some service currently applied in Zadig
 // and returns the service yaml, currently used service revision
 func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
