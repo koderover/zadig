@@ -317,6 +317,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		meego.GET("/projects/:projectID/work_item", ListMeegoWorkItems)
 		meego.GET("/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
 	}
+
+	// personal favorite API
+	favorite := router.Group("favorite")
+	{
+		favorite.POST("/:type/:name", CreateFavorite)
+		favorite.DELETE("/:type/:name", DeleteFavorite)
+	}
 }
 
 type OpenAPIRouter struct{}
