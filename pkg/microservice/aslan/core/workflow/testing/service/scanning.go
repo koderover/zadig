@@ -250,6 +250,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 				repoInfo.SubModules = repo.SubModules
 				repoInfo.RemoteName = repo.RemoteName
 				repoInfo.CheckoutPath = repo.CheckoutPath
+				break
 			}
 		}
 		if repoInfo.PR > 0 && len(repoInfo.PRs) == 0 {

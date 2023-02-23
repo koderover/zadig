@@ -121,7 +121,6 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	repoList := make([]*task.Repository, 0)
 
-	// Since only one repository is supported per scanning, we just hard code it
 	for _, taskRepo := range p.Task.Repos {
 		repo := &task.Repository{
 			Source:             taskRepo.Source,
