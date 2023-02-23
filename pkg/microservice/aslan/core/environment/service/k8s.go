@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 
 	"github.com/hashicorp/go-multierror"
@@ -333,9 +335,14 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				Type:        service.Type,
 				EnvName:     envName,
 			}
-			serviceTmpl, err := commonservice.GetServiceTemplate(
-				service.ServiceName, setting.K8SDeployType, service.ProductName, "", service.Revision, k.log,
-			)
+			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				Revision:    service.Revision,
+				ProductName: service.ProductName,
+			}, productInfo.Production)
+			//serviceTmpl, err := commonservice.GetServiceTemplate(
+			//	service.ServiceName, setting.K8SDeployType, service.ProductName, "", service.Revision, k.log,
+			//)
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
