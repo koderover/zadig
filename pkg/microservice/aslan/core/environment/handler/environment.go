@@ -186,6 +186,13 @@ func CreateProduct(c *gin.Context) {
 			return
 		}
 
+		for _, arg := range createArgs {
+			if arg.Production {
+				ctx.Err = e.ErrInvalidParam.AddDesc("can not create production env")
+				return
+			}
+		}
+
 		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
 		if found {
 			allowedSet := sets.NewString(allowedClusters...)
@@ -236,6 +243,60 @@ func CreateProduct(c *gin.Context) {
 
 		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
 	}
+}
+
+func CreateProductionProduct(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	createParam := &service.CreateEnvRequest{}
+	err := c.ShouldBindQuery(createParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if createParam.ProjectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Infof("CreateProduct failed to get request data, err: %s", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	createArgs := make([]*service.CreateSingleProductArg, 0)
+	if err = json.Unmarshal(data, &createArgs); err != nil {
+		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	for _, arg := range createArgs {
+		if !arg.Production {
+			ctx.Err = e.ErrInvalidParam.AddDesc("can not create test env")
+			return
+		}
+		arg.Services = nil
+		arg.EnvConfigs = nil
+		arg.ChartValues = nil
+	}
+
+	allowedClusters, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedClusters...)
+		for _, args := range createArgs {
+			if !allowedSet.Has(args.ClusterID) {
+				c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+				return
+			}
+		}
+	}
+	createProduct(c, createParam, createArgs, string(data), ctx)
+	return
 }
 
 type UpdateProductParams struct {

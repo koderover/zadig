@@ -1580,7 +1580,7 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 
 func DeleteProduct(username, envName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(false)})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return err

@@ -145,7 +145,7 @@ func ExportProductionYaml(envName, productName, serviceName string, log *zap.Sug
 
 func DeleteProductionProduct(username, envName, productName, requestID string, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(true)})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return e.ErrDeleteEnv.AddErr(errors.Wrapf(err, "find product %s error", productName))
