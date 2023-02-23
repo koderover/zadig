@@ -45,7 +45,7 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(setting.K8SDeployType)
+	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(productName, setting.K8SDeployType)
 
 	if err != nil {
 		log.Errorf("Failed to list production services, err: %s", err)
