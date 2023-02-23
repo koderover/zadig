@@ -723,9 +723,7 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	}
 	serviceName := ""
 	podLabels := labels.Set(currentWorkload.Spec.Labels)
-	log.Infof("------- pods labels %+v", podLabels)
 	for _, svc := range allServices {
-		log.Infof("-------- service name: %s, labels: %+v", svc.Name, svc.Spec.Selector)
 		if len(svc.Spec.Selector) == 0 {
 			continue
 		}
@@ -734,7 +732,6 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 			break
 		}
 	}
-	log.Infof("----- service name is %s", serviceName)
 	if serviceName == "" {
 		return []resource.HostInfo{}
 	}
@@ -742,7 +739,6 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	resp := make([]resource.HostInfo, 0)
 	for _, hostInfo := range hostInfos {
 		for _, backend := range hostInfo.Backends {
-			log.Infof("----- backend service name is %s", backend.ServiceName)
 			if backend.ServiceName == serviceName {
 				resp = append(resp, hostInfo)
 				break

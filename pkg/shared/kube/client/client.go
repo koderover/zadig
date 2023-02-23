@@ -157,6 +157,9 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cluster == nil {
+		return nil, fmt.Errorf("cluster %s not found", clusterID)
+	}
 
 	switch cluster.Type {
 	case setting.AgentClusterType, "":

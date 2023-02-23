@@ -17,6 +17,8 @@ limitations under the License.
 package wrapper
 
 import (
+	"fmt"
+
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/api/networking/v1"
 
@@ -59,7 +61,7 @@ func GetIngressHostInfo(ing *v1.Ingress) []resource.HostInfo {
 		for _, path := range rule.HTTP.Paths {
 			backend := resource.Backend{
 				ServiceName: path.Backend.Service.Name,
-				ServicePort: string(path.Backend.Service.Port.Number),
+				ServicePort: fmt.Sprintf("%d", path.Backend.Service.Port.Number),
 			}
 			info.Backends = append(info.Backends, backend)
 		}

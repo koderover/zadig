@@ -262,50 +262,6 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
-	//selector := labels.Set{setting.ProductLabel: productName}.AsSelector()
-	//workloadMap := make(map[string][]*commonservice.Workload)
-	//listDeployments, err := getter.ListDeploymentsWithCache(selector, informer)
-	//if err != nil {
-	//	log.Errorf("[%s][%s] get deployment list error: %v", productName, envName, err)
-	//	return nil
-	//}
-	//
-	//for _, v := range listDeployments {
-	//	serviceName := v.Labels[setting.ServiceLabel]
-	//	if !svcNameSet.Has(serviceName) {
-	//		continue
-	//	}
-	//	workload := &commonservice.Workload{
-	//		Name:       v.Name,
-	//		Spec:       v.Spec.Template,
-	//		Type:       setting.Deployment,
-	//		Images:     wrapper.Deployment(v).ImageInfos(),
-	//		Ready:      wrapper.Deployment(v).Ready(),
-	//		Annotation: v.Annotations,
-	//	}
-	//	workloadMap[serviceName] = append(workloadMap[serviceName], workload)
-	//}
-	//statefulSets, err := getter.ListStatefulSetsWithCache(selector, informer)
-	//if err != nil {
-	//	log.Errorf("[%s][%s] get sts list error: %v", productName, envName, err)
-	//	return nil
-	//}
-	//for _, v := range statefulSets {
-	//	serviceName := v.Labels[setting.ServiceLabel]
-	//	if !svcNameSet.Has(serviceName) {
-	//		continue
-	//	}
-	//	workload := &commonservice.Workload{
-	//		Name:       v.Name,
-	//		Spec:       v.Spec.Template,
-	//		Type:       setting.StatefulSet,
-	//		Images:     wrapper.StatefulSet(v).ImageInfos(),
-	//		Ready:      wrapper.StatefulSet(v).Ready(),
-	//		Annotation: v.Annotations,
-	//	}
-	//	workloadMap[serviceName] = append(workloadMap[serviceName], workload)
-	//}
-
 	hostInfos := make([]resource.HostInfo, 0)
 	version, err := cls.Discovery().ServerVersion()
 	if err != nil {
@@ -371,8 +327,6 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
 					gp.Status = setting.PodPending
 				}
-
-				log.Infof("----------- workloads count %d", len(statusResp.Workloads), len(k8sServices), len(hostInfos))
 
 				hostInfo := make([]resource.HostInfo, 0)
 				for _, workload := range statusResp.Workloads {
