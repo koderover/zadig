@@ -100,7 +100,7 @@ metas:
           - method: POST
             endpoint: /api/aslan/testing/testtask/productName/?*/id/?*/pipelines/?*/restart
   - resource: Service
-    alias: 服务
+    alias: 测试服务
     description: ''
     rules:
       - action: get_service
@@ -195,6 +195,40 @@ metas:
             endpoint: /api/aslan/service/services/?*/?*
           - method: DELETE
             endpoint: /api/aslan/service/services/?*/pm
+  - resource: ProductionService
+    alias: 生产服务
+    description: ''
+    rules:
+      - action: get_production_service
+        alias: 查看
+        description: ''
+        rules:
+          - method: GET
+            endpoint: api/aslan/service/production/services
+          - method: GET
+            endpoint: api/aslan/service/production/services/?*/k8s
+          - method: GET
+            endpoint: api/aslan/service/production/services/?*
+      - action: edit_production_service
+        alias: 编辑
+        description: ''
+        rules:
+          - method: PUT
+            endpoint: api/aslan/service/production/services/?*/k8s/variable
+          - method: PATCH
+            endpoint: api/aslan/project/production/products/?*
+      - action: create_production_service
+        alias: 新建
+        description: ''
+        rules:
+          - method: POST
+            endpoint: api/aslan/service/production/services/k8s
+      - action: delete_production_service
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: api/aslan/service/production/services/?*
   - resource: Build
     alias: 构建
     description: ''
@@ -608,7 +642,7 @@ metas:
           - method: POST
             endpoint: /api/aslan/workflow/v4/workflowtask/approve
   - resource: Environment
-    alias: 环境
+    alias: 测试环境
     description: ''
     rules:
       - action: get_environment
@@ -773,6 +807,46 @@ metas:
         rules:
           - method: GET
             endpoint: '/api/aslan/environment/environments/:name/services/?*/pmexec'
+  - resource: ProductionEnvironment
+    alias: "生产环境"
+    description: ""
+    rules:
+      - action: get_production_environment
+        alias: 查看
+        description: ""
+        rules:
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/groups"
+      - action: create_production_environment
+        alias: 新建
+        description: ""
+        rules:
+          - method: POST
+            endpoint: "/api/aslan/environment/production/environments"
+      - action: edit_production_environment
+        alias: 更新
+        description: ""
+        rules:
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environmentsForUpdate"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
+      - action: delete_production_environment
+        alias: 删除
+        description: ""
+        rules:
+          - method: DELETE
+            endpoint: "/api/aslan/environment/production/environments/?*"
+      - action: production_debug_pod
+        alias: 服务调试
+        description: ''
+        rules:
+          - method: GET
+            endpoint: '/api/podexec/production/?*/?*/?*/?*/podExec/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/kube/pods/?*/file'
   - resource: Scan
     alias: "代码扫描"
     description: ""

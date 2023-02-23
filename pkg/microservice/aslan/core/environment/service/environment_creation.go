@@ -333,7 +333,6 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 		ShareEnv:        arg.ShareEnv,
 		Production:      arg.Production,
 		Alias:           arg.Alias,
-		//Vars:            arg.Vars,
 	}
 	if len(arg.BaseEnvName) > 0 {
 		productObj.BaseEnvName = arg.BaseEnvName

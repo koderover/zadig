@@ -73,7 +73,7 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProducts(projectName, envNames, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProducts(projectName, envNames, false, ctx.Logger)
 }
 
 func ListProductionEnvs(c *gin.Context) {
@@ -186,6 +186,13 @@ func CreateProduct(c *gin.Context) {
 			return
 		}
 
+		for _, arg := range createArgs {
+			if arg.Production {
+				ctx.Err = e.ErrInvalidParam.AddDesc("can not create production env")
+				return
+			}
+		}
+
 		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
 		if found {
 			allowedSet := sets.NewString(allowedClusters...)
@@ -238,6 +245,60 @@ func CreateProduct(c *gin.Context) {
 	}
 }
 
+func CreateProductionProduct(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	createParam := &service.CreateEnvRequest{}
+	err := c.ShouldBindQuery(createParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if createParam.ProjectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Infof("CreateProduct failed to get request data, err: %s", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	createArgs := make([]*service.CreateSingleProductArg, 0)
+	if err = json.Unmarshal(data, &createArgs); err != nil {
+		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	for _, arg := range createArgs {
+		if !arg.Production {
+			ctx.Err = e.ErrInvalidParam.AddDesc("can not create test env")
+			return
+		}
+		arg.Services = nil
+		arg.EnvConfigs = nil
+		arg.ChartValues = nil
+	}
+
+	allowedClusters, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedClusters...)
+		for _, args := range createArgs {
+			if !allowedSet.Has(args.ClusterID) {
+				c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+				return
+			}
+		}
+	}
+	createProduct(c, createParam, createArgs, string(data), ctx)
+	return
+}
+
 type UpdateProductParams struct {
 	ServiceNames []string `json:"service_names"`
 	VariableYaml string   `json:"variable_yaml"`
@@ -269,14 +330,6 @@ func UpdateProduct(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-
-	//force, _ := strconv.ParseBool(c.Query("force")
-	//serviceNames := sets.String{}
-	//for _, kv := range args.Vars {
-	//	for _, s := range kv.Services {
-	//		serviceNames.Insert(s)
-	//	}
-	//}
 
 	ctx.Err = service.UpdateCVMProduct(envName, projectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 	if ctx.Err != nil {
@@ -732,6 +785,16 @@ func DeleteProduct(c *gin.Context) {
 	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, is_delete, ctx.Logger)
 }
 
+func DeleteProductionProduct(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "生产环境", envName, "", ctx.Logger, envName)
+	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
+}
+
 func DeleteProductServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -777,37 +840,46 @@ func ListGroups(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
-	serviceName := c.Query("serviceName")
-	perPageStr := c.Query("perPage")
-	pageStr := c.Query("page")
-	var (
-		count   int
-		perPage int
-		err     error
-		page    int
-	)
-	if perPageStr == "" {
-		perPage = setting.PerPage
-	} else {
-		perPage, err = strconv.Atoi(perPageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
-			return
-		}
+	var count int
+
+	envGroupRequest := new(service.EnvGroupRequest)
+	err := c.BindQuery(envGroupRequest)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
+		return
+	}
+	if envGroupRequest.PerPage == 0 {
+		envGroupRequest.PerPage = setting.PerPage
+	}
+	if envGroupRequest.Page == 0 {
+		envGroupRequest.Page = 1
 	}
 
-	if pageStr == "" {
-		page = 1
-	} else {
-		page, err = strconv.Atoi(pageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
-			return
-		}
+	ctx.Resp, count, ctx.Err = service.ListGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, false, ctx.Logger)
+	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
+}
+
+func ListProductionGroups(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	var count int
+
+	envGroupRequest := new(service.EnvGroupRequest)
+	err := c.BindQuery(envGroupRequest)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
+		return
+	}
+	if envGroupRequest.PerPage == 0 {
+		envGroupRequest.PerPage = setting.PerPage
+	}
+	if envGroupRequest.Page == 0 {
+		envGroupRequest.Page = 1
 	}
 
-	ctx.Resp, count, ctx.Err = service.ListGroups(serviceName, envName, projectName, perPage, page, ctx.Logger)
+	ctx.Resp, count, ctx.Err = service.ListProductionGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, ctx.Logger)
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 

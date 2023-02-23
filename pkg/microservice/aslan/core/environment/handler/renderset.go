@@ -56,6 +56,22 @@ func GetServiceVariables(c *gin.Context) {
 	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
+func GetProductionVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("projectName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Query("envName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+	ctx.Resp, ctx.Err = commonservice.GetK8sProductionSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+}
+
 func GetProductDefaultValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
