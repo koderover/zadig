@@ -72,7 +72,12 @@ func GetServiceInProductionEnv(envName, productName, serviceName string, workLoa
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	return GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	ret.Workloads = nil
+	return ret, nil
 }
 
 func ExportProductionYaml(envName, productName, serviceName string, log *zap.SugaredLogger) ([]string, error) {
