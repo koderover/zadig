@@ -37,10 +37,9 @@ import (
 )
 
 func ListProductionServices(productName string, log *zap.SugaredLogger) (*service.ServiceTmplResp, error) {
-	var err error
 	resp := new(service.ServiceTmplResp)
 	resp.Data = make([]*service.ServiceProductMap, 0)
-	productTmpl, err := templaterepo.NewProductColl().Find(productName)
+	_, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("Can not find project %s, error: %s", productName, err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
@@ -49,7 +48,7 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(setting.K8SDeployType)
 
 	if err != nil {
-		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		log.Errorf("Failed to list production services, err: %s", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
@@ -248,7 +247,7 @@ func DeleteProductionServiceTemplate(serviceName, productName string, log *zap.S
 	}
 
 	if productTempl, err := commonservice.GetProductTemplate(productName, log); err == nil {
-		newServices := make([][]string, len(productTempl.Services))
+		newServices := make([][]string, len(productTempl.ProductionServices))
 		for i, services := range productTempl.ProductionServices {
 			for _, singleService := range services {
 				if singleService != serviceName {
