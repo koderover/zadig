@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
@@ -44,8 +43,10 @@ import (
 type SharedEnvHandler func(context.Context, *commonmodels.Product, string, client.Client, versionedclient.Interface) error
 
 type ResourceApplyParam struct {
-	ProductName         string
-	EnvName             string
+	//ProductName         string
+	//EnvName             string
+	//Namespace           string
+	ProductInfo         *commonmodels.Product
 	ServiceName         string
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
@@ -173,13 +174,7 @@ func removeOldResources(currentItems, items []*unstructured.Unstructured, namesp
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
 // `CurrentResourceYaml` will be used to determine if some resources will be deleted
 func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		EnvName: applyParam.EnvName,
-		Name:    applyParam.ProductName,
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "CreateOrPatchResource failed to find product %s/%s", applyParam.ProductName, applyParam.EnvName)
-	}
+	productInfo := applyParam.ProductInfo
 
 	namespace, productName, envName := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName
 	informer := applyParam.Informer
@@ -218,7 +213,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		return nil, errList.ErrorOrNil()
 	}
 
-	err = removeOldResources(curResources, resources, namespace, applyParam.KubeClient, log)
+	err := removeOldResources(curResources, resources, namespace, applyParam.KubeClient, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}

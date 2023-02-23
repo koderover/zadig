@@ -2226,9 +2226,6 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, nil
 	}
 
-	productName := env.ProductName
-	envName := env.EnvName
-
 	// 获取服务模板
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 
@@ -2261,9 +2258,8 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 	}
 
 	resourceApplyParam := &commonservice.ResourceApplyParam{
-		ProductName:         productName,
+		ProductInfo:         env,
 		ServiceName:         service.ServiceName,
-		EnvName:             envName,
 		CurrentResourceYaml: preResourceYaml,
 		UpdateResourceYaml:  parsedYaml,
 		Informer:            informer,
