@@ -372,9 +372,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 					gp.Status = setting.PodPending
 				}
 
-				log.Infof("----------- workloads count %d", len(statusResp.Workloads))
-				log.Infof("----------- service count %d", len(k8sServices))
-				log.Infof("----------- hostInfos count %d", len(hostInfos))
+				log.Infof("----------- workloads count %d", len(statusResp.Workloads), len(k8sServices), len(hostInfos))
 
 				hostInfo := make([]resource.HostInfo, 0)
 				for _, workload := range statusResp.Workloads {
