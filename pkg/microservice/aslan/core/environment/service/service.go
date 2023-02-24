@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/util/yaml"
+	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 
@@ -233,7 +233,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		serviceVars := setting.ServiceVarWildCard
 		productTmpSvc := productTemplateSvcMap[svcName]
 		if productTmpSvc != nil {
-			mergedValues, err := yaml.Merge([][]byte{[]byte(productTmpSvc.VariableYaml), []byte(svcRender.OverrideYaml.YamlContent)})
+			mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(productTmpSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
 			} else {

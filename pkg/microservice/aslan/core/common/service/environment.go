@@ -139,9 +139,6 @@ func clipVariableYaml(variableYaml string, validKeys []string) string {
 	if len(validKeys) == 0 {
 		return ""
 	}
-	if len(validKeys) == 1 && validKeys[0] == "*" {
-		return variableYaml
-	}
 	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
 	if err != nil {
 		log.Errorf("failed to clip variable yaml, err: %s", err)
