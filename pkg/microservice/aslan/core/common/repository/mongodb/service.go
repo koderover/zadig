@@ -175,6 +175,7 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	return c.listMaxRevisions(pre, post)
 }
 
+// ListServiceAllRevisionsAndStatus will list all revision include deleting status
 func (c *ServiceColl) ListServiceAllRevisionsAndStatus(serviceName, productName string) ([]*models.Service, error) {
 	resp := make([]*models.Service, 0)
 	query := bson.M{}

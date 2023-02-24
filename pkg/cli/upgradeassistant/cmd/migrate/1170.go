@@ -157,6 +157,7 @@ func migrateSharedService() error {
 	sharedServiceListInEnvMap := map[string]map[string]*ServiceInfo{}
 	sharedServiceInfoList := map[string]*ServiceInfo{}
 
+	// get all shared service in product template
 	productTemplates, err := template.NewProductColl().ListWithOption(
 		&template.ProductListOpt{},
 	)
@@ -177,6 +178,8 @@ func migrateSharedService() error {
 		}
 	}
 
+	// get all shared service in product env
+	// if shared service in product env, but not in product template, should mark it as deleted
 	allProductEnvs, err := mongodb.NewProductColl().List(nil)
 	if err != nil {
 		return errors.Wrap(err, "list products")
@@ -190,6 +193,7 @@ func migrateSharedService() error {
 						sharedServiceListInEnvMap[project.ProductName] = make(map[string]*ServiceInfo)
 					}
 					if _, ok := sharedServiceListInEnvMap[project.ProductName][service.ServiceName]; ok {
+						// set shared service in product env to private
 						service.ProductName = project.ProductName
 						needUpdate = true
 						continue
@@ -205,6 +209,7 @@ func migrateSharedService() error {
 				}
 			}
 		}
+		// update shared service in product env to private
 		if needUpdate {
 			err := mongodb.NewProductColl().Update(project)
 			if err != nil {
@@ -214,6 +219,7 @@ func migrateSharedService() error {
 		}
 	}
 
+	// not found shared service in any env, set all service to private
 	if len(sharedServiceListInEnvMap) == 0 {
 		log.Infof("migrateSharedService: not found shared service in any env")
 		_, err = mongodb.NewServiceColl().UpdateMany(context.Background(),
@@ -224,6 +230,7 @@ func migrateSharedService() error {
 		return nil
 	}
 
+	// get all shared service all revision data
 	sharedServiceAllRevisionData := map[string][]*commonmodels.Service{}
 	for key, service := range sharedServiceInfoList {
 		result, err := mongodb.NewServiceColl().ListServiceAllRevisionsAndStatus(service.ServiceName, service.ProductName)
@@ -233,6 +240,8 @@ func migrateSharedService() error {
 		}
 		sharedServiceAllRevisionData[key] = result
 	}
+
+	// copy shared service template all revision data to each product
 	for projectName, serviceList := range sharedServiceListInEnvMap {
 		for _, service := range serviceList {
 			if sharedServiceAllRevision, ok := sharedServiceAllRevisionData[service.ProductName+"-"+service.ServiceName]; ok {
