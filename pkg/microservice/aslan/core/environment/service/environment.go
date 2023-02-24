@@ -1703,7 +1703,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 			}
-
 		}()
 	case setting.SourceFromExternal:
 		err = commonrepo.NewProductColl().Delete(envName, productName)
