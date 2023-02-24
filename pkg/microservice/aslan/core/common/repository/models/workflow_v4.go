@@ -166,9 +166,17 @@ type ZadigDeployJobSpec struct {
 }
 
 type DeployService struct {
-	ServiceName  string    `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	KeyVals      []*KeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	UpdateConfig bool      `bson:"update_config"       yaml:"update_config"    json:"update_config"`
+	ServiceName  string           `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	KeyVals      []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	UpdateConfig bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
+}
+
+type ServiceKeyVal struct {
+	Key          string               `bson:"key"                       json:"key"                         yaml:"key"`
+	Value        interface{}          `bson:"value"                     json:"value"                       yaml:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	IsCredential bool                 `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 type ServiceAndImage struct {

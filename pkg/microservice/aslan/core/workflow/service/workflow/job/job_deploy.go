@@ -24,6 +24,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -43,12 +44,80 @@ func (j *DeployJob) Instantiate() error {
 	return nil
 }
 
+func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.ServiceAndImage, error) {
+	serviceAndImages := []*commonmodels.ServiceAndImage{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != j.spec.JobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return serviceAndImages, err
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+						Image:         build.Image,
+					})
+				}
+				return serviceAndImages, nil
+			}
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return serviceAndImages, err
+				}
+				for _, distribute := range distributeSpec.Tatgets {
+					j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
+						ServiceName:   distribute.ServiceName,
+						ServiceModule: distribute.ServiceModule,
+						Image:         distribute.TargetImage,
+					})
+				}
+				return serviceAndImages, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("build job %s not found", jobName)
+}
+
 func (j *DeployJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
+	var err error
+	targets := j.spec.ServiceAndImages
+	if j.spec.Source == config.SourceFromJob {
+		// clear service and image list to prevent old data from remaining
+		targets, err = j.getOriginReferedJobTargets(j.spec.JobName)
+		if err != nil {
+			return fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+		}
+		j.spec.Services = []*commonmodels.DeployService{}
+	}
+	serviceNameMap := map[string]bool{}
+	for _, target := range targets {
+		serviceNameMap[target.ServiceName] = true
+	}
+	deployServiceMap := map[string]*commonmodels.DeployService{}
+	for _, service := range j.spec.Services {
+		deployServiceMap[service.ServiceName] = service
+	}
+	newServices := []*commonmodels.DeployService{}
+	for serviceName := range serviceNameMap {
+		deployService, err := j.mergeServiceVars(serviceName, deployServiceMap[serviceName])
+		if err != nil {
+			return err
+		}
+		newServices = append(newServices, deployService)
+	}
+
+	j.spec.Services = newServices
 
 	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
@@ -60,6 +129,39 @@ func (j *DeployJob) SetPreset() error {
 
 	j.job.Spec = j.spec
 	return nil
+}
+
+func (j *DeployJob) mergeServiceVars(serviceName string, service *commonmodels.DeployService) (*commonmodels.DeployService, error) {
+	svcVars, err := kube.FetchCurrentServiceVariable(&kube.GeneSvcYamlOption{ProductName: j.workflow.Project, EnvName: j.spec.Env, ServiceName: serviceName})
+	if err != nil {
+		return service, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	}
+	if service == nil {
+		service = &commonmodels.DeployService{
+			ServiceName: serviceName,
+		}
+		for _, svcVar := range svcVars {
+			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+				Key:   svcVar.Key,
+				Value: svcVar.Value,
+				Type:  commonmodels.StringType,
+			})
+		}
+		return service, nil
+	}
+	service.ServiceName = serviceName
+	newVars := []*commonmodels.ServiceKeyVal{}
+	for _, svcVar := range service.KeyVals {
+		for _, varItem := range svcVars {
+			if svcVar.Key == varItem.Key {
+				svcVar.Value = varItem.Value
+				newVars = append(newVars, svcVar)
+				break
+			}
+		}
+	}
+	service.KeyVals = newVars
+	return service, nil
 }
 
 func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
@@ -129,43 +231,13 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		// clear service and image list to prevent old data from remaining
-		j.spec.ServiceAndImages = []*commonmodels.ServiceAndImage{}
-		for _, stage := range j.workflow.Stages {
-			for _, job := range stage.Jobs {
-				if job.Name != j.spec.JobName {
-					continue
-				}
-				// get deploy target from previous build job
-				if job.JobType == config.JobZadigBuild {
-					buildSpec := &commonmodels.ZadigBuildJobSpec{}
-					if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
-						return resp, err
-					}
-					for _, build := range buildSpec.ServiceAndBuilds {
-						j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
-							ServiceName:   build.ServiceName,
-							ServiceModule: build.ServiceModule,
-							Image:         build.Image,
-						})
-					}
-				}
-				// get deploy target from previous distribute job
-				if job.JobType == config.JobZadigDistributeImage {
-					distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
-					if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
-						return resp, err
-					}
-					for _, distribute := range distributeSpec.Tatgets {
-						j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
-							ServiceName:   distribute.ServiceName,
-							ServiceModule: distribute.ServiceModule,
-							Image:         distribute.TargetImage,
-						})
-					}
-				}
-			}
+		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+		if err != nil {
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
+		j.spec.ServiceAndImages = targets
 	}
+
 	if j.spec.DeployType == setting.K8SDeployType {
 		deployServiceMap := map[string][]*commonmodels.ServiceAndImage{}
 		for _, deploy := range j.spec.ServiceAndImages {
