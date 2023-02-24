@@ -57,7 +57,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 					return serviceAndImages, err
 				}
 				for _, build := range buildSpec.ServiceAndBuilds {
-					j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
+					serviceAndImages = append(serviceAndImages, &commonmodels.ServiceAndImage{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
 						Image:         build.Image,
@@ -71,7 +71,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 					return serviceAndImages, err
 				}
 				for _, distribute := range distributeSpec.Tatgets {
-					j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
+					serviceAndImages = append(serviceAndImages, &commonmodels.ServiceAndImage{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,
 						Image:         distribute.TargetImage,
