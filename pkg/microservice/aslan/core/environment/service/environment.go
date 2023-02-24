@@ -1703,7 +1703,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 			}
-
 		}()
 	case setting.SourceFromExternal:
 		err = commonrepo.NewProductColl().Delete(envName, productName)
@@ -1787,7 +1786,10 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					commonservice.SendMessage(username, title, content, requestID, log)
 				}
 			}()
-			if isDelete && !productInfo.Production {
+			if productInfo.Production {
+				return
+			}
+			if isDelete {
 				// Delete Cluster level resources
 				err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
 				if err != nil {
@@ -1812,6 +1814,11 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 
 				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
 				if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
+					return
+				}
+			} else {
+				if err := commonservice.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log); err != nil {
 					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}

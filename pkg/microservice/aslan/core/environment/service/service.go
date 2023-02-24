@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/util/yaml"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 
 	"github.com/hashicorp/go-multierror"
@@ -204,6 +206,15 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		templateSvcMap[svc.ServiceName] = svc
 	}
 
+	productTemplateSvcs, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find product template services for env %s:%s", productName, envName))
+	}
+	productTemplateSvcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range productTemplateSvcs {
+		productTemplateSvcMap[svc.ServiceName] = svc
+	}
+
 	svcUpdatable := func(svcName string, revision int64) bool {
 		if svc, ok := templateSvcMap[svcName]; ok {
 			return svc.Revision != revision
@@ -211,17 +222,34 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return false
 	}
 
-	variables := func(svcName string) (string, []*commonmodels.VariableKV) {
-		for _, svcRender := range rendersetInfo.ServiceVariables {
-			if svcRender.ServiceName == svcName {
-				vy, kvs, err := GetOverrideYamlAndKV(svcRender)
-				if err != nil {
-					log.Warnf("failed to get override yaml and kv for service %s, the error is: %s", svcName, err)
-				}
-				return vy, kvs
+	variables := func(svcName string) (string, []*commonmodels.VariableKV, error) {
+		svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
+		if svcRender == nil {
+			svcRender = &template.ServiceRender{
+				ServiceName:  svcName,
+				OverrideYaml: &template.CustomYaml{},
 			}
 		}
-		return "", nil
+		serviceVars := setting.ServiceVarWildCard
+		productTmpSvc := productTemplateSvcMap[svcName]
+		if productTmpSvc != nil {
+			mergedValues, err := yaml.Merge([][]byte{[]byte(productTmpSvc.VariableYaml), []byte(svcRender.OverrideYaml.YamlContent)})
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
+			} else {
+				svcRender.OverrideYaml.YamlContent = string(mergedValues)
+			}
+			if !productInfo.Production {
+				serviceVars = productTmpSvc.ServiceVars
+			}
+		}
+		svcRender.OverrideYaml.YamlContent, err = kube.ClipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVars)
+		if err != nil {
+			return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
+		}
+
+		vy, kvs, err := GetOverrideYamlAndKV(svcRender)
+		return vy, kvs, errors.Wrapf(err, "failed to get override yaml and kv for service %s", svcName)
 	}
 
 	prodSvcList := sets.NewString()
@@ -233,7 +261,10 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			Updatable:      svcUpdatable(serviceName, productSvc.Revision),
 			Deployed:       true,
 		}
-		svc.VariableYaml, svc.VariableKVs = variables(serviceName)
+		svc.VariableYaml, svc.VariableKVs, err = variables(serviceName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
+		}
 		ret.Services = append(ret.Services, svc)
 	}
 
