@@ -48,6 +48,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	mongotemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -86,7 +87,7 @@ func GetProductDeployType(projectName string) (string, error) {
 	return setting.K8SDeployType, nil
 }
 
-func ListProducts(projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
+func ListProducts(userID, projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:                projectName,
 		InEnvs:              envNames,
@@ -122,6 +123,23 @@ func ListProducts(projectName string, envNames []string, production bool, log *z
 		return ""
 	}
 
+	list, err := commonservice.ListFavorites(&mongodb.FavoriteArgs{
+		UserID:      userID,
+		ProductName: projectName,
+		Type:        commonservice.FavoriteTypeEnv,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "list favorite environments")
+	}
+	// add personal favorite data in response
+	favSet := sets.NewString(func() []string {
+		var nameList []string
+		for _, fav := range list {
+			nameList = append(nameList, fav.Name)
+		}
+		return nameList
+	}()...)
+
 	envCMMap, err := collaboration.GetEnvCMMap([]string{projectName}, log)
 	if err != nil {
 		return nil, err
@@ -156,6 +174,7 @@ func ListProducts(projectName string, envNames []string, production bool, log *z
 			ShareEnvEnable:  env.ShareEnv.Enable,
 			ShareEnvIsBase:  env.ShareEnv.IsBase,
 			ShareEnvBaseEnv: env.ShareEnv.BaseEnv,
+			IsFavorite:      favSet.Has(env.EnvName),
 		})
 	}
 
@@ -1586,6 +1605,15 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 		return err
 	}
 
+	err = commonservice.DeleteManyFavorites(&mongodb.FavoriteArgs{
+		ProductName: productName,
+		Name:        envName,
+		Type:        commonservice.FavoriteTypeEnv,
+	})
+	if err != nil {
+		log.Errorf("DeleteManyFavorites product-%s env-%s error: %v", productName, envName, err)
+	}
+
 	// delete informer's cache
 	informer.DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
 
@@ -1644,7 +1672,10 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 			}()
 
-			if isDelete && !productInfo.Production {
+			if productInfo.Production {
+				return
+			}
+			if isDelete {
 				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
 						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
@@ -1666,7 +1697,13 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					errList = multierror.Append(errList, e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg+": "+err.Error()))
 					return
 				}
+			} else {
+				if err := commonservice.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log); err != nil {
+					errList = multierror.Append(errList, e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg+": "+err.Error()))
+					return
+				}
 			}
+
 		}()
 	case setting.SourceFromExternal:
 		err = commonrepo.NewProductColl().Delete(envName, productName)
@@ -2198,9 +2235,6 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, nil
 	}
 
-	productName := env.ProductName
-	envName := env.EnvName
-
 	// 获取服务模板
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 
@@ -2233,9 +2267,8 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 	}
 
 	resourceApplyParam := &commonservice.ResourceApplyParam{
-		ProductName:         productName,
+		ProductInfo:         env,
 		ServiceName:         service.ServiceName,
-		EnvName:             envName,
 		CurrentResourceYaml: preResourceYaml,
 		UpdateResourceYaml:  parsedYaml,
 		Informer:            informer,

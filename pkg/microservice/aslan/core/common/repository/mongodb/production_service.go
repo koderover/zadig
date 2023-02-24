@@ -128,10 +128,11 @@ func (c *ProductionServiceColl) Find(opt *ServiceFindOption) (*models.Service, e
 	return service, nil
 }
 
-func (c *ProductionServiceColl) ListMaxRevisions(serviceType string) ([]*models.Service, error) {
+func (c *ProductionServiceColl) ListMaxRevisions(productName, serviceType string) ([]*models.Service, error) {
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
 	}
+	pre["product_name"] = productName
 	if serviceType != "" {
 		pre["type"] = serviceType
 	}

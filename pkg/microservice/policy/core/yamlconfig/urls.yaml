@@ -52,6 +52,10 @@ exemption_urls:
     - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/recover
       methods:
         - POST
+    - endpoint: api/aslan/system/favorite/?*/?*
+      methods:
+        - POST
+        - DELETE
     - endpoint: api/v1/permission/project/?*
       methods:
         - GET

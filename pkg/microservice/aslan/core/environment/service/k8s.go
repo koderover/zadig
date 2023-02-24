@@ -23,13 +23,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -56,18 +57,32 @@ type K8sService struct {
 	log *zap.SugaredLogger
 }
 
+type ZadigServiceStatusResp struct {
+	ServiceName string
+	PodStatus   string
+	Ready       string
+	Ingress     []*resource.Ingress
+	Images      []string
+	Workloads   []*commonservice.Workload
+}
+
 // queryServiceStatus query service status
 // If service has pods, service status = pod status (if pod is not running or succeed or failed, service status = unstable)
-// If service doesnt have pods, service status = success (all objects created) or failed (fail to create some objects).
+// If service doesn't have pods, service status = success (all objects created) or failed (fail to create some objects).
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
-func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) (string, string, []string) {
+func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) *ZadigServiceStatusResp {
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
 		return queryPodsStatus(productInfo, serviceTmpl.ServiceName, kubeClient, clientset, informer, k.log)
 	}
-
-	return setting.PodSucceeded, setting.PodReady, []string{}
+	return &ZadigServiceStatusResp{
+		ServiceName: serviceTmpl.ServiceName,
+		PodStatus:   setting.PodSucceeded,
+		Ready:       setting.PodReady,
+		Ingress:     nil,
+		Images:      []string{},
+	}
 }
 
 func (k *K8sService) updateService(args *SvcOptArgs) error {
@@ -247,50 +262,6 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
-	selector := labels.Set{setting.ProductLabel: productName}.AsSelector()
-	workloadMap := make(map[string][]*commonservice.Workload)
-	listDeployments, err := getter.ListDeploymentsWithCache(selector, informer)
-	if err != nil {
-		log.Errorf("[%s][%s] get deployment list error: %v", productName, envName, err)
-		return nil
-	}
-
-	for _, v := range listDeployments {
-		serviceName := v.Labels[setting.ServiceLabel]
-		if !svcNameSet.Has(serviceName) {
-			continue
-		}
-		workload := &commonservice.Workload{
-			Name:       v.Name,
-			Spec:       v.Spec.Template,
-			Type:       setting.Deployment,
-			Images:     wrapper.Deployment(v).ImageInfos(),
-			Ready:      wrapper.Deployment(v).Ready(),
-			Annotation: v.Annotations,
-		}
-		workloadMap[serviceName] = append(workloadMap[serviceName], workload)
-	}
-	statefulSets, err := getter.ListStatefulSetsWithCache(selector, informer)
-	if err != nil {
-		log.Errorf("[%s][%s] get sts list error: %v", productName, envName, err)
-		return nil
-	}
-	for _, v := range statefulSets {
-		serviceName := v.Labels[setting.ServiceLabel]
-		if !svcNameSet.Has(serviceName) {
-			continue
-		}
-		workload := &commonservice.Workload{
-			Name:       v.Name,
-			Spec:       v.Spec.Template,
-			Type:       setting.StatefulSet,
-			Images:     wrapper.StatefulSet(v).ImageInfos(),
-			Ready:      wrapper.StatefulSet(v).Ready(),
-			Annotation: v.Annotations,
-		}
-		workloadMap[serviceName] = append(workloadMap[serviceName], workload)
-	}
-
 	hostInfos := make([]resource.HostInfo, 0)
 	version, err := cls.Discovery().ServerVersion()
 	if err != nil {
@@ -333,9 +304,12 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				Type:        service.Type,
 				EnvName:     envName,
 			}
-			serviceTmpl, err := commonservice.GetServiceTemplate(
-				service.ServiceName, setting.K8SDeployType, service.ProductName, "", service.Revision, k.log,
-			)
+			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				Revision:    service.Revision,
+				ProductName: service.ProductName,
+			}, productInfo.Production)
+
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
@@ -347,25 +321,25 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			gp.ProductName = serviceTmpl.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
-				gp.Status, gp.Ready, gp.Images = k.queryServiceStatus(serviceTmpl, productInfo, kubeClient, cls, informer)
+				statusResp := k.queryServiceStatus(serviceTmpl, productInfo, kubeClient, cls, informer)
+				gp.Status, gp.Ready, gp.Images = statusResp.PodStatus, statusResp.Ready, statusResp.Images
 				// 如果产品正在创建中，且service status为ERROR（POD还没创建出来），则判断为Pending，尚未开始创建
 				if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
 					gp.Status = setting.PodPending
 				}
+
+				hostInfo := make([]resource.HostInfo, 0)
+				for _, workload := range statusResp.Workloads {
+					hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
+				}
+				gp.Ingress = &commonservice.IngressInfo{
+					HostInfo: hostInfo,
+				}
+
 			} else {
 				gp.Status = setting.ClusterUnknown
 			}
 
-			// ingress may be multiple workloads
-			hostInfo := make([]resource.HostInfo, 0)
-			for _, workload := range workloadMap[service.ServiceName] {
-				hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
-			}
-			gp.Ingress = &commonservice.IngressInfo{
-				HostInfo: hostInfo,
-			}
-
-			//gp.Ingress = GetIngressInfo(productInfo, serviceTmpl, k.log)
 			mutex.Lock()
 			resp = append(resp, gp)
 			mutex.Unlock()

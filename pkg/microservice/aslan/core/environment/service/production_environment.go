@@ -39,8 +39,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func ListProductionEnvs(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
-	return ListProducts(projectName, envNames, true, log)
+func ListProductionEnvs(userId string, projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
+	return ListProducts(userId, projectName, envNames, true, log)
 }
 
 // ListProductionGroups TODO we need to verify if the access to the production environment is allowed
@@ -49,15 +49,15 @@ func ListProductionGroups(serviceName, envName, productName string, perPage, pag
 }
 
 func GetServiceInProductionEnv(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(false)}
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(true)}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find env %s/%s", productName, envName))
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to create kubernetes client for cluster id: %s", env.ClusterID))
 	}
 
 	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
@@ -72,7 +72,12 @@ func GetServiceInProductionEnv(envName, productName, serviceName string, workLoa
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	return GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	ret.Workloads = nil
+	return ret, nil
 }
 
 func ExportProductionYaml(envName, productName, serviceName string, log *zap.SugaredLogger) ([]string, error) {

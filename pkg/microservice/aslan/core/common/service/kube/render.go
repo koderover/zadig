@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/pkg/errors"
@@ -50,6 +51,22 @@ type GeneSvcYamlOption struct {
 	UpdateServiceRevision bool
 	VariableYaml          string
 	UnInstall             bool
+}
+
+func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
+	flatMap, err := converter.YamlToFlatMap([]byte(yamlContent))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert yaml to flat map")
+	} else {
+		kvs := make([]*commonmodels.VariableKV, 0)
+		for k, v := range flatMap {
+			kvs = append(kvs, &models.VariableKV{
+				Key:   k,
+				Value: v,
+			})
+		}
+		return kvs, nil
+	}
 }
 
 func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
@@ -224,7 +241,59 @@ func mergeContainers(curContainers, newContainers []*commonmodels.Container) []*
 }
 
 func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.VariableKV, error) {
-	return nil, nil
+	_, err := templaterepo.NewProductColl().Find(option.ProductName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
+	}
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName: option.EnvName,
+		Name:    option.ProductName,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find product %s", option.ProductName)
+	}
+
+	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
+
+	// service not installed, nothing to return
+	if curProductSvc == nil {
+		return nil, nil
+	}
+
+	prodSvcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName: option.ProductName,
+		ServiceName: option.ServiceName,
+		Revision:    curProductSvc.Revision,
+	}, productInfo.Production)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
+	}
+
+	var usedRenderset *commonmodels.RenderSet
+	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: productInfo.ProductName,
+		EnvName:     productInfo.EnvName,
+		IsDefault:   false,
+		Revision:    productInfo.Render.Revision,
+		Name:        productInfo.Render.Name,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
+	}
+
+	serviceVariableYaml := ""
+	serviceRender := usedRenderset.GetServiceRenderMap()[option.ServiceName]
+	if serviceRender != nil && serviceRender.OverrideYaml != nil {
+		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
+	}
+
+	variableYaml, _, err := commomtemplate.SafeMergeVariableYaml(prodSvcTemplate.VariableYaml, serviceVariableYaml)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to merge variable yaml for %s/%s", option.ProductName, option.ServiceName)
+	}
+
+	return GeneKVFromYaml(variableYaml)
 }
 
 // FetchCurrentAppliedYaml generates full yaml of some service currently applied in Zadig
@@ -251,10 +320,9 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 
 	prodSvcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ProductName:   option.ProductName,
-		ServiceName:   option.ServiceName,
-		ExcludeStatus: setting.ProductStatusDeleting,
-		Revision:      curProductSvc.Revision,
+		ProductName: option.ProductName,
+		ServiceName: option.ServiceName,
+		Revision:    curProductSvc.Revision,
 	}, productInfo.Production)
 	if err != nil {
 		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
@@ -323,10 +391,9 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 
 	if curProductSvc != nil {
 		prodSvcTemplate, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ProductName:   option.ProductName,
-			ServiceName:   option.ServiceName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-			Revision:      curProductSvc.Revision,
+			ProductName: option.ProductName,
+			ServiceName: option.ServiceName,
+			Revision:    curProductSvc.Revision,
 		}, productInfo.Production)
 		if err != nil {
 			return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)

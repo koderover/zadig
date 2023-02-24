@@ -384,11 +384,12 @@ type MeegoTransitionJobSpec struct {
 }
 
 type MeegoWorkItemTransition struct {
-	ID             int    `bson:"id"               json:"id"               yaml:"id"`
-	Name           string `bson:"name"             json:"name"             yaml:"name"`
-	TransitionID   int64  `bson:"transition_id"    json:"transition_id"    yaml:"transition_id"`
-	TargetStateKey string `bson:"target_state_key" json:"target_state_key" yaml:"target_state_key"`
-	Status         string `bson:"status"           json:"status"           yaml:"status,omitempty"`
+	ID              int    `bson:"id"                json:"id"                yaml:"id"`
+	Name            string `bson:"name"              json:"name"              yaml:"name"`
+	TransitionID    int64  `bson:"transition_id"     json:"transition_id"     yaml:"transition_id"`
+	TargetStateKey  string `bson:"target_state_key"  json:"target_state_key"  yaml:"target_state_key"`
+	TargetStateName string `bson:"target_state_name" json:"target_state_name" yaml:"target_state_name"`
+	Status          string `bson:"status"            json:"status"            yaml:"status,omitempty"`
 }
 
 type IstioJobTarget struct {

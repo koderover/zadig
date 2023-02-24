@@ -116,3 +116,26 @@ func (c *FavoriteColl) Delete(args *FavoriteArgs) error {
 	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }
+
+func (c *FavoriteColl) DeleteManyByArgs(args *FavoriteArgs) error {
+	if args == nil {
+		return errors.New("nil Favorite args")
+	}
+
+	query := bson.M{}
+	if args.UserID != "" {
+		query["user_id"] = args.UserID
+	}
+	if args.ProductName != "" {
+		query["product_name"] = args.ProductName
+	}
+	if args.Name != "" {
+		query["name"] = args.Name
+	}
+	if args.Type != "" {
+		query["type"] = args.Type
+	}
+
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
