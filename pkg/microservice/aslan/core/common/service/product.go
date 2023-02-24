@@ -206,7 +206,6 @@ func DeleteZadigLabelFromNamespace(namespace string, clusterID string, log *zap.
 		filteredLabels[name] = value
 	}
 	ns.Labels = filteredLabels
-	log.Infof("######## env labels: %+v", ns.Labels)
 
 	err = updater.UpdateNamespace(ns, kubeClient)
 	if err != nil {
