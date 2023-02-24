@@ -776,13 +776,13 @@ func DeleteProduct(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
-	is_delete, err := strconv.ParseBool(c.Query("is_delete"))
+	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境", envName, "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, is_delete, ctx.Logger)
+	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, isDelete, ctx.Logger)
 }
 
 func DeleteProductionProduct(c *gin.Context) {

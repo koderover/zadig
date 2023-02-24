@@ -175,6 +175,45 @@ func DeleteNamespaceIfMatch(namespace string, selector labels.Selector, clusterI
 	return nil
 }
 
+func DeleteZadigLabelFromNamespace(namespace string, clusterID string, log *zap.SugaredLogger) error {
+	log.Infof("removing zadig label from namespace [%s]", namespace)
+
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
+		return err
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return err
+	}
+
+	ns, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to list namespace to delete matching namespace in cluster ID: %s, the error is: %s", clusterID, err)
+		return err
+	}
+
+	curLabels := ns.Labels
+	filteredLabels := make(map[string]string)
+	for name, value := range curLabels {
+		if name == setting.EnvCreatedBy && value == setting.EnvCreator {
+			continue
+		}
+		if name == setting.ProductLabel {
+			continue
+		}
+		filteredLabels[name] = value
+	}
+	ns.Labels = filteredLabels
+
+	err = updater.UpdateNamespace(ns, kubeClient)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetProductEnvNamespace(envName, productName, namespace string) string {
 	if namespace != "" {
 		return namespace
