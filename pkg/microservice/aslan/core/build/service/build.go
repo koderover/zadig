@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	goerrors "github.com/pkg/errors"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -120,10 +122,35 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	return resp, nil
 }
 
-func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJenkins bool, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
+// ListBuildModulesByServiceModule returns the service modules and build modules for services
+// services maybe the services with the latest revision or non-production services currently used in particular environment
+func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, excludeJenkins, updateServiceRevision bool, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return nil, e.ErrListBuildModule.AddErr(err)
+	}
+	svcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range services {
+		svcMap[svc.ServiceName] = svc
+	}
+
+	// if environment name is appointed, should use the services used in environment
+	if len(envName) > 0 {
+		productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+		if err != nil {
+			return nil, goerrors.Wrapf(err, "failed to find product: %s/%s", productName, envName)
+		}
+		prodUsedSvs, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
+		if err != nil {
+			return nil, goerrors.Wrapf(err, "failed to get product used template services: %s/%s", productName, envName)
+		}
+		for _, svc := range prodUsedSvs {
+			svcMap[svc.ServiceName] = svc
+		}
+		services = make([]*commonmodels.Service, 0, len(svcMap))
+		for _, svc := range svcMap {
+			services = append(services, svc)
+		}
 	}
 
 	serviceModuleAndBuildResp := make([]*ServiceModuleAndBuildResp, 0)
