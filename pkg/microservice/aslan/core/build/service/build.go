@@ -145,7 +145,10 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 			return nil, goerrors.Wrapf(err, "failed to get product used template services: %s/%s", productName, envName)
 		}
 		for _, svc := range prodUsedSvs {
-			svcMap[svc.ServiceName] = svc
+			_, exist := svcMap[svc.ServiceName]
+			if !updateServiceRevision || !exist {
+				svcMap[svc.ServiceName] = svc
+			}
 		}
 		services = make([]*commonmodels.Service, 0, len(svcMap))
 		for _, svc := range svcMap {
