@@ -234,6 +234,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product) error {
 		msg := fmt.Sprintf("get current service yaml error: %v", err)
 		return errors.New(msg)
 	}
+	c.logger.Errorf("@@@@ updated yaml: %s", updatedYaml)
 	unstructruedList, err := kube.CreateOrPatchResource(&kube.ResourceApplyParam{
 		ServiceName:         c.jobTaskSpec.ServiceName,
 		CurrentResourceYaml: currentYaml,
