@@ -231,11 +231,11 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 
 func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
-
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
+	j.setDefaultDeployContent()
 	j.job.Spec = j.spec
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
