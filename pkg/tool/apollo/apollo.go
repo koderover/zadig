@@ -45,6 +45,57 @@ type Items struct {
 	DataChangeLastModifiedTime string `json:"dataChangeLastModifiedTime"`
 }
 
+type AppInfo struct {
+	Name                       string `json:"name"`
+	AppID                      string `json:"appId"`
+	OrgID                      string `json:"orgId"`
+	OrgName                    string `json:"orgName"`
+	OwnerName                  string `json:"ownerName"`
+	OwnerEmail                 string `json:"ownerEmail"`
+	DataChangeCreatedBy        string `json:"dataChangeCreatedBy"`
+	DataChangeLastModifiedBy   string `json:"dataChangeLastModifiedBy"`
+	DataChangeCreatedTime      string `json:"dataChangeCreatedTime"`
+	DataChangeLastModifiedTime string `json:"dataChangeLastModifiedTime"`
+}
+
+type EnvAndCluster struct {
+	Env      string   `json:"env"`
+	Clusters []string `json:"clusters"`
+}
+
+func (c *Client) ListApp() (list []*AppInfo, err error) {
+	_, err = c.R().SetSuccessResult(&list).Get(c.BaseURL + "/openapi/v1/apps")
+
+	//resp, err := c.R().Get(c.BaseURL + "/openapi/v1/apps")
+	//err = c.Get(c.BaseURL + "/openapi/v1/apps").Do().Into(&list)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "send request")
+	//}
+	//if resp.GetStatusCode() != http.StatusOK {
+	//	return nil, errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	//}
+	//if err = resp.UnmarshalJson(&list); err != nil {
+	//	return nil, errors.Wrap(err, "unmarshal response")
+	//}
+	return
+}
+
+func (c *Client) GetAppEnvsAndClusters(appID string) (envList []*EnvAndCluster, err error) {
+	resp, err := c.R().SetPathParams(map[string]string{
+		"appId": appID,
+	}).Get(c.BaseURL + "/openapi/v1/apps/{appId}/envclusters")
+	if err != nil {
+		return nil, errors.Wrap(err, "send request")
+	}
+	if resp.GetStatusCode() != http.StatusOK {
+		return nil, errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	if err = resp.UnmarshalJson(&envList); err != nil {
+		return nil, errors.Wrap(err, "unmarshal response")
+	}
+	return
+}
+
 func (c *Client) ListNamespace(appID, env, cluster string) (list []*Namespace, err error) {
 	resp, err := c.R().SetPathParams(map[string]string{
 		"env":         env,
