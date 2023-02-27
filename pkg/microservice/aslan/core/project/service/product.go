@@ -338,7 +338,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 
 // transferServices transfer service from external to zadig-host(spock)
 func transferServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
-	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProductName)
+	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(projectInfo.ProductName)
 	if err != nil {
 		return nil, err
 	}
