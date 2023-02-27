@@ -85,6 +85,16 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "debug_before":
+		stepInstance, err = NewDebugStep("before", workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
+	case "debug_after":
+		stepInstance, err = NewDebugStep("after", workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
 	default:
 		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
 		log.Error(err)
