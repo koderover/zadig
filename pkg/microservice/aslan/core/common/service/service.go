@@ -298,6 +298,7 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
+	// service in template_services
 	services, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
 	if err != nil {
 		log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
@@ -309,6 +310,7 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 		currentServiceNames.Insert(service.ServiceName)
 	}
 
+	// service in services_in_external_env
 	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
 		ProductName: productName,
 		EnvName:     envName,

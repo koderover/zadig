@@ -330,7 +330,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 	if err = saveProducts(products); err != nil {
 		return err
 	}
-	if err = saveProject(projectInfo); err != nil {
+	if err = saveProject(projectInfo, services); err != nil {
 		return err
 	}
 	return nil
@@ -385,8 +385,13 @@ func saveProducts(products []*commonmodels.Product) error {
 	return nil
 }
 
-func saveProject(projectInfo *template.Product) error {
-	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.UpdateBy)
+func saveProject(projectInfo *template.Product, services []*commonmodels.Service) error {
+	validServices := sets.NewString()
+	for _, svc := range services {
+		validServices.Insert(svc.ServiceName)
+	}
+	projectInfo.Services = [][]string{validServices.List()}
+	return templaterepo.NewProductColl().UpdateProductFeatureAndServices(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.Services, projectInfo.UpdateBy)
 }
 
 // build service and env data
