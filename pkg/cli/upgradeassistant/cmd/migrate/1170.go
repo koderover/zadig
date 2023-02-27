@@ -24,11 +24,12 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	policymongo "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
@@ -159,7 +160,7 @@ func migrateSharedService() error {
 
 	// get all shared service in product template
 	productTemplates, err := template.NewProductColl().ListWithOption(
-		&template.ProductListOpt{},
+		&template.ProductListOpt{DeployType: setting.K8SDeployType},
 	)
 	if err != nil {
 		return errors.Wrap(err, "list product templates")
@@ -180,9 +181,15 @@ func migrateSharedService() error {
 
 	// get all shared service in product env
 	// if shared service in product env, but not in product template, should mark it as deleted
-	allProductEnvs, err := mongodb.NewProductColl().List(nil)
-	if err != nil {
-		return errors.Wrap(err, "list products")
+	var allProductEnvs []*models.Product
+	for _, productTemplate := range productTemplates {
+		p, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{
+			Name: productTemplate.ProductName,
+		})
+		if err != nil {
+			return errors.Wrap(err, "find product env")
+		}
+		allProductEnvs = append(allProductEnvs, p...)
 	}
 	for _, project := range allProductEnvs {
 		needUpdate := false
@@ -222,10 +229,8 @@ func migrateSharedService() error {
 	// not found shared service in any env, set all service to private
 	if len(sharedServiceListInEnvMap) == 0 {
 		log.Infof("migrateSharedService: not found shared service in any env")
-		_, err = mongodb.NewServiceColl().UpdateMany(context.Background(),
-			bson.M{}, bson.M{"visibility": "private"}, options.Update().SetUpsert(false))
-		if err != nil {
-			return errors.Wrap(err, "update service visibility")
+		if err := setAllServiceVisibilityToPrivate(); err != nil {
+			return errors.WithMessage(err, "set all service visibility to private")
 		}
 		return nil
 	}
@@ -250,6 +255,7 @@ func migrateSharedService() error {
 					sharedService.ProductName = projectName
 					sharedService.CreateBy = setting.SystemUser
 					sharedService.CreateTime = time.Now().Unix()
+					sharedService.ID = [12]byte{}
 					if service.Deleted {
 						sharedService.Status = setting.ProductStatusDeleting
 					}
@@ -265,19 +271,71 @@ func migrateSharedService() error {
 			}
 		}
 	}
-	_, err = mongodb.NewServiceColl().UpdateMany(context.Background(),
-		bson.M{}, bson.M{"$set": bson.M{"visibility": "private"}}, options.Update().SetUpsert(false))
-	if err != nil {
-		return errors.Wrap(err, "update service visibility")
-	}
-	log.Infof("update all service template visibility")
 
-	_, err = template.NewProductColl().UpdateMany(context.Background(),
-		bson.M{}, bson.M{"$set": bson.M{"shared_services": nil}}, options.Update().SetUpsert(false))
-	if err != nil {
-		return errors.Wrap(err, "remove product template shared service")
+	if err := setAllServiceVisibilityToPrivate(); err != nil {
+		return errors.WithMessage(err, "set all service visibility to private")
 	}
-	log.Infof("clean all product template shared service")
+	if err := clearAllProductTemplateSharedService(); err != nil {
+		return errors.WithMessage(err, "clear all product template shared service")
+	}
 
+	return nil
+}
+
+func setAllServiceVisibilityToPrivate() error {
+	updater := &DataBulkUpdater{
+		Coll:           mongodb.NewServiceColl().Collection,
+		WriteThreshold: 20,
+	}
+	cursor, err := mongodb.NewServiceColl().Collection.Find(context.Background(), bson.M{})
+	if err != nil {
+		return errors.Wrap(err, "get service cursor")
+	}
+	for cursor.Next(context.Background()) {
+		var s models.Service
+		if err := cursor.Decode(&s); err != nil {
+			return errors.Wrap(err, "decode service")
+		}
+		err = updater.AddModel(mongo.NewUpdateOneModel().
+			SetFilter(bson.M{"_id": s.ID}).
+			SetUpdate(bson.M{"$set": bson.M{"visibility": "private"}}).
+			SetUpsert(false))
+		if err != nil {
+			return errors.Wrap(err, "service bulk update visibility")
+		}
+	}
+	err = updater.Write()
+	if err != nil {
+		return errors.Wrap(err, "service bulk update visibility")
+	}
+	return nil
+}
+
+func clearAllProductTemplateSharedService() error {
+	updater := &DataBulkUpdater{
+		Coll:           template.NewProductColl().Collection,
+		WriteThreshold: 20,
+	}
+	cursor, err := template.NewProductColl().Collection.Find(context.Background(), bson.M{})
+	if err != nil {
+		return errors.Wrap(err, "get product cursor")
+	}
+	for cursor.Next(context.Background()) {
+		var p templatemodels.Product
+		if err := cursor.Decode(&p); err != nil {
+			return errors.Wrap(err, "decode product")
+		}
+		err = updater.AddModel(mongo.NewUpdateOneModel().
+			SetFilter(bson.M{"_id": p.ID}).
+			SetUpdate(bson.M{"$set": bson.M{"shared_services": nil}}).
+			SetUpsert(false))
+		if err != nil {
+			return errors.Wrap(err, "product template bulk update shared service")
+		}
+	}
+	err = updater.Write()
+	if err != nil {
+		return errors.Wrap(err, "product template bulk update shared service")
+	}
 	return nil
 }
