@@ -23,8 +23,13 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+
+	batchv1 "k8s.io/api/batch/v1"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -196,6 +201,14 @@ func updateCronJobImages(yamlStr string, imageMap map[string]*commonmodels.Conta
 	return string(bs), err
 }
 
+func getMarshalledStr(obj interface{}) (string, error) {
+	bs, err := yaml.Marshal(obj)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to marshal object to yaml")
+	}
+	return string(bs), nil
+}
+
 func updateContainerImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
 	res := new(types.KubeResource)
 	if err := yaml.Unmarshal([]byte(yamlStr), &res); err != nil {
@@ -224,22 +237,86 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	yamlStrs := make([]string, 0)
 	var err error
 	for _, yamlStr := range splitYams {
+
 		resKind := new(types.KubeResourceKind)
 		if err := yaml.Unmarshal([]byte(yamlStr), &resKind); err != nil {
 			return "", fmt.Errorf("unmarshal ResourceKind error: %v", err)
 		}
 
-		if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
-			yamlStr, err = updateContainerImages(yamlStr, imageMap)
+		switch resKind.Kind {
+		case setting.Deployment:
+			deployment := &appsv1.Deployment{}
+			if err := yaml.Unmarshal([]byte(yamlStr), &deployment); err != nil {
+				return "", fmt.Errorf("unmarshal Deployment error: %v", err)
+			}
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					container.Image = image.Image
+				}
+			}
+			yamlStr, err = getMarshalledStr(deployment)
 			if err != nil {
 				return "", err
 			}
-		} else if resKind.Kind == setting.CronJob {
-			yamlStr, err = updateCronJobImages(yamlStr, imageMap)
+		case setting.StatefulSet:
+			statefulSet := &appsv1.StatefulSet{}
+			if err := yaml.Unmarshal([]byte(yamlStr), &statefulSet); err != nil {
+				return "", fmt.Errorf("unmarshal StatefulSet error: %v", err)
+			}
+			for _, container := range statefulSet.Spec.Template.Spec.Containers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					container.Image = image.Image
+				}
+			}
+			yamlStr, err = getMarshalledStr(statefulSet)
+			if err != nil {
+				return "", err
+			}
+		case setting.Job:
+			job := &batchv1.Job{}
+			if err := yaml.Unmarshal([]byte(yamlStr), &job); err != nil {
+				return "", fmt.Errorf("unmarshal Job error: %v", err)
+			}
+			for _, container := range job.Spec.Template.Spec.Containers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					container.Image = image.Image
+				}
+			}
+			yamlStr, err = getMarshalledStr(job)
+			if err != nil {
+				return "", err
+			}
+		case setting.CronJob:
+			cronJob := &batchv1beta1.CronJob{}
+			if err := yaml.Unmarshal([]byte(yamlStr), &cronJob); err != nil {
+				return "", fmt.Errorf("unmarshal CronJob error: %v", err)
+			}
+			for _, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				containerName := val.Name
+				if image, ok := imageMap[containerName]; ok {
+					val.Image = image.Image
+				}
+			}
+			yamlStr, err = getMarshalledStr(cronJob)
 			if err != nil {
 				return "", err
 			}
 		}
+
+		//if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
+		//	yamlStr, err = updateContainerImages(yamlStr, imageMap)
+		//	if err != nil {
+		//		return "", err
+		//	}
+		//} else if resKind.Kind == setting.CronJob {
+		//	yamlStr, err = updateCronJobImages(yamlStr, imageMap)
+		//	if err != nil {
+		//		return "", err
+		//	}
+		//}
 		yamlStrs = append(yamlStrs, yamlStr)
 	}
 
