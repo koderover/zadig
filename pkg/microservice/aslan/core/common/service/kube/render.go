@@ -23,6 +23,8 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -242,13 +244,17 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		if err := yaml.Unmarshal([]byte(yamlStr), &resKind); err != nil {
 			return "", fmt.Errorf("unmarshal ResourceKind error: %v", err)
 		}
+		decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(yamlStr)), 5*1024*1024)
 
 		switch resKind.Kind {
 		case setting.Deployment:
 			deployment := &appsv1.Deployment{}
-			if err := yaml.Unmarshal([]byte(yamlStr), &deployment); err != nil {
+			if err := decoder.Decode(deployment); err != nil {
 				return "", fmt.Errorf("unmarshal Deployment error: %v", err)
 			}
+			//if err := yaml.Unmarshal([]byte(yamlStr), &deployment); err != nil {
+			//	return "", fmt.Errorf("unmarshal Deployment error: %v", err)
+			//}
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {
