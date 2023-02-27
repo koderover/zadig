@@ -191,7 +191,9 @@ func (c *ServiceColl) ListServiceAllRevisionsAndStatus(serviceName, productName 
 	if err != nil {
 		return nil, err
 	}
-
+	if len(resp) == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
 	return resp, err
 }
 

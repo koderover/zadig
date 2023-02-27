@@ -199,15 +199,16 @@ func migrateSharedService() error {
 					if _, ok := sharedServiceListInEnvMap[project.ProductName]; !ok {
 						sharedServiceListInEnvMap[project.ProductName] = make(map[string]*ServiceInfo)
 					}
+					ownerName := service.ProductName
+					// set shared service in product env to private
+					service.ProductName = project.ProductName
+					needUpdate = true
 					if _, ok := sharedServiceListInEnvMap[project.ProductName][service.ServiceName]; ok {
-						// set shared service in product env to private
-						service.ProductName = project.ProductName
-						needUpdate = true
 						continue
 					}
 					s := &ServiceInfo{
 						ServiceName: service.ServiceName,
-						ProductName: service.ProductName,
+						ProductName: ownerName,
 						Deleted:     true,
 					}
 					sharedServiceListInEnvMap[project.ProductName][service.ServiceName] = s
