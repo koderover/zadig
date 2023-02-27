@@ -404,6 +404,9 @@ func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) 
 		for _, inputRepo := range input {
 			if originRepo.RepoName == inputRepo.RepoName && originRepo.RepoOwner == inputRepo.RepoOwner {
 				inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
+				if inputRepo.RemoteName == "" {
+					inputRepo.RemoteName = "origin"
+				}
 				origin[i] = inputRepo
 			}
 		}
