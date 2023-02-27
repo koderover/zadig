@@ -91,6 +91,19 @@ func (j *DeployJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 	var err error
+	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	}
+	if project.ProductFeature != nil {
+		j.spec.DeployType = project.ProductFeature.DeployType
+		if project.ProductFeature.DeployType == "helm" {
+			return nil
+		}
+		if project.ProductFeature.CreateEnvType == "external" {
+			return nil
+		}
+	}
 	targets := j.spec.ServiceAndImages
 	if j.spec.Source == config.SourceFromJob {
 		// clear service and image list to prevent old data from remaining
@@ -110,28 +123,18 @@ func (j *DeployJob) SetPreset() error {
 	}
 	newServices := []*commonmodels.DeployService{}
 	for serviceName := range serviceNameMap {
-		deployService, err := j.mergeServiceVars(serviceName, deployServiceMap[serviceName])
+		deployService, err := j.filterServiceVars(serviceName, deployServiceMap[serviceName])
 		if err != nil {
 			return err
 		}
 		newServices = append(newServices, deployService)
 	}
-
 	j.spec.Services = newServices
-
-	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
-	if err != nil {
-		return fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
-	}
-	if project.ProductFeature != nil {
-		j.spec.DeployType = project.ProductFeature.DeployType
-	}
-
-	j.job.Spec = j.spec
 	return nil
 }
 
-func (j *DeployJob) mergeServiceVars(serviceName string, service *commonmodels.DeployService) (*commonmodels.DeployService, error) {
+// filterServiceVars filter service variables user defined.
+func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.DeployService) (*commonmodels.DeployService, error) {
 	svcVars, err := kube.FetchCurrentServiceVariable(&kube.GeneSvcYamlOption{ProductName: j.workflow.Project, EnvName: j.spec.Env, ServiceName: serviceName})
 	if err != nil {
 		return service, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
@@ -164,6 +167,38 @@ func (j *DeployJob) mergeServiceVars(serviceName string, service *commonmodels.D
 	return service, nil
 }
 
+func (j *DeployJob) mergeServiceVars(service *commonmodels.DeployService) ([]*commonmodels.ServiceKeyVal, error) {
+	svcVars, err := kube.FetchCurrentServiceVariable(&kube.GeneSvcYamlOption{ProductName: j.workflow.Project, EnvName: j.spec.Env, ServiceName: service.ServiceName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	}
+	if service == nil {
+		service = &commonmodels.DeployService{
+			ServiceName: service.ServiceName,
+		}
+		for _, svcVar := range svcVars {
+			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+				Key:   svcVar.Key,
+				Value: svcVar.Value,
+				Type:  commonmodels.StringType,
+			})
+		}
+		return service.KeyVals, nil
+	}
+	newVars := []*commonmodels.ServiceKeyVal{}
+	for _, varItem := range svcVars {
+		newVar := &commonmodels.ServiceKeyVal{Key: varItem.Key, Value: varItem.Value}
+		for _, svcVar := range service.KeyVals {
+			if newVar.Key == svcVar.Key {
+				newVar.Value = svcVar.Value
+				break
+			}
+		}
+		newVars = append(newVars, newVar)
+	}
+	return newVars, nil
+}
+
 func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.ZadigDeployJobSpec{}
@@ -176,6 +211,7 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		j.spec.Env = argsSpec.Env
+		j.spec.Services = argsSpec.Services
 		if j.spec.Source == config.SourceRuntime {
 			j.spec.ServiceAndImages = argsSpec.ServiceAndImages
 		}
@@ -238,6 +274,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		j.spec.ServiceAndImages = targets
 	}
 
+	serviceMap := map[string]*commonmodels.DeployService{}
+	for _, service := range j.spec.Services {
+		serviceMap[service.ServiceName] = service
+	}
+
 	if j.spec.DeployType == setting.K8SDeployType {
 		deployServiceMap := map[string][]*commonmodels.ServiceAndImage{}
 		for _, deploy := range j.spec.ServiceAndImages {
@@ -261,7 +302,18 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					Image:         deploy.Image,
 					ServiceModule: deploy.ServiceModule,
 				})
-
+			}
+			if project.ProductFeature.CreateEnvType != "external" {
+				jobTaskSpec.DeployContents = j.spec.DeployContents
+				jobTaskSpec.Production = j.spec.Production
+				service := serviceMap[serviceName]
+				if service != nil {
+					jobTaskSpec.UpdateConfig = service.UpdateConfig
+					jobTaskSpec.KeyVals, err = j.mergeServiceVars(service)
+					if err != nil {
+						return resp, err
+					}
+				}
 			}
 			jobTask := &commonmodels.JobTask{
 				Name:    jobNameFormat(serviceName + "-" + j.job.Name),

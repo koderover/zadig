@@ -20,15 +20,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +41,9 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	"k8s.io/client-go/kubernetes"
 )
 
 type DeployJobCtl struct {
@@ -51,6 +53,9 @@ type DeployJobCtl struct {
 	logger      *zap.SugaredLogger
 	kubeClient  crClient.Client
 	restConfig  *rest.Config
+	informer    informers.SharedInformerFactory
+	clientSet   *kubernetes.Clientset
+	istioClient *versionedclient.Clientset
 	jobTaskSpec *commonmodels.JobTaskDeploySpec
 	ack         func()
 }
@@ -85,120 +90,12 @@ func (c *DeployJobCtl) Run(ctx context.Context) {
 	c.wait(ctx)
 }
 
-func (c *DeployJobCtl) updateService(ctx context.Context, workloadType string, env *commonmodels.Product, serviceModule *commonmodels.DeployServiceModule) error {
-	var err error
-	var replaced bool
-	if workloadType == "" {
-		var deployments []*appsv1.Deployment
-		var statefulSets []*appsv1.StatefulSet
-		deployments, statefulSets, err = kube.FetchRelatedWorkloads(env.Namespace, c.jobTaskSpec.ServiceName, env, c.kubeClient)
-		if err != nil {
-			return err
-		}
-
-	L:
-		for _, deploy := range deployments {
-			for _, container := range deploy.Spec.Template.Spec.Containers {
-				if container.Name == serviceModule.ServiceModule {
-					err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
-					if err != nil {
-						return fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
-					}
-					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
-						Kind:      setting.Deployment,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      deploy.Name,
-					})
-					replaced = true
-					c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, deploy.Spec.Template.Labels)
-					break L
-				}
-			}
-		}
-	Loop:
-		for _, sts := range statefulSets {
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if container.Name == serviceModule.ServiceModule {
-					err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
-					if err != nil {
-						return fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
-					}
-					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
-						Kind:      setting.StatefulSet,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      sts.Name,
-					})
-					replaced = true
-					c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, sts.Spec.Template.Labels)
-					break Loop
-				}
-			}
-		}
-	} else {
-		switch workloadType {
-		case setting.StatefulSet:
-			var statefulSet *appsv1.StatefulSet
-			var found bool
-			statefulSet, found, err = getter.GetStatefulSet(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
-			if err != nil {
-				return err
-			}
-			if !found {
-				return fmt.Errorf("statefulset %s not found", c.jobTaskSpec.ServiceName)
-			}
-			for _, container := range statefulSet.Spec.Template.Spec.Containers {
-				if container.Name == serviceModule.ServiceModule {
-					err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
-					if err != nil {
-						return fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, statefulSet.Name, container.Name, err)
-					}
-					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
-						Kind:      setting.StatefulSet,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      statefulSet.Name,
-					})
-					replaced = true
-					break
-				}
-			}
-		case setting.Deployment:
-			var deployment *appsv1.Deployment
-			var found bool
-			deployment, found, err = getter.GetDeployment(env.Namespace, c.jobTaskSpec.ServiceName, c.kubeClient)
-			if err != nil {
-				return err
-			}
-			if !found {
-				return fmt.Errorf("deployment %s not found", c.jobTaskSpec.ServiceName)
-			}
-			for _, container := range deployment.Spec.Template.Spec.Containers {
-				if container.Name == serviceModule.ServiceModule {
-					err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
-					if err != nil {
-						return fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deployment.Name, container.Name, err)
-					}
-					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
-						Kind:      setting.Deployment,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      deployment.Name,
-					})
-					replaced = true
-					break
-				}
-			}
-		}
+func (c *DeployJobCtl) getVarsYaml() (string, error) {
+	vars := []*commonmodels.VariableKV{}
+	for _, v := range c.jobTaskSpec.KeyVals {
+		vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
 	}
-	if !replaced {
-		return fmt.Errorf("service %s container name %s is not found in env %s", c.jobTaskSpec.ServiceName, serviceModule.ServiceModule, c.jobTaskSpec.Env)
-	}
-	if err := updateProductImageByNs(env.Namespace, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, map[string]string{serviceModule.ServiceModule: serviceModule.Image}, c.logger); err != nil {
-		return err
-	}
-	return nil
+	return kube.GenerateYamlFromKV(vars)
 }
 
 func (c *DeployJobCtl) run(ctx context.Context) error {
@@ -230,48 +127,95 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
-
-	// get servcie info
-	var (
-		serviceInfo *commonmodels.Service
-	)
-	serviceInfo, err = commonrepo.NewServiceColl().Find(
-		&commonrepo.ServiceFindOption{
-			ServiceName:   c.jobTaskSpec.ServiceName,
-			ProductName:   c.workflowCtx.ProjectName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-			Type:          c.jobTaskSpec.ServiceType,
-		})
+	c.clientSet, err = kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
-		// Maybe it is a share service, the entity is not under the project
-		serviceInfo, err = commonrepo.NewServiceColl().Find(
-			&commonrepo.ServiceFindOption{
-				ServiceName:   c.jobTaskSpec.ServiceName,
-				ExcludeStatus: setting.ProductStatusDeleting,
-				Type:          c.jobTaskSpec.ServiceType,
-			})
-		if err != nil {
-			msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
-			logError(c.job, msg, c.logger)
-			return errors.New(msg)
+		msg := fmt.Sprintf("can't init k8s clientset: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	c.informer, err = informer.NewInformer(c.jobTaskSpec.ClusterID, c.namespace, c.clientSet)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s informer: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	c.istioClient, err = versionedclient.NewForConfig(c.restConfig)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s istio client: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	var updateRevision bool
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
+		updateRevision = true
+	}
+	varsYaml, err := c.getVarsYaml()
+	if err != nil {
+		msg := fmt.Sprintf("generate vars yaml error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+	containers := []*commonmodels.Container{}
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
+		for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
+			containers = append(containers, &commonmodels.Container{Name: serviceImage.ServiceModule, Image: serviceImage.Image})
 		}
 	}
-
-	errList := new(multierror.Error)
-	wg := sync.WaitGroup{}
-	for _, serviceModule := range c.jobTaskSpec.ServiceAndImages {
-		wg.Add(1)
-		go func(serviceModule *commonmodels.DeployServiceModule) {
-			defer wg.Done()
-			if err := c.updateService(ctx, serviceInfo.WorkloadType, env, serviceModule); err != nil {
-				errList = multierror.Append(errList, err)
-			}
-		}(serviceModule)
+	option := &kube.GeneSvcYamlOption{ProductName: env.ProductName, EnvName: c.jobTaskSpec.Env, ServiceName: c.jobTaskSpec.ServiceName, UpdateServiceRevision: updateRevision, VariableYaml: varsYaml, Containers: containers}
+	updatedYaml, revision, err := kube.GenerateRenderedYaml(option)
+	if err != nil {
+		msg := fmt.Sprintf("generate service yaml error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
 	}
-	wg.Wait()
-	if err := errList.ErrorOrNil(); err != nil {
-		logError(c.job, err.Error(), c.logger)
-		return err
+	currentYaml, _, err := kube.FetchCurrentAppliedYaml(option)
+	if err != nil {
+		msg := fmt.Sprintf("get current service yaml error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+	unstructruedList, err := kube.CreateOrPatchResource(&kube.ResourceApplyParam{
+		ServiceName:         c.jobTaskSpec.ServiceName,
+		CurrentResourceYaml: currentYaml,
+		UpdateResourceYaml:  updatedYaml,
+		Informer:            c.informer,
+		KubeClient:          c.kubeClient,
+		AddZadigLabel:       !c.jobTaskSpec.Production,
+		InjectSecrets:       true,
+		SharedEnvHandler:    nil,
+		ProductInfo:         env}, c.logger)
+
+	if err != nil {
+		msg := fmt.Sprintf("create or patch resource error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
+		ProductName:     env.ProductName,
+		EnvName:         c.jobTaskSpec.Env,
+		ServiceName:     c.jobTaskSpec.ServiceName,
+		ServiceRevision: revision,
+		VariableYaml:    varsYaml,
+		Containers:      containers,
+	})
+	if err != nil {
+		msg := fmt.Sprintf("update service render set info error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+	for _, unstructrued := range unstructruedList {
+		switch unstructrued.GetKind() {
+		case setting.Deployment, setting.StatefulSet:
+			podLabels, _, err := unstructured.NestedStringMap(unstructrued.Object, "spec", "template", "metadata", "labels")
+			if err == nil {
+				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, podLabels)
+			}
+			c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{Name: unstructrued.GetName(), Kind: unstructrued.GetKind()})
+		}
 	}
 	return nil
 }

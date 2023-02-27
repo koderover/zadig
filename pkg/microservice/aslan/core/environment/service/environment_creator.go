@@ -485,7 +485,7 @@ func initEnvConfigSetAction(envName, namespace, productName, userName string, en
 		},
 	}
 
-	clusterLabels := commonservice.GetPredefinedClusterLabels(productName, "", envName)
+	clusterLabels := kube.GetPredefinedClusterLabels(productName, "", envName)
 	delete(clusterLabels, "s-service")
 
 	for _, envResource := range envResources {

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package kube
 
 import (
 	"context"
@@ -24,17 +24,16 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/informers"
+	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
@@ -225,7 +224,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	for _, u := range resources {
 		switch u.GetKind() {
 		case setting.Ingress:
-			ls := kube.MergeLabels(labels, u.GetLabels())
+			ls := MergeLabels(labels, u.GetLabels())
 
 			u.SetNamespace(namespace)
 			u.SetLabels(ls)
@@ -239,11 +238,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 		case setting.Service:
 			u.SetNamespace(namespace)
-			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
+			u.SetLabels(MergeLabels(labels, u.GetLabels()))
 
 			if _, ok := u.GetLabels()["endpoints"]; !ok {
 				selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector")
-				err := unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector")
+				err := unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, selector), "spec", "selector")
 				if err != nil {
 					// should not have happened
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
@@ -272,7 +271,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			needSelectorLabel := false
 
 			u.SetNamespace(namespace)
-			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
+			u.SetLabels(MergeLabels(labels, u.GetLabels()))
 
 			switch u.GetKind() {
 			case setting.Deployment:
@@ -285,10 +284,10 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if err != nil {
 				podLabels = nil
 			}
-			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			err = unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			if err != nil {
 				log.Errorf("merge label failed err:%s", err)
-				u.Object = SetFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+				u.Object = SetFieldValueIsNotExist(u.Object, MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			}
 
 			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
@@ -308,10 +307,10 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					selector = nil
 				}
 
-				err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
+				err = unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 				if err != nil {
 					log.Errorf("merge selector failed err:%s", err)
-					u.Object = SetFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
+					u.Object = SetFieldValueIsNotExist(u.Object, MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 				}
 			}
 
@@ -373,8 +372,8 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			}
 
 			obj.Namespace = namespace
-			obj.ObjectMeta.Labels = kube.MergeLabels(labels, obj.ObjectMeta.Labels)
-			obj.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.Template.ObjectMeta.Labels)
+			obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
+			obj.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.Template.ObjectMeta.Labels)
 
 			// Inject imagePullSecrets if qn-registry-secret is not set
 			if applyParam.InjectSecrets {
@@ -408,9 +407,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			}
 
 			obj.Namespace = namespace
-			obj.ObjectMeta.Labels = kube.MergeLabels(labels, obj.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
+			obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
+			obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
+			obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
 
 			// Inject imagePullSecrets if qn-registry-secret is not set
 			if applyParam.InjectSecrets {
@@ -425,7 +424,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			}
 
 		case setting.ClusterRole, setting.ClusterRoleBinding:
-			u.SetLabels(kube.MergeLabels(clusterLabels, u.GetLabels()))
+			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
 
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
@@ -435,7 +434,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			}
 		default:
 			u.SetNamespace(namespace)
-			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
+			u.SetLabels(MergeLabels(labels, u.GetLabels()))
 
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workflowcontroller
+package jobcontroller
 
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"

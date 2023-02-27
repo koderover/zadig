@@ -102,7 +102,7 @@ type JobTaskDeploySpec struct {
 	ServiceName        string                 `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
 	Production         bool                   `bson:"production"                       json:"production"                          yaml:"production"`
 	DeployContents     []config.DeployContent `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
-	KeyVals            []*KeyVal              `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
+	KeyVals            []*ServiceKeyVal       `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
 	UpdateConfig       bool                   `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
 	YamlContent        string                 `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	ServiceAndImages   []*DeployServiceModule `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
