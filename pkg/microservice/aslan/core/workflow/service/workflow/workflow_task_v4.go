@@ -118,9 +118,11 @@ type ZadigScanningJobSpec struct {
 }
 
 type ZadigDeployJobSpec struct {
-	Env                string             `bson:"env"                          json:"env"`
-	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
-	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+	Env                string                        `bson:"env"                          json:"env"`
+	SkipCheckRunStatus bool                          `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	ServiceAndImages   []*ServiceAndImage            `bson:"service_and_images"           json:"service_and_images"`
+	YamlContent        string                        `bson:"yaml_content"                 json:"yaml_content"`
+	KeyVals            []*commonmodels.ServiceKeyVal `bson:"key_vals"                     json:"key_vals"`
 }
 
 type CustomDeployJobSpec struct {
@@ -623,6 +625,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
+			spec.KeyVals = taskJobSpec.KeyVals
+			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			for _, imageAndmodule := range taskJobSpec.ServiceAndImages {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
