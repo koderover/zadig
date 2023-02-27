@@ -38,7 +38,7 @@ func ExportProductionServiceYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	serviceName := c.Query("serviceName")
+	serviceName := c.Param("serviceName")
 	envName := c.Param("name")
 	productName := c.Query("projectName")
 
