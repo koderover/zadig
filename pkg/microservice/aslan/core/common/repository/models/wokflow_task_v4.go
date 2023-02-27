@@ -107,6 +107,7 @@ type JobTaskDeploySpec struct {
 	YamlContent        string                 `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	ServiceAndImages   []*DeployServiceModule `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
 	ServiceType        string                 `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	CreateEnvType      string                 `bson:"env_type"                         json:"env_type"                            yaml:"env_type"`
 	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ClusterID          string                 `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
 	Timeout            int                    `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`

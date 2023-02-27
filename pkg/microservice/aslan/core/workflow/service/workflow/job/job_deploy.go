@@ -290,6 +290,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 				ServiceName:        serviceName,
 				ServiceType:        setting.K8SDeployType,
+				CreateEnvType:      project.ProductFeature.CreateEnvType,
 				ClusterID:          product.ClusterID,
 				Production:         j.spec.Production,
 				DeployContents:     j.spec.DeployContents,
