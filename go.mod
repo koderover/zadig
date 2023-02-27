@@ -47,7 +47,7 @@ require (
 	github.com/jinzhu/now v1.1.5
 	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/mittwald/go-helm-client v0.8.5
+	github.com/mittwald/go-helm-client v0.11.3
 	github.com/moby/buildkit v0.10.4
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/onsi/ginkgo v1.16.5
@@ -80,7 +80,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.3.6
 	gorm.io/gorm v1.23.8
-	helm.sh/helm/v3 v3.7.2
+	helm.sh/helm/v3 v3.9.1
 	istio.io/api v0.0.0-20221109202042-b9e5d446a83d
 	istio.io/client-go v1.16.0
 	k8s.io/api v0.25.0
