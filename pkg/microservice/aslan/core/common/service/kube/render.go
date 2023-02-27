@@ -51,6 +51,7 @@ type GeneSvcYamlOption struct {
 	UpdateServiceRevision bool
 	VariableYaml          string
 	UnInstall             bool
+	Containers            []*models.Container
 }
 
 func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
@@ -230,13 +231,15 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	return util.JoinYamls(yamlStrs), nil
 }
 
-func mergeContainers(curContainers, newContainers []*commonmodels.Container) []*commonmodels.Container {
+func mergeContainers(curContainers []*commonmodels.Container, newContainers ...[]*commonmodels.Container) []*commonmodels.Container {
 	curContainerMap := make(map[string]*commonmodels.Container)
 	for _, container := range curContainers {
 		curContainerMap[container.Name] = container
 	}
-	for _, container := range newContainers {
-		curContainerMap[container.Name] = container
+	for _, containers := range newContainers {
+		for _, container := range containers {
+			curContainerMap[container.Name] = container
+		}
 	}
 	var containers []*commonmodels.Container
 	for _, container := range curContainerMap {
@@ -465,7 +468,8 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 
-	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergeContainers(curContainers, latestSvcTemplate.Containers))
+	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, option.Containers)
+	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), err
 }
 
