@@ -207,6 +207,22 @@ func updateCronJobImages(yamlStr string, imageMap map[string]*commonmodels.Conta
 	return string(bs), err
 }
 
+//func setWorkloadContainers(current []v1.Container, newContainers []*commonmodels.Container) []v1.Container {
+//	imageMap := make(map[string]*commonmodels.Container)
+//	for _, image := range images {
+//		imageMap[image.Name] = image
+//	}
+//	ret := make([]v1.Container, 0, len(current))
+//	for i, container := range current {
+//		if containerImage, ok := imageMap[container.Name]; ok {
+//			current[i].Image = containerImage.Image
+//			ret = append(ret, current[i])
+//		} else {
+//			ret = append(ret, container)
+//		}
+//	}
+//}
+
 func resourceToYaml(obj runtime.Object) (string, error) {
 	y := printers.YAMLPrinter{}
 	writer := bytes.NewBuffer(nil)
@@ -258,12 +274,13 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err := decoder.Decode(deployment); err != nil {
 				return "", fmt.Errorf("unmarshal Deployment error: %v", err)
 			}
-			for _, container := range deployment.Spec.Template.Spec.Containers {
+			for i, container := range deployment.Spec.Template.Spec.Containers {
 				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {
-					container.Image = image.Image
+					deployment.Spec.Template.Spec.Containers[i].Image = image.Image
 				}
 			}
+
 			yamlStr, err = resourceToYaml(deployment)
 			if err != nil {
 				return "", err
@@ -273,10 +290,10 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err := decoder.Decode(statefulSet); err != nil {
 				return "", fmt.Errorf("unmarshal StatefulSet error: %v", err)
 			}
-			for _, container := range statefulSet.Spec.Template.Spec.Containers {
+			for i, container := range statefulSet.Spec.Template.Spec.Containers {
 				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {
-					container.Image = image.Image
+					statefulSet.Spec.Template.Spec.Containers[i].Image = image.Image
 				}
 			}
 			yamlStr, err = resourceToYaml(statefulSet)
@@ -288,10 +305,10 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err := decoder.Decode(job); err != nil {
 				return "", fmt.Errorf("unmarshal Job error: %v", err)
 			}
-			for _, container := range job.Spec.Template.Spec.Containers {
+			for i, container := range job.Spec.Template.Spec.Containers {
 				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {
-					container.Image = image.Image
+					job.Spec.Template.Spec.Containers[i].Image = image.Image
 				}
 			}
 			yamlStr, err = resourceToYaml(job)
@@ -304,10 +321,10 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err := decoder.Decode(cronJob); err != nil {
 				return "", fmt.Errorf("unmarshal CronJob error: %v", err)
 			}
-			for _, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
 				containerName := val.Name
 				if image, ok := imageMap[containerName]; ok {
-					val.Image = image.Image
+					cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
 				}
 			}
 			yamlStr, err = resourceToYaml(cronJob)
