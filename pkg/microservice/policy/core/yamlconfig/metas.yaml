@@ -641,6 +641,15 @@ metas:
             endpoint: /api/aslan/workflow/v4/workflowtask/workflow/?*/task/?*
           - method: POST
             endpoint: /api/aslan/workflow/v4/workflowtask/approve
+      - action: debug_workflow
+        alias: 调试
+        rules:
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/workflowtask/breakpoint/?*/?*/task/?*/?*
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/workflowtask/debug/?*/task/?*
+          - method: DELETE
+            endpoint: /api/aslan/workflow/v4/workflowtask/debug/?*/:jobName/task/?*/?*
   - resource: Environment
     alias: 测试环境
     description: ''

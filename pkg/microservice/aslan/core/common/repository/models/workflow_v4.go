@@ -44,6 +44,7 @@ type WorkflowV4 struct {
 	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
 	MultiRun        bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
+	Debug           bool                     `bson:"debug"               yaml:"-"               json:"debug"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
 	MeegoHookCtls   []*MeegoHook             `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
@@ -101,9 +102,9 @@ type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
 	// only for webhook workflow args to skip some tasks.
-	Skipped   bool                `bson:"skipped"      yaml:"skipped"    json:"skipped"`
+	Skipped   bool                `bson:"skipped"        yaml:"skipped"  json:"skipped"`
+	Spec      interface{}         `bson:"spec"           yaml:"spec"     json:"spec"`
 	RunPolicy config.JobRunPolicy `bson:"run_policy"   yaml:"run_policy" json:"run_policy"`
-	Spec      interface{}         `bson:"spec"         yaml:"spec"       json:"spec"`
 }
 
 type CustomDeployJobSpec struct {

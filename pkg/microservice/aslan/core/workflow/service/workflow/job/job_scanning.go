@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -30,7 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/sonar"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
 )
 
 type ScanningJob struct {
@@ -207,6 +208,13 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			repoName = scanningInfo.Repos[0].RepoName
 			branch = scanningInfo.Repos[0].Branch
 		}
+		// init debug before step
+		debugBeforeStep := &commonmodels.StepTask{
+			Name:     scanning.Name + "-debug-before",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugBefore,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
 		if scanningInfo.ScannerType == types.ScanningTypeSonar {
 			shellStep := &commonmodels.StepTask{
@@ -276,6 +284,13 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 		}
+		// init debug after step
+		debugAfterStep := &commonmodels.StepTask{
+			Name:     scanning.Name + "-debug-after",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugAfter,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 		resp = append(resp, jobTask)
 	}
 	j.job.Spec = j.spec

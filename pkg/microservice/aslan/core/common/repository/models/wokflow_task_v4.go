@@ -50,6 +50,7 @@ type WorkflowTask struct {
 	IsArchived          bool               `bson:"is_archived"               json:"is_archived"`
 	Error               string             `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool               `bson:"is_restart"                json:"is_restart"`
+	IsDebug             bool               `bson:"is_debug"                  json:"is_debug"`
 	MultiRun            bool               `bson:"multi_run"                 json:"multi_run"`
 	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
 }
@@ -72,17 +73,19 @@ type StageTask struct {
 type JobTask struct {
 	Name string `bson:"name"                json:"name"`
 	// jobTask unique id, unique in the workflow
-	Key        string        `bson:"key"                 json:"key"`
-	K8sJobName string        `bson:"k8s_job_name"        json:"k8s_job_name"`
-	JobType    string        `bson:"type"                json:"type"`
-	Status     config.Status `bson:"status"              json:"status"`
-	StartTime  int64         `bson:"start_time"          json:"start_time,omitempty"`
-	EndTime    int64         `bson:"end_time"            json:"end_time,omitempty"`
-	Error      string        `bson:"error"               json:"error"`
-	Timeout    int64         `bson:"timeout"             json:"timeout"`
-	Retry      int64         `bson:"retry"               json:"retry"`
-	Spec       interface{}   `bson:"spec"                json:"spec"`
-	Outputs    []*Output     `bson:"outputs"             json:"outputs"`
+	Key              string        `bson:"key"                 json:"key"`
+	K8sJobName       string        `bson:"k8s_job_name"        json:"k8s_job_name"`
+	JobType          string        `bson:"type"                json:"type"`
+	Status           config.Status `bson:"status"              json:"status"`
+	StartTime        int64         `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime          int64         `bson:"end_time"            json:"end_time,omitempty"`
+	Error            string        `bson:"error"               json:"error"`
+	Timeout          int64         `bson:"timeout"             json:"timeout"`
+	Retry            int64         `bson:"retry"               json:"retry"`
+	Spec             interface{}   `bson:"spec"                json:"spec"`
+	Outputs          []*Output     `bson:"outputs"             json:"outputs"`
+	BreakpointBefore bool          `bson:"breakpoint_before"   json:"breakpoint_before"`
+	BreakpointAfter  bool          `bson:"breakpoint_after"    json:"breakpoint_after"`
 }
 
 type JobTaskCustomDeploySpec struct {

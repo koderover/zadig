@@ -120,6 +120,10 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if c.workflowTask.ClusterIDMap == nil {
 		c.workflowTask.ClusterIDMap = make(map[string]bool)
 	}
+
+	addWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask, c.ack)
+	defer removeWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+
 	c.workflowTask.Status = config.StatusRunning
 	c.workflowTask.StartTime = time.Now().Unix()
 	c.ack()

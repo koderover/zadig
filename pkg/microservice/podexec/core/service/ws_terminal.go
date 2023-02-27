@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -66,14 +67,31 @@ type PtyHandler interface {
 	Done() chan struct{}
 }
 
+type TerminalSessionType string
+
+const (
+	// Environment is the debug terminal session type for environment
+	Environment TerminalSessionType = "env"
+	// Workflow is the debug terminal session type for workflow, which need musk secret envs
+	Workflow TerminalSessionType = "workflow"
+)
+
 // TerminalSession implements PtyHandler
 type TerminalSession struct {
 	wsConn   *websocket.Conn
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
+	// SecretEnvs is a list of environment variables that should be hidden from the client.
+	SecretEnvs []string
+	Type       TerminalSessionType
 }
 
-func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalSession, error) {
+type TerminalSessionOption struct {
+	SecretEnvs []string
+	Type       TerminalSessionType
+}
+
+func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header, opt ...*TerminalSessionOption) (*TerminalSession, error) {
 	conn, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
 		return nil, err
@@ -82,6 +100,11 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		wsConn:   conn,
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
+		Type:     Environment,
+	}
+	if len(opt) > 0 {
+		session.SecretEnvs = opt[0].SecretEnvs
+		session.Type = opt[0].Type
 	}
 	return session, nil
 }
@@ -134,6 +157,11 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 	if err != nil {
 		log.Errorf("write parse message err: %v", err)
 		return 0, err
+	}
+	if t.Type == Workflow {
+		for _, secretEnv := range t.SecretEnvs {
+			msg = bytes.ReplaceAll(msg, []byte(secretEnv), []byte("********"))
+		}
 	}
 	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Errorf("write message err: %v", err)
