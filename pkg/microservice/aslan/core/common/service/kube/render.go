@@ -437,6 +437,9 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	if latestSvcTemplate == nil || !option.UpdateServiceRevision {
 		latestSvcTemplate = prodSvcTemplate
 	}
+
+	log.Infof("########## svc template name: %s, revision : %d", latestSvcTemplate.ServiceName, latestSvcTemplate.Revision)
+
 	if latestSvcTemplate == nil {
 		return "", 0, fmt.Errorf("failed to find service template %s used in product %s", option.ServiceName, option.EnvName)
 	}
@@ -477,6 +480,8 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
 	}
 
+	log.Infof("########## before render yaml: %s", latestSvcTemplate.Yaml)
+
 	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, latestSvcTemplate.ServiceVars, latestSvcTemplate.VariableYaml)
 	if err != nil {
 		return "", 0, err
@@ -484,7 +489,13 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, option.Containers)
+
+	log.Infof("########## before replace container yaml: %s", fullRenderedYaml)
+
 	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+
+	log.Infof("########## after replace container yaml: %s", fullRenderedYaml)
+
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), err
 }
 

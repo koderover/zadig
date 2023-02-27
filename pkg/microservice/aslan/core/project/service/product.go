@@ -330,7 +330,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 	if err = saveProducts(products); err != nil {
 		return err
 	}
-	if err = saveProject(projectInfo); err != nil {
+	if err = saveProject(projectInfo, services); err != nil {
 		return err
 	}
 	return nil
@@ -338,7 +338,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 
 // transferServices transfer service from external to zadig-host(spock)
 func transferServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
-	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProductName)
+	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(projectInfo.ProductName)
 	if err != nil {
 		return nil, err
 	}
@@ -385,8 +385,13 @@ func saveProducts(products []*commonmodels.Product) error {
 	return nil
 }
 
-func saveProject(projectInfo *template.Product) error {
-	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.UpdateBy)
+func saveProject(projectInfo *template.Product, services []*commonmodels.Service) error {
+	validServices := sets.NewString()
+	for _, svc := range services {
+		validServices.Insert(svc.ServiceName)
+	}
+	projectInfo.Services = [][]string{validServices.List()}
+	return templaterepo.NewProductColl().UpdateProductFeatureAndServices(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.Services, projectInfo.UpdateBy)
 }
 
 // build service and env data

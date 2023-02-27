@@ -346,9 +346,9 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
-				bs, _, err = getter.GetDeploymentYaml(args.Namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			}
 
 			if len(bs) == 0 || err != nil {
