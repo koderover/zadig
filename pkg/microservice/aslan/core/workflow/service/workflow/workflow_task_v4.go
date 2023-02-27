@@ -55,6 +55,12 @@ import (
 	stepspec "github.com/koderover/zadig/pkg/types/step"
 )
 
+const (
+	checkShellStepStart  = "ls /zadig/debug/shell_step"
+	checkShellStepDone   = "ls /zadig/debug/shell_step_done"
+	setOrUnsetBreakpoint = "%s /zadig/debug/breakpoint_%s"
+)
+
 type CreateTaskV4Resp struct {
 	ProjectName  string `json:"project_name"`
 	WorkflowName string `json:"workflow_name"`
@@ -496,17 +502,17 @@ FOR:
 		}
 		switch position {
 		case "before":
-			if exec("ls /zadig/debug/shell_step") {
+			if exec(checkShellStepStart) {
 				logger.Error("set workflowTaskV4 before breakpoint failed: shell step has started")
 				return e.ErrSetBreakpoint.AddDesc("当前任务已开始运行脚本，无法修改前断点")
 			}
-			exec(fmt.Sprintf("%s /zadig/debug/breakpoint_%s", touchOrRemove(set), position))
+			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
 		case "after":
-			if exec("ls /zadig/debug/shell_step_done") {
+			if exec(checkShellStepDone) {
 				logger.Error("set workflowTaskV4 after breakpoint failed: shell step has been done")
 				return e.ErrSetBreakpoint.AddDesc("当前任务已运行完脚本，无法修改后断点")
 			}
-			exec(fmt.Sprintf("%s /zadig/debug/breakpoint_%s", touchOrRemove(set), position))
+			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
 		}
 		// update data in memory and ack
 		switch position {
