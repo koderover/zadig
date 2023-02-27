@@ -40,8 +40,15 @@ func (j *DeployJob) Instantiate() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	j.setDefaultDeployContent()
 	j.job.Spec = j.spec
 	return nil
+}
+
+func (j *DeployJob) setDefaultDeployContent() {
+	if j.spec.DeployContents == nil || len(j.spec.DeployContents) <= 0 {
+		j.spec.DeployContents = []config.DeployContent{config.DeployImage}
+	}
 }
 
 func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.ServiceAndImage, error) {
@@ -89,6 +96,7 @@ func (j *DeployJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	j.setDefaultDeployContent()
 	j.job.Spec = j.spec
 	var err error
 	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
