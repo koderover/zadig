@@ -23,6 +23,10 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"k8s.io/cli-runtime/pkg/printers"
+
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -203,12 +207,14 @@ func updateCronJobImages(yamlStr string, imageMap map[string]*commonmodels.Conta
 	return string(bs), err
 }
 
-func getMarshalledStr(obj interface{}) (string, error) {
-	bs, err := yaml.Marshal(obj)
+func resourceToYaml(obj runtime.Object) (string, error) {
+	y := printers.YAMLPrinter{}
+	writer := bytes.NewBuffer(nil)
+	err := y.PrintObj(obj, writer)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to marshal object to yaml")
 	}
-	return string(bs), nil
+	return writer.String(), nil
 }
 
 func updateContainerImages(yamlStr string, imageMap map[string]*commonmodels.Container) (string, error) {
@@ -252,22 +258,19 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err := decoder.Decode(deployment); err != nil {
 				return "", fmt.Errorf("unmarshal Deployment error: %v", err)
 			}
-			//if err := yaml.Unmarshal([]byte(yamlStr), &deployment); err != nil {
-			//	return "", fmt.Errorf("unmarshal Deployment error: %v", err)
-			//}
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {
 					container.Image = image.Image
 				}
 			}
-			yamlStr, err = getMarshalledStr(deployment)
+			yamlStr, err = resourceToYaml(deployment)
 			if err != nil {
 				return "", err
 			}
 		case setting.StatefulSet:
 			statefulSet := &appsv1.StatefulSet{}
-			if err := yaml.Unmarshal([]byte(yamlStr), &statefulSet); err != nil {
+			if err := decoder.Decode(statefulSet); err != nil {
 				return "", fmt.Errorf("unmarshal StatefulSet error: %v", err)
 			}
 			for _, container := range statefulSet.Spec.Template.Spec.Containers {
@@ -276,13 +279,13 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 					container.Image = image.Image
 				}
 			}
-			yamlStr, err = getMarshalledStr(statefulSet)
+			yamlStr, err = resourceToYaml(statefulSet)
 			if err != nil {
 				return "", err
 			}
 		case setting.Job:
 			job := &batchv1.Job{}
-			if err := yaml.Unmarshal([]byte(yamlStr), &job); err != nil {
+			if err := decoder.Decode(job); err != nil {
 				return "", fmt.Errorf("unmarshal Job error: %v", err)
 			}
 			for _, container := range job.Spec.Template.Spec.Containers {
@@ -291,13 +294,14 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 					container.Image = image.Image
 				}
 			}
-			yamlStr, err = getMarshalledStr(job)
+			yamlStr, err = resourceToYaml(job)
 			if err != nil {
 				return "", err
 			}
 		case setting.CronJob:
+			// TODO support new cronjob type
 			cronJob := &batchv1beta1.CronJob{}
-			if err := yaml.Unmarshal([]byte(yamlStr), &cronJob); err != nil {
+			if err := decoder.Decode(cronJob); err != nil {
 				return "", fmt.Errorf("unmarshal CronJob error: %v", err)
 			}
 			for _, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
@@ -306,7 +310,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 					val.Image = image.Image
 				}
 			}
-			yamlStr, err = getMarshalledStr(cronJob)
+			yamlStr, err = resourceToYaml(cronJob)
 			if err != nil {
 				return "", err
 			}
