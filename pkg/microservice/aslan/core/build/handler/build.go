@@ -54,7 +54,7 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 	updateServiceRevision = c.Query("updateServiceRevision") == "true"
 	envName := c.Query("envName")
 
-	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("encryptedKey"), envName, c.Query("projectName"), excludeJenkins, updateServiceRevision, ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("encryptedKey"), c.Query("projectName"), envName, excludeJenkins, updateServiceRevision, ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {
