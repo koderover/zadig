@@ -538,13 +538,13 @@ func (c *ProductColl) ListExistedNamespace() ([]string, error) {
 	return resp.List(), nil
 }
 
-func (c *ProductColl) ListProductionNamespace() ([]string, error) {
+func (c *ProductColl) ListProductionNamespace(clusterID string) ([]string, error) {
 	nsList := make([]*nsObject, 0)
 	resp := sets.NewString()
 	selector := bson.D{
 		{"namespace", 1},
 	}
-	query := bson.M{"production": true}
+	query := bson.M{"production": true, "cluster_id": clusterID}
 	opt := options.Find()
 	opt.SetProjection(selector)
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)

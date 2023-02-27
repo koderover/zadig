@@ -197,7 +197,7 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 		filterK8sNamespaces.Insert(nsList...)
 	}
 
-	productionEnvs, err := commonrepo.NewProductColl().ListProductionNamespace()
+	productionEnvs, err := commonrepo.NewProductColl().ListProductionNamespace(clusterID)
 	if err != nil {
 		log.Errorf("Failed to list production namespace from the env List, error: %s", err)
 		return nil, err
