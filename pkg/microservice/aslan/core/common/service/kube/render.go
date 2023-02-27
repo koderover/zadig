@@ -70,6 +70,24 @@ func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
 	}
 }
 
+func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
+	flatMap := make(map[string]interface{})
+	for _, kv := range kvs {
+		flatMap[kv.Key] = kv.Value
+	}
+
+	validKvMap, err := converter.Expand(flatMap)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to expand flat map")
+	}
+
+	bs, err := yaml.Marshal(validKvMap)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to marshal map to yaml")
+	}
+	return string(bs), nil
+}
+
 func IsServiceVarsWildcard(serviceVars []string) bool {
 	return len(serviceVars) == 1 && serviceVars[0] == "*"
 }
