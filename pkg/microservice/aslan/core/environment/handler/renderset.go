@@ -65,11 +65,11 @@ func GetProductionVariables(c *gin.Context) {
 		return
 	}
 
-	if c.Param("envName") == "" {
+	if c.Param("name") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
-	ctx.Resp, ctx.Err = commonservice.GetK8sProductionSvcRenderArgs(c.Query("projectName"), c.Param("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.GetK8sProductionSvcRenderArgs(c.Query("projectName"), c.Param("name"), c.Query("serviceName"), ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {
