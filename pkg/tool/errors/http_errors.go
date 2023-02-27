@@ -292,6 +292,14 @@ var (
 	// ErrApproveTask ...
 	ErrApproveTask = NewHTTPError(6169, "批准工作流任务失败")
 
+	// ErrSetBreakpoint
+	ErrSetBreakpoint = NewHTTPError(6170, "修改断点状态失败")
+
+	// ErrStopDebugShell
+	ErrStopDebugShell = NewHTTPError(6171, "结束调试步骤失败")
+
+	// ErrGetDebugShell
+	ErrGetDebugShell = NewHTTPError(6172, "获取调试 Shell 失败")
 	//-----------------------------------------------------------------------------------------------
 	// Keystore APIs Range: 6180 - 6189
 	//-----------------------------------------------------------------------------------------------

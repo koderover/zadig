@@ -19,10 +19,13 @@ package template
 import (
 	"strings"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Product struct {
+	ID                  primitive.ObjectID    `bson:"_id,omitempty"             json:"-"`
 	ProjectName         string                `bson:"project_name"              json:"project_name"`
 	ProductName         string                `bson:"product_name"              json:"product_name"`
 	Revision            int64                 `bson:"revision"                  json:"revision"`

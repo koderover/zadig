@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -29,7 +31,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	steptypes "github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
 )
 
 type FreeStyleJob struct {
@@ -249,10 +250,23 @@ func stepsToStepTasks(step []*commonmodels.Step, outputs []*commonmodels.Output)
 			}
 			stepTaskSpec.Scripts = append(strings.Split(replaceWrapLine(stepTaskSpec.Script), "\n"), outputScript(outputs)...)
 			stepTask.Spec = stepTaskSpec
-
+			// add debug step before shell step
+			debugBeforeStep := &commonmodels.StepTask{
+				Name:     "debug-before",
+				StepType: config.StepDebugBefore,
+			}
+			resp = append(resp, debugBeforeStep)
 		}
 
 		resp = append(resp, stepTask)
+		if stepTask.StepType == config.StepShell {
+			// add debug step after shell step
+			debugAfterStep := &commonmodels.StepTask{
+				Name:     "debug-after",
+				StepType: config.StepDebugAfter,
+			}
+			resp = append(resp, debugAfterStep)
+		}
 	}
 	return resp
 }

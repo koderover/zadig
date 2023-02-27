@@ -21,6 +21,9 @@ import (
 	"path"
 	"strings"
 
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -30,8 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 type TestingJob struct {
@@ -216,7 +217,13 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
-
+		// init debug before step
+		debugBeforeStep := &commonmodels.StepTask{
+			Name:     testing.Name + "-debug_before",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugBefore,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
 		shellStep := &commonmodels.StepTask{
 			Name:     testing.Name + "-shell",
@@ -227,7 +234,13 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
-
+		// init debug after step
+		debugAfterStep := &commonmodels.StepTask{
+			Name:     testing.Name + "-debug_after",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugAfter,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 		// init archive html step
 		if len(testingInfo.TestReportPath) > 0 {
 			uploads := []*step.Upload{
