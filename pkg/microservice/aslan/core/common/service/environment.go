@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/pkg/errors"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -138,9 +140,6 @@ func clipVariableYaml(variableYaml string, validKeys []string) string {
 	}
 	if len(validKeys) == 0 {
 		return ""
-	}
-	if len(validKeys) == 1 && validKeys[0] == "*" {
-		return variableYaml
 	}
 	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
 	if err != nil {
@@ -760,6 +759,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	}
 	resp := make([]*models.Service, 0)
 	for _, productSvc := range serviceMap {
+		// TODO this code should be deleted since shared-serves are not supported
 		if productSvc.ProductName != "" && productSvc.ProductName != prod.ProductName {
 			tmplSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 				ProductName: productSvc.ProductName,
@@ -777,7 +777,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 			Revision:    productSvc.Revision,
 		})
 	}
-	templateServices, err := commonrepo.NewServiceColl().ListServicesWithSRevision(listOpt)
+	templateServices, err := repository.ListServicesWithSRevision(listOpt, prod.Production)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
 	}

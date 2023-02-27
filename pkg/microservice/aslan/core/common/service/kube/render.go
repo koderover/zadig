@@ -51,6 +51,7 @@ type GeneSvcYamlOption struct {
 	UpdateServiceRevision bool
 	VariableYaml          string
 	UnInstall             bool
+	Containers            []*models.Container
 }
 
 func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
@@ -69,12 +70,20 @@ func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
 	}
 }
 
+func IsServiceVarsWildcard(serviceVars []string) bool {
+	return len(serviceVars) == 1 && serviceVars[0] == "*"
+}
+
 func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
 	valuesMap, err := converter.YamlToFlatMap([]byte(variableYaml))
 	if err != nil {
 		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
 	}
 
+	wildcard := IsServiceVarsWildcard(validKeys)
+	if wildcard {
+		return variableYaml, nil
+	}
 	keysSet := sets.NewString(validKeys...)
 	validKvMap := make(map[string]interface{})
 	for k, v := range valuesMap {
@@ -117,10 +126,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		return "", fmt.Errorf("failed to get flat map for service default variable, err: %s", err)
 	}
 
-	wildcard := false
-	if len(serviceVars) == 1 && serviceVars[0] == "*" {
-		wildcard = true
-	}
+	wildcard := IsServiceVarsWildcard(serviceVars)
 
 	// keys defined in service vars
 	keysSet := sets.NewString(serviceVars...)
@@ -225,13 +231,15 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	return util.JoinYamls(yamlStrs), nil
 }
 
-func mergeContainers(curContainers, newContainers []*commonmodels.Container) []*commonmodels.Container {
+func mergeContainers(curContainers []*commonmodels.Container, newContainers ...[]*commonmodels.Container) []*commonmodels.Container {
 	curContainerMap := make(map[string]*commonmodels.Container)
 	for _, container := range curContainers {
 		curContainerMap[container.Name] = container
 	}
-	for _, container := range newContainers {
-		curContainerMap[container.Name] = container
+	for _, containers := range newContainers {
+		for _, container := range containers {
+			curContainerMap[container.Name] = container
+		}
 	}
 	var containers []*commonmodels.Container
 	for _, container := range curContainerMap {
@@ -256,18 +264,22 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
 
-	// service not installed, nothing to return
-	if curProductSvc == nil {
-		return nil, nil
+	productSvcRevision := int64(0)
+	if curProductSvc != nil {
+		productSvcRevision = curProductSvc.Revision
 	}
 
 	prodSvcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ProductName: option.ProductName,
 		ServiceName: option.ServiceName,
-		Revision:    curProductSvc.Revision,
+		Revision:    productSvcRevision,
 	}, productInfo.Production)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
+		return nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, productSvcRevision)
+	}
+	serviceVars := prodSvcTemplate.ServiceVars
+	if productInfo.Production {
+		serviceVars = setting.ServiceVarWildCard
 	}
 
 	var usedRenderset *commonmodels.RenderSet
@@ -291,6 +303,10 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 	variableYaml, _, err := commomtemplate.SafeMergeVariableYaml(prodSvcTemplate.VariableYaml, serviceVariableYaml)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to merge variable yaml for %s/%s", option.ProductName, option.ServiceName)
+	}
+	variableYaml, err = ClipVariableYaml(variableYaml, serviceVars)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to clip variable yaml for %s/%s", option.ProductName, option.ServiceName)
 	}
 
 	return GeneKVFromYaml(variableYaml)
@@ -452,7 +468,8 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 
-	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergeContainers(curContainers, latestSvcTemplate.Containers))
+	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, option.Containers)
+	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), err
 }
 

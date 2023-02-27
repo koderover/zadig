@@ -28,3 +28,11 @@ func QueryTemplateService(option *mongodb.ServiceFindOption, production bool) (*
 		return mongodb.NewProductionServiceColl().Find(option)
 	}
 }
+
+func ListServicesWithSRevision(option *mongodb.SvcRevisionListOption, production bool) ([]*models.Service, error) {
+	if !production {
+		return mongodb.NewServiceColl().ListServicesWithSRevision(option)
+	} else {
+		return mongodb.NewProductionServiceColl().ListServicesWithSRevision(option)
+	}
+}
