@@ -23,9 +23,9 @@ import (
 
 func TestName(t *testing.T) {
 	//cli := NewClient("http://101.43.78.136:8070", "20339d6ed820fb89aac1819d3deff0ee2e857cb9")
-	cli := NewClient("http://127.0.0.1:8081", "20339d6ed820fb89aac1819d3deff0ee2e857cb9")
+	cli := NewClient("http://127.0.0.1:8080", "20339d6ed820fb89aac1819d3deff0ee2e857cb9")
 	resp, err := cli.ListApp()
-	//resp, err := cli.GetAppEnvsAndClusters("SampleApp")
+	//resp, err := cli.ListAppEnvsAndClusters("SampleApp")
 	fmt.Println(err)
 	panic(resp)
 	panic(err)

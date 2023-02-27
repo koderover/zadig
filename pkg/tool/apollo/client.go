@@ -17,8 +17,6 @@
 package apollo
 
 import (
-	"fmt"
-
 	"github.com/imroc/req/v3"
 	"github.com/pkg/errors"
 )
@@ -32,12 +30,10 @@ func NewClient(url, token string) *Client {
 	return &Client{
 		Client: req.C().
 			SetCommonHeader("Authorization", token).
-			EnableDumpEachRequest().
 			OnAfterResponse(func(client *req.Client, resp *req.Response) error {
 				if resp.Err != nil {
-					fmt.Println("aaa")
-					fmt.Println(resp.String())
-					return errors.Wrapf(resp.Err, "raw content:\n%s", resp.Dump())
+					resp.Err = errors.Wrapf(resp.Err, "body: %s", resp.String())
+					return nil
 				}
 				if !resp.IsSuccessState() {
 					resp.Err = errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
