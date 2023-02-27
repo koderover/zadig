@@ -20,11 +20,19 @@ import (
 	"fmt"
 	"strings"
 
-	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
 	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -32,6 +40,8 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -45,17 +55,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func GetServiceContainer(envName, productName, serviceName, container string, log *zap.SugaredLogger) error {
