@@ -2282,6 +2282,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		KubeClient:          kubeClient,
 		IstioClient:         istioClient,
 		InjectSecrets:       true,
+		AddZadigLabel:       true,
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
 	return kube.CreateOrPatchResource(resourceApplyParam, log)

@@ -42,9 +42,6 @@ import (
 type SharedEnvHandler func(context.Context, *commonmodels.Product, string, client.Client, versionedclient.Interface) error
 
 type ResourceApplyParam struct {
-	//ProductName         string
-	//EnvName             string
-	//Namespace           string
 	ProductInfo         *commonmodels.Product
 	ServiceName         string
 	CurrentResourceYaml string
@@ -219,6 +216,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 	labels := GetPredefinedLabels(productName, applyParam.ServiceName)
 	clusterLabels := GetPredefinedClusterLabels(productName, applyParam.ServiceName, envName)
+	if !applyParam.AddZadigLabel {
+		labels = map[string]string{}
+		clusterLabels = map[string]string{}
+	}
+
 	var res []*unstructured.Unstructured
 
 	for _, u := range resources {
