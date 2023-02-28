@@ -2273,7 +2273,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		}
 	}
 
-	resourceApplyParam := &commonservice.ResourceApplyParam{
+	resourceApplyParam := &kube.ResourceApplyParam{
 		ProductInfo:         env,
 		ServiceName:         service.ServiceName,
 		CurrentResourceYaml: preResourceYaml,
@@ -2284,7 +2284,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		InjectSecrets:       true,
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
-	return commonservice.CreateOrPatchResource(resourceApplyParam, log)
+	return kube.CreateOrPatchResource(resourceApplyParam, log)
 }
 
 func getOldSvcYaml(env *commonmodels.Product,

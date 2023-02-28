@@ -234,6 +234,14 @@ const (
 	SourceFromJob DeploySourceType = "fromjob"
 )
 
+type DeployContent string
+
+const (
+	DeployImage  DeployContent = "image"
+	DeployVars   DeployContent = "vars"
+	DeployConfig DeployContent = "config"
+)
+
 type StageType string
 
 const (
