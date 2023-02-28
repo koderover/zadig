@@ -680,7 +680,7 @@ func (c *TaskColl) ArchiveHistoryPipelineTask(pipelineName string, taskType conf
 	if remain == 0 && remainDays == 0 {
 		return nil
 	}
-	query := bson.M{"pipeline_name": pipelineName, "type": taskType, "is_deleted": false}
+	query := bson.M{"pipeline_name": pipelineName, "type": taskType, "is_deleted": false, "is_archived": false}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return err
