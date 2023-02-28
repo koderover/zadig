@@ -238,6 +238,11 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product) error {
 		msg := fmt.Sprintf("get current service yaml error: %v", err)
 		return errors.New(msg)
 	}
+	
+	c.logger.Errorf("@@@@@apply service yaml: %s", updatedYaml)
+	c.logger.Errorf("@@@@@current service yaml: %s", currentYaml)
+	return errors.New("stop job")
+
 	unstructruedList, err := kube.CreateOrPatchResource(&kube.ResourceApplyParam{
 		ServiceName:         c.jobTaskSpec.ServiceName,
 		CurrentResourceYaml: currentYaml,
@@ -289,7 +294,6 @@ func (c *DeployJobCtl) updateExternalServiceModule(ctx context.Context, workload
 		if err != nil {
 			return err
 		}
-
 	L:
 		for _, deploy := range deployments {
 			for _, container := range deploy.Spec.Template.Spec.Containers {
