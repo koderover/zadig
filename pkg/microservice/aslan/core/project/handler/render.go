@@ -19,35 +19,13 @@ package handler
 import (
 	"strconv"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
-
-//func ListTmplRenderKeys(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	ctx.Resp, ctx.Err = projectservice.ListTmplRenderKeys(c.Query("productTmpl"), ctx.Logger)
-//}
-//
-//func ListRenderSets(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	ctx.Resp, ctx.Err = projectservice.ListRenderSets(c.Query("productTmpl"), ctx.Logger)
-//}
-//
-//func GetRenderSet(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//	//默认取revision最大的渲染集
-//	ctx.Resp, ctx.Err = projectservice.GetRenderSet(c.Param("name"), 0, ctx.Logger)
-//}
 
 func GetRenderSetInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)

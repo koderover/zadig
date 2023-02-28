@@ -22,13 +22,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
 	"github.com/pkg/errors"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	sysyaml "gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,6 +39,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -846,13 +843,4 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 		}
 	}
 	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
-}
-
-func KVToYaml(kvs []*models.VariableKV) (string, error) {
-	yamlMap := make(map[string]interface{})
-	for _, kv := range kvs {
-		yamlMap[kv.Key] = kv.Value
-	}
-	bs, err := sysyaml.Marshal(yamlMap)
-	return string(bs), err
 }
