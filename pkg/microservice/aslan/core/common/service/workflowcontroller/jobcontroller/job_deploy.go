@@ -204,14 +204,18 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 }
 
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product) error {
+	var err error
 	var updateRevision bool
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
 		updateRevision = true
 	}
-	varsYaml, err := c.getVarsYaml()
-	if err != nil {
-		msg := fmt.Sprintf("generate vars yaml error: %v", err)
-		return errors.New(msg)
+	varsYaml := ""
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
+		varsYaml, err = c.getVarsYaml()
+		if err != nil {
+			msg := fmt.Sprintf("generate vars yaml error: %v", err)
+			return errors.New(msg)
+		}
 	}
 	containers := []*commonmodels.Container{}
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {

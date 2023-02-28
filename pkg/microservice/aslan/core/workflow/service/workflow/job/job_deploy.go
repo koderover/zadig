@@ -175,38 +175,6 @@ func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.
 	return service, nil
 }
 
-func (j *DeployJob) mergeServiceVars(service *commonmodels.DeployService) ([]*commonmodels.ServiceKeyVal, error) {
-	svcVars, err := kube.FetchCurrentServiceVariable(&kube.GeneSvcYamlOption{ProductName: j.workflow.Project, EnvName: j.spec.Env, ServiceName: service.ServiceName})
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
-	}
-	if service == nil {
-		service = &commonmodels.DeployService{
-			ServiceName: service.ServiceName,
-		}
-		for _, svcVar := range svcVars {
-			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
-				Key:   svcVar.Key,
-				Value: svcVar.Value,
-				Type:  commonmodels.StringType,
-			})
-		}
-		return service.KeyVals, nil
-	}
-	newVars := []*commonmodels.ServiceKeyVal{}
-	for _, varItem := range svcVars {
-		newVar := &commonmodels.ServiceKeyVal{Key: varItem.Key, Value: varItem.Value}
-		for _, svcVar := range service.KeyVals {
-			if newVar.Key == svcVar.Key {
-				newVar.Value = svcVar.Value
-				break
-			}
-		}
-		newVars = append(newVars, newVar)
-	}
-	return newVars, nil
-}
-
 func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.ZadigDeployJobSpec{}
@@ -318,10 +286,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				service := serviceMap[serviceName]
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
-					jobTaskSpec.KeyVals, err = j.mergeServiceVars(service)
-					if err != nil {
-						return resp, err
-					}
+					jobTaskSpec.KeyVals = service.KeyVals
 				}
 			}
 			jobTask := &commonmodels.JobTask{
