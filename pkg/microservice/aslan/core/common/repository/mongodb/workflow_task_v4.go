@@ -257,7 +257,7 @@ func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, rem
 	if remain == 0 && remainDays == 0 {
 		return nil
 	}
-	query := bson.M{"workflow_name": workflowName, "is_deleted": false}
+	query := bson.M{"workflow_name": workflowName, "is_deleted": false, "is_archived": false}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return err
