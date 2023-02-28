@@ -42,18 +42,6 @@ func YamlToFlatMap(data []byte) (map[string]interface{}, error) {
 	return Flatten(nested)
 }
 
-func ExtractFlatKeys(data []byte) ([]string, error) {
-	nested := make(map[string]interface{})
-	if len(data) == 0 {
-		return nil, nil
-	}
-	if err := yaml.Unmarshal(data, &nested); err != nil {
-		return nil, err
-	}
-
-	return FlattenKeys(nested)
-}
-
 // Flatten flattens the nested map
 // examples:
 // {a: {b: c}} => {a.b: c}
@@ -61,21 +49,6 @@ func ExtractFlatKeys(data []byte) ([]string, error) {
 // {a: [b, c]} => {a[0]: b, a[1]: c}
 func Flatten(nested map[string]interface{}) (map[string]interface{}, error) {
 	return flatten("", 0, nested)
-}
-
-// FlattenKeys returns the keys of the flattened map
-func FlattenKeys(nested map[string]interface{}) ([]string, error) {
-	flat, err := Flatten(nested)
-	if err != nil {
-		return nil, err
-	}
-
-	keys := make([]string, 0, len(flat))
-	for k := range flat {
-		keys = append(keys, k)
-	}
-
-	return keys, nil
 }
 
 func flatten(prefix string, depth int, nested interface{}) (flat map[string]interface{}, err error) {

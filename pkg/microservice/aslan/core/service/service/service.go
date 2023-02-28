@@ -33,8 +33,6 @@ import (
 	gotemplate "text/template"
 	"time"
 
-	"github.com/koderover/zadig/pkg/types"
-
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -60,6 +58,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 )
@@ -94,48 +93,6 @@ type YamlPreviewForPorts struct {
 		} `bson:"-"           json:"ports"`
 	} `bson:"-"           json:"spec"`
 }
-
-//type KubeResourceKind struct {
-//	APIVersion string `yaml:"apiVersion"`
-//	Kind       string `yaml:"kind"`
-//	Metadata   struct {
-//		Name string `yaml:"name"`
-//	} `yaml:"metadata"`
-//}
-//
-//type KubeResource struct {
-//	APIVersion string `yaml:"apiVersion"`
-//	Kind       string `yaml:"kind"`
-//	Metadata   struct {
-//		Name string `yaml:"name"`
-//	} `yaml:"metadata"`
-//	Spec struct {
-//		Template struct {
-//			Spec struct {
-//				Containers []map[string]interface{} `yaml:"containers"`
-//			} `yaml:"spec"`
-//		} `yaml:"template"`
-//	} `yaml:"spec"`
-//}
-
-//type CronjobResource struct {
-//	APIVersion string `yaml:"apiVersion"`
-//	Kind       string `yaml:"kind"`
-//	Metadata   struct {
-//		Name string `yaml:"name"`
-//	} `yaml:"metadata"`
-//	Spec struct {
-//		Template struct {
-//			Spec struct {
-//				Template struct {
-//					Spec struct {
-//						Containers []map[string]interface{} `yaml:"containers"`
-//					} `yaml:"spec"`
-//				} `yaml:"template"`
-//			} `yaml:"spec"`
-//		} `yaml:"jobTemplate"`
-//	} `yaml:"spec"`
-//}
 
 type YamlPreview struct {
 	Kind string `bson:"-"           json:"kind"`

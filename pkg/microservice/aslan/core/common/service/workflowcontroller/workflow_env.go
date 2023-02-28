@@ -17,6 +17,8 @@ limitations under the License.
 package workflowcontroller
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -26,7 +28,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/yaml"
-	"github.com/pkg/errors"
 )
 
 type ProductServiceDeployInfo struct {
