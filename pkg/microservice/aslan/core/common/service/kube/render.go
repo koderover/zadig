@@ -65,6 +65,7 @@ type GeneSvcYamlOption struct {
 }
 
 func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
+	log.Errorf("@@@@yaml: %s", yamlContent)
 	flatMap, err := converter.YamlToFlatMap([]byte(yamlContent))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to convert yaml to flat map")
