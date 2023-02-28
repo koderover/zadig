@@ -25,12 +25,11 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -134,12 +133,12 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	var newRender, oldRender *commonmodels.RenderSet
 	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		// TODO is it the right way to fetch new product?
-		newRender, err = commonservice.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
+		newRender, err = render.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
 		if err != nil {
 			return prodRev, err
 		}
 
-		oldRender, err = commonservice.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log)
+		oldRender, err = render.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log)
 		if err != nil {
 			return prodRev, err
 		}
@@ -419,12 +418,12 @@ func isRenderedStringUpdatable(currentSvc, nextSvc *commonmodels.Service, curren
 
 	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender, currentSvcVars, currentSvc.VariableYaml)
 	if err != nil {
-		log.Error("failed to check is RenderedString updatable, err: %s", err)
+		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
 		return false
 	}
 	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender, nextSvcVars, nextSvc.VariableYaml)
 	if err != nil {
-		log.Error("failed to check is RenderedString updatable, err: %s", err)
+		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
 		return false
 	}
 	if currentString != nextString {

@@ -35,9 +35,10 @@ import (
 )
 
 type ProductFindOptions struct {
-	Name      string
-	EnvName   string
-	Namespace string
+	Name       string
+	EnvName    string
+	Namespace  string
+	Production *bool
 }
 
 // ClusterId is a primitive.ObjectID{}.Hex()
@@ -144,6 +145,13 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	}
 	if opt.Namespace != "" {
 		query["namespace"] = opt.Namespace
+	}
+	if opt.Production != nil {
+		if *opt.Production {
+			query["production"] = true
+		} else {
+			query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		}
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(res)
@@ -255,7 +263,11 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
 	}
 	if opt.Production != nil {
-		query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		if *opt.Production {
+			query["production"] = true
+		} else {
+			query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		}
 	}
 
 	ctx := context.Background()
@@ -510,6 +522,29 @@ func (c *ProductColl) ListExistedNamespace() ([]string, error) {
 		{"namespace", 1},
 	}
 	query := bson.M{"is_existed": true}
+	opt := options.Find()
+	opt.SetProjection(selector)
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &nsList)
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range nsList {
+		resp.Insert(obj.Namespace)
+	}
+	return resp.List(), nil
+}
+
+func (c *ProductColl) ListProductionNamespace(clusterID string) ([]string, error) {
+	nsList := make([]*nsObject, 0)
+	resp := sets.NewString()
+	selector := bson.D{
+		{"namespace", 1},
+	}
+	query := bson.M{"production": true, "cluster_id": clusterID}
 	opt := options.Find()
 	opt.SetProjection(selector)
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)

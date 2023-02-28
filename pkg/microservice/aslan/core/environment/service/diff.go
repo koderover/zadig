@@ -21,8 +21,8 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -89,11 +89,11 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	oldRender := &commonmodels.RenderSet{}
 	newRender := &commonmodels.RenderSet{}
 	if productInfo.Render != nil {
-		oldRender, err = commonservice.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, false, envName, log)
+		oldRender, err = render.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, false, envName, log)
 		if err != nil {
 			return resp, err
 		}
-		newRender, err = commonservice.GetRenderSet(productInfo.Render.Name, 0, false, envName, log)
+		newRender, err = render.GetRenderSet(productInfo.Render.Name, 0, false, envName, log)
 		if err != nil {
 			return resp, err
 		}

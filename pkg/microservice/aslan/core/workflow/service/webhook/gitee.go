@@ -45,6 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gitee"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
@@ -222,13 +223,13 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 		var oldYamlContent string
 		if filePath.IsDir() {
 			if newFileContents, err := readAllFileContentUnderDir(path.Join(newBase, service.LoadPath)); err == nil {
-				newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
+				newYamlContent = util.JoinYamls(newFileContents)
 			} else {
 				errs = multierror.Append(errs, err)
 			}
 
 			if oldFileContents, err := readAllFileContentUnderDir(path.Join(oldBase, service.LoadPath)); err == nil {
-				oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
+				oldYamlContent = util.JoinYamls(oldFileContents)
 			} else {
 				errs = multierror.Append(errs, err)
 			}

@@ -47,27 +47,6 @@ func (RenderSet) TableName() string {
 	return "render_set"
 }
 
-//func (m *RenderSet) GetKeyValueMap() map[string]string {
-//	resp := make(map[string]string)
-//	for _, kv := range m.KVs {
-//		resp[kv.Key] = kv.Value
-//	}
-//	return resp
-//}
-
-// SetKVAlias ...
-//func (m *RenderSet) SetKVAlias() {
-//	if m == nil || len(m.KVs) == 0 {
-//		return
-//	}
-//	for _, kv := range m.KVs {
-//		if kv != nil {
-//			kv.SetAlias()
-//		}
-//
-//	}
-//}
-
 func (m *RenderSet) Diff(target *RenderSet) bool {
 	//if m.IsDefault != target.IsDefault || reflect.DeepEqual(m.KVs, target.KVs) {
 	if m.DefaultValues == target.DefaultValues {
@@ -82,4 +61,12 @@ func (m *RenderSet) HelmRenderDiff(target *RenderSet) bool {
 
 func (m *RenderSet) K8sServiceRenderDiff(target *RenderSet) bool {
 	return !m.Diff(target) || !reflect.DeepEqual(m.ServiceVariables, target.ServiceVariables)
+}
+
+func (m *RenderSet) GetServiceRenderMap() map[string]*templatemodels.ServiceRender {
+	serviceRenderMap := make(map[string]*templatemodels.ServiceRender)
+	for _, render := range m.ServiceVariables {
+		serviceRenderMap[render.ServiceName] = render
+	}
+	return serviceRenderMap
 }

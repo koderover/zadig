@@ -45,6 +45,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -296,6 +297,7 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
+	// service in template_services
 	services, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
 	if err != nil {
 		log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
@@ -307,6 +309,7 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 		currentServiceNames.Insert(service.ServiceName)
 	}
 
+	// service in services_in_external_env
 	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
 		ProductName: productName,
 		EnvName:     envName,
@@ -448,7 +451,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		return resp, nil
 
 	} else if resp.Source == setting.SourceFromGUI {
-		yamls := strings.Split(resp.Yaml, "---")
+		yamls := util.SplitYaml(resp.Yaml)
 		for _, y := range yamls {
 			data, err := yaml.YAMLToJSON([]byte(y))
 			if err != nil {

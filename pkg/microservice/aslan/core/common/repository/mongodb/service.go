@@ -403,7 +403,7 @@ func (c *ServiceColl) TransferServiceSource(productName, source, newSource, user
 	return err
 }
 
-// ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
+// ListExternalWorkloadsBy list service only for external services , other service type not use  before refactor
 func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string, serviceNames ...string) ([]*models.Service, error) {
 	services := make([]*models.Service, 0)
 	query := bson.M{

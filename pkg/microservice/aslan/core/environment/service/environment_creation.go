@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
@@ -115,7 +116,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	err = commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	err = render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
@@ -296,7 +297,7 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 	productObj.ServiceDeployStrategy = serviceDeployStrategy
 
 	// insert renderset info into db
-	err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:          arg.EnvName,
 		ProductTmpl:      arg.ProductName,
@@ -331,7 +332,6 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 		ShareEnv:        arg.ShareEnv,
 		Production:      arg.Production,
 		Alias:           arg.Alias,
-		//Vars:            arg.Vars,
 	}
 	if len(arg.BaseEnvName) > 0 {
 		productObj.BaseEnvName = arg.BaseEnvName

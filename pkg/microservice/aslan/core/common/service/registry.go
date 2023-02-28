@@ -64,7 +64,7 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 	isSystemDefault = false
 
 	if err != nil {
-		log.Warnf("RegistryNamespace.Find error: %s", err)
+		log.Warnf("RegistryNamespace.Find error: %s, ops: +%v", err, *regOps)
 		resp = &models.RegistryNamespace{
 			RegAddr:   config.RegistryAddress(),
 			AccessKey: config.RegistryAccessKey(),

@@ -302,7 +302,7 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 
 	if projectInfo.ProductFeature.BasicFacility == "cloud_host" {
 		// if a vm environment is detected, we simply find all the services another way.
-		pmSvcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, log)
+		pmSvcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, envInfo.Production, log)
 		if err != nil {
 			log.Errorf("failed to get services in the env, error: %s", err)
 			return nil, err
@@ -335,7 +335,7 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 		}
 	} else if projectInfo.ProductFeature.DeployType == "k8s" && projectInfo.ProductFeature.CreateEnvType == "system" {
 		// if the project is non-vm & k8s project, then we get the workloads in groups
-		svcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, log)
+		svcList, _, err := service2.ListGroups("", envName, projectName, math.MaxInt, 1, envInfo.Production, log)
 		if err != nil {
 			log.Errorf("failed to get k8s services in the env, error: %s", err)
 			return nil, err
