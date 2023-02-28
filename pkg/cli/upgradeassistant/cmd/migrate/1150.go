@@ -260,7 +260,7 @@ func transformStagetask(stageTask []*models.StageTask) ([]*models.StageTask, err
 						if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
 							return stageTask, fmt.Errorf("unmashal step spec error: %v", err)
 						}
-						jobSpec := &commonmodels.JobTaskDeploySpec{
+						jobSpec := &models.JobTaskDeploySpec{
 							Env:                stepSpec.Env,
 							ServiceName:        stepSpec.ServiceName,
 							ServiceModule:      stepSpec.ServiceModule,
@@ -335,7 +335,7 @@ func rollBackStagetask(stageTask []*models.StageTask) ([]*models.StageTask, erro
 					Name:     originJob.Name,
 					StepType: config.StepDeploy,
 				}
-				jobSpec := &commonmodels.JobTaskDeploySpec{}
+				jobSpec := &models.JobTaskDeploySpec{}
 				if err := commonmodels.IToi(originJob.Spec, jobSpec); err != nil {
 					return stageTask, fmt.Errorf("unmashal job spec error: %v", err)
 				}
