@@ -133,6 +133,14 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if err := jobctl.Instantiate(job, workflow); err != nil {
+				logger.Errorf("Failed to instantiate workflow v4,error: %v", err)
+				return workflow, e.ErrFindWorkflow.AddErr(err)
+			}
+		}
+	}
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
 	}
