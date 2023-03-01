@@ -210,18 +210,3 @@ type MatchedEnv struct {
 	EnvName   string
 	Namespace string
 }
-
-type EnvService struct {
-	ServiceName    string                     `json:"service_name"`
-	ServiceModules []*commonmodels.Container  `json:"service_modules"`
-	VariableYaml   string                     `json:"variable_yaml"`
-	VariableKVs    []*commonmodels.VariableKV `json:"variable_kvs"`
-	Updatable      bool                       `json:"updatable"`
-	Deployed       bool                       `json:"deployed"`
-}
-
-type EnvServices struct {
-	ProductName string        `json:"product_name"`
-	EnvName     string        `json:"env_name"`
-	Services    []*EnvService `json:"services"`
-}
