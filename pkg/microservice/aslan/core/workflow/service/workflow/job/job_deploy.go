@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
+	"golang.org/x/exp/slices"
 )
 
 type DeployJob struct {
@@ -176,11 +177,15 @@ func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.
 	if serviceEnv == nil {
 		return service, fmt.Errorf("service: %v do not exist", serviceName)
 	}
+	defaultUpdateConfig := false
+	if slices.Contains(j.spec.DeployContents, config.DeployConfig) && serviceEnv.Updatable {
+		defaultUpdateConfig = true
+	}
 	if service == nil {
 		service = &commonmodels.DeployService{
 			ServiceName:  serviceName,
 			Updatable:    serviceEnv.Updatable,
-			UpdateConfig: serviceEnv.Updatable,
+			UpdateConfig: defaultUpdateConfig,
 		}
 		for _, svcVar := range serviceEnv.VariableKVs {
 			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
@@ -193,7 +198,7 @@ func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.
 	}
 	service.ServiceName = serviceName
 	service.Updatable = serviceEnv.Updatable
-	service.UpdateConfig = serviceEnv.Updatable
+	service.UpdateConfig = defaultUpdateConfig
 	newVars := []*commonmodels.ServiceKeyVal{}
 	for _, svcVar := range service.KeyVals {
 		for _, varItem := range serviceEnv.VariableKVs {
