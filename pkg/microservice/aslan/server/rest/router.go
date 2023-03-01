@@ -59,13 +59,15 @@ import (
 
 func init() {
 	// initialization for prometheus metrics
-	prometheus.MustRegister(metrics.RunningWorkflows)
-	prometheus.MustRegister(metrics.PendingWorkflows)
-	prometheus.MustRegister(metrics.RequestTotal)
+	metrics.Metrics = prometheus.NewRegistry()
 
-	// setting fake data just for demo
-	metrics.SetRunningWorkflows(2)
-	metrics.SetPendingWorkflows(1)
+	metrics.Metrics.MustRegister(metrics.RunningWorkflows)
+	metrics.Metrics.MustRegister(metrics.PendingWorkflows)
+	metrics.Metrics.MustRegister(metrics.RequestTotal)
+	metrics.Metrics.MustRegister(metrics.CPU)
+	metrics.Metrics.MustRegister(metrics.Memory)
+
+	metrics.UpdatePodMetrics()
 }
 
 // @title Zadig aslan service REST APIs
@@ -179,7 +181,12 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
 
 	// prometheus metrics API
-	router.GET("/api/metrics", gin.WrapH(promhttp.Handler()))
+	handlefunc := func(c *gin.Context) {
+		metrics.UpdatePodMetrics()
+
+		promhttp.HandlerFor(metrics.Metrics, promhttp.HandlerOpts{}).ServeHTTP(c.Writer, c.Request)
+	}
+	router.GET("/api/metrics", handlefunc)
 }
 
 type injector interface {

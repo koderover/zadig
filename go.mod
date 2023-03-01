@@ -55,6 +55,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/otiai10/copy v1.7.0
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.12.2
 	github.com/regclient/regclient v0.4.5
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/samber/lo v1.37.0
@@ -86,6 +87,7 @@ require (
 	k8s.io/api v0.25.0
 	k8s.io/apiextensions-apiserver v0.25.0
 	k8s.io/apimachinery v0.25.0
+	k8s.io/cli-runtime v0.25.0
 	k8s.io/client-go v0.25.0
 	k8s.io/kubectl v0.25.0
 	k8s.io/utils v0.0.0-20220823124924-e9cbc92d1a73
@@ -219,7 +221,6 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_golang v1.12.2 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
@@ -273,7 +274,6 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/apiserver v0.25.0 // indirect
-	k8s.io/cli-runtime v0.25.0 // indirect
 	k8s.io/component-base v0.25.0 // indirect
 	k8s.io/helm v2.17.0+incompatible // indirect
 	k8s.io/klog/v2 v2.70.1 // indirect
