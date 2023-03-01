@@ -24,8 +24,9 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -130,8 +131,13 @@ func (j *DeployJob) SetPreset() error {
 		deployServiceMap[service.ServiceName] = service
 	}
 	newServices := []*commonmodels.DeployService{}
+
+	envServiceMap, err := j.getEnvServicesMap()
+	if err != nil {
+		return fmt.Errorf("get service env map error: %v", err)
+	}
 	for serviceName := range serviceNameMap {
-		deployService, err := j.filterServiceVars(serviceName, deployServiceMap[serviceName])
+		deployService, err := j.filterServiceVars(serviceName, deployServiceMap[serviceName], envServiceMap[serviceName])
 		if err != nil {
 			return err
 		}
@@ -141,17 +147,42 @@ func (j *DeployJob) SetPreset() error {
 	return nil
 }
 
+func (j *DeployJob) getEnvServicesMap() (map[string]*commonservice.EnvService, error) {
+	logger := log.SugaredLogger()
+	serviceMap := map[string]*commonservice.EnvService{}
+	var (
+		err      error
+		services *commonservice.EnvServices
+	)
+	if j.spec.Production {
+		services, err = commonservice.ListServicesInProductionEnv(j.spec.Env, j.workflow.Project, logger)
+		if err != nil {
+			return serviceMap, err
+		}
+	} else {
+		services, err = commonservice.ListServicesInEnv(j.spec.Env, j.workflow.Project, logger)
+		if err != nil {
+			return serviceMap, err
+		}
+	}
+	for _, service := range services.Services {
+		serviceMap[service.ServiceName] = service
+	}
+	return serviceMap, nil
+}
+
 // filterServiceVars filter service variables user defined.
-func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.DeployService) (*commonmodels.DeployService, error) {
-	svcVars, err := kube.FetchCurrentServiceVariable(&kube.GeneSvcYamlOption{ProductName: j.workflow.Project, EnvName: j.spec.Env, ServiceName: serviceName})
-	if err != nil {
-		return service, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {
+	if serviceEnv == nil {
+		return service, fmt.Errorf("service: %v do not exist", serviceName)
 	}
 	if service == nil {
 		service = &commonmodels.DeployService{
-			ServiceName: serviceName,
+			ServiceName:  serviceName,
+			Updatable:    serviceEnv.Updatable,
+			UpdateConfig: serviceEnv.Updatable,
 		}
-		for _, svcVar := range svcVars {
+		for _, svcVar := range serviceEnv.VariableKVs {
 			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
 				Key:   svcVar.Key,
 				Value: svcVar.Value,
@@ -161,9 +192,11 @@ func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.
 		return service, nil
 	}
 	service.ServiceName = serviceName
+	service.Updatable = serviceEnv.Updatable
+	service.UpdateConfig = serviceEnv.Updatable
 	newVars := []*commonmodels.ServiceKeyVal{}
 	for _, svcVar := range service.KeyVals {
-		for _, varItem := range svcVars {
+		for _, varItem := range serviceEnv.VariableKVs {
 			if svcVar.Key == varItem.Key {
 				svcVar.Value = varItem.Value
 				newVars = append(newVars, svcVar)

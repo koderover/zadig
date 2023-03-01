@@ -170,6 +170,7 @@ type DeployService struct {
 	ServiceName  string           `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	KeyVals      []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
 	UpdateConfig bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
+	Updatable    bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
 }
 
 type ServiceKeyVal struct {
