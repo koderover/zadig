@@ -59,6 +59,7 @@ type Workflow struct {
 	IsFavorite           bool                       `json:"isFavorite"`
 	WorkflowType         string                     `json:"workflow_type"`
 	RecentTask           *TaskInfo                  `json:"recentTask"`
+	RecentTasks          []*TaskInfo                `json:"recentTasks"`
 	RecentSuccessfulTask *TaskInfo                  `json:"recentSuccessfulTask"`
 	RecentFailedTask     *TaskInfo                  `json:"recentFailedTask"`
 	AverageExecutionTime float64                    `json:"averageExecutionTime"`
