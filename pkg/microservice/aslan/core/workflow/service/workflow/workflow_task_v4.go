@@ -667,7 +667,10 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 	for _, workflow := range workflows {
 		workflow.WorkflowArgs = nil
 		workflow.OriginWorkflowArgs = nil
-		workflow.Stages = nil
+		for _, stage := range workflow.Stages {
+			stage.Approval = nil
+			stage.Jobs = nil
+		}
 	}
 }
 

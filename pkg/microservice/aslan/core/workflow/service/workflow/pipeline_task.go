@@ -44,6 +44,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/math"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -363,8 +364,108 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 			break
 		}
 
+		getMinExceptZero := func(a, b int64) int64 {
+			if a == 0 || b == 0 {
+				return math.Max(a, b)
+			}
+			return math.Min(a, b)
+		}
+		getErrorMsg := func(before, new string) string {
+			if before != "" {
+				return before
+			}
+			return new
+		}
 		t.WorkflowArgs = nil
-		t.Stages = nil
+		for _, stage := range t.Stages {
+			stage.Desc = ""
+			stage.TypeName = string(stage.TaskType)
+			for _, subTask := range stage.SubTasks {
+				switch stage.TaskType {
+				case config.TaskBuild, config.TaskArtifactDeploy, config.TaskBuildV3:
+					t, err := base.ToBuildTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskJenkinsBuild:
+					t, err := base.ToJenkinsBuildTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskArtifact:
+					t, err := base.ToArtifactTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskDockerBuild:
+					t, err := base.ToDockerBuildTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskTestingV2:
+					t, err := base.ToTestingTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskResetImage, config.TaskDeploy:
+					t, err := base.ToDeployTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskDistributeToS3:
+					t, err := base.ToDistributeToS3Task(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskReleaseImage:
+					t, err := base.ToReleaseImageTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskJira:
+					t, err := base.ToJiraTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskSecurity:
+					t, err := base.ToSecurityTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				}
+			}
+			stage.SubTasks = nil
+		}
 	}
 
 	ret.Data = restp

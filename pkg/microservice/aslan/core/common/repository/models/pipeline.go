@@ -69,6 +69,10 @@ type Stage struct {
 	Desc        string                            `bson:"desc,omitempty"     json:"desc,omitempty"`
 	SubTasks    map[string]map[string]interface{} `bson:"sub_tasks"          json:"sub_tasks"`
 	AfterAll    bool                              `bson:"after_all"          json:"after_all"`
+	StartTime   int64                             `bson:"start_time" json:"start_time"`
+	EndTime     int64                             `bson:"end_time" json:"end_time"`
+	Error       string                            `bson:"error" json:"error"`
+	TypeName    string                            `bson:"-" json:"name,omitempty"`
 }
 
 type Hook struct {
