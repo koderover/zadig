@@ -72,10 +72,11 @@ type Workflow struct {
 
 type TaskInfo struct {
 	TaskID       int64  `json:"taskID"`
-	PipelineName string `json:"pipelineName"`
+	PipelineName string `json:"pipelineName,omitempty"`
 	Status       string `json:"status"`
 	TaskCreator  string `json:"task_creator"`
 	CreateTime   int64  `json:"create_time"`
+	EndTime      int64  `json:"end_time,omitempty"`
 }
 
 type workflowCreateArg struct {

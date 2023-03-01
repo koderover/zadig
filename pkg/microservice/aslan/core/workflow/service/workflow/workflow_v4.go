@@ -392,11 +392,11 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	if len(recentTenTask) > 0 {
 		for _, task := range recentTenTask {
 			workflow.RecentTasks = append(workflow.RecentTasks, &TaskInfo{
-				TaskID:       task.TaskID,
-				PipelineName: task.WorkflowName,
-				Status:       string(task.Status),
-				TaskCreator:  task.TaskCreator,
-				CreateTime:   task.CreateTime,
+				TaskID:      task.TaskID,
+				Status:      string(task.Status),
+				TaskCreator: task.TaskCreator,
+				CreateTime:  task.CreateTime,
+				EndTime:     task.EndTime,
 			})
 		}
 	}
