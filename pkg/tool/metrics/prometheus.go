@@ -5,26 +5,40 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/prometheus/client_golang/prometheus"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
-
-func init() {
-	Metrics = prometheus.NewRegistry()
-	Metrics.MustRegister(RunningWorkflows)
-	Metrics.MustRegister(PendingWorkflows)
-	Metrics.MustRegister(RequestTotal)
-	Metrics.MustRegister(CPU)
-	Metrics.MustRegister(Memory)
-}
 
 var (
 	Metrics *prometheus.Registry
+
+	serviceList = []string{
+		"aslan",
+		"cron",
+		"dex",
+		"discovery",
+		"dind",
+		"gateway-proxy",
+		"gateway",
+		"gloo",
+		"hub-server",
+		"kr-minio",
+		"kr-mysql",
+		"kr-mongodb",
+		"nsqlookup",
+		"opa",
+		"plutus-vendor",
+		"resource-server",
+		"vendor-portal",
+		"warpdrive",
+		"zadig-portal",
+	}
 
 	RunningWorkflows = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -78,14 +92,19 @@ func RegisterRequest(method, handler string, status int) {
 }
 
 func SetCPUUsage(serviceName, podName string, value int64) {
-	CPU.WithLabelValues(serviceName, podName).Set(float64(value))
+	// convert to full core
+	CPU.WithLabelValues(serviceName, podName).Set(float64(value) / 1000)
 }
 
 func SetMemoryUsage(serviceName, podName string, value int64) {
-	Memory.WithLabelValues(serviceName, podName).Set(float64(value))
+	// convert to MB
+	Memory.WithLabelValues(serviceName, podName).Set(float64(value) / 1024 / 1024)
 }
 
 func UpdatePodMetrics() error {
+	CPU.Reset()
+	Memory.Reset()
+
 	metricsClient, err := client.GetKubeMetricsClient(config.HubServerAddress(), setting.LocalClusterID)
 	if err != nil {
 		log.Errorf("failed to get metrics client, err: %v", err)
@@ -100,212 +119,23 @@ func UpdatePodMetrics() error {
 	}
 
 	for _, podMetric := range podMetrices.Items {
-		if strings.Contains(podMetric.Name, "aslan") {
-			updateAslanResourceMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "cron") {
-			updateCronMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "dex") {
-			updateDexMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "discovery") {
-			updateDiscoveryMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "gateway-proxy") {
-			updateGatewayProxyMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "gateway") {
-			updateGatewayMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "gloo") {
-			updateGlooMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "hub-server") {
-			updateHubServerMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "kr-minio") {
-			updateMinioMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "kr-mysql") {
-			updateMysqlMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "kr-mongodb") {
-			updateMongodbMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "nsqlookup") {
-			updateNsqlookupMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "dind") {
-			updateDindMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "opa") {
-			updateOpaMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "resource-server") {
-			updateResourceServerMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "warpdrive") {
-			updateWarpdriveMetrics(podMetric)
-		} else if strings.Contains(podMetric.Name, "zadig-portal") {
-			updateZadigPortalMetrics(podMetric)
+		for _, service := range serviceList {
+			if strings.Contains(podMetric.Name, service) {
+				updateResourceMetrics(service, podMetric)
+				break
+			}
 		}
 	}
 
 	return nil
 }
 
-func updateAslanResourceMetrics(metrics v1beta1.PodMetrics) {
+func updateResourceMetrics(serviceName string, metrics v1beta1.PodMetrics) {
 	for _, container := range metrics.Containers {
-		if container.Name == "aslan" {
-			SetCPUUsage("aslan", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("aslan", metrics.Name, container.Usage.Memory().Value())
+		if container.Name == serviceName {
+			SetCPUUsage(serviceName, metrics.Name, container.Usage.Cpu().MilliValue())
+			SetMemoryUsage(serviceName, metrics.Name, container.Usage.Memory().Value())
+			break
 		}
-		break
-	}
-}
-
-func updateCronMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "cron" {
-			SetCPUUsage("cron", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("cron", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateDexMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "dex" {
-			SetCPUUsage("dex", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("dex", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateDindMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "dind" {
-			SetCPUUsage("dind", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("dind", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateDiscoveryMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "discovery" {
-			SetCPUUsage("discovery", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("discovery", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateGatewayMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "gateway" {
-			SetCPUUsage("gateway", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("gateway", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateGatewayProxyMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "gateway-proxy" {
-			SetCPUUsage("gateway-proxy", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("gateway-proxy", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateGlooMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "gloo" {
-			SetCPUUsage("gloo", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("gloo", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateHubServerMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "hub-server" {
-			SetCPUUsage("hub-server", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("hub-server", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateMinioMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "kr-minio" {
-			SetCPUUsage("kr-minio", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("kr-minio", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateMysqlMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "kr-mysql" {
-			SetCPUUsage("kr-mysql", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("kr-mysql", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateMongodbMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "kr-mongodb" {
-			SetCPUUsage("kr-mongodb", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("kr-mongodb", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateNsqlookupMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "nsqlookup" {
-			SetCPUUsage("nsqlookup", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("nsqlookup", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateOpaMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "opa" {
-			SetCPUUsage("opa", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("opa", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateResourceServerMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "resource-server" {
-			SetCPUUsage("resource-server", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("resource-server", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateWarpdriveMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "warpdrive" {
-			SetCPUUsage("warpdrive", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("warpdrive", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
-	}
-}
-
-func updateZadigPortalMetrics(metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == "zadig-portal" {
-			SetCPUUsage("zadig-portal", metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage("zadig-portal", metrics.Name, container.Usage.Memory().Value())
-		}
-		break
 	}
 }
