@@ -378,7 +378,6 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		}
 		t.WorkflowArgs = nil
 		for _, stage := range t.Stages {
-			stage.SubTasks = nil
 			stage.Desc = ""
 			stage.TypeName = string(stage.TaskType)
 			for _, subTask := range stage.SubTasks {
@@ -465,6 +464,7 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 					stage.Error = getErrorMsg(stage.Error, t.Error)
 				}
 			}
+			stage.SubTasks = nil
 		}
 	}
 
