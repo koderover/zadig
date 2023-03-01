@@ -396,6 +396,7 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 				Status:      string(task.Status),
 				TaskCreator: task.TaskCreator,
 				CreateTime:  task.CreateTime,
+				StartTime:   task.StartTime,
 				EndTime:     task.EndTime,
 			})
 		}
