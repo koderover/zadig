@@ -64,9 +64,9 @@ type StageTask struct {
 	Status    config.Status `bson:"status"        json:"status"`
 	StartTime int64         `bson:"start_time"    json:"start_time,omitempty"`
 	EndTime   int64         `bson:"end_time"      json:"end_time,omitempty"`
-	Parallel  bool          `bson:"parallel"      json:"parallel"`
-	Approval  *Approval     `bson:"approval"      json:"approval"`
-	Jobs      []*JobTask    `bson:"jobs"          json:"jobs"`
+	Parallel  bool          `bson:"parallel"      json:"parallel,omitempty"`
+	Approval  *Approval     `bson:"approval"      json:"approval,omitempty"`
+	Jobs      []*JobTask    `bson:"jobs"          json:"jobs,omitempty"`
 	Error     string        `bson:"error"         json:"error"`
 }
 
