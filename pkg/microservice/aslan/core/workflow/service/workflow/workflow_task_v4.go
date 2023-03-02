@@ -666,7 +666,6 @@ func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, e
 func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 	const StatusNotRun = ""
 	for _, workflow := range workflows {
-		var isCancel, isWaitApprove bool
 		var stageList []*commonmodels.StageTask
 		workflow.WorkflowArgs = nil
 		workflow.OriginWorkflowArgs = nil
@@ -678,20 +677,14 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 					EndTime:   stage.Approval.EndTime,
 				}
 				switch {
-				case isCancel:
-					approvalStage.Status = StatusNotRun
-				case isWaitApprove:
-					approvalStage.Status = StatusNotRun
-				case stage.Status == config.StatusReject || stage.Status == config.StatusCancelled:
-					approvalStage.Status = stage.Status
-					isCancel = stage.Status == config.StatusCancelled
-					stage.Status = StatusNotRun
-				case stage.Status == config.StatusRunning && workflow.Status == config.StatusWaitingApprove:
-					approvalStage.Status = config.StatusWaitingApprove
-					isWaitApprove = true
-					stage.Status = StatusNotRun
-				default:
+				//case stage.Status == config.StatusWaitingApprove:
+				//	approvalStage.Status = config.StatusWaitingApprove
+				//	stage.Status = StatusNotRun
+				case stage.Status == config.StatusPassed || stage.Status == config.StatusRunning:
 					approvalStage.Status = config.StatusPassed
+				default:
+					approvalStage.Status = stage.Status
+					stage.Status = StatusNotRun
 				}
 				stageList = append(stageList, approvalStage)
 			}

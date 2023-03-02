@@ -110,6 +110,8 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 		return nil
 	}
 
+	// workflowCtx.SetStatus contain ack() function, so we don't need to call ack() here
+	stage.Status = config.StatusWaitingApprove
 	workflowCtx.SetStatus(config.StatusWaitingApprove)
 	defer workflowCtx.SetStatus(config.StatusRunning)
 
