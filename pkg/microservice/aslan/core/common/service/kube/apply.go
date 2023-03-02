@@ -234,7 +234,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
@@ -246,7 +246,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector")
 				err := unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, selector), "spec", "selector")
 				if err != nil {
-					errList = multierror.Append(errList, errors.Wrapf(err, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
+					errList = multierror.Append(err, errors.Wrapf(err, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
 					log.Errorf("failed to set nested string map: %v", err)
 					continue
 				}
@@ -350,11 +350,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				err = updater.CreateOrPatchStatefulSet(res, kubeClient)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
-					errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					errList = multierror.Append(err, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 					continue
 				}
 			default:
-				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
+				errList = multierror.Append(err, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
 				continue
 			}
 
@@ -383,13 +383,13 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 			if err := updater.DeleteJobAndWait(namespace, obj.Name, kubeClient); err != nil {
 				log.Errorf("Failed to delete Job, error: %v", err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
 			if err := updater.CreateJob(obj, kubeClient); err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
@@ -397,13 +397,13 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			jsonData, err := u.MarshalJSON()
 			if err != nil {
 				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 			obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
 			if err != nil {
 				log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
@@ -420,7 +420,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			err = updater.CreateOrPatchCronJob(obj, kubeClient)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
@@ -430,7 +430,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 		default:
