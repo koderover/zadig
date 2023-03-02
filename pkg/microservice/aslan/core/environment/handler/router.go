@@ -138,6 +138,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("environments", CreateProductionProduct)
 
 		production.GET("/environments", ListProductionEnvs)
+		production.PUT("/environments/:name/registry", UpdateProductRegistry)
 		production.GET("/environments/:name/groups", ListProductionGroups)
 
 		// used for production deploy workflows
