@@ -246,7 +246,6 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector")
 				err := unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, selector), "spec", "selector")
 				if err != nil {
-					// should not have happened
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
 					log.Errorf("failed to set nested string map: %v", err)
 					continue
@@ -256,7 +255,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-				errList = multierror.Append(errList, errors.Wrapf(errList, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
