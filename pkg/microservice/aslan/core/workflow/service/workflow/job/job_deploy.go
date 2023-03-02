@@ -310,8 +310,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				DeployContents:     j.spec.DeployContents,
 			}
 			for _, deploy := range deploys {
-				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
-					return resp, err
+				// if external env, check service exists
+				if project.ProductFeature.CreateEnvType == "external" {
+					if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
+						return resp, err
+					}
 				}
 				jobTaskSpec.ServiceAndImages = append(jobTaskSpec.ServiceAndImages, &commonmodels.DeployServiceModule{
 					Image:         deploy.Image,
