@@ -664,28 +664,33 @@ func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, e
 
 // clean extra message for list workflow
 func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
+	const StatusNotRun = ""
 	for _, workflow := range workflows {
+		var isCancel bool
 		var stageList []*commonmodels.StageTask
 		workflow.WorkflowArgs = nil
 		workflow.OriginWorkflowArgs = nil
 		for _, stage := range workflow.Stages {
 			if stage.Approval != nil && stage.Approval.Enabled {
-				s := &commonmodels.StageTask{
+				approvalStage := &commonmodels.StageTask{
 					Name:      "人工审批",
 					StartTime: stage.Approval.StartTime,
 					EndTime:   stage.Approval.EndTime,
 				}
 				switch {
+				case isCancel:
+					approvalStage.Status = StatusNotRun
 				case stage.Status == config.StatusReject || stage.Status == config.StatusCancelled:
-					s.Status = stage.Status
-					// empty status means StatusNotRun
-					stage.Status = ""
+					approvalStage.Status = stage.Status
+					isCancel = stage.Status == config.StatusCancelled
+					stage.Status = StatusNotRun
 				case stage.Status == config.StatusRunning && workflow.Status == config.StatusWaitingApprove:
-					s.Status = config.StatusWaitingApprove
+					approvalStage.Status = config.StatusWaitingApprove
+					stage.Status = StatusNotRun
 				default:
-					s.Status = config.StatusPassed
+					approvalStage.Status = config.StatusPassed
 				}
-				stageList = append(stageList, s)
+				stageList = append(stageList, approvalStage)
 			}
 			stageList = append(stageList, stage)
 			stage.Jobs = nil
