@@ -425,7 +425,8 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, err
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
-
+	mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
+	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, 0, nil
 }
 
@@ -529,7 +530,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, option.Containers)
 	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
-
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), err
 }
 

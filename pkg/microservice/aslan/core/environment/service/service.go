@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -374,6 +375,8 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	//	return nil, e.ErrPreviewYaml.AddErr(err)
 	//}
 
+	re := regexp.MustCompile("(?m)^\n")
+
 	newVariable, err := kube.GenerateYamlFromKV(args.VariableKVS)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
@@ -406,8 +409,8 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
 
-	ret.Current.Yaml = curYaml
-	ret.Latest.Yaml = latestYaml
+	ret.Current.Yaml = re.ReplaceAllString(curYaml, "")
+	ret.Latest.Yaml = re.ReplaceAllString(latestYaml, "")
 
 	//prodSvc := productObj.GetServiceMap()[args.ServiceName]
 	//
