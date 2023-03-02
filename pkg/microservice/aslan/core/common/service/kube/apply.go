@@ -246,7 +246,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector")
 				err := unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, selector), "spec", "selector")
 				if err != nil {
-					errList = multierror.Append(errList, errors.Wrapf(errList, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
 					log.Errorf("failed to set nested string map: %v", err)
 					continue
 				}
