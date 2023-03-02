@@ -109,6 +109,7 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 	if !stage.Approval.Enabled {
 		return nil
 	}
+
 	workflowCtx.SetStatus(config.StatusWaitingApprove)
 	defer workflowCtx.SetStatus(config.StatusRunning)
 

@@ -675,11 +675,14 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 					StartTime: stage.Approval.StartTime,
 					EndTime:   stage.Approval.EndTime,
 				}
-				if stage.Status == config.StatusReject || stage.Status == config.StatusWaitingApprove {
+				switch {
+				case stage.Status == config.StatusReject:
 					s.Status = stage.Status
 					// empty status means StatusNotRun
 					stage.Status = ""
-				} else {
+				case stage.Status == config.StatusRunning && workflow.Status == config.StatusWaitingApprove:
+					s.Status = config.StatusWaitingApprove
+				default:
 					s.Status = config.StatusPassed
 				}
 				stageList = append(stageList, s)
