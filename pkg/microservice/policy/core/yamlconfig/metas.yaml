@@ -296,7 +296,7 @@ metas:
     description: ''
     rules:
       - action: data_over
-        alias: 数据概览|查看
+        alias: 查看数据概览
         description: ''
         rules:
           - method: GET
@@ -308,7 +308,7 @@ metas:
           - method: GET
             endpoint: /api/v1/picket/stat/dashboard/build
       - action: efficiency_over
-        alias: 数据洞察|查看
+        alias: 查看数据洞察
         description: ''
         rules:
           - method: GET
@@ -442,7 +442,7 @@ metas:
     description: ''
     rules:
       - action: release_get
-        alias: 版本管理|查看
+        alias: 查看版本管理
         description: 查看
         rules:
           - method: GET
@@ -450,7 +450,7 @@ metas:
           - method: GET
             endpoint: /api/aslan/delivery/releases/?*
       - action: delivery_get
-        alias: 交付物追踪|查看
+        alias: 查看交付物追踪
         description: 查看
         rules:
           - method: GET
