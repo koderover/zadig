@@ -677,7 +677,8 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 				}
 				if stage.Status == config.StatusReject || stage.Status == config.StatusWaitingApprove {
 					s.Status = stage.Status
-					stage.Status = config.StatusNotRun
+					// empty status means StatusNotRun
+					stage.Status = ""
 				} else {
 					s.Status = config.StatusPassed
 				}
