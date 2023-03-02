@@ -83,15 +83,15 @@ var definitionMap = map[string]int{
 }
 
 var projectDefinitionMap = map[string]int{
-	"Workflow":              6,
-	"Environment":           7,
-	"ProductionEnvironment": 8,
-	"Service":               9,
-	"ProductionService":     10,
-	"Build":                 11,
-	"Test":                  12,
-	"Scan":                  13,
-	"Delivery":              14,
+	"Workflow":              1,
+	"Environment":           2,
+	"ProductionEnvironment": 3,
+	"Service":               4,
+	"ProductionService":     5,
+	"Build":                 6,
+	"Test":                  7,
+	"Scan":                  8,
+	"Delivery":              9,
 }
 
 func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
