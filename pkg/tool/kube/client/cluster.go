@@ -18,10 +18,10 @@ package client
 
 import (
 	"context"
-	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"sync"
 
 	"github.com/pkg/errors"
+	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -58,6 +59,14 @@ func NewClientSet() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 	return kubernetes.NewForConfig(config)
+}
+
+func NewMetricsClient() (*v1beta1.MetricsV1beta1Client, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	return v1beta1.NewForConfig(config)
 }
 
 func NewDynamicClient() (dynamic.Interface, error) {
