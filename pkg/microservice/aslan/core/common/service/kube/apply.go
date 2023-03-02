@@ -246,7 +246,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector")
 				err := unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, selector), "spec", "selector")
 				if err != nil {
-					errList = multierror.Append(err, errors.Wrapf(err, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
+					errList = multierror.Append(errList, errors.Wrapf(errList, "failed to set nested string map for service: %v, err: %s", applyParam.ServiceName, err))
 					log.Errorf("failed to set nested string map: %v", err)
 					continue
 				}
@@ -350,11 +350,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				err = updater.CreateOrPatchStatefulSet(res, kubeClient)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
-					errList = multierror.Append(err, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 					continue
 				}
 			default:
-				errList = multierror.Append(err, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
+				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
 				continue
 			}
 
