@@ -82,6 +82,18 @@ var definitionMap = map[string]int{
 	"DataCenter":     5,
 }
 
+var projectDefinitionMap = map[string]int{
+	"Workflow":              6,
+	"Environment":           7,
+	"ProductionEnvironment": 8,
+	"Service":               9,
+	"ProductionService":     10,
+	"Build":                 11,
+	"Test":                  12,
+	"Scan":                  13,
+	"Delivery":              14,
+}
+
 func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
 	policieMetas, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
@@ -161,8 +173,16 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		res = append(res, pd)
 	}
-	sort.Slice(res, func(i, j int) bool {
-		return definitionMap[res[i].Resource] < definitionMap[res[j].Resource]
-	})
+	switch scope {
+	case string(types.SystemScope):
+		sort.Slice(res, func(i, j int) bool {
+			return definitionMap[res[i].Resource] < definitionMap[res[j].Resource]
+		})
+	case string(types.ProjectScope):
+		sort.Slice(res, func(i, j int) bool {
+			return projectDefinitionMap[res[i].Resource] < projectDefinitionMap[res[j].Resource]
+		})
+	}
+
 	return res, nil
 }
