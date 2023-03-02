@@ -842,6 +842,8 @@ metas:
             endpoint: "/api/aslan/environment/production/environmentsForUpdate"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
+          - method: PUT
+            endpoint: "/api/aslan/environment/production/environments/?*/registry"
       - action: delete_production_environment
         alias: 删除
         description: ""

@@ -111,6 +111,31 @@ func UpdateMultiProducts(c *gin.Context) {
 	updateMultiEnvWrapper(c, request, ctx)
 }
 
+func ensureProductionNamespace(createArgs []*service.CreateSingleProductArg) error {
+	namespaceList := make(map[string]sets.String)
+
+	for _, arg := range createArgs {
+		if _, ok := namespaceList[arg.ClusterID]; !ok {
+			namespaceList[arg.ClusterID] = sets.NewString()
+			namespaces, err := service.ListAvailableNamespaces(arg.ClusterID, setting.ListNamespaceTypeCreate, log.SugaredLogger())
+			if err != nil {
+				log.Errorf("ListAvailableNamespaces error: %v", err)
+				continue
+			}
+			for _, ns := range namespaces {
+				namespaceList[arg.ClusterID].Insert(ns.Name)
+			}
+		}
+	}
+
+	for _, arg := range createArgs {
+		if !namespaceList[arg.ClusterID].Has(arg.Namespace) {
+			return fmt.Errorf("namespace %s is not valid for production environments", arg.Namespace)
+		}
+	}
+	return nil
+}
+
 func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameList := make([]string, 0)
 	for _, arg := range createArgs {
@@ -295,8 +320,13 @@ func CreateProductionProduct(c *gin.Context) {
 			}
 		}
 	}
+
+	err = ensureProductionNamespace(createArgs)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 	createProduct(c, createParam, createArgs, string(data), ctx)
-	return
 }
 
 type UpdateProductParams struct {
