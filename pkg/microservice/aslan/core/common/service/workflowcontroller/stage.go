@@ -59,12 +59,14 @@ type StageCtl interface {
 
 func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
 	stage.Status = config.StatusRunning
-	stage.StartTime = time.Now().Unix()
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
+	if stage.Approval != nil && stage.Approval.Enabled {
+		stage.Approval.StartTime = time.Now().Unix()
+	}
 	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
-		stage.EndTime = time.Now().Unix()
+		stage.Approval.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 		return
@@ -75,7 +77,8 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 	}()
-
+	stage.StartTime = time.Now().Unix()
+	ack()
 	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
 
 	stageCtl.Run(ctx, concurrency)
