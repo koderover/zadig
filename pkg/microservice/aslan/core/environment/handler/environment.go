@@ -323,7 +323,7 @@ func CreateProductionProduct(c *gin.Context) {
 
 	err = ensureProductionNamespace(createArgs)
 	if err != nil {
-		ctx.Err = err
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	createProduct(c, createParam, createArgs, string(data), ctx)
