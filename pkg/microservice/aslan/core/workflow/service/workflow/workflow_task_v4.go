@@ -676,7 +676,7 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 					EndTime:   stage.Approval.EndTime,
 				}
 				switch {
-				case stage.Status == config.StatusReject:
+				case stage.Status == config.StatusReject || stage.Status == config.StatusCancelled:
 					s.Status = stage.Status
 					// empty status means StatusNotRun
 					stage.Status = ""
