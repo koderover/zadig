@@ -77,6 +77,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 	}()
+	stage.Approval.EndTime = time.Now().Unix()
 	stage.StartTime = time.Now().Unix()
 	ack()
 	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
