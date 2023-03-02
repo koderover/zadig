@@ -686,6 +686,7 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 			stageList = append(stageList, stage)
 			stage.Jobs = nil
 		}
+		workflow.Stages = stageList
 	}
 }
 
