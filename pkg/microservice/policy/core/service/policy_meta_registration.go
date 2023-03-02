@@ -77,8 +77,8 @@ func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger)
 var definitionMap = map[string]int{
 	"Template":       1,
 	"TestCenter":     2,
-	"DeliveryCenter": 3,
-	"ReleaseCenter":  4,
+	"ReleaseCenter":  3,
+	"DeliveryCenter": 4,
 	"DataCenter":     5,
 }
 
