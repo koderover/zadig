@@ -24,11 +24,8 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
-	"golang.org/x/exp/slices"
 )
 
 type DeployJob struct {
@@ -107,110 +104,8 @@ func (j *DeployJob) SetPreset() error {
 	}
 	if project.ProductFeature != nil {
 		j.spec.DeployType = project.ProductFeature.DeployType
-		if project.ProductFeature.DeployType == "helm" {
-			return nil
-		}
-		if project.ProductFeature.CreateEnvType == "external" {
-			return nil
-		}
 	}
-	targets := j.spec.ServiceAndImages
-	if j.spec.Source == config.SourceFromJob {
-		// clear service and image list to prevent old data from remaining
-		targets, err = j.getOriginReferedJobTargets(j.spec.JobName)
-		if err != nil {
-			return fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
-		}
-		j.spec.Services = []*commonmodels.DeployService{}
-	}
-	serviceNameMap := map[string]bool{}
-	for _, target := range targets {
-		serviceNameMap[target.ServiceName] = true
-	}
-	deployServiceMap := map[string]*commonmodels.DeployService{}
-	for _, service := range j.spec.Services {
-		deployServiceMap[service.ServiceName] = service
-	}
-	newServices := []*commonmodels.DeployService{}
-
-	envServiceMap, err := j.getEnvServicesMap()
-	if err != nil {
-		return fmt.Errorf("get service env map error: %v", err)
-	}
-	for serviceName := range serviceNameMap {
-		deployService, err := j.filterServiceVars(serviceName, deployServiceMap[serviceName], envServiceMap[serviceName])
-		if err != nil {
-			return err
-		}
-		newServices = append(newServices, deployService)
-	}
-	j.spec.Services = newServices
 	return nil
-}
-
-func (j *DeployJob) getEnvServicesMap() (map[string]*commonservice.EnvService, error) {
-	logger := log.SugaredLogger()
-	serviceMap := map[string]*commonservice.EnvService{}
-	var (
-		err      error
-		services *commonservice.EnvServices
-	)
-	if j.spec.Production {
-		services, err = commonservice.ListServicesInProductionEnv(j.spec.Env, j.workflow.Project, logger)
-		if err != nil {
-			return serviceMap, err
-		}
-	} else {
-		services, err = commonservice.ListServicesInEnv(j.spec.Env, j.workflow.Project, logger)
-		if err != nil {
-			return serviceMap, err
-		}
-	}
-	for _, service := range services.Services {
-		serviceMap[service.ServiceName] = service
-	}
-	return serviceMap, nil
-}
-
-// filterServiceVars filter service variables user defined.
-func (j *DeployJob) filterServiceVars(serviceName string, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {
-	if serviceEnv == nil {
-		return service, fmt.Errorf("service: %v do not exist", serviceName)
-	}
-	defaultUpdateConfig := false
-	if slices.Contains(j.spec.DeployContents, config.DeployConfig) && serviceEnv.Updatable {
-		defaultUpdateConfig = true
-	}
-	if service == nil {
-		service = &commonmodels.DeployService{
-			ServiceName:  serviceName,
-			Updatable:    serviceEnv.Updatable,
-			UpdateConfig: defaultUpdateConfig,
-		}
-		for _, svcVar := range serviceEnv.VariableKVs {
-			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
-				Key:   svcVar.Key,
-				Value: svcVar.Value,
-				Type:  commonmodels.StringType,
-			})
-		}
-		return service, nil
-	}
-	service.ServiceName = serviceName
-	service.Updatable = serviceEnv.Updatable
-	service.UpdateConfig = defaultUpdateConfig
-	newVars := []*commonmodels.ServiceKeyVal{}
-	for _, svcVar := range service.KeyVals {
-		for _, varItem := range serviceEnv.VariableKVs {
-			if svcVar.Key == varItem.Key {
-				svcVar.Value = varItem.Value
-				newVars = append(newVars, svcVar)
-				break
-			}
-		}
-	}
-	service.KeyVals = newVars
-	return service, nil
 }
 
 func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
