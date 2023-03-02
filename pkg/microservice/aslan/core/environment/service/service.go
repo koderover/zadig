@@ -400,6 +400,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		ServiceName:           args.ServiceName,
 		UpdateServiceRevision: args.UpdateServiceRevision,
 		VariableYaml:          newVariable,
+		Containers:            args.ServiceModules,
 	})
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
