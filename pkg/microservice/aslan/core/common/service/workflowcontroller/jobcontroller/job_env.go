@@ -111,7 +111,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 	}
 
 	if len(productInfo.Services) == 0 {
-		productInfo.Services = make([][]*models.ProductService, 0)
+		productInfo.Services = [][]*models.ProductService{[]*models.ProductService{}}
 	}
 
 	if !deployInfo.Uninstall {
