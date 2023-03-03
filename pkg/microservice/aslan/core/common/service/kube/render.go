@@ -466,7 +466,9 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
 	}
 
+	var svcContainersInProduct []*models.Container
 	if curProductSvc != nil {
+		svcContainersInProduct = curProductSvc.Containers
 		prodSvcTemplate, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ProductName: option.ProductName,
 			ServiceName: option.ServiceName,
@@ -528,7 +530,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, err
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
-	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, option.Containers)
+	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), err
 }
