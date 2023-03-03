@@ -151,6 +151,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
 		}
 		productInfo.Render.Revision = curRenderset.Revision
+		productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
 	} else {
 		filteredRenders := make([]*template.ServiceRender, 0)
 		for _, svcRender := range curRenderset.ServiceVariables {
