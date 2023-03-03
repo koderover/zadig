@@ -1461,8 +1461,9 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	resp := []*commonmodels.DeployService{}
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
-		log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
-		return resp, e.ErrFindWorkflow.AddErr(err)
+		msg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		log.Error(msg)
+		return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 	}
 	jobSpec := &commonmodels.ZadigDeployJobSpec{}
 	found := false
@@ -1472,28 +1473,34 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 				continue
 			}
 			if job.JobType != config.JobZadigDeploy {
-				return resp, fmt.Errorf("job: %s is not a deploy job", jobName)
+				msg := fmt.Sprintf("job: %s is not a deploy job", jobName)
+				log.Error(msg)
+				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 			}
 			if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
-				return resp, err
+				msg := fmt.Sprintf("unmarshal deploy job spec error: %v", err)
+				log.Error(msg)
+				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 			}
 			found = true
 			break
 		}
 	}
 	if !found {
-		return resp, fmt.Errorf("job: %s not found", jobName)
+		msg := fmt.Sprintf("job: %s not found", jobName)
+		log.Error(msg)
+		return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 	}
 	var services *commonservice.EnvServices
 	if jobSpec.Production {
 		services, err = commonservice.ListServicesInProductionEnv(jobSpec.Env, workflow.Project, log)
 		if err != nil {
-			return resp, err
+			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 	} else {
 		services, err = commonservice.ListServicesInEnv(jobSpec.Env, workflow.Project, log)
 		if err != nil {
-			return resp, err
+			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 	}
 	serviceMap := map[string]*commonservice.EnvService{}
@@ -1508,7 +1515,8 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	for _, serviceName := range serviceNames {
 		service, err := filterServiceVars(serviceName, jobSpec.DeployContents, deployServiceMap[serviceName], serviceMap[serviceName])
 		if err != nil {
-			return resp, err
+			log.Error(err)
+			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 		resp = append(resp, service)
 	}
