@@ -760,6 +760,9 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		costSeconds := int64(0)
 		if job.StartTime != 0 {
 			costSeconds = now - job.StartTime
+			if job.EndTime != 0 {
+				costSeconds = job.EndTime - job.StartTime	
+			}
 		}
 		jobPreview := &JobTaskPreview{
 			Name:             job.Name,
