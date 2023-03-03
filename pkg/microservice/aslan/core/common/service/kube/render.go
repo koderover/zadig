@@ -74,6 +74,9 @@ func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
 	} else {
 		kvs := make([]*commonmodels.VariableKV, 0)
 		for k, v := range flatMap {
+			if len(k) == 0 {
+				continue
+			}
 			kvs = append(kvs, &models.VariableKV{
 				Key:   k,
 				Value: v,
