@@ -152,37 +152,37 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	// get servcie info
-	var (
-		serviceInfo *commonmodels.Service
-	)
-	serviceInfo, err = commonrepo.NewServiceColl().Find(
-		&commonrepo.ServiceFindOption{
-			ServiceName:   c.jobTaskSpec.ServiceName,
-			ProductName:   c.workflowCtx.ProjectName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-			Type:          c.jobTaskSpec.ServiceType,
-		})
-	if err != nil {
-		// Maybe it is a share service, the entity is not under the project
-		serviceInfo, err = commonrepo.NewServiceColl().Find(
-			&commonrepo.ServiceFindOption{
-				ServiceName:   c.jobTaskSpec.ServiceName,
-				ExcludeStatus: setting.ProductStatusDeleting,
-				Type:          c.jobTaskSpec.ServiceType,
-			})
-		if err != nil {
-			msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
-			logError(c.job, msg, c.logger)
-			return errors.New(msg)
-		}
-	}
 	if c.jobTaskSpec.CreateEnvType == "system" {
 		if err := c.updateSystemService(env); err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
 		}
 	} else {
+		// get servcie info
+		var (
+			serviceInfo *commonmodels.Service
+		)
+		serviceInfo, err = commonrepo.NewServiceColl().Find(
+			&commonrepo.ServiceFindOption{
+				ServiceName:   c.jobTaskSpec.ServiceName,
+				ProductName:   c.workflowCtx.ProjectName,
+				ExcludeStatus: setting.ProductStatusDeleting,
+				Type:          c.jobTaskSpec.ServiceType,
+			})
+		if err != nil {
+			// Maybe it is a share service, the entity is not under the project
+			serviceInfo, err = commonrepo.NewServiceColl().Find(
+				&commonrepo.ServiceFindOption{
+					ServiceName:   c.jobTaskSpec.ServiceName,
+					ExcludeStatus: setting.ProductStatusDeleting,
+					Type:          c.jobTaskSpec.ServiceType,
+				})
+			if err != nil {
+				msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
+				logError(c.job, msg, c.logger)
+				return errors.New(msg)
+			}
+		}
 		errList := new(multierror.Error)
 		wg := sync.WaitGroup{}
 		for _, serviceModule := range c.jobTaskSpec.ServiceAndImages {
