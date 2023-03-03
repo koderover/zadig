@@ -102,12 +102,12 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 	defer func() {
-		if err := recover(); err != nil {
-			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
-			logger.Error(errMsg)
-			job.Status = config.StatusFailed
-			job.Error = errMsg
-		}
+		// if err := recover(); err != nil {
+		// 	errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
+		// 	logger.Error(errMsg)
+		// 	job.Status = config.StatusFailed
+		// 	job.Error = errMsg
+		// }
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
