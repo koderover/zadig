@@ -1493,12 +1493,12 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 	var services *commonservice.EnvServices
 	if jobSpec.Production {
-		services, err = commonservice.ListServicesInProductionEnv(jobSpec.Env, workflow.Project, log)
+		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 	} else {
-		services, err = commonservice.ListServicesInEnv(jobSpec.Env, workflow.Project, log)
+		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
