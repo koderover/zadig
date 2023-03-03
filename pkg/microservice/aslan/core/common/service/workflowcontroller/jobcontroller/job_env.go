@@ -110,7 +110,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 	}
 
-	if productInfo.Services == nil {
+	if len(productInfo.Services) == 0 {
 		productInfo.Services = make([][]*models.ProductService, 0)
 	}
 
