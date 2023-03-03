@@ -66,6 +66,8 @@ type Approval struct {
 	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
 	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
 	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
+	StartTime      int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`
+	EndTime        int64               `bson:"end_time"                    yaml:"end_time,omitempty"            json:"end_time,omitempty"`
 	NativeApproval *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
 	LarkApproval   *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
 }

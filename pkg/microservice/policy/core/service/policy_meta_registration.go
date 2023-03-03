@@ -77,9 +77,21 @@ func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger)
 var definitionMap = map[string]int{
 	"Template":       1,
 	"TestCenter":     2,
-	"DeliveryCenter": 3,
-	"ReleaseCenter":  4,
+	"ReleaseCenter":  3,
+	"DeliveryCenter": 4,
 	"DataCenter":     5,
+}
+
+var projectDefinitionMap = map[string]int{
+	"Workflow":              1,
+	"Environment":           2,
+	"ProductionEnvironment": 3,
+	"Service":               4,
+	"ProductionService":     5,
+	"Build":                 6,
+	"Test":                  7,
+	"Scan":                  8,
+	"Delivery":              9,
 }
 
 func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
@@ -161,8 +173,16 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		res = append(res, pd)
 	}
-	sort.Slice(res, func(i, j int) bool {
-		return definitionMap[res[i].Resource] < definitionMap[res[j].Resource]
-	})
+	switch scope {
+	case string(types.SystemScope):
+		sort.Slice(res, func(i, j int) bool {
+			return definitionMap[res[i].Resource] < definitionMap[res[j].Resource]
+		})
+	case string(types.ProjectScope):
+		sort.Slice(res, func(i, j int) bool {
+			return projectDefinitionMap[res[i].Resource] < projectDefinitionMap[res[j].Resource]
+		})
+	}
+
 	return res, nil
 }

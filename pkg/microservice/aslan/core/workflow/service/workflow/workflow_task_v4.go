@@ -101,6 +101,7 @@ type JobTaskPreview struct {
 	Status           config.Status `bson:"status"         json:"status"`
 	StartTime        int64         `bson:"start_time"     json:"start_time,omitempty"`
 	EndTime          int64         `bson:"end_time"       json:"end_time,omitempty"`
+	CostSeconds      int64         `bson:"cost_seconds"   json:"cost_seconds,omitempty"`
 	Error            string        `bson:"error"          json:"error"`
 	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
 	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`
@@ -664,13 +665,34 @@ func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, e
 
 // clean extra message for list workflow
 func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
+	const StatusNotRun = ""
 	for _, workflow := range workflows {
+		var stageList []*commonmodels.StageTask
 		workflow.WorkflowArgs = nil
 		workflow.OriginWorkflowArgs = nil
 		for _, stage := range workflow.Stages {
-			stage.Approval = nil
+			if stage.Approval != nil && stage.Approval.Enabled {
+				approvalStage := &commonmodels.StageTask{
+					Name:      "人工审批",
+					StartTime: stage.Approval.StartTime,
+					EndTime:   stage.Approval.EndTime,
+				}
+				switch {
+				//case stage.Status == config.StatusWaitingApprove:
+				//	approvalStage.Status = config.StatusWaitingApprove
+				//	stage.Status = StatusNotRun
+				case stage.Status == config.StatusPassed || stage.Status == config.StatusRunning:
+					approvalStage.Status = config.StatusPassed
+				default:
+					approvalStage.Status = stage.Status
+					stage.Status = StatusNotRun
+				}
+				stageList = append(stageList, approvalStage)
+			}
+			stageList = append(stageList, stage)
 			stage.Jobs = nil
 		}
+		workflow.Stages = stageList
 	}
 }
 
@@ -704,6 +726,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		IsRestart:           task.IsRestart,
 		Debug:               task.IsDebug,
 	}
+	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {
 		resp.Stages = append(resp.Stages, &StageTaskPreview{
 			Name:      stage.Name,
@@ -712,7 +735,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			EndTime:   stage.EndTime,
 			Parallel:  stage.Parallel,
 			Approval:  stage.Approval,
-			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext),
+			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow),
 		})
 	}
 	return resp, nil
@@ -731,9 +754,13 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return nil
 }
 
-func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) []*JobTaskPreview {
+func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64) []*JobTaskPreview {
 	resp := []*JobTaskPreview{}
 	for _, job := range jobs {
+		costSeconds := int64(0)
+		if job.StartTime != 0 {
+			costSeconds = now - job.StartTime
+		}
 		jobPreview := &JobTaskPreview{
 			Name:             job.Name,
 			Status:           job.Status,
@@ -743,6 +770,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 			JobType:          job.JobType,
 			BreakpointBefore: job.BreakpointBefore,
 			BreakpointAfter:  job.BreakpointAfter,
+			CostSeconds:      costSeconds,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):
