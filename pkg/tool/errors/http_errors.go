@@ -499,6 +499,8 @@ var (
 	ErrFindWorkflow = NewHTTPError(6542, "查询workflow失败")
 	// ErrDeleteWorkflow ...
 	ErrDeleteWorkflow = NewHTTPError(6543, "删除workflow失败")
+	// ErrFilterWorkflowVars ...
+	ErrFilterWorkflowVars = NewHTTPError(6544, "过滤workflow服务变量失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Directory APIs Range: 6550 - 6560

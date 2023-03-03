@@ -39,6 +39,13 @@ type listWorkflowV4Query struct {
 	ViewName string `json:"view_name"    form:"view_name"`
 }
 
+type filterDeployServiceVarsQuery struct {
+	WorkflowName string   `json:"workflow_name"`
+	JobName      string   `json:"job_name"`
+	EnvName      string   `json:"env_name"`
+	ServiceNames []string `json:"service_names"`
+}
+
 type listWorkflowV4Resp struct {
 	WorkflowList []*workflow.Workflow `json:"workflow_list"`
 	Total        int64                `json:"total"`
@@ -518,6 +525,17 @@ func ListAllAvailableWorkflows(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
+}
+
+func GetFilteredEnvServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	req := new(filterDeployServiceVarsQuery)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Resp, ctx.Err = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
 }
 
 func getBody(c *gin.Context) string {

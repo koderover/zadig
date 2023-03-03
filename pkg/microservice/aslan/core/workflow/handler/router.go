@@ -206,6 +206,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/patch", GetPatchParams)
 		workflowV4.GET("/sharestorage", CheckShareStorageEnabled)
 		workflowV4.GET("/all", ListAllAvailableWorkflows)
+		workflowV4.POST("/filterEnv", GetFilteredEnvServices)
 	}
 
 	// ---------------------------------------------------------------------------------------
