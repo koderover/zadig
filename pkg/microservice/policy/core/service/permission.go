@@ -73,13 +73,6 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 		}
 		for _, rule := range role.Rules {
 			var ruleVerbs []string
-			//if rule.Resources[0] == "ProductionEnvironment" {
-			//	for _, verb := range rule.Verbs {
-			//		ruleVerbs = append(ruleVerbs, "production:"+verb)
-			//	}
-			//} else {
-			//	ruleVerbs = rule.Verbs
-			//}
 			ruleVerbs = rule.Verbs
 			projectVerbSet.Insert(ruleVerbs...)
 		}
@@ -240,13 +233,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				verbSet := sets.NewString(verbs...)
 				for _, rule := range role.Rules {
 					var ruleVerbs []string
-					//if rule.Resources[0] == "ProductionEnvironment" {
-					//	for _, verb := range rule.Verbs {
-					//		ruleVerbs = append(ruleVerbs, "production:"+verb)
-					//	}
-					//} else {
-					//	ruleVerbs = rule.Verbs
-					//}
 					ruleVerbs = rule.Verbs
 					verbSet.Insert(ruleVerbs...)
 				}
@@ -256,13 +242,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				verbSet := sets.NewString()
 				for _, rule := range role.Rules {
 					var ruleVerbs []string
-					//if rule.Resources[0] == "ProductionEnvironment" {
-					//	for _, verb := range rule.Verbs {
-					//		ruleVerbs = append(ruleVerbs, "production:"+verb)
-					//	}
-					//} else {
-					//	ruleVerbs = rule.Verbs
-					//}
 					ruleVerbs = rule.Verbs
 					verbSet.Insert(ruleVerbs...)
 				}
