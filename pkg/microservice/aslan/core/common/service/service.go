@@ -1133,6 +1133,22 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		EnvName:     envName,
 		Services:    make([]*EnvService, 0),
 	}
+	
+	project, err := templaterepo.NewProductColl().Find(productInfo.ProductName)
+	if err != nil {
+		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find project %s, err: %v", productInfo.ProductName, err))
+	}
+
+	if project.ProductFeature != nil && project.ProductFeature.CreateEnvType == "external" {
+		for _, svc := range templateSvcs {
+			ret.Services = append(ret.Services, &EnvService{
+				ServiceName:    svc.ServiceName,
+				ServiceModules: svc.Containers,
+				Deployed:       true,
+			})
+		}
+		return ret, nil
+	}
 
 	rendersetInfo, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 		ProductTmpl: productName,
