@@ -35,7 +35,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -367,14 +366,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
-	productObj, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: args.EnvName,
-	})
-	if err != nil {
-		return nil, e.ErrPreviewYaml.AddErr(err)
-	}
-
 	newVariable, err := kube.GenerateYamlFromKV(args.VariableKVS)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
@@ -385,100 +376,31 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		Latest:  TmplYaml{},
 	}
 
-	prodSvc := productObj.GetServiceMap()[args.ServiceName]
-
-	var curServiceTmp, latestServiceTmp *commonmodels.Service
-
-	latestServiceTmp, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ServiceName:         args.ServiceName,
-		ProductName:         args.ProductName,
-		ExcludeStatus:       setting.ProductStatusDeleting,
-		IgnoreNoDocumentErr: true,
-	}, productObj.Production)
-	if err != nil {
-		return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find latest service %s/%s", args.ProductName, args.ServiceName))
-	}
-
-	if prodSvc != nil {
-		svcOpt := &commonrepo.ServiceFindOption{
-			ServiceName:         args.ServiceName,
-			ProductName:         args.ProductName,
-			Revision:            prodSvc.Revision,
-			IgnoreNoDocumentErr: false,
-		}
-		curServiceTmp, err = repository.QueryTemplateService(svcOpt, productObj.Production)
-		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find service template: %s", svcOpt.ServiceName))
-		}
-
-		curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			Name:        productObj.Render.Name,
-			ProductTmpl: productObj.ProductName,
-			EnvName:     productObj.EnvName,
-			IsDefault:   false,
-			Revision:    productObj.Render.Revision,
-		})
-		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(errors.Wrapf(err, "failed to find renderset for %s/%s", productObj.ProductName, productObj.EnvName))
-		}
-
-		if productObj.Production {
-			curServiceTmp.ServiceVars = setting.ServiceVarWildCard
-		}
-		currentYaml, err := kube.RenderServiceYaml(curServiceTmp.Yaml, args.ProductName, productObj.EnvName, curRenderset, curServiceTmp.ServiceVars, curServiceTmp.VariableYaml)
-		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(err)
-		}
-		currentYaml = kube.ParseSysKeys(productObj.Namespace, productObj.EnvName, productObj.ProductName, curServiceTmp.ServiceName, currentYaml)
-
-		currentYaml, err = kube.ReplaceWorkloadImages(currentYaml, prodSvc.Containers)
-		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(err)
-		}
-
-		ret.Current.Yaml = currentYaml
-		ret.Current.UpdateBy = curServiceTmp.CreateBy
-	} else {
-		curServiceTmp = latestServiceTmp
-	}
-
-	fakeRenderset := &commonmodels.RenderSet{
-		ProductTmpl: productObj.ProductName,
-		EnvName:     productObj.EnvName,
-		ServiceVariables: []*template.ServiceRender{
-			{
-				ServiceName: args.ServiceName,
-				OverrideYaml: &template.CustomYaml{
-					YamlContent: newVariable,
-				},
-			},
-		},
-	}
-
-	if latestServiceTmp == nil || !args.UpdateServiceRevision {
-		latestServiceTmp = curServiceTmp
-	}
-	if latestServiceTmp == nil {
-		return nil, e.ErrPreviewYaml.AddDesc(fmt.Sprintf("failed to find available service %s for product %s/%s", args.ServiceName, args.ProductName, args.EnvName))
-	}
-
-	if productObj.Production {
-		latestServiceTmp.ServiceVars = setting.ServiceVarWildCard
-	}
-	latestYaml, err := kube.RenderServiceYaml(latestServiceTmp.Yaml, args.ProductName, productObj.EnvName, fakeRenderset, latestServiceTmp.ServiceVars, latestServiceTmp.VariableYaml)
-	if err != nil {
-		return nil, e.ErrPreviewYaml.AddErr(err)
-	}
-	latestYaml = kube.ParseSysKeys(productObj.Namespace, productObj.EnvName, productObj.ProductName, latestServiceTmp.ServiceName, latestYaml)
-
-	// replace images
-	latestYaml, err = kube.ReplaceWorkloadImages(latestYaml, args.ServiceModules)
+	curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName:  args.ProductName,
+		EnvName:      args.EnvName,
+		ServiceName:  args.ServiceName,
+		VariableYaml: newVariable,
+	})
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
 
+	latestYaml, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
+		ProductName:           args.ProductName,
+		EnvName:               args.EnvName,
+		ServiceName:           args.ServiceName,
+		UpdateServiceRevision: args.UpdateServiceRevision,
+		VariableYaml:          newVariable,
+		Containers:            args.ServiceModules,
+	})
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
+	ret.Current.Yaml = curYaml
 	ret.Latest.Yaml = latestYaml
-	ret.Latest.UpdateBy = latestServiceTmp.CreateBy
+
 	return ret, nil
 }
 
