@@ -1150,6 +1150,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return ret, nil
 	}
 
+	productInfo.EnsureRenderInfo()
 	rendersetInfo, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 		ProductTmpl: productName,
 		EnvName:     envName,

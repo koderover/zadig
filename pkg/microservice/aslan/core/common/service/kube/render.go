@@ -65,12 +65,18 @@ type GeneSvcYamlOption struct {
 }
 
 func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
+	if len(yamlContent) == 0 {
+		return nil, nil
+	}
 	flatMap, err := converter.YamlToFlatMap([]byte(yamlContent))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to convert yaml to flat map")
 	} else {
 		kvs := make([]*commonmodels.VariableKV, 0)
 		for k, v := range flatMap {
+			if len(k) == 0 {
+				continue
+			}
 			kvs = append(kvs, &models.VariableKV{
 				Key:   k,
 				Value: v,
@@ -103,6 +109,9 @@ func IsServiceVarsWildcard(serviceVars []string) bool {
 }
 
 func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
+	if len(variableYaml) == 0 {
+		return "", nil
+	}
 	valuesMap, err := converter.YamlToFlatMap([]byte(variableYaml))
 	if err != nil {
 		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
