@@ -150,7 +150,7 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 	if serviceTemplate == nil {
 		return variableYaml
 	}
-	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
+	mergedYaml, err := yaml.CleanMerge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
 	if err != nil {
 		log.Errorf("failed to merge variable yaml, err: %s", err)
 		return variableYaml
@@ -172,7 +172,7 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 
 	prodSvc := productInfo.GetServiceMap()[serviceName]
 	if prodSvc == nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to find service : %s/%s/%s", productName, envName, serviceName))
+		return nil, fmt.Errorf("failed to find service : %s/%s/%s", productName, envName, serviceName)
 	}
 
 	prodTemplateSvc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -184,7 +184,6 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 		return nil, errors.Wrapf(err, fmt.Errorf("failed to find production service : %s/%s/%s", productName, envName, serviceName).Error())
 	}
 
-	svcRender := &templatemodels.ServiceRender{}
 	// svc render in renderchart
 	opt := &commonrepo.RenderSetFindOption{
 		ProductTmpl: productName,
@@ -199,16 +198,15 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 	if !existed {
 		return nil, fmt.Errorf("render set not found : %s/%s", productName, envName)
 	}
-	for _, sRender := range rendersetObj.ServiceVariables {
-		svcRender = sRender
-		break
-	}
+
+	svcRender := rendersetObj.GetServiceRenderMap()[serviceName]
 
 	ret := make([]*K8sSvcRenderArg, 0)
 	rArg := &K8sSvcRenderArg{
-		ServiceName: svcRender.ServiceName,
+		ServiceName:  serviceName,
+		VariableYaml: prodTemplateSvc.VariableYaml,
 	}
-	if svcRender.OverrideYaml != nil {
+	if svcRender != nil && svcRender.OverrideYaml != nil {
 		prodTemplateSvc.ServiceVars = setting.ServiceVarWildCard
 		rArg.VariableYaml = latestVariableYaml(svcRender.OverrideYaml.YamlContent, prodTemplateSvc)
 	}
