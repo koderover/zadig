@@ -126,10 +126,16 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 	req := label.ListResourcesByLabelsReq{
 		LabelFilters: labels,
 	}
+	log.Infof("######### the labels is %v", labels)
 	resp, err := label.New().ListResourcesByLabels(req)
 	if err != nil {
 		return nil, err
 	}
+
+	for labelKey, resources := range resp.Resources {
+		log.Infof("#### labelkey : %v, reousrce: %v", labelKey, resources)
+	}
+
 	environmentVerbMap := make(map[string][]string)
 	workflowVerbMap := make(map[string][]string)
 	for labelKey, resources := range resp.Resources {
