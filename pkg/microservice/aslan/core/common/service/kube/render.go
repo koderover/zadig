@@ -307,6 +307,9 @@ func mergeContainers(curContainers []*commonmodels.Container, newContainers ...[
 	}
 	for _, containers := range newContainers {
 		for _, container := range containers {
+			if container.Image == "" {
+				continue
+			}
 			curContainerMap[container.Name] = container
 		}
 	}
