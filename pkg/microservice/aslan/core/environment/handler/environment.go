@@ -100,6 +100,8 @@ func ListProductionEnvs(c *gin.Context) {
 		return
 	}
 
+	log.Infof("c.Request.Header is %+v", c.Request.Header)
+
 	roleResources, ok := internalhandler.GetCustomerArrInHeader("Roleresources", c)
 	log.Infof("roleResources is %v, ok: %v", roleResources, ok)
 
