@@ -18,10 +18,12 @@ package service
 
 import (
 	"sort"
+	"strings"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
@@ -30,6 +32,7 @@ import (
 
 type PolicyDefinition struct {
 	Resource    string                  `json:"resource"`
+	ResourceKey string                  `json:"resource_key"`
 	Alias       string                  `json:"alias"`
 	Description string                  `json:"description"`
 	Rules       []*PolicyRuleDefinition `json:"rules"`
@@ -161,6 +164,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	for _, meta := range filteredPolicyMetas {
 		pd := &PolicyDefinition{
 			Resource:    meta.Resource,
+			ResourceKey: meta.Resource,
 			Alias:       meta.Alias,
 			Description: meta.Description,
 		}
@@ -173,6 +177,31 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		res = append(res, pd)
 	}
+
+	for _, v := range res {
+		if v.Resource == string(config.ResourceTypeEnvironment) {
+			productionEnvDef := &PolicyDefinition{
+				Resource:    string(config.ResourceTypeEnvironment),
+				ResourceKey: "ProductionEnvironment",
+				Alias:       "生产环境",
+			}
+			productionRules := make([]*PolicyRuleDefinition, 0)
+			normalRules := make([]*PolicyRuleDefinition, 0)
+			// TODO ugly code
+			for _, rule := range v.Rules {
+				if strings.Contains(rule.Action, "production") {
+					productionRules = append(productionRules, rule)
+				} else {
+					normalRules = append(normalRules, rule)
+				}
+			}
+			v.Rules = normalRules
+			productionEnvDef.Rules = productionRules
+			res = append(res, productionEnvDef)
+			break
+		}
+	}
+
 	switch scope {
 	case string(types.SystemScope):
 		sort.Slice(res, func(i, j int) bool {
