@@ -252,8 +252,12 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 
 			mapData, _ := converter.YamlToFlatMap([]byte(yamlStr))
-			for k, _ := range mapData {
-				log.Infof("k is %s", k)
+			for k, v := range mapData {
+				//log.Infof("k is %s", k)
+				if v == nil {
+					log.Infof("deleting single key: %s", k)
+					delete(mapData, k)
+				}
 			}
 			delete(mapData, "spec.template.metadata.creationTimestamp")
 			nestedMap, err := converter.Expand(mapData)
