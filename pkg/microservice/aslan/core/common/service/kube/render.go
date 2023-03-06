@@ -23,6 +23,8 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -242,7 +244,8 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 					deployment.Spec.Template.Spec.Containers[i].Image = image.Image
 				}
 			}
-
+			var ttime metav1.Time
+			deployment.Spec.Template.CreationTimestamp = ttime
 			yamlStr, err = resourceToYaml(deployment)
 			if err != nil {
 				return "", err
