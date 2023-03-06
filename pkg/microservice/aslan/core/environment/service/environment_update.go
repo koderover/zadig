@@ -342,7 +342,6 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 
 func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]string,
 	force bool, variableYaml string, log *zap.SugaredLogger) error {
-
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {

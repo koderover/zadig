@@ -425,7 +425,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	deletedServices := sets.NewString()
 	// 1. 如果服务待删除：将产品模板中已经不存在，产品环境中待删除的服务进行删除。
 	for _, serviceRev := range prodRevs.ServiceRevisions {
-		log.Infof("-------------- service updatable %v, deleted %v, service name %s", serviceRev.Updatable, serviceRev.Deleted, serviceRev.ServiceName)
 		if serviceRev.Updatable && serviceRev.Deleted && util.InStringArray(serviceRev.ServiceName, updateRevisionSvcs) {
 			log.Infof("[%s][P:%s][S:%s] start to delete service", envName, productName, serviceRev.ServiceName)
 			//根据namespace: EnvName, selector: productName + serviceName来删除属于该服务的所有资源
