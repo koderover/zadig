@@ -72,7 +72,6 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 		ServiceName: serviceName,
 		ProductName: serviceInfo.ProductName,
 		Revision:    serviceInfo.Revision,
-		//ExcludeStatus: setting.ProductStatusDeleting,
 	}
 	oldService, err := commonrepo.NewServiceColl().Find(svcOpt)
 	if err != nil {
