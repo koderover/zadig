@@ -59,7 +59,6 @@ require (
 	github.com/regclient/regclient v0.4.5
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/samber/lo v1.37.0
-	github.com/satori/go.uuid v1.2.0
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.8.1

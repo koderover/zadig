@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/nsqio/go-nsq"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -166,8 +166,8 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 		DockerHost:        dockerHost,
 		Workspace:         fmt.Sprintf("%s/%s", pipelineTask.ConfigPayload.S3Storage.Path, pipelineTask.PipelineName),
 		DistDir:           fmt.Sprintf("%s/%s/dist/%d", pipelineTask.ConfigPayload.S3Storage.Path, pipelineTask.PipelineName, pipelineTask.TaskID),
-		DockerMountDir:    fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewV4(), time.Now().Unix()),
-		ConfigMapMountDir: fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewV4(), time.Now().Unix()),
+		DockerMountDir:    fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
+		ConfigMapMountDir: fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
 		MultiRun:          pipelineTask.MultiRun,
 	}
 	pipelineTask.DockerHost = dockerHost
