@@ -31,6 +31,7 @@ response = r {
       "allowed": true,
       "headers": {
         "Roles": json.marshal(roles),
+        "Flag": "yes"
       }
     }
 }
