@@ -423,7 +423,7 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
 					stage.Error = getErrorMsg(stage.Error, t.Error)
 				case config.TaskResetImage, config.TaskDeploy:
-					if i > 0 && t.Stages[i-1].TaskType == config.TaskArtifact {
+					if i > 0 && stage.TaskType == config.TaskDeploy && t.Stages[i-1].TaskType == config.TaskArtifact {
 						stage.TypeName = string(config.TaskArtifactDeploy)
 					}
 					t, err := base.ToDeployTask(subTask)
