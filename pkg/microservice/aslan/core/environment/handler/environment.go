@@ -73,8 +73,6 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
-	log.Infof("c.Request.Header is %+v", c.Request.Header)
-
 	roleResources, ok := internalhandler.GetCustomerArrInHeader("Roleresources", c)
 	log.Infof("test envs roleResources is %v, ok: %v", roleResources, ok)
 
@@ -95,10 +93,6 @@ func ListProductionEnvs(c *gin.Context) {
 	}
 
 	envNames, found := internalhandler.GetResourcesInHeader(c)
-	if found && len(envNames) == 0 {
-		ctx.Resp = []*service.ProductResp{}
-		return
-	}
 
 	log.Infof("c.Request.Header is %+v", c.Request.Header)
 
@@ -109,6 +103,11 @@ func ListProductionEnvs(c *gin.Context) {
 	log.Infof("policyResources is %v, ok %v", policyResources, ok)
 
 	log.Infof("envNames : %v", envNames)
+
+	if found && len(envNames) == 0 {
+		ctx.Resp = []*service.ProductResp{}
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envNames, ctx.Logger)
 }
