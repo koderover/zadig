@@ -244,6 +244,12 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 	errList := &multierror.Error{}
 	for _, arg := range args {
+
+		if len(arg.EnvName) == 0 {
+			log.Warnf("UpdateMultipleK8sEnv arg.EnvName is empty, skipped")
+			continue
+		}
+
 		strategyMap := make(map[string]string)
 		updateSvcs := make([]*templatemodels.ServiceRender, 0)
 		updateRevisionSvcs := make([]string, 0)
@@ -384,12 +390,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		return
 	}
 
-	// 无需更新
-	//if !prodRevs.Updatable {
-	//	log.Errorf("[%s][P:%s] nothing to update", envName, productName)
-	//	return
-	//}
-
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), existedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -421,7 +421,8 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 	// 遍历产品环境和产品模板交叉对比的结果
 	// 四个状态：待删除，待添加，待更新，无需更新
-	var deletedServices []string
+	//var deletedServices []string
+	deletedServices := sets.NewString()
 	// 1. 如果服务待删除：将产品模板中已经不存在，产品环境中待删除的服务进行删除。
 	for _, serviceRev := range prodRevs.ServiceRevisions {
 		log.Infof("-------------- service updatable %v, deleted %v, service name %s", serviceRev.Updatable, serviceRev.Deleted, serviceRev.ServiceName)
@@ -434,7 +435,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				//删除失败仅记录失败日志
 				log.Errorf("delete resource of service %s error:%v", serviceRev.ServiceName, err)
 			}
-			deletedServices = append(deletedServices, serviceRev.ServiceName)
+			deletedServices.Insert(serviceRev.ServiceName)
 			clusterSelector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceRev.ServiceName, setting.EnvNameLabel: envName}.AsSelector()
 			err = commonservice.DeleteClusterResource(clusterSelector, existedProd.ClusterID, log)
 			if err != nil {
@@ -471,6 +472,9 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 		groupSvcs := make([]*commonmodels.ProductService, 0)
 		for _, prodService := range prodServiceGroup {
+			if deletedServices.Has(prodService.ServiceName) {
+				continue
+			}
 			// no need to update service
 			if filter != nil && !filter(prodService) {
 				groupSvcs = append(groupSvcs, prodService)
