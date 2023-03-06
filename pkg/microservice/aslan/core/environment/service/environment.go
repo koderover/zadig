@@ -417,8 +417,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
-	log.Infof("########## the updateRevisionSvcs is %v", updateRevisionSvcs)
-
 	// 遍历产品环境和产品模板交叉对比的结果
 	// 四个状态：待删除，待添加，待更新，无需更新
 	//var deletedServices []string
