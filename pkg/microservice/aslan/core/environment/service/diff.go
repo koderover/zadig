@@ -23,7 +23,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
-	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -70,10 +69,10 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 		}
 	}
 	svcOpt := &commonrepo.ServiceFindOption{
-		ServiceName:   serviceName,
-		ProductName:   serviceInfo.ProductName,
-		Revision:      serviceInfo.Revision,
-		ExcludeStatus: setting.ProductStatusDeleting,
+		ServiceName: serviceName,
+		ProductName: serviceInfo.ProductName,
+		Revision:    serviceInfo.Revision,
+		//ExcludeStatus: setting.ProductStatusDeleting,
 	}
 	oldService, err := commonrepo.NewServiceColl().Find(svcOpt)
 	if err != nil {
