@@ -251,7 +251,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				for _, rule := range role.Rules {
 					var ruleVerbs []string
 					ruleVerbs = rule.Verbs
-					log.Infof("########### ruleVerbs2:%v", ruleVerbs)
+					log.Infof("########### ruleVerbs2:%v, roleName :%v", ruleVerbs, role.Name)
 					verbSet.Insert(ruleVerbs...)
 				}
 				projectVerbMap[rolebinding.Namespace] = verbSet.List()
