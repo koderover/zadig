@@ -217,7 +217,6 @@ type UpdateServiceArg struct {
 type UpdateEnv struct {
 	EnvName  string              `json:"env_name"`
 	Services []*UpdateServiceArg `json:"services"`
-	//Vars     []*template.RenderKV `json:"vars,omitempty"`
 }
 
 func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {

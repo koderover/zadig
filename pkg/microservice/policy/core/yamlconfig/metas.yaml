@@ -817,10 +817,6 @@ metas:
         rules:
           - method: GET
             endpoint: '/api/aslan/environment/environments/:name/services/?*/pmexec'
-  - resource: ProductionEnvironment
-    alias: "生产环境"
-    description: ""
-    rules:
       - action: get_production_environment
         alias: 查看
         description: ""
