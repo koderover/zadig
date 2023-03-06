@@ -61,9 +61,6 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	stage.Status = config.StatusRunning
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
-	if stage.Approval != nil && stage.Approval.Enabled {
-		stage.Approval.StartTime = time.Now().Unix()
-	}
 	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
 		stage.Approval.EndTime = time.Now().Unix()
@@ -77,7 +74,6 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 	}()
-	stage.Approval.EndTime = time.Now().Unix()
 	stage.StartTime = time.Now().Unix()
 	ack()
 	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
@@ -110,7 +106,10 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 	if !stage.Approval.Enabled {
 		return nil
 	}
-
+	stage.Approval.StartTime = time.Now().Unix()
+	defer func() {
+		stage.Approval.EndTime = time.Now().Unix()
+	}()
 	// workflowCtx.SetStatus contain ack() function, so we don't need to call ack() here
 	stage.Status = config.StatusWaitingApprove
 	workflowCtx.SetStatus(config.StatusWaitingApprove)
