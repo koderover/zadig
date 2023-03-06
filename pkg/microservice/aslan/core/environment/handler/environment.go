@@ -91,6 +91,12 @@ func ListProductionEnvs(c *gin.Context) {
 		return
 	}
 
+	roleResources, _ := internalhandler.GetCustomerArrInHeader("RoleResources", c)
+	policyResources, _ := internalhandler.GetCustomerArrInHeader("PolicyResources", c)
+
+	log.Infof("roleResources is %v", roleResources)
+	log.Infof("policyResources is %v", policyResources)
+
 	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envNames, ctx.Logger)
 }
 

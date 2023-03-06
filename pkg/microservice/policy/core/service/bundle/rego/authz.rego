@@ -52,7 +52,9 @@ response = r {
       "headers": {
         "Resources": json.marshal(resource),
         "Roles": json.marshal(roles),
-        "Rules": json.marshal(rule)
+        "Rules": json.marshal(rule),
+        "RoleResources": json.marshal(role_resource),
+        "PolicyResources": json.marshal(policy_resource)
       }
     }
 }
