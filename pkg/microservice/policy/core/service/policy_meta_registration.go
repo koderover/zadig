@@ -20,11 +20,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"

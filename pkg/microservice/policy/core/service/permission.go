@@ -126,16 +126,10 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 	req := label.ListResourcesByLabelsReq{
 		LabelFilters: labels,
 	}
-	log.Infof("######### the labels is %v", labels)
 	resp, err := label.New().ListResourcesByLabels(req)
 	if err != nil {
 		return nil, err
 	}
-
-	for labelKey, resources := range resp.Resources {
-		log.Infof("#### labelkey : %v, reousrce: %v", labelKey, resources)
-	}
-
 	environmentVerbMap := make(map[string][]string)
 	workflowVerbMap := make(map[string][]string)
 	for labelKey, resources := range resp.Resources {
@@ -230,7 +224,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			log.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
 			return nil, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
 		}
-		log.Infof("##### rolebinding.RoleRef.Name is %v, namespace is %v", rolebinding.RoleRef.Name, rolebinding.Namespace)
 		if rolebinding.Namespace == "*" {
 			for _, rule := range role.Rules {
 				systemVerbSet.Insert(rule.Verbs...)
@@ -241,7 +234,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				for _, rule := range role.Rules {
 					var ruleVerbs []string
 					ruleVerbs = rule.Verbs
-					log.Infof("########### ruleVerbs1:%v", ruleVerbs)
 					verbSet.Insert(ruleVerbs...)
 				}
 				projectVerbMap[rolebinding.Namespace] = verbSet.List()

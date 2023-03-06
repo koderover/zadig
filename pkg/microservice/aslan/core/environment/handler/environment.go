@@ -73,13 +73,6 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
-	roleResources, ok := internalhandler.GetCustomerArrInHeader("Roleresources", c)
-	log.Infof("test envs roleResources is %v, ok: %v", roleResources, ok)
-
-	policyResources, ok := internalhandler.GetCustomerArrInHeader("Policyresources", c)
-	log.Infof("test envs policyResources is %v, ok %v", policyResources, ok)
-
-	log.Infof("test envs envNames : %v", envNames)
 	ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envNames, false, ctx.Logger)
 }
 
@@ -93,17 +86,6 @@ func ListProductionEnvs(c *gin.Context) {
 	}
 
 	envNames, found := internalhandler.GetResourcesInHeader(c)
-
-	log.Infof("c.Request.Header is %+v", c.Request.Header)
-
-	roleResources, ok := internalhandler.GetCustomerArrInHeader("Roleresources", c)
-	log.Infof("roleResources is %v, ok: %v", roleResources, ok)
-
-	policyResources, ok := internalhandler.GetCustomerArrInHeader("Policyresources", c)
-	log.Infof("policyResources is %v, ok %v", policyResources, ok)
-
-	log.Infof("envNames : %v", envNames)
-
 	if found && len(envNames) == 0 {
 		ctx.Resp = []*service.ProductResp{}
 		return

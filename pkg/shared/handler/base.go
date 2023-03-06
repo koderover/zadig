@@ -86,23 +86,6 @@ func NewContext(c *gin.Context) *Context {
 	}
 }
 
-func GetCustomerArrInHeader(keyName string, c *gin.Context) ([]string, bool) {
-	_, ok := c.Request.Header[keyName]
-	if !ok {
-		return nil, false
-	}
-
-	res := c.GetHeader(keyName)
-	if res == "" {
-		return nil, true
-	}
-	var resources []string
-	if err := json.Unmarshal([]byte(res), &resources); err != nil {
-		return nil, false
-	}
-	return resources, true
-}
-
 func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	_, ok := c.Request.Header[setting.ResourcesHeader]
 	if !ok {

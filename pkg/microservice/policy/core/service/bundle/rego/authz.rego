@@ -31,7 +31,6 @@ response = r {
       "allowed": true,
       "headers": {
         "Roles": json.marshal(roles),
-        "Flag": "yes"
       }
     }
 }
@@ -53,9 +52,7 @@ response = r {
       "headers": {
         "Resources": json.marshal(resource),
         "Roles": json.marshal(roles),
-        "Rules": json.marshal(rule),
-        "RoleResources": json.marshal(role_resource),
-        "PolicyResources": json.marshal(policy_resource)
+        "Rules": json.marshal(rule)
       }
     }
 }
