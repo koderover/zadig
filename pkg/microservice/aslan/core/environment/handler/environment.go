@@ -73,6 +73,8 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
+	log.Infof("c.Request.Header is %+v", c.Request.Header)
+
 	roleResources, ok := internalhandler.GetCustomerArrInHeader("RoleResources", c)
 	log.Infof("test envs roleResources is %v, ok: %v", roleResources, ok)
 
