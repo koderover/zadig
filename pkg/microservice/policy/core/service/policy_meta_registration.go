@@ -18,6 +18,9 @@ package service
 
 import (
 	"sort"
+	"strings"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -174,6 +177,29 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		res = append(res, pd)
 	}
+
+	for _, v := range res {
+		if v.Resource == string(config.ResourceTypeEnvironment) {
+			productionEnvDef := &PolicyDefinition{
+				Resource: string(config.ResourceTypeEnvironment),
+				Alias:    "生产环境",
+			}
+			productionRules := make([]*PolicyRuleDefinition, 0)
+			normalRules := make([]*PolicyRuleDefinition, 0)
+			for _, rule := range v.Rules {
+				if strings.Contains(rule.Action, "production") {
+					productionRules = append(productionRules, rule)
+				} else {
+					normalRules = append(normalRules, rule)
+				}
+			}
+			v.Rules = normalRules
+			productionEnvDef.Rules = productionRules
+			res = append(res, productionEnvDef)
+			break
+		}
+	}
+
 	switch scope {
 	case string(types.SystemScope):
 		sort.Slice(res, func(i, j int) bool {
@@ -183,12 +209,6 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		sort.Slice(res, func(i, j int) bool {
 			return projectDefinitionMap[res[i].Resource] < projectDefinitionMap[res[j].Resource]
 		})
-	}
-
-	for _, v := range res {
-		if v.Resource == "ProductionEnvironment" {
-			v.Resource = "Environment"
-		}
 	}
 
 	return res, nil
