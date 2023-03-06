@@ -33,7 +33,7 @@ import (
 
 type PolicyDefinition struct {
 	Resource    string                  `json:"resource"`
-	SortAlias   string                  `json:"-"`
+	ResourceKey string                  `json:"resource_key"`
 	Alias       string                  `json:"alias"`
 	Description string                  `json:"description"`
 	Rules       []*PolicyRuleDefinition `json:"rules"`
@@ -165,6 +165,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	for _, meta := range filteredPolicyMetas {
 		pd := &PolicyDefinition{
 			Resource:    meta.Resource,
+			ResourceKey: meta.Resource,
 			Alias:       meta.Alias,
 			Description: meta.Description,
 		}
@@ -181,11 +182,13 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	for _, v := range res {
 		if v.Resource == string(config.ResourceTypeEnvironment) {
 			productionEnvDef := &PolicyDefinition{
-				Resource: string(config.ResourceTypeEnvironment),
-				Alias:    "生产环境",
+				Resource:    string(config.ResourceTypeEnvironment),
+				ResourceKey: "ProductionEnvironment",
+				Alias:       "生产环境",
 			}
 			productionRules := make([]*PolicyRuleDefinition, 0)
 			normalRules := make([]*PolicyRuleDefinition, 0)
+			// TODO ugly code
 			for _, rule := range v.Rules {
 				if strings.Contains(rule.Action, "production") {
 					productionRules = append(productionRules, rule)
