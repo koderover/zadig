@@ -184,7 +184,7 @@ func (c *WorkflowTaskv4Coll) FindTodoTasksByWorkflowName(workflowName string) ([
 
 func (c *WorkflowTaskv4Coll) InCompletedTasks() ([]*models.WorkflowTask, error) {
 	ret := make([]*models.WorkflowTask, 0)
-	query := bson.M{"status": bson.M{"$in": []string{"created", "running"}}}
+	query := bson.M{"status": bson.M{"$in": config.InCompletedStatus()}}
 	query["is_deleted"] = false
 
 	opt := options.Find()
