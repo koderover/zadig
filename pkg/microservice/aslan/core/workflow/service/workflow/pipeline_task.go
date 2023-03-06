@@ -377,7 +377,7 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 			return new
 		}
 		t.WorkflowArgs = nil
-		for _, stage := range t.Stages {
+		for i, stage := range t.Stages {
 			stage.Desc = ""
 			stage.TypeName = string(stage.TaskType)
 			for _, subTask := range stage.SubTasks {
@@ -423,6 +423,10 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
 					stage.Error = getErrorMsg(stage.Error, t.Error)
 				case config.TaskResetImage, config.TaskDeploy:
+					// do this for frontend display, artifact deploy is a "deploy" task with an artifact task before it
+					if i > 0 && stage.TaskType == config.TaskDeploy && t.Stages[i-1].TaskType == config.TaskArtifact {
+						stage.TypeName = string(config.TaskArtifactDeploy)
+					}
 					t, err := base.ToDeployTask(subTask)
 					if err != nil {
 						return nil, err
