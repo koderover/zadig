@@ -73,6 +73,13 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
+	roleResources, ok := internalhandler.GetCustomerArrInHeader("RoleResources", c)
+	log.Infof("test envs roleResources is %v, ok: %v", roleResources, ok)
+
+	policyResources, ok := internalhandler.GetCustomerArrInHeader("PolicyResources", c)
+	log.Infof("test envs policyResources is %v, ok %v", policyResources, ok)
+
+	log.Infof("test envs envNames : %v", envNames)
 	ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envNames, false, ctx.Logger)
 }
 
