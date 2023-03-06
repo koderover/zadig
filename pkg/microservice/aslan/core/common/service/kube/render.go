@@ -250,6 +250,19 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err != nil {
 				return "", err
 			}
+
+			mapData, _ := converter.YamlToFlatMap([]byte(yamlStr))
+			for k, _ := range mapData {
+				log.Infof("k is %s", k)
+			}
+			delete(mapData, "spec.template.metadata.creationTimestamp")
+			nestedMap, err := converter.Expand(mapData)
+			if err != nil {
+				return "", err
+			}
+			bs, _ := yaml.Marshal(nestedMap)
+			yamlStr = string(bs)
+
 		case setting.StatefulSet:
 			statefulSet := &appsv1.StatefulSet{}
 			if err := decoder.Decode(statefulSet); err != nil {
