@@ -256,7 +256,6 @@ func migrateSharedService() error {
 					sharedService.ProductName = projectName
 					sharedService.CreateBy = setting.SystemUser
 					sharedService.CreateTime = time.Now().Unix()
-					sharedService.ID = [12]byte{}
 					if service.Deleted {
 						sharedService.Status = setting.ProductStatusDeleting
 					}
@@ -298,7 +297,7 @@ func setAllServiceVisibilityToPrivate() error {
 			return errors.Wrap(err, "decode service")
 		}
 		err = updater.AddModel(mongo.NewUpdateOneModel().
-			SetFilter(bson.M{"_id": s.ID}).
+			SetFilter(bson.M{"product_name": s.ProductName, "service_name": s.ServiceName, "revision": s.Revision}).
 			SetUpdate(bson.M{"$set": bson.M{"visibility": "private"}}).
 			SetUpsert(false))
 		if err != nil {
@@ -327,7 +326,7 @@ func clearAllProductTemplateSharedService() error {
 			return errors.Wrap(err, "decode product")
 		}
 		err = updater.AddModel(mongo.NewUpdateOneModel().
-			SetFilter(bson.M{"_id": p.ID}).
+			SetFilter(bson.M{"product_name": p.ProductName}).
 			SetUpdate(bson.M{"$set": bson.M{"shared_services": nil}}).
 			SetUpsert(false))
 		if err != nil {

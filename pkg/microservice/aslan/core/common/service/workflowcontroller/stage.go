@@ -63,7 +63,6 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
 	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
-		stage.Approval.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 		return
