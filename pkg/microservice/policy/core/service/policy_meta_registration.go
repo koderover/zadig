@@ -30,6 +30,7 @@ import (
 
 type PolicyDefinition struct {
 	Resource    string                  `json:"resource"`
+	SortAlias   string                  `json:"-"`
 	Alias       string                  `json:"alias"`
 	Description string                  `json:"description"`
 	Rules       []*PolicyRuleDefinition `json:"rules"`
@@ -182,6 +183,12 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		sort.Slice(res, func(i, j int) bool {
 			return projectDefinitionMap[res[i].Resource] < projectDefinitionMap[res[j].Resource]
 		})
+	}
+
+	for _, v := range res {
+		if v.Resource == "ProductionEnvironment" {
+			v.Resource = "Environment"
+		}
 	}
 
 	return res, nil
