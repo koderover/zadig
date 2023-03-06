@@ -75,10 +75,10 @@ func ListProducts(c *gin.Context) {
 
 	log.Infof("c.Request.Header is %+v", c.Request.Header)
 
-	roleResources, ok := internalhandler.GetCustomerArrInHeader("RoleResources", c)
+	roleResources, ok := internalhandler.GetCustomerArrInHeader("Roleresources", c)
 	log.Infof("test envs roleResources is %v, ok: %v", roleResources, ok)
 
-	policyResources, ok := internalhandler.GetCustomerArrInHeader("PolicyResources", c)
+	policyResources, ok := internalhandler.GetCustomerArrInHeader("Policyresources", c)
 	log.Infof("test envs policyResources is %v, ok %v", policyResources, ok)
 
 	log.Infof("test envs envNames : %v", envNames)
@@ -100,10 +100,10 @@ func ListProductionEnvs(c *gin.Context) {
 		return
 	}
 
-	roleResources, ok := internalhandler.GetCustomerArrInHeader("RoleResources", c)
+	roleResources, ok := internalhandler.GetCustomerArrInHeader("Roleresources", c)
 	log.Infof("roleResources is %v, ok: %v", roleResources, ok)
 
-	policyResources, ok := internalhandler.GetCustomerArrInHeader("PolicyResources", c)
+	policyResources, ok := internalhandler.GetCustomerArrInHeader("Policyresources", c)
 	log.Infof("policyResources is %v, ok %v", policyResources, ok)
 
 	log.Infof("envNames : %v", envNames)
