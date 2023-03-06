@@ -73,3 +73,4 @@ The council will make a decision for the nomination. The candidate has to have d
 - [zxdvd](https://github.com/zxdvd)
 - [rovast](https://github.com/rovast)
 - [pokixing](https://github.com/pokixing)
+- [FlyingOnion](https://github.com/FlyingOnion)
