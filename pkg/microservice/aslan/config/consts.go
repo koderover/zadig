@@ -120,6 +120,10 @@ const (
 	StatusDebugAfter     Status = "debug_after"
 )
 
+func InCompletedStatus() []Status {
+	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
+}
+
 type TaskStatus string
 
 const (
