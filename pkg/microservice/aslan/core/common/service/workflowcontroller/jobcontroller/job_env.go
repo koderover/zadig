@@ -31,13 +31,14 @@ import (
 )
 
 type ProductServiceDeployInfo struct {
-	ProductName     string
-	EnvName         string
-	ServiceName     string
-	Uninstall       bool
-	ServiceRevision int
-	VariableYaml    string
-	Containers      []*models.Container
+	ProductName           string
+	EnvName               string
+	ServiceName           string
+	Uninstall             bool
+	ServiceRevision       int
+	VariableYaml          string
+	Containers            []*models.Container
+	UpdateServiceRevision bool
 }
 
 func mergeContainers(currentContainer []*models.Container, newContainers ...[]*models.Container) []*models.Container {
@@ -115,6 +116,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 	}
 
 	if !deployInfo.Uninstall {
+		sevOnline := false
 		if productSvc == nil {
 			productSvc = &models.ProductService{
 				ProductName: deployInfo.ProductName,
@@ -122,6 +124,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 				ServiceName: deployInfo.ServiceName,
 			}
 			productInfo.Services[0] = append(productInfo.Services[0], productSvc)
+			sevOnline = true
 		}
 		if svcRender == nil {
 			svcRender = &template.ServiceRender{
@@ -151,7 +154,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
 		}
 		productInfo.Render.Revision = curRenderset.Revision
-		productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
+		if deployInfo.UpdateServiceRevision || sevOnline {
+			productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
+		}
 	} else {
 		filteredRenders := make([]*template.ServiceRender, 0)
 		for _, svcRender := range curRenderset.ServiceVariables {
