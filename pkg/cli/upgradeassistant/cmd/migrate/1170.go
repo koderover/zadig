@@ -253,13 +253,14 @@ func migrateSharedService() error {
 			if sharedServiceAllRevision, ok := sharedServiceAllRevisionData[service.ProductName+"-"+service.ServiceName]; ok {
 				var updateList []interface{}
 				for _, sharedService := range sharedServiceAllRevision {
-					sharedService.ProductName = projectName
-					sharedService.CreateBy = setting.SystemUser
-					sharedService.CreateTime = time.Now().Unix()
+					updateService := *sharedService
+					updateService.ProductName = projectName
+					updateService.CreateBy = setting.SystemUser
+					updateService.CreateTime = time.Now().Unix()
 					if service.Deleted {
-						sharedService.Status = setting.ProductStatusDeleting
+						updateService.Status = setting.ProductStatusDeleting
 					}
-					updateList = append(updateList, sharedService)
+					updateList = append(updateList, &updateService)
 				}
 				_, err = mongodb.NewServiceColl().InsertMany(context.Background(), updateList)
 				if err != nil {
