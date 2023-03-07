@@ -377,10 +377,11 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	}
 
 	curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-		ProductName:  args.ProductName,
-		EnvName:      args.EnvName,
-		ServiceName:  args.ServiceName,
-		VariableYaml: newVariable,
+		ProductName:           args.ProductName,
+		EnvName:               args.EnvName,
+		ServiceName:           args.ServiceName,
+		UpdateServiceRevision: args.UpdateServiceRevision,
+		VariableYaml:          newVariable,
 	})
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)

@@ -420,6 +420,15 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	if err != nil {
 		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
 	}
+	if productInfo.Production {
+		prodSvcTemplate.ServiceVars = setting.ServiceVarWildCard
+	}
+
+	// service not deployed by zadig, should only be updated with images
+	if !option.UnInstall && !option.UpdateServiceRevision && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
+		manifest, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
+		return manifest, int(curProductSvc.Revision), err
+	}
 
 	var usedRenderset *commonmodels.RenderSet
 	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
@@ -431,10 +440,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	})
 	if err != nil {
 		return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
-	}
-
-	if productInfo.Production {
-		prodSvcTemplate.ServiceVars = setting.ServiceVarWildCard
 	}
 
 	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, prodSvcTemplate.ServiceVars, prodSvcTemplate.VariableYaml)
