@@ -327,6 +327,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, err)
 				continue
 			}
+
+			log.Infof("######## the json data is %s", string(jsonData))
+
 			obj, err := serializer.NewDecoder().JSONToRuntimeObject(jsonData)
 			if err != nil {
 				log.Errorf("Failed to convert JSON to Object, manifest is\n%v\n, error: %v", u, err)
@@ -340,6 +343,8 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if applyParam.InjectSecrets {
 					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
 				}
+
+				log.Infof("deployment yaml: %s", res.String())
 
 				err = updater.CreateOrPatchDeployment(res, kubeClient)
 				if err != nil {
