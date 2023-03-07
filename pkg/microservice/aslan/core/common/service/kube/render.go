@@ -23,43 +23,35 @@ import (
 	"strings"
 	gotemplate "text/template"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/helm/pkg/releaseutil"
-
-	"k8s.io/cli-runtime/pkg/printers"
-
-	zadigyamlutil "github.com/koderover/zadig/pkg/util/yaml"
-	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
-
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
-
-	batchv1 "k8s.io/api/batch/v1"
-
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/helm/pkg/releaseutil"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
+	zadigyamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type GeneSvcYamlOption struct {
@@ -453,7 +445,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 }
 
 func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service) (string, error) {
-	log.Infof("########### fetching imported manifests for %s/%s", option.ProductName, option.ServiceName)
 	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, nil, serviceTmp.ServiceVars, serviceTmp.VariableYaml)
 	if err != nil {
 		return "", err
