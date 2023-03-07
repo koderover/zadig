@@ -447,16 +447,18 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service) (string, error) {
 	log.Infof("####### fetchImportedManifests serviceTmp.Yaml: %s", serviceTmp.Yaml)
 	log.Infof("####### fetchImportedManifests serviceTmp.ServiceName: %s", serviceTmp.ServiceName)
-	log.Infof("####### fetchImportedManifests serviceTmp.Revision: %s", serviceTmp.Revision)
+	log.Infof("####### fetchImportedManifests serviceTmp.Revision: %v", serviceTmp.Revision)
 	log.Infof("####### fetchImportedManifests serviceTmp.ServiceVars: %s", serviceTmp.ServiceVars)
 	log.Infof("####### fetchImportedManifests serviceTmp.VariableYaml: %s", serviceTmp.VariableYaml)
-	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, nil, serviceTmp.ServiceVars, serviceTmp.VariableYaml)
+	fakeRenderSet := &models.RenderSet{}
+	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, fakeRenderSet, serviceTmp.ServiceVars, serviceTmp.VariableYaml)
 	if err != nil {
 		return "", err
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 
 	manifests := releaseutil.SplitManifests(fullRenderedYaml)
+	log.Infof("####### fetchImportedManifests manifests: %+v", manifests)
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
