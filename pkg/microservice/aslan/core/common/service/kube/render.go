@@ -23,9 +23,16 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/helm/pkg/releaseutil"
 
 	"k8s.io/cli-runtime/pkg/printers"
 
@@ -48,6 +55,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -439,6 +447,53 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	return fullRenderedYaml, 0, nil
 }
 
+func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service) (string, error) {
+	log.Infof("########### fetching imported manifests for %s/%s", option.ProductName, option.ServiceName)
+	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, nil, serviceTmp.ServiceVars, serviceTmp.VariableYaml)
+	if err != nil {
+		return "", err
+	}
+	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+
+	manifests := releaseutil.SplitManifests(fullRenderedYaml)
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("cluster is not connected [%s]", productInfo.ClusterID)
+		return "", errors.Wrapf(err, "cluster is not connected [%s]", productInfo.ClusterID)
+	}
+
+	manifestArr := make([]string, 0)
+
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to decode yaml %s", item)
+		}
+		switch u.GetKind() {
+		case setting.Deployment:
+			workloadBs, exist, err := getter.GetDeploymentYamlFormat(productInfo.Namespace, u.GetName(), kubeClient)
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to get deployment %s", u.GetName())
+			}
+			if !exist {
+				return "", errors.Errorf("deployment %s not found", u.GetName())
+			}
+			manifestArr = append(manifestArr, string(workloadBs))
+		case setting.StatefulSet:
+			workloadBs, exist, err := getter.GetStatefulSetYamlFormat(productInfo.Namespace, u.GetName(), kubeClient)
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to get statefulset %s", u.GetName())
+			}
+			if !exist {
+				return "", errors.Errorf("statefulset %s not found", u.GetName())
+			}
+			manifestArr = append(manifestArr, string(workloadBs))
+		}
+	}
+	return ReplaceWorkloadImages(util.JoinYamls(manifestArr), option.Containers)
+}
+
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
@@ -494,6 +549,15 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	if latestSvcTemplate == nil || !option.UpdateServiceRevision {
 		latestSvcTemplate = prodSvcTemplate
 	}
+	if productInfo.Production {
+		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
+	}
+
+	// service not deployed by zadig, should only be updated with images
+	if !option.UnInstall && !option.UpdateServiceRevision && curProductSvc != nil && commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
+		manifest, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
+		return manifest, int(curProductSvc.Revision), err
+	}
 
 	if latestSvcTemplate == nil {
 		return "", 0, fmt.Errorf("failed to find service template %s used in product %s", option.ServiceName, option.EnvName)
@@ -529,10 +593,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, error) {
 			YamlContent: string(mergedBs),
 		},
 	}}
-
-	if productInfo.Production {
-		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
-	}
 
 	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, latestSvcTemplate.ServiceVars, latestSvcTemplate.VariableYaml)
 	if err != nil {
