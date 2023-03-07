@@ -216,6 +216,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 	labels := GetPredefinedLabels(productName, applyParam.ServiceName)
 	clusterLabels := GetPredefinedClusterLabels(productName, applyParam.ServiceName, envName)
+	log.Infof("###### labels %v", labels)
+	log.Infof("###### clusterLabels %v", clusterLabels)
+	log.Infof("###### applyParam.AddZadigLabel %v", applyParam.AddZadigLabel)
 	if !applyParam.AddZadigLabel {
 		labels = map[string]string{}
 		clusterLabels = map[string]string{}
@@ -271,6 +274,8 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			// compatibility flag, We add a match label in spec.selector field pre 1.10.
 			needSelectorLabel := false
 
+			log.Infof("------ lables before set is %v", labels)
+
 			u.SetNamespace(namespace)
 			u.SetLabels(MergeLabels(labels, u.GetLabels()))
 
@@ -283,6 +288,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
 			if err != nil {
+				log.Infof("failed to set pod labels for %s/%s, err: %s", u.GetKind(), u.GetName(), err)
 				podLabels = nil
 			}
 			err = unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
