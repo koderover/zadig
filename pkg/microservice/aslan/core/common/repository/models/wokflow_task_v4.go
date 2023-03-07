@@ -124,10 +124,11 @@ type DeployServiceModule struct {
 }
 
 type Resource struct {
-	Name      string `bson:"name"                              json:"name"                                 yaml:"name"`
-	Kind      string `bson:"kind"                              json:"kind"                                 yaml:"kind"`
-	Container string `bson:"container"                         json:"container"                            yaml:"container"`
-	Origin    string `bson:"origin"                            json:"origin"                               yaml:"origin"`
+	Name        string `bson:"name"                              json:"name"                                 yaml:"name"`
+	Kind        string `bson:"kind"                              json:"kind"                                 yaml:"kind"`
+	Container   string `bson:"container"                         json:"container"                            yaml:"container"`
+	Origin      string `bson:"origin"                            json:"origin"                               yaml:"origin"`
+	PodOwnerUID string `bson:"pod_owner_uid"                     json:"pod_owner_uid"                        yaml:"pod_owner_uid"`
 }
 
 type JobTaskHelmDeploySpec struct {

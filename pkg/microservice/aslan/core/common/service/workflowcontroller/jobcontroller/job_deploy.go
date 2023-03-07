@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +48,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -395,7 +397,7 @@ func (c *DeployJobCtl) updateExternalServiceModule(ctx context.Context, workload
 	return nil
 }
 
-func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string) error {
+func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string, ownerUID string) error {
 	for _, label := range labelMaps {
 		selector := labels.Set(label).AsSelector()
 		pods, err := getter.ListPods(namespace, selector, kubeClient)
@@ -403,6 +405,9 @@ func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []
 			return err
 		}
 		for _, pod := range pods {
+			if !wrapper.Pod(pod).IsOwnerMatched(ownerUID) {
+				continue
+			}
 			allContainerStatuses := make([]corev1.ContainerStatus, 0)
 			allContainerStatuses = append(allContainerStatuses, pod.Status.InitContainerStatuses...)
 			allContainerStatuses = append(allContainerStatuses, pod.Status.ContainerStatuses...)
@@ -419,9 +424,58 @@ func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []
 	return nil
 }
 
+func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error) {
+	newResources := []commonmodels.Resource{}
+	for _, resource := range c.jobTaskSpec.ReplaceResources {
+		switch resource.Kind {
+		case setting.StatefulSet:
+			sts, _, err := getter.GetStatefulSet(c.namespace, resource.Name, c.kubeClient)
+			if err != nil {
+				return newResources, err
+			}
+			resource.PodOwnerUID = string(sts.ObjectMeta.UID)
+		case setting.Deployment:
+			deployment, _, err := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)
+			if err != nil {
+				return newResources, err
+			}
+			selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+			if err != nil {
+				return nil, err
+			}
+			replicaSets, err := getter.ListReplicaSets(c.namespace, selector, c.kubeClient)
+			if err != nil {
+				return newResources, err
+			}
+			// Only include those whose ControllerRef matches the Deployment.
+			owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
+			for _, rs := range replicaSets {
+				if metav1.IsControlledBy(rs, deployment) {
+					owned = append(owned, rs)
+				}
+			}
+			if len(owned) <= 0 {
+				return newResources, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
+			}
+			sort.Slice(owned, func(i, j int) bool {
+				return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
+			})
+			resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
+		}
+		newResources = append(newResources, resource)
+	}
+	return newResources, nil
+}
+
 func (c *DeployJobCtl) wait(ctx context.Context) {
 	timeout := time.After(time.Duration(c.timeout()) * time.Second)
-
+	resources, err := c.getResourcesPodOwnerUID()
+	if err != nil {
+		msg := fmt.Sprintf("get resource owner info error: %v", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
+	c.jobTaskSpec.ReplaceResources = resources
 	for {
 		select {
 		case <-ctx.Done():
@@ -465,7 +519,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
-				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels); err != nil {
+				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
 					logError(c.job, err.Error(), c.logger)
 					return
 				}
