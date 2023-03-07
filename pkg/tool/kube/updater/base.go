@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/patcher"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func patchObject(obj client.Object, patchBytes []byte, cl client.Client) error {
@@ -119,6 +120,8 @@ func createOrPatchObject(modified client.Object, cl client.Client) error {
 	if err != nil {
 		return err
 	}
+
+	log.Debugf("patchBytes: %s, patchType: %s", string(patchBytes), patchType)
 
 	if len(patchBytes) == 0 || patchType == "" || string(patchBytes) == "{}" {
 		return nil
