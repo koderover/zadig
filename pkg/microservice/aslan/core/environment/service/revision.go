@@ -47,6 +47,9 @@ func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (
 	}
 
 	for _, prod := range products {
+		if prod.Production {
+			continue
+		}
 		prodRev, err := GetProductRevision(prod, allServiceTmpls, log)
 		if err != nil {
 			log.Error(err)
@@ -90,9 +93,11 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 	}
 
 	for _, prod := range products {
+		if prod.Production {
+			continue
+		}
 		// find all service templates with max revisions
 		allServiceTmpls, err := getServicesWithMaxRevision(prod.ProductName)
-
 		prodRev, err := GetProductRevision(prod, allServiceTmpls, log)
 		if err != nil {
 			log.Error(err)
