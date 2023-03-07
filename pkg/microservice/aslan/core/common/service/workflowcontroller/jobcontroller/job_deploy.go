@@ -264,12 +264,13 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product) error {
 	}
 
 	err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
-		ProductName:     env.ProductName,
-		EnvName:         c.jobTaskSpec.Env,
-		ServiceName:     c.jobTaskSpec.ServiceName,
-		ServiceRevision: revision,
-		VariableYaml:    varsYaml,
-		Containers:      containers,
+		ProductName:           env.ProductName,
+		EnvName:               c.jobTaskSpec.Env,
+		ServiceName:           c.jobTaskSpec.ServiceName,
+		ServiceRevision:       revision,
+		VariableYaml:          varsYaml,
+		Containers:            containers,
+		UpdateServiceRevision: slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig),
 	})
 	if err != nil {
 		msg := fmt.Sprintf("update service render set info error: %v", err)
