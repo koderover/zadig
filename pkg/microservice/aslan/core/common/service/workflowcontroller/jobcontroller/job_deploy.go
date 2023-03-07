@@ -27,11 +27,13 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,14 +42,13 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	"k8s.io/client-go/kubernetes"
 )
 
 type DeployJobCtl struct {
@@ -233,18 +234,25 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product) error {
 	c.jobTaskSpec.YamlContent = updatedYaml
 	c.ack()
 
+	addZadigLabel := !c.jobTaskSpec.Production
+	if addZadigLabel {
+		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) {
+			addZadigLabel = false
+		}
+	}
+
 	currentYaml, _, err := kube.FetchCurrentAppliedYaml(option)
 	if err != nil {
 		msg := fmt.Sprintf("get current service yaml error: %v", err)
 		return errors.New(msg)
 	}
-	unstructruedList, err := kube.CreateOrPatchResource(&kube.ResourceApplyParam{
+	unstructuredList, err := kube.CreateOrPatchResource(&kube.ResourceApplyParam{
 		ServiceName:         c.jobTaskSpec.ServiceName,
 		CurrentResourceYaml: currentYaml,
 		UpdateResourceYaml:  updatedYaml,
 		Informer:            c.informer,
 		KubeClient:          c.kubeClient,
-		AddZadigLabel:       !c.jobTaskSpec.Production,
+		AddZadigLabel:       addZadigLabel,
 		InjectSecrets:       true,
 		SharedEnvHandler:    nil,
 		ProductInfo:         env}, c.logger)
@@ -255,18 +263,19 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product) error {
 	}
 
 	err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
-		ProductName:     env.ProductName,
-		EnvName:         c.jobTaskSpec.Env,
-		ServiceName:     c.jobTaskSpec.ServiceName,
-		ServiceRevision: revision,
-		VariableYaml:    varsYaml,
-		Containers:      containers,
+		ProductName:           env.ProductName,
+		EnvName:               c.jobTaskSpec.Env,
+		ServiceName:           c.jobTaskSpec.ServiceName,
+		ServiceRevision:       revision,
+		VariableYaml:          varsYaml,
+		Containers:            containers,
+		UpdateServiceRevision: slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig),
 	})
 	if err != nil {
 		msg := fmt.Sprintf("update service render set info error: %v", err)
 		return errors.New(msg)
 	}
-	for _, unstructrued := range unstructruedList {
+	for _, unstructrued := range unstructuredList {
 		switch unstructrued.GetKind() {
 		case setting.Deployment, setting.StatefulSet:
 			podLabels, _, err := unstructured.NestedStringMap(unstructrued.Object, "spec", "template", "metadata", "labels")
