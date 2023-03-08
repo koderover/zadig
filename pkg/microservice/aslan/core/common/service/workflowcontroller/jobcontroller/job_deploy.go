@@ -451,7 +451,7 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID(timeout <-chan time.Time) ([]comm
 					resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
 					c.logger.Errorf("@@@@@ resource: %s, %s", resource.Name, deployment.CreationTimestamp)
 					c.logger.Errorf("@@@@@ deploytime: %s", c.deployTime)
-					if owned[0].CreationTimestamp.After(c.deployTime) {
+					if owned[0].CreationTimestamp.After(c.deployTime.Add(-1 * time.Second)) {
 						break L
 					}
 					time.Sleep(1 * time.Second)
