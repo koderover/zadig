@@ -761,7 +761,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		if job.StartTime != 0 {
 			costSeconds = now - job.StartTime
 			if job.EndTime != 0 {
-				costSeconds = job.EndTime - job.StartTime	
+				costSeconds = job.EndTime - job.StartTime
 			}
 		}
 		jobPreview := &JobTaskPreview{
@@ -900,6 +900,15 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.KeyVals = taskJobSpec.KeyVals
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			// for compatibility
+			if taskJobSpec.ServiceModule != "" {
+				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+					ServiceName:   taskJobSpec.ServiceName,
+					ServiceModule: taskJobSpec.ServiceModule,
+					Image:         taskJobSpec.Image,
+				})
+			}
+
 			for _, imageAndmodule := range taskJobSpec.ServiceAndImages {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
 					ServiceName:   taskJobSpec.ServiceName,
