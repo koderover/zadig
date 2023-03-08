@@ -418,6 +418,8 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 			if err != nil {
 				return nil, err
 			}
+			// esure latest replicaset to be created
+			time.Sleep(3 * time.Second)
 			replicaSets, err := getter.ListReplicaSets(c.namespace, selector, c.kubeClient)
 			if err != nil {
 				return newResources, err
