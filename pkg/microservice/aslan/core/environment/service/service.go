@@ -387,7 +387,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
 
-	latestYaml, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
+	latestYaml, _, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
 		ProductName:           args.ProductName,
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,

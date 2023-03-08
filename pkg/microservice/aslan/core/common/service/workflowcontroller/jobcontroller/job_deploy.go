@@ -225,7 +225,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product) error {
 		}
 	}
 	option := &kube.GeneSvcYamlOption{ProductName: env.ProductName, EnvName: c.jobTaskSpec.Env, ServiceName: c.jobTaskSpec.ServiceName, UpdateServiceRevision: updateRevision, VariableYaml: varsYaml, Containers: containers}
-	updatedYaml, revision, err := kube.GenerateRenderedYaml(option)
+	updatedYaml, revision, _, err := kube.GenerateRenderedYaml(option)
 	if err != nil {
 		msg := fmt.Sprintf("generate service yaml error: %v", err)
 		return errors.New(msg)
