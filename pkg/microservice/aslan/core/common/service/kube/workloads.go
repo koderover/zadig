@@ -98,3 +98,23 @@ func FetchRelatedWorkloads(namespace, serviceName string,
 	}
 	return deploys, stss, nil
 }
+
+func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kubeclient crClient.Client) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
+	deployments := []*appsv1.Deployment{}
+	statefulSets := []*appsv1.StatefulSet{}
+	for _, item := range Resource {
+		switch item.Type {
+		case setting.Deployment:
+			deploy, deployExists, err := getter.GetDeployment(namespace, item.Name, kubeclient)
+			if deployExists && err == nil {
+				deployments = append(deployments, deploy)
+			}
+		case setting.StatefulSet:
+			sts, stsExists, err := getter.GetStatefulSet(namespace, item.Name, kubeclient)
+			if stsExists && err == nil {
+				statefulSets = append(statefulSets, sts)
+			}
+		}
+	}
+	return deployments, statefulSets, nil
+}
