@@ -59,7 +59,6 @@ type GeneSvcYamlOption struct {
 	EnvName               string
 	ServiceName           string
 	UpdateServiceRevision bool
-	UpdateServiceVariable bool
 	VariableYaml          string
 	UnInstall             bool
 	Containers            []*models.Container
@@ -93,6 +92,9 @@ func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
 }
 
 func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
+	if len(kvs) == 0 {
+		return "", nil
+	}
 	flatMap := make(map[string]interface{})
 	for _, kv := range kvs {
 		flatMap[kv.Key] = kv.Value
@@ -429,6 +431,12 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 	if productInfo.Production {
 		prodSvcTemplate.ServiceVars = setting.ServiceVarWildCard
+	}
+
+	// for situations only updating workload images, only return involved manifests of deployments and statefulsets
+	if !option.UpdateServiceRevision && len(option.VariableYaml) == 0 {
+		manifest, _, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
+		return manifest, int(curProductSvc.Revision), err
 	}
 
 	// service not deployed by zadig, should only be updated with images
