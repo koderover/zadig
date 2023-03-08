@@ -32,6 +32,7 @@ type Testing struct {
 	Team        string              `bson:"team"                     json:"team"`
 	Repos       []*types.Repository `bson:"repos"                    json:"repos"`
 	PreTest     *PreTest            `bson:"pre_test"                 json:"pre_test"`
+	PostTest    *PostTest           `bson:"post_test"                json:"post_test"`
 	Scripts     string              `bson:"scripts"                  json:"scripts"`
 	UpdateTime  int64               `bson:"update_time"              json:"update_time"`
 	UpdateBy    string              `bson:"update_by"                json:"update_by"`
@@ -101,6 +102,10 @@ type PreTest struct {
 
 	// TODO: Deprecated.
 	Namespace string `bson:"namespace"              json:"namespace"`
+}
+
+type PostTest struct {
+	ObjectStorageUpload *ObjectStorageUpload `bson:"object_storage_upload,omitempty" json:"object_storage_upload,omitempty"`
 }
 
 func (Testing) TableName() string {
