@@ -469,11 +469,6 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 			sort.Slice(owned, func(i, j int) bool {
 				return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
 			})
-
-			for _, rs := range owned {
-				c.logger.Errorf("@@@@@replicaset: %s, %s", rs.Name, rs.CreationTimestamp.String())
-			}
-			
 			resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
 		}
 		newResources = append(newResources, resource)
