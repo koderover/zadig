@@ -122,6 +122,15 @@ func (w *pod) ContainerNames() []string {
 	return cs
 }
 
+func (w *pod) IsOwnerMatched(uid string) bool {
+	for _, owner := range w.OwnerReferences {
+		if string(owner.UID) == uid {
+			return true
+		}
+	}
+	return false
+}
+
 func (w *pod) Resource() *resource.Pod {
 	containersReady, containersMessage := w.ContainersReady()
 	p := &resource.Pod{
