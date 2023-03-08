@@ -387,6 +387,18 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
 
+	ret.Current.Yaml = curYaml
+
+	// for situations only update images, replace images directly
+	if !args.UpdateServiceRevision && len(args.VariableKVS) == 0 {
+		latestYaml, _, err := kube.ReplaceWorkloadImages(curYaml, args.ServiceModules)
+		if err != nil {
+			return nil, e.ErrPreviewYaml.AddErr(err)
+		}
+		ret.Latest.Yaml = latestYaml
+		return ret, nil
+	}
+
 	latestYaml, _, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
 		ProductName:           args.ProductName,
 		EnvName:               args.EnvName,
