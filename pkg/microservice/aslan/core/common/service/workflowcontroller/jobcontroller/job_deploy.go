@@ -65,6 +65,7 @@ type DeployJobCtl struct {
 	istioClient *versionedclient.Clientset
 	jobTaskSpec *commonmodels.JobTaskDeploySpec
 	ack         func()
+	deployTime  time.Time
 }
 
 func NewDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *DeployJobCtl {
@@ -154,6 +155,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
+
+	// record deploy start time.
+	c.deployTime = time.Now()
 
 	if c.jobTaskSpec.CreateEnvType == "system" {
 		var updateRevision bool
@@ -446,7 +450,7 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID(timeout <-chan time.Time) ([]comm
 					}
 					resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
 					c.logger.Errorf("@@@@@ resource: %s, %s", resource.Name, deployment.CreationTimestamp)
-					if owned[0].CreationTimestamp.After(deployment.CreationTimestamp.Time) {
+					if owned[0].CreationTimestamp.After(c.deployTime) {
 						break L
 					}
 					time.Sleep(1 * time.Second)
