@@ -580,6 +580,10 @@ func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			// esure latest replicaset to be created
+			time.Sleep(3 * time.Second)
+			
 			replicaSets, err := getter.ListReplicaSets(p.Task.Namespace, selector, p.kubeClient)
 			if err != nil {
 				return newResources, err
