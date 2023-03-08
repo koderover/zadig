@@ -116,6 +116,9 @@ type JobTaskDeploySpec struct {
 	Timeout            int                    `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
 	ReplaceResources   []Resource             `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	RelatedPodLabels   []map[string]string    `bson:"-"                                json:"-"                                   yaml:"-"`
+	// for compatibility
+	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
+	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
 }
 
 type DeployServiceModule struct {
