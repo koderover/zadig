@@ -399,7 +399,7 @@ func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []
 	return nil
 }
 
-func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error) {
+func (c *DeployJobCtl) getResourcesPodOwnerUID(timeout <-chan time.Time) ([]commonmodels.Resource, error) {
 	newResources := []commonmodels.Resource{}
 	for _, resource := range c.jobTaskSpec.ReplaceResources {
 		switch resource.Kind {
@@ -418,28 +418,40 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 			if err != nil {
 				return nil, err
 			}
-			replicaSets, err := getter.ListReplicaSets(c.namespace, selector, c.kubeClient)
-			if err != nil {
-				return newResources, err
-			}
-			// Only include those whose ControllerRef matches the Deployment.
-			owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
-			for _, rs := range replicaSets {
-				if metav1.IsControlledBy(rs, deployment) {
-					owned = append(owned, rs)
+		L:
+			for {
+				select {
+				case <-timeout:
+					return newResources, fmt.Errorf("get deployment %s replicasets timeout", deployment.Name)
+				default:
+					replicaSets, err := getter.ListReplicaSets(c.namespace, selector, c.kubeClient)
+					if err != nil {
+						return newResources, err
+					}
+					// Only include those whose ControllerRef matches the Deployment.
+					owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
+					for _, rs := range replicaSets {
+						if metav1.IsControlledBy(rs, deployment) {
+							owned = append(owned, rs)
+						}
+					}
+					if len(owned) <= 0 {
+						return newResources, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
+					}
+					sort.Slice(owned, func(i, j int) bool {
+						return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
+					})
+					for _, rs := range owned {
+						c.logger.Errorf("@@@@@ rs: %s, %s", rs.Name, rs.CreationTimestamp)
+					}
+					resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
+					c.logger.Errorf("@@@@@ resource: %s, %s", resource.Name, resource.PodOwnerUID)
+					if owned[0].CreationTimestamp.After(deployment.CreationTimestamp.Time) {
+						break L
+					}
+					time.Sleep(1 * time.Second)
 				}
 			}
-			if len(owned) <= 0 {
-				return newResources, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
-			}
-			sort.Slice(owned, func(i, j int) bool {
-				return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
-			})
-			for _, rs := range owned {
-				c.logger.Errorf("@@@@@ rs: %s, %s", rs.Name, rs.CreationTimestamp)
-			}
-			resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
-			c.logger.Errorf("@@@@@ resource: %s, %s", resource.Name, resource.PodOwnerUID)
 		}
 		newResources = append(newResources, resource)
 	}
@@ -448,7 +460,7 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 
 func (c *DeployJobCtl) wait(ctx context.Context) {
 	timeout := time.After(time.Duration(c.timeout()) * time.Second)
-	resources, err := c.getResourcesPodOwnerUID()
+	resources, err := c.getResourcesPodOwnerUID(timeout)
 	if err != nil {
 		msg := fmt.Sprintf("get resource owner info error: %v", err)
 		logError(c.job, msg, c.logger)
