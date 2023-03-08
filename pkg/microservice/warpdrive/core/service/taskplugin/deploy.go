@@ -69,6 +69,7 @@ type DeployTaskPlugin struct {
 	Task         *task.Deploy
 	Log          *zap.SugaredLogger
 	ReplaceImage string
+	deployTime   time.Time
 
 	httpClient *httpclient.Client
 }
@@ -175,6 +176,9 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 	}
+
+	p.deployTime = time.Now()
+
 	if serviceInfo.WorkloadType == "" {
 		var deployments []*appsv1.Deployment
 		var statefulSets []*appsv1.StatefulSet
@@ -422,7 +426,7 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 
 	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
 
-	resources, err := p.getResourcesPodOwnerUID()
+	resources, err := p.getResourcesPodOwnerUID(timeout)
 	if err != nil {
 		msg := fmt.Sprintf("get resource owner info error: %v", err)
 		p.Task.Error = msg
@@ -561,7 +565,7 @@ func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []
 	return nil
 }
 
-func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
+func (p *DeployTaskPlugin) getResourcesPodOwnerUID(timeout <-chan time.Time) ([]task.Resource, error) {
 	newResources := []task.Resource{}
 	for _, resource := range p.Task.ReplaceResources {
 		switch resource.Kind {
@@ -580,24 +584,36 @@ func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
 			if err != nil {
 				return nil, err
 			}
-			replicaSets, err := getter.ListReplicaSets(p.Task.Namespace, selector, p.kubeClient)
-			if err != nil {
-				return newResources, err
-			}
-			// Only include those whose ControllerRef matches the Deployment.
-			owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
-			for _, rs := range replicaSets {
-				if metav1.IsControlledBy(rs, deployment) {
-					owned = append(owned, rs)
+		L:
+			for {
+				select {
+				case <-timeout:
+					return newResources, fmt.Errorf("get deployment %s replicasets timeout", deployment.Name)
+				default:
+					replicaSets, err := getter.ListReplicaSets(p.Task.Namespace, selector, p.kubeClient)
+					if err != nil {
+						return newResources, err
+					}
+					// Only include those whose ControllerRef matches the Deployment.
+					owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
+					for _, rs := range replicaSets {
+						if metav1.IsControlledBy(rs, deployment) {
+							owned = append(owned, rs)
+						}
+					}
+					if len(owned) <= 0 {
+						return newResources, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
+					}
+					sort.Slice(owned, func(i, j int) bool {
+						return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
+					})
+					resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
+					if owned[0].CreationTimestamp.After(p.deployTime) {
+						break L
+					}
+					time.Sleep(1 * time.Second)
 				}
 			}
-			if len(owned) <= 0 {
-				return newResources, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
-			}
-			sort.Slice(owned, func(i, j int) bool {
-				return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
-			})
-			resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
 		}
 		newResources = append(newResources, resource)
 	}
