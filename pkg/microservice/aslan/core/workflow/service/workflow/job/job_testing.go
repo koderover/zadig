@@ -308,6 +308,12 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			s3 := modelS3toS3(modelS3)
 			s3.Subfolder = ""
 			uploads := []*step.Upload{}
+			for _, detail := range testingInfo.PostTest.ObjectStorageUpload.UploadDetail {
+				uploads = append(uploads, &step.Upload{
+					FilePath:        detail.FilePath,
+					DestinationPath: detail.DestinationPath,
+				})
+			}
 			archiveStep := &commonmodels.StepTask{
 				Name:     config.TestJobObjectStorageStepName,
 				JobName:  jobTask.Name,
@@ -317,12 +323,6 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					ObjectStorageID: testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID,
 					S3:              s3,
 				},
-			}
-			for _, detail := range testingInfo.PostTest.ObjectStorageUpload.UploadDetail {
-				uploads = append(uploads, &step.Upload{
-					FilePath:        detail.FilePath,
-					DestinationPath: detail.DestinationPath,
-				})
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 		}
