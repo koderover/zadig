@@ -301,28 +301,6 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 	if !EventConfigured(hookRepo, config.HookEventTag) {
 		return false, nil
 	}
-	if gtem.isYaml {
-		refFlag := false
-		for _, ref := range gtem.trigger.Rules.Branchs {
-			if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
-				refFlag = true
-				break
-			}
-		}
-		if !refFlag {
-			return false, nil
-		}
-	} else {
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
-			return false, nil
-		}
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
-				return false, nil
-			}
-		}
-	}
 
 	hookRepo.Committer = ev.UserName
 	hookRepo.Tag = getTagFromRef(ev.Ref)
