@@ -381,6 +381,7 @@ const (
 	TestJobJunitReportStepName   = "junit-report-step"
 	TestJobHTMLReportStepName    = "html-report-step"
 	TestJobArchiveResultStepName = "archive-result-step"
+	TestJobObjectStorageStepName = "object-storage-step"
 )
 
 type JobRunPolicy string

@@ -831,6 +831,27 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		testTask.ResReq = testModule.PreTest.ResReq
 		testTask.ResReqSpec = testModule.PreTest.ResReqSpec
 	}
+	if testModule.PostTest != nil {
+		if testModule.PostTest.ObjectStorageUpload != nil {
+			testTask.JobCtx.UploadEnabled = testModule.PostTest.ObjectStorageUpload.Enabled
+			if testModule.PostTest.ObjectStorageUpload.Enabled {
+				storageInfo, err := commonrepo.NewS3StorageColl().Find(testModule.PostTest.ObjectStorageUpload.ObjectStorageID)
+				if err != nil {
+					log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
+					return nil, err
+				}
+				testTask.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
+					Endpoint: storageInfo.Endpoint,
+					AK:       storageInfo.Ak,
+					SK:       storageInfo.Sk,
+					Bucket:   storageInfo.Bucket,
+					Insecure: storageInfo.Insecure,
+					Provider: storageInfo.Provider,
+				}
+				testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
+			}
+		}
+	}
 	// 设置 build 安装脚本
 	testTask.InstallCtx, err = BuildInstallCtx(testTask.InstallItems)
 	if err != nil {

@@ -299,6 +299,34 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
 		}
 
+		// init object storage step
+		if testingInfo.PostTest != nil && testingInfo.PostTest.ObjectStorageUpload != nil && testingInfo.PostTest.ObjectStorageUpload.Enabled {
+			modelS3, err := commonrepo.NewS3StorageColl().Find(testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID)
+			if err != nil {
+				return resp, fmt.Errorf("find object storage: %s failed, err: %v", testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID, err)
+			}
+			s3 := modelS3toS3(modelS3)
+			s3.Subfolder = ""
+			uploads := []*step.Upload{}
+			for _, detail := range testingInfo.PostTest.ObjectStorageUpload.UploadDetail {
+				uploads = append(uploads, &step.Upload{
+					FilePath:        detail.FilePath,
+					DestinationPath: detail.DestinationPath,
+				})
+			}
+			archiveStep := &commonmodels.StepTask{
+				Name:     config.TestJobObjectStorageStepName,
+				JobName:  jobTask.Name,
+				StepType: config.StepArchive,
+				Spec: step.StepArchiveSpec{
+					UploadDetail:    uploads,
+					ObjectStorageID: testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID,
+					S3:              s3,
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
+		}
+
 		resp = append(resp, jobTask)
 	}
 	j.job.Spec = j.spec

@@ -360,6 +360,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			s3 := modelS3toS3(modelS3)
 			s3.Subfolder = ""
 			uploads := []*step.Upload{}
+			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
+				uploads = append(uploads, &step.Upload{
+					FilePath:        detail.FilePath,
+					DestinationPath: detail.DestinationPath,
+				})
+			}
 			archiveStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-object-storage",
 				JobName:  jobTask.Name,
@@ -370,16 +376,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					S3:              s3,
 				},
 			}
-			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
-				uploads = append(uploads, &step.Upload{
-					FilePath:        detail.FilePath,
-					DestinationPath: detail.DestinationPath,
-				})
-			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 		}
 
-		// init psot build shell step
+		// init post build shell step
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.Scripts != "" {
 			scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
 			shellStep := &commonmodels.StepTask{
