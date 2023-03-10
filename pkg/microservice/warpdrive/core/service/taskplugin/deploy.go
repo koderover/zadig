@@ -27,7 +27,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -473,7 +472,7 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range p.Task.ReplaceResources {
-				if err := workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels, resource.PodOwnerUID); err != nil {
+				if err := wrapper.CheckWorkLoadsDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels, resource.PodOwnerUID); err != nil {
 					p.Task.TaskStatus = config.StatusFailed
 					p.Task.Error = err.Error()
 					return
@@ -534,35 +533,10 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 	}
 }
 
-func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string, ownerUID string) error {
-	for _, label := range labelMaps {
-		selector := labels.Set(label).AsSelector()
-		pods, err := getter.ListPods(namespace, selector, kubeClient)
-		if err != nil {
-			return err
-		}
-		for _, pod := range pods {
-			if !wrapper.Pod(pod).IsOwnerMatched(ownerUID) {
-				continue
-			}
-			allContainerStatuses := make([]corev1.ContainerStatus, 0)
-			allContainerStatuses = append(allContainerStatuses, pod.Status.InitContainerStatuses...)
-			allContainerStatuses = append(allContainerStatuses, pod.Status.ContainerStatuses...)
-			for _, cs := range allContainerStatuses {
-				if cs.State.Waiting != nil {
-					switch cs.State.Waiting.Reason {
-					case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff", "ErrImageNeverPull":
-						return fmt.Errorf("pod: %s, %s: %s", pod.Name, cs.State.Waiting.Reason, cs.State.Waiting.Message)
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
 	newResources := []task.Resource{}
+	// esure latest replicaset to be created
+	time.Sleep(3 * time.Second)
 	for _, resource := range p.Task.ReplaceResources {
 		switch resource.Kind {
 		case setting.StatefulSet:
@@ -581,9 +555,6 @@ func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
 				return nil, err
 			}
 
-			// esure latest replicaset to be created
-			time.Sleep(3 * time.Second)
-			
 			replicaSets, err := getter.ListReplicaSets(p.Task.Namespace, selector, p.kubeClient)
 			if err != nil {
 				return newResources, err

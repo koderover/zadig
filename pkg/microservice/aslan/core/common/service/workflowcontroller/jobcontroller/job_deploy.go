@@ -30,14 +30,12 @@ import (
 	"golang.org/x/exp/slices"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -372,35 +370,10 @@ func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources 
 	return nil
 }
 
-func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string, ownerUID string) error {
-	for _, label := range labelMaps {
-		selector := labels.Set(label).AsSelector()
-		pods, err := getter.ListPods(namespace, selector, kubeClient)
-		if err != nil {
-			return err
-		}
-		for _, pod := range pods {
-			if !wrapper.Pod(pod).IsOwnerMatched(ownerUID) {
-				continue
-			}
-			allContainerStatuses := make([]corev1.ContainerStatus, 0)
-			allContainerStatuses = append(allContainerStatuses, pod.Status.InitContainerStatuses...)
-			allContainerStatuses = append(allContainerStatuses, pod.Status.ContainerStatuses...)
-			for _, cs := range allContainerStatuses {
-				if cs.State.Waiting != nil {
-					switch cs.State.Waiting.Reason {
-					case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff", "ErrImageNeverPull":
-						return fmt.Errorf("pod: %s, %s: %s", pod.Name, cs.State.Waiting.Reason, cs.State.Waiting.Message)
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error) {
 	newResources := []commonmodels.Resource{}
+	// esure resource to be created
+	time.Sleep(3 * time.Second)
 	for _, resource := range c.jobTaskSpec.ReplaceResources {
 		switch resource.Kind {
 		case setting.StatefulSet:
@@ -418,8 +391,6 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 			if err != nil {
 				return nil, err
 			}
-			// esure latest replicaset to be created
-			time.Sleep(3 * time.Second)
 			replicaSets, err := getter.ListReplicaSets(c.namespace, selector, c.kubeClient)
 			if err != nil {
 				return newResources, err
@@ -496,7 +467,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
-				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
+				if err := wrapper.CheckWorkLoadsDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
 					logError(c.job, err.Error(), c.logger)
 					return
 				}
