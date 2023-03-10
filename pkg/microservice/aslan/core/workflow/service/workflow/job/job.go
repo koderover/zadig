@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -320,6 +321,8 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 		repoIndex := fmt.Sprintf("REPO_%d", index)
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
 
+		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_ORG", repoName), Value: repo.RepoOwner, IsCredential: false})
+
 		if len(repo.Branch) > 0 {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
 		}
@@ -363,7 +366,11 @@ func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, crea
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, getWorkflowDefaultParams(workflow, taskID, creator))
+	params, err := getWorkflowDefaultParams(workflow, taskID, creator)
+	if err != nil {
+		return fmt.Errorf("get workflow default params error: %v", err)
+	}
+	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, params)
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
@@ -382,18 +389,53 @@ func renderMultiLineString(value, template string, inputs []*commonmodels.Param)
 	return value
 }
 
-func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, creator string) []*commonmodels.Param {
+func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, creator string) ([]*commonmodels.Param, error) {
 	resp := []*commonmodels.Param{}
 	resp = append(resp, &commonmodels.Param{Name: "project", Value: workflow.Project, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: workflow.Name, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobZadigBuild:
+				build := new(commonmodels.ZadigBuildJobSpec)
+				if err := commonmodels.IToi(job.Spec, build); err != nil {
+					return nil, errors.Wrap(err, "Itoi")
+				}
+				var serviceAndModuleName, branchList []string
+				for _, serviceAndBuild := range build.ServiceAndBuilds {
+					serviceAndModuleName = append(serviceAndModuleName, serviceAndBuild.ServiceModule+"/"+serviceAndBuild.ServiceName)
+					branch, commitID := "", ""
+					if len(serviceAndBuild.Repos) > 0 {
+						branch = serviceAndBuild.Repos[0].Branch
+						commitID = serviceAndBuild.Repos[0].CommitID
+					}
+					branchList = append(branchList, branch)
+					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.BRANCH",
+						job.Name, serviceAndBuild.ServiceModule, serviceAndBuild.ServiceName),
+						Value: branch, ParamsType: "string", IsCredential: false})
+					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.COMMITID",
+						job.Name, serviceAndBuild.ServiceModule, serviceAndBuild.ServiceName),
+						Value: commitID, ParamsType: "string", IsCredential: false})
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(serviceAndModuleName, ","), ParamsType: "string", IsCredential: false})
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.BRANCHES", job.Name), Value: strings.Join(branchList, ","), ParamsType: "string", IsCredential: false})
+			case config.JobZadigDeploy:
+				deploy := new(commonmodels.ZadigDeployJobSpec)
+				if err := commonmodels.IToi(job.Spec, deploy); err != nil {
+					return nil, errors.Wrap(err, "Itoi")
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.envName", job.Name), Value: deploy.Env, ParamsType: "string", IsCredential: false})
+			}
+		}
+	}
 	for _, param := range workflow.Params {
 		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
 		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
-	return resp
+	return resp, nil
 }
 
 func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
