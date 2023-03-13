@@ -356,6 +356,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 }
 
 func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
+	log.Infof("############# fetching workload images")
 	rederedYaml, err := kube.RenderEnvService(product, renderSet, productService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render env service yaml for service: %s, err: %s", productService.ServiceName, err)
@@ -378,6 +379,7 @@ func fetchWorkloadImages(productService *commonmodels.ProductService, product *c
 				log.Errorf("failed to find deployment with name: %s", u.GetName())
 				continue
 			}
+			log.Infof("------- fetching deployments %s", u.GetName())
 			containers = append(containers, wrapper.Deployment(deployment).GetContainers()...)
 		} else if u.GetKind() == setting.StatefulSet {
 			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
@@ -385,6 +387,7 @@ func fetchWorkloadImages(productService *commonmodels.ProductService, product *c
 				log.Errorf("failed to find sts with name: %s", u.GetName())
 				continue
 			}
+			log.Infof("------- fetching sts %s", u.GetName())
 			containers = append(containers, wrapper.StatefulSet(sts).GetContainers()...)
 		}
 	}
@@ -440,8 +443,6 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 	var resources []*unstructured.Unstructured
 
 	for i := range group {
-		// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
-		// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
 		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
 			// services are only imported, we do not deploy them again, but we need to fetch the images
 			containers, err := fetchWorkloadImages(group[i], product, renderSet, kubeClient)
