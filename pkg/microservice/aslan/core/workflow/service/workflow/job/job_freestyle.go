@@ -286,7 +286,9 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 		repos = append(repos, stepSpec.Repos...)
 	}
 	ret = append(ret, getReposVariables(repos)...)
-
+	for _, repo := range repos {
+		ret = append(ret, &commonmodels.KeyVal{Key: repo.RepoName + "_ORG", Value: repo.RepoOwner, IsCredential: false})
+	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
