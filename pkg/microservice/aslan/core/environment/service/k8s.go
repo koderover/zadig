@@ -355,7 +355,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	return resp
 }
 
-func (k *K8sService) fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
+func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
 	rederedYaml, err := kube.RenderEnvService(product, renderSet, productService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render env service yaml for service: %s, err: %s", productService.ServiceName, err)
@@ -444,7 +444,11 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
 		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
 			// services are only imported, we do not deploy them again, but we need to fetch the images
-
+			containers, err := fetchWorkloadImages(group[i], product, renderSet, kubeClient)
+			if err != nil {
+				return fmt.Errorf("failed to fetch related containers: %s", err)
+			}
+			group[i].Containers = containers
 			continue
 		}
 		wg.Add(1)
