@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
 )
@@ -434,6 +435,10 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 	for _, param := range workflow.Params {
 		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
 		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
+	}
+	// todo clear debug
+	for _, param := range resp {
+		log.Infof("param: %s, value: %s", param.Name, param.Value)
 	}
 	return resp, nil
 }
