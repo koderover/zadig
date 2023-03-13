@@ -402,19 +402,6 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 				Name:        renderSet.Name,
 				Revision:    renderSet.Revision,
 			}
-			//// user renderchart from renderset
-			//chartInfoMap := make(map[string]*template.ServiceRender)
-			//for _, renderChart := range renderSet.ChartInfos {
-			//	chartInfoMap[renderChart.ServiceName] = renderChart
-			//}
-			//
-			//// use values.yaml content from predefined env renderset
-			//for _, singleRenderChart := range args.ServiceRenders {
-			//	if renderInEnvRenderset, ok := chartInfoMap[singleRenderChart.ServiceName]; ok {
-			//		singleRenderChart.OverrideValues = renderInEnvRenderset.OverrideValues
-			//		singleRenderChart.OverrideYaml = renderInEnvRenderset.OverrideYaml
-			//	}
-			//}
 		}
 	}
 
@@ -434,16 +421,6 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to find renderset: %v/%v", args.Render.Name, args.Render.Revision))
 	}
-	//// 如果是版本回滚，则args.Render.Revision > 0
-	//if args.Render.Revision == 0 {
-	//	// 检查renderset是否覆盖产品所有key
-	//	renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, args.EnvName, nil, log)
-	//	if err != nil {
-	//		log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
-	//		return e.ErrCreateEnv.AddDesc(err.Error())
-	//	}
-	//	args.Render.Revision = renderSet.Revision
-	//}
 
 	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early
 	dryRunClient := client.NewDryRunClient(kubeClient)

@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -38,6 +39,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -48,6 +50,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -352,6 +355,54 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	return resp
 }
 
+func (k *K8sService) fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
+	rederedYaml, err := kube.RenderEnvService(product, renderSet, productService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render env service yaml for service: %s, err: %s", productService.ServiceName, err)
+	}
+	manifests := releaseutil.SplitManifests(rederedYaml)
+	namespace := product.Namespace
+
+	containers := make([]*resource.ContainerImage, 0)
+	retMap := make(map[string]*commonmodels.Container)
+
+	for _, manifest := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
+		if err != nil {
+			log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", manifest, err)
+			continue
+		}
+		if u.GetKind() == setting.Deployment {
+			deployment, exist, err := getter.GetDeployment(namespace, u.GetName(), kubeClient)
+			if err != nil || !exist {
+				log.Errorf("failed to find deployment with name: %s", u.GetName())
+				continue
+			}
+			containers = append(containers, wrapper.Deployment(deployment).GetContainers()...)
+		} else if u.GetKind() == setting.StatefulSet {
+			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
+			if err != nil || !exist {
+				log.Errorf("failed to find sts with name: %s", u.GetName())
+				continue
+			}
+			containers = append(containers, wrapper.StatefulSet(sts).GetContainers()...)
+		}
+	}
+
+	for _, container := range containers {
+		retMap[container.Name] = &commonmodels.Container{
+			Name:      container.Name,
+			Image:     container.Image,
+			ImageName: container.ImageName,
+		}
+	}
+	ret := make([]*commonmodels.Container, 0)
+	for _, container := range retMap {
+		ret = append(ret, container)
+	}
+	return ret, nil
+}
+
 func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
 	envName, productName := product.EnvName, product.ProductName
 	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
@@ -364,7 +415,6 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 			for i, err := range es {
 				points[i] = fmt.Sprintf("%v", err)
 			}
-
 			return strings.Join(points, "\n")
 		},
 	}
@@ -393,6 +443,8 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
 		// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
 		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
+			// services are only imported, we do not deploy them again, but we need to fetch the images
+
 			continue
 		}
 		wg.Add(1)
