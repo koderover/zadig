@@ -84,7 +84,7 @@ func (c *Client) GetNamespace(appID, env, cluster, namespace string) (result *Na
 		"appId":         appID,
 		"clusterName":   cluster,
 		"namespaceName": namespace,
-	}).SetSuccessResult(result).Get(c.BaseURL + "/openapi/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}")
+	}).SetSuccessResult(&result).Get(c.BaseURL + "/openapi/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}")
 	return
 }
 
