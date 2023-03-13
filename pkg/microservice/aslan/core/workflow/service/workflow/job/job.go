@@ -372,6 +372,7 @@ func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, crea
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
 	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, params)
+	log.Info("rendered workflow:\n%s", replacedString)
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
@@ -385,6 +386,7 @@ func renderString(value, template string, inputs []*commonmodels.Param) string {
 func renderMultiLineString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
 		inputValue := strings.ReplaceAll(input.Value, "\n", "\\n")
+		log.Infof("replace %s to %s", fmt.Sprintf(template, input.Name), inputValue)
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value
