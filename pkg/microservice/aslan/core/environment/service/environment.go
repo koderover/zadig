@@ -504,6 +504,12 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				go func() {
 					defer wg.Done()
 					if !commonutil.ServiceDeployed(prodService.ServiceName, deployStrategy) {
+						containers, errFetchImage := fetchWorkloadImages(prodService, existedProd, renderSet, kubeClient)
+						if errFetchImage != nil {
+							service.Error = errFetchImage.Error()
+							return
+						}
+						service.Containers = containers
 						return
 					}
 					_, errUpsertService := upsertService(
@@ -2168,11 +2174,17 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 		return
 	}
 
-	for _, group := range args.Services {
+	for groupIndex, group := range args.Services {
 		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(user, args, group, renderSet, informer, kubeClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("createGroup error :%+v", err)
+			return
+		}
+		err = commonrepo.NewProductColl().UpdateGroup(envName, args.ProductName, groupIndex, group)
+		if err != nil {
+			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
+			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			return
 		}
 	}
