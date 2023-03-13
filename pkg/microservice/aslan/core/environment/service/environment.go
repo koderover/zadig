@@ -516,7 +516,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						updateProd,
 						service,
 						existedServices[service.ServiceName],
-						renderSet, oldProductRender, inf, kubeClient, istioClient, log)
+						renderSet, oldProductRender, true, inf, kubeClient, istioClient, log)
 					if errUpsertService != nil {
 						service.Error = errUpsertService.Error()
 					} else {
@@ -2226,8 +2226,8 @@ func getProjectType(productName string) string {
 
 // upsertService
 func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
-	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
-) ([]*unstructured.Unstructured, error) {
+	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, addLabel bool, informer informers.SharedInformerFactory,
+	kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	if env.Production {
 		log.Errorf("services in production environments can't be upserted")
 		return nil, nil
@@ -2297,7 +2297,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		KubeClient:          kubeClient,
 		IstioClient:         istioClient,
 		InjectSecrets:       true,
-		AddZadigLabel:       true,
+		AddZadigLabel:       addLabel,
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
 	return kube.CreateOrPatchResource(resourceApplyParam, log)

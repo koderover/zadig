@@ -543,7 +543,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				productObj,
 				productService,
 				productService,
-				newRender, oldRenderInfo, inf, kubeClient, istioClient, log)
+				newRender, oldRenderInfo, false, inf, kubeClient, istioClient, log)
 
 			// 如果创建依赖服务组有返回错误, 停止等待
 			if err != nil {

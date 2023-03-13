@@ -90,9 +90,8 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	svc := &commonmodels.ProductService{
 		ServiceName: args.ServiceName,
 		Type:        args.ServiceType,
-		//Revision:    args.ServiceRev.NextRevision,
-		Revision:   0,
-		Containers: args.ServiceRev.Containers,
+		Revision:    0,
+		Containers:  args.ServiceRev.Containers,
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
@@ -197,12 +196,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
 	}
 
-	//// generate new renderset
-	//newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
-	//if err != nil {
-	//	k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
-	//	return e.ErrUpdateProduct.AddDesc(err.Error())
-	//}
 	preRevision := exitedProd.Render
 	exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
 
@@ -210,7 +203,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd,
 		svc,
 		currentProductSvc,
-		curRenderset, preRevision, inf, kubeClient, istioClient, k.log)
+		curRenderset, preRevision, true, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
@@ -456,7 +449,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(prod, svc, nil, renderSet, nil, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, nil, renderSet, nil, true, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

@@ -331,7 +331,7 @@ func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSe
 			if !commonutil.ServiceDeployed(svc.ServiceName, args.ServiceDeployStrategy) {
 				continue
 			}
-			_, err := upsertService(args, svc, nil, renderSet, args.Render, informer, kubeClient, nil, log)
+			_, err := upsertService(args, svc, nil, renderSet, args.Render, true, informer, kubeClient, nil, log)
 			if err != nil {
 				errList = multierror.Append(errList, fmt.Errorf("failed to dryRun apply service: %s, err: %s", svc.ServiceName, err))
 			}
