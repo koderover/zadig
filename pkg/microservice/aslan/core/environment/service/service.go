@@ -39,7 +39,6 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -551,13 +550,13 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				err = e.ErrRestartService.AddErr(err)
 				return
 			}
-			if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {
-				productObj.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
-				errUpdate := commonrepo.NewProductColl().UpdateDeployStrategy(productObj.EnvName, productObj.ProductName, productObj.ServiceDeployStrategy)
-				if errUpdate != nil {
-					log.Errorf("failed to update serviceDeployStrategy for env: %s:%s, err: %s", productObj.ProductName, productObj.EnvName, errUpdate)
-				}
-			}
+			//if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {
+			//	productObj.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
+			//	errUpdate := commonrepo.NewProductColl().UpdateDeployStrategy(productObj.EnvName, productObj.ProductName, productObj.ServiceDeployStrategy)
+			//	if errUpdate != nil {
+			//		log.Errorf("failed to update serviceDeployStrategy for env: %s:%s, err: %s", productObj.ProductName, productObj.EnvName, errUpdate)
+			//	}
+			//}
 		}
 	}
 
