@@ -105,6 +105,10 @@ func (j *DeployJob) SetPreset() error {
 	if project.ProductFeature != nil {
 		j.spec.DeployType = project.ProductFeature.DeployType
 	}
+	// if quoted job quote another job, then use the service and image of the quoted job
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+	}
 	return nil
 }
 
