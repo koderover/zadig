@@ -770,3 +770,5 @@ const (
 	VariableSourceRuntime = "runtime"
 	VariableSourceOther   = "other"
 )
+
+var ServiceVarWildCard = []string{"*"}

@@ -29,6 +29,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -40,7 +41,14 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func ListGroups(serviceName, envName, productName string, perPage, page int, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {
+type EnvGroupRequest struct {
+	ProjectName string `form:"projectName"`
+	Page        int    `form:"page"`
+	PerPage     int    `form:"perPage"`
+	ServiceName string `form:"serviceName"`
+}
+
+func ListGroups(serviceName, envName, productName string, perPage, page int, production bool, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {
 	var (
 		count           = 0
 		allServices     = make([]*commonmodels.ProductService, 0)
@@ -48,7 +56,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 		resp            = make([]*commonservice.ServiceResp, 0)
 	)
 
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
@@ -145,7 +153,7 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 
 	renderSet := &commonmodels.RenderSet{}
 	if product.Render != nil {
-		renderSet, err = commonservice.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
+		renderSet, err = render.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
 		if err != nil {
 			log.Errorf("GetRenderSet %s error: %v", product.ProductName, err)
 			return ingressInfo

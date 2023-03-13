@@ -24,10 +24,11 @@ import (
 )
 
 type Resource struct {
-	Name      string `json:"name" bson:"name"`
-	Kind      string `json:"kind" bson:"kind"`
-	Container string `json:"container" bson:"container"`
-	Origin    string `json:"origin" bson:"origin"`
+	Name        string `json:"name" bson:"name"`
+	Kind        string `json:"kind" bson:"kind"`
+	Container   string `json:"container" bson:"container"`
+	Origin      string `json:"origin" bson:"origin"`
+	PodOwnerUID string `json:"pod_owner_uid" bson:"pod_owner_uid"`
 }
 
 // Deploy 容器部署任务

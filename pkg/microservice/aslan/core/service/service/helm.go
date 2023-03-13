@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/27149chen/afero"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -46,7 +45,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -1652,7 +1653,7 @@ func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName
 	}
 
 	//添加renderset
-	if err := commonservice.CreateK8sHelmRenderSet(
+	if err := render.CreateK8sHelmRenderSet(
 		&models.RenderSet{
 			Name:        productName,
 			Revision:    0,
@@ -1672,7 +1673,7 @@ func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName
 		IsDefault:   true,
 	}
 
-	if err := commonservice.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
+	if err := render.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
 		log.Error(fmt.Errorf("failed to create renderset, name: %s, err: %s", newRenderset.Name, err))
 		return
 	}

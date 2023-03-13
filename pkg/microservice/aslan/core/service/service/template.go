@@ -149,9 +149,6 @@ func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls
 		return originYaml, err
 	}
 
-	//for _, variable := range variables {
-	//	variableYaml = strings.ReplaceAll(variableYaml, buildVariable(variable.Key), variable.Value)
-	//}
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
 

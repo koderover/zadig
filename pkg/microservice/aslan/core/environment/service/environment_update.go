@@ -34,6 +34,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -372,7 +373,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return err
 	}
 
-	renderSet, err := commonservice.CreateRenderSetByMerge(
+	renderSet, err := render.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
 			Name:             exitedProd.Namespace,
 			EnvName:          envName,
@@ -386,12 +387,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
-
-	//renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
-	//if err != nil {
-	//	log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
-	//	return e.ErrUpdateEnv.AddDesc(err.Error())
-	//}
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 
@@ -493,7 +488,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	// 检查renderset是否覆盖产品所有key
-	renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
+	renderSet, err := render.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())

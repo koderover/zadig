@@ -44,6 +44,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/math"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -363,8 +364,112 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 			break
 		}
 
+		getMinExceptZero := func(a, b int64) int64 {
+			if a == 0 || b == 0 {
+				return math.Max(a, b)
+			}
+			return math.Min(a, b)
+		}
+		getErrorMsg := func(before, new string) string {
+			if before != "" {
+				return before
+			}
+			return new
+		}
 		t.WorkflowArgs = nil
-		t.Stages = nil
+		for i, stage := range t.Stages {
+			stage.Desc = ""
+			stage.TypeName = string(stage.TaskType)
+			for _, subTask := range stage.SubTasks {
+				switch stage.TaskType {
+				case config.TaskBuild, config.TaskArtifactDeploy, config.TaskBuildV3:
+					t, err := base.ToBuildTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskJenkinsBuild:
+					t, err := base.ToJenkinsBuildTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskArtifact:
+					t, err := base.ToArtifactTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskDockerBuild:
+					t, err := base.ToDockerBuildTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskTestingV2:
+					t, err := base.ToTestingTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskResetImage, config.TaskDeploy:
+					// do this for frontend display, artifact deploy is a "deploy" task with an artifact task before it
+					if i > 0 && stage.TaskType == config.TaskDeploy && t.Stages[i-1].TaskType == config.TaskArtifact {
+						stage.TypeName = string(config.TaskArtifactDeploy)
+					}
+					t, err := base.ToDeployTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskDistributeToS3:
+					t, err := base.ToDistributeToS3Task(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskReleaseImage:
+					t, err := base.ToReleaseImageTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskJira:
+					t, err := base.ToJiraTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				case config.TaskSecurity:
+					t, err := base.ToSecurityTask(subTask)
+					if err != nil {
+						return nil, err
+					}
+					stage.StartTime = getMinExceptZero(stage.StartTime, t.StartTime)
+					stage.EndTime = math.Max(stage.EndTime, t.EndTime)
+					stage.Error = getErrorMsg(stage.Error, t.Error)
+				}
+			}
+			stage.SubTasks = nil
+		}
 	}
 
 	ret.Data = restp
@@ -725,6 +830,27 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		testTask.ImageFrom = testModule.PreTest.ImageFrom
 		testTask.ResReq = testModule.PreTest.ResReq
 		testTask.ResReqSpec = testModule.PreTest.ResReqSpec
+	}
+	if testModule.PostTest != nil {
+		if testModule.PostTest.ObjectStorageUpload != nil {
+			testTask.JobCtx.UploadEnabled = testModule.PostTest.ObjectStorageUpload.Enabled
+			if testModule.PostTest.ObjectStorageUpload.Enabled {
+				storageInfo, err := commonrepo.NewS3StorageColl().Find(testModule.PostTest.ObjectStorageUpload.ObjectStorageID)
+				if err != nil {
+					log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
+					return nil, err
+				}
+				testTask.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
+					Endpoint: storageInfo.Endpoint,
+					AK:       storageInfo.Ak,
+					SK:       storageInfo.Sk,
+					Bucket:   storageInfo.Bucket,
+					Insecure: storageInfo.Insecure,
+					Provider: storageInfo.Provider,
+				}
+				testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
+			}
+		}
 	}
 	// 设置 build 安装脚本
 	testTask.InstallCtx, err = BuildInstallCtx(testTask.InstallItems)

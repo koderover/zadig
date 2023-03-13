@@ -46,6 +46,9 @@ exemption_urls:
     - endpoint: plutus/deliveryBoard
       methods:
         - GET
+    - endpoint: api/aslan/metrics
+      methods:
+        - GET
     - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/patch
       methods:
         - POST

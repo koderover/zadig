@@ -17,9 +17,10 @@ limitations under the License.
 package models
 
 import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // TODO: move Revision out of Service.

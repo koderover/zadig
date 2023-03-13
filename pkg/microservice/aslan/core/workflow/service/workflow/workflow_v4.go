@@ -20,10 +20,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -132,6 +134,14 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return workflow, e.ErrFindWorkflow.AddErr(err)
+	}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if err := jobctl.Instantiate(job, workflow); err != nil {
+				logger.Errorf("Failed to instantiate workflow v4,error: %v", err)
+				return workflow, e.ErrFindWorkflow.AddErr(err)
+			}
+		}
 	}
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
@@ -324,19 +334,33 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	recentFailedTask := &commonmodels.WorkflowTask{}
 	recentSucceedTask := &commonmodels.WorkflowTask{}
 	workflow.NeverRun = true
+	var workflowList []*commonmodels.WorkflowTask
+	var recentTenTask []*commonmodels.WorkflowTask
 	for _, task := range tasks {
 		if task.WorkflowName != workflow.Name {
 			continue
 		}
+		workflowList = append(workflowList, task)
 		workflow.NeverRun = false
-		if task.TaskID > recentTask.TaskID {
+	}
+	sort.Slice(workflowList, func(i, j int) bool {
+		return workflowList[i].TaskID > workflowList[j].TaskID
+	})
+	for _, task := range workflowList {
+		if recentSucceedTask.TaskID != 0 && recentFailedTask.TaskID != 0 && len(recentTenTask) == 10 {
+			break
+		}
+		if recentTask.TaskID == 0 {
 			recentTask = task
 		}
-		if task.Status == config.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
+		if task.Status == config.StatusPassed && recentSucceedTask.TaskID == 0 {
 			recentSucceedTask = task
 		}
-		if task.Status == config.StatusFailed && task.TaskID > recentFailedTask.TaskID {
+		if task.Status == config.StatusFailed && recentFailedTask.TaskID == 0 {
 			recentFailedTask = task
+		}
+		if len(recentTenTask) < 10 {
+			recentTenTask = append(recentTenTask, task)
 		}
 	}
 	if recentTask.TaskID > 0 {
@@ -364,6 +388,18 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 			Status:       string(recentFailedTask.Status),
 			TaskCreator:  recentFailedTask.TaskCreator,
 			CreateTime:   recentFailedTask.CreateTime,
+		}
+	}
+	if len(recentTenTask) > 0 {
+		for _, task := range recentTenTask {
+			workflow.RecentTasks = append(workflow.RecentTasks, &TaskInfo{
+				TaskID:      task.TaskID,
+				Status:      string(task.Status),
+				TaskCreator: task.TaskCreator,
+				CreateTime:  task.CreateTime,
+				StartTime:   task.StartTime,
+				EndTime:     task.EndTime,
+			})
 		}
 	}
 }
@@ -1419,4 +1455,110 @@ func GetLatestTaskInfo(workflowInfo *Workflow) (startTime int64, creator, status
 		}
 		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
 	}
+}
+
+func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames []string, log *zap.SugaredLogger) ([]*commonmodels.DeployService, error) {
+	resp := []*commonmodels.DeployService{}
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
+		log.Error(msg)
+		return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
+	}
+	jobSpec := &commonmodels.ZadigDeployJobSpec{}
+	found := false
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != config.JobZadigDeploy {
+				msg := fmt.Sprintf("job: %s is not a deploy job", jobName)
+				log.Error(msg)
+				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
+			}
+			if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
+				msg := fmt.Sprintf("unmarshal deploy job spec error: %v", err)
+				log.Error(msg)
+				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		msg := fmt.Sprintf("job: %s not found", jobName)
+		log.Error(msg)
+		return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
+	}
+	var services *commonservice.EnvServices
+	if jobSpec.Production {
+		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, log)
+		if err != nil {
+			return resp, e.ErrFilterWorkflowVars.AddErr(err)
+		}
+	} else {
+		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, log)
+		if err != nil {
+			return resp, e.ErrFilterWorkflowVars.AddErr(err)
+		}
+	}
+	serviceMap := map[string]*commonservice.EnvService{}
+	for _, service := range services.Services {
+		serviceMap[service.ServiceName] = service
+	}
+	deployServiceMap := map[string]*commonmodels.DeployService{}
+	for _, service := range jobSpec.Services {
+		deployServiceMap[service.ServiceName] = service
+	}
+
+	for _, serviceName := range serviceNames {
+		service, err := filterServiceVars(serviceName, jobSpec.DeployContents, deployServiceMap[serviceName], serviceMap[serviceName])
+		if err != nil {
+			log.Error(err)
+			return resp, e.ErrFilterWorkflowVars.AddErr(err)
+		}
+		resp = append(resp, service)
+	}
+	return resp, nil
+}
+
+func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {
+	if serviceEnv == nil {
+		return service, fmt.Errorf("service: %v do not exist", serviceName)
+	}
+	defaultUpdateConfig := false
+	if slices.Contains(deployContents, config.DeployConfig) && serviceEnv.Updatable {
+		defaultUpdateConfig = true
+	}
+	if service == nil {
+		service = &commonmodels.DeployService{
+			ServiceName:  serviceName,
+			Updatable:    serviceEnv.Updatable,
+			UpdateConfig: defaultUpdateConfig,
+		}
+		for _, svcVar := range serviceEnv.VariableKVs {
+			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+				Key:   svcVar.Key,
+				Value: svcVar.Value,
+				Type:  commonmodels.StringType,
+			})
+		}
+		return service, nil
+	}
+	service.ServiceName = serviceName
+	service.Updatable = serviceEnv.Updatable
+	service.UpdateConfig = defaultUpdateConfig
+	newVars := []*commonmodels.ServiceKeyVal{}
+	for _, svcVar := range service.KeyVals {
+		for _, varItem := range serviceEnv.VariableKVs {
+			if svcVar.Key == varItem.Key {
+				svcVar.Value = varItem.Value
+				newVars = append(newVars, svcVar)
+				break
+			}
+		}
+	}
+	service.KeyVals = newVars
+	return service, nil
 }

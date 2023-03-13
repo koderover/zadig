@@ -34,6 +34,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -742,7 +743,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	baseRenderset.Revision = 0
 	baseRenderset.EnvName = envName
 	baseRenderset.Name = baseProduct.Namespace
-	err = commonservice.ForceCreateReaderSet(baseRenderset, log)
+	err = render.ForceCreateReaderSet(baseRenderset, log)
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR renderset create err:%v", err)
 	}

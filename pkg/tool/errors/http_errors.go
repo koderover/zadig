@@ -162,7 +162,7 @@ var (
 	ErrUnForkProduct = NewHTTPError(6063, "删除Fork环境失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// Product Service APIs Range: 6080 - 6099
+	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199
 	//-----------------------------------------------------------------------------------------------
 
 	// ErrRestartService ...
@@ -207,9 +207,10 @@ var (
 	ErrLoginPm = NewHTTPError(6099, "登录主机失败")
 
 	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
+	ErrPreviewYaml              = NewHTTPError(6150, "预览Yaml失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// it report APIs Range: 6100 - 6199
+	// it report APIs Range: 6100 - 6149
 	//-----------------------------------------------------------------------------------------------
 
 	// ErrGetItReport ...
@@ -291,6 +292,14 @@ var (
 	// ErrApproveTask ...
 	ErrApproveTask = NewHTTPError(6169, "批准工作流任务失败")
 
+	// ErrSetBreakpoint
+	ErrSetBreakpoint = NewHTTPError(6170, "修改断点状态失败")
+
+	// ErrStopDebugShell
+	ErrStopDebugShell = NewHTTPError(6171, "结束调试步骤失败")
+
+	// ErrGetDebugShell
+	ErrGetDebugShell = NewHTTPError(6172, "获取调试 Shell 失败")
 	//-----------------------------------------------------------------------------------------------
 	// Keystore APIs Range: 6180 - 6189
 	//-----------------------------------------------------------------------------------------------
@@ -490,6 +499,8 @@ var (
 	ErrFindWorkflow = NewHTTPError(6542, "查询workflow失败")
 	// ErrDeleteWorkflow ...
 	ErrDeleteWorkflow = NewHTTPError(6543, "删除workflow失败")
+	// ErrFilterWorkflowVars ...
+	ErrFilterWorkflowVars = NewHTTPError(6544, "过滤workflow服务变量失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Directory APIs Range: 6550 - 6560

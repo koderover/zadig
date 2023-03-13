@@ -39,8 +39,55 @@ func (j *DeployJob) Instantiate() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	j.setDefaultDeployContent()
 	j.job.Spec = j.spec
 	return nil
+}
+
+func (j *DeployJob) setDefaultDeployContent() {
+	if j.spec.DeployContents == nil || len(j.spec.DeployContents) <= 0 {
+		j.spec.DeployContents = []config.DeployContent{config.DeployImage}
+	}
+}
+
+func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.ServiceAndImage, error) {
+	serviceAndImages := []*commonmodels.ServiceAndImage{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != j.spec.JobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return serviceAndImages, err
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					serviceAndImages = append(serviceAndImages, &commonmodels.ServiceAndImage{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+						Image:         build.Image,
+					})
+				}
+				return serviceAndImages, nil
+			}
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return serviceAndImages, err
+				}
+				for _, distribute := range distributeSpec.Tatgets {
+					serviceAndImages = append(serviceAndImages, &commonmodels.ServiceAndImage{
+						ServiceName:   distribute.ServiceName,
+						ServiceModule: distribute.ServiceModule,
+						Image:         distribute.TargetImage,
+					})
+				}
+				return serviceAndImages, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("build job %s not found", jobName)
 }
 
 func (j *DeployJob) SetPreset() error {
@@ -48,8 +95,9 @@ func (j *DeployJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	j.setDefaultDeployContent()
 	j.job.Spec = j.spec
-
+	var err error
 	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
 		return fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
@@ -57,8 +105,6 @@ func (j *DeployJob) SetPreset() error {
 	if project.ProductFeature != nil {
 		j.spec.DeployType = project.ProductFeature.DeployType
 	}
-
-	j.job.Spec = j.spec
 	return nil
 }
 
@@ -74,6 +120,7 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		j.spec.Env = argsSpec.Env
+		j.spec.Services = argsSpec.Services
 		if j.spec.Source == config.SourceRuntime {
 			j.spec.ServiceAndImages = argsSpec.ServiceAndImages
 		}
@@ -85,11 +132,11 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 
 func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
-
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
+	j.setDefaultDeployContent()
 	j.job.Spec = j.spec
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
@@ -129,60 +176,58 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		// clear service and image list to prevent old data from remaining
-		j.spec.ServiceAndImages = []*commonmodels.ServiceAndImage{}
-		for _, stage := range j.workflow.Stages {
-			for _, job := range stage.Jobs {
-				if job.Name != j.spec.JobName {
-					continue
-				}
-				// get deploy target from previous build job
-				if job.JobType == config.JobZadigBuild {
-					buildSpec := &commonmodels.ZadigBuildJobSpec{}
-					if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
-						return resp, err
-					}
-					for _, build := range buildSpec.ServiceAndBuilds {
-						j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
-							ServiceName:   build.ServiceName,
-							ServiceModule: build.ServiceModule,
-							Image:         build.Image,
-						})
-					}
-				}
-				// get deploy target from previous distribute job
-				if job.JobType == config.JobZadigDistributeImage {
-					distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
-					if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
-						return resp, err
-					}
-					for _, distribute := range distributeSpec.Tatgets {
-						j.spec.ServiceAndImages = append(j.spec.ServiceAndImages, &commonmodels.ServiceAndImage{
-							ServiceName:   distribute.ServiceName,
-							ServiceModule: distribute.ServiceModule,
-							Image:         distribute.TargetImage,
-						})
-					}
-				}
-			}
+		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+		if err != nil {
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
+		j.spec.ServiceAndImages = targets
 	}
+
+	serviceMap := map[string]*commonmodels.DeployService{}
+	for _, service := range j.spec.Services {
+		serviceMap[service.ServiceName] = service
+	}
+
 	if j.spec.DeployType == setting.K8SDeployType {
+		deployServiceMap := map[string][]*commonmodels.ServiceAndImage{}
 		for _, deploy := range j.spec.ServiceAndImages {
-			if err := checkServiceExsistsInEnv(productServiceMap, deploy.ServiceName, j.spec.Env); err != nil {
-				return resp, err
-			}
+			deployServiceMap[deploy.ServiceName] = append(deployServiceMap[deploy.ServiceName], deploy)
+		}
+		for serviceName, deploys := range deployServiceMap {
 			jobTaskSpec := &commonmodels.JobTaskDeploySpec{
 				Env:                j.spec.Env,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
-				ServiceName:        deploy.ServiceName,
+				ServiceName:        serviceName,
 				ServiceType:        setting.K8SDeployType,
-				ServiceModule:      deploy.ServiceModule,
+				CreateEnvType:      project.ProductFeature.CreateEnvType,
 				ClusterID:          product.ClusterID,
-				Image:              deploy.Image,
+				Production:         j.spec.Production,
+				DeployContents:     j.spec.DeployContents,
+			}
+			for _, deploy := range deploys {
+				// if external env, check service exists
+				if project.ProductFeature.CreateEnvType == "external" {
+					if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
+						return resp, err
+					}
+				}
+				jobTaskSpec.ServiceAndImages = append(jobTaskSpec.ServiceAndImages, &commonmodels.DeployServiceModule{
+					Image:         deploy.Image,
+					ServiceModule: deploy.ServiceModule,
+				})
+			}
+			if project.ProductFeature.CreateEnvType != "external" {
+				jobTaskSpec.DeployContents = j.spec.DeployContents
+				jobTaskSpec.Production = j.spec.Production
+				service := serviceMap[serviceName]
+				if service != nil {
+					jobTaskSpec.UpdateConfig = service.UpdateConfig
+					jobTaskSpec.KeyVals = service.KeyVals
+				}
 			}
 			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(deploy.ServiceName + "-" + deploy.ServiceModule + "-" + j.job.Name),
-				Key:     strings.Join([]string{j.job.Name, deploy.ServiceName, deploy.ServiceModule}, "."),
+				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
+				Key:     strings.Join([]string{j.job.Name, serviceName}, "."),
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
 			}

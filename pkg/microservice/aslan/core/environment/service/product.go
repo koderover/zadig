@@ -312,7 +312,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 			return prodResp
 		}
 	default:
-		servicesResp, _, errObj = ListGroups("", envName, prod.ProductName, -1, -1, log)
+		servicesResp, _, errObj = ListGroups("", envName, prod.ProductName, -1, -1, prod.Production, log)
 	}
 
 	if errObj != nil {

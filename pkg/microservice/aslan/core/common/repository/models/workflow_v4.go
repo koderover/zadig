@@ -44,6 +44,7 @@ type WorkflowV4 struct {
 	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
 	MultiRun        bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
+	Debug           bool                     `bson:"debug"               yaml:"-"               json:"debug"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
 	MeegoHookCtls   []*MeegoHook             `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
@@ -65,6 +66,8 @@ type Approval struct {
 	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
 	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
 	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
+	StartTime      int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`
+	EndTime        int64               `bson:"end_time"                    yaml:"end_time,omitempty"            json:"end_time,omitempty"`
 	NativeApproval *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
 	LarkApproval   *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
 }
@@ -101,9 +104,9 @@ type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
 	// only for webhook workflow args to skip some tasks.
-	Skipped   bool                `bson:"skipped"      yaml:"skipped"    json:"skipped"`
+	Skipped   bool                `bson:"skipped"        yaml:"skipped"  json:"skipped"`
+	Spec      interface{}         `bson:"spec"           yaml:"spec"     json:"spec"`
 	RunPolicy config.JobRunPolicy `bson:"run_policy"   yaml:"run_policy" json:"run_policy"`
-	Spec      interface{}         `bson:"spec"         yaml:"spec"       json:"spec"`
 }
 
 type CustomDeployJobSpec struct {
@@ -153,13 +156,31 @@ type ServiceAndBuild struct {
 
 type ZadigDeployJobSpec struct {
 	Env                string `bson:"env"                      yaml:"env"                         json:"env"`
+	Production         bool   `bson:"production"               yaml:"production"                  json:"production"`
 	DeployType         string `bson:"deploy_type"              yaml:"-"                           json:"deploy_type"`
 	SkipCheckRunStatus bool   `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
-	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName          string             `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
+	Services         []*DeployService   `bson:"services"             yaml:"services"             json:"services"`
+}
+
+type DeployService struct {
+	ServiceName  string           `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	KeyVals      []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	UpdateConfig bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
+	Updatable    bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
+}
+
+type ServiceKeyVal struct {
+	Key          string               `bson:"key"                       json:"key"                         yaml:"key"`
+	Value        interface{}          `bson:"value"                     json:"value"                       yaml:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	IsCredential bool                 `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 type ServiceAndImage struct {

@@ -154,7 +154,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
 			// 分隔符为\n---\n
-			args.KubeYamls = SplitYaml(args.Yaml)
+			args.KubeYamls = util.SplitYaml(args.Yaml)
 		}
 
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
@@ -407,12 +407,8 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 	// 根据gitlab sync的内容来设置args.KubeYamls
 	args.KubeYamls = files
 	// 拼装并设置args.Yaml
-	args.Yaml = joinYamls(files)
+	args.Yaml = util.JoinYamls(files)
 	return nil
-}
-
-func joinYamls(files []string) string {
-	return strings.Join(files, setting.YamlFileSeperator)
 }
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {
@@ -432,7 +428,7 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 	}
 	if fileContent != nil {
 		svcContent, _ := fileContent.GetContent()
-		splitYaml := SplitYaml(svcContent)
+		splitYaml := util.SplitYaml(svcContent)
 		args.KubeYamls = splitYaml
 		args.Yaml = svcContent
 	} else {
@@ -456,14 +452,10 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 		}
 
 		args.KubeYamls = files
-		args.Yaml = joinYamls(files)
+		args.Yaml = util.JoinYamls(files)
 	}
 
 	return nil
-}
-
-func SplitYaml(yaml string) []string {
-	return strings.Split(yaml, setting.YamlFileSeperator)
 }
 
 func syncSingleFileFromGithub(owner, repo, branch, path, token string) (string, error) {

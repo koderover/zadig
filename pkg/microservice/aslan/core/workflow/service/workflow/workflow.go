@@ -18,6 +18,7 @@ package workflow
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -59,6 +60,7 @@ type Workflow struct {
 	IsFavorite           bool                       `json:"isFavorite"`
 	WorkflowType         string                     `json:"workflow_type"`
 	RecentTask           *TaskInfo                  `json:"recentTask"`
+	RecentTasks          []*TaskInfo                `json:"recentTasks"`
 	RecentSuccessfulTask *TaskInfo                  `json:"recentSuccessfulTask"`
 	RecentFailedTask     *TaskInfo                  `json:"recentFailedTask"`
 	AverageExecutionTime float64                    `json:"averageExecutionTime"`
@@ -71,10 +73,12 @@ type Workflow struct {
 
 type TaskInfo struct {
 	TaskID       int64  `json:"taskID"`
-	PipelineName string `json:"pipelineName"`
+	PipelineName string `json:"pipelineName,omitempty"`
 	Status       string `json:"status"`
 	TaskCreator  string `json:"task_creator"`
 	CreateTime   int64  `json:"create_time"`
+	StartTime    int64  `json:"start_time,omitempty"`
+	EndTime      int64  `json:"end_time,omitempty"`
 }
 
 type workflowCreateArg struct {
@@ -722,21 +726,36 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 	recentFailedTask := &commonrepo.TaskPreview{}
 	recentSucceedTask := &commonrepo.TaskPreview{}
 	workflow.NeverRun = true
+	var workflowList []*commonrepo.TaskPreview
+	var recentTenTask []*commonrepo.TaskPreview
 	for _, task := range tasks {
 		if task.PipelineName != workflow.Name {
 			continue
 		}
 		workflow.NeverRun = false
-		if task.TaskID > recentTask.TaskID {
+		workflowList = append(workflowList, task)
+	}
+	sort.Slice(workflowList, func(i, j int) bool {
+		return workflowList[i].TaskID > workflowList[j].TaskID
+	})
+	for _, task := range workflowList {
+		if recentSucceedTask.TaskID != 0 && recentFailedTask.TaskID != 0 && len(recentTenTask) == 10 {
+			break
+		}
+		if recentTask.TaskID == 0 {
 			recentTask = task
 		}
-		if task.Status == config.StatusPassed && task.TaskID > recentSucceedTask.TaskID {
+		if task.Status == config.StatusPassed && recentSucceedTask.TaskID == 0 {
 			recentSucceedTask = task
 		}
-		if task.Status == config.StatusFailed && task.TaskID > recentFailedTask.TaskID {
+		if task.Status == config.StatusFailed && recentFailedTask.TaskID == 0 {
 			recentFailedTask = task
 		}
+		if len(recentTenTask) < 10 {
+			recentTenTask = append(recentTenTask, task)
+		}
 	}
+
 	if recentTask.TaskID > 0 {
 		workflow.RecentTask = &TaskInfo{
 			TaskID:       recentTask.TaskID,
@@ -762,6 +781,18 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 			Status:       string(recentFailedTask.Status),
 			TaskCreator:  recentFailedTask.TaskCreator,
 			CreateTime:   recentFailedTask.CreateTime,
+		}
+	}
+	if len(recentTenTask) > 0 {
+		for _, task := range recentTenTask {
+			workflow.RecentTasks = append(workflow.RecentTasks, &TaskInfo{
+				TaskID:      task.TaskID,
+				Status:      string(task.Status),
+				TaskCreator: task.TaskCreator,
+				CreateTime:  task.CreateTime,
+				StartTime:   task.StartTime,
+				EndTime:     task.EndTime,
+			})
 		}
 	}
 }

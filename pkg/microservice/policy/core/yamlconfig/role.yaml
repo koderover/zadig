@@ -86,6 +86,13 @@ preset_roles:
           - key: placeholder
             value: placeholder
       - verbs:
+          - get_production_environment
+        resources:
+          - Environment
+        match_attributes:
+          - key: placeholder
+            value: placeholder
+      - verbs:
           - get_service
         resources:
           - Service

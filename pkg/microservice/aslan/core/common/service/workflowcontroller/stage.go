@@ -59,12 +59,10 @@ type StageCtl interface {
 
 func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
 	stage.Status = config.StatusRunning
-	stage.StartTime = time.Now().Unix()
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
 	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
-		stage.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 		return
@@ -75,7 +73,8 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 	}()
-
+	stage.StartTime = time.Now().Unix()
+	ack()
 	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
 
 	stageCtl.Run(ctx, concurrency)
@@ -106,6 +105,12 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 	if !stage.Approval.Enabled {
 		return nil
 	}
+	stage.Approval.StartTime = time.Now().Unix()
+	defer func() {
+		stage.Approval.EndTime = time.Now().Unix()
+	}()
+	// workflowCtx.SetStatus contain ack() function, so we don't need to call ack() here
+	stage.Status = config.StatusWaitingApprove
 	workflowCtx.SetStatus(config.StatusWaitingApprove)
 	defer workflowCtx.SetStatus(config.StatusRunning)
 

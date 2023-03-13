@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -293,7 +292,7 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 				return fmt.Errorf("do not support workload kind:%s", workloadType)
 			}
 		}
-		yaml := strings.Join(yamls, setting.YamlFileSeperator)
+		yaml := util.JoinYamls(yamls)
 		serviceParam := &commonmodels.Service{
 			ProductName: params.ProductName,
 			ServiceName: service.Name,

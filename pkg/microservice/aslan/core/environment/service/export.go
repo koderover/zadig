@@ -30,6 +30,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 // ExportYaml 查询使用到服务模板的服务组模板
@@ -37,7 +38,7 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 	var yamls [][]byte
 	res := make([]string, 0)
 
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName, Production: util.GetBoolPointer(false)})
 	if err != nil {
 		log.Errorf("failed to find env [%s][%s] %v", envName, productName, err)
 		return res

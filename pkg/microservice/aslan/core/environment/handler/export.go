@@ -33,3 +33,14 @@ func ExportYaml(c *gin.Context) {
 
 	ctx.Resp = service.ExportYaml(envName, productName, serviceName, ctx.Logger)
 }
+
+func ExportProductionServiceYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	serviceName := c.Param("serviceName")
+	envName := c.Param("name")
+	productName := c.Query("projectName")
+
+	ctx.Resp, ctx.Err = service.ExportProductionYaml(envName, productName, serviceName, ctx.Logger)
+}

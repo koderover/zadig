@@ -186,6 +186,7 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 		}
 		return resp, err
 	}
+
 	filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
 	if listType == setting.ListNamespaceTypeCreate {
 		nsList, err := commonrepo.NewProductColl().ListExistedNamespace()
@@ -195,6 +196,13 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 		}
 		filterK8sNamespaces.Insert(nsList...)
 	}
+
+	productionEnvs, err := commonrepo.NewProductColl().ListProductionNamespace(clusterID)
+	if err != nil {
+		log.Errorf("Failed to list production namespace from the env List, error: %s", err)
+		return nil, err
+	}
+	filterK8sNamespaces.Insert(productionEnvs...)
 
 	filter := func(namespace *corev1.Namespace) bool {
 		if listType == setting.ListNamespaceTypeALL {

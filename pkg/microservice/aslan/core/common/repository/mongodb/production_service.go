@@ -128,10 +128,11 @@ func (c *ProductionServiceColl) Find(opt *ServiceFindOption) (*models.Service, e
 	return service, nil
 }
 
-func (c *ProductionServiceColl) ListMaxRevisions(serviceType string) ([]*models.Service, error) {
+func (c *ProductionServiceColl) ListMaxRevisions(productName, serviceType string) ([]*models.Service, error) {
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
 	}
+	pre["product_name"] = productName
 	if serviceType != "" {
 		pre["type"] = serviceType
 	}
@@ -185,6 +186,49 @@ func (c *ProductionServiceColl) UpdateStatus(serviceName, productName, status st
 
 	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
+}
+
+func (c *ProductionServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
+	m := bson.M{
+		"product_name": productName,
+		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+
+	return c.listMaxRevisions(m, nil)
+}
+
+func (c *ProductionServiceColl) ListServicesWithSRevision(opt *SvcRevisionListOption) ([]*models.Service, error) {
+	productMatch := bson.M{}
+	productMatch["product_name"] = opt.ProductName
+
+	var serviceMatch bson.A
+	for _, sr := range opt.ServiceRevisions {
+		serviceMatch = append(serviceMatch, bson.M{
+			"service_name": sr.ServiceName,
+			"revision":     sr.Revision,
+		})
+	}
+
+	pipeline := []bson.M{
+		{
+			"$match": productMatch,
+		},
+		{
+			"$match": bson.M{
+				"$or": serviceMatch,
+			},
+		},
+	}
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*models.Service, 0)
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, err
 }
 
 func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {

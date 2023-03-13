@@ -132,6 +132,29 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		operations.GET("", GetOperationLogs)
 	}
 
+	// production environments
+	production := router.Group("production")
+	{
+		production.POST("environments", CreateProductionProduct)
+
+		production.GET("/environments", ListProductionEnvs)
+		production.PUT("/environments/:name/registry", UpdateProductRegistry)
+		production.GET("/environments/:name/groups", ListProductionGroups)
+
+		// used for production deploy workflows
+		production.GET("/environmentsForUpdate", ListProductionEnvs)
+		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
+
+		// services related
+		production.GET("/environments/:name/services/:serviceName", GetServiceInProductionEnv)
+		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
+		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
+
+		production.DELETE("/environments/:name", DeleteProductionProduct)
+		kube.GET("kube/pods/:podName/file", DownloadFileFromPod)
+
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// 产品管理接口(环境)
 	// ---------------------------------------------------------------------------------------
@@ -164,9 +187,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/helm/charts", GetChartInfos)
 		environments.GET("/:name/helm/images", GetImageInfos)
 
+		environments.GET("/:name/services", ListSvcsInEnv)
 		environments.PUT("/:name/services", DeleteProductServices)
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
+		environments.POST("/:name/services/:serviceName/preview", PreviewService)
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
 		environments.POST("/:name/services/:serviceName/restartNew", RestartWorkload)
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)

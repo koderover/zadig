@@ -22,6 +22,8 @@ import (
 	"path"
 	"strings"
 
+	"go.uber.org/zap"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -32,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
 )
 
 const (
@@ -270,7 +271,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
-
+		// init debug before step
+		debugBeforeStep := &commonmodels.StepTask{
+			Name:     build.ServiceName + "-debug_before",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugBefore,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
 		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
@@ -284,7 +291,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
-
+		// init debug after step
+		debugAfterStep := &commonmodels.StepTask{
+			Name:     build.ServiceName + "-debug_after",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugAfter,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 		// init docker build step
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.DockerBuild != nil {
 			dockefileContent := ""
@@ -347,6 +360,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			s3 := modelS3toS3(modelS3)
 			s3.Subfolder = ""
 			uploads := []*step.Upload{}
+			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
+				uploads = append(uploads, &step.Upload{
+					FilePath:        detail.FilePath,
+					DestinationPath: detail.DestinationPath,
+				})
+			}
 			archiveStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-object-storage",
 				JobName:  jobTask.Name,
@@ -357,16 +376,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					S3:              s3,
 				},
 			}
-			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
-				uploads = append(uploads, &step.Upload{
-					FilePath:        detail.FilePath,
-					DestinationPath: detail.DestinationPath,
-				})
-			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 		}
 
-		// init psot build shell step
+		// init post build shell step
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.Scripts != "" {
 			scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
 			shellStep := &commonmodels.StepTask{
@@ -404,6 +417,9 @@ func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) 
 		for _, inputRepo := range input {
 			if originRepo.RepoName == inputRepo.RepoName && originRepo.RepoOwner == inputRepo.RepoOwner {
 				inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
+				if inputRepo.RemoteName == "" {
+					inputRepo.RemoteName = "origin"
+				}
 				origin[i] = inputRepo
 			}
 		}

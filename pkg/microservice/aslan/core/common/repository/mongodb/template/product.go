@@ -266,11 +266,12 @@ func (c *ProductColl) UpdateProductionServiceOrchestration(productName string, s
 	return err
 }
 
-func (c *ProductColl) UpdateProductFeature(productName string, productFeature *template.ProductFeature, updateBy string) error {
+func (c *ProductColl) UpdateProductFeatureAndServices(productName string, productFeature *template.ProductFeature, services [][]string, updateBy string) error {
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"update_time":                     time.Now().Unix(),
 		"update_by":                       updateBy,
+		"services":                        services,
 		"product_feature.deploy_type":     productFeature.DeployType,
 		"product_feature.create_env_type": productFeature.CreateEnvType,
 		"product_feature.basic_facility":  productFeature.BasicFacility,

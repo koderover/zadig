@@ -58,6 +58,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 )
@@ -91,48 +92,6 @@ type YamlPreviewForPorts struct {
 			Port int    `bson:"-"           json:"port"`
 		} `bson:"-"           json:"ports"`
 	} `bson:"-"           json:"spec"`
-}
-
-type KubeResourceKind struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		Name string `yaml:"name"`
-	} `yaml:"metadata"`
-}
-
-type KubeResource struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		Name string `yaml:"name"`
-	} `yaml:"metadata"`
-	Spec struct {
-		Template struct {
-			Spec struct {
-				Containers []map[string]interface{} `yaml:"containers"`
-			} `yaml:"spec"`
-		} `yaml:"template"`
-	} `yaml:"spec"`
-}
-
-type CronjobResource struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		Name string `yaml:"name"`
-	} `yaml:"metadata"`
-	Spec struct {
-		Template struct {
-			Spec struct {
-				Template struct {
-					Spec struct {
-						Containers []map[string]interface{} `yaml:"containers"`
-					} `yaml:"spec"`
-				} `yaml:"template"`
-			} `yaml:"spec"`
-		} `yaml:"jobTemplate"`
-	} `yaml:"spec"`
 }
 
 type YamlPreview struct {
@@ -344,9 +303,9 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
-				bs, _, err = getter.GetDeploymentYaml(args.Namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			}
 
 			if len(bs) == 0 || err != nil {
@@ -954,7 +913,7 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	}
 
 	currentService.RenderedYaml = util.ReplaceWrapLine(currentService.RenderedYaml)
-	currentService.KubeYamls = SplitYaml(currentService.RenderedYaml)
+	currentService.KubeYamls = util.SplitYaml(currentService.RenderedYaml)
 	oldContainers := currentService.Containers
 	if err := setCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)
@@ -1080,12 +1039,12 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	yamlContent := util.ReplaceWrapLine(args.Yaml)
 	yamlContent = getRenderedYaml(args)
 
-	KubeYamls := SplitYaml(yamlContent)
+	KubeYamls := util.SplitYaml(yamlContent)
 	for _, data := range KubeYamls {
-		yamlDataArray := SplitYaml(data)
+		yamlDataArray := util.SplitYaml(data)
 		for _, yamlData := range yamlDataArray {
 			//验证格式
-			resKind := new(KubeResourceKind)
+			resKind := new(types.KubeResourceKind)
 			//在Unmarshal之前填充渲染变量{{.}}
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
 			// replace $Service$ with service name
@@ -1396,7 +1355,7 @@ func ListServicePort(serviceName, serviceType, productName, excludeStatus string
 
 	yamlNew := strings.Replace(resp.Yaml, " {{", " '{{", -1)
 	yamlNew = strings.Replace(yamlNew, "}}\n", "}}'\n", -1)
-	yamls := strings.Split(yamlNew, "---")
+	yamls := util.SplitYaml(yamlNew)
 	for _, yamlStr := range yamls {
 		data, err := yaml.YAMLToJSON([]byte(yamlStr))
 		if err != nil {
@@ -1490,7 +1449,7 @@ func GetGerritServiceYaml(args *commonmodels.Service, log *zap.SugaredLogger) er
 				log.Errorf("CreateServiceTemplate gerrit ReadFile err:%v", err)
 			}
 		}
-		args.Yaml = joinYamls(fileContents)
+		args.Yaml = util.JoinYamls(fileContents)
 	} else {
 		if contentBytes, err := ioutil.ReadFile(path.Join(base, args.GerritPath)); err == nil {
 			args.Yaml = string(contentBytes)
@@ -1532,7 +1491,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.RenderedYaml = util.ReplaceWrapLine(args.RenderedYaml)
 
 			// 分隔符为\n---\n
-			args.KubeYamls = SplitYaml(args.RenderedYaml)
+			args.KubeYamls = util.SplitYaml(args.RenderedYaml)
 		}
 
 		// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
@@ -1580,9 +1539,9 @@ func distinctEnvServices(productName string) (map[string][]*commonmodels.Product
 func setCurrentContainerImages(args *commonmodels.Service) error {
 	var srvContainers []*commonmodels.Container
 	for _, data := range args.KubeYamls {
-		yamlDataArray := SplitYaml(data)
+		yamlDataArray := util.SplitYaml(data)
 		for index, yamlData := range yamlDataArray {
-			resKind := new(KubeResourceKind)
+			resKind := new(types.KubeResourceKind)
 			//在Unmarshal之前填充渲染变量{{.}}
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
 			// replace $Service$ with service name
@@ -1625,7 +1584,7 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 func getContainers(data string) ([]*commonmodels.Container, error) {
 	containers := make([]*commonmodels.Container, 0)
 
-	res := new(KubeResource)
+	res := new(types.KubeResource)
 	if err := yaml.Unmarshal([]byte(data), &res); err != nil {
 		return containers, fmt.Errorf("unmarshal yaml data error: %v", err)
 	}
@@ -1665,7 +1624,7 @@ func getContainers(data string) ([]*commonmodels.Container, error) {
 func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 	containers := make([]*commonmodels.Container, 0)
 
-	res := new(CronjobResource)
+	res := new(types.CronjobResource)
 	if err := yaml.Unmarshal([]byte(data), &res); err != nil {
 		return containers, fmt.Errorf("unmarshal yaml data error: %v", err)
 	}
@@ -1794,14 +1753,6 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHo
 		Message: commit.Message,
 	}
 	return ch, nil
-}
-
-func joinYamls(files []string) string {
-	return strings.Join(files, setting.YamlFileSeperator)
-}
-
-func SplitYaml(yaml string) []string {
-	return strings.Split(yaml, setting.YamlFileSeperator)
 }
 
 func uniqueSlice(elements []*commonmodels.Container) []*commonmodels.Container {

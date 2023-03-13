@@ -21,6 +21,9 @@ import (
 	"path"
 	"strings"
 
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -30,8 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 type TestingJob struct {
@@ -216,7 +217,13 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
-
+		// init debug before step
+		debugBeforeStep := &commonmodels.StepTask{
+			Name:     testing.Name + "-debug_before",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugBefore,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
 		shellStep := &commonmodels.StepTask{
 			Name:     testing.Name + "-shell",
@@ -227,7 +234,13 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
-
+		// init debug after step
+		debugAfterStep := &commonmodels.StepTask{
+			Name:     testing.Name + "-debug_after",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugAfter,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 		// init archive html step
 		if len(testingInfo.TestReportPath) > 0 {
 			uploads := []*step.Upload{
@@ -284,6 +297,34 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
+		}
+
+		// init object storage step
+		if testingInfo.PostTest != nil && testingInfo.PostTest.ObjectStorageUpload != nil && testingInfo.PostTest.ObjectStorageUpload.Enabled {
+			modelS3, err := commonrepo.NewS3StorageColl().Find(testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID)
+			if err != nil {
+				return resp, fmt.Errorf("find object storage: %s failed, err: %v", testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID, err)
+			}
+			s3 := modelS3toS3(modelS3)
+			s3.Subfolder = ""
+			uploads := []*step.Upload{}
+			for _, detail := range testingInfo.PostTest.ObjectStorageUpload.UploadDetail {
+				uploads = append(uploads, &step.Upload{
+					FilePath:        detail.FilePath,
+					DestinationPath: detail.DestinationPath,
+				})
+			}
+			archiveStep := &commonmodels.StepTask{
+				Name:     config.TestJobObjectStorageStepName,
+				JobName:  jobTask.Name,
+				StepType: config.StepArchive,
+				Spec: step.StepArchiveSpec{
+					UploadDetail:    uploads,
+					ObjectStorageID: testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID,
+					S3:              s3,
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 		}
 
 		resp = append(resp, jobTask)

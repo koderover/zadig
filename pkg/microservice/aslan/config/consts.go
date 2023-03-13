@@ -116,7 +116,13 @@ const (
 	StatusPrepare        Status = "prepare"
 	StatusReject         Status = "reject"
 	StatusWaitingApprove Status = "waitforapprove"
+	StatusDebugBefore    Status = "debug_before"
+	StatusDebugAfter     Status = "debug_after"
 )
+
+func InCompletedStatus() []Status {
+	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
+}
 
 type TaskStatus string
 
@@ -172,6 +178,8 @@ const (
 	StepTarArchive        StepType = "tar_archive"
 	StepSonarCheck        StepType = "sonar_check"
 	StepDistributeImage   StepType = "distribute_image"
+	StepDebugBefore       StepType = "debug_before"
+	StepDebugAfter        StepType = "debug_after"
 )
 
 type JobType string
@@ -228,6 +236,14 @@ type DeploySourceType string
 const (
 	SourceRuntime DeploySourceType = "runtime"
 	SourceFromJob DeploySourceType = "fromjob"
+)
+
+type DeployContent string
+
+const (
+	DeployImage  DeployContent = "image"
+	DeployVars   DeployContent = "vars"
+	DeployConfig DeployContent = "config"
 )
 
 type StageType string
@@ -365,6 +381,7 @@ const (
 	TestJobJunitReportStepName   = "junit-report-step"
 	TestJobHTMLReportStepName    = "html-report-step"
 	TestJobArchiveResultStepName = "archive-result-step"
+	TestJobObjectStorageStepName = "object-storage-step"
 )
 
 type JobRunPolicy string

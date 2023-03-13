@@ -25,6 +25,8 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -41,6 +43,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	larktool "github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
@@ -48,6 +53,12 @@ import (
 	jobspec "github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 	stepspec "github.com/koderover/zadig/pkg/types/step"
+)
+
+const (
+	checkShellStepStart  = "ls /zadig/debug/shell_step"
+	checkShellStepDone   = "ls /zadig/debug/shell_step_done"
+	setOrUnsetBreakpoint = "%s /zadig/debug/breakpoint_%s"
 )
 
 type CreateTaskV4Resp struct {
@@ -71,6 +82,7 @@ type WorkflowTaskPreview struct {
 	ProjectName         string                `bson:"project_name"              json:"project_name"`
 	Error               string                `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool                  `bson:"is_restart"                json:"is_restart"`
+	Debug               bool                  `bson:"debug"                     json:"debug"`
 }
 
 type StageTaskPreview struct {
@@ -84,13 +96,16 @@ type StageTaskPreview struct {
 }
 
 type JobTaskPreview struct {
-	Name      string        `bson:"name"           json:"name"`
-	JobType   string        `bson:"type"           json:"type"`
-	Status    config.Status `bson:"status"         json:"status"`
-	StartTime int64         `bson:"start_time"     json:"start_time,omitempty"`
-	EndTime   int64         `bson:"end_time"       json:"end_time,omitempty"`
-	Error     string        `bson:"error"          json:"error"`
-	Spec      interface{}   `bson:"spec"           json:"spec"`
+	Name             string        `bson:"name"           json:"name"`
+	JobType          string        `bson:"type"           json:"type"`
+	Status           config.Status `bson:"status"         json:"status"`
+	StartTime        int64         `bson:"start_time"     json:"start_time,omitempty"`
+	EndTime          int64         `bson:"end_time"       json:"end_time,omitempty"`
+	CostSeconds      int64         `bson:"cost_seconds"   json:"cost_seconds,omitempty"`
+	Error            string        `bson:"error"          json:"error"`
+	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
+	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`
+	Spec             interface{}   `bson:"spec"           json:"spec"`
 }
 
 type ZadigBuildJobSpec struct {
@@ -118,9 +133,11 @@ type ZadigScanningJobSpec struct {
 }
 
 type ZadigDeployJobSpec struct {
-	Env                string             `bson:"env"                          json:"env"`
-	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
-	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+	Env                string                        `bson:"env"                          json:"env"`
+	SkipCheckRunStatus bool                          `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	ServiceAndImages   []*ServiceAndImage            `bson:"service_and_images"           json:"service_and_images"`
+	YamlContent        string                        `bson:"yaml_content"                 json:"yaml_content"`
+	KeyVals            []*commonmodels.ServiceKeyVal `bson:"key_vals"                     json:"key_vals"`
 }
 
 type CustomDeployJobSpec struct {
@@ -307,6 +324,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.MultiRun = workflow.MultiRun
 	workflowTask.ShareStorages = workflow.ShareStorages
+	workflowTask.IsDebug = workflow.Debug
 
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
@@ -350,6 +368,16 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
 				return resp, e.ErrCreateTask.AddDesc(err.Error())
 			}
+			// add breakpoint_before when workflowTask is debug mode
+			for _, jobTask := range jobs {
+				switch config.JobType(jobTask.JobType) {
+				case config.JobFreestyle, config.JobZadigTesting, config.JobZadigBuild, config.JobZadigScanning:
+					if workflowTask.IsDebug {
+						jobTask.BreakpointBefore = true
+					}
+				}
+			}
+
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
 		}
 		if len(stageTask.Jobs) > 0 {
@@ -392,6 +420,216 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	return task.OriginWorkflowArgs, nil
 }
 
+func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set bool, position string, logger *zap.SugaredLogger) error {
+	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
+	if w == nil {
+		logger.Error("set workflowTaskV4 breakpoint failed: not found task")
+		return e.ErrSetBreakpoint.AddDesc("工作流任务已完成或不存在")
+	}
+	w.Lock()
+	var ack func()
+	defer func() {
+		if ack != nil {
+			ack()
+		}
+		w.Unlock()
+	}()
+	var task *commonmodels.JobTask
+FOR:
+	for _, stage := range w.WorkflowTask.Stages {
+		for _, jobTask := range stage.Jobs {
+			if jobTask.Name == jobName {
+				task = jobTask
+				break FOR
+			}
+		}
+	}
+	if task == nil {
+		logger.Error("set workflowTaskV4 breakpoint failed: not found job")
+		return e.ErrSetBreakpoint.AddDesc("当前任务不存在")
+	}
+	// job task has not run, update data in memory and ack
+	if task.Status == "" {
+		switch position {
+		case "before":
+			task.BreakpointBefore = set
+			ack = w.Ack
+		case "after":
+			task.BreakpointAfter = set
+			ack = w.Ack
+		}
+		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
+		return nil
+	}
+	// job task is running, check whether shell step has run, and touch breakpoint file
+	// if job task status is debug_after, only breakpoint operation can do is unset breakpoint_after, which should be done by StopDebugWorkflowTaskJobV4
+	// if job task status is prepare, setting breakpoints has a low probability of not taking effect, and the current design allows for this flaw
+	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore || task.Status == config.StatusPrepare {
+		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+		if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
+			logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
+			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败")
+		}
+		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+		if err != nil {
+			logger.Errorf("set workflowTaskV4 breakpoint failed: list pods %v", err)
+			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods")
+		}
+		if len(pods) == 0 {
+			logger.Error("set workflowTaskV4 breakpoint failed: list pods num 0")
+			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods num 0")
+		}
+		pod := pods[0]
+		switch pod.Status.Phase {
+		case corev1.PodRunning:
+		default:
+			logger.Errorf("set workflowTaskV4 breakpoint failed: pod status is %s", pod.Status.Phase)
+			return e.ErrSetBreakpoint.AddDesc(fmt.Sprintf("当前任务状态 %s 无法修改断点", pod.Status.Phase))
+		}
+		exec := func(cmd string) bool {
+			opt := podexec.ExecOptions{
+				Namespace:     jobTaskSpec.Properties.Namespace,
+				PodName:       pod.Name,
+				ContainerName: pod.Spec.Containers[0].Name,
+				Command:       []string{"sh", "-c", cmd},
+			}
+			_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+			logger.Errorf("set workflowTaskV4 breakpoint exec %s error: %s", cmd, stderr)
+			return success
+		}
+		touchOrRemove := func(set bool) string {
+			if set {
+				return "touch"
+			}
+			return "rm"
+		}
+		switch position {
+		case "before":
+			if exec(checkShellStepStart) {
+				logger.Error("set workflowTaskV4 before breakpoint failed: shell step has started")
+				return e.ErrSetBreakpoint.AddDesc("当前任务已开始运行脚本，无法修改前断点")
+			}
+			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
+		case "after":
+			if exec(checkShellStepDone) {
+				logger.Error("set workflowTaskV4 after breakpoint failed: shell step has been done")
+				return e.ErrSetBreakpoint.AddDesc("当前任务已运行完脚本，无法修改后断点")
+			}
+			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
+		}
+		// update data in memory and ack
+		switch position {
+		case "before":
+			task.BreakpointBefore = set
+			ack = w.Ack
+		case "after":
+			task.BreakpointAfter = set
+			ack = w.Ack
+		}
+		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
+		return nil
+	}
+	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
+	return e.ErrSetBreakpoint.AddDesc("当前任务状态无法修改断点 ")
+}
+
+func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {
+	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
+	if w == nil {
+		logger.Error("set workflowTaskV4 breakpoint failed: not found task")
+		return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
+	}
+	w.Lock()
+	var ack func()
+	defer func() {
+		if ack != nil {
+			ack()
+		}
+		w.Unlock()
+	}()
+	t := w.WorkflowTask
+	if t.IsDebug {
+		return e.ErrStopDebugShell.AddDesc("任务已开启调试模式")
+	}
+	t.IsDebug = true
+	ack = w.Ack
+	logger.Infof("enable workflowTaskV4 debug mode success: %s-%d", workflowName, taskID)
+	return nil
+}
+
+func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, position string, logger *zap.SugaredLogger) error {
+	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
+	if w == nil {
+		logger.Error("stop debug workflowTaskV4 job failed: not found task")
+		return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
+	}
+	w.Lock()
+	var ack func()
+	defer func() {
+		if ack != nil {
+			ack()
+		}
+		w.Unlock()
+	}()
+
+	var task *commonmodels.JobTask
+FOR:
+	for _, stage := range w.WorkflowTask.Stages {
+		for _, jobTask := range stage.Jobs {
+			if jobTask.Name == jobName {
+				task = jobTask
+				break FOR
+			}
+		}
+	}
+	if task == nil {
+		logger.Error("stop workflowTaskV4 debug shell failed: not found job")
+		return e.ErrStopDebugShell.AddDesc("Job不存在")
+	}
+	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
+		logger.Errorf("stop workflowTaskV4 debug shell failed: IToi %v", err)
+		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
+	}
+	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+	if err != nil {
+		logger.Errorf("stop workflowTaskV4 debug shell failed: list pods %v", err)
+		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods")
+	}
+	if len(pods) == 0 {
+		logger.Error("stop workflowTaskV4 debug shell failed: list pods num 0")
+		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods num 0")
+	}
+	pod := pods[0]
+	switch pod.Status.Phase {
+	case corev1.PodRunning:
+	default:
+		logger.Errorf("stop workflowTaskV4 debug shell failed: pod status is %s", pod.Status.Phase)
+		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("Job 状态 %s 无法结束调试", pod.Status.Phase))
+	}
+	exec := func(cmd string) bool {
+		opt := podexec.ExecOptions{
+			Namespace:     jobTaskSpec.Properties.Namespace,
+			PodName:       pod.Name,
+			ContainerName: pod.Spec.Containers[0].Name,
+			Command:       []string{"sh", "-c", cmd},
+		}
+		_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+		logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
+		return success
+	}
+
+	if !exec(fmt.Sprintf("ls /zadig/debug/breakpoint_%s", position)) {
+		logger.Errorf("set workflowTaskV4 %s breakpoint failed: not found file", position)
+		return e.ErrStopDebugShell.AddDesc("未找到断点文件")
+	}
+	exec(fmt.Sprintf("rm /zadig/debug/breakpoint_%s", position))
+
+	ack = w.Ack
+	logger.Infof("stop workflowTaskV4 debug shell success: %s-%d", workflowName, taskID)
+	return nil
+}
+
 func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
 	err := commonrepo.NewworkflowTaskv4Coll().Update(
 		id,
@@ -427,10 +665,34 @@ func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, e
 
 // clean extra message for list workflow
 func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
+	const StatusNotRun = ""
 	for _, workflow := range workflows {
+		var stageList []*commonmodels.StageTask
 		workflow.WorkflowArgs = nil
 		workflow.OriginWorkflowArgs = nil
-		workflow.Stages = nil
+		for _, stage := range workflow.Stages {
+			if stage.Approval != nil && stage.Approval.Enabled {
+				approvalStage := &commonmodels.StageTask{
+					Name:      "人工审批",
+					StartTime: stage.Approval.StartTime,
+					EndTime:   stage.Approval.EndTime,
+				}
+				switch {
+				//case stage.Status == config.StatusWaitingApprove:
+				//	approvalStage.Status = config.StatusWaitingApprove
+				//	stage.Status = StatusNotRun
+				case stage.Status == config.StatusPassed || stage.Status == config.StatusRunning:
+					approvalStage.Status = config.StatusPassed
+				default:
+					approvalStage.Status = stage.Status
+					stage.Status = StatusNotRun
+				}
+				stageList = append(stageList, approvalStage)
+			}
+			stageList = append(stageList, stage)
+			stage.Jobs = nil
+		}
+		workflow.Stages = stageList
 	}
 }
 
@@ -462,7 +724,9 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		EndTime:             task.EndTime,
 		Error:               task.Error,
 		IsRestart:           task.IsRestart,
+		Debug:               task.IsDebug,
 	}
+	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {
 		resp.Stages = append(resp.Stages, &StageTaskPreview{
 			Name:      stage.Name,
@@ -471,7 +735,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			EndTime:   stage.EndTime,
 			Parallel:  stage.Parallel,
 			Approval:  stage.Approval,
-			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext),
+			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow),
 		})
 	}
 	return resp, nil
@@ -490,16 +754,26 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return nil
 }
 
-func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) []*JobTaskPreview {
+func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64) []*JobTaskPreview {
 	resp := []*JobTaskPreview{}
 	for _, job := range jobs {
+		costSeconds := int64(0)
+		if job.StartTime != 0 {
+			costSeconds = now - job.StartTime
+			if job.EndTime != 0 {
+				costSeconds = job.EndTime - job.StartTime
+			}
+		}
 		jobPreview := &JobTaskPreview{
-			Name:      job.Name,
-			Status:    job.Status,
-			StartTime: job.StartTime,
-			EndTime:   job.EndTime,
-			Error:     job.Error,
-			JobType:   job.JobType,
+			Name:             job.Name,
+			Status:           job.Status,
+			StartTime:        job.StartTime,
+			EndTime:          job.EndTime,
+			Error:            job.Error,
+			JobType:          job.JobType,
+			BreakpointBefore: job.BreakpointBefore,
+			BreakpointAfter:  job.BreakpointAfter,
+			CostSeconds:      costSeconds,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):
@@ -623,12 +897,25 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string) 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
+			spec.KeyVals = taskJobSpec.KeyVals
+			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
-			spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
-				ServiceName:   taskJobSpec.ServiceName,
-				ServiceModule: taskJobSpec.ServiceModule,
-				Image:         taskJobSpec.Image,
-			})
+			// for compatibility
+			if taskJobSpec.ServiceModule != "" {
+				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+					ServiceName:   taskJobSpec.ServiceName,
+					ServiceModule: taskJobSpec.ServiceModule,
+					Image:         taskJobSpec.Image,
+				})
+			}
+
+			for _, imageAndmodule := range taskJobSpec.ServiceAndImages {
+				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
+					ServiceName:   taskJobSpec.ServiceName,
+					ServiceModule: imageAndmodule.ServiceModule,
+					Image:         imageAndmodule.Image,
+				})
+			}
 			jobPreview.Spec = spec
 		case string(config.JobZadigHelmDeploy):
 			jobPreview.JobType = string(config.JobZadigDeploy)

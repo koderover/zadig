@@ -50,6 +50,7 @@ type WorkflowTask struct {
 	IsArchived          bool               `bson:"is_archived"               json:"is_archived"`
 	Error               string             `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool               `bson:"is_restart"                json:"is_restart"`
+	IsDebug             bool               `bson:"is_debug"                  json:"is_debug"`
 	MultiRun            bool               `bson:"multi_run"                 json:"multi_run"`
 	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
 }
@@ -63,26 +64,28 @@ type StageTask struct {
 	Status    config.Status `bson:"status"        json:"status"`
 	StartTime int64         `bson:"start_time"    json:"start_time,omitempty"`
 	EndTime   int64         `bson:"end_time"      json:"end_time,omitempty"`
-	Parallel  bool          `bson:"parallel"      json:"parallel"`
-	Approval  *Approval     `bson:"approval"      json:"approval"`
-	Jobs      []*JobTask    `bson:"jobs"          json:"jobs"`
+	Parallel  bool          `bson:"parallel"      json:"parallel,omitempty"`
+	Approval  *Approval     `bson:"approval"      json:"approval,omitempty"`
+	Jobs      []*JobTask    `bson:"jobs"          json:"jobs,omitempty"`
 	Error     string        `bson:"error"         json:"error"`
 }
 
 type JobTask struct {
 	Name string `bson:"name"                json:"name"`
 	// jobTask unique id, unique in the workflow
-	Key        string        `bson:"key"                 json:"key"`
-	K8sJobName string        `bson:"k8s_job_name"        json:"k8s_job_name"`
-	JobType    string        `bson:"type"                json:"type"`
-	Status     config.Status `bson:"status"              json:"status"`
-	StartTime  int64         `bson:"start_time"          json:"start_time,omitempty"`
-	EndTime    int64         `bson:"end_time"            json:"end_time,omitempty"`
-	Error      string        `bson:"error"               json:"error"`
-	Timeout    int64         `bson:"timeout"             json:"timeout"`
-	Retry      int64         `bson:"retry"               json:"retry"`
-	Spec       interface{}   `bson:"spec"                json:"spec"`
-	Outputs    []*Output     `bson:"outputs"             json:"outputs"`
+	Key              string        `bson:"key"                 json:"key"`
+	K8sJobName       string        `bson:"k8s_job_name"        json:"k8s_job_name"`
+	JobType          string        `bson:"type"                json:"type"`
+	Status           config.Status `bson:"status"              json:"status"`
+	StartTime        int64         `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime          int64         `bson:"end_time"            json:"end_time,omitempty"`
+	Error            string        `bson:"error"               json:"error"`
+	Timeout          int64         `bson:"timeout"             json:"timeout"`
+	Retry            int64         `bson:"retry"               json:"retry"`
+	Spec             interface{}   `bson:"spec"                json:"spec"`
+	Outputs          []*Output     `bson:"outputs"             json:"outputs"`
+	BreakpointBefore bool          `bson:"breakpoint_before"   json:"breakpoint_before"`
+	BreakpointAfter  bool          `bson:"breakpoint_after"    json:"breakpoint_after"`
 }
 
 type JobTaskCustomDeploySpec struct {
@@ -98,23 +101,37 @@ type JobTaskCustomDeploySpec struct {
 }
 
 type JobTaskDeploySpec struct {
-	Env                string              `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string              `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	ServiceType        string              `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	ServiceModule      string              `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
-	SkipCheckRunStatus bool                `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
-	Image              string              `bson:"image"                            json:"image"                               yaml:"image"`
-	ClusterID          string              `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	Timeout            int                 `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources   []Resource          `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
-	RelatedPodLabels   []map[string]string `bson:"-"                                json:"-"                                   yaml:"-"`
+	Env                string                 `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string                 `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	Production         bool                   `bson:"production"                       json:"production"                          yaml:"production"`
+	DeployContents     []config.DeployContent `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
+	KeyVals            []*ServiceKeyVal       `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
+	UpdateConfig       bool                   `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
+	YamlContent        string                 `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	ServiceAndImages   []*DeployServiceModule `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
+	ServiceType        string                 `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	CreateEnvType      string                 `bson:"env_type"                         json:"env_type"                            yaml:"env_type"`
+	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ClusterID          string                 `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int                    `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource             `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	RelatedPodLabels   []map[string]string    `bson:"-"                                json:"-"                                   yaml:"-"`
+	// for compatibility
+	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
+	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
+}
+
+type DeployServiceModule struct {
+	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
+	Image         string `bson:"image"                            json:"image"                               yaml:"image"`
 }
 
 type Resource struct {
-	Name      string `bson:"name"                              json:"name"                                 yaml:"name"`
-	Kind      string `bson:"kind"                              json:"kind"                                 yaml:"kind"`
-	Container string `bson:"container"                         json:"container"                            yaml:"container"`
-	Origin    string `bson:"origin"                            json:"origin"                               yaml:"origin"`
+	Name        string `bson:"name"                              json:"name"                                 yaml:"name"`
+	Kind        string `bson:"kind"                              json:"kind"                                 yaml:"kind"`
+	Container   string `bson:"container"                         json:"container"                            yaml:"container"`
+	Origin      string `bson:"origin"                            json:"origin"                               yaml:"origin"`
+	PodOwnerUID string `bson:"pod_owner_uid"                     json:"pod_owner_uid"                        yaml:"pod_owner_uid"`
 }
 
 type JobTaskHelmDeploySpec struct {

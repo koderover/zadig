@@ -22,31 +22,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
-
-//func ListTmplRenderKeys(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	ctx.Resp, ctx.Err = projectservice.ListTmplRenderKeys(c.Query("productTmpl"), ctx.Logger)
-//}
-//
-//func ListRenderSets(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	ctx.Resp, ctx.Err = projectservice.ListRenderSets(c.Query("productTmpl"), ctx.Logger)
-//}
-//
-//func GetRenderSet(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//	//默认取revision最大的渲染集
-//	ctx.Resp, ctx.Err = projectservice.GetRenderSet(c.Param("name"), 0, ctx.Logger)
-//}
 
 func GetRenderSetInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -57,7 +36,7 @@ func GetRenderSetInfo(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetRenderSetInfo(c.Param("name"), revision)
+	ctx.Resp, ctx.Err = render.GetRenderSetInfo(c.Param("name"), revision)
 }
 
 func UpdateRenderSet(c *gin.Context) {
@@ -70,5 +49,5 @@ func UpdateRenderSet(c *gin.Context) {
 		return
 	}
 	args.UpdateBy = ctx.UserName
-	ctx.Err = service.UpdateRenderSet(args, ctx.Logger)
+	ctx.Err = render.UpdateRenderSet(args, ctx.Logger)
 }
