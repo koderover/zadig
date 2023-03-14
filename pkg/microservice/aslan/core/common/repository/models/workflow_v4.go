@@ -209,7 +209,7 @@ type DistributeTarget struct {
 	SourceTag     string `bson:"source_tag,omitempty"      yaml:"source_tag,omitempty"       json:"source_tag,omitempty"`
 	TargetTag     string `bson:"target_tag,omitempty"      yaml:"target_tag,omitempty"       json:"target_tag,omitempty"`
 	SourceImage   string `bson:"source_image,omitempty"    yaml:"source_image,omitempty"     json:"source_image,omitempty"`
-	TargetImage   string `bson:"target_image,omitempty"    yaml:"source_image,omitempty"     json:"target_image,omitempty"`
+	TargetImage   string `bson:"target_image,omitempty"    yaml:"target_image,omitempty"     json:"target_image,omitempty"`
 	// if UpdateTag was false, use SourceTag as TargetTag.
 	UpdateTag bool `bson:"update_tag"                yaml:"update_tag"                json:"update_tag"`
 }
