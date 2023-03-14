@@ -1327,11 +1327,15 @@ func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger
 	return resp, nil
 }
 
-func GetWorkflowGlabalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
-	return append(getDefaultVars(workflow), jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...)
+func GetWorkflowGlabalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) ([]string, error) {
+	vars, err := getDefaultVars(workflow)
+	if err != nil {
+		return nil, err
+	}
+	return append(vars, jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...), nil
 }
 
-func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
+func getDefaultVars(workflow *commonmodels.WorkflowV4) ([]string, error) {
 	vars := []string{}
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "project"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.name"))
@@ -1340,7 +1344,27 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
 	for _, param := range workflow.Params {
 		vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"workflow", "params", param.Name}, ".")))
 	}
-	return vars
+	for _, stage := range workflow.Stages {
+		for _, j := range stage.Jobs {
+			switch j.JobType {
+			case config.JobZadigBuild:
+				spec := new(commonmodels.ZadigBuildJobSpec)
+				if err := commonmodels.IToi(j.Spec, spec); err != nil {
+					return nil, fmt.Errorf("failed to parse job spec: %v", err)
+				}
+
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "SERVICES"}, ".")))
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "BRANCHES"}, ".")))
+				for _, s := range spec.ServiceAndBuilds {
+					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceModule, s.ServiceName, "COMMITID"}, ".")))
+					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceModule, s.ServiceName, "BRANCH"}, ".")))
+				}
+			case config.JobZadigDeploy:
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "envName"}, ".")))
+			}
+		}
+	}
+	return vars, nil
 }
 
 func CheckShareStorageEnabled(clusterID, jobType, identifyName, project string, logger *zap.SugaredLogger) (bool, error) {

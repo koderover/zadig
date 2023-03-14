@@ -510,7 +510,7 @@ func GetWorkflowGlabalVars(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp = workflow.GetWorkflowGlabalVars(args, c.Param("jobName"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.GetWorkflowGlabalVars(args, c.Param("jobName"), ctx.Logger)
 }
 
 func CheckShareStorageEnabled(c *gin.Context) {
