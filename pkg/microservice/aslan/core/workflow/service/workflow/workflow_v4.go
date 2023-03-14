@@ -69,13 +69,9 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	workflow.CreateTime = time.Now().Unix()
 	workflow.UpdateTime = time.Now().Unix()
 
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.Instantiate(job, workflow); err != nil {
-				logger.Errorf("Failed to instantiate workflow v4,error: %v", err)
-				return e.ErrUpsertWorkflow.AddErr(err)
-			}
-		}
+	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
+		logger.Errorf("instantiate workflow error: %s", err)
+		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
 	if _, err := commonrepo.NewWorkflowV4Coll().Create(workflow); err != nil {
@@ -135,14 +131,11 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.Instantiate(job, workflow); err != nil {
-				logger.Errorf("Failed to instantiate workflow v4,error: %v", err)
-				return workflow, e.ErrFindWorkflow.AddErr(err)
-			}
-		}
+	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
+		logger.Errorf("instantiate workflow error: %s", err)
+		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
+
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
 	}
@@ -579,6 +572,11 @@ func lintApprovals(approval *commonmodels.Approval) error {
 }
 
 func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.WorkflowV4Hook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(input.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrCreateWebhook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -614,6 +612,11 @@ func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 }
 
 func UpdateWebhookForWorkflowV4(workflowName string, input *commonmodels.WorkflowV4Hook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(input.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrUpdateWebhook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -743,6 +746,11 @@ func DeleteWebhookForWorkflowV4(workflowName, triggerName string, logger *zap.Su
 }
 
 func CreateGeneralHookForWorkflowV4(workflowName string, arg *models.GeneralHook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(arg.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrCreateGeneralHook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -803,6 +811,11 @@ func ListGeneralHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger
 }
 
 func UpdateGeneralHookForWorkflowV4(workflowName string, arg *models.GeneralHook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(arg.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrUpdateGeneralHook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -890,6 +903,11 @@ func GeneralHookEventHandler(workflowName, hookName string, logger *zap.SugaredL
 }
 
 func CreateJiraHookForWorkflowV4(workflowName string, arg *models.JiraHook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(arg.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrCreateJiraHook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -950,6 +968,11 @@ func ListJiraHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) (
 }
 
 func UpdateJiraHookForWorkflowV4(workflowName string, arg *models.JiraHook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(arg.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrUpdateJiraHook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -1003,6 +1026,11 @@ func DeleteJiraHookForWorkflowV4(workflowName, hookName string, logger *zap.Suga
 }
 
 func CreateMeegoHookForWorkflowV4(workflowName string, arg *models.MeegoHook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(arg.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrCreateMeegoHook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -1063,6 +1091,11 @@ func ListMeegoHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) 
 }
 
 func UpdateMeegoHookForWorkflowV4(workflowName string, arg *models.MeegoHook, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(arg.WorkflowArg); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrUpdateMeegoHook.AddErr(err)
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -1156,6 +1189,11 @@ func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.Sug
 }
 
 func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(input.WorkflowV4Args); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrUpsertCronjob.AddErr(err)
+	}
+
 	if !input.ID.IsZero() {
 		return e.ErrUpsertCronjob.AddDesc("cronjob id is not empty")
 	}
@@ -1187,6 +1225,11 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 }
 
 func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLogger) error {
+	if err := jobctl.InstantiateWorkflow(input.WorkflowV4Args); err != nil {
+		logger.Errorf("instantiate hook args error: %s", err)
+		return e.ErrUpsertCronjob.AddErr(err)
+	}
+
 	_, err := commonrepo.NewCronjobColl().GetByID(input.ID)
 	if err != nil {
 		msg := fmt.Sprintf("cron job not exist, error: %v", err)
