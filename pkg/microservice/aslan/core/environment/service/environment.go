@@ -520,6 +520,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 			if prodService.Type == setting.K8SDeployType {
 				log.Infof("[Namespace:%s][Product:%s][Service:%s] upsert service", envName, productName, prodService.ServiceName)
+				log.Infof("########### service deploy info is %v", deployStrategy)
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
