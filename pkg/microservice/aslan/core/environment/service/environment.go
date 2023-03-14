@@ -2275,7 +2275,7 @@ func getProjectType(productName string) string {
 func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
-	log.Infof("############ upsertService service %s start to be deployed", prodService.ServiceName)
+	log.Infof("############ upsertService service %s start to be deployed", service.ServiceName)
 
 	isUpdate := prevSvc == nil
 	errList := &multierror.Error{
