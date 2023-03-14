@@ -1327,15 +1327,11 @@ func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger
 	return resp, nil
 }
 
-func GetWorkflowGlabalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) ([]string, error) {
-	vars, err := getDefaultVars(workflow)
-	if err != nil {
-		return nil, err
-	}
-	return append(vars, jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...), nil
+func GetWorkflowGlabalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
+	return append(getDefaultVars(workflow), jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...)
 }
 
-func getDefaultVars(workflow *commonmodels.WorkflowV4) ([]string, error) {
+func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
 	vars := []string{}
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "project"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.name"))
@@ -1348,19 +1344,10 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) ([]string, error) {
 		for _, j := range stage.Jobs {
 			switch j.JobType {
 			case config.JobZadigBuild:
-				// todo clear debug
-				if v, ok := j.Spec.(map[interface{}]interface{}); ok {
-					log.Infof("map[interface{}]interface{}")
-					for k, vv := range v {
-						log.Infof("k: %v, v: %v", k, vv)
-					}
-				}
-
 				spec := new(commonmodels.ZadigBuildJobSpec)
-				if err := commonmodels.IToi(j.Spec, spec); err != nil {
-					return nil, fmt.Errorf("failed to parse job spec: %v", err)
+				if err := commonmodels.IToiYaml(j.Spec, spec); err != nil {
+					return vars
 				}
-
 				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "SERVICES"}, ".")))
 				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "BRANCHES"}, ".")))
 				for _, s := range spec.ServiceAndBuilds {
@@ -1372,7 +1359,7 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) ([]string, error) {
 			}
 		}
 	}
-	return vars, nil
+	return vars
 }
 
 func CheckShareStorageEnabled(clusterID, jobType, identifyName, project string, logger *zap.SugaredLogger) (bool, error) {
