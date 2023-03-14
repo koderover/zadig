@@ -524,7 +524,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if !commonutil.ServiceDeployed(prodService.ServiceName, deployStrategy) {
+					if !commonutil.ServiceDeployed(service.ServiceName, deployStrategy) {
 						log.Infof("############ service %s do not need to be deployed", prodService.ServiceName)
 						return
 					}
