@@ -107,7 +107,8 @@ func (j *DeployJob) SetPreset() error {
 	}
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
-		j.spec.OriginJobName = getOriginJobName(j.workflow, j.spec.JobName)
+		j.spec.OriginJobName = j.spec.JobName
+		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	}
 	return nil
 }
@@ -180,7 +181,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		// clear service and image list to prevent old data from remaining
-		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+		if j.spec.OriginJobName == "" {
+			j.spec.OriginJobName = j.spec.JobName
+		}
+		targets, err := j.getOriginReferedJobTargets(j.spec.OriginJobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
