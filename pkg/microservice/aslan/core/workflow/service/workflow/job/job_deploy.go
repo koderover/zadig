@@ -107,7 +107,7 @@ func (j *DeployJob) SetPreset() error {
 	}
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
-		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+		j.spec.OriginJobName = getOriginJobName(j.workflow, j.spec.JobName)
 	}
 	return nil
 }
