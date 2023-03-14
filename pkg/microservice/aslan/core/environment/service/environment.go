@@ -525,10 +525,10 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				go func() {
 					defer wg.Done()
 					if !commonutil.ServiceDeployed(service.ServiceName, deployStrategy) {
-						log.Infof("############ service %s do not need to be deployed", prodService.ServiceName)
+						log.Infof("############ service %s do not need to be deployed", service.ServiceName)
 						return
 					}
-					log.Infof("############ service %s start to be deployed", prodService.ServiceName)
+					log.Infof("############ service %s start to be deployed", service.ServiceName)
 					_, errUpsertService := upsertService(
 						updateProd,
 						service,
