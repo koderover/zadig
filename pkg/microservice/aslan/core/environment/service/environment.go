@@ -468,7 +468,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		var wg sync.WaitGroup
 
 		groupSvcs := make([]*commonmodels.ProductService, 0)
-		for _, prodService := range prodServiceGroup {
+		for svcIndex, prodService := range prodServiceGroup {
 			if deletedServices.Has(prodService.ServiceName) {
 				continue
 			}
@@ -501,10 +501,10 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 			if prodService.Type == setting.K8SDeployType {
 				log.Infof("[Namespace:%s][Product:%s][Service:%s] upsert service", envName, productName, prodService.ServiceName)
 				wg.Add(1)
-				go func() {
+				go func(pSvc *commonmodels.ProductService) {
 					defer wg.Done()
-					if !commonutil.ServiceDeployed(prodService.ServiceName, deployStrategy) {
-						containers, errFetchImage := fetchWorkloadImages(prodService, existedProd, renderSet, kubeClient)
+					if !commonutil.ServiceDeployed(pSvc.ServiceName, deployStrategy) {
+						containers, errFetchImage := fetchWorkloadImages(pSvc, existedProd, renderSet, kubeClient)
 						if errFetchImage != nil {
 							service.Error = errFetchImage.Error()
 							return
@@ -522,7 +522,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					} else {
 						service.Error = ""
 					}
-				}()
+				}(prodServiceGroup[svcIndex])
 			}
 		}
 		wg.Wait()
