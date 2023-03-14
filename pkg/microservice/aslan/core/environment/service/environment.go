@@ -525,8 +525,10 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				go func() {
 					defer wg.Done()
 					if !commonutil.ServiceDeployed(prodService.ServiceName, deployStrategy) {
+						log.Infof("############ service %s do not need to be deployed", prodService.ServiceName)
 						return
 					}
+					log.Infof("############ service %s start to be deployed", prodService.ServiceName)
 					_, errUpsertService := upsertService(
 						updateProd,
 						service,
@@ -2273,6 +2275,8 @@ func getProjectType(productName string) string {
 func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
+	log.Infof("############ upsertService service %s start to be deployed", prodService.ServiceName)
+
 	isUpdate := prevSvc == nil
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {
