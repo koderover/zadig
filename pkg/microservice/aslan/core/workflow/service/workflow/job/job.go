@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
 )
@@ -370,7 +369,6 @@ func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, crea
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
 	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, params)
-	log.Info("rendered workflow:\n%s", replacedString)
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
@@ -384,7 +382,6 @@ func renderString(value, template string, inputs []*commonmodels.Param) string {
 func renderMultiLineString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
 		inputValue := strings.ReplaceAll(input.Value, "\n", "\\n")
-		log.Infof("replace %s to %s", fmt.Sprintf(template, input.Name), inputValue)
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value
@@ -435,10 +432,6 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 	for _, param := range workflow.Params {
 		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
 		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
-	}
-	// todo clear debug
-	for _, param := range resp {
-		log.Infof("param: %s, value: %s", param.Name, param.Value)
 	}
 	return resp, nil
 }

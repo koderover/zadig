@@ -455,9 +455,7 @@ func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, pro
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: build.Package, IsCredential: false})
 	for _, repo := range build.Repos {
-		//todo clear debug
-		log.Infof("repo: %+v", repo)
-		ret = append(ret, &commonmodels.KeyVal{Key: repo.RepoName + "_ORG", Value: repo.RepoOwner, IsCredential: false})
+		ret = append(ret, &commonmodels.KeyVal{Key: repo.RepoName + "_ORG", Value: strings.ReplaceAll(repo.RepoOwner, "-", "_"), IsCredential: false})
 	}
 	return ret
 }
