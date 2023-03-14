@@ -1348,6 +1348,14 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) ([]string, error) {
 		for _, j := range stage.Jobs {
 			switch j.JobType {
 			case config.JobZadigBuild:
+				// todo clear debug
+				if v, ok := j.Spec.(map[interface{}]interface{}); ok {
+					log.Infof("map[interface{}]interface{}")
+					for k, vv := range v {
+						log.Infof("k: %v, v: %v", k, vv)
+					}
+				}
+
 				spec := new(commonmodels.ZadigBuildJobSpec)
 				if err := commonmodels.IToi(j.Spec, spec); err != nil {
 					return nil, fmt.Errorf("failed to parse job spec: %v", err)
