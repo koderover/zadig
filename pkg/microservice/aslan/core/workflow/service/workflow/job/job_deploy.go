@@ -180,14 +180,15 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
-		// clear service and image list to prevent old data from remaining
-		if j.spec.OriginJobName == "" {
-			j.spec.OriginJobName = j.spec.JobName
+		// adapt to the front end, use the direct quoted job name
+		if j.spec.OriginJobName != "" {
+			j.spec.JobName = j.spec.OriginJobName
 		}
-		targets, err := j.getOriginReferedJobTargets(j.spec.OriginJobName)
+		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
+		// clear service and image list to prevent old data from remaining
 		j.spec.ServiceAndImages = targets
 	}
 
