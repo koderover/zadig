@@ -412,10 +412,10 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 					}
 					branchList = append(branchList, branch)
 					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.BRANCH",
-						job.Name, serviceAndBuild.ServiceModule, serviceAndBuild.ServiceName),
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
 						Value: branch, ParamsType: "string", IsCredential: false})
 					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.COMMITID",
-						job.Name, serviceAndBuild.ServiceModule, serviceAndBuild.ServiceName),
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
 						Value: commitID, ParamsType: "string", IsCredential: false})
 				}
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(serviceAndModuleName, ","), ParamsType: "string", IsCredential: false})
