@@ -18,38 +18,68 @@ package service
 
 import (
 	"errors"
+	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 func GetReleaseStatOpenAPI(startDate, endDate int64, productName string, log *zap.SugaredLogger) (interface{}, error) {
-	stats, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(startDate, endDate, productName)
+	jobList, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(startDate, endDate, productName)
 	if err != nil {
-		log.Errorf("failed to get release statistics from mongodb, error: %s", err)
-		return nil, errors.New("db error when getting release statistics")
+		log.Errorf("failed to get release job list from mongodb, error: %s", err)
+		return nil, errors.New("db error when getting release jobs")
 	}
 
-	resp := ReleaseStatToStatResp(stats)
+	resp := CalculateReleaseStatsFromJobList(jobList)
 	return resp, nil
 }
 
-func ReleaseStatToStatResp(stats *commonrepo.ProductionDeployJobStats) *OpenAPIStatV2 {
-	resp := &OpenAPIStatV2{
-		Total:        stats.Total,
-		SuccessCount: stats.SuccessCount,
+func CalculateReleaseStatsFromJobList(jobList []*commonmodels.JobInfo) *OpenAPIStatV2 {
+	// first save all the jobs into a map with the date as the key
+	dateJobMap := make(map[string][]*commonmodels.JobInfo)
+
+	successCounter := 0
+
+	for _, job := range jobList {
+		date := time.Unix(job.StartTime, 0).Format("2006-01-02")
+		if _, ok := dateJobMap[date]; !ok {
+			dateJobMap[date] = make([]*commonmodels.JobInfo, 0)
+		}
+		dateJobMap[date] = append(dateJobMap[date], job)
+		if job.Status == string(config.StatusPassed) {
+			successCounter++
+		}
 	}
 
 	dailyStat := make([]*DailyStat, 0)
-	for _, dailyInfo := range stats.DailyStat {
+
+	// then get the stats for each date by iterating the map
+	for date, dateJobList := range dateJobMap {
+		dailySuccessCounter := 0
+		dailyFailCounter := 0
+		for _, job := range dateJobList {
+			if job.Status == string(config.StatusPassed) {
+				dailySuccessCounter++
+			}
+			if job.Status == string(config.StatusTimeout) || job.Status == string(config.StatusFailed) {
+				dailyFailCounter++
+			}
+		}
 		dailyStat = append(dailyStat, &DailyStat{
-			Date:         dailyInfo.Date,
-			Total:        dailyInfo.Total,
-			SuccessCount: dailyInfo.SuccessCount,
-			FailCount:    dailyInfo.FailCount,
+			Date:         date,
+			Total:        int64(len(dateJobList)),
+			SuccessCount: int64(dailySuccessCounter),
+			FailCount:    int64(dailyFailCounter),
 		})
 	}
+
+	resp := new(OpenAPIStatV2)
+	resp.Total = int64(len(jobList))
+	resp.SuccessCount = int64(successCounter)
 	resp.DailyStat = dailyStat
 	return resp
 }
