@@ -238,6 +238,13 @@ const (
 	SourceFromJob DeploySourceType = "fromjob"
 )
 
+type TestModuleType string
+
+const (
+	ProductTestType TestModuleType = ""
+	ServiceTestType TestModuleType = "service_test"
+)
+
 type DeployContent string
 
 const (

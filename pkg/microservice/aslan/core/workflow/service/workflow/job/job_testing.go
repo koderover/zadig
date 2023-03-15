@@ -141,196 +141,221 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, fmt.Errorf("failed to find default s3 storage, error: %v", err)
 	}
 
-	for _, testing := range j.spec.TestModules {
-		testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
-		if err != nil {
-			return resp, fmt.Errorf("find testing: %s error: %v", testing.Name, err)
-		}
-		basicImage, err := commonrepo.NewBasicImageColl().Find(testingInfo.PreTest.ImageID)
-		if err != nil {
-			return resp, fmt.Errorf("find basic image: %s error: %v", testingInfo.PreTest.ImageID, err)
-		}
-		registries, err := commonservice.ListRegistryNamespaces("", true, logger)
-		if err != nil {
-			return resp, fmt.Errorf("list registries error: %v", err)
-		}
-		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(testing.Name + "-" + j.job.Name + "-" + rand.String(5)),
-			Key:     strings.Join([]string{j.job.Name, testing.Name}, "."),
-			JobType: string(config.JobZadigTesting),
-			Spec:    jobTaskSpec,
-			Timeout: int64(testingInfo.Timeout),
-			Outputs: testingInfo.Outputs,
-		}
-		jobTaskSpec.Properties = commonmodels.JobProperties{
-			Timeout:             int64(testingInfo.Timeout),
-			ResourceRequest:     testingInfo.PreTest.ResReq,
-			ResReqSpec:          testingInfo.PreTest.ResReqSpec,
-			CustomEnvs:          renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs),
-			ClusterID:           testingInfo.PreTest.ClusterID,
-			BuildOS:             basicImage.Value,
-			ImageFrom:           testingInfo.PreTest.ImageFrom,
-			Registries:          registries,
-			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, taskID),
-		}
-		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
-		if err != nil {
-			return resp, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
-		}
-
-		if clusterInfo.Cache.MediumType == "" {
-			jobTaskSpec.Properties.CacheEnable = false
-		} else {
-			jobTaskSpec.Properties.Cache = clusterInfo.Cache
-			jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
-			jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
-			jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
-		}
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, testing.ProjectName, testing.Name, logger)...)
-
-		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
-			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
-			jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
-		}
-
-		// init tools install step
-		tools := []*step.Tool{}
-		for _, tool := range testingInfo.PreTest.Installs {
-			tools = append(tools, &step.Tool{
-				Name:    tool.Name,
-				Version: tool.Version,
-			})
-		}
-		toolInstallStep := &commonmodels.StepTask{
-			Name:     fmt.Sprintf("%s-%s", testing.Name, "tool-install"),
-			JobName:  jobTask.Name,
-			StepType: config.StepTools,
-			Spec:     step.StepToolInstallSpec{Installs: tools},
-		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
-		// init git clone step
-		gitStep := &commonmodels.StepTask{
-			Name:     testing.Name + "-git",
-			JobName:  jobTask.Name,
-			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos, jobTaskSpec.Properties.Envs)},
-		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
-		// init debug before step
-		debugBeforeStep := &commonmodels.StepTask{
-			Name:     testing.Name + "-debug_before",
-			JobName:  jobTask.Name,
-			StepType: config.StepDebugBefore,
-		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
-		// init shell step
-		shellStep := &commonmodels.StepTask{
-			Name:     testing.Name + "-shell",
-			JobName:  jobTask.Name,
-			StepType: config.StepShell,
-			Spec: &step.StepShellSpec{
-				Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
-			},
-		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
-		// init debug after step
-		debugAfterStep := &commonmodels.StepTask{
-			Name:     testing.Name + "-debug_after",
-			JobName:  jobTask.Name,
-			StepType: config.StepDebugAfter,
-		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
-		// init archive html step
-		if len(testingInfo.TestReportPath) > 0 {
-			uploads := []*step.Upload{
-				{
-					FilePath:        testingInfo.TestReportPath,
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "html"),
-				},
-			}
-			archiveStep := &commonmodels.StepTask{
-				Name:      config.TestJobHTMLReportStepName,
-				JobName:   jobTask.Name,
-				StepType:  config.StepArchive,
-				Onfailure: true,
-				Spec: step.StepArchiveSpec{
-					UploadDetail: uploads,
-					S3:           modelS3toS3(defaultS3),
-				},
-			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
-		}
-
-		// init test result storage step
-		if len(testingInfo.ArtifactPaths) > 0 {
-			tarArchiveStep := &commonmodels.StepTask{
-				Name:      config.TestJobArchiveResultStepName,
-				JobName:   jobTask.Name,
-				StepType:  config.StepTarArchive,
-				Onfailure: true,
-				Spec: &step.StepTarArchiveSpec{
-					ResultDirs: testingInfo.ArtifactPaths,
-					S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "test-result"),
-					FileName:   setting.ArtifactResultOut,
-					DestDir:    "/tmp",
-				},
-			}
-			if len(testingInfo.ArtifactPaths) > 1 || testingInfo.ArtifactPaths[0] != "" {
-				jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
-			}
-		}
-
-		// init junit report step
-		if len(testingInfo.TestResultPath) > 0 {
-			junitStep := &commonmodels.StepTask{
-				Name:      config.TestJobJunitReportStepName,
-				JobName:   jobTask.Name,
-				StepType:  config.StepJunitReport,
-				Onfailure: true,
-				Spec: &step.StepJunitReportSpec{
-					ReportDir: testingInfo.TestResultPath,
-					S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),
-					TestName:  testing.Name,
-					DestDir:   "/tmp",
-					FileName:  "merged.xml",
-				},
-			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
-		}
-
-		// init object storage step
-		if testingInfo.PostTest != nil && testingInfo.PostTest.ObjectStorageUpload != nil && testingInfo.PostTest.ObjectStorageUpload.Enabled {
-			modelS3, err := commonrepo.NewS3StorageColl().Find(testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID)
+	if j.spec.TestType == config.ProductTestType {
+		for _, testing := range j.spec.TestModules {
+			jobTask, err := j.toJobtask(testing, defaultS3, taskID, "", "", "", logger)
 			if err != nil {
-				return resp, fmt.Errorf("find object storage: %s failed, err: %v", testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID, err)
+				return resp, err
 			}
-			s3 := modelS3toS3(modelS3)
-			s3.Subfolder = ""
-			uploads := []*step.Upload{}
-			for _, detail := range testingInfo.PostTest.ObjectStorageUpload.UploadDetail {
-				uploads = append(uploads, &step.Upload{
-					FilePath:        detail.FilePath,
-					DestinationPath: detail.DestinationPath,
-				})
-			}
-			archiveStep := &commonmodels.StepTask{
-				Name:     config.TestJobObjectStorageStepName,
-				JobName:  jobTask.Name,
-				StepType: config.StepArchive,
-				Spec: step.StepArchiveSpec{
-					UploadDetail:    uploads,
-					ObjectStorageID: testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID,
-					S3:              s3,
-				},
-			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
+			resp = append(resp, jobTask)
 		}
-
-		resp = append(resp, jobTask)
 	}
+	
+	if j.spec.TestType == config.ServiceTestType {
+		for _, target := range j.spec.TargetServices {
+			for _, testing := range j.spec.ServiceAndTests {
+				if testing.ServiceName != target.ServiceName || testing.ServiceModule != target.ServiceModule {
+					continue
+				}
+				jobTask, err := j.toJobtask(&testing.TestModule, defaultS3, taskID, string(j.spec.TestType), testing.ServiceName, testing.ServiceModule, logger)
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, jobTask)
+			}
+		}
+	}
+
 	j.job.Spec = j.spec
 	return resp, nil
+}
+
+func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *commonmodels.S3Storage, taskID int64, testType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
+	testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+	if err != nil {
+		return nil, fmt.Errorf("find testing: %s error: %v", testing.Name, err)
+	}
+	basicImage, err := commonrepo.NewBasicImageColl().Find(testingInfo.PreTest.ImageID)
+	if err != nil {
+		return nil, fmt.Errorf("find basic image: %s error: %v", testingInfo.PreTest.ImageID, err)
+	}
+	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+	if err != nil {
+		return nil, fmt.Errorf("list registries error: %v", err)
+	}
+	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+	jobTask := &commonmodels.JobTask{
+		Name:    jobNameFormat(testing.Name + "-" + j.job.Name + "-" + rand.String(5)),
+		Key:     strings.Join([]string{j.job.Name, testing.Name}, "."),
+		JobType: string(config.JobZadigTesting),
+		Spec:    jobTaskSpec,
+		Timeout: int64(testingInfo.Timeout),
+		Outputs: testingInfo.Outputs,
+	}
+	jobTaskSpec.Properties = commonmodels.JobProperties{
+		Timeout:             int64(testingInfo.Timeout),
+		ResourceRequest:     testingInfo.PreTest.ResReq,
+		ResReqSpec:          testingInfo.PreTest.ResReqSpec,
+		CustomEnvs:          renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs),
+		ClusterID:           testingInfo.PreTest.ClusterID,
+		BuildOS:             basicImage.Value,
+		ImageFrom:           testingInfo.PreTest.ImageFrom,
+		Registries:          registries,
+		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, taskID),
+	}
+	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
+	if err != nil {
+		return jobTask, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
+	}
+
+	if clusterInfo.Cache.MediumType == "" {
+		jobTaskSpec.Properties.CacheEnable = false
+	} else {
+		jobTaskSpec.Properties.Cache = clusterInfo.Cache
+		jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
+		jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
+		jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
+	}
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, logger)...)
+
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+		jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+		jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+	}
+
+	// init tools install step
+	tools := []*step.Tool{}
+	for _, tool := range testingInfo.PreTest.Installs {
+		tools = append(tools, &step.Tool{
+			Name:    tool.Name,
+			Version: tool.Version,
+		})
+	}
+	toolInstallStep := &commonmodels.StepTask{
+		Name:     fmt.Sprintf("%s-%s", testing.Name, "tool-install"),
+		JobName:  jobTask.Name,
+		StepType: config.StepTools,
+		Spec:     step.StepToolInstallSpec{Installs: tools},
+	}
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+	// init git clone step
+	gitStep := &commonmodels.StepTask{
+		Name:     testing.Name + "-git",
+		JobName:  jobTask.Name,
+		StepType: config.StepGit,
+		Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos, jobTaskSpec.Properties.Envs)},
+	}
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
+	// init debug before step
+	debugBeforeStep := &commonmodels.StepTask{
+		Name:     testing.Name + "-debug_before",
+		JobName:  jobTask.Name,
+		StepType: config.StepDebugBefore,
+	}
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
+	// init shell step
+	shellStep := &commonmodels.StepTask{
+		Name:     testing.Name + "-shell",
+		JobName:  jobTask.Name,
+		StepType: config.StepShell,
+		Spec: &step.StepShellSpec{
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
+		},
+	}
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
+	// init debug after step
+	debugAfterStep := &commonmodels.StepTask{
+		Name:     testing.Name + "-debug_after",
+		JobName:  jobTask.Name,
+		StepType: config.StepDebugAfter,
+	}
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
+	// init archive html step
+	if len(testingInfo.TestReportPath) > 0 {
+		uploads := []*step.Upload{
+			{
+				FilePath:        testingInfo.TestReportPath,
+				DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "html"),
+			},
+		}
+		archiveStep := &commonmodels.StepTask{
+			Name:      config.TestJobHTMLReportStepName,
+			JobName:   jobTask.Name,
+			StepType:  config.StepArchive,
+			Onfailure: true,
+			Spec: step.StepArchiveSpec{
+				UploadDetail: uploads,
+				S3:           modelS3toS3(defaultS3),
+			},
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
+	}
+
+	// init test result storage step
+	if len(testingInfo.ArtifactPaths) > 0 {
+		tarArchiveStep := &commonmodels.StepTask{
+			Name:      config.TestJobArchiveResultStepName,
+			JobName:   jobTask.Name,
+			StepType:  config.StepTarArchive,
+			Onfailure: true,
+			Spec: &step.StepTarArchiveSpec{
+				ResultDirs: testingInfo.ArtifactPaths,
+				S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "test-result"),
+				FileName:   setting.ArtifactResultOut,
+				DestDir:    "/tmp",
+			},
+		}
+		if len(testingInfo.ArtifactPaths) > 1 || testingInfo.ArtifactPaths[0] != "" {
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+		}
+	}
+
+	// init junit report step
+	if len(testingInfo.TestResultPath) > 0 {
+		junitStep := &commonmodels.StepTask{
+			Name:      config.TestJobJunitReportStepName,
+			JobName:   jobTask.Name,
+			StepType:  config.StepJunitReport,
+			Onfailure: true,
+			Spec: &step.StepJunitReportSpec{
+				ReportDir: testingInfo.TestResultPath,
+				S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),
+				TestName:  testing.Name,
+				DestDir:   "/tmp",
+				FileName:  "merged.xml",
+			},
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
+	}
+
+	// init object storage step
+	if testingInfo.PostTest != nil && testingInfo.PostTest.ObjectStorageUpload != nil && testingInfo.PostTest.ObjectStorageUpload.Enabled {
+		modelS3, err := commonrepo.NewS3StorageColl().Find(testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID)
+		if err != nil {
+			return jobTask, fmt.Errorf("find object storage: %s failed, err: %v", testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID, err)
+		}
+		s3 := modelS3toS3(modelS3)
+		s3.Subfolder = ""
+		uploads := []*step.Upload{}
+		for _, detail := range testingInfo.PostTest.ObjectStorageUpload.UploadDetail {
+			uploads = append(uploads, &step.Upload{
+				FilePath:        detail.FilePath,
+				DestinationPath: detail.DestinationPath,
+			})
+		}
+		archiveStep := &commonmodels.StepTask{
+			Name:     config.TestJobObjectStorageStepName,
+			JobName:  jobTask.Name,
+			StepType: config.StepArchive,
+			Spec: step.StepArchiveSpec{
+				UploadDetail:    uploads,
+				ObjectStorageID: testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID,
+				S3:              s3,
+			},
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
+	}
+	return jobTask, nil
 }
 
 func (j *TestingJob) LintJob() error {
@@ -359,7 +384,7 @@ func (j *TestingJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	return resp
 }
 
-func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName, testingProject, testingName string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName, testingProject, testingName, testType, serviceName, serviceModule string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	ret = append(ret, getReposVariables(repos)...)
 
@@ -367,6 +392,9 @@ func getTestingJobVariables(repos []*types.Repository, taskID int64, project, wo
 	ret = append(ret, &commonmodels.KeyVal{Key: "PROJECT", Value: project, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "TESTING_PROJECT", Value: testingProject, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "TESTING_NAME", Value: testingName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "TEST_TYPE", Value: testType, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: serviceName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceModule, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "ZADIG", Value: "true", IsCredential: false})
