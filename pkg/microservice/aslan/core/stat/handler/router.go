@@ -68,4 +68,10 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		dashboard.GET("/deploy", GetDeployStatsOpenAPI)
 		dashboard.GET("/test", GetTestStatOpenAPI)
 	}
+
+	// enterprise statistics OpenAPI
+	v2 := router.Group("/v2")
+	{
+		v2.GET("/release", GetReleaseStatOpenAPI)
+	}
 }

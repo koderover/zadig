@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -149,4 +150,18 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue green deployment succeed, now service point to deployemt: %s", c.jobTaskSpec.BlueWorkloadName))
 	c.job.Status = config.StatusPassed
+}
+
+func (c *BlueGreenReleaseJobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
 }

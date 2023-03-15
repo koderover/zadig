@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.uber.org/zap"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -518,4 +519,18 @@ func (c *IstioReleaseJobCtl) timeout() int64 {
 		c.jobTaskSpec.Timeout = c.jobTaskSpec.Timeout * 60
 	}
 	return c.jobTaskSpec.Timeout
+}
+
+func (c *IstioReleaseJobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
 }
