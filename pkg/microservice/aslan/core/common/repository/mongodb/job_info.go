@@ -47,6 +47,12 @@ func (c *JobInfoColl) EnsureIndex(ctx context.Context) error {
 			},
 			Options: options.Index().SetUnique(false),
 		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "type", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
