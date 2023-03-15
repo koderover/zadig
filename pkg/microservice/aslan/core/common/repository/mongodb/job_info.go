@@ -70,6 +70,9 @@ func (c *JobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectN
 	query := bson.M{}
 	query["create_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["production"] = true
+	// TODO: currently the only job type with production env update function is zadig-deploy
+	// if we added production update for helm-deploy type job, we need to update this query
+	query["type"] = config.JobZadigDeploy
 	if len(projectName) != 0 {
 		query["product_name"] = projectName
 	}
