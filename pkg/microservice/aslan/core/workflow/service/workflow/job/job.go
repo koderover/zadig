@@ -505,3 +505,21 @@ func getEnvFromCommitMsg(commitMsg string) []*commonmodels.KeyVal {
 func warpJobError(jobName string, err error) error {
 	return fmt.Errorf("[job: %s] %v", jobName, err)
 }
+
+func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) string {
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			switch v := job.Spec.(type) {
+			case commonmodels.ZadigDistributeImageJobSpec:
+				if v.Source == config.SourceFromJob {
+					return v.JobName
+				}
+			case *commonmodels.ZadigDistributeImageJobSpec:
+				if v.Source == config.SourceFromJob {
+					return v.JobName
+				}
+			}
+		}
+	}
+	return jobName
+}

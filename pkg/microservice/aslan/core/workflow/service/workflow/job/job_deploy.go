@@ -105,6 +105,11 @@ func (j *DeployJob) SetPreset() error {
 	if project.ProductFeature != nil {
 		j.spec.DeployType = project.ProductFeature.DeployType
 	}
+	// if quoted job quote another job, then use the service and image of the quoted job
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.OriginJobName = j.spec.JobName
+		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+	}
 	return nil
 }
 
@@ -175,11 +180,15 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
-		// clear service and image list to prevent old data from remaining
+		// adapt to the front end, use the direct quoted job name
+		if j.spec.OriginJobName != "" {
+			j.spec.JobName = j.spec.OriginJobName
+		}
 		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
+		// clear service and image list to prevent old data from remaining
 		j.spec.ServiceAndImages = targets
 	}
 
