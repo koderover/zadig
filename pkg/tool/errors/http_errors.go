@@ -827,4 +827,9 @@ var (
 	ErrCreateMeegoHook = NewHTTPError(6982, "创建飞书 hook 失败")
 	ErrUpdateMeegoHook = NewHTTPError(6983, "更新飞书 hook 失败")
 	ErrDeleteMeegoHook = NewHTTPError(6984, "删除飞书 hook 失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// apollo releated Error Range: 6990 - 6999
+	//-----------------------------------------------------------------------------------------------
+	ErrGetApolloInfo = NewHTTPError(6990, "获取 apollo 信息失败")
 )

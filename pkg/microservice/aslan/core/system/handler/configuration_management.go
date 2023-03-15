@@ -81,3 +81,24 @@ func ValidateConfigurationManagement(c *gin.Context) {
 	}
 	ctx.Err = service.ValidateConfigurationManagement(string(b), ctx.Logger)
 }
+
+func ListApolloApps(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListApolloApps(c.Param("id"), ctx.Logger)
+}
+
+func ListApolloEnvAndClusters(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListApolloEnvAndClusters(c.Param("id"), c.Param("app_id"), ctx.Logger)
+}
+
+func ListApolloNamespaces(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListApolloNamespaces(c.Param("id"), c.Param("app_id"), c.Param("env"), c.Param("cluster"), ctx.Logger)
+}

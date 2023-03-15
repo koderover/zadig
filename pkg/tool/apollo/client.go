@@ -16,7 +16,10 @@
 
 package apollo
 
-import "github.com/imroc/req/v3"
+import (
+	"github.com/imroc/req/v3"
+	"github.com/pkg/errors"
+)
 
 type Client struct {
 	*req.Client
@@ -25,7 +28,19 @@ type Client struct {
 
 func NewClient(url, token string) *Client {
 	return &Client{
-		Client:  req.C().SetCommonHeader("Authorization", token),
+		Client: req.C().
+			SetCommonHeader("Authorization", token).
+			OnAfterResponse(func(client *req.Client, resp *req.Response) error {
+				if resp.Err != nil {
+					resp.Err = errors.Wrapf(resp.Err, "body: %s", resp.String())
+					return nil
+				}
+				if !resp.IsSuccessState() {
+					resp.Err = errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+					return nil
+				}
+				return nil
+			}),
 		BaseURL: url,
 	}
 }
