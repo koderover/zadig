@@ -507,18 +507,36 @@ func warpJobError(jobName string, err error) error {
 }
 
 func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) string {
+	return getOriginJobNameByRecursion(workflow, jobName, 0)
+}
+
+func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName string, depth int) string {
+	// Recursion depth limit to 10
+	if depth > 10 {
+		return jobName
+	}
+	depth++
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			switch v := job.Spec.(type) {
 			case commonmodels.ZadigDistributeImageJobSpec:
 				if v.Source == config.SourceFromJob {
-					return v.JobName
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			case *commonmodels.ZadigDistributeImageJobSpec:
 				if v.Source == config.SourceFromJob {
-					return v.JobName
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
+				}
+			case commonmodels.ZadigDeployJobSpec:
+				if v.Source == config.SourceFromJob {
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
+				}
+			case *commonmodels.ZadigDeployJobSpec:
+				if v.Source == config.SourceFromJob {
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			}
+
 		}
 	}
 	return jobName

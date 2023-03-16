@@ -68,6 +68,12 @@ func (j *TestingJob) SetPreset() error {
 
 		}
 	}
+	// if quoted job quote another job, then use the service and image of the quoted job
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.OriginJobName = j.spec.JobName
+		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+	}
+	
 	if j.spec.TestType == config.ServiceTestType {
 		for _, testing := range j.spec.ServiceAndTests {
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
@@ -199,6 +205,20 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 	}
 
+	// get deploy info from previous build job
+	if j.spec.Source == config.SourceFromJob {
+		// adapt to the front end, use the direct quoted job name
+		if j.spec.OriginJobName != "" {
+			j.spec.JobName = j.spec.OriginJobName
+		}
+		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+		if err != nil {
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+		}
+		// clear service and image list to prevent old data from remaining
+		j.spec.TargetServices = targets
+	}
+
 	if j.spec.TestType == config.ServiceTestType {
 		for _, target := range j.spec.TargetServices {
 			for _, testing := range j.spec.ServiceAndTests {
@@ -216,6 +236,57 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	j.job.Spec = j.spec
 	return resp, nil
+}
+
+func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.ServiceTestTarget, error) {
+	servicetargets := []*commonmodels.ServiceTestTarget{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != j.spec.JobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+					})
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, distribute := range distributeSpec.Tatgets {
+					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   distribute.ServiceName,
+						ServiceModule: distribute.ServiceModule,
+					})
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				for _, deploy := range deploySpec.ServiceAndImages {
+					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   deploy.ServiceName,
+						ServiceModule: deploy.ServiceModule,
+					})
+				}
+				return servicetargets, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("build job %s not found", jobName)
 }
 
 func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *commonmodels.S3Storage, taskID int64, testType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {

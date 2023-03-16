@@ -220,6 +220,7 @@ type ZadigTestingJobSpec struct {
 	TestType        config.TestModuleType   `bson:"test_type"        yaml:"test_type"        json:"test_type"`
 	Source          config.DeploySourceType `bson:"source"           yaml:"source"           json:"source"`
 	JobName         string                  `bson:"job_name"         yaml:"job_name"         json:"job_name"`
+	OriginJobName   string                  `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
 	TargetServices  []*ServiceTestTarget    `bson:"target_services"  yaml:"target_services"  json:"target_services"`
 	TestModules     []*TestModule           `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
 	ServiceAndTests []*ServiceAndTest       `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
