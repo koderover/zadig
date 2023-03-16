@@ -117,13 +117,16 @@ type ZadigBuildJobSpec struct {
 }
 
 type ZadigTestingJobSpec struct {
-	Repos       []*types.Repository    `bson:"repos"           json:"repos"`
-	JunitReport bool                   `bson:"junit_report"    json:"junit_report"`
-	Archive     bool                   `bson:"archive"         json:"archive"`
-	HtmlReport  bool                   `bson:"html_report"     json:"html_report"`
-	ProjectName string                 `bson:"project_name"    json:"project_name"`
-	TestName    string                 `bson:"test_name"       json:"test_name"`
-	Envs        []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
+	Repos         []*types.Repository    `bson:"repos"           json:"repos"`
+	JunitReport   bool                   `bson:"junit_report"    json:"junit_report"`
+	Archive       bool                   `bson:"archive"         json:"archive"`
+	HtmlReport    bool                   `bson:"html_report"     json:"html_report"`
+	ProjectName   string                 `bson:"project_name"    json:"project_name"`
+	TestName      string                 `bson:"test_name"       json:"test_name"`
+	TestType      string                 `bson:"test_type"       json:"test_type"`
+	ServiceName   string                 `bson:"service_name"    json:"service_name"`
+	ServiceModule string                 `bson:"service_module"  json:"service_module"`
+	Envs          []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
 }
 
 type ZadigScanningJobSpec struct {
@@ -851,6 +854,19 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					spec.TestName = arg.Value
 					continue
 				}
+				if arg.Key == "TESTING_TYPE" {
+					spec.TestType = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE" {
+					spec.ServiceName = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE_MODULE" {
+					spec.ServiceModule = arg.Value
+					continue
+				}
+
 			}
 			if job.Status == config.StatusPassed || job.Status == config.StatusFailed {
 				for _, step := range taskJobSpec.Steps {

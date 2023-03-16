@@ -56,15 +56,28 @@ func (j *TestingJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	for _, testing := range j.spec.TestModules {
-		testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
-		if err != nil {
-			log.Errorf("find testing: %s error: %v", testing.Name, err)
-			continue
-		}
-		testing.Repos = mergeRepos(testingInfo.Repos, testing.Repos)
-		testing.KeyVals = renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs)
+	if j.spec.TestType == config.ProductTestType {
+		for _, testing := range j.spec.TestModules {
+			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+			if err != nil {
+				log.Errorf("find testing: %s error: %v", testing.Name, err)
+				continue
+			}
+			testing.Repos = mergeRepos(testingInfo.Repos, testing.Repos)
+			testing.KeyVals = renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs)
 
+		}
+	}
+	if j.spec.TestType == config.ServiceTestType {
+		for _, testing := range j.spec.ServiceAndTests {
+			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+			if err != nil {
+				log.Errorf("find testing: %s error: %v", testing.Name, err)
+				continue
+			}
+			testing.Repos = mergeRepos(testingInfo.Repos, testing.Repos)
+			testing.KeyVals = renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs)
+		}
 	}
 	j.job.Spec = j.spec
 	return nil
@@ -77,14 +90,33 @@ func (j *TestingJob) GetRepos() ([]*types.Repository, error) {
 		return resp, err
 	}
 
-	for _, testing := range j.spec.TestModules {
-		testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
-		if err != nil {
-			log.Errorf("find testing: %s error: %v", testing.Name, err)
-			continue
+	if j.spec.TestType == config.ProductTestType {
+		for _, testing := range j.spec.TestModules {
+			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+			if err != nil {
+				log.Errorf("find testing: %s error: %v", testing.Name, err)
+				continue
+			}
+			resp = append(resp, mergeRepos(testingInfo.Repos, testing.Repos)...)
 		}
-		resp = append(resp, mergeRepos(testingInfo.Repos, testing.Repos)...)
 	}
+
+	if j.spec.TestType == config.ServiceTestType {
+		for _, target := range j.spec.TargetServices {
+			for _, testing := range j.spec.ServiceAndTests {
+				if testing.ServiceName != target.ServiceName || testing.ServiceModule != target.ServiceModule {
+					continue
+				}
+				testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+				if err != nil {
+					log.Errorf("find testing: %s error: %v", testing.Name, err)
+					continue
+				}
+				resp = append(resp, mergeRepos(testingInfo.Repos, testing.Repos)...)
+			}
+		}
+	}
+
 	return resp, nil
 }
 
@@ -100,15 +132,31 @@ func (j *TestingJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 
-		for _, testing := range j.spec.TestModules {
-			for _, argsTesting := range argsSpec.TestModules {
-				if testing.Name == argsTesting.Name {
-					testing.Repos = mergeRepos(testing.Repos, argsTesting.Repos)
-					testing.KeyVals = renderKeyVals(argsTesting.KeyVals, testing.KeyVals)
-					break
+		if j.spec.TestType == config.ProductTestType {
+			for _, testing := range j.spec.TestModules {
+				for _, argsTesting := range argsSpec.TestModules {
+					if testing.Name == argsTesting.Name {
+						testing.Repos = mergeRepos(testing.Repos, argsTesting.Repos)
+						testing.KeyVals = renderKeyVals(argsTesting.KeyVals, testing.KeyVals)
+						break
+					}
 				}
 			}
 		}
+
+		if j.spec.TestType == config.ServiceTestType {
+			j.spec.TargetServices = argsSpec.TargetServices
+			for _, testing := range j.spec.ServiceAndTests {
+				for _, argsTesting := range argsSpec.ServiceAndTests {
+					if testing.Name == argsTesting.Name {
+						testing.Repos = mergeRepos(testing.Repos, argsTesting.Repos)
+						testing.KeyVals = renderKeyVals(argsTesting.KeyVals, testing.KeyVals)
+						break
+					}
+				}
+			}
+		}
+
 		j.job.Spec = j.spec
 	}
 	return nil
@@ -150,7 +198,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			resp = append(resp, jobTask)
 		}
 	}
-	
+
 	if j.spec.TestType == config.ServiceTestType {
 		for _, target := range j.spec.TargetServices {
 			for _, testing := range j.spec.ServiceAndTests {
