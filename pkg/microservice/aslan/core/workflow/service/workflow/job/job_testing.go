@@ -73,7 +73,7 @@ func (j *TestingJob) SetPreset() error {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	}
-	
+
 	if j.spec.TestType == config.ServiceTestType {
 		for _, testing := range j.spec.ServiceAndTests {
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
@@ -478,6 +478,18 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 }
 
 func (j *TestingJob) LintJob() error {
+	j.spec = &commonmodels.ZadigTestingJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	if j.spec.Source != config.SourceFromJob {
+		return nil
+	}
+	jobRankMap := getJobRankMap(j.workflow.Stages)
+	buildJobRank, ok := jobRankMap[j.spec.JobName]
+	if !ok || buildJobRank >= jobRankMap[j.job.Name] {
+		return fmt.Errorf("can not quote job %s in job %s", j.spec.JobName, j.job.Name)
+	}
 	return nil
 }
 
