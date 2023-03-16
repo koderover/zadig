@@ -75,7 +75,9 @@ func (j *TestingJob) SetPreset() error {
 	}
 
 	if j.spec.TestType == config.ServiceTestType {
+		serviceMap := map[string]bool{}
 		for _, testing := range j.spec.ServiceAndTests {
+			serviceMap[fmt.Sprintf("%s/%s", testing.ServiceName, testing.ServiceModule)] = true
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
 			if err != nil {
 				log.Errorf("find testing: %s error: %v", testing.Name, err)
@@ -84,6 +86,13 @@ func (j *TestingJob) SetPreset() error {
 			testing.Repos = mergeRepos(testingInfo.Repos, testing.Repos)
 			testing.KeyVals = renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs)
 		}
+		filteredTargets := []*commonmodels.ServiceTestTarget{}
+		for _, target := range j.spec.TargetServices {
+			if _, ok := serviceMap[fmt.Sprintf("%s/%s", target.ServiceName, target.ServiceModule)]; ok {
+				filteredTargets = append(filteredTargets, target)
+			}
+		}
+		j.spec.TargetServices = filteredTargets
 	}
 	j.job.Spec = j.spec
 	return nil
@@ -108,18 +117,13 @@ func (j *TestingJob) GetRepos() ([]*types.Repository, error) {
 	}
 
 	if j.spec.TestType == config.ServiceTestType {
-		for _, target := range j.spec.TargetServices {
-			for _, testing := range j.spec.ServiceAndTests {
-				if testing.ServiceName != target.ServiceName || testing.ServiceModule != target.ServiceModule {
-					continue
-				}
-				testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
-				if err != nil {
-					log.Errorf("find testing: %s error: %v", testing.Name, err)
-					continue
-				}
-				resp = append(resp, mergeRepos(testingInfo.Repos, testing.Repos)...)
+		for _, testing := range j.spec.ServiceAndTests {
+			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+			if err != nil {
+				log.Errorf("find testing: %s error: %v", testing.Name, err)
+				continue
 			}
+			resp = append(resp, mergeRepos(testingInfo.Repos, testing.Repos)...)
 		}
 	}
 
