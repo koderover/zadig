@@ -550,13 +550,6 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				err = e.ErrRestartService.AddErr(err)
 				return
 			}
-			//if !commonutil.ServiceDeployed(args.ServiceName, productObj.ServiceDeployStrategy) {
-			//	productObj.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
-			//	errUpdate := commonrepo.NewProductColl().UpdateDeployStrategy(productObj.EnvName, productObj.ProductName, productObj.ServiceDeployStrategy)
-			//	if errUpdate != nil {
-			//		log.Errorf("failed to update serviceDeployStrategy for env: %s:%s, err: %s", productObj.ProductName, productObj.EnvName, errUpdate)
-			//	}
-			//}
 		}
 	}
 
