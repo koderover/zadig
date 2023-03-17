@@ -157,7 +157,7 @@ type ServiceAndBuild struct {
 type ZadigDeployJobSpec struct {
 	Env                string `bson:"env"                      yaml:"env"                         json:"env"`
 	Production         bool   `bson:"production"               yaml:"production"                  json:"production"`
-	DeployType         string `bson:"deploy_type"              yaml:"-"                           json:"deploy_type"`
+	DeployType         string `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
 	SkipCheckRunStatus bool   `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
@@ -210,8 +210,8 @@ type DistributeTarget struct {
 	ServiceModule string `bson:"service_module"            yaml:"service_module"             json:"service_module"`
 	SourceTag     string `bson:"source_tag,omitempty"      yaml:"source_tag,omitempty"       json:"source_tag,omitempty"`
 	TargetTag     string `bson:"target_tag,omitempty"      yaml:"target_tag,omitempty"       json:"target_tag,omitempty"`
-	SourceImage   string `bson:"source_image,omitempty"    yaml:"-"                          json:"source_image,omitempty"`
-	TargetImage   string `bson:"target_image,omitempty"    yaml:"-"                          json:"target_image,omitempty"`
+	SourceImage   string `bson:"source_image,omitempty"    yaml:"source_image,omitempty"     json:"source_image,omitempty"`
+	TargetImage   string `bson:"target_image,omitempty"    yaml:"target_image,omitempty"     json:"target_image,omitempty"`
 	// if UpdateTag was false, use SourceTag as TargetTag.
 	UpdateTag bool `bson:"update_tag"                yaml:"update_tag"                json:"update_tag"`
 }
@@ -403,9 +403,9 @@ type IstioJobTarget struct {
 	ContainerName      string `bson:"container_name"            json:"container_name"            yaml:"container_name"`
 	VirtualServiceName string `bson:"virtual_service_name"      json:"virtual_service_name"      yaml:"virtual_service_name"`
 	Host               string `bson:"host"                      json:"host"                      yaml:"host"`
-	Image              string `bson:"image"                     json:"image"                     yaml:"-"`
-	CurrentReplica     int    `bson:"current_replica,omitempty" json:"current_replica,omitempty" yaml:"-"`
-	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"-"`
+	Image              string `bson:"image"                     json:"image"                     yaml:"image,omitempty"`
+	CurrentReplica     int    `bson:"current_replica,omitempty" json:"current_replica,omitempty" yaml:"current_replica,omitempty"`
+	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"target_replica,omitempty"`
 }
 
 type NacosJobSpec struct {

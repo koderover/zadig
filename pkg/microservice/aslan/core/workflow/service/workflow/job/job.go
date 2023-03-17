@@ -104,6 +104,17 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 	return resp, nil
 }
 
+func InstantiateWorkflow(workflow *commonmodels.WorkflowV4) error {
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if err := Instantiate(job, workflow); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func Instantiate(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	ctl, err := InitJobCtl(job, workflow)
 	if err != nil {

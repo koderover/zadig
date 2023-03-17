@@ -155,17 +155,6 @@ func (gtem giteeTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.MainH
 			return false, nil
 		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.Repository.DefaultBranch {
-			return false, nil
-		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			matched, err := regexp.MatchString(hookRepo.Branch, ev.Repository.DefaultBranch)
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
 		hookRepo.Tag = getTagFromRef(ev.Ref)
 		hookRepo.Committer = ev.Sender.Name
 

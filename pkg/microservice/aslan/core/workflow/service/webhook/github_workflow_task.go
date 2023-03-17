@@ -261,16 +261,6 @@ func (gtem githubTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		return false, nil
 	}
 
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != *ev.Repo.DefaultBranch {
-		return false, nil
-	}
-	if isRegular {
-		// Do not use regexp.MustCompile to avoid panic
-		if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.Repo.DefaultBranch); !matched {
-			return false, nil
-		}
-	}
 	hookRepo.Tag = getTagFromRef(*ev.Ref)
 	if ev.Sender.Name != nil {
 		hookRepo.Committer = *ev.Sender.Name

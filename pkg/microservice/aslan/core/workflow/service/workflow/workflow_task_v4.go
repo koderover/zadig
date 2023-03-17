@@ -278,6 +278,11 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
+		log.Errorf("instantiate workflow error: %s", err)
+		return resp, e.ErrCreateTask.AddErr(err)
+	}
+
 	workflowTask := &commonmodels.WorkflowTask{}
 
 	// if user info exists, get user email and put it to workflow task info

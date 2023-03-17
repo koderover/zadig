@@ -39,6 +39,8 @@ type JobCtl interface {
 	Run(ctx context.Context)
 	// do some clean stuff when workflow finished, like collect reports or clean up resources.
 	Clean(ctx context.Context)
+	// SaveInfo is used to update the basic information of the job task to the mongoDB
+	SaveInfo(ctx context.Context) error
 }
 
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
@@ -103,7 +105,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	ack()
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
-	defer func() {
+	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+	defer func(jobInfo *JobCtl) {
 		if err := recover(); err != nil {
 			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
 			logger.Error(errMsg)
@@ -113,8 +116,12 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
-	}()
-	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+		logger.Infof("updating job info into db...")
+		err := jobCtl.SaveInfo(ctx)
+		if err != nil {
+			logger.Errorf("update job info: %s into db error: %v", err)
+		}
+	}(&jobCtl)
 
 	jobCtl.Run(ctx)
 }
