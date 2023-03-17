@@ -566,3 +566,28 @@ func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (str
 	}
 	return string(mergedBs), nil
 }
+
+func (c *HelmDeployJobCtl) SaveInfo(ctx context.Context) error {
+	modules := make([]string, 0)
+	for _, module := range c.jobTaskSpec.ImageAndModules {
+		modules = append(modules, module.ServiceModule)
+	}
+	moduleList := strings.Join(modules, ",")
+	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+
+		ServiceType:   c.jobTaskSpec.ServiceType,
+		ServiceName:   c.jobTaskSpec.ServiceName,
+		TargetEnv:     c.jobTaskSpec.Env,
+		ServiceModule: moduleList,
+		// helm deploy does not have production deploy now
+	})
+}

@@ -42,3 +42,28 @@ func Age(unixTime int64) string {
 	}
 	return "0s"
 }
+
+// GetDailyStartTimestamps returns a slice of Unix timestamps representing the start of each day between startTimestamp and endTimestamp.
+// It is worth mentioning that we will add an additional date timestamp just to make life easier.
+func GetDailyStartTimestamps(startTimestamp, endTimestamp int64) []int64 {
+	startTime := time.Unix(startTimestamp, 0)
+	endTime := time.Unix(endTimestamp, 0)
+
+	numDays := int(endTime.Sub(startTime).Hours() / 24)
+
+	dailyStartTimestamps := make([]int64, numDays+2)
+
+	for i := 0; i <= numDays; i++ {
+		// Calculate the start of the current day
+		currentDay := startTime.Add(time.Duration(i*24) * time.Hour)
+		startOfDay := time.Date(currentDay.Year(), currentDay.Month(), currentDay.Day(), 0, 0, 0, 0, time.UTC)
+
+		// Convert the start of the day to a Unix timestamp
+		dailyStartTimestamps[i] = startOfDay.Unix()
+	}
+
+	// add a day to the last day
+	dailyStartTimestamps[numDays+1] = endTimestamp + 24*60*60
+
+	return dailyStartTimestamps
+}

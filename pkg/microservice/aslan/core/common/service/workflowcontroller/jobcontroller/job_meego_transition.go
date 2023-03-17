@@ -80,3 +80,17 @@ func (c *MeegoTransitionJobCtl) Run(ctx context.Context) {
 	}
 	c.job.Status = config.StatusPassed
 }
+
+func (c *MeegoTransitionJobCtl) SaveInfo(ctx context.Context) error {
+	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
+}

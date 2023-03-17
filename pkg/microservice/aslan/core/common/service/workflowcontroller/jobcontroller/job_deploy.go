@@ -560,3 +560,28 @@ func (c *DeployJobCtl) timeout() int {
 	}
 	return c.jobTaskSpec.Timeout
 }
+
+func (c *DeployJobCtl) SaveInfo(ctx context.Context) error {
+	modules := make([]string, 0)
+	for _, module := range c.jobTaskSpec.ServiceAndImages {
+		modules = append(modules, module.ServiceModule)
+	}
+	moduleList := strings.Join(modules, ",")
+	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+
+		ServiceType:   c.jobTaskSpec.ServiceType,
+		ServiceName:   c.jobTaskSpec.ServiceName,
+		ServiceModule: moduleList,
+		TargetEnv:     c.jobTaskSpec.Env,
+		Production:    c.jobTaskSpec.Production,
+	})
+}
