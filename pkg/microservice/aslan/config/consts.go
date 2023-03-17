@@ -209,6 +209,7 @@ const (
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
 	JobMeegoTransition      JobType = "meego-transition"
+	JobWorkflowTrigger      JobType = "workflow-trigger"
 )
 
 const (
@@ -236,6 +237,13 @@ type DeploySourceType string
 const (
 	SourceRuntime DeploySourceType = "runtime"
 	SourceFromJob DeploySourceType = "fromjob"
+)
+
+type TriggerWorkflowSourceType string
+
+const (
+	TriggerWorkflowSourceRuntime TriggerWorkflowSourceType = "runtime"
+	TriggerWorkflowSourceFromJob TriggerWorkflowSourceType = "fromjob"
 )
 
 type DeployContent string
@@ -354,6 +362,13 @@ const (
 	GrayContainerAnnotationKey = "zadig-gray-release-container"
 	GrayReplicaAnnotationKey   = "zadig-gray-release-replica"
 	GrayDeploymentSuffix       = "-zadig-gray"
+)
+
+type WorkflowTriggerType string
+
+const (
+	WorkflowTriggerTypeCommon WorkflowTriggerType = "common"
+	WorkflowTriggerTypeFixed  WorkflowTriggerType = "fixed"
 )
 
 type ProjectType string

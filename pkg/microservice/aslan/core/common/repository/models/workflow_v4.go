@@ -415,6 +415,31 @@ type NacosJobSpec struct {
 	DataFixed   bool                 `bson:"data_fixed"       json:"data_fixed"       yaml:"data_fixed"`
 }
 
+type WorkflowTriggerJobSpec struct {
+	IsEnableCheck bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`
+	TriggerType   config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
+	// FixedWorkflowList is the only field used for trigger_type = fixed
+	FixedWorkflowList []*ServiceTriggerWorkflowInfo `bson:"fixed_workflow_list" json:"fixed_workflow_list" yaml:"fixed_workflow_list"`
+
+	// ServiceTriggerWorkflow and other fields are used for trigger_type = common
+	ServiceTriggerWorkflow []*ServiceTriggerWorkflowInfo    `bson:"service_trigger_workflow" json:"service_trigger_workflow" yaml:"service_trigger_workflow"`
+	Source                 config.TriggerWorkflowSourceType `bson:"source" json:"source" yaml:"source"`
+	SourceJobName          string                           `bson:"source_job_name" json:"source_job_name" yaml:"source_job_name"`
+	SourceService          []*ServiceNameAndModule          `bson:"source_service" json:"source_service" yaml:"source_service"`
+}
+
+type ServiceNameAndModule struct {
+	ServiceName   string `bson:"service_name" json:"service_name" yaml:"service_name"`
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+}
+
+type ServiceTriggerWorkflowInfo struct {
+	ServiceName   string   `bson:"service_name" json:"service_name" yaml:"service_name"`
+	ServiceModule string   `bson:"service_module" json:"service_module" yaml:"service_module"`
+	WorkflowName  string   `bson:"workflow_name" json:"workflow_name" yaml:"workflow_name"`
+	Params        []*Param `bson:"params" json:"params" yaml:"params"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`
