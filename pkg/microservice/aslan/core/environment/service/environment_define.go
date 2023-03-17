@@ -207,7 +207,6 @@ type K8sDeployStatusCheckRequest struct {
 	ClusterID     string                           `json:"cluster_id"`
 	Namespace     string                           `json:"namespace"`
 	DefaultValues string                           `json:"default_values"`
-	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
 type HelmDeployStatusCheckRequest struct {
@@ -215,7 +214,6 @@ type HelmDeployStatusCheckRequest struct {
 	Services  []string `json:"services"`
 	ClusterID string   `json:"cluster_id"`
 	Namespace string   `json:"namespace"`
-	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
 type DeployStatus string

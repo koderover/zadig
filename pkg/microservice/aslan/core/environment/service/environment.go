@@ -468,7 +468,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		var wg sync.WaitGroup
 
 		groupSvcs := make([]*commonmodels.ProductService, 0)
-		for _, prodService := range prodServiceGroup {
+		for svcIndex, prodService := range prodServiceGroup {
 			if deletedServices.Has(prodService.ServiceName) {
 				continue
 			}
@@ -501,22 +501,28 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 			if prodService.Type == setting.K8SDeployType {
 				log.Infof("[Namespace:%s][Product:%s][Service:%s] upsert service", envName, productName, prodService.ServiceName)
 				wg.Add(1)
-				go func() {
+				go func(pSvc *commonmodels.ProductService) {
 					defer wg.Done()
-					if !commonutil.ServiceDeployed(prodService.ServiceName, deployStrategy) {
+					if !commonutil.ServiceDeployed(pSvc.ServiceName, deployStrategy) {
+						containers, errFetchImage := fetchWorkloadImages(pSvc, existedProd, renderSet, kubeClient)
+						if errFetchImage != nil {
+							service.Error = errFetchImage.Error()
+							return
+						}
+						service.Containers = containers
 						return
 					}
 					_, errUpsertService := upsertService(
 						updateProd,
 						service,
 						existedServices[service.ServiceName],
-						renderSet, oldProductRender, inf, kubeClient, istioClient, log)
+						renderSet, oldProductRender, true, inf, kubeClient, istioClient, log)
 					if errUpsertService != nil {
 						service.Error = errUpsertService.Error()
 					} else {
 						service.Error = ""
 					}
-				}()
+				}(prodServiceGroup[svcIndex])
 			}
 		}
 		wg.Wait()
@@ -2168,11 +2174,17 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 		return
 	}
 
-	for _, group := range args.Services {
+	for groupIndex, group := range args.Services {
 		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(user, args, group, renderSet, informer, kubeClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("createGroup error :%+v", err)
+			return
+		}
+		err = commonrepo.NewProductColl().UpdateGroup(envName, args.ProductName, groupIndex, group)
+		if err != nil {
+			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
+			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			return
 		}
 	}
@@ -2214,8 +2226,8 @@ func getProjectType(productName string) string {
 
 // upsertService
 func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
-	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
-) ([]*unstructured.Unstructured, error) {
+	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, addLabel bool, informer informers.SharedInformerFactory,
+	kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	if env.Production {
 		log.Errorf("services in production environments can't be upserted")
 		return nil, nil
@@ -2285,7 +2297,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		KubeClient:          kubeClient,
 		IstioClient:         istioClient,
 		InjectSecrets:       true,
-		AddZadigLabel:       true,
+		AddZadigLabel:       addLabel,
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
