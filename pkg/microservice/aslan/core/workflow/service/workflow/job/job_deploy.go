@@ -26,6 +26,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
+	"golang.org/x/exp/slices"
 )
 
 type DeployJob struct {
@@ -233,6 +234,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.KeyVals = service.KeyVals
 				}
+				// if only deploy images, clear keyvals
+				if onlyDeployImage(j.spec.DeployContents) {
+					jobTaskSpec.KeyVals = []*commonmodels.ServiceKeyVal{}
+				}
 			}
 			jobTask := &commonmodels.JobTask{
 				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
@@ -293,6 +298,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	j.job.Spec = j.spec
 	return resp, nil
+}
+
+func onlyDeployImage(deployContents []config.DeployContent) bool {
+	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
 }
 
 func checkServiceExsistsInEnv(serviceMap map[string]*commonmodels.ProductService, serviceName, env string) error {
