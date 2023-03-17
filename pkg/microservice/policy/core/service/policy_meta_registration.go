@@ -78,11 +78,12 @@ func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger)
 }
 
 var definitionMap = map[string]int{
-	"Template":       1,
-	"TestCenter":     2,
-	"ReleaseCenter":  3,
-	"DeliveryCenter": 4,
-	"DataCenter":     5,
+	"Project":        1,
+	"Template":       2,
+	"TestCenter":     3,
+	"ReleaseCenter":  4,
+	"DeliveryCenter": 5,
+	"DataCenter":     6,
 }
 
 var projectDefinitionMap = map[string]int{
@@ -102,7 +103,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	if err != nil {
 		return nil, err
 	}
-	systemScopeSet := sets.NewString("Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter")
+	systemScopeSet := sets.NewString("Project", "Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter")
 	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service", "ProductionService", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
