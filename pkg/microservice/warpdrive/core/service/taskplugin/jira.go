@@ -99,10 +99,10 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 			p.Task.Error = "nil build info"
 			return
 		}
-		if build.UseDefault {
-			log.Warnf("[jira]skip default repo [%s]", build.RepoName)
-			continue
-		}
+		//if build.UseDefault {
+		//	log.Warnf("[jira]skip default repo [%s]", build.RepoName)
+		//	continue
+		//}
 		if build.PR == 0 && build.Branch == "" {
 			p.Task.TaskStatus = config.StatusSkipped
 			p.Task.Error = "no pull request number and branch found"

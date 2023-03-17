@@ -197,7 +197,7 @@ type Repository struct {
 	CheckoutPath  string `bson:"checkout_path,omitempty"   json:"checkout_path,omitempty"`
 	SubModules    bool   `bson:"submodules,omitempty"      json:"submodules,omitempty"`
 	// UseDefault defines if the repo can be configured in start pipeline task page
-	UseDefault bool `bson:"use_default,omitempty"          json:"use_default,omitempty"`
+	UseDefault bool `bson:"use_default"          json:"use_default"`
 	// IsPrimary used to generated image and package name, each build has one primary repo
 	IsPrimary  bool `bson:"is_primary"                     json:"is_primary"`
 	CodehostID int  `bson:"codehost_id"                    json:"codehost_id"`
