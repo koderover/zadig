@@ -27,7 +27,7 @@ import (
 type getStatReqV2 struct {
 	StartTime   int64  `form:"start_time"`
 	EndTime     int64  `form:"end_time"`
-	ProductName string `form:"product_name"`
+	ProjectName string `form:"project_name"`
 }
 
 func (req *getStatReqV2) Validate() error {
@@ -64,5 +64,5 @@ func GetReleaseStatOpenAPI(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseStatOpenAPI(args.StartTime, args.EndTime, args.ProductName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetReleaseStatOpenAPI(args.StartTime, args.EndTime, args.ProjectName, ctx.Logger)
 }
