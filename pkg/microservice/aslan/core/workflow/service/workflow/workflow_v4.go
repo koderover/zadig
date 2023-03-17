@@ -1383,6 +1383,25 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
 	for _, param := range workflow.Params {
 		vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"workflow", "params", param.Name}, ".")))
 	}
+	for _, stage := range workflow.Stages {
+		for _, j := range stage.Jobs {
+			switch j.JobType {
+			case config.JobZadigBuild:
+				spec := new(commonmodels.ZadigBuildJobSpec)
+				if err := commonmodels.IToiYaml(j.Spec, spec); err != nil {
+					return vars
+				}
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "SERVICES"}, ".")))
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "BRANCHES"}, ".")))
+				for _, s := range spec.ServiceAndBuilds {
+					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceName, s.ServiceModule, "COMMITID"}, ".")))
+					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceName, s.ServiceModule, "BRANCH"}, ".")))
+				}
+			case config.JobZadigDeploy:
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "envName"}, ".")))
+			}
+		}
+	}
 	return vars
 }
 
