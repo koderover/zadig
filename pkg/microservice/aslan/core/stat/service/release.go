@@ -27,7 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
-func GetReleaseStatOpenAPI(startDate, endDate int64, productName string, log *zap.SugaredLogger) (interface{}, error) {
+func GetReleaseStatOpenAPI(startDate, endDate int64, productName string, log *zap.SugaredLogger) (*OpenAPIStatV2, error) {
 	jobList, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(startDate, endDate, productName)
 	if err != nil {
 		log.Errorf("failed to get release job list from mongodb, error: %s", err)
