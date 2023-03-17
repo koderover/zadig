@@ -19,11 +19,12 @@ package jobcontroller
 import (
 	"context"
 
+	"go.uber.org/zap"
+	
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/nacos"
-	"go.uber.org/zap"
 )
 
 type NacosJobCtl struct {

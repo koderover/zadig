@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,10 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
