@@ -290,8 +290,8 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 }
 
 type NameWithParams struct {
-	Name   string
-	Params []*commonmodels.Param
+	Name   string                `json:"name"`
+	Params []*commonmodels.Param `json:"params"`
 }
 
 func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
