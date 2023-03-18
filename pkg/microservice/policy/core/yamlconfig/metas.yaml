@@ -284,19 +284,19 @@ metas:
   - resource: Project
     alias: 项目
     description: ''
-    rule:
+    rules:
       - action: create_project
         alias: 新建
         description: ''
         rules:
           - method: POST
-            endpoint: /api/aslan/project/products
+            endpoint: /api/v1/picket/projects
       - action: delete_project
         alias: 删除
         description: ''
         rules:
           - method: DELETE
-            endpoint: /api/aslan/project/products/?*
+            endpoint: /api/v1/picket/projects/?*
   - resource: TestCenter
     alias: 测试中心
     description: ''
