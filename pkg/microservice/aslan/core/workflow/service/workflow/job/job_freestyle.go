@@ -184,7 +184,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	j.job.Spec = j.spec
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{
 		Properties: *j.spec.Properties,
-		Steps:      stepsToStepTasks(j.spec.Steps, j.spec.Outputs),
+		Steps:      j.stepsToStepTasks(j.spec.Steps),
 	}
 	jobTask := &commonmodels.JobTask{
 		Name:    j.job.Name,
@@ -212,7 +212,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
-func stepsToStepTasks(step []*commonmodels.Step, outputs []*commonmodels.Output) []*commonmodels.StepTask {
+func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmodels.StepTask {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.StepTask{}
 	for _, step := range step {
@@ -220,6 +220,28 @@ func stepsToStepTasks(step []*commonmodels.Step, outputs []*commonmodels.Output)
 			Name:     step.Name,
 			StepType: step.StepType,
 			Spec:     step.Spec,
+		}
+		if stepTask.StepType == config.StepGit {
+			stepTaskSpec := &steptypes.StepGitSpec{}
+			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
+				continue
+			}
+			newRepos := []*types.Repository{}
+			for _, repo := range stepTaskSpec.Repos {
+				if repo.SourceFrom != nil && repo.SourceFrom.Enabled {
+					paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.SourceFrom.GlobalParamName)
+					if err != nil {
+						logger.Errorf("findMatchedRepoFromParams error: %v", err)
+						continue
+					}
+					newRepos = append(newRepos, paramRepo)
+					continue
+				}
+				newRepos = append(newRepos, repo)
+			}
+			stepTaskSpec.Repos = newRepos
+			stepTask.Spec = stepTaskSpec
+
 		}
 		if stepTask.StepType == config.StepDockerBuild {
 			stepTaskSpec := &steptypes.StepDockerBuildSpec{}
@@ -248,7 +270,7 @@ func stepsToStepTasks(step []*commonmodels.Step, outputs []*commonmodels.Output)
 			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
 				continue
 			}
-			stepTaskSpec.Scripts = append(strings.Split(replaceWrapLine(stepTaskSpec.Script), "\n"), outputScript(outputs)...)
+			stepTaskSpec.Scripts = append(strings.Split(replaceWrapLine(stepTaskSpec.Script), "\n"), outputScript(j.spec.Outputs)...)
 			stepTask.Spec = stepTaskSpec
 			// add debug step before shell step
 			debugBeforeStep := &commonmodels.StepTask{

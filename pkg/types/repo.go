@@ -62,6 +62,14 @@ type Repository struct {
 	AuthType           AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"               yaml:"auth_type,omitempty"`
 	SSHKey             string   `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"                 yaml:"ssh_key,omitempty"`
 	PrivateAccessToken string   `bson:"private_access_token,omitempty"  json:"private_access_token,omitempty"    yaml:"private_access_token,omitempty"`
+	// repo come from workflow param or other job, only work for custom workflow
+	SourceFrom *SourceFrom `bson:"source_from"               json:"source_from"                 yaml:"source_from"`
+}
+
+// repo source, only support global params now
+type SourceFrom struct {
+	Enabled         bool   `bson:"enabled"       json:"enabled"       yaml:"enabled"`
+	GlobalParamName string `bson:"param_name"    json:"param_name"    yaml:"param_name"`
 }
 
 type BranchFilterInfo struct {

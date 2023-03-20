@@ -534,3 +534,15 @@ func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) string 
 	}
 	return jobName
 }
+
+func findMatchedRepoFromParams(params []*commonmodels.Param, paramName string) (*types.Repository, error) {
+	for _, param := range params {
+		if param.Name == paramName {
+			if param.ParamsType != "repo" {
+				continue
+			}
+			return param.Repo, nil
+		}
+	}
+	return nil, fmt.Errorf("not found repo from params")
+}
