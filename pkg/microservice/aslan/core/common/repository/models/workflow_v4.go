@@ -229,7 +229,7 @@ type ZadigTestingJobSpec struct {
 type ServiceAndTest struct {
 	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
-	*TestModule   `bson:",inline"  yaml:",inline"  json:",inline"`
+	TestModule    `bson:",inline"  yaml:",inline"  json:",inline"`
 }
 
 type ServiceTestTarget struct {

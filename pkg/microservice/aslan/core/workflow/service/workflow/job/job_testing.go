@@ -229,7 +229,9 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if testing.ServiceName != target.ServiceName || testing.ServiceModule != target.ServiceModule {
 					continue
 				}
-				jobTask, err := j.toJobtask(testing.TestModule, defaultS3, taskID, string(j.spec.TestType), testing.ServiceName, testing.ServiceModule, logger)
+				testModule := &testing.TestModule
+				logger.Errorf("@@@@ testing.TestModule: %v", testModule)
+				jobTask, err := j.toJobtask(testModule, defaultS3, taskID, string(j.spec.TestType), testing.ServiceName, testing.ServiceModule, logger)
 				if err != nil {
 					return resp, err
 				}
