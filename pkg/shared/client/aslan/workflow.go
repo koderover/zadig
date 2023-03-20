@@ -59,10 +59,10 @@ type CreateTaskV4Resp struct {
 }
 
 func (c *Client) CreateWorkflowTaskV4(req *CreateWorkflowTaskV4Req) (*CreateTaskV4Resp, error) {
-	url := "/workflow/v4/workflowtask"
+	url := "/workflow/v4/workflowtask/trigger"
 
 	resp := &CreateTaskV4Resp{}
-	res, err := c.Post(url, httpclient.SetBody(req.Workflow), httpclient.SetQueryParam("username", req.UserName), httpclient.SetResult(resp))
+	res, err := c.Post(url, httpclient.SetBody(req.Workflow), httpclient.SetQueryParam("triggerName", req.UserName), httpclient.SetResult(resp))
 	if err != nil {
 		return nil, errors.Wrap(err, "request failed")
 	}

@@ -93,15 +93,6 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 		}
 		w.Params = e.Params
 
-		//for _, stage := range w.Stages {
-		//	for _, job := range stage.Jobs {
-		//		if err := jobctl.SetPreset(job, w); err != nil {
-		//			logError(c.job, fmt.Sprintf("cannot get workflow %s preset, the error is: %v", w.Name, err), c.logger)
-		//			return
-		//		}
-		//	}
-		//}
-
 		resp, err := client.CreateWorkflowTaskV4(&aslan.CreateWorkflowTaskV4Req{
 			Workflow: w,
 			UserName: setting.WorkflowTriggerTaskCreator,
