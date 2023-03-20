@@ -73,15 +73,17 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 	}
 	var runningTasks = make(map[runningTask]*commonmodels.WorkflowTriggerEvent)
 	cancelAllRunningTasks := func() {
-		for task := range runningTasks {
+		for task, event := range runningTasks {
 			err := client.CancelWorkflowTaskV4(setting.WorkflowTriggerTaskCreator,
 				task.WorkflowName, task.TaskID)
 			if err != nil {
 				log.Errorf("WorkflowTriggerJobCtl: CancelWorkflowTaskV4 %s-%d err: %v", task.WorkflowName, task.TaskID, err)
 			} else {
 				log.Debugf("WorkflowTriggerJobCtl: CancelWorkflowTaskV4 %s-%d success", task.WorkflowName, task.TaskID)
+				event.Status = config.StatusCancelled
 			}
 		}
+		c.ack()
 	}
 	defer cancelAllRunningTasks()
 
