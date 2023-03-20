@@ -24,6 +24,7 @@ const LocalConfig = "local.env"
 const (
 	// common
 	ENVSystemAddress           = "ADDRESS"
+	ENVSystemAddr              = "ADDR"
 	ENVEnterprise              = "ENTERPRISE"
 	ENVMode                    = "MODE"
 	ENVNsqLookupAddrs          = "NSQLOOKUP_ADDRS"
