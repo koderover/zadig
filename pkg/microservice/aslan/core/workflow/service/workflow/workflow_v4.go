@@ -284,7 +284,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 
 type NameWithParams struct {
 	Name        string                `json:"name"`
-	DisplayName string                `json:"displayName"`
+	DisplayName string                `json:"display_name"`
 	Params      []*commonmodels.Param `json:"params"`
 }
 
