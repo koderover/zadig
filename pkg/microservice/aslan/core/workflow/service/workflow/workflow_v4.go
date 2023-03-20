@@ -310,6 +310,7 @@ func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
 					DisplayName: workflowV4.DisplayName,
 					Params:      workflowV4.Params,
 				})
+				break LOOP
 			}
 		}
 	}
