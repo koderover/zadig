@@ -63,9 +63,13 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
+	username := ctx.UserName
+	if c.Query("username") != "" {
+		username = c.Query("username")
+	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, data, ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
-		Name:   ctx.UserName,
+		Name:   username,
 		UserID: ctx.UserID,
 	}, args, ctx.Logger)
 }
@@ -126,8 +130,13 @@ func CancelWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "取消", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
-	ctx.Err = workflow.CancelWorkflowTaskV4(ctx.UserName, c.Param("workflowName"), taskID, ctx.Logger)
+
+	username := ctx.UserName
+	if c.Query("username") != "" {
+		username = c.Query("username")
+	}
+	internalhandler.InsertOperationLog(c, username, c.Query("projectName"), "取消", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+	ctx.Err = workflow.CancelWorkflowTaskV4(username, c.Param("workflowName"), taskID, ctx.Logger)
 }
 
 func CloneWorkflowTaskV4(c *gin.Context) {

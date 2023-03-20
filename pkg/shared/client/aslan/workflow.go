@@ -20,7 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/pkg/errors"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type workflowConcurrencySettingResp struct {
@@ -41,4 +45,46 @@ func (c *Client) GetWorkflowConcurrencySetting() (*workflowConcurrencySettingRes
 		}
 	}
 	return resp, nil
+}
+
+type CreateWorkflowTaskV4Req struct {
+	Workflow *models.WorkflowV4
+	UserName string
+}
+
+type CreateTaskV4Resp struct {
+	ProjectName  string `json:"project_name"`
+	WorkflowName string `json:"workflow_name"`
+	TaskID       int64  `json:"task_id"`
+}
+
+func (c *Client) CreateWorkflowTaskV4(req *CreateWorkflowTaskV4Req) (*CreateTaskV4Resp, error) {
+	url := "/workflow/v4/workflowtask"
+
+	resp := &CreateTaskV4Resp{}
+	res, err := c.Post(url, httpclient.SetBody(req.Workflow), httpclient.SetQueryParam("username", req.UserName), httpclient.SetResult(resp))
+	if err != nil {
+		return nil, errors.Wrap(err, "request failed")
+	}
+	if res.IsSuccess() {
+		log.Debugf("AslanClient: create workflow task %s success", req.Workflow.Name)
+		return resp, nil
+	}
+	log.Debugf("AslanClient: create workflow task %s failed, response: %s", req.Workflow.Name, res.String())
+	return nil, fmt.Errorf("failed to create workflow task, response: %s", res.String())
+}
+
+func (c *Client) CancelWorkflowTaskV4(userName, workflowName string, taskID int64) error {
+	url := fmt.Sprintf("/workflow/%s/task/%d", workflowName, taskID)
+
+	res, err := c.Delete(url, httpclient.SetQueryParam("username", userName))
+	if err != nil {
+		return errors.Wrap(err, "request failed")
+	}
+	if res.IsSuccess() {
+		log.Debugf("AslanClient: cancel workflow task %d success", taskID)
+		return nil
+	}
+	log.Debugf("AslanClient: cancel workflow task %d failed, response: %s", taskID, res.String())
+	return fmt.Errorf("failed to cancel workflow task, response: %s", res.String())
 }
