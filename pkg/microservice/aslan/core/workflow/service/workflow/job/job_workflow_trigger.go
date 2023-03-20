@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -231,5 +232,66 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 }
 
 func (j *WorkflowTriggerJob) LintJob() error {
+	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+
+	workflowSet := sets.NewString(j.workflow.Name)
+	for _, info := range j.spec.ServiceTriggerWorkflow {
+		workflow, err := mongodb.NewWorkflowV4Coll().Find(info.WorkflowName)
+		if err != nil {
+			return fmt.Errorf("can't found workflow %s: %v", info.WorkflowName, err)
+		}
+		if workflowSet.Has(workflow.Name) {
+			return fmt.Errorf("工作流不能循环触发, 工作流名称: %s", workflow.Name)
+		}
+		workflowSet.Insert(workflow.Name)
+
+		if err := checkWorkflowTriggerLoop(workflow, workflowSet); err != nil {
+			return err
+		}
+
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				switch job.JobType {
+				case config.JobFreestyle, config.JobPlugin, config.JobWorkflowTrigger:
+				default:
+					return fmt.Errorf("工作流 %s 中的任务 %s 类型不支持被触发", workflow.Name, job.Name)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func checkWorkflowTriggerLoop(workflow *commonmodels.WorkflowV4, workflowSet sets.String) error {
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobWorkflowTrigger {
+				triggerSpec := &commonmodels.WorkflowTriggerJobSpec{}
+				if err := commonmodels.IToi(job.Spec, triggerSpec); err != nil {
+					return err
+				}
+				for _, info := range triggerSpec.ServiceTriggerWorkflow {
+					w, err := mongodb.NewWorkflowV4Coll().Find(info.WorkflowName)
+					if err != nil {
+						return fmt.Errorf("can't found workflow %s: %v", info.WorkflowName, err)
+					}
+
+					if workflowSet.Has(info.WorkflowName) {
+						return fmt.Errorf("工作流不能循环触发, 工作流名称: %s", workflow.Name)
+					}
+					workflowSet.Insert(info.WorkflowName)
+
+					if err := checkWorkflowTriggerLoop(w, workflowSet); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
 	return nil
 }
