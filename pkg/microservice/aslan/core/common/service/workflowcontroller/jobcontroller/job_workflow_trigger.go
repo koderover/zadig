@@ -109,15 +109,10 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 	}
 
 	if c.jobTaskSpec.IsEnableCheck {
-		var doneTask []runningTask
 		var jobFailed bool
 	LOOP:
 		for {
 			time.Sleep(time.Second)
-			for _, task := range doneTask {
-				delete(runningTasks, task)
-			}
-			doneTask = nil
 			select {
 			case <-ctx.Done():
 				return
@@ -131,14 +126,17 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 					switch t.Status {
 					case config.StatusPassed, config.StatusFailed, config.StatusCancelled, config.StatusReject, config.StatusTimeout:
 						event.Status = t.Status
-						doneTask = append(doneTask, task)
+						delete(runningTasks, task)
 						log.Debugf("WorkflowTriggerJobCtl: %s-%d final status: %s", task.WorkflowName, task.TaskID, t.Status)
 						if t.Status != config.StatusPassed {
 							jobFailed = true
 						}
 						c.ack()
 					case config.StatusRunning:
-						c.ack()
+						if event.Status != config.StatusRunning {
+							event.Status = t.Status
+							c.ack()
+						}
 					}
 				}
 				if len(runningTasks) == 0 {
