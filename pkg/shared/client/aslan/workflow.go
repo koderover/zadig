@@ -75,7 +75,7 @@ func (c *Client) CreateWorkflowTaskV4(req *CreateWorkflowTaskV4Req) (*CreateTask
 }
 
 func (c *Client) CancelWorkflowTaskV4(userName, workflowName string, taskID int64) error {
-	url := fmt.Sprintf("/v4/workflowtask/workflow/%s/task/%d", workflowName, taskID)
+	url := fmt.Sprintf("/workflow/v4/workflowtask/workflow/%s/task/%d", workflowName, taskID)
 
 	res, err := c.Delete(url, httpclient.SetQueryParam("username", userName))
 	if err != nil {

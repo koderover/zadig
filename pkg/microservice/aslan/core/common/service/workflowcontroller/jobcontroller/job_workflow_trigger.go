@@ -137,6 +137,8 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 							jobFailed = true
 						}
 						c.ack()
+					case config.StatusRunning:
+						c.ack()
 					}
 				}
 				if len(runningTasks) == 0 {
