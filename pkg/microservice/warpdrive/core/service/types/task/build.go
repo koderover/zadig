@@ -278,6 +278,8 @@ type Repository struct {
 	CommitMessage string `bson:"commit_message,omitempty"  json:"commit_message,omitempty"`
 	CheckoutPath  string `bson:"checkout_path,omitempty"   json:"checkout_path,omitempty"`
 	SubModules    bool   `bson:"submodules,omitempty"      json:"submodules,omitempty"`
+	// Hidden defines whether the frontend needs to hide this repo
+	Hidden bool `bson:"hidden" json:"hidden"`
 	// UseDefault defines if the repo can be configured in start pipeline task page
 	UseDefault bool `bson:"use_default"          json:"use_default"`
 	// IsPrimary used to generated image and package name, each build has one primary repo
