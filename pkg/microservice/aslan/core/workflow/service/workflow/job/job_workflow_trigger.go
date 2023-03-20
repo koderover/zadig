@@ -239,7 +239,12 @@ func (j *WorkflowTriggerJob) LintJob() error {
 	j.job.Spec = j.spec
 
 	workflowSet := sets.NewString(j.workflow.Name)
+	// every workflow only need check loop once
+	checkedWorkflow := sets.NewString()
 	for _, info := range j.spec.ServiceTriggerWorkflow {
+		if checkedWorkflow.Has(info.WorkflowName) {
+			continue
+		}
 		workflow, err := mongodb.NewWorkflowV4Coll().Find(info.WorkflowName)
 		if err != nil {
 			return fmt.Errorf("can't found workflow %s: %v", info.WorkflowName, err)
@@ -247,9 +252,9 @@ func (j *WorkflowTriggerJob) LintJob() error {
 		if workflowSet.Has(workflow.Name) {
 			return fmt.Errorf("工作流不能循环触发, 工作流名称: %s", workflow.Name)
 		}
-		workflowSet.Insert(workflow.Name)
+		checkedWorkflow.Insert(workflow.Name)
 
-		if err := checkWorkflowTriggerLoop(workflow, workflowSet); err != nil {
+		if err := checkWorkflowTriggerLoop(workflow, sets.NewString(append(workflowSet.List(), workflow.Name)...)); err != nil {
 			return err
 		}
 
@@ -268,6 +273,8 @@ func (j *WorkflowTriggerJob) LintJob() error {
 }
 
 func checkWorkflowTriggerLoop(workflow *commonmodels.WorkflowV4, workflowSet sets.String) error {
+	// every workflow only need check loop once
+	checkedWorkflow := sets.NewString()
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.JobType == config.JobWorkflowTrigger {
@@ -276,6 +283,9 @@ func checkWorkflowTriggerLoop(workflow *commonmodels.WorkflowV4, workflowSet set
 					return err
 				}
 				for _, info := range triggerSpec.ServiceTriggerWorkflow {
+					if checkedWorkflow.Has(info.WorkflowName) {
+						continue
+					}
 					w, err := mongodb.NewWorkflowV4Coll().Find(info.WorkflowName)
 					if err != nil {
 						return fmt.Errorf("can't found workflow %s: %v", info.WorkflowName, err)
@@ -284,9 +294,9 @@ func checkWorkflowTriggerLoop(workflow *commonmodels.WorkflowV4, workflowSet set
 					if workflowSet.Has(info.WorkflowName) {
 						return fmt.Errorf("工作流不能循环触发, 工作流名称: %s", workflow.Name)
 					}
-					workflowSet.Insert(info.WorkflowName)
+					checkedWorkflow.Insert(info.WorkflowName)
 
-					if err := checkWorkflowTriggerLoop(w, workflowSet); err != nil {
+					if err := checkWorkflowTriggerLoop(w, sets.NewString(append(workflowSet.List(), info.WorkflowName)...)); err != nil {
 						return err
 					}
 				}
