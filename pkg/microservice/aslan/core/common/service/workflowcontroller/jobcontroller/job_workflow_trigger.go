@@ -71,7 +71,7 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 		WorkflowName string
 		TaskID       int64
 	}
-	var runningTasks map[runningTask]*commonmodels.WorkflowTriggerEvent
+	var runningTasks = make(map[runningTask]*commonmodels.WorkflowTriggerEvent)
 	cancelAllRunningTasks := func() {
 		for task := range runningTasks {
 			err := client.CancelWorkflowTaskV4(setting.WorkflowTriggerTaskCreator,
