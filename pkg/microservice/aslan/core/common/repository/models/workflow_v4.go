@@ -223,14 +223,14 @@ type ZadigTestingJobSpec struct {
 	OriginJobName   string                  `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
 	TargetServices  []*ServiceTestTarget    `bson:"target_services"  yaml:"target_services"  json:"target_services"`
 	TestModules     []*TestModule           `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
-	ServiceAndTests []*ServiceAndTest       `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
+	ServiceAndTests []*TestModule           `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
 }
 
-type ServiceAndTest struct {
-	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
-	TestModule    `bson:",inline"  yaml:",inline"  json:",inline"`
-}
+// type ServiceAndTest struct {
+// 	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+// 	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+// 	TestModule    `bson:",inline"  yaml:",inline"  json:",inline"`
+// }
 
 type ServiceTestTarget struct {
 	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
@@ -240,6 +240,8 @@ type ServiceTestTarget struct {
 type TestModule struct {
 	Name             string              `bson:"name"                yaml:"name"             json:"name"`
 	ProjectName      string              `bson:"project_name"        yaml:"project_name"     json:"project_name"`
+	ServiceName      string              `bson:"service_name,omitempty"        yaml:"service_name,omitempty"     json:"service_name,omitempty"`
+	ServiceModule    string              `bson:"service_module,omitempty"      yaml:"service_module,omitempty"   json:"service_module,omitempty"`
 	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
 	Repos            []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
 	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"   yaml:"share_storage_info"   json:"share_storage_info"`
