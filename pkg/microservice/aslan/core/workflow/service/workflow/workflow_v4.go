@@ -283,8 +283,9 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 }
 
 type NameWithParams struct {
-	Name   string                `json:"name"`
-	Params []*commonmodels.Param `json:"params"`
+	Name        string                `json:"name"`
+	DisplayName string                `json:"displayName"`
+	Params      []*commonmodels.Param `json:"params"`
 }
 
 func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
@@ -305,8 +306,9 @@ func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
 					break LOOP
 				}
 				result = append(result, &NameWithParams{
-					Name:   workflowV4.Name,
-					Params: workflowV4.Params,
+					Name:        workflowV4.Name,
+					DisplayName: workflowV4.DisplayName,
+					Params:      workflowV4.Params,
 				})
 			}
 		}
