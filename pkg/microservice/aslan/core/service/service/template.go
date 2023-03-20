@@ -35,15 +35,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-type LoadServiceFromYamlTemplateReq struct {
-	ServiceName string `json:"service_name"`
-	ProjectName string `json:"project_name"`
-	TemplateID  string `json:"template_id"`
-	AutoSync    bool   `json:"auto_sync"`
-	//Variables    []*Variable `json:"variables"`
-	VariableYaml string `json:"variable_yaml"`
-}
-
 func geneCreateFromDetail(templateId string, variableYaml string) *commonmodels.CreateFromYamlTemplate {
 	//vs := make([]*commonmodels.Variable, 0, len(variables))
 	//for _, kv := range variables {
@@ -57,6 +48,22 @@ func geneCreateFromDetail(templateId string, variableYaml string) *commonmodels.
 		//Variables:    vs,
 		VariableYaml: variableYaml,
 	}
+}
+
+func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
+	template, err := commonrepo.NewYamlTemplateColl().GetByName(req.TemplateName)
+	if err != nil {
+		logger.Errorf("Failed to find template of name: %s, the error is: %s", req.TemplateName, err)
+		return err
+	}
+	loadArgs := &LoadServiceFromYamlTemplateReq{
+		ProjectName:  req.ProjectKey,
+		ServiceName:  req.ServiceName,
+		TemplateID:   template.ID.Hex(),
+		AutoSync:     req.AutoSync,
+		VariableYaml: req.VariableYaml,
+	}
+	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
 }
 
 func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {

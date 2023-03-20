@@ -51,3 +51,40 @@ func (req OpenAPICreateProductReq) Validate() error {
 
 	return nil
 }
+
+type OpenAPIInitializeProjectReq struct {
+	ProjectName string               `json:"project_name"`
+	ProjectKey  string               `json:"project_key"`
+	IsPublic    bool                 `json:"is_public"`
+	Description string               `json:"description"`
+	ServiceList []*ServiceDefinition `json:"service_list"`
+	EnvList     []*EnvDefinition     `json:"env_list"`
+}
+
+type ServiceDefinition struct {
+	ServiceName string `json:"service_name"`
+	Yaml        string `json:"yaml"`
+}
+
+type EnvDefinition struct {
+	EnvName     string `json:"env_name"`
+	ClusterName string `json:"cluster_name"`
+	Namespace   string `json:"namespace"`
+}
+
+func (req OpenAPIInitializeProjectReq) Validate() error {
+	if req.ProjectName == "" {
+		return errors.New("project_name cannot be empty")
+	}
+
+	match, err := regexp.MatchString(setting.ProjectKeyRegEx, req.ProjectKey)
+	if err != nil || !match {
+		return errors.New(`project key should match regex: ^[a-z-\\d]+$`)
+	}
+
+	if len(req.ServiceList) == 0 {
+		return errors.New("initializing a project with no services is not allowed")
+	}
+
+	return nil
+}
