@@ -54,7 +54,7 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
