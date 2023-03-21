@@ -491,10 +491,16 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						logger.Errorf(err.Error())
 						continue
 					}
-					log.Debugf("DEBUG X3 %v", workflow.Params)
-					log.Debugf("DEBUG X3 %v", info.Params)
+					for _, param := range workflow.Params {
+						log.Debugf("DEBUG X3 workflow param %v", param.Name)
+					}
+					for _, param := range info.Params {
+						log.Debugf("DEBUG X3 info param %v", param.Name)
+					}
 					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
-					log.Debugf("DEBUG X4 %v", info.Params)
+					for _, param := range info.Params {
+						log.Debugf("DEBUG X4 info param %v", param.Name)
+					}
 				}
 			}
 			if job.JobType == config.JobFreestyle {
