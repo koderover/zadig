@@ -94,7 +94,7 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
 	log.Debugf("DEBUG7 job spec: %+v", j.job.Spec)
-	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
 	log.Debugf("DEBUG8 job spec: %+v", j.spec)
