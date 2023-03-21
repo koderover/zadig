@@ -502,6 +502,14 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						log.Debugf("DEBUG X4 info param %v", param.Name)
 					}
 				}
+				for _, info := range spec.FixedWorkflowList {
+					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+					if err != nil {
+						logger.Errorf(err.Error())
+						continue
+					}
+					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
+				}
 				job.Spec = spec
 			}
 			if job.JobType == config.JobFreestyle {
