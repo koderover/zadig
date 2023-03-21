@@ -210,7 +210,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	projectVerbMap := make(map[string][]string)
 	systemVerbSet := sets.NewString()
 	for _, rolebinding := range roleBindings {
-		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) {
+		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
 			isSystemAdmin = true
 			continue
 		} else if rolebinding.RoleRef.Name == string(setting.ProjectAdmin) {
@@ -377,7 +377,7 @@ func getRoleBindingVerbMapByResource(uid, resourceType string) (bool, map[string
 	projectVerbMap := make(map[string][]string)
 
 	for _, rolebinding := range roleBindings {
-		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) {
+		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
 			isSystemAdmin = true
 			continue
 		} else if rolebinding.RoleRef.Name == string(setting.ProjectAdmin) {
