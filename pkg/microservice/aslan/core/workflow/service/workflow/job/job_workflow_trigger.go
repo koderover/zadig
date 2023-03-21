@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type WorkflowTriggerJob struct {
@@ -71,6 +72,7 @@ func (j *WorkflowTriggerJob) SetPreset() error {
 				Type: param.ParamsType,
 			}]; ok {
 				p.Value = param.Value
+				p.Repo = param.Repo
 			}
 		}
 		stw.Params = w.Params
@@ -146,6 +148,9 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	// At present, only workflow of same project can be triggered
 	for _, event := range workflowTriggerEvents {
 		event.ProjectName = j.workflow.Project
+		for _, param := range event.Params {
+			j.getRepoFromJob(param)
+		}
 	}
 
 	jobTask := &commonmodels.JobTask{
@@ -160,6 +165,40 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		Timeout: 0,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
+}
+
+// get repo from job config, current only support zadig build job
+func (j *WorkflowTriggerJob) getRepoFromJob(param *commonmodels.Param) {
+	if param.ParamsType != "repo" {
+		return
+	}
+	if param.Repo == nil {
+		return
+	}
+	if param.Repo.SourceFrom == types.RepoSourceJob {
+		for _, stage := range j.workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.Name != param.Repo.JobName {
+					continue
+				}
+				// if job.JobType != config.JobZadigBuild {
+				// 	continue
+				// }
+				switch v := job.Spec.(type) {
+				case *commonmodels.ZadigBuildJobSpec:
+					for _, build := range v.ServiceAndBuilds {
+						if build.ServiceName != param.Repo.ServiceName || build.ServiceModule != param.Repo.ServiceModule {
+							continue
+						}
+						if len(build.Repos) >= param.Repo.JobRepoIndex {
+							param.Repo = build.Repos[param.Repo.JobRepoIndex]
+							return
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmodels.ServiceNameAndModule]*commonmodels.ServiceTriggerWorkflowInfo) (resp []*commonmodels.WorkflowTriggerEvent, err error) {
