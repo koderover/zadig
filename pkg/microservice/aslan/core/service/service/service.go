@@ -1057,7 +1057,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 				if errTemplate == nil {
 					continue
 				} else {
-					log.Errorf("failed to pase as template, err: %s", errTemplate)
+					log.Errorf("failed to parse as template, err: %s", errTemplate)
 				}
 				errorDetails = append(errorDetails, fmt.Sprintf("Invalid yaml format. The content must be a series of valid Kubernetes resources. err: %s", err))
 			}

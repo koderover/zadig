@@ -281,6 +281,26 @@ metas:
         rules:
           - method: GET
             endpoint: /api/v1/policy/permission/releaseworkflow
+  - resource: Project
+    alias: 项目
+    description: ''
+    rules:
+      - action: create_project
+        alias: 新建
+        description: ''
+        rules:
+          - method: POST
+            endpoint: /api/v1/picket/projects
+          - method: POST
+            endpoint: /api/v1/users/search
+          - method: GET
+            endpoint: /api/aslan/cluster/clusters
+      - action: delete_project
+        alias: 删除
+        description: ''
+        rules:
+          - method: DELETE
+            endpoint: /api/v1/picket/projects/?*
   - resource: TestCenter
     alias: 测试中心
     description: ''

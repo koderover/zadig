@@ -202,9 +202,6 @@ exemption_urls:
         - POST
         - PUT
         - DELETE
-    - endpoint: api/v1/picket/projects
-      methods:
-        - POST
     - endpoint: api/aslan/cluster/clusters
       methods:
         - POST
