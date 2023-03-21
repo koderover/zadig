@@ -32,10 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-//type Test interface {
-//	CreateWorkflowTaskV4(workflow.CreateWorkflowTaskV4Args, w, c.logger)
-//}
-
 type WorkflowTriggerJobCtl struct {
 	job         *commonmodels.JobTask
 	workflowCtx *commonmodels.WorkflowTaskCtx
