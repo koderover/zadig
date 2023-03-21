@@ -488,7 +488,7 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						logger.Errorf(err.Error())
 						continue
 					}
-					info.Params = commonservice.MergeParams(info.Params, workflow.Params)
+					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
 				}
 			}
 			if job.JobType == config.JobFreestyle {
