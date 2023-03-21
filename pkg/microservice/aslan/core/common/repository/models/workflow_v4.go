@@ -217,7 +217,24 @@ type DistributeTarget struct {
 }
 
 type ZadigTestingJobSpec struct {
-	TestModules []*TestModule `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
+	TestType        config.TestModuleType   `bson:"test_type"        yaml:"test_type"        json:"test_type"`
+	Source          config.DeploySourceType `bson:"source"           yaml:"source"           json:"source"`
+	JobName         string                  `bson:"job_name"         yaml:"job_name"         json:"job_name"`
+	OriginJobName   string                  `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
+	TargetServices  []*ServiceTestTarget    `bson:"target_services"  yaml:"target_services"  json:"target_services"`
+	TestModules     []*TestModule           `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
+	ServiceAndTests []*ServiceAndTest       `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
+}
+
+type ServiceAndTest struct {
+	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	TestModule    `bson:",inline"  yaml:",inline"  json:",inline"`
+}
+
+type ServiceTestTarget struct {
+	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 }
 
 type TestModule struct {
@@ -415,6 +432,31 @@ type NacosJobSpec struct {
 	DataFixed   bool                 `bson:"data_fixed"       json:"data_fixed"       yaml:"data_fixed"`
 }
 
+type WorkflowTriggerJobSpec struct {
+	IsEnableCheck bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`
+	TriggerType   config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
+	// FixedWorkflowList is the only field used for trigger_type = fixed
+	FixedWorkflowList []*ServiceTriggerWorkflowInfo `bson:"fixed_workflow_list" json:"fixed_workflow_list" yaml:"fixed_workflow_list"`
+
+	// ServiceTriggerWorkflow and other fields are used for trigger_type = common
+	ServiceTriggerWorkflow []*ServiceTriggerWorkflowInfo    `bson:"service_trigger_workflow" json:"service_trigger_workflow" yaml:"service_trigger_workflow"`
+	Source                 config.TriggerWorkflowSourceType `bson:"source" json:"source" yaml:"source"`
+	SourceJobName          string                           `bson:"source_job_name" json:"source_job_name" yaml:"source_job_name"`
+	SourceService          []*ServiceNameAndModule          `bson:"source_service" json:"source_service" yaml:"source_service"`
+}
+
+type ServiceNameAndModule struct {
+	ServiceName   string `bson:"service_name" json:"service_name" yaml:"service_name"`
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+}
+
+type ServiceTriggerWorkflowInfo struct {
+	ServiceName   string   `bson:"service_name" json:"service_name" yaml:"service_name"`
+	ServiceModule string   `bson:"service_module" json:"service_module" yaml:"service_module"`
+	WorkflowName  string   `bson:"workflow_name" json:"workflow_name" yaml:"workflow_name"`
+	Params        []*Param `bson:"params" json:"params" yaml:"params"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`
@@ -490,12 +532,13 @@ type Param struct {
 	Name        string `bson:"name"             json:"name"             yaml:"name"`
 	Description string `bson:"description"      json:"description"      yaml:"description"`
 	// support string/text/choice/repo type
-	ParamsType   string            `bson:"type"                      json:"type"                        yaml:"type"`
-	Value        string            `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
-	Repo         *types.Repository `bson:"repo"                     json:"repo"                         yaml:"repo,omitempty"`
-	ChoiceOption []string          `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
-	Default      string            `bson:"default"                   json:"default"                     yaml:"default"`
-	IsCredential bool              `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+	ParamsType   string                 `bson:"type"                      json:"type"                        yaml:"type"`
+	Value        string                 `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
+	Repo         *types.Repository      `bson:"repo"                     json:"repo"                         yaml:"repo,omitempty"`
+	ChoiceOption []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
+	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+	Source       config.ParamSourceType `bson:"source,omitempty" json:"source,omitempty" yaml:"source,omitempty"`
 }
 
 type ShareStorage struct {

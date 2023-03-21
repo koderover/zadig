@@ -96,5 +96,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	product := router.Group("project")
 	{
 		product.POST("", OpenAPICreateProductTemplate)
+		product.POST("/init/yaml", OpenAPIInitializeYamlProject)
 	}
 }

@@ -342,6 +342,23 @@ type ApolloKV struct {
 	Val string `bson:"val" json:"val" yaml:"val"`
 }
 
+type JobTaskWorkflowTriggerSpec struct {
+	TriggerType           config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
+	IsEnableCheck         bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`
+	WorkflowTriggerEvents []*WorkflowTriggerEvent    `bson:"workflow_trigger_events" json:"workflow_trigger_events" yaml:"workflow_trigger_events"`
+}
+
+type WorkflowTriggerEvent struct {
+	ServiceName         string        `bson:"service_name" json:"service_name" yaml:"service_name"`
+	ServiceModule       string        `bson:"service_module" json:"service_module" yaml:"service_module"`
+	WorkflowName        string        `bson:"workflow_name" json:"workflow_name" yaml:"workflow_name"`
+	WorkflowDisplayName string        `bson:"workflow_display_name" json:"workflow_display_name" yaml:"workflow_display_name"`
+	TaskID              int64         `bson:"task_id" json:"task_id" yaml:"task_id"`
+	Status              config.Status `bson:"status" json:"status" yaml:"status"`
+	Params              []*Param      `bson:"params" json:"params" yaml:"params"`
+	ProjectName         string        `bson:"project_name" json:"project_name" yaml:"project_name"`
+}
+
 type PatchTaskItem struct {
 	ResourceName    string   `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
 	ResourceKind    string   `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`

@@ -116,6 +116,18 @@ func ListWorkflowV4(c *gin.Context) {
 	ctx.Err = err
 }
 
+func ListWorkflowV4CanTrigger(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	project := c.Query("projectName")
+	if project == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+	ctx.Resp, ctx.Err = workflow.ListWorkflowV4CanTrigger(project)
+}
+
 func UpdateWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

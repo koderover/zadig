@@ -199,6 +199,9 @@ func (c *BuildStatColl) GetBuildStats(args *models.BuildStatOption) (*BuildItem,
 	if args.StartDate > 0 {
 		filter["create_time"] = bson.M{"$gte": args.StartDate, "$lte": args.EndDate}
 	}
+	if len(args.ProductNames) > 0 {
+		filter["product_name"] = bson.M{"$in": args.ProductNames}
+	}
 
 	pipeline = []bson.M{
 		{

@@ -73,7 +73,20 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 					}
 
 					triggerRepoInfo := make([]*scanningservice.ScanningRepoInfo, 0)
-					// for now only one repo is supported
+					for _, scanningRepo := range scanning.Repos {
+						// if this is the triggering repo, we simply skip it and add it later with correct info
+						if scanningRepo.CodehostID == item.CodehostID && scanningRepo.RepoOwner == item.RepoOwner && scanningRepo.RepoName == item.RepoName {
+							continue
+						}
+						triggerRepoInfo = append(triggerRepoInfo, &scanningservice.ScanningRepoInfo{
+							CodehostID: scanningRepo.CodehostID,
+							Source:     scanningRepo.Source,
+							RepoOwner:  scanningRepo.RepoOwner,
+							RepoName:   scanningRepo.RepoName,
+							Branch:     scanningRepo.Branch,
+						})
+					}
+
 					repoInfo := &scanningservice.ScanningRepoInfo{
 						CodehostID: item.CodehostID,
 						Source:     item.Source,

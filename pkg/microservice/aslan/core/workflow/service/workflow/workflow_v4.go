@@ -282,6 +282,41 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	return resp, nil
 }
 
+type NameWithParams struct {
+	Name        string                `json:"name"`
+	DisplayName string                `json:"display_name"`
+	Params      []*commonmodels.Param `json:"params"`
+}
+
+func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
+	workflowList, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
+		ProjectName: projectName,
+	}, 0, 0)
+	if err != nil {
+		return nil, errors.Errorf("failed to list workflow v4, the error is: %s", err)
+	}
+	var result []*NameWithParams
+	for _, workflowV4 := range workflowList {
+	LOOP:
+		for _, stage := range workflowV4.Stages {
+			for _, job := range stage.Jobs {
+				switch job.JobType {
+				case config.JobFreestyle, config.JobPlugin, config.JobWorkflowTrigger:
+				default:
+					break LOOP
+				}
+				result = append(result, &NameWithParams{
+					Name:        workflowV4.Name,
+					DisplayName: workflowV4.DisplayName,
+					Params:      workflowV4.Params,
+				})
+				break LOOP
+			}
+		}
+	}
+	return result, nil
+}
+
 func filterWorkflowNamesByView(projectName, viewName string, workflowNames, workflowV4Names []string, policyFound bool) ([]string, []string, error) {
 	if viewName == "" {
 		return workflowNames, workflowV4Names, nil
@@ -441,6 +476,30 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 				}
 				job.Spec = spec
 			}
+			if job.JobType == config.JobWorkflowTrigger {
+				spec := &commonmodels.WorkflowTriggerJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+				for _, info := range spec.ServiceTriggerWorkflow {
+					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+					if err != nil {
+						logger.Errorf(err.Error())
+						continue
+					}
+					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
+				}
+				for _, info := range spec.FixedWorkflowList {
+					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+					if err != nil {
+						logger.Errorf(err.Error())
+						continue
+					}
+					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
+				}
+				job.Spec = spec
+			}
 			if job.JobType == config.JobFreestyle {
 				spec := &commonmodels.FreestyleJobSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
@@ -464,6 +523,22 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 					return e.ErrFindWorkflow.AddErr(err)
 				}
 				job.Spec = spec
+			}
+			if job.JobType == config.JobZadigTesting {
+				spec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+				job.Spec = spec
+				for _, testing := range spec.ServiceAndTests {
+					testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+					if err != nil {
+						logger.Errorf("find testing: %s error: %s", testing.Name, err)
+						continue
+					}
+					testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
+				}
 			}
 		}
 	}
@@ -1389,6 +1464,25 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
 			continue
 		}
 		vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"workflow", "params", param.Name}, ".")))
+	}
+	for _, stage := range workflow.Stages {
+		for _, j := range stage.Jobs {
+			switch j.JobType {
+			case config.JobZadigBuild:
+				spec := new(commonmodels.ZadigBuildJobSpec)
+				if err := commonmodels.IToiYaml(j.Spec, spec); err != nil {
+					return vars
+				}
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "SERVICES"}, ".")))
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "BRANCHES"}, ".")))
+				for _, s := range spec.ServiceAndBuilds {
+					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceName, s.ServiceModule, "COMMITID"}, ".")))
+					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceName, s.ServiceModule, "BRANCH"}, ".")))
+				}
+			case config.JobZadigDeploy:
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "envName"}, ".")))
+			}
+		}
 	}
 	return vars
 }

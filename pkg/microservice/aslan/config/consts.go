@@ -209,6 +209,7 @@ const (
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
 	JobMeegoTransition      JobType = "meego-transition"
+	JobWorkflowTrigger      JobType = "workflow-trigger"
 )
 
 const (
@@ -236,6 +237,20 @@ type DeploySourceType string
 const (
 	SourceRuntime DeploySourceType = "runtime"
 	SourceFromJob DeploySourceType = "fromjob"
+)
+
+type TriggerWorkflowSourceType string
+
+const (
+	TriggerWorkflowSourceRuntime TriggerWorkflowSourceType = "runtime"
+	TriggerWorkflowSourceFromJob TriggerWorkflowSourceType = "fromjob"
+)
+
+type TestModuleType string
+
+const (
+	ProductTestType TestModuleType = ""
+	ServiceTestType TestModuleType = "service_test"
 )
 
 type DeployContent string
@@ -356,6 +371,13 @@ const (
 	GrayDeploymentSuffix       = "-zadig-gray"
 )
 
+type WorkflowTriggerType string
+
+const (
+	WorkflowTriggerTypeCommon WorkflowTriggerType = "common"
+	WorkflowTriggerTypeFixed  WorkflowTriggerType = "fixed"
+)
+
 type ProjectType string
 
 const (
@@ -363,6 +385,14 @@ const (
 	ProjectTypeYaml   = "yaml"
 	ProjectTypeVM     = "vm"
 	ProjectTypeLoaded = "loaded"
+)
+
+type ParamSourceType string
+
+const (
+	ParamSourceRuntime = "runtime"
+	ParamSourceFixed   = "fixed"
+	ParamSourceGlobal  = "global"
 )
 
 type RegistryProvider string

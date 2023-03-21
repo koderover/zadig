@@ -245,6 +245,10 @@ func (l *ApprovalManager) GetInstanceStatus(id string) string {
 func (l *ApprovalManager) UpdateInstanceStatus(id, status string) {
 	l.Lock()
 	defer l.Unlock()
+	switch l.m[id] {
+	case ApprovalStatusApproved, ApprovalStatusRejected, ApprovalStatusCanceled, ApprovalStatusDeleted:
+		return
+	}
 	l.m[id] = status
 }
 
@@ -287,6 +291,7 @@ type EventHandlerResponse struct {
 }
 
 func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, error) {
+	log.Infof("EventHandler: new request approval received")
 	approval, err := mongodb.NewIMAppColl().GetByAppID(context.Background(), appID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get approval by appID")
@@ -320,14 +325,14 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		log.Infof("get unknown callback event type %s, ignored", callback.Event.Type)
 		return nil, nil
 	}
-
+	log.Infof("EventHandler: new request approval ID %s, request UUID %s, event UUID %s, ts: %s", approvalID, callback.UUID, callback.Event.UUID, callback.Ts)
 	manager := GetLarkApprovalManager(approvalID)
 	if !manager.CheckAndUpdateUUID(callback.UUID) {
 		log.Infof("check existed request uuid %s, ignored", callback.UUID)
 		return nil, nil
 	}
 	manager.UpdateInstanceStatus(callback.Event.InstanceCode, callback.Event.Status)
-	log.Infof("update approval id: %s, instance code: %s, status: %s", approvalID, callback.Event.InstanceCode, callback.Event.Status)
+	log.Infof("update approval id: %s, instance code: %s,event UUID %s, status: %s", approvalID, callback.Event.InstanceCode, callback.Event.UUID, callback.Event.Status)
 	return nil, nil
 }
 
