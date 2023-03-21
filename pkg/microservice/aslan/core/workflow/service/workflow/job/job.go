@@ -30,6 +30,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
@@ -222,6 +223,59 @@ func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string
 			if job.JobType == config.JobPlugin {
 				jobCtl := &PluginJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			}
+		}
+	}
+	return resp
+}
+
+type RepoIndex struct {
+	JobName       string `json:"job_name"`
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module"`
+	RepoIndex     int    `json:"repo_index"`
+}
+
+func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []*RepoIndex {
+	resp := []*RepoIndex{}
+	jobRankMap := getJobRankMap(workflow.Stages)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			// we only need to get the outputs from job runs before the current job
+			if jobRankMap[job.Name] >= jobRankMap[currentJobName] {
+				return resp
+			}
+			if job.JobType == config.JobZadigBuild {
+				jobSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+					log.Errorf("get job spec failed, err: %v", err)
+					continue
+				}
+				for _, build := range jobSpec.ServiceAndBuilds {
+					buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+					if err != nil {
+						log.Errorf("find build: %s error: %v", build.BuildName, err)
+						continue
+					}
+					if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+						log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+						continue
+					}
+					for _, target := range buildInfo.Targets {
+						if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+							repos := mergeRepos(buildInfo.Repos, build.Repos)
+							for index := range repos {
+								resp = append(resp, &RepoIndex{
+									JobName:       job.Name,
+									ServiceName:   build.ServiceName,
+									ServiceModule: build.ServiceModule,
+									RepoIndex:     index,
+								})
+							}
+							break
+						}
+					}
+				}
 			}
 		}
 	}

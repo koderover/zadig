@@ -66,10 +66,15 @@ type Repository struct {
 	SourceFrom *SourceFrom `bson:"source_from"               json:"source_from"                 yaml:"source_from"`
 }
 
-// repo source, only support global params now
+// repo source, repo can come from params or other job
 type SourceFrom struct {
-	Enabled         bool   `bson:"enabled"       json:"enabled"       yaml:"enabled"`
-	GlobalParamName string `bson:"param_name"    json:"param_name"    yaml:"param_name"`
+	Enabled         bool       `bson:"enabled"       json:"enabled"       yaml:"enabled"`
+	SourceType      RepoSource `bson:"source_type"   json:"source_type"   yaml:"source_type"`
+	GlobalParamName string     `bson:"param_name"    json:"param_name"    yaml:"param_name"`
+	JobName         string     `bson:"job_name"      json:"job_name"      yaml:"job_name"`
+	ServiceName     string     `bson:"service_name"  json:"service_name"  yaml:"service_name"`
+	ServiceModule   string     `bson:"service_module" json:"service_module" yaml:"service_module"`
+	JobRepoIndex    int        `bson:"job_repo_index" json:"job_repo_index" yaml:"job_repo_index"`
 }
 
 type BranchFilterInfo struct {
@@ -129,6 +134,13 @@ func (repo *Repository) GetRepoNamespace() string {
 	}
 	return repo.RepoOwner
 }
+
+type RepoSource string
+
+const (
+	RepoSourceParam RepoSource = "param"
+	RepoSourceJob   RepoSource = "job"
+)
 
 const (
 	// ProviderGithub ...

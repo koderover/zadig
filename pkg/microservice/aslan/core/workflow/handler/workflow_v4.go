@@ -513,6 +513,19 @@ func GetWorkflowGlabalVars(c *gin.Context) {
 	ctx.Resp = workflow.GetWorkflowGlabalVars(args, c.Param("jobName"), ctx.Logger)
 }
 
+func GetWorkflowRepoIndex(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.WorkflowV4)
+
+	if err := c.ShouldBindYAML(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Resp = workflow.GetWorkflowRepoIndex(args, c.Param("jobName"), ctx.Logger)
+}
+
 func CheckShareStorageEnabled(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
