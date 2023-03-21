@@ -465,6 +465,22 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 				}
 				job.Spec = spec
 			}
+			if job.JobType == config.JobZadigTesting {
+				spec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+				job.Spec = spec
+				for _, testing := range spec.ServiceAndTests {
+					testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+					if err != nil {
+						logger.Errorf("find testing: %s error: %s", testing.Name, err)
+						continue
+					}
+					testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
+				}
+			}
 		}
 	}
 	return nil
