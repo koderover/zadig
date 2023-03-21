@@ -305,6 +305,13 @@ func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
 				default:
 					break LOOP
 				}
+				for _, param := range workflowV4.Params {
+					param.Source = config.ParamSourceRuntime
+					if strings.Contains(param.Value, setting.FixedValueMark) {
+						param.Source = config.ParamSourceFixed
+						param.Value = strings.ReplaceAll(param.Value, setting.FixedValueMark, "")
+					}
+				}
 				result = append(result, &NameWithParams{
 					Name:        workflowV4.Name,
 					DisplayName: workflowV4.DisplayName,
@@ -495,6 +502,13 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 					if err != nil {
 						logger.Errorf(err.Error())
 						continue
+					}
+					for _, param := range workflow.Params {
+						param.Source = config.ParamSourceRuntime
+						if strings.Contains(param.Value, setting.FixedValueMark) {
+							param.Source = config.ParamSourceFixed
+							param.Value = strings.ReplaceAll(param.Value, setting.FixedValueMark, "")
+						}
 					}
 					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
 				}
