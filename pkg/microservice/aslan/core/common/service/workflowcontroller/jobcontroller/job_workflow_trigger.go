@@ -96,6 +96,7 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 			return
 		}
 		w.Params = e.Params
+		e.WorkflowDisplayName = w.DisplayName
 
 		resp, err := client.CreateWorkflowTaskV4(&aslan.CreateWorkflowTaskV4Req{
 			Workflow: w,
