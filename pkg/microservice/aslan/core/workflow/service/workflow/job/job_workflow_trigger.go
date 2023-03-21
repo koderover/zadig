@@ -233,7 +233,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 
 func (j *WorkflowTriggerJob) LintJob() error {
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
