@@ -103,6 +103,7 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	case config.WorkflowTriggerTypeCommon:
 		m := make(map[commonmodels.ServiceNameAndModule]*commonmodels.ServiceTriggerWorkflowInfo)
 		for _, info := range j.spec.ServiceTriggerWorkflow {
+			log.Debugf("DEBUG6 service name: %s, module: %s", info.ServiceName, info.ServiceModule)
 			m[commonmodels.ServiceNameAndModule{
 				ServiceName:   info.ServiceName,
 				ServiceModule: info.ServiceModule,
@@ -191,6 +192,8 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 							ServiceName:   build.ServiceName,
 							ServiceModule: build.ServiceModule,
 						})
+					} else {
+						log.Debugf("DEBUG4 service name: %s, service module: %s", build.ServiceName, build.ServiceModule)
 					}
 				}
 				return
