@@ -482,25 +482,13 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 					logger.Errorf(err.Error())
 					return e.ErrFindWorkflow.AddErr(err)
 				}
-				log.Debugf("DEBUG X1")
 				for _, info := range spec.ServiceTriggerWorkflow {
-					//debug
-					log.Debugf("DEBUG X2")
 					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
 					if err != nil {
 						logger.Errorf(err.Error())
 						continue
 					}
-					for _, param := range workflow.Params {
-						log.Debugf("DEBUG X3 workflow param %v", param.Name)
-					}
-					for _, param := range info.Params {
-						log.Debugf("DEBUG X3 info param %v", param.Name)
-					}
 					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
-					for _, param := range info.Params {
-						log.Debugf("DEBUG X4 info param %v", param.Name)
-					}
 				}
 				for _, info := range spec.FixedWorkflowList {
 					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)

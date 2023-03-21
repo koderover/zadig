@@ -25,7 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type WorkflowTriggerJob struct {
@@ -93,11 +92,9 @@ func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
 func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
-	log.Debugf("DEBUG7 job spec: %+v", j.job.Spec)
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
-	log.Debugf("DEBUG8 job spec: %+v", j.spec)
 	j.job.Spec = j.spec
 
 	var workflowTriggerEvents []*commonmodels.WorkflowTriggerEvent
@@ -105,7 +102,6 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	case config.WorkflowTriggerTypeCommon:
 		m := make(map[commonmodels.ServiceNameAndModule]*commonmodels.ServiceTriggerWorkflowInfo)
 		for _, info := range j.spec.ServiceTriggerWorkflow {
-			log.Debugf("DEBUG6 service name: %s, module: %s", info.ServiceName, info.ServiceModule)
 			m[commonmodels.ServiceNameAndModule{
 				ServiceName:   info.ServiceName,
 				ServiceModule: info.ServiceModule,
@@ -170,8 +166,6 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
 			if j.spec.SourceJobName != job.Name {
-				//debug
-				log.Debugf("DEBUG1 job name: %s, source job name: %s", job.Name, j.spec.SourceJobName)
 				continue
 			}
 			switch job.JobType {
@@ -181,21 +175,16 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 					return nil, err
 				}
 				for _, build := range buildSpec.ServiceAndBuilds {
-					//debug
-					log.Debugf("DEBUG2 service name: %s, service module: %s", build.ServiceName, build.ServiceModule)
 					if info, ok := m[commonmodels.ServiceNameAndModule{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
 					}]; ok {
-						log.Debugf("DEBUG3")
 						resp = append(resp, &commonmodels.WorkflowTriggerEvent{
 							WorkflowName:  info.WorkflowName,
 							Params:        info.Params,
 							ServiceName:   build.ServiceName,
 							ServiceModule: build.ServiceModule,
 						})
-					} else {
-						log.Debugf("DEBUG4 service name: %s, service module: %s", build.ServiceName, build.ServiceModule)
 					}
 				}
 				return
@@ -278,6 +267,15 @@ func (j *WorkflowTriggerJob) LintJob() error {
 				}
 			}
 		}
+	}
+
+	if j.spec.TriggerType != config.WorkflowTriggerTypeCommon || j.spec.Source != config.TriggerWorkflowSourceFromJob {
+		return nil
+	}
+	jobRankMap := getJobRankMap(j.workflow.Stages)
+	sourceJobRank, ok := jobRankMap[j.spec.SourceJobName]
+	if !ok || sourceJobRank >= jobRankMap[j.job.Name] {
+		return fmt.Errorf("can not quote job %s in job %s", j.spec.SourceJobName, j.job.Name)
 	}
 
 	return nil

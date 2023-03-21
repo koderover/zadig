@@ -63,13 +63,9 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
-	username := ctx.UserName
-	if c.Query("username") != "" {
-		username = c.Query("username")
-	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, data, ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
-		Name:   username,
+		Name:   ctx.UserName,
 		UserID: ctx.UserID,
 	}, args, ctx.Logger)
 }
