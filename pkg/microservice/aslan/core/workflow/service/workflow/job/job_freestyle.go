@@ -228,8 +228,8 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmode
 			}
 			newRepos := []*types.Repository{}
 			for _, repo := range stepTaskSpec.Repos {
-				if repo.SourceFrom != nil && repo.SourceFrom.Enabled {
-					paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.SourceFrom.GlobalParamName)
+				if repo.SourceFrom == types.RepoSourceParam {
+					paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.GlobalParamName)
 					if err != nil {
 						logger.Errorf("findMatchedRepoFromParams error: %v", err)
 						continue

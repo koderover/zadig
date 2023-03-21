@@ -62,19 +62,21 @@ type Repository struct {
 	AuthType           AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"               yaml:"auth_type,omitempty"`
 	SSHKey             string   `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"                 yaml:"ssh_key,omitempty"`
 	PrivateAccessToken string   `bson:"private_access_token,omitempty"  json:"private_access_token,omitempty"    yaml:"private_access_token,omitempty"`
-	// repo come from workflow param or other job, only work for custom workflow
-	SourceFrom *SourceFrom `bson:"source_from"               json:"source_from"                 yaml:"source_from"`
-}
-
-// repo source, repo can come from params or other job
-type SourceFrom struct {
-	Enabled         bool       `bson:"enabled"       json:"enabled"       yaml:"enabled"`
-	SourceType      RepoSource `bson:"source_type"   json:"source_type"   yaml:"source_type"`
+	/*
+		repo can come from params or other job, introduced in 1.3.1
+	*/
+	SourceFrom      RepoSource `bson:"source_from"               json:"source_from"                 yaml:"source_from"`
 	GlobalParamName string     `bson:"param_name"    json:"param_name"    yaml:"param_name"`
 	JobName         string     `bson:"job_name"      json:"job_name"      yaml:"job_name"`
 	ServiceName     string     `bson:"service_name"  json:"service_name"  yaml:"service_name"`
 	ServiceModule   string     `bson:"service_module" json:"service_module" yaml:"service_module"`
-	JobRepoIndex    int        `bson:"job_repo_index" json:"job_repo_index" yaml:"job_repo_index"`
+	JobRepoIndex    int        `bson:"repo_index" json:"repo_index" yaml:"repo_index"`
+}
+
+// repo source, repo can come from params or other job
+type SourceFrom struct {
+	Enabled    bool       `bson:"enabled"       json:"enabled"       yaml:"enabled"`
+	SourceType RepoSource `bson:"source_type"   json:"source_type"   yaml:"source_type"`
 }
 
 type BranchFilterInfo struct {
@@ -138,8 +140,9 @@ func (repo *Repository) GetRepoNamespace() string {
 type RepoSource string
 
 const (
-	RepoSourceParam RepoSource = "param"
-	RepoSourceJob   RepoSource = "job"
+	RepoSourceRuntime RepoSource = ""
+	RepoSourceParam   RepoSource = "param"
+	RepoSourceJob     RepoSource = "job"
 )
 
 const (
