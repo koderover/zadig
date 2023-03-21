@@ -246,6 +246,13 @@ const (
 	TriggerWorkflowSourceFromJob TriggerWorkflowSourceType = "fromjob"
 )
 
+type TestModuleType string
+
+const (
+	ProductTestType TestModuleType = ""
+	ServiceTestType TestModuleType = "service_test"
+)
+
 type DeployContent string
 
 const (

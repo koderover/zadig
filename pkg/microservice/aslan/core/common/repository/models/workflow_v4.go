@@ -217,7 +217,24 @@ type DistributeTarget struct {
 }
 
 type ZadigTestingJobSpec struct {
-	TestModules []*TestModule `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
+	TestType        config.TestModuleType   `bson:"test_type"        yaml:"test_type"        json:"test_type"`
+	Source          config.DeploySourceType `bson:"source"           yaml:"source"           json:"source"`
+	JobName         string                  `bson:"job_name"         yaml:"job_name"         json:"job_name"`
+	OriginJobName   string                  `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
+	TargetServices  []*ServiceTestTarget    `bson:"target_services"  yaml:"target_services"  json:"target_services"`
+	TestModules     []*TestModule           `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
+	ServiceAndTests []*ServiceAndTest       `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
+}
+
+type ServiceAndTest struct {
+	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	TestModule    `bson:",inline"  yaml:",inline"  json:",inline"`
+}
+
+type ServiceTestTarget struct {
+	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 }
 
 type TestModule struct {
