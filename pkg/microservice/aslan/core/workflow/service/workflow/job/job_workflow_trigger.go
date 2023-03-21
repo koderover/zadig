@@ -181,9 +181,6 @@ func (j *WorkflowTriggerJob) getRepoFromJob(param *commonmodels.Param) {
 				if job.Name != param.Repo.JobName {
 					continue
 				}
-				// if job.JobType != config.JobZadigBuild {
-				// 	continue
-				// }
 				switch v := job.Spec.(type) {
 				case *commonmodels.ZadigBuildJobSpec:
 					for _, build := range v.ServiceAndBuilds {
