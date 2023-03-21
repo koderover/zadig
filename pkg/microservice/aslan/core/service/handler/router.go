@@ -105,3 +105,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		template.POST("/preview", PreviewServiceYamlFromYamlTemplate)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	template := router.Group("template")
+	{
+		template.POST("/load/yaml", LoadServiceFromYamlTemplateOpenAPI)
+	}
+}
