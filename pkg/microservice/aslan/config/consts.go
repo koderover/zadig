@@ -387,6 +387,14 @@ const (
 	ProjectTypeLoaded = "loaded"
 )
 
+type ParamSourceType string
+
+const (
+	ParamSourceRuntime = "runtime"
+	ParamSourceFixed   = "fixed"
+	ParamSourceGlobal  = "global"
+)
+
 type RegistryProvider string
 
 const (
