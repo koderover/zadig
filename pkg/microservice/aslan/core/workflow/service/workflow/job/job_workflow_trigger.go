@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type WorkflowTriggerJob struct {
@@ -166,6 +167,8 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
 			if j.spec.SourceJobName != job.Name {
+				//debug
+				log.Debugf("DEBUG1 job name: %s, source job name: %s", job.Name, j.spec.SourceJobName)
 				continue
 			}
 			switch job.JobType {
@@ -175,10 +178,13 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 					return nil, err
 				}
 				for _, build := range buildSpec.ServiceAndBuilds {
+					//debug
+					log.Debugf("DEBUG2 service name: %s, service module: %s", build.ServiceName, build.ServiceModule)
 					if info, ok := m[commonmodels.ServiceNameAndModule{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
 					}]; ok {
+						log.Debugf("DEBUG3")
 						resp = append(resp, &commonmodels.WorkflowTriggerEvent{
 							WorkflowName:  info.WorkflowName,
 							Params:        info.Params,
