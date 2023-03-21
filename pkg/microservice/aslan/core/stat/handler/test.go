@@ -30,7 +30,7 @@ func GetTestDashboard(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetTestDashboard(0, 0, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetTestDashboard(0, 0, "", ctx.Logger)
 }
 
 type DailyTestStat struct {
@@ -64,7 +64,7 @@ func GetTestStatOpenAPI(c *gin.Context) {
 		return
 	}
 
-	testStatistics, err := service.GetTestDashboard(args.StartDate, args.EndDate, ctx.Logger)
+	testStatistics, err := service.GetTestDashboard(args.StartDate, args.EndDate, args.Project, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
