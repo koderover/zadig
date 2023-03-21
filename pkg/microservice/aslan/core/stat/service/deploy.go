@@ -87,8 +87,9 @@ func GetDeployStats(args *models.DeployStatOption, log *zap.SugaredLogger) (*das
 	)
 
 	if deployItems, err := repo.NewDeployStatColl().GetDeployStats(&models.DeployStatOption{
-		StartDate: args.StartDate,
-		EndDate:   args.EndDate,
+		StartDate:    args.StartDate,
+		EndDate:      args.EndDate,
+		ProductNames: args.ProductNames,
 	}); err == nil {
 		for _, deployItem := range deployItems {
 			success += deployItem.TotalSuccess

@@ -82,8 +82,9 @@ func GetBuildStats(args *models.BuildStatOption, log *zap.SugaredLogger) (*dashb
 		dashboardBuildDailys = make([]*dashboardBuildDaily, 0)
 	)
 	if buildItem, err := repo.NewBuildStatColl().GetBuildStats(&models.BuildStatOption{
-		StartDate: args.StartDate,
-		EndDate:   args.EndDate,
+		StartDate:    args.StartDate,
+		EndDate:      args.EndDate,
+		ProductNames: args.ProductNames,
 	}); err == nil {
 		dashboardBuild.Success = buildItem.TotalSuccess
 		dashboardBuild.Total = buildItem.TotalBuildCount

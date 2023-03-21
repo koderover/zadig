@@ -42,8 +42,8 @@ func (req *getStatReqV2) Validate() error {
 	// currently, for efficiency consideration, 31 days is the max time range for the stats.
 	// if we need longer time range, we should consider saving the stats in a table instead of
 	// calculating it on the fly.
-	if req.EndTime-req.StartTime > 60*60*24*31 {
-		return e.ErrInvalidParam.AddDesc("time range should be less than 31 days")
+	if req.EndTime-req.StartTime > 60*60*24*365 {
+		return e.ErrInvalidParam.AddDesc("time range should be less than 365 days")
 	}
 
 	return nil
