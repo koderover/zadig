@@ -502,6 +502,7 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						log.Debugf("DEBUG X4 info param %v", param.Name)
 					}
 				}
+				job.Spec = spec
 			}
 			if job.JobType == config.JobFreestyle {
 				spec := &commonmodels.FreestyleJobSpec{}
