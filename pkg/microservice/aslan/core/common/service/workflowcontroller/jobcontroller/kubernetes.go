@@ -1059,12 +1059,12 @@ func getJobOutputFromRunningPod(namespace, containerName string, jobTask *common
 		return err
 	}
 	for _, pod := range pods {
-		stdout, _, success, err := podexec.KubeExec(clientset, restConfig, podexec.ExecOptions{
+		stdout, _, success, err := podexec.KubeExecWithRetry(clientset, restConfig, podexec.ExecOptions{
 			Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", job.JobTerminationFile)},
 			Namespace:     namespace,
 			PodName:       pod.Name,
 			ContainerName: containerName,
-		})
+		}, defaultRetryCount, defaultRetryInterval)
 		if err != nil {
 			return fmt.Errorf("failed to exec pod: %v", err)
 		}
@@ -1189,7 +1189,7 @@ func checkFileExistsWithRetry(clientset kubernetes.Interface, restConfig *rest.C
 func kubeExecWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, options podexec.ExecOptions, retryCount int, retryInterval time.Duration) (stdout, stderr string, success bool, err error) {
 	for i := 0; i < retryCount; i++ {
 		stdout, stderr, success, err = podexec.KubeExec(clientset, restConfig, options)
-		if success || stdout != "" || stderr != "" {
+		if success || stdout != "" || stderr != "" || err == nil {
 			return
 		}
 		// this fail maybe caused by connecting to k8s, so we should retry
