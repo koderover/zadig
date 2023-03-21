@@ -329,7 +329,8 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.MultiRun = workflow.MultiRun
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
-
+	// set workflow params repo info, like commitid, branch etc.
+	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
 			Name:     stage.Name,
@@ -1063,6 +1064,15 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		resp = append(resp, jobPreview)
 	}
 	return resp
+}
+
+func setZadigParamRepos(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) {
+	for _, param := range workflow.Params {
+		if param.ParamsType != "repo" {
+			continue
+		}
+		setBuildInfo(param.Repo, []*types.Repository{param.Repo}, logger)
+	}
 }
 
 func setZadigBuildRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
