@@ -70,7 +70,7 @@ func (c *Client) CreateWorkflowTaskV4(req *CreateWorkflowTaskV4Req) (*CreateTask
 		log.Debugf("AslanClient: create workflow task %s success", req.Workflow.Name)
 		return resp, nil
 	}
-	log.Debugf("AslanClient: create workflow task %s failed, response: %s", req.Workflow.Name, res.String())
+	log.Errorf("AslanClient: create workflow task %s failed, response: %s", req.Workflow.Name, res.String())
 	return nil, fmt.Errorf("failed to create workflow task, response: %s", res.String())
 }
 
@@ -85,6 +85,6 @@ func (c *Client) CancelWorkflowTaskV4(userName, workflowName string, taskID int6
 		log.Debugf("AslanClient: cancel workflow task %d success", taskID)
 		return nil
 	}
-	log.Debugf("AslanClient: cancel workflow task %d failed, response: %s", taskID, res.String())
+	log.Errorf("AslanClient: cancel workflow task %d failed, response: %s", taskID, res.String())
 	return fmt.Errorf("failed to cancel workflow task, response: %s", res.String())
 }
