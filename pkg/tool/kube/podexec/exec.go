@@ -31,6 +31,7 @@ import (
 	"k8s.io/utils/exec"
 
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // ExecOptions passed to ExecWithOptions
@@ -60,7 +61,8 @@ func KubeExecWithRetry(kclient kubernetes.Interface, restConfig *rest.Config, op
 
 	for i := 0; i < retryCount; i++ {
 		stdout, stderr, success, err = KubeExec(kclient, restConfig, options)
-		if !success {
+		if err != nil {
+			log.Warnf("KubeExecWithRetry: Failed to exec command in pod %s/%s, error: %v", options.Namespace, options.PodName, err)
 			time.Sleep(retryInterval)
 			continue
 		}

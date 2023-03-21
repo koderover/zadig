@@ -1189,7 +1189,7 @@ func checkFileExistsWithRetry(clientset kubernetes.Interface, restConfig *rest.C
 func kubeExecWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, options podexec.ExecOptions, retryCount int, retryInterval time.Duration) (stdout, stderr string, success bool, err error) {
 	for i := 0; i < retryCount; i++ {
 		stdout, stderr, success, err = podexec.KubeExec(clientset, restConfig, options)
-		if success || stdout != "" || stderr != "" {
+		if success || stdout != "" || stderr != "" || err == nil {
 			return
 		}
 		// this fail maybe caused by connecting to k8s, so we should retry
