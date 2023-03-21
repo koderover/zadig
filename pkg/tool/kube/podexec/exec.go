@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -48,6 +49,25 @@ type ExecOptions struct {
 // additional parameters to be passed.
 func ExecWithOptions(options ExecOptions) (string, string, bool, error) {
 	return KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), options)
+}
+
+func KubeExecWithRetry(kclient kubernetes.Interface, restConfig *rest.Config, options ExecOptions, retryCount int, retryInterval time.Duration) (string, string, bool, error) {
+	var (
+		stdout, stderr string
+		err            error
+		success        bool
+	)
+
+	for i := 0; i < retryCount; i++ {
+		stdout, stderr, success, err = KubeExec(kclient, restConfig, options)
+		if !success {
+			time.Sleep(retryInterval)
+			continue
+		}
+		break
+	}
+
+	return stdout, stderr, success, err
 }
 
 func KubeExec(kclient kubernetes.Interface, restConfig *rest.Config, options ExecOptions) (string, string, bool, error) {
