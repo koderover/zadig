@@ -18,10 +18,8 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -34,6 +32,7 @@ import (
 	svcService "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	policyservice "github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func CreateProjectOpenAPI(userID, username string, args *OpenAPICreateProductReq, logger *zap.SugaredLogger) error {
@@ -199,6 +198,18 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 	}
 
 	// ============================= THIRD STEP: environment creation ===============================
+	serviceMap := make(map[string]*commonmodels.Service)
+
+	allService, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProjectKey)
+	if err != nil {
+		logger.Errorf("failed to find service list for initialization, error: %s", err)
+		return err
+	}
+
+	for _, service := range allService {
+		serviceMap[service.ServiceName] = service
+	}
+
 	serviceList := make([][]*envService.ProductK8sServiceCreationInfo, 0)
 
 	// first we need to find all the services created before
@@ -212,31 +223,18 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 		serviceGroup := make([]*envService.ProductK8sServiceCreationInfo, 0)
 
 		for _, serviceName := range serviceNameList {
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   serviceName,
-				ProductName:   args.ProjectKey,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-
-			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
-			if err != nil {
-				errMsg := fmt.Sprintf("Can not find service with option %+v, error: %v", opt, err)
-				logger.Error(errMsg)
-				return errors.New(errMsg)
-			}
-
 			singleService := &envService.ProductK8sServiceCreationInfo{
 				ProductService: &commonmodels.ProductService{
-					ServiceName: serviceTmpl.ServiceName,
-					ProductName: serviceTmpl.ProductName,
-					Type:        serviceTmpl.Type,
-					Revision:    serviceTmpl.Revision,
+					ServiceName: serviceMap[serviceName].ServiceName,
+					ProductName: serviceMap[serviceName].ProductName,
+					Type:        serviceMap[serviceName].Type,
+					Revision:    serviceMap[serviceName].Revision,
 				},
 				DeployStrategy: "deploy",
 			}
 
 			singleService.Containers = make([]*commonmodels.Container, 0)
-			for _, c := range serviceTmpl.Containers {
+			for _, c := range serviceMap[serviceName].Containers {
 				container := &commonmodels.Container{
 					Name:      c.Name,
 					Image:     c.Image,
@@ -244,7 +242,7 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 					ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 				}
 				singleService.Containers = append(singleService.Containers, container)
-				singleService.VariableYaml = serviceTmpl.VariableYaml
+				singleService.VariableYaml = serviceMap[serviceName].VariableYaml
 			}
 			serviceGroup = append(serviceGroup, singleService)
 		}
