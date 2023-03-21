@@ -282,6 +282,41 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	return resp, nil
 }
 
+type NameWithParams struct {
+	Name        string                `json:"name"`
+	DisplayName string                `json:"display_name"`
+	Params      []*commonmodels.Param `json:"params"`
+}
+
+func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
+	workflowList, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
+		ProjectName: projectName,
+	}, 0, 0)
+	if err != nil {
+		return nil, errors.Errorf("failed to list workflow v4, the error is: %s", err)
+	}
+	var result []*NameWithParams
+	for _, workflowV4 := range workflowList {
+	LOOP:
+		for _, stage := range workflowV4.Stages {
+			for _, job := range stage.Jobs {
+				switch job.JobType {
+				case config.JobFreestyle, config.JobPlugin, config.JobWorkflowTrigger:
+				default:
+					break LOOP
+				}
+				result = append(result, &NameWithParams{
+					Name:        workflowV4.Name,
+					DisplayName: workflowV4.DisplayName,
+					Params:      workflowV4.Params,
+				})
+				break LOOP
+			}
+		}
+	}
+	return result, nil
+}
+
 func filterWorkflowNamesByView(projectName, viewName string, workflowNames, workflowV4Names []string, policyFound bool) ([]string, []string, error) {
 	if viewName == "" {
 		return workflowNames, workflowV4Names, nil
@@ -438,6 +473,30 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						logger.Errorf(err.Error())
 						return e.ErrFindWorkflow.AddErr(err)
 					}
+				}
+				job.Spec = spec
+			}
+			if job.JobType == config.JobWorkflowTrigger {
+				spec := &commonmodels.WorkflowTriggerJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+				for _, info := range spec.ServiceTriggerWorkflow {
+					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+					if err != nil {
+						logger.Errorf(err.Error())
+						continue
+					}
+					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
+				}
+				for _, info := range spec.FixedWorkflowList {
+					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+					if err != nil {
+						logger.Errorf(err.Error())
+						continue
+					}
+					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
 				}
 				job.Spec = spec
 			}
