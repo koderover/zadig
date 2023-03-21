@@ -57,7 +57,7 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 	isProjectAdmin := false
 	projectVerbSet := sets.NewString()
 	for _, rolebinding := range roleBindings {
-		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) {
+		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
 			isSystemAdmin = true
 			continue
 		} else if rolebinding.RoleRef.Name == string(setting.ProjectAdmin) {
