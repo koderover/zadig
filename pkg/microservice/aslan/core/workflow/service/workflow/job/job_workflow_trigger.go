@@ -93,9 +93,11 @@ func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
 func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+	log.Debugf("DEBUG7 job spec: %+v", j.job.Spec)
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
+	log.Debugf("DEBUG8 job spec: %+v", j.spec)
 	j.job.Spec = j.spec
 
 	var workflowTriggerEvents []*commonmodels.WorkflowTriggerEvent
