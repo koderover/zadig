@@ -476,6 +476,21 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 				}
 				job.Spec = spec
 			}
+			if job.JobType == config.JobWorkflowTrigger {
+				spec := &commonmodels.WorkflowTriggerJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+				for _, info := range spec.ServiceTriggerWorkflow {
+					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+					if err != nil {
+						logger.Errorf(err.Error())
+						continue
+					}
+					info.Params = commonservice.MergeParams(info.Params, workflow.Params)
+				}
+			}
 			if job.JobType == config.JobFreestyle {
 				spec := &commonmodels.FreestyleJobSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {

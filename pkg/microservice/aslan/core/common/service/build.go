@@ -207,3 +207,19 @@ func MergeBuildEnvs(templateEnvs []*commonmodels.KeyVal, customEnvs []*commonmod
 	}
 	return retEnvs
 }
+
+func MergeParams(templateEnvs []*commonmodels.Param, customEnvs []*commonmodels.Param) []*commonmodels.Param {
+	customEnvMap := make(map[string]*commonmodels.Param)
+	for _, v := range customEnvs {
+		customEnvMap[v.Name] = v
+	}
+	retEnvs := make([]*commonmodels.Param, 0)
+	for _, v := range templateEnvs {
+		if cv, ok := customEnvMap[v.Name]; ok {
+			retEnvs = append(retEnvs, cv)
+		} else {
+			retEnvs = append(retEnvs, v)
+		}
+	}
+	return retEnvs
+}
