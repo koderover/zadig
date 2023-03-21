@@ -31,7 +31,7 @@ type testDashboard struct {
 	AverageDuration int64 `json:"average_duration"`
 }
 
-func GetTestDashboard(startTime, endTime int64, log *zap.SugaredLogger) (*testDashboard, error) {
+func GetTestDashboard(startTime, endTime int64, productName string, log *zap.SugaredLogger) (*testDashboard, error) {
 	var (
 		testDashboard  = new(testDashboard)
 		existTestTasks = make([]*models.TestTaskStat, 0)
@@ -41,7 +41,9 @@ func GetTestDashboard(startTime, endTime int64, log *zap.SugaredLogger) (*testDa
 		totalDuration  int64
 	)
 
-	tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
+	tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{
+		ProductName: productName,
+	})
 	if err != nil {
 		log.Errorf("Failed to list testing err:%s", err)
 		return nil, err
