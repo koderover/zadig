@@ -79,14 +79,18 @@ func DiffFlatKeys(source, target string) ([]string, error) {
 	return diffFlatKeys.List(), nil
 }
 
-func ContainsFlatKey(source string, keys []string) (bool, error) {
+func ContainsFlatKey(source string, keys []string, excludedKeys []string) (bool, error) {
 	sourceFlatMap, err := converter.YamlToFlatMap([]byte(source))
 	if err != nil {
 		return false, err
 	}
 
 	keySet := sets.NewString(keys...)
+	excludedKeySet := sets.NewString(excludedKeys...)
 	for k := range sourceFlatMap {
+		if excludedKeySet.Has(k) {
+			continue
+		}
 		if keySet.Has(k) {
 			return true, nil
 		}
