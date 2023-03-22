@@ -42,6 +42,7 @@ type ScanningHook struct {
 	Branch       string                 `bson:"branch"        json:"branch"`
 	Events       []config.HookEventType `bson:"events"        json:"events"`
 	MatchFolders []string               `bson:"match_folders" json:"match_folders"`
+	IsRegular    bool                   `bson:"is_regular"    json:"is_regular"`
 }
 
 type SonarInfo struct {
