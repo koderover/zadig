@@ -29,9 +29,10 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/tool/sonar"
-	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
@@ -502,6 +503,8 @@ func (r *Reaper) AfterExec() error {
 	}
 
 	if r.Ctx.UploadEnabled {
+		start := time.Now()
+
 		forcedPathStyle := true
 		if r.Ctx.UploadStorageInfo.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
@@ -511,6 +514,7 @@ func (r *Reaper) AfterExec() error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 		for _, upload := range r.Ctx.UploadInfo {
+			log.Infof("Start archive %s.", upload.FilePath)
 			info, err := os.Stat(upload.AbsFilePath)
 			if err != nil {
 				return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %s", upload.AbsFilePath, upload.DestinationPath, err)
@@ -531,6 +535,7 @@ func (r *Reaper) AfterExec() error {
 				}
 			}
 		}
+		log.Infof("Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
 	}
 
 	if r.Ctx.ArtifactPath != "" {
