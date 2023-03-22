@@ -27,6 +27,8 @@ import (
 	templ "text/template"
 	"time"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/pkg/errors"
 
 	"go.uber.org/zap"
@@ -1133,7 +1135,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		EnvName:     envName,
 		Services:    make([]*EnvService, 0),
 	}
-	
+
 	project, err := templaterepo.NewProductColl().Find(productInfo.ProductName)
 	if err != nil {
 		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find project %s, err: %v", productInfo.ProductName, err))
@@ -1180,6 +1182,9 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	}
 
 	svcUpdatable := func(svcName string, revision int64) bool {
+		if !commonutil.ServiceDeployed(svcName, productInfo.ServiceDeployStrategy) {
+			return true
+		}
 		if svc, ok := templateSvcMap[svcName]; ok {
 			return svc.Revision != revision
 		}
