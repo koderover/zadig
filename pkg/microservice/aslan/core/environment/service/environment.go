@@ -907,7 +907,10 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 	}
 
 	for _, singleSvc := range productServiceRevisions {
-		containsKey, err := yamlutil.ContainsFlatKey(singleSvc.VariableYaml, diffKeys)
+		if !commonutil.ServiceDeployed(singleSvc.ServiceName, productInfo.ServiceDeployStrategy) {
+			continue
+		}
+		containsKey, err := yamlutil.ContainsFlatKey(singleSvc.VariableYaml, singleSvc.ServiceVars, diffKeys)
 		if err != nil {
 			return ret, err
 		}
