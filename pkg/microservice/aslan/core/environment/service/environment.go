@@ -906,8 +906,11 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 		return ret, err
 	}
 
+	log.Infof("##### diffKeys: %v", diffKeys)
+
 	for _, singleSvc := range productServiceRevisions {
 		containsKey, err := yamlutil.ContainsFlatKey(singleSvc.VariableYaml, singleSvc.ServiceVars, diffKeys)
+		log.Infof("######## service name: %s, serviceVars: %v, containsKey: %v", singleSvc.ServiceName, singleSvc.ServiceVars, containsKey)
 		if err != nil {
 			return ret, err
 		}
