@@ -17,6 +17,8 @@ limitations under the License.
 package webhook
 
 import (
+	"regexp"
+
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
@@ -199,6 +201,18 @@ func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHo
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 		if !EventConfigured(matchRepo, config.HookEventPr) {
 			return false, nil
+		}
+
+		isRegExp := matchRepo.IsRegular
+
+		if !isRegExp {
+			if ev.ObjectAttributes.TargetBranch != hookRepo.Branch {
+				return false, nil
+			}
+		} else {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
+				return false, nil
+			}
 		}
 
 		hookRepo.Branch = ev.ObjectAttributes.TargetBranch

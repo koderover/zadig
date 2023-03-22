@@ -591,6 +591,7 @@ func ConvertScanningHookToMainHookRepo(hook *types.ScanningHook) *commonmodels.M
 		MatchFolders: hook.MatchFolders,
 		CodehostID:   hook.CodehostID,
 		Events:       hook.Events,
+		IsRegular:    hook.IsRegular,
 	}
 }
 
