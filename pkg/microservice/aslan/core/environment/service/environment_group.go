@@ -56,6 +56,12 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		resp            = make([]*commonservice.ServiceResp, 0)
 	)
 
+	projectType := getProjectType(productName)
+	if projectType == setting.HelmDeployType {
+		log.Infof("listing group for helm project is not supported: %s/%s", productName, envName)
+		return resp, count, nil
+	}
+
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {

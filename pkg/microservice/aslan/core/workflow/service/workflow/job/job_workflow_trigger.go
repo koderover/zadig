@@ -49,35 +49,6 @@ func (j *WorkflowTriggerJob) SetPreset() error {
 		return err
 	}
 
-	type NameAndType struct {
-		Name string
-		Type string
-	}
-
-	for _, stw := range j.spec.ServiceTriggerWorkflow {
-		w, err := mongodb.NewWorkflowV4Coll().Find(stw.WorkflowName)
-		if err != nil {
-			return errors.Wrapf(err, "Preset WorkflowTriggerJob: find workflow %s error", stw.WorkflowName)
-		}
-		nowParam := make(map[NameAndType]*commonmodels.Param)
-		for _, param := range w.Params {
-			nowParam[NameAndType{
-				Name: param.Name,
-				Type: param.ParamsType,
-			}] = param
-		}
-		for _, param := range stw.Params {
-			if p, ok := nowParam[NameAndType{
-				Name: param.Name,
-				Type: param.ParamsType,
-			}]; ok {
-				p.Value = param.Value
-				p.Repo = param.Repo
-			}
-		}
-		stw.Params = w.Params
-	}
-
 	j.job.Spec = j.spec
 	return nil
 }
@@ -269,7 +240,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 
 func (j *WorkflowTriggerJob) LintJob() error {
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec

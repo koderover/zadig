@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"regexp"
 	"strconv"
 
 	"github.com/google/go-github/v35/github"
@@ -168,6 +169,18 @@ func (gmem githubMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHoo
 		}
 
 		hookRepo.Branch = *ev.PullRequest.Base.Ref
+
+		isRegExp := matchRepo.IsRegular
+
+		if !isRegExp {
+			if *ev.PullRequest.Base.Ref != hookRepo.Branch {
+				return false, nil
+			}
+		} else {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.PullRequest.Base.Ref); !matched {
+				return false, nil
+			}
+		}
 
 		if *ev.PullRequest.State == "open" {
 			var changedFiles []string
