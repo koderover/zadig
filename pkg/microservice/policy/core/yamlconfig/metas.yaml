@@ -851,6 +851,8 @@ metas:
         rules:
           - method: POST
             endpoint: "/api/aslan/environment/production/environments"
+          - method: GET
+            endpoint: "/api/aslan/cluster/clusters"
       - action: edit_production_environment
         alias: 更新
         description: ""
@@ -861,6 +863,8 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
           - method: PUT
             endpoint: "/api/aslan/environment/production/environments/?*/registry"
+          - method: GET
+            endpoint: "/api/aslan/cluster/clusters"
       - action: delete_production_environment
         alias: 删除
         description: ""
