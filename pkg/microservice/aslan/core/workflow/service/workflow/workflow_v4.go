@@ -305,17 +305,16 @@ func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
 				default:
 					break LOOP
 				}
+				var paramList []*commonmodels.Param
 				for _, param := range workflowV4.Params {
-					param.Source = config.ParamSourceRuntime
-					if strings.Contains(param.Value, setting.FixedValueMark) {
-						param.Source = config.ParamSourceFixed
-						param.Value = strings.ReplaceAll(param.Value, setting.FixedValueMark, "")
+					if !strings.Contains(param.Value, setting.FixedValueMark) {
+						paramList = append(paramList, param)
 					}
 				}
 				result = append(result, &NameWithParams{
 					Name:        workflowV4.Name,
 					DisplayName: workflowV4.DisplayName,
-					Params:      workflowV4.Params,
+					Params:      paramList,
 				})
 				break LOOP
 			}
@@ -495,7 +494,14 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						logger.Errorf(err.Error())
 						continue
 					}
-					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
+					var paramList []*commonmodels.Param
+					for _, param := range workflow.Params {
+						if !strings.Contains(param.Value, setting.FixedValueMark) {
+							param.Source = config.ParamSourceRuntime
+							paramList = append(paramList, param)
+						}
+					}
+					info.Params = commonservice.MergeParams(paramList, info.Params)
 				}
 				for _, info := range spec.FixedWorkflowList {
 					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
@@ -503,14 +509,14 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 						logger.Errorf(err.Error())
 						continue
 					}
+					var paramList []*commonmodels.Param
 					for _, param := range workflow.Params {
-						param.Source = config.ParamSourceRuntime
-						if strings.Contains(param.Value, setting.FixedValueMark) {
-							param.Source = config.ParamSourceFixed
-							param.Value = strings.ReplaceAll(param.Value, setting.FixedValueMark, "")
+						if !strings.Contains(param.Value, setting.FixedValueMark) {
+							param.Source = config.ParamSourceRuntime
+							paramList = append(paramList, param)
 						}
 					}
-					info.Params = commonservice.MergeParams(workflow.Params, info.Params)
+					info.Params = commonservice.MergeParams(paramList, info.Params)
 				}
 				job.Spec = spec
 			}
