@@ -154,7 +154,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
 		}
 		productInfo.Render.Revision = curRenderset.Revision
-		if deployInfo.UpdateServiceRevision || sevOnline {
+		if deployInfo.UpdateServiceRevision || sevOnline || len(deployInfo.VariableYaml) > 0 {
 			productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
 		}
 	} else {
