@@ -192,7 +192,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		// if not only deploy image, we will redeploy service
 		if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-			if err := c.updateSystemService(env, currentYaml, updatedYaml, varsYaml, revision, containers); err != nil {
+			if err := c.updateSystemService(env, currentYaml, updatedYaml, varsYaml, revision, containers, updateRevision); err != nil {
 				logError(c.job, err.Error(), c.logger)
 				return err
 			}
@@ -242,10 +242,10 @@ func onlyDeployImage(deployContents []config.DeployContent) bool {
 	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
 }
 
-func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml, varsYaml string, revision int, containers []*commonmodels.Container) error {
+func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml, varsYaml string, revision int, containers []*commonmodels.Container, updateRevision bool) error {
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
-		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) &&
+		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !updateRevision &&
 			!slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
 			addZadigLabel = false
 		}
@@ -274,7 +274,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		ServiceRevision:       revision,
 		VariableYaml:          varsYaml,
 		Containers:            containers,
-		UpdateServiceRevision: slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig),
+		UpdateServiceRevision: updateRevision,
 	})
 	if err != nil {
 		msg := fmt.Sprintf("update service render set info error: %v", err)
