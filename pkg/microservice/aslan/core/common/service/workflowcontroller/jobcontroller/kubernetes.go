@@ -571,10 +571,12 @@ func setJobShareStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTas
 	if cluster.ShareStorage.NFSProperties.PVC == "" {
 		return
 	}
-	// save cluster id so we can clean
-	if len(storageDetails) > 0 {
-		workflowCtx.ClusterIDAdd(cluster.ID.Hex())
+	if len(storageDetails) <= 0 {
+		return
 	}
+	// save cluster id so we can clean up share storage later
+	workflowCtx.ClusterIDAdd(cluster.ID.Hex())
+
 	volumeName := "share-storage"
 	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
 		Name: volumeName,
