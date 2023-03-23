@@ -137,13 +137,13 @@ func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
 		}
 	}
 
+	if len(validKvMap) == 0 {
+		return "", nil
+	}
+
 	validKvMap, err = converter.Expand(validKvMap)
 	if err != nil {
 		return "", err
-	}
-
-	if len(valuesMap) == 0 {
-		return "", nil
 	}
 
 	bs, err := yaml.Marshal(validKvMap)
