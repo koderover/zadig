@@ -137,6 +137,10 @@ func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
 		}
 	}
 
+	if len(validKvMap) == 0 {
+		return "", nil
+	}
+
 	validKvMap, err = converter.Expand(validKvMap)
 	if err != nil {
 		return "", err
@@ -440,7 +444,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 
 	// service not deployed by zadig, should only be updated with images
-	if !option.UnInstall && !option.UpdateServiceRevision && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
+	if !option.UnInstall && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
 		manifest, _, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
 		return manifest, int(curProductSvc.Revision), err
 	}
@@ -566,7 +570,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	// use latest service revision
-	if latestSvcTemplate == nil || !option.UpdateServiceRevision {
+	if latestSvcTemplate == nil || (!option.UpdateServiceRevision && len(option.VariableYaml) == 0) {
 		latestSvcTemplate = prodSvcTemplate
 	}
 	if productInfo.Production {
@@ -574,7 +578,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	// service not deployed by zadig, should only be updated with images
-	if !option.UnInstall && !option.UpdateServiceRevision && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
+	if !option.UnInstall && !option.UpdateServiceRevision && len(option.VariableYaml) == 0 && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
 		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
 		return manifest, int(curProductSvc.Revision), workloads, err
 	}

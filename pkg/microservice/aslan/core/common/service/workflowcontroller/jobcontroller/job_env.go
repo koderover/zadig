@@ -17,6 +17,7 @@ limitations under the License.
 package jobcontroller
 
 import (
+	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -58,6 +59,14 @@ func mergeContainers(currentContainer []*models.Container, newContainers ...[]*m
 		ret = append(ret, container)
 	}
 	return ret
+}
+
+func variableYamlNil(variableYaml string) bool {
+	if len(variableYaml) == 0 {
+		return true
+	}
+	kvMap, _ := converter.YamlToFlatMap([]byte(variableYaml))
+	return len(kvMap) == 0
 }
 
 // UpdateProductServiceDeployInfo updates deploy info of service for some product
@@ -154,7 +163,8 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
 		}
 		productInfo.Render.Revision = curRenderset.Revision
-		if deployInfo.UpdateServiceRevision || sevOnline {
+		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml))
+		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
 			productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
 		}
 	} else {

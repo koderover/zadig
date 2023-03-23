@@ -245,7 +245,8 @@ func onlyDeployImage(deployContents []config.DeployContent) bool {
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml, varsYaml string, revision int, containers []*commonmodels.Container) error {
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
-		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) {
+		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) &&
+			!slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
 			addZadigLabel = false
 		}
 	}

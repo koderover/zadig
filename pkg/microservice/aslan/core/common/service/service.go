@@ -43,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -1133,7 +1134,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		EnvName:     envName,
 		Services:    make([]*EnvService, 0),
 	}
-	
+
 	project, err := templaterepo.NewProductColl().Find(productInfo.ProductName)
 	if err != nil {
 		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find project %s, err: %v", productInfo.ProductName, err))
@@ -1180,6 +1181,9 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	}
 
 	svcUpdatable := func(svcName string, revision int64) bool {
+		if !commonutil.ServiceDeployed(svcName, productInfo.ServiceDeployStrategy) {
+			return true
+		}
 		if svc, ok := templateSvcMap[svcName]; ok {
 			return svc.Revision != revision
 		}

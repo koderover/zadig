@@ -64,13 +64,14 @@ import (
 )
 
 type ServiceOption struct {
-	ServiceModules []*ServiceModule           `json:"service_module"`
-	SystemVariable []*Variable                `json:"system_variable"`
-	VariableYaml   string                     `json:"variable_yaml"`
-	ServiceVars    []string                   `json:"service_vars"`
-	VariableKVs    []*commonmodels.VariableKV `json:"variable_kvs"`
-	Yaml           string                     `json:"yaml"`
-	Service        *commonmodels.Service      `json:"service,omitempty"`
+	ServiceModules      []*ServiceModule           `json:"service_module"`
+	SystemVariable      []*Variable                `json:"system_variable"`
+	VariableYaml        string                     `json:"variable_yaml"`
+	ServiceVariableYaml string                     `json:"service_variable_yaml"`
+	ServiceVars         []string                   `json:"service_vars"`
+	VariableKVs         []*commonmodels.VariableKV `json:"variable_kvs"`
+	Yaml                string                     `json:"yaml"`
+	Service             *commonmodels.Service      `json:"service,omitempty"`
 }
 
 type ServiceModule struct {
@@ -237,6 +238,11 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			}
 			serviceOption.ServiceVars = validServiceVars
 		}
+	}
+	var err error
+	serviceOption.ServiceVariableYaml, err = kube.ClipVariableYaml(serviceOption.VariableYaml, args.ServiceVars)
+	if err != nil {
+		return serviceOption, err
 	}
 
 	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub ||
