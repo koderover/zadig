@@ -174,6 +174,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/lint", LintWorkflowV4)
 		workflowV4.POST("/check/lark/:name", CheckWorkflowV4LarkApproval)
 		workflowV4.POST("/output/:jobName", GetWorkflowGlabalVars)
+		workflowV4.POST("/repo/:jobName", GetWorkflowRepoIndex)
 		workflowV4.GET("/name/:name", FindWorkflowV4)
 		workflowV4.PUT("/:name", UpdateWorkflowV4)
 		workflowV4.DELETE("/:name", DeleteWorkflowV4)

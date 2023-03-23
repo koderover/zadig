@@ -1464,6 +1464,10 @@ func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger
 	return resp, nil
 }
 
+func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []*jobctl.RepoIndex {
+	return jobctl.GetWorkflowRepoIndex(workflow, currentJobName, log)
+}
+
 func GetWorkflowGlabalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
 	return append(getDefaultVars(workflow, currentJobName), jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...)
 }
@@ -1475,6 +1479,9 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4, currentJobName string) []
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.creator"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.timestamp"))
 	for _, param := range workflow.Params {
+		if param.ParamsType == "repo" {
+			continue
+		}
 		vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"workflow", "params", param.Name}, ".")))
 	}
 	for _, stage := range workflow.Stages {
