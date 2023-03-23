@@ -142,6 +142,10 @@ func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
 		return "", err
 	}
 
+	if len(valuesMap) == 0 {
+		return "", nil
+	}
+
 	bs, err := yaml.Marshal(validKvMap)
 	return string(bs), err
 }
