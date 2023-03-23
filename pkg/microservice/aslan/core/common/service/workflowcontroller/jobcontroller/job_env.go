@@ -17,6 +17,8 @@ limitations under the License.
 package jobcontroller
 
 import (
+	"sync"
+
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/pkg/errors"
 
@@ -69,9 +71,14 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
+// TODO FIXME, we should not use lock here
+var serviceDeployUpdateLock sync.Mutex
+
 // UpdateProductServiceDeployInfo updates deploy info of service for some product
 // Including: Deploy service / Update service / Uninstall services
 func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error {
+	serviceDeployUpdateLock.Lock()
+	defer serviceDeployUpdateLock.Unlock()
 	_, err := templaterepo.NewProductColl().Find(deployInfo.ProductName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to find template product %s", deployInfo.ProductName)
@@ -163,7 +170,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
 		}
 		productInfo.Render.Revision = curRenderset.Revision
-		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml))
+		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
 			productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
 		}
