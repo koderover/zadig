@@ -66,6 +66,12 @@ func (j *ApolloJob) SetPreset() error {
 				Val: item.Value,
 			})
 		}
+		if result.Format != "properties" && len(result.Items) == 0 {
+			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
+				Key: "content",
+				Val: "",
+			})
+		}
 	}
 	j.job.Spec = j.spec
 	return nil
