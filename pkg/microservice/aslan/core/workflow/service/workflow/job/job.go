@@ -250,7 +250,7 @@ func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName stri
 			}
 			if job.JobType == config.JobZadigBuild {
 				jobSpec := &commonmodels.ZadigBuildJobSpec{}
-				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+				if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
 					log.Errorf("get job spec failed, err: %v", err)
 					continue
 				}
