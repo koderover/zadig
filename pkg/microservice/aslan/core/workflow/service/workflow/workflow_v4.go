@@ -296,30 +296,29 @@ func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
 		return nil, errors.Errorf("failed to list workflow v4, the error is: %s", err)
 	}
 	var result []*NameWithParams
+LOOP:
 	for _, workflowV4 := range workflowList {
-	LOOP:
 		for _, stage := range workflowV4.Stages {
 			for _, job := range stage.Jobs {
 				switch job.JobType {
 				case config.JobFreestyle, config.JobPlugin, config.JobWorkflowTrigger:
 				default:
-					break LOOP
+					continue LOOP
 				}
-				for _, param := range workflowV4.Params {
-					param.Source = config.ParamSourceRuntime
-					if strings.Contains(param.Value, setting.FixedValueMark) {
-						param.Source = config.ParamSourceFixed
-						param.Value = strings.ReplaceAll(param.Value, setting.FixedValueMark, "")
-					}
-				}
-				result = append(result, &NameWithParams{
-					Name:        workflowV4.Name,
-					DisplayName: workflowV4.DisplayName,
-					Params:      workflowV4.Params,
-				})
-				break LOOP
 			}
 		}
+		for _, param := range workflowV4.Params {
+			param.Source = config.ParamSourceRuntime
+			if strings.Contains(param.Value, setting.FixedValueMark) {
+				param.Source = config.ParamSourceFixed
+				param.Value = strings.ReplaceAll(param.Value, setting.FixedValueMark, "")
+			}
+		}
+		result = append(result, &NameWithParams{
+			Name:        workflowV4.Name,
+			DisplayName: workflowV4.DisplayName,
+			Params:      workflowV4.Params,
+		})
 	}
 	return result, nil
 }
