@@ -76,10 +76,9 @@ var serviceDeployUpdateLock sync.Mutex
 // UpdateProductServiceDeployInfo updates deploy info of service for some product
 // Including: Deploy service / Update service / Uninstall services
 func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error {
+	log.Info("######## UpdateProductServiceDeployInfo start: serviceName %v  ", deployInfo.ServiceName, deployInfo.VariableYaml)
 	serviceDeployUpdateLock.Lock()
 	defer serviceDeployUpdateLock.Unlock()
-
-	log.Info("######## UpdateProductServiceDeployInfo start: serviceName %v  ", deployInfo.ServiceName, deployInfo.VariableYaml)
 	_, err := templaterepo.NewProductColl().Find(deployInfo.ProductName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to find template product %s", deployInfo.ProductName)
