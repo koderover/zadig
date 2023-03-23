@@ -76,7 +76,6 @@ var serviceDeployUpdateLock sync.Mutex
 // UpdateProductServiceDeployInfo updates deploy info of service for some product
 // Including: Deploy service / Update service / Uninstall services
 func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error {
-	log.Info("######## UpdateProductServiceDeployInfo start: serviceName %v  ", deployInfo.ServiceName, deployInfo.VariableYaml)
 	serviceDeployUpdateLock.Lock()
 	defer serviceDeployUpdateLock.Unlock()
 	_, err := templaterepo.NewProductColl().Find(deployInfo.ProductName)
@@ -130,8 +129,6 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 	if len(productInfo.Services) == 0 {
 		productInfo.Services = [][]*models.ProductService{[]*models.ProductService{}}
 	}
-
-	log.Info("######## UpdateProductServiceDeployInfo 22222: %v", deployInfo.ServiceName)
 
 	if !deployInfo.Uninstall {
 		sevOnline := false
