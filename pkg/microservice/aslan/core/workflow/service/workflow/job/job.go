@@ -286,44 +286,51 @@ func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName stri
 }
 
 func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
-	resp := []*types.Repository{}
+	repos := []*types.Repository{}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.JobType == config.JobZadigBuild {
 				jobCtl := &BuildJob{job: job, workflow: workflow}
 				buildRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, warpJobError(job.Name, err)
+					return repos, warpJobError(job.Name, err)
 				}
-				resp = append(resp, buildRepos...)
+				repos = append(repos, buildRepos...)
 			}
 			if job.JobType == config.JobFreestyle {
 				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
 				freeStyleRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, warpJobError(job.Name, err)
+					return repos, warpJobError(job.Name, err)
 				}
-				resp = append(resp, freeStyleRepos...)
+				repos = append(repos, freeStyleRepos...)
 			}
 			if job.JobType == config.JobZadigTesting {
 				jobCtl := &TestingJob{job: job, workflow: workflow}
 				testingRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, warpJobError(job.Name, err)
+					return repos, warpJobError(job.Name, err)
 				}
-				resp = append(resp, testingRepos...)
+				repos = append(repos, testingRepos...)
 			}
 			if job.JobType == config.JobZadigScanning {
 				jobCtl := &ScanningJob{job: job, workflow: workflow}
 				scanningRepos, err := jobCtl.GetRepos()
 				if err != nil {
-					return resp, warpJobError(job.Name, err)
+					return repos, warpJobError(job.Name, err)
 				}
-				resp = append(resp, scanningRepos...)
+				repos = append(repos, scanningRepos...)
 			}
 		}
 	}
-	return resp, nil
+	newRepos := []*types.Repository{}
+	for _, repo := range repos {
+		if repo.SourceFrom != types.RepoSourceRuntime {
+			continue
+		}
+		newRepos = append(newRepos, repo)
+	}
+	return newRepos, nil
 }
 
 func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
