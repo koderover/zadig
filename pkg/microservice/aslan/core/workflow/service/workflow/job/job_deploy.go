@@ -198,6 +198,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		serviceMap[service.ServiceName] = service
 	}
 
+	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+	}
+	timeout := templateProduct.Timeout * 60
+
 	if j.spec.DeployType == setting.K8SDeployType {
 		deployServiceMap := map[string][]*commonmodels.ServiceAndImage{}
 		for _, deploy := range j.spec.ServiceAndImages {
@@ -213,6 +219,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ClusterID:          product.ClusterID,
 				Production:         j.spec.Production,
 				DeployContents:     j.spec.DeployContents,
+				Timeout: timeout,
 			}
 			for _, deploy := range deploys {
 				// if external env, check service exists
@@ -276,6 +283,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ServiceType:        setting.HelmDeployType,
 				ClusterID:          product.ClusterID,
 				ReleaseName:        releaseName,
+				Timeout: timeout,
 			}
 			for _, deploy := range deploys {
 				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {

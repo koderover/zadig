@@ -109,14 +109,9 @@ func (p *DeployTaskPlugin) SetStatus(status config.Status) {
 // TaskTimeout ...
 func (p *DeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
-		p.Task.Timeout = setting.DeployTimeout
-	} else {
-		if !p.Task.IsRestart {
-			p.Task.Timeout = p.Task.Timeout * 60
-		}
+		p.Task.Timeout = setting.DeployTimeout / 60
 	}
-
-	return p.Task.Timeout
+	return p.Task.Timeout * 60
 }
 
 type EnvArgs struct {
@@ -583,7 +578,7 @@ func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
 
 			// esure latest replicaset to be created
 			time.Sleep(3 * time.Second)
-			
+
 			replicaSets, err := getter.ListReplicaSets(p.Task.Namespace, selector, p.kubeClient)
 			if err != nil {
 				return newResources, err
