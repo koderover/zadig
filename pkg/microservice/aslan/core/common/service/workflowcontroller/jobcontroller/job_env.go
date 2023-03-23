@@ -71,6 +71,7 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
+// TODO FIXME, we should not use lock here
 var serviceDeployUpdateLock sync.Mutex
 
 // UpdateProductServiceDeployInfo updates deploy info of service for some product
