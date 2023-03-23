@@ -1703,6 +1703,9 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 				Type:  commonmodels.StringType,
 			})
 		}
+		if !slices.Contains(deployContents, config.DeployVars) {
+			service.KeyVals = []*commonmodels.ServiceKeyVal{}
+		}
 		return service, nil
 	}
 	service.ServiceName = serviceName
