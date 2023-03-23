@@ -1466,10 +1466,10 @@ func GetPatchParams(patchItem *commonmodels.PatchItem, logger *zap.SugaredLogger
 }
 
 func GetWorkflowGlabalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
-	return append(getDefaultVars(workflow), jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...)
+	return append(getDefaultVars(workflow, currentJobName), jobctl.GetWorkflowOutputs(workflow, currentJobName, log)...)
 }
 
-func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
+func getDefaultVars(workflow *commonmodels.WorkflowV4, currentJobName string) []string {
 	vars := []string{}
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "project"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.name"))
@@ -1480,6 +1480,9 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4) []string {
 	}
 	for _, stage := range workflow.Stages {
 		for _, j := range stage.Jobs {
+			if j.Name == currentJobName {
+				continue
+			}
 			switch j.JobType {
 			case config.JobZadigBuild:
 				spec := new(commonmodels.ZadigBuildJobSpec)
