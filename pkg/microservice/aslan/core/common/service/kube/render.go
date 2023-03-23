@@ -566,7 +566,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	// use latest service revision
-	if latestSvcTemplate == nil || !option.UpdateServiceRevision {
+	if latestSvcTemplate == nil || (!option.UpdateServiceRevision && len(option.VariableYaml) == 0) {
 		latestSvcTemplate = prodSvcTemplate
 	}
 	if productInfo.Production {
