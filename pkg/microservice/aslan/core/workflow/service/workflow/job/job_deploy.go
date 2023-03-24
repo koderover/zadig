@@ -219,7 +219,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ClusterID:          product.ClusterID,
 				Production:         j.spec.Production,
 				DeployContents:     j.spec.DeployContents,
-				Timeout: timeout,
+				Timeout:            timeout,
 			}
 			for _, deploy := range deploys {
 				// if external env, check service exists
@@ -283,7 +283,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ServiceType:        setting.HelmDeployType,
 				ClusterID:          product.ClusterID,
 				ReleaseName:        releaseName,
-				Timeout: timeout,
+				Timeout:            timeout,
 			}
 			for _, deploy := range deploys {
 				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
