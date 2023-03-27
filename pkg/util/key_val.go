@@ -20,6 +20,10 @@ import "gopkg.in/yaml.v3"
 
 type KVInput []*KeyValue
 
+// TODO: the key field of this struct only support non-nested value
+// e.g. the key "a.b" will not be parse as a nested value
+// this is different from the behavior of our normal service KV parsing.
+// How we handle the KV should be decided after further discussion.
 type KeyValue struct {
 	Key   string      `json:"key"`
 	Value interface{} `json:"value"`
