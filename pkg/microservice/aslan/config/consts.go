@@ -210,6 +210,7 @@ const (
 	JobApollo               JobType = "apollo"
 	JobMeegoTransition      JobType = "meego-transition"
 	JobWorkflowTrigger      JobType = "workflow-trigger"
+	JobOfflineService       JobType = "offline-service"
 )
 
 const (
@@ -244,6 +245,13 @@ type TriggerWorkflowSourceType string
 const (
 	TriggerWorkflowSourceRuntime TriggerWorkflowSourceType = "runtime"
 	TriggerWorkflowSourceFromJob TriggerWorkflowSourceType = "fromjob"
+)
+
+type EnvType string
+
+const (
+	EnvTypeTest       = "test"
+	EvnTypeProduction = "production"
 )
 
 type TestModuleType string
