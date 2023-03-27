@@ -181,19 +181,45 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 	// ============================= SECOND STEP: service creation ===============================
 	for _, service := range args.ServiceList {
 		// create service
-		creationArgs := &commonmodels.Service{
-			ProductName: args.ProjectKey,
-			ServiceName: service.ServiceName,
-			Yaml:        service.Yaml,
-			Source:      setting.SourceFromZadig,
-			Type:        setting.K8SDeployType,
-			CreateBy:    username,
-		}
+		if service.Source == config.SourceFromYaml {
+			creationArgs := &commonmodels.Service{
+				ProductName: args.ProjectKey,
+				ServiceName: service.ServiceName,
+				Yaml:        service.Yaml,
+				Source:      setting.SourceFromZadig,
+				Type:        setting.K8SDeployType,
+				CreateBy:    username,
+			}
 
-		_, err := svcService.CreateServiceTemplate(username, creationArgs, false, logger)
-		if err != nil {
-			logger.Errorf("failed to create service: %s for project initialization, error: %s", service.ServiceName, err)
-			return err
+			_, err := svcService.CreateServiceTemplate(username, creationArgs, false, logger)
+			if err != nil {
+				logger.Errorf("failed to create service: %s for project initialization, error: %s", service.ServiceName, err)
+				return err
+			}
+		} else if service.Source == config.SourceFromTemplate {
+			template, err := commonrepo.NewYamlTemplateColl().GetByName(service.TemplateName)
+			if err != nil {
+				logger.Errorf("Failed to find template of name: %s, the error is: %s", service.TemplateName, err)
+				return err
+			}
+			variableYaml, err := service.VariableYaml.FormYamlString()
+			if err != nil {
+				logger.Errorf("Failed to form yaml string for service: %s, the error is: %s", service.ServiceName, err)
+				return err
+			}
+			loadArgs := &svcService.LoadServiceFromYamlTemplateReq{
+				ProjectName:  args.ProjectKey,
+				ServiceName:  service.ServiceName,
+				TemplateID:   template.ID.Hex(),
+				AutoSync:     service.AutoSync,
+				VariableYaml: variableYaml,
+			}
+
+			err = svcService.LoadServiceFromYamlTemplate(username, loadArgs, false, logger)
+			if err != nil {
+				logger.Errorf("failed to create service: %s for project initialization, error: %s", service.ServiceName, err)
+				return err
+			}
 		}
 	}
 

@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type LoadSource string
@@ -156,9 +157,9 @@ type LoadServiceFromYamlTemplateReq struct {
 }
 
 type OpenAPILoadServiceFromYamlTemplateReq struct {
-	ServiceName  string `json:"service_name"`
-	ProjectKey   string `json:"project_key"`
-	TemplateName string `json:"template_name"`
-	AutoSync     bool   `json:"auto_sync"`
-	VariableYaml string `json:"variable_yaml"`
+	ServiceName  string       `json:"service_name"`
+	ProjectKey   string       `json:"project_key"`
+	TemplateName string       `json:"template_name"`
+	AutoSync     bool         `json:"auto_sync"`
+	VariableYaml util.KVInput `json:"variable_yaml"`
 }
