@@ -20,7 +20,6 @@ import (
 	"errors"
 	"time"
 
-	svcService "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -30,6 +29,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	envService "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	svcService "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	policyservice "github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
