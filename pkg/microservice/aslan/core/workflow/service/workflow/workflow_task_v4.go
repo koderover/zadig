@@ -106,6 +106,8 @@ type JobTaskPreview struct {
 	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
 	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`
 	Spec             interface{}   `bson:"spec"           json:"spec"`
+	// JobInfo contains the fields that make up the job task name, for frontend display
+	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
 
 type ZadigBuildJobSpec struct {
@@ -784,6 +786,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			BreakpointBefore: job.BreakpointBefore,
 			BreakpointAfter:  job.BreakpointAfter,
 			CostSeconds:      costSeconds,
+			JobInfo:          job.JobInfo,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):
