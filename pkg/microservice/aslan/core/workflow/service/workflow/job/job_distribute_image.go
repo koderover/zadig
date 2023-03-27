@@ -173,8 +173,11 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		},
 	}
 	jobTask := &commonmodels.JobTask{
-		Name:    j.job.Name,
-		Key:     j.job.Name,
+		Name: j.job.Name,
+		Key:  j.job.Name,
+		JobInfo: map[string]string{
+			JobNameKey: j.job.Name,
+		},
 		JobType: string(config.JobZadigDistributeImage),
 		Spec:    jobTaskSpec,
 		Timeout: getTimeout(j.spec.Timeout),

@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
-	"golang.org/x/exp/slices"
 )
 
 type DeployJob struct {
@@ -247,8 +248,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				}
 			}
 			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
-				Key:     strings.Join([]string{j.job.Name, serviceName}, "."),
+				Name: jobNameFormat(serviceName + "-" + j.job.Name),
+				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
+				JobInfo: map[string]string{
+					JobNameKey:     j.job.Name,
+					"service_name": serviceName,
+				},
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
 			}
@@ -295,8 +300,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				})
 			}
 			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
-				Key:     strings.Join([]string{j.job.Name, serviceName}, "."),
+				Name: jobNameFormat(serviceName + "-" + j.job.Name),
+				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
+				JobInfo: map[string]string{
+					JobNameKey:     j.job.Name,
+					"service_name": serviceName,
+				},
 				JobType: string(config.JobZadigHelmDeploy),
 				Spec:    jobTaskSpec,
 			}

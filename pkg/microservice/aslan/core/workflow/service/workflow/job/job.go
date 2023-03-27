@@ -39,6 +39,7 @@ import (
 
 const (
 	OutputNameRegexString = "^[a-zA-Z0-9_]{1,64}$"
+	JobNameKey            = "jobName"
 )
 
 var (

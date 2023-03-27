@@ -312,8 +312,11 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 	}
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 	jobTask := &commonmodels.JobTask{
-		Name:    jobName,
-		Key:     strings.Join([]string{j.job.Name, testing.Name}, "."),
+		Name: jobName,
+		Key:  strings.Join([]string{j.job.Name, testing.Name}, "."),
+		JobInfo: map[string]string{
+			JobNameKey: j.job.Name,
+		},
 		JobType: string(config.JobZadigTesting),
 		Spec:    jobTaskSpec,
 		Timeout: int64(testingInfo.Timeout),

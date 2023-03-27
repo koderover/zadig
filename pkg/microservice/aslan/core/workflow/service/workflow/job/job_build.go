@@ -206,7 +206,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			Name: jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			JobInfo: map[string]string{
+				"service_name":   build.ServiceName,
+				"service_module": build.ServiceModule,
+				JobNameKey:       j.job.Name,
+			},
 			Key:     strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
 			JobType: string(config.JobZadigBuild),
 			Spec:    jobTaskSpec,

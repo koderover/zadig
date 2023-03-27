@@ -118,8 +118,11 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	jobTask := &commonmodels.JobTask{
-		Name:    j.job.Name,
-		Key:     j.job.Name,
+		Name: j.job.Name,
+		Key:  j.job.Name,
+		JobInfo: map[string]string{
+			JobNameKey: j.job.Name,
+		},
 		JobType: string(config.JobNacos),
 		Spec: commonmodels.JobTaskNacosSpec{
 			NacosID:       j.spec.NacosID,
