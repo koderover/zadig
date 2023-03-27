@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -63,7 +64,7 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
 	if err != nil {
 		return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
 	}
@@ -87,22 +88,24 @@ func (j *BuildJob) SetPreset() error {
 			}
 		}
 
-		// set ImageName for build
-		for _, service := range product.Services {
-			for _, svc := range service {
-				if svc.ServiceName != build.ServiceName {
-					continue
-				}
+		service := env.GetServiceMap()[build.ServiceName]
+		if service == nil {
+			return fmt.Errorf("failed to find service: %s in environment: %s", build.ServiceName, env.ProductName)
+		}
 
-				for _, container := range svc.Containers {
-					if container.Name != build.ServiceModule {
-						continue
-					}
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName: service.ServiceName,
+			ProductName: service.ProductName,
+			Type:        service.Type,
+		}
+		svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+		if err != nil {
+			return fmt.Errorf("query service %v error: %w", opt, err)
+		}
 
-					build.ImageName = container.ImageName
-					break
-				}
-
+		for _, container := range svcTmpl.Containers {
+			if container.Name == build.ServiceModule {
+				build.ImageName = container.ImageName
 				break
 			}
 		}
@@ -186,6 +189,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 
+	logger.Debugf("job spec +v: %+v", j.job.Spec)
+	logger.Debugf("job spec s: %s", j.job.Spec)
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
@@ -202,7 +207,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
+		logger.Debugf("build: %+v", build)
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
+		logger.Debugf("imageTag: %s", imageTag)
 
 		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 		if len(registry.Namespace) > 0 {
