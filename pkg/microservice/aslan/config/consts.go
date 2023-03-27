@@ -423,3 +423,9 @@ const (
 )
 
 const DefaultDeleteDeploymentTimeout = 10 * time.Minute
+
+// Service creation source for openAPI
+const (
+	SourceFromTemplate = "template"
+	SourceFromYaml     = "yaml"
+)

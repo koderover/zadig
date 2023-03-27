@@ -56,12 +56,18 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 		logger.Errorf("Failed to find template of name: %s, the error is: %s", req.TemplateName, err)
 		return err
 	}
+
+	variableYaml, err := req.VariableYaml.FormYamlString()
+	if err != nil {
+		logger.Errorf("Failed to form yaml string, the error is: %s", err)
+		return err
+	}
 	loadArgs := &LoadServiceFromYamlTemplateReq{
 		ProjectName:  req.ProjectKey,
 		ServiceName:  req.ServiceName,
 		TemplateID:   template.ID.Hex(),
 		AutoSync:     req.AutoSync,
-		VariableYaml: req.VariableYaml,
+		VariableYaml: variableYaml,
 	}
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
 }
