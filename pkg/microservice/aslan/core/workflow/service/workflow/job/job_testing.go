@@ -306,17 +306,28 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 	if err != nil {
 		return nil, fmt.Errorf("list registries error: %v", err)
 	}
-	jobName := jobNameFormat(testing.Name + "-" + j.job.Name + "-" + rand.String(5))
+	randStr := rand.String(5)
+	jobName := jobNameFormat(testing.Name + "-" + j.job.Name + "-" + randStr)
+	jobInfo := map[string]string{
+		JobNameKey:     j.job.Name,
+		"test_type":    testType,
+		"testing_name": testing.Name,
+		"rand_str":     randStr,
+	}
 	if testType == string(config.ServiceTestType) {
 		jobName = jobNameFormat(serviceName + "-" + serviceModule + "-" + j.job.Name)
+		jobInfo = map[string]string{
+			JobNameKey:       j.job.Name,
+			"test_type":      testType,
+			"service_name":   serviceName,
+			"service_module": serviceModule,
+		}
 	}
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 	jobTask := &commonmodels.JobTask{
-		Name: jobName,
-		Key:  strings.Join([]string{j.job.Name, testing.Name}, "."),
-		JobInfo: map[string]string{
-			JobNameKey: j.job.Name,
-		},
+		Name:    jobName,
+		Key:     strings.Join([]string{j.job.Name, testing.Name}, "."),
+		JobInfo: jobInfo,
 		JobType: string(config.JobZadigTesting),
 		Spec:    jobTaskSpec,
 		Timeout: int64(testingInfo.Timeout),
