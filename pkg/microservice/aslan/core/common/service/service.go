@@ -1011,8 +1011,6 @@ func ReleaseCandidate(builds []*types.Repository, taskID int64, productName, ser
 		ServiceName: serviceName,
 		ImageName:   imageName,
 	}
-	log.Debugf("image rule: %+v", customImageRule)
-	log.Debugf("candidate: %+v", candidate)
 	switch deliveryType {
 	case config.TarResourceType:
 		newTarRule := replaceVariable(customTarRule, candidate)
@@ -1054,7 +1052,6 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		currentRule = customRule.BranchRule
 	}
 
-	log.Debugf("currentRule: %s", currentRule)
 	currentRule = ReplaceRuleVariable(currentRule, &Variable{
 		SERVICE:        candidate.ServiceName,
 		IMAGE_NAME:     candidate.ImageName,
@@ -1067,7 +1064,6 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		REPO_BRANCH:    candidate.Branch,
 		REPO_PR:        getCandidatePRsStr(candidate),
 	})
-	log.Debugf("result: %s", currentRule)
 	return currentRule
 }
 

@@ -189,8 +189,6 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 
-	logger.Debugf("job spec +v: %+v", j.job.Spec)
-	logger.Debugf("job spec s: %s", j.job.Spec)
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
@@ -207,9 +205,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
-		logger.Debugf("build: %+v", build)
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
-		logger.Debugf("imageTag: %s", imageTag)
 
 		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 		if len(registry.Namespace) > 0 {

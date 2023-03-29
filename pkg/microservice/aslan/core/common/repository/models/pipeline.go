@@ -23,7 +23,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Pipeline struct {
@@ -131,7 +130,6 @@ func (sb *SubTask) ToTestingTask() (*Testing, error) {
 
 func IToi(before interface{}, after interface{}) error {
 	b, err := json.Marshal(before)
-	log.Debugf("before: %v", string(b))
 	if err != nil {
 		return fmt.Errorf("marshal task error: %v", err)
 	}
