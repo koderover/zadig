@@ -151,6 +151,7 @@ func (c *WorkflowV4Coll) BulkCreate(args []*models.WorkflowV4) error {
 	for _, arg := range args {
 		arg.CreateTime = time.Now().Unix()
 		arg.UpdateTime = time.Now().Unix()
+		arg.UpdateHash()
 		ois = append(ois, arg)
 	}
 
