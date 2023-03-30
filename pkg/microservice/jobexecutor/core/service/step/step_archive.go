@@ -25,11 +25,12 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
-	"gopkg.in/yaml.v2"
 )
 
 type ArchiveStep struct {
@@ -89,6 +90,8 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
+		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
+		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 
 		if len(s.spec.S3.Subfolder) > 0 {
