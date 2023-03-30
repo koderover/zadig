@@ -1035,15 +1035,15 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, timeout <-chan tim
 
 					switch jobStatus {
 					case commontypes.JobFail:
-						// return config.StatusFailed, err
+						return config.StatusFailed, err
 					default:
-						// return config.StatusPassed, nil
+						return config.StatusPassed, nil
 					}
 				}
 			} else if job.Status.Succeeded != 0 {
-				// return config.StatusPassed, nil
+				return config.StatusPassed, nil
 			} else {
-				// return config.StatusFailed, err
+				return config.StatusFailed, err
 			}
 		}
 
