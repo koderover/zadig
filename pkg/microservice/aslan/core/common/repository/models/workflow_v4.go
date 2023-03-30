@@ -69,7 +69,7 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash"}
 	ignoringFields := sets.NewString(ignoringFieldList...)
 
-	val := reflect.ValueOf(w)
+	val := reflect.ValueOf(*w)
 	for i := 0; i < val.NumField(); i++ {
 		fieldType := val.Type().Field(i)
 		fieldName := fieldType.Name
