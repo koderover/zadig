@@ -29,7 +29,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -88,26 +87,9 @@ func (j *BuildJob) SetPreset() error {
 			}
 		}
 
-		service := env.GetServiceMap()[build.ServiceName]
-		if service == nil {
-			return fmt.Errorf("failed to find service: %s in environment: %s", build.ServiceName, env.ProductName)
-		}
-
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName: service.ServiceName,
-			ProductName: service.ProductName,
-			Type:        service.Type,
-		}
-		svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+		build.ImageName, err = getImageName(env, build.ServiceName, build.ServiceModule)
 		if err != nil {
-			return fmt.Errorf("query service %v error: %w", opt, err)
-		}
-
-		for _, container := range svcTmpl.Containers {
-			if container.Name == build.ServiceModule {
-				build.ImageName = container.ImageName
-				break
-			}
+			return fmt.Errorf("get image name error: %v", err)
 		}
 
 		newBuilds = append(newBuilds, build)

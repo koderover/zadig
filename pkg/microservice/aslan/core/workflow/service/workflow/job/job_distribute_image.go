@@ -26,7 +26,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
@@ -78,27 +77,9 @@ func (j *ImageDistributeJob) SetPreset() error {
 		}
 
 		for _, target := range j.spec.Tatgets {
-			service := env.GetServiceMap()[target.ServiceName]
-			if service == nil {
-				return fmt.Errorf("failed to find service: %s in environment: %s", target.ServiceName, env.ProductName)
-			}
-
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName: service.ServiceName,
-				ProductName: service.ProductName,
-				Type:        service.Type,
-			}
-			svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+			target.ImageName, err = getImageName(env, target.ServiceName, target.ServiceModule)
 			if err != nil {
-				return fmt.Errorf("query service %v error: %w", opt, err)
-			}
-
-			target.ImageName = target.ServiceModule
-			for _, container := range svcTmpl.Containers {
-				if container.Name == target.ServiceModule {
-					target.ImageName = container.ImageName
-					break
-				}
+				return fmt.Errorf("get image name error: %v", err)
 			}
 		}
 	}
@@ -172,27 +153,9 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	if j.spec.Source == config.SourceRuntime {
 		for _, target := range j.spec.Tatgets {
-			service := env.GetServiceMap()[target.ServiceName]
-			if service == nil {
-				return resp, fmt.Errorf("failed to find service: %s in environment: %s", target.ServiceName, env.ProductName)
-			}
-
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName: service.ServiceName,
-				ProductName: service.ProductName,
-				Type:        service.Type,
-			}
-			svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+			imageName, err := getImageName(env, target.ServiceName, target.ServiceModule)
 			if err != nil {
-				return resp, fmt.Errorf("query service %v error: %w", opt, err)
-			}
-
-			imageName := target.ServiceModule
-			for _, container := range svcTmpl.Containers {
-				if container.Name == target.ServiceModule {
-					imageName = container.ImageName
-					break
-				}
+				return resp, fmt.Errorf("get image name error: %v", err)
 			}
 
 			target.SourceImage = getImage(imageName, target.SourceTag, sourceReg)

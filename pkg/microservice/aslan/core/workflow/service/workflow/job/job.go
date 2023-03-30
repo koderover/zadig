@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
@@ -667,4 +668,28 @@ func findMatchedRepoFromParams(params []*commonmodels.Param, paramName string) (
 		}
 	}
 	return nil, fmt.Errorf("not found repo from params")
+}
+
+func getImageName(env *commonmodels.Product, serviceName, serviceModule string) (string, error) {
+	service := env.GetServiceMap()[serviceName]
+	if service == nil {
+		return "", fmt.Errorf("failed to find service: %s in environment: %s", serviceName, env.ProductName)
+	}
+
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName: service.ServiceName,
+		ProductName: service.ProductName,
+		Type:        service.Type,
+	}
+	svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+	if err != nil {
+		return "", fmt.Errorf("failed to find service: %s in environment: %s", serviceName, env.ProductName)
+	}
+
+	for _, container := range svcTmpl.Containers {
+		if container.Name == serviceModule {
+			return container.ImageName, nil
+		}
+	}
+	return serviceModule, nil
 }
