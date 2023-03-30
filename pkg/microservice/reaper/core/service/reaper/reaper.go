@@ -639,6 +639,8 @@ func (r *Reaper) replaceEnvWithValue(str string) string {
 		for key, value := range r.UserEnvs {
 			strKey := fmt.Sprintf("$%s", key)
 			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("${%s}", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
 		}
 	}
 	return ret

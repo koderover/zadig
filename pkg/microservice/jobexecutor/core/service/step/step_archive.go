@@ -124,6 +124,8 @@ func replaceEnvWithValue(str string, envs map[string]string) string {
 		for key, value := range envs {
 			strKey := fmt.Sprintf("$%s", key)
 			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("${%s}", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
 		}
 	}
 	return ret
