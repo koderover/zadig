@@ -24,7 +24,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
@@ -55,6 +57,7 @@ func (j *ImageDistributeJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
 	if j.spec.Source == config.SourceFromJob {
 		jobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
 		if err != nil {
@@ -68,7 +71,38 @@ func (j *ImageDistributeJob) SetPreset() error {
 			})
 		}
 		j.spec.Tatgets = targets
+	} else if j.spec.Source == config.SourceRuntime {
+		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+		if err != nil {
+			return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+		}
+
+		for _, target := range j.spec.Tatgets {
+			service := env.GetServiceMap()[target.ServiceName]
+			if service == nil {
+				return fmt.Errorf("failed to find service: %s in environment: %s", target.ServiceName, env.ProductName)
+			}
+
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				ProductName: service.ProductName,
+				Type:        service.Type,
+			}
+			svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+			if err != nil {
+				return fmt.Errorf("query service %v error: %w", opt, err)
+			}
+
+			target.ImageName = target.ServiceModule
+			for _, container := range svcTmpl.Containers {
+				if container.Name == target.ServiceModule {
+					target.ImageName = container.ImageName
+					break
+				}
+			}
+		}
 	}
+
 	j.job.Spec = j.spec
 	return nil
 }
@@ -107,6 +141,11 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
 	}
 
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+	if err != nil {
+		return resp, fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+	}
+
 	// get distribute targets from previous build job.
 	if j.spec.Source == config.SourceFromJob {
 		refJobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
@@ -133,7 +172,30 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	if j.spec.Source == config.SourceRuntime {
 		for _, target := range j.spec.Tatgets {
-			target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
+			service := env.GetServiceMap()[target.ServiceName]
+			if service == nil {
+				return resp, fmt.Errorf("failed to find service: %s in environment: %s", target.ServiceName, env.ProductName)
+			}
+
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				ProductName: service.ProductName,
+				Type:        service.Type,
+			}
+			svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+			if err != nil {
+				return resp, fmt.Errorf("query service %v error: %w", opt, err)
+			}
+
+			imageName := target.ServiceModule
+			for _, container := range svcTmpl.Containers {
+				if container.Name == target.ServiceModule {
+					imageName = container.ImageName
+					break
+				}
+			}
+
+			target.SourceImage = getImage(imageName, target.SourceTag, sourceReg)
 			target.UpdateTag = true
 		}
 	}

@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -111,7 +112,37 @@ func (j *DeployJob) SetPreset() error {
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+	} else if j.spec.Source == config.SourceRuntime {
+		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+		if err != nil {
+			return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+		}
+
+		for _, svc := range j.spec.ServiceAndImages {
+			service := env.GetServiceMap()[svc.ServiceName]
+			if service == nil {
+				return fmt.Errorf("failed to find service: %s in environment: %s", svc.ServiceName, env.ProductName)
+			}
+
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				ProductName: service.ProductName,
+				Type:        service.Type,
+			}
+			svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+			if err != nil {
+				return fmt.Errorf("query service %v error: %w", opt, err)
+			}
+
+			for _, container := range svcTmpl.Containers {
+				if container.Name == svc.ServiceModule {
+					svc.ImageName = container.ImageName
+					break
+				}
+			}
+		}
 	}
+
 	return nil
 }
 
