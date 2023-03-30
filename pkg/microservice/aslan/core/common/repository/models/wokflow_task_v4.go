@@ -73,8 +73,10 @@ type StageTask struct {
 type JobTask struct {
 	Name string `bson:"name"                json:"name"`
 	// jobTask unique id, unique in the workflow
-	Key              string        `bson:"key"                 json:"key"`
-	K8sJobName       string        `bson:"k8s_job_name"        json:"k8s_job_name"`
+	Key        string `bson:"key"                 json:"key"`
+	K8sJobName string `bson:"k8s_job_name"        json:"k8s_job_name"`
+	// JobInfo contains the fields that make up the job task name, for frontend display
+	JobInfo          interface{}   `bson:"job_info"            json:"job_info"`
 	JobType          string        `bson:"type"                json:"type"`
 	Status           config.Status `bson:"status"              json:"status"`
 	StartTime        int64         `bson:"start_time"          json:"start_time,omitempty"`

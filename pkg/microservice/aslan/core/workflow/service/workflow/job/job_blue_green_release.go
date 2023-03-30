@@ -82,8 +82,12 @@ func (j *BlueGreenReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, err
 			continue
 		}
 		task := &commonmodels.JobTask{
-			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
-			Key:     strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			Name: jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
+			Key:  strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			JobInfo: map[string]string{
+				JobNameKey:         j.job.Name,
+				"k8s_service_name": target.K8sServiceName,
+			},
 			JobType: string(config.JobK8sBlueGreenRelease),
 			Spec: &commonmodels.JobTaskBlueGreenReleaseSpec{
 				Namespace:          deployJobSpec.Namespace,

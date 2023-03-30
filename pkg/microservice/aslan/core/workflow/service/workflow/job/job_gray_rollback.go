@@ -115,8 +115,12 @@ func (j *GrayRollbackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			return resp, fmt.Errorf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
 		}
 		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
-			Key:     strings.Join([]string{j.job.Name, target.WorkloadName}, "."),
+			Name: jobNameFormat(j.job.Name + "-" + target.WorkloadName),
+			Key:  strings.Join([]string{j.job.Name, target.WorkloadName}, "."),
+			JobInfo: map[string]string{
+				JobNameKey:      j.job.Name,
+				"workload_name": target.WorkloadName,
+			},
 			JobType: string(config.JobK8sGrayRollback),
 			Spec: &commonmodels.JobTaskGrayRollbackSpec{
 				ClusterID:        j.spec.ClusterID,

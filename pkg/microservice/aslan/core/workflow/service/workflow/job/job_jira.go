@@ -65,8 +65,11 @@ func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	j.job.Spec = j.spec
 	jobTask := &commonmodels.JobTask{
-		Name:    j.job.Name,
-		Key:     j.job.Name,
+		Name: j.job.Name,
+		Key:  j.job.Name,
+		JobInfo: map[string]string{
+			JobNameKey: j.job.Name,
+		},
 		JobType: string(config.JobJira),
 		Spec: &commonmodels.JobTaskJiraSpec{
 			ProjectID:    j.spec.ProjectID,
