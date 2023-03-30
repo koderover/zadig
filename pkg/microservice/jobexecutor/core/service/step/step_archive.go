@@ -89,10 +89,7 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
-		// Exec twice to render nested variables
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
-		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
-		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 
 		if len(s.spec.S3.Subfolder) > 0 {
@@ -122,9 +119,12 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 
 func replaceEnvWithValue(str string, envs map[string]string) string {
 	ret := str
-	for key, value := range envs {
-		strKey := fmt.Sprintf("$%s", key)
-		ret = strings.ReplaceAll(ret, strKey, value)
+	// Exec twice to render nested variables
+	for i := 0; i < 2; i++ {
+		for key, value := range envs {
+			strKey := fmt.Sprintf("$%s", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+		}
 	}
 	return ret
 }

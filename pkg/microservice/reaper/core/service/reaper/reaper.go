@@ -514,10 +514,7 @@ func (r *Reaper) AfterExec() error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 		for _, upload := range r.Ctx.UploadInfo {
-			// Exec twice to render nested variables
 			upload.AbsFilePath = r.replaceEnvWithValue(upload.AbsFilePath)
-			upload.AbsFilePath = r.replaceEnvWithValue(upload.AbsFilePath)
-			upload.DestinationPath = r.replaceEnvWithValue(upload.DestinationPath)
 			upload.DestinationPath = r.replaceEnvWithValue(upload.DestinationPath)
 
 			log.Infof("Start archive %s.", upload.FilePath)
@@ -637,9 +634,12 @@ func (r *Reaper) renderUserEnv(raw string) string {
 
 func (r *Reaper) replaceEnvWithValue(str string) string {
 	ret := str
-	for key, value := range r.UserEnvs {
-		strKey := fmt.Sprintf("$%s", key)
-		ret = strings.ReplaceAll(ret, strKey, value)
+	// Exec twice to render nested variables
+	for i := 0; i < 2; i++ {
+		for key, value := range r.UserEnvs {
+			strKey := fmt.Sprintf("$%s", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+		}
 	}
 	return ret
 }
