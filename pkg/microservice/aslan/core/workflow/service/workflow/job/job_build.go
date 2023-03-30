@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -63,6 +64,11 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+	if err != nil {
+		return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+	}
+
 	newBuilds := []*commonmodels.ServiceAndBuild{}
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
@@ -81,6 +87,29 @@ func (j *BuildJob) SetPreset() error {
 				break
 			}
 		}
+
+		service := env.GetServiceMap()[build.ServiceName]
+		if service == nil {
+			return fmt.Errorf("failed to find service: %s in environment: %s", build.ServiceName, env.ProductName)
+		}
+
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName: service.ServiceName,
+			ProductName: service.ProductName,
+			Type:        service.Type,
+		}
+		svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
+		if err != nil {
+			return fmt.Errorf("query service %v error: %w", opt, err)
+		}
+
+		for _, container := range svcTmpl.Containers {
+			if container.Name == build.ServiceModule {
+				build.ImageName = container.ImageName
+				break
+			}
+		}
+
 		newBuilds = append(newBuilds, build)
 	}
 	j.spec.ServiceAndBuilds = newBuilds
@@ -176,7 +205,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
-		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "image")
+		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
 		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 		if len(registry.Namespace) > 0 {
@@ -186,7 +215,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		image = strings.TrimPrefix(image, "http://")
 		image = strings.TrimPrefix(image, "https://")
 
-		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "tar"))
+		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
