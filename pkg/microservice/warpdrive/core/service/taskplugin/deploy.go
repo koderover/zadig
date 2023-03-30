@@ -46,6 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -110,12 +111,9 @@ func (p *DeployTaskPlugin) SetStatus(status config.Status) {
 func (p *DeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = setting.DeployTimeout
-	} else {
-		if !p.Task.IsRestart {
-			p.Task.Timeout = p.Task.Timeout * 60
-		}
 	}
 
+	log.Debugf("TaskTimeout: %d", p.Task.Timeout)
 	return p.Task.Timeout
 }
 
@@ -528,7 +526,7 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 				p.Task.TaskStatus = config.StatusPassed
 			}
 			if p.IsTaskDone() {
-				return
+				// return
 			}
 		}
 	}
@@ -583,7 +581,7 @@ func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
 
 			// esure latest replicaset to be created
 			time.Sleep(3 * time.Second)
-			
+
 			replicaSets, err := getter.ListReplicaSets(p.Task.Namespace, selector, p.kubeClient)
 			if err != nil {
 				return newResources, err

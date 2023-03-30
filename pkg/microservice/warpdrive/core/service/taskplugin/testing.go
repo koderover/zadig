@@ -40,6 +40,7 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	commontypes "github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -98,11 +99,9 @@ func (p *TestPlugin) SetStatus(status config.Status) {
 func (p *TestPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = TestingV2TaskTimeout
-	} else {
-		if !p.Task.IsRestart {
-			p.Task.Timeout = p.Task.Timeout * 60
-		}
 	}
+
+	log.Debugf("TaskTimeout: %d", p.Task.Timeout)
 	return p.Task.Timeout
 }
 
