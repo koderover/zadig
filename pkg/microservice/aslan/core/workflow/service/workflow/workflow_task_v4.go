@@ -202,13 +202,38 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
-func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 
+	previousTask, err := commonrepo.NewworkflowTaskv4Coll().FindPreviousTask(workflowName, username)
+
+	// if we found a task previously executed by this user and the workflow is not changed, clone it
+	// and use it as the preset, but we need to remember giving all the build job their default selection
+	if err == nil && previousTask.WorkflowHash == workflow.Hash {
+		// this is the clone logic
+		workflow.Stages = previousTask.OriginWorkflowArgs.Stages
+		// set the default service modules into the build jobs
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType == config.JobBuild {
+					jobCtl, err := jobctl.InitJobCtl(job, workflow)
+					if err != nil {
+						return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+					}
+					err = jobCtl.SetPreset()
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		return workflow, nil
+	}
+	// otherwise a normal preset will suffice
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if err := jobctl.SetPreset(job, workflow); err != nil {
@@ -283,6 +308,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+	if err != nil {
+		log.Errorf("cannot find workflow %s, the error is: %v", workflow.Name, err)
+		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+
 	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
 		log.Errorf("instantiate workflow error: %s", err)
 		return resp, e.ErrCreateTask.AddErr(err)
@@ -331,6 +362,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.MultiRun = workflow.MultiRun
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
+	workflowTask.WorkflowHash = fmt.Sprintf("%x", workflow.CalculateHash())
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
