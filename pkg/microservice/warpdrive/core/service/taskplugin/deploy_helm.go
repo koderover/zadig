@@ -42,7 +42,6 @@ import (
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
-	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
@@ -102,7 +101,6 @@ func (p *HelmDeployTaskPlugin) TaskTimeout() int {
 		p.Task.Timeout = setting.DeployTimeout
 	}
 
-	log.Debugf("TaskTimeout: %d", p.Task.Timeout)
 	return p.Task.Timeout
 }
 
@@ -360,9 +358,9 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 				err,
 				"failed to upgrade helm chart %s/%s",
 				p.Task.Namespace, p.Task.ServiceName)
-			// done <- false
+			done <- false
 		} else {
-			// done <- true
+			done <- true
 		}
 	}(done)
 

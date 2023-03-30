@@ -46,7 +46,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -113,7 +112,6 @@ func (p *DeployTaskPlugin) TaskTimeout() int {
 		p.Task.Timeout = setting.DeployTimeout
 	}
 
-	log.Debugf("TaskTimeout: %d", p.Task.Timeout)
 	return p.Task.Timeout
 }
 
@@ -526,7 +524,7 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 				p.Task.TaskStatus = config.StatusPassed
 			}
 			if p.IsTaskDone() {
-				// return
+				return
 			}
 		}
 	}

@@ -42,7 +42,6 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -106,7 +105,6 @@ func (p *BuildTaskPlugin) TaskTimeout() int {
 		p.Task.Timeout = BuildTaskV2Timeout
 	}
 
-	log.Debugf("TaskTimeout: %d", p.Task.Timeout)
 	return p.Task.Timeout
 }
 
