@@ -89,6 +89,7 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
+		// Exec twice to render nested variables
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
