@@ -211,6 +211,13 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 
 	previousTask, err := commonrepo.NewworkflowTaskv4Coll().FindPreviousTask(workflowName, username)
 
+	if err == nil {
+		log.Infof("previous task id: %d", previousTask.TaskID)
+		log.Infof("previous task hash: %s", previousTask.WorkflowHash)
+	} else {
+		log.Infof("error getting previous task: %+v", err)
+	}
+
 	// if we found a task previously executed by this user and the workflow is not changed, clone it
 	// and use it as the preset, but we need to remember giving all the build job their default selection
 	if err == nil && previousTask.WorkflowHash == workflow.Hash {
