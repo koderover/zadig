@@ -17,10 +17,14 @@ limitations under the License.
 package models
 
 import (
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
@@ -44,7 +48,7 @@ type WorkflowV4 struct {
 	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
 	MultiRun        bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
-	Debug           bool                     `bson:"debug"               yaml:"-"               json:"debug"`
+	Debug           bool                     `bson:"debug"               yaml:"-"                   json:"debug"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
 	MeegoHookCtls   []*MeegoHook             `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
@@ -53,6 +57,30 @@ type WorkflowV4 struct {
 	HookPayload     *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
 	BaseName        string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
 	ShareStorages   []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
+	Hash            string                   `bson:"hash"                yaml:"hash"                json:"hash"`
+}
+
+func (w *WorkflowV4) UpdateHash() {
+	w.Hash = fmt.Sprintf("%x", w.CalculateHash())
+}
+
+func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
+	fieldList := make(map[string]interface{})
+	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash"}
+	ignoringFields := sets.NewString(ignoringFieldList...)
+
+	val := reflect.ValueOf(*w)
+	for i := 0; i < val.NumField(); i++ {
+		fieldType := val.Type().Field(i)
+		fieldName := fieldType.Name
+		if !ignoringFields.Has(fieldName) {
+			fieldValue := val.Field(i).Interface()
+			fieldList[fieldName] = fieldValue
+		}
+	}
+
+	jsonBytes, _ := json.Marshal(fieldList)
+	return md5.Sum(jsonBytes)
 }
 
 type WorkflowStage struct {
@@ -141,6 +169,7 @@ type FreestyleJobSpec struct {
 type ZadigBuildJobSpec struct {
 	DockerRegistryID string             `bson:"docker_registry_id"     yaml:"docker_registry_id"     json:"docker_registry_id"`
 	ServiceAndBuilds []*ServiceAndBuild `bson:"service_and_builds"     yaml:"service_and_builds"     json:"service_and_builds"`
+	ServiceOptions   []*ServiceAndBuild `bson:"service_options"        yaml:"service_options"        json:"service_options"`
 }
 
 type ServiceAndBuild struct {

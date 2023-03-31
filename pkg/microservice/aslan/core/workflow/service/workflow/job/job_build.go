@@ -57,6 +57,8 @@ func (j *BuildJob) Instantiate() error {
 	return nil
 }
 
+// SetPreset will now update all the possible build service option into serviceOption instead of ServiceAndBuilds
+// Updated @2023-03-30 before v1.17.0
 func (j *BuildJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -69,7 +71,7 @@ func (j *BuildJob) SetPreset() error {
 		return fmt.Errorf("get services map error: %v", err)
 	}
 
-	newBuilds := []*commonmodels.ServiceAndBuild{}
+	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
@@ -104,7 +106,8 @@ func (j *BuildJob) SetPreset() error {
 
 		newBuilds = append(newBuilds, build)
 	}
-	j.spec.ServiceAndBuilds = newBuilds
+	j.spec.ServiceOptions = newBuilds
+	j.spec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
 	j.job.Spec = j.spec
 	return nil
 }
