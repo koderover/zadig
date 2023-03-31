@@ -308,7 +308,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+	dbWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflow.Name, err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
@@ -362,7 +362,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.MultiRun = workflow.MultiRun
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
-	workflowTask.WorkflowHash = fmt.Sprintf("%x", workflow.CalculateHash())
+	workflowTask.WorkflowHash = fmt.Sprintf("%x", dbWorkflow.CalculateHash())
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
