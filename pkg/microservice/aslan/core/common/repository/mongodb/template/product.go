@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -194,6 +196,8 @@ func (c *ProductColl) ListWithOption(opt *ProductListOpt) ([]*template.Product, 
 	if opt.DeployType != "" {
 		query["product_feature.deploy_type"] = bson.M{"$in": strings.Split(opt.DeployType, ",")}
 	}
+
+	log.Info("---------- query data is %v", query)
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {

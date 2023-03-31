@@ -82,6 +82,8 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 		projectNames = append(projectNames, v.ProductName)
 	}
 
+	log.Infof("------------- the projectNames is (%v) --------------", projectNames)
+
 	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown},
 		InProjects:    projectNames,

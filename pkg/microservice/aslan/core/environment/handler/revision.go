@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/tool/log"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -29,6 +30,7 @@ func ListProductsRevision(c *gin.Context) {
 	// trigger by cron service
 	trigger := c.Query("basicFacility")
 	deployType := c.Query("deployType")
+	log.Infof("--------------- basicFacility is %s, deployType is %s", trigger, deployType)
 	if trigger != "" || deployType != "" {
 		ctx.Resp, ctx.Err = service.ListProductsRevisionByOption(trigger, deployType, ctx.Logger)
 		return
