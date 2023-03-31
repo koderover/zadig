@@ -180,6 +180,7 @@ func (j *BuildJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 
 func (j *BuildJob) ClearSelection() {
 	j.spec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
+	j.job.Spec = j.spec
 }
 
 func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
