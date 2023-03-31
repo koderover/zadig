@@ -214,23 +214,9 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	// if we found a task previously executed by this user and the workflow is not changed, clone it
 	// and use it as the preset, but we need to remember giving all the build job their default selection
 	if err == nil && previousTask.WorkflowHash == workflow.Hash {
+		log.Infof("cloning the old workflow task: %d", previousTask.TaskID)
 		// this is the clone logic
 		workflow.Stages = previousTask.OriginWorkflowArgs.Stages
-		// set the default service modules into the build jobs
-		for _, stage := range workflow.Stages {
-			for _, job := range stage.Jobs {
-				if job.JobType == config.JobBuild {
-					jobCtl, err := jobctl.InitJobCtl(job, workflow)
-					if err != nil {
-						return nil, e.ErrFindWorkflow.AddDesc(err.Error())
-					}
-					err = jobCtl.SetPreset()
-					if err != nil {
-						return nil, err
-					}
-				}
-			}
-		}
 		return workflow, nil
 	}
 	// otherwise a normal preset will suffice
@@ -239,6 +225,13 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 			if err := jobctl.SetPreset(job, workflow); err != nil {
 				log.Errorf("cannot get workflow %s preset, the error is: %v", workflowName, err)
 				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+			}
+			if job.JobType == config.JobBuild {
+				jobCtl, err := jobctl.InitJobCtl(job, workflow)
+				if err != nil {
+					return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+				}
+				jobCtl.(*jobctl.BuildJob).ClearSelection()
 			}
 		}
 	}

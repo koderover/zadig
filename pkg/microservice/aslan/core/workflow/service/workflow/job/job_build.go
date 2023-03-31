@@ -105,8 +105,6 @@ func (j *BuildJob) SetPreset() error {
 
 		newBuilds = append(newBuilds, build)
 	}
-	// TODO: if we have default options for build, we need to adjust this line
-	j.spec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
 	j.spec.ServiceOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil
@@ -178,6 +176,10 @@ func (j *BuildJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 	}
 	j.job.Spec = j.spec
 	return nil
+}
+
+func (j *BuildJob) ClearSelection() {
+	j.spec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
 }
 
 func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
