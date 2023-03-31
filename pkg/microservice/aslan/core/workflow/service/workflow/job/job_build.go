@@ -71,7 +71,7 @@ func (j *BuildJob) SetPreset() error {
 		return fmt.Errorf("get services map error: %v", err)
 	}
 
-	newBuilds := []*commonmodels.ServiceAndBuild{}
+	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
@@ -105,6 +105,8 @@ func (j *BuildJob) SetPreset() error {
 
 		newBuilds = append(newBuilds, build)
 	}
+	// TODO: if we have default options for build, we need to adjust this line
+	j.spec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
 	j.spec.ServiceOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil
