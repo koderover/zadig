@@ -61,8 +61,17 @@ func (c *OperationLogColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *OperationLogColl) EnsureIndex(_ context.Context) error {
-	return nil
+func (c *OperationLogColl) EnsureIndex(ctx context.Context) error {
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "created_at", Value: -1},
+		},
+		Options: options.Index().SetUnique(false),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+
+	return err
 }
 
 func (c *OperationLogColl) Insert(args *models2.OperationLog) error {
