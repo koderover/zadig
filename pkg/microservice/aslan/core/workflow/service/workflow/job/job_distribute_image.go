@@ -52,7 +52,6 @@ func (j *ImageDistributeJob) Instantiate() error {
 }
 
 func (j *ImageDistributeJob) SetPreset() error {
-	logger := log.SugaredLogger()
 	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -72,23 +71,22 @@ func (j *ImageDistributeJob) SetPreset() error {
 		}
 		j.spec.Tatgets = targets
 	} else if j.spec.Source == config.SourceRuntime {
-		services, err := repository.ListMaxRevisionsServices(j.workflow.Project, false)
+		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 		if err != nil {
-			return fmt.Errorf("list services error: %v", err)
+			return fmt.Errorf("get services map error: %v", err)
 		}
 
 		for _, target := range j.spec.Tatgets {
 			target.ImageName = target.ServiceModule
 
-			for _, service := range services {
-				if service.ServiceName == target.ServiceName {
-					logger.Debugf("service: %+v", service)
-					for _, container := range service.Containers {
-						if container.Name == target.ServiceModule {
-							target.ImageName = container.ImageName
-							break
-						}
-					}
+			service, ok := servicesMap[target.ServiceName]
+			if !ok {
+				return fmt.Errorf("service %s not found", target.ServiceName)
+			}
+
+			for _, container := range service.Containers {
+				if container.Name == target.ServiceModule {
+					target.ImageName = container.ImageName
 					break
 				}
 			}

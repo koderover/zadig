@@ -58,18 +58,16 @@ func (j *BuildJob) Instantiate() error {
 }
 
 func (j *BuildJob) SetPreset() error {
-	logger := log.SugaredLogger()
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
 
-	services, err := repository.ListMaxRevisionsServices(j.workflow.Project, false)
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 	if err != nil {
-		return fmt.Errorf("list services error: %v", err)
+		return fmt.Errorf("get services map error: %v", err)
 	}
-	logger.Debugf("services: %+v", services)
 
 	newBuilds := []*commonmodels.ServiceAndBuild{}
 	for _, build := range j.spec.ServiceAndBuilds {
@@ -91,14 +89,14 @@ func (j *BuildJob) SetPreset() error {
 		}
 
 		build.ImageName = build.ServiceModule
-		for _, service := range services {
-			if service.ServiceName == build.ServiceName {
-				for _, container := range service.Containers {
-					if container.Name == build.ServiceModule {
-						build.ImageName = container.ImageName
-						break
-					}
-				}
+		service, ok := servicesMap[build.ServiceName]
+		if !ok {
+			return fmt.Errorf("service %s not found", build.ServiceName)
+		}
+
+		for _, container := range service.Containers {
+			if container.Name == build.ServiceModule {
+				build.ImageName = container.ImageName
 				break
 			}
 		}
