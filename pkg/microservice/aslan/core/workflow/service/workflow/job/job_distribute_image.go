@@ -81,7 +81,8 @@ func (j *ImageDistributeJob) SetPreset() error {
 
 			service, ok := servicesMap[target.ServiceName]
 			if !ok {
-				return fmt.Errorf("service %s not found", target.ServiceName)
+				log.Errorf("service %s not found", target.ServiceName)
+				continue
 			}
 
 			for _, container := range service.Containers {
