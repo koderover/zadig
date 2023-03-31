@@ -36,3 +36,25 @@ func ListServicesWithSRevision(option *mongodb.SvcRevisionListOption, production
 		return mongodb.NewProductionServiceColl().ListServicesWithSRevision(option)
 	}
 }
+
+func ListMaxRevisionsServices(productName string, production bool) ([]*models.Service, error) {
+	if !production {
+		return mongodb.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	} else {
+		return mongodb.NewProductionServiceColl().ListMaxRevisionsByProduct(productName)
+	}
+}
+
+func GetMaxRevisionsServicesMap(productName string, production bool) (map[string]*models.Service, error) {
+	svcMap := make(map[string]*models.Service)
+	services, err := ListMaxRevisionsServices(productName, production)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, svc := range services {
+		svcMap[svc.ServiceName] = svc
+	}
+
+	return svcMap, nil
+}

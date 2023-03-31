@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -111,7 +112,34 @@ func (j *DeployJob) SetPreset() error {
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+	} else if j.spec.Source == config.SourceRuntime {
+		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
+		if err != nil {
+			return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+		}
+
+		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, env.Production)
+		if err != nil {
+			return fmt.Errorf("get services map error: %v", err)
+		}
+
+		for _, svc := range j.spec.ServiceAndImages {
+			svc.ImageName = svc.ServiceModule
+
+			service, ok := servicesMap[svc.ServiceName]
+			if !ok {
+				return fmt.Errorf("service %s not found", svc.ServiceName)
+			}
+
+			for _, container := range service.Containers {
+				if container.Name == svc.ServiceModule {
+					svc.ImageName = container.ImageName
+					break
+				}
+			}
+		}
 	}
+
 	return nil
 }
 

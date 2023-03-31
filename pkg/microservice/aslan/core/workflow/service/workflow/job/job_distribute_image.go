@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
@@ -55,6 +56,7 @@ func (j *ImageDistributeJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
 	if j.spec.Source == config.SourceFromJob {
 		jobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
 		if err != nil {
@@ -68,7 +70,29 @@ func (j *ImageDistributeJob) SetPreset() error {
 			})
 		}
 		j.spec.Tatgets = targets
+	} else if j.spec.Source == config.SourceRuntime {
+		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+		if err != nil {
+			return fmt.Errorf("get services map error: %v", err)
+		}
+
+		for _, target := range j.spec.Tatgets {
+			target.ImageName = target.ServiceModule
+
+			service, ok := servicesMap[target.ServiceName]
+			if !ok {
+				return fmt.Errorf("service %s not found", target.ServiceName)
+			}
+
+			for _, container := range service.Containers {
+				if container.Name == target.ServiceModule {
+					target.ImageName = container.ImageName
+					break
+				}
+			}
+		}
 	}
+
 	j.job.Spec = j.spec
 	return nil
 }
@@ -133,7 +157,11 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	if j.spec.Source == config.SourceRuntime {
 		for _, target := range j.spec.Tatgets {
-			target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
+			if target.ImageName == "" {
+				target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
+			} else {
+				target.SourceImage = getImage(target.ImageName, target.SourceTag, sourceReg)
+			}
 			target.UpdateTag = true
 		}
 	}

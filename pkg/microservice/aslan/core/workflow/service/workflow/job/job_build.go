@@ -64,9 +64,9 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 	if err != nil {
-		return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+		return fmt.Errorf("get services map error: %v", err)
 	}
 
 	newBuilds := []*commonmodels.ServiceAndBuild{}
@@ -88,22 +88,13 @@ func (j *BuildJob) SetPreset() error {
 			}
 		}
 
-		service := env.GetServiceMap()[build.ServiceName]
-		if service == nil {
-			return fmt.Errorf("failed to find service: %s in environment: %s", build.ServiceName, env.ProductName)
+		build.ImageName = build.ServiceModule
+		service, ok := servicesMap[build.ServiceName]
+		if !ok {
+			return fmt.Errorf("service %s not found", build.ServiceName)
 		}
 
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName: service.ServiceName,
-			ProductName: service.ProductName,
-			Type:        service.Type,
-		}
-		svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
-		if err != nil {
-			return fmt.Errorf("query service %v error: %w", opt, err)
-		}
-
-		for _, container := range svcTmpl.Containers {
+		for _, container := range service.Containers {
 			if container.Name == build.ServiceModule {
 				build.ImageName = container.ImageName
 				break
