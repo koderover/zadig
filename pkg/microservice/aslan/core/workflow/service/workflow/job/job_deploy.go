@@ -26,7 +26,9 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -93,6 +95,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 }
 
 func (j *DeployJob) SetPreset() error {
+	logger := log.SugaredLogger()
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -117,10 +120,25 @@ func (j *DeployJob) SetPreset() error {
 			return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
 		}
 
+		services, err := repository.ListMaxRevisionsServices(j.workflow.Project, env.Production)
+		if err != nil {
+			return fmt.Errorf("list services error: %v", err)
+		}
+
 		for _, svc := range j.spec.ServiceAndImages {
-			svc.ImageName, err = getImageNameFromEnv(env, svc.ServiceName, svc.ServiceModule)
-			if err != nil {
-				return fmt.Errorf("failed to get image name for service: %s, module: %s, err: %v", svc.ServiceName, svc.ServiceModule, err)
+			svc.ImageName = svc.ServiceModule
+
+			for _, service := range services {
+				if service.ServiceName == svc.ServiceName {
+					logger.Debugf("service: %+v", service)
+					for _, container := range service.Containers {
+						if container.Name == svc.ServiceModule {
+							svc.ImageName = container.ImageName
+							break
+						}
+					}
+					break
+				}
 			}
 		}
 	}

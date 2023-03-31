@@ -31,9 +31,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
@@ -669,47 +667,4 @@ func findMatchedRepoFromParams(params []*commonmodels.Param, paramName string) (
 		}
 	}
 	return nil, fmt.Errorf("not found repo from params")
-}
-
-func getImageNameFromEnv(env *commonmodels.Product, serviceName, serviceModule string) (string, error) {
-	service := env.GetServiceMap()[serviceName]
-	if service == nil {
-		return "", fmt.Errorf("failed to find service: %s in product: %s", serviceName, env.ProductName)
-	}
-
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName: service.ServiceName,
-		ProductName: service.ProductName,
-		Type:        service.Type,
-	}
-	svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
-	if err != nil {
-		return "", fmt.Errorf("can't find service template: %s in product: %s", serviceName, env.ProductName)
-	}
-
-	for _, container := range svcTmpl.Containers {
-		if container.Name == serviceModule {
-			return container.ImageName, nil
-		}
-	}
-	return "", fmt.Errorf("can't find image name from service: %s, module: %s", serviceName, serviceModule)
-}
-
-func getImageNameFromTemplate(product *template.Product, serviceName, serviceModule string, isProduct bool) (string, error) {
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		ProductName: product.ProductName,
-		Type:        product.ProductFeature.DeployType,
-	}
-	svcTmpl, err := repository.QueryTemplateService(opt, isProduct)
-	if err != nil {
-		return "", fmt.Errorf("can't find service template: %s in product: %s", serviceName, product.ProductName)
-	}
-
-	for _, container := range svcTmpl.Containers {
-		if container.Name == serviceModule {
-			return container.ImageName, nil
-		}
-	}
-	return "", fmt.Errorf("can't find image name from service: %s, module: %s", serviceName, serviceModule)
 }

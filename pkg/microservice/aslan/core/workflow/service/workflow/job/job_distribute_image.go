@@ -24,8 +24,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
@@ -52,6 +52,7 @@ func (j *ImageDistributeJob) Instantiate() error {
 }
 
 func (j *ImageDistributeJob) SetPreset() error {
+	logger := log.SugaredLogger()
 	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -71,15 +72,25 @@ func (j *ImageDistributeJob) SetPreset() error {
 		}
 		j.spec.Tatgets = targets
 	} else if j.spec.Source == config.SourceRuntime {
-		template, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+		services, err := repository.ListMaxRevisionsServices(j.workflow.Project, false)
 		if err != nil {
-			return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+			return fmt.Errorf("list services error: %v", err)
 		}
 
 		for _, target := range j.spec.Tatgets {
-			target.ImageName, err = getImageNameFromTemplate(template, target.ServiceName, target.ServiceModule, false)
-			if err != nil {
-				return fmt.Errorf("get image name error: %v", err)
+			target.ImageName = target.ServiceModule
+
+			for _, service := range services {
+				if service.ServiceName == target.ServiceName {
+					logger.Debugf("service: %+v", service)
+					for _, container := range service.Containers {
+						if container.Name == target.ServiceModule {
+							target.ImageName = container.ImageName
+							break
+						}
+					}
+					break
+				}
 			}
 		}
 	}

@@ -28,8 +28,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -58,16 +58,18 @@ func (j *BuildJob) Instantiate() error {
 }
 
 func (j *BuildJob) SetPreset() error {
+	logger := log.SugaredLogger()
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
 
-	template, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	services, err := repository.ListMaxRevisionsServices(j.workflow.Project, false)
 	if err != nil {
-		return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
+		return fmt.Errorf("list services error: %v", err)
 	}
+	logger.Debugf("services: %+v", services)
 
 	newBuilds := []*commonmodels.ServiceAndBuild{}
 	for _, build := range j.spec.ServiceAndBuilds {
@@ -88,9 +90,17 @@ func (j *BuildJob) SetPreset() error {
 			}
 		}
 
-		build.ImageName, err = getImageNameFromTemplate(template, build.ServiceName, build.ServiceModule, false)
-		if err != nil {
-			return fmt.Errorf("get image name error: %v", err)
+		build.ImageName = build.ServiceModule
+		for _, service := range services {
+			if service.ServiceName == build.ServiceName {
+				for _, container := range service.Containers {
+					if container.Name == build.ServiceModule {
+						build.ImageName = container.ImageName
+						break
+					}
+				}
+				break
+			}
 		}
 
 		newBuilds = append(newBuilds, build)
