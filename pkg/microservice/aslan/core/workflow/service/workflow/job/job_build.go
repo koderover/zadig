@@ -91,7 +91,8 @@ func (j *BuildJob) SetPreset() error {
 		build.ImageName = build.ServiceModule
 		service, ok := servicesMap[build.ServiceName]
 		if !ok {
-			return fmt.Errorf("service %s not found", build.ServiceName)
+			log.Errorf("service %s not found", build.ServiceName)
+			continue
 		}
 
 		for _, container := range service.Containers {
