@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -63,7 +64,7 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+	template, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
 		return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
 	}
@@ -87,7 +88,7 @@ func (j *BuildJob) SetPreset() error {
 			}
 		}
 
-		build.ImageName, err = getImageName(env, build.ServiceName, build.ServiceModule)
+		build.ImageName, err = getImageNameFromTemplate(template, build.ServiceName, build.ServiceModule, false)
 		if err != nil {
 			return fmt.Errorf("get image name error: %v", err)
 		}

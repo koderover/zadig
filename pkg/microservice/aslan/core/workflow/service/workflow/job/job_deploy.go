@@ -112,13 +112,13 @@ func (j *DeployJob) SetPreset() error {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	} else if j.spec.Source == config.SourceRuntime {
-		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
 		if err != nil {
 			return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
 		}
 
 		for _, svc := range j.spec.ServiceAndImages {
-			svc.ImageName, err = getImageName(env, svc.ServiceName, svc.ServiceModule)
+			svc.ImageName, err = getImageNameFromEnv(env, svc.ServiceName, svc.ServiceModule)
 			if err != nil {
 				return fmt.Errorf("failed to get image name for service: %s, module: %s, err: %v", svc.ServiceName, svc.ServiceModule, err)
 			}

@@ -24,7 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -71,13 +71,13 @@ func (j *ImageDistributeJob) SetPreset() error {
 		}
 		j.spec.Tatgets = targets
 	} else if j.spec.Source == config.SourceRuntime {
-		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
+		template, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 		if err != nil {
 			return fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
 		}
 
 		for _, target := range j.spec.Tatgets {
-			target.ImageName, err = getImageName(env, target.ServiceName, target.ServiceModule)
+			target.ImageName, err = getImageNameFromTemplate(template, target.ServiceName, target.ServiceModule, false)
 			if err != nil {
 				return fmt.Errorf("get image name error: %v", err)
 			}
@@ -122,11 +122,6 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
 	}
 
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project})
-	if err != nil {
-		return resp, fmt.Errorf("find product %s error: %v", j.workflow.Project, err)
-	}
-
 	// get distribute targets from previous build job.
 	if j.spec.Source == config.SourceFromJob {
 		refJobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
@@ -153,12 +148,11 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	if j.spec.Source == config.SourceRuntime {
 		for _, target := range j.spec.Tatgets {
-			imageName, err := getImageName(env, target.ServiceName, target.ServiceModule)
-			if err != nil {
-				return resp, fmt.Errorf("get image name error: %v", err)
+			if target.ImageName == "" {
+				target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
+			} else {
+				target.SourceImage = getImage(target.ImageName, target.SourceTag, sourceReg)
 			}
-
-			target.SourceImage = getImage(imageName, target.SourceTag, sourceReg)
 			target.UpdateTag = true
 		}
 	}
