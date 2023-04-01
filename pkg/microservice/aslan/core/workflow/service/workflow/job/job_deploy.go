@@ -114,28 +114,51 @@ func (j *DeployJob) SetPreset() error {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	} else if j.spec.Source == config.SourceRuntime {
-		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
+		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
 		if err != nil {
 			log.Errorf("can't find product %s in env %s, error: %w", j.workflow.Project, j.spec.Env, err)
 			return nil
 		}
 
-		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, env.Production)
-		if err != nil {
-			log.Errorf("get services map error: %w", err)
-			return nil
+		listOpt := &commonrepo.SvcRevisionListOption{
+			ProductName:      product.ProductName,
+			ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
 		}
 
 		for _, svc := range j.spec.ServiceAndImages {
 			svc.ImageName = svc.ServiceModule
 
-			service, ok := servicesMap[svc.ServiceName]
-			if !ok {
-				log.Errorf("service %s not found", svc.ServiceName)
+			productSvc := product.GetServiceMap()[svc.ServiceName]
+			if productSvc == nil {
+				log.Errorf("service %s not found in product", svc.ServiceName)
 				continue
 			}
 
-			for _, container := range service.Containers {
+			listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
+				ServiceName: productSvc.ServiceName,
+				Revision:    productSvc.Revision,
+			})
+		}
+
+		templateServices, err := repository.ListServicesWithSRevision(listOpt, product.Production)
+		if err != nil {
+			log.Errorf("failed to list template services for pruduct: %s:%s, err: %s", product.ProductName, product.EnvName, err)
+			return nil
+		}
+
+		templateSvcMap := make(map[string]*commonmodels.Service)
+		for _, svc := range templateServices {
+			templateSvcMap[svc.ServiceName] = svc
+		}
+
+		for _, svc := range j.spec.ServiceAndImages {
+			templateSvc, ok := templateSvcMap[svc.ServiceName]
+			if !ok {
+				log.Errorf("service %s not found in template", svc.ServiceName)
+				continue
+			}
+
+			for _, container := range templateSvc.Containers {
 				if container.Name == svc.ServiceModule {
 					svc.ImageName = container.ImageName
 					break
