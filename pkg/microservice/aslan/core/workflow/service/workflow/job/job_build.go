@@ -107,7 +107,6 @@ func (j *BuildJob) SetPreset() error {
 		newBuilds = append(newBuilds, build)
 	}
 	j.spec.ServiceOptions = newBuilds
-	j.spec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
 	j.job.Spec = j.spec
 	return nil
 }

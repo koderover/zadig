@@ -206,7 +206,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
 	previousTask, err := commonrepo.NewworkflowTaskv4Coll().FindPreviousTask(workflowName, username)
@@ -223,7 +223,12 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 		for _, job := range stage.Jobs {
 			if err := jobctl.SetPreset(job, workflow); err != nil {
 				log.Errorf("cannot get workflow %s preset, the error is: %v", workflowName, err)
-				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			}
+			if job.JobType == config.JobZadigBuild {
+				if jobSpec, ok := job.Spec.(*commonmodels.ZadigBuildJobSpec); ok {
+					jobSpec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
+				}
 			}
 		}
 	}

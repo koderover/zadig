@@ -781,14 +781,14 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 			break
 		}
 	}
-	if err := job.MergeArgs(workflow, workflowArg); err != nil {
-		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
-		log.Error(errMsg)
-		return nil, e.ErrGetWebhook.AddDesc(errMsg)
-	}
 	repos, err := job.GetRepos(workflow)
 	if err != nil {
 		errMsg := fmt.Sprintf("get workflow webhook repos error: %v", err)
+		log.Error(errMsg)
+		return nil, e.ErrGetWebhook.AddDesc(errMsg)
+	}
+	if err := job.MergeArgs(workflow, workflowArg); err != nil {
+		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 		log.Error(errMsg)
 		return nil, e.ErrGetWebhook.AddDesc(errMsg)
 	}
