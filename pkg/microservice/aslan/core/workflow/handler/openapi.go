@@ -74,8 +74,8 @@ func OpenAPICreateWorkflowView(c *gin.Context) {
 }
 
 type getworkflowTaskReq struct {
-	TaskID       int64  `json:"task_id"`
-	WorkflowName string `json:"workflow_name"`
+	TaskID       int64  `json:"task_id"       form:"task_id"`
+	WorkflowName string `json:"workflow_name" form:"workflow_name"`
 }
 
 func OpenAPIGetWorkflowTaskV4(c *gin.Context) {
