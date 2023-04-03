@@ -40,7 +40,7 @@ import (
 
 func init() {
 	upgradepath.RegisterHandler("1.16.0", "1.17.0", V1160ToV1170)
-	upgradepath.RegisterHandler("1.16.0", "1.15.0", V1170ToV1160)
+	upgradepath.RegisterHandler("1.17.0", "1.16.0", V1170ToV1160)
 }
 
 func V1160ToV1170() error {
