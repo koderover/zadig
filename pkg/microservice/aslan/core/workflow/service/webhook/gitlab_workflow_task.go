@@ -595,6 +595,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 			switch ev := event.(type) {
 			case *gitlab.MergeEvent:
+				isMergeRequest = true
 				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
