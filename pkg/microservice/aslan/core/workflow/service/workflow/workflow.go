@@ -798,9 +798,17 @@ func getRecentTaskInfo(workflow *Workflow, tasks []*commonrepo.TaskPreview) {
 }
 
 func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
-	allWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
-	if err != nil {
-		return nil, err
+	var allWorkflows []*commonmodels.Workflow
+	if len(projects) != 0 {
+		allWorkflows, err = commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		allWorkflows, err = commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
+		if err != nil {
+			return nil, err
+		}
 	}
 	for _, workflow := range allWorkflows {
 		if workflow.TestStage != nil {
