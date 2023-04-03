@@ -810,6 +810,7 @@ func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogge
 			return nil, err
 		}
 	}
+LOOP:
 	for _, workflow := range allWorkflows {
 		if workflow.TestStage != nil {
 			testNames := sets.NewString(workflow.TestStage.TestNames...)
@@ -818,7 +819,7 @@ func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogge
 			}
 			for _, testEntity := range workflow.TestStage.Tests {
 				if testEntity.Name == testName {
-					continue
+					continue LOOP
 				}
 			}
 		}
