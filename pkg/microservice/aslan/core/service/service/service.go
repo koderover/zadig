@@ -711,15 +711,6 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
-	project, err := templaterepo.NewProductColl().Find(args.ProductName)
-	if err != nil {
-		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
-		return nil, e.ErrInvalidParam.AddErr(err)
-	}
-	if _, ok := project.SharedServiceInfoMap()[args.ServiceName]; ok {
-		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("A service with same name %s is already existing", args.ServiceName))
-	}
-
 	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
 	if notFoundErr == nil && !force {
@@ -770,7 +761,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	}
 	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
-	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	err := service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(err)
 	}
