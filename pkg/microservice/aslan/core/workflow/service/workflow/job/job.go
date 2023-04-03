@@ -360,6 +360,13 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 				if err := jobCtl.MergeArgs(jobArgs); err != nil {
 					return warpJobError(job.Name, err)
 				}
+				continue
+			}
+			// empty service and builds if job not exists in workflow args.
+			if job.JobType == config.JobZadigBuild {
+				if jobSpec, ok := job.Spec.(*commonmodels.ZadigBuildJobSpec); ok {
+					jobSpec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
+				}
 			}
 		}
 	}
