@@ -54,6 +54,7 @@ type BuildResp struct {
 type ServiceModuleAndBuildResp struct {
 	ServiceName   string       `json:"service_name"`
 	ServiceModule string       `json:"service_module"`
+	ImageName     string       `json:"image_name"`
 	ModuleBuilds  []*BuildResp `json:"module_builds"`
 }
 
@@ -232,6 +233,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
 				ServiceName:   serviceTmpl.ServiceName,
 				ServiceModule: container.Name,
+				ImageName:     container.ImageName,
 				ModuleBuilds:  resp,
 			})
 		}
