@@ -2300,6 +2300,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		KubeClient:          kubeClient,
 		IstioClient:         istioClient,
 		InjectSecrets:       true,
+		Uninstall:           false,
 		AddZadigLabel:       addLabel,
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}

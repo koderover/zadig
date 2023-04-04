@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -52,6 +54,7 @@ type ResourceApplyParam struct {
 	AddZadigLabel       bool
 	InjectSecrets       bool
 	SharedEnvHandler    SharedEnvHandler
+	Uninstall           bool
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
@@ -139,10 +142,11 @@ func SetFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fiel
 	return obj
 }
 
-func removeOldResources(currentItems, items []*unstructured.Unstructured, namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
+// removeResources removes resources currently deployed in k8s that are not in the new resource list
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
 	itemsMap := make(map[string]*unstructured.Unstructured)
 	errList := &multierror.Error{}
-	for _, u := range items {
+	for _, u := range newItems {
 		itemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
 	}
 
@@ -167,9 +171,25 @@ func removeOldResources(currentItems, items []*unstructured.Unstructured, namesp
 	return errList.ErrorOrNil()
 }
 
-// CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
-// `CurrentResourceYaml` will be used to determine if some resources will be deleted
-func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
+func manifestToUnstructured(manifest string) ([]*unstructured.Unstructured, error) {
+	if len(manifest) == 0 {
+		return nil, nil
+	}
+	manifests := releaseutil.SplitManifests(manifest)
+	errList := &multierror.Error{}
+	resources := make([]*unstructured.Unstructured, 0, len(manifests))
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			errList = multierror.Append(errList, err)
+			continue
+		}
+		resources = append(resources, u)
+	}
+	return resources, errList.ErrorOrNil()
+}
+
+func createOrPatchK8sResources(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	productInfo := applyParam.ProductInfo
 
 	namespace, productName, envName := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName
@@ -177,41 +197,25 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	kubeClient := applyParam.KubeClient
 	istioClient := applyParam.IstioClient
 
-	errList := &multierror.Error{}
-	manifests := releaseutil.SplitManifests(applyParam.UpdateResourceYaml)
-	resources := make([]*unstructured.Unstructured, 0, len(manifests))
-	for _, item := range manifests {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		if err != nil {
-			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
-			continue
-		}
-		resources = append(resources, u)
+	curResources, err := manifestToUnstructured(applyParam.CurrentResourceYaml)
+	if err != nil {
+		log.Errorf("Failed to convert currently deplyed resource yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.CurrentResourceYaml, err)
+		return nil, err
 	}
 
-	if errList.ErrorOrNil() != nil {
-		return nil, errList.ErrorOrNil()
+	resources, err := manifestToUnstructured(applyParam.UpdateResourceYaml)
+	if err != nil {
+		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
+		return nil, err
 	}
 
-	oldManifest := releaseutil.SplitManifests(applyParam.CurrentResourceYaml)
-	curResources := make([]*unstructured.Unstructured, 0, len(oldManifest))
-	for _, item := range oldManifest {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		if err != nil {
-			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
-			continue
-		}
-		curResources = append(curResources, u)
-	}
-	if errList.ErrorOrNil() != nil {
-		return nil, errList.ErrorOrNil()
-	}
-
-	err := removeOldResources(curResources, resources, namespace, applyParam.KubeClient, log)
+	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
+	}
+
+	if applyParam.Uninstall {
+		return nil, nil
 	}
 
 	labels := GetPredefinedLabels(productName, applyParam.ServiceName)
@@ -222,6 +226,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	}
 
 	var res []*unstructured.Unstructured
+	errList := &multierror.Error{}
 
 	for _, u := range resources {
 		switch u.GetKind() {
@@ -449,4 +454,23 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	}
 
 	return res, errList.ErrorOrNil()
+}
+
+func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
+	return nil
+}
+
+// CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
+// `CurrentResourceYaml` will be used to determine if some resources will be deleted
+func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
+	productInfo := applyParam.ProductInfo
+	projectInfo, err := templaterepo.NewProductColl().Find(productInfo.ProductName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find project %s", productInfo.ProductName)
+	}
+	if projectInfo.IsK8sYamlProduct() {
+		return createOrPatchK8sResources(applyParam, log)
+	} else {
+		return nil, createOrPatchHelmResources(applyParam, log)
+	}
 }
