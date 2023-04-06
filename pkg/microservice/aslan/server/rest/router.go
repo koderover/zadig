@@ -68,6 +68,7 @@ func init() {
 	metrics.Metrics.MustRegister(metrics.RequestTotal)
 	metrics.Metrics.MustRegister(metrics.CPU)
 	metrics.Metrics.MustRegister(metrics.Memory)
+	metrics.Metrics.MustRegister(metrics.ResponseTime)
 
 	metrics.UpdatePodMetrics()
 }
