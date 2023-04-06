@@ -72,22 +72,8 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 
-		envmaps := make(map[string]string)
-		for _, env := range s.envs {
-			kv := strings.Split(env, "=")
-			if len(kv) != 2 {
-				continue
-			}
-			envmaps[kv[0]] = kv[1]
-		}
-		for _, secretEnv := range s.secretEnvs {
-			kv := strings.Split(secretEnv, "=")
-			if len(kv) != 2 {
-				continue
-			}
-			envmaps[kv[0]] = kv[1]
-		}
-
+		envmaps := makeEnvMap(s.envs, s.secretEnvs)
+		
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
