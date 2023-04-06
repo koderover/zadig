@@ -117,8 +117,7 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	default:
 		return nil, errors.Errorf("invalid trigger type: %s", j.spec.TriggerType)
 	}
-
-	// At present, only workflow of same project can be triggered
+	
 	for _, event := range workflowTriggerEvents {
 		for _, param := range event.Params {
 			j.getRepoFromJob(param)
