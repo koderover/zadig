@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
@@ -67,6 +65,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
