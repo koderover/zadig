@@ -299,7 +299,7 @@ func ListWorkflowV4CanTrigger(headers http.Header, projectName string) ([]*NameW
 	}
 
 	if projectName != "" {
-		if lo.Contains(projects, projectName) {
+		if lo.Contains(projects, projectName) || (len(projects) > 0 && projects[0] == "*") {
 			projects = []string{projectName}
 		} else {
 			return nil, errors.New("project not found")
