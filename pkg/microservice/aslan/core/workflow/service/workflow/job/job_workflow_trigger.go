@@ -120,7 +120,6 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	// At present, only workflow of same project can be triggered
 	for _, event := range workflowTriggerEvents {
-		event.ProjectName = j.workflow.Project
 		for _, param := range event.Params {
 			j.getRepoFromJob(param)
 		}
