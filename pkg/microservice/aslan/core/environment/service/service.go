@@ -39,6 +39,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -515,41 +516,46 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		oldRenderInfo := productObj.Render
 		var productService *commonmodels.ProductService
 
-		if serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]; ok {
-			productService = serviceObj
-			serviceTmpl, err = commonservice.GetServiceTemplate(serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, "", serviceObj.Revision, log)
-			if err != nil {
-				err = e.ErrRestartService.AddErr(err)
-				return
-			}
-			opt := &commonrepo.RenderSetFindOption{
-				Name:        oldRenderInfo.Name,
-				Revision:    oldRenderInfo.Revision,
-				ProductTmpl: productObj.ProductName,
-				EnvName:     productObj.EnvName,
-			}
-			newRender, err = commonrepo.NewRenderSetColl().Find(opt)
-			if err != nil {
-				log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
-				err = e.ErrRestartService.AddErr(err)
-				return
-			}
+		serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]
+		if !ok {
+			return nil
 		}
 
-		if serviceTmpl != nil && newRender != nil && productService != nil {
-			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
+		productService = serviceObj
+		serviceTmpl, err = commonservice.GetServiceTemplate(serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, "", serviceObj.Revision, log)
+		if err != nil {
+			err = e.ErrRestartService.AddErr(err)
+			return
+		}
+		opt := &commonrepo.RenderSetFindOption{
+			Name:        oldRenderInfo.Name,
+			Revision:    oldRenderInfo.Revision,
+			ProductTmpl: productObj.ProductName,
+			EnvName:     productObj.EnvName,
+		}
+		newRender, err = commonrepo.NewRenderSetColl().Find(opt)
+		if err != nil {
+			log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
+			err = e.ErrRestartService.AddErr(err)
+			return
+		}
+
+		// for services deployed by zadig, service will be applied when restarting
+		if commonutil.ServiceDeployed(serviceTmpl.ServiceName, productObj.ServiceDeployStrategy) {
 			_, err = upsertService(
 				productObj,
 				productService,
 				productService,
-				newRender, oldRenderInfo, false, inf, kubeClient, istioClient, log)
+				newRender, oldRenderInfo, true, inf, kubeClient, istioClient, log)
+		} else {
+			err = restartRelatedWorkloads(productObj, productService, newRender, kubeClient, log)
+		}
+		log.Infof("restart resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 
-			// 如果创建依赖服务组有返回错误, 停止等待
-			if err != nil {
-				log.Errorf("failed to upsert service, err:%v", err)
-				err = e.ErrRestartService.AddErr(err)
-				return
-			}
+		if err != nil {
+			log.Errorf("failed to restart service, err:%v", err)
+			err = e.ErrRestartService.AddErr(err)
+			return
 		}
 	}
 
