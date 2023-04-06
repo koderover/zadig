@@ -39,6 +39,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -537,12 +538,16 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		}
 
 		if serviceTmpl != nil && newRender != nil && productService != nil {
+			addLabel := true
+			if !commonutil.ServiceDeployed(serviceTmpl.ServiceName, productObj.ServiceDeployStrategy) {
+				addLabel = false
+			}
 			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 			_, err = upsertService(
 				productObj,
 				productService,
 				productService,
-				newRender, oldRenderInfo, false, inf, kubeClient, istioClient, log)
+				newRender, oldRenderInfo, addLabel, inf, kubeClient, istioClient, log)
 
 			// 如果创建依赖服务组有返回错误, 停止等待
 			if err != nil {
