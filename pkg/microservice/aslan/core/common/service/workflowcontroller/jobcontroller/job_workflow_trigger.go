@@ -95,7 +95,7 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 			return
 		}
 		if len(list) == 0 {
-			logError(c.job, fmt.Sprintf("workflow %s not found", e.WorkflowName), c.logger)
+			logError(c.job, fmt.Sprintf("project %s workflow %s not found", e.ProjectName, e.WorkflowName), c.logger)
 			return
 		}
 		w := list[0]
