@@ -2235,23 +2235,6 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 		log.Errorf("services in production environments can't be upserted")
 		return nil
 	}
-	errList := &multierror.Error{
-		ErrorFormat: func(es []error) string {
-			format := "更新服务"
-			if len(es) == 1 {
-				return fmt.Sprintf(format+" %s 失败:%v", service.ServiceName, es[0])
-			}
-			points := make([]string, len(es))
-			for i, err := range es {
-				points[i] = fmt.Sprintf("* %v", err)
-			}
-			return fmt.Sprintf(format+" %s 失败:\n%s", service.ServiceName, strings.Join(points, "\n"))
-		},
-	}
-
-	if service.Type != setting.K8SDeployType {
-		return nil
-	}
 
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 	if err != nil {
@@ -2264,7 +2247,6 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		if err != nil {
 			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
 			continue
 		}
 		resources = append(resources, u)
