@@ -285,6 +285,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 type NameWithParams struct {
 	Name        string                `json:"name"`
 	DisplayName string                `json:"display_name"`
+	ProjectName string                `json:"project_name"`
 	Params      []*commonmodels.Param `json:"params"`
 }
 
@@ -316,6 +317,7 @@ LOOP:
 		result = append(result, &NameWithParams{
 			Name:        workflowV4.Name,
 			DisplayName: workflowV4.DisplayName,
+			ProjectName: workflowV4.Project,
 			Params:      paramList,
 		})
 	}

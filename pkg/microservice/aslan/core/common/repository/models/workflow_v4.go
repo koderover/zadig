@@ -486,6 +486,7 @@ type ServiceTriggerWorkflowInfo struct {
 	ServiceName   string   `bson:"service_name" json:"service_name" yaml:"service_name"`
 	ServiceModule string   `bson:"service_module" json:"service_module" yaml:"service_module"`
 	WorkflowName  string   `bson:"workflow_name" json:"workflow_name" yaml:"workflow_name"`
+	ProjectName   string   `bson:"project_name" json:"project_name" yaml:"project_name"`
 	Params        []*Param `bson:"params" json:"params" yaml:"params"`
 }
 
