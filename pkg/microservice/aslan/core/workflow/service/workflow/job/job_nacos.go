@@ -18,6 +18,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -96,6 +97,17 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	j.job.Spec = j.spec
+
+	nacosDatasKey := map[string]bool{}
+	for _, data := range j.spec.NacosDatas {
+		nacosDatasKey[data.DataID+"-"+data.Group] = true
+	}
+
+	for _, limit := range j.spec.RangeLimits {
+		if nacosDatasKey[limit.DataID+"-"+limit.Group] {
+			return nil, fmt.Errorf("can't select the nacos config outside limit range, group: %s, data_id: %s", limit.Group, limit.DataID)
+		}
+	}
 
 	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), j.spec.NacosID)
 	if err != nil {

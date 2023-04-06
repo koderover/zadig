@@ -461,6 +461,7 @@ type NacosJobSpec struct {
 	NacosID     string               `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
 	NamespaceID string               `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
 	NacosDatas  []*types.NacosConfig `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
+	RangeLimits []*types.NacosLimit  `bson:"range_limits"     json:"range_limits"     yaml:"range_limits"`
 	DataFixed   bool                 `bson:"data_fixed"       json:"data_fixed"       yaml:"data_fixed"`
 }
 
