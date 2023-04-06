@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,6 +78,15 @@ var (
 		},
 		[]string{"service", "pod"},
 	)
+
+	ResponseTime = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "api_response_time",
+			Help:    "The API response time in seconds",
+			Buckets: prometheus.LinearBuckets(0.2, 0.2, 10),
+		},
+		[]string{"method", "handler", "status"},
+	)
 )
 
 func SetRunningWorkflows(value int64) {
@@ -87,8 +97,9 @@ func SetPendingWorkflows(value int64) {
 	PendingWorkflows.Set(float64(value))
 }
 
-func RegisterRequest(method, handler string, status int) {
+func RegisterRequest(startTime int64, method, handler string, status int) {
 	RequestTotal.WithLabelValues(method, handler, fmt.Sprintf("%d", status)).Inc()
+	ResponseTime.WithLabelValues(method, handler, fmt.Sprintf("%d", status)).Observe(float64(time.Now().UnixMilli()-startTime) / 1000)
 }
 
 func SetCPUUsage(serviceName, podName string, value int64) {
