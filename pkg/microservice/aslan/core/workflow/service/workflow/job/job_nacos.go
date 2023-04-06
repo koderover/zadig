@@ -57,8 +57,18 @@ func (j *NacosJob) SetPreset() error {
 	if err != nil {
 		return errors.Errorf("fail to init nacos client: %v, please check nacos configuration", err)
 	}
+
+	nacosLimitKeys := map[string]bool{}
+	for _, data := range j.spec.RangeLimits {
+		nacosLimitKeys[getNacosKey(data.Group, data.DataID)] = true
+	}
+
 	newDatas := []*types.NacosConfig{}
 	for _, data := range j.spec.NacosDatas {
+		if nacosLimitKeys[getNacosKey(data.Group, data.DataID)] {
+			continue
+		}
+
 		newData, err := client.GetConfig(data.DataID, data.Group, originNamespaceID)
 		if err != nil {
 			log.Errorf("get nacos config %s/%s error: %v", data.DataID, data.Group, err)
@@ -100,11 +110,11 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	nacosDatasKey := map[string]bool{}
 	for _, data := range j.spec.NacosDatas {
-		nacosDatasKey[data.DataID+"-"+data.Group] = true
+		nacosDatasKey[getNacosKey(data.Group, data.DataID)] = true
 	}
 
 	for _, limit := range j.spec.RangeLimits {
-		if nacosDatasKey[limit.DataID+"-"+limit.Group] {
+		if nacosDatasKey[getNacosKey(limit.Group, limit.DataID)] {
 			return nil, fmt.Errorf("can't select the nacos config outside limit range, group: %s, data_id: %s", limit.Group, limit.DataID)
 		}
 	}
@@ -170,4 +180,8 @@ func getNacosClient(nacosID string) (*nacos.Client, error) {
 		return nil, errors.Wrap(err, "get nacos info")
 	}
 	return nacos.NewNacosClient(info.ServerAddress, info.UserName, info.Password)
+}
+
+func getNacosKey(group, id string) string {
+	return group + "-" + id
 }
