@@ -17,15 +17,18 @@ limitations under the License.
 package gin
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/tool/metrics"
 )
 
 func RegisterRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		startTime := time.Now().UnixMilli()
 		path := c.Request.URL.Path
 		c.Next()
 
-		metrics.RegisterRequest(c.Request.Method, path, c.Writer.Status())
+		metrics.RegisterRequest(startTime, c.Request.Method, path, c.Writer.Status())
 	}
 }
