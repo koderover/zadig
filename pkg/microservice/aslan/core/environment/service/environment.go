@@ -65,6 +65,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -2225,6 +2226,42 @@ func getProjectType(productName string) string {
 		return setting.PMDeployType
 	}
 	return projectType
+}
+
+func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.ProductService,
+	renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) error {
+	if env.Production {
+		log.Errorf("services in production environments can't be upserted")
+		return nil
+	}
+
+	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
+	if err != nil {
+		return fmt.Errorf("service template %s error: %v", service.ServiceName, err)
+	}
+
+	manifests := releaseutil.SplitManifests(parsedYaml)
+	resources := make([]*unstructured.Unstructured, 0, len(manifests))
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
+			continue
+		}
+		resources = append(resources, u)
+	}
+
+	for _, u := range resources {
+		switch u.GetKind() {
+		case setting.Deployment:
+			err = updater.RestartDeployment(env.Namespace, u.GetName(), kubeClient)
+			return errors.Wrapf(err, "failed to restart deployment %s", u.GetName())
+		case setting.StatefulSet:
+			err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
+			return errors.Wrapf(err, "failed to restart statefulset %s", u.GetName())
+		}
+	}
+	return nil
 }
 
 // upsertService
