@@ -120,7 +120,7 @@ func ListWorkflowV4CanTrigger(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflowV4CanTrigger(c.Query("projectName"))
+	ctx.Resp, ctx.Err = workflow.ListWorkflowV4CanTrigger(c.Request.Header, c.Query("projectName"))
 }
 
 func UpdateWorkflowV4(c *gin.Context) {
