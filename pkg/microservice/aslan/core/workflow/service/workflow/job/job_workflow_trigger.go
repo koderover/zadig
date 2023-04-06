@@ -93,6 +93,7 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 						Params:        info.Params,
 						ServiceName:   service.ServiceName,
 						ServiceModule: service.ServiceModule,
+						ProjectName:   info.ProjectName,
 					})
 				} else {
 					return nil, errors.Errorf("no workflow trigger info for service %s-%s", service.ServiceName, service.ServiceModule)
@@ -110,6 +111,7 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			workflowTriggerEvents = append(workflowTriggerEvents, &commonmodels.WorkflowTriggerEvent{
 				WorkflowName: w.WorkflowName,
 				Params:       w.Params,
+				ProjectName:  w.ProjectName,
 			})
 		}
 	default:
@@ -194,6 +196,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 							Params:        info.Params,
 							ServiceName:   build.ServiceName,
 							ServiceModule: build.ServiceModule,
+							ProjectName:   info.ProjectName,
 						})
 					}
 				}
@@ -213,6 +216,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 							Params:        info.Params,
 							ServiceName:   distribute.ServiceName,
 							ServiceModule: distribute.ServiceModule,
+							ProjectName:   info.ProjectName,
 						})
 					}
 				}
@@ -231,6 +235,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 							Params:        info.Params,
 							ServiceName:   build.ServiceName,
 							ServiceModule: build.ServiceModule,
+							ProjectName:   info.ProjectName,
 						})
 					}
 				}
