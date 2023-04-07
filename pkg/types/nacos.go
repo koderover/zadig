@@ -29,7 +29,7 @@ type NacosConfig struct {
 	Content string `bson:"content,omitempty"       json:"content,omitempty"       yaml:"content,omitempty"`
 }
 
-type NacosLimit struct {
+type NacosConfigRange struct {
 	DataID string `bson:"data_id"                 json:"data_id"                 yaml:"data_id"`
 	Group  string `bson:"group"                   json:"group"                   yaml:"group"`
 }
