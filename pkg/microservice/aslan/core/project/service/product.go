@@ -407,6 +407,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 			if !exists {
 				continue
 			}
+			log.Infof("optimize yaml of deployment %s defined in services", svc.ServiceName)
 			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		case setting.StatefulSet:
@@ -418,6 +419,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 			if !exists {
 				continue
 			}
+			log.Infof("optimize yaml of sts %s defined in services", svc.ServiceName)
 			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		}
@@ -452,6 +454,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 			if !exists {
 				continue
 			}
+			log.Infof("optimize yaml of deployment %s defined in service_in_external_env", svc.ServiceName)
 			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		case setting.StatefulSet:
@@ -463,11 +466,11 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 			if !exists {
 				continue
 			}
+			log.Infof("optimize yaml of sts %s defined in service_in_external_env", svc.ServiceName)
 			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		}
 	}
-
 	return nil
 }
 
