@@ -378,7 +378,6 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 	if err != nil {
 		return err
 	}
-	log.Infof("##### the length of products of project: %s is %d", projectName, len(products))
 
 	k8sClientMap := make(map[string]client.Client)
 	k8sNsMap := make(map[string]string)
@@ -391,8 +390,6 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 		}
 		k8sClientMap[product.EnvName] = kubeClient
 	}
-
-	log.Infof("####### clientMap: %v", k8sClientMap)
 
 	for _, svc := range serviceInfo {
 		log.Infof("####### svc: %s envName: %v workloadType: %v", svc.ServiceName, svc.EnvName, svc.WorkloadType)
@@ -486,9 +483,12 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 		if err != nil {
 			log.Errorf("failed to set service counter: %s, err: %s", serviceTemplateCounter, err)
 		}
+		err = commonrepo.NewServiceColl().TransferServiceSource(projectName, svc.ServiceName, setting.SourceFromExternal, setting.SourceFromZadig, username, svc.Yaml)
+		if err != nil {
+			return err
+		}
 	}
-
-	return commonrepo.NewServiceColl().TransferServiceSource(projectName, setting.SourceFromExternal, setting.SourceFromZadig, username)
+	return nil
 }
 
 func saveProducts(products []*commonmodels.Product) error {

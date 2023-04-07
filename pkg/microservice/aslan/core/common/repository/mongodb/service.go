@@ -388,18 +388,19 @@ func (c *ServiceColl) UpdateServiceContainers(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) TransferServiceSource(productName, source, newSource, username string) error {
-	query := bson.M{"product_name": productName, "source": source}
+func (c *ServiceColl) TransferServiceSource(productName, serviceName, source, newSource, username, yaml string) error {
+	query := bson.M{"product_name": productName, "source": source, "service_name": serviceName}
 
 	changeMap := bson.M{
 		"create_by":     username,
 		"visibility":    setting.PrivateVisibility,
 		"source":        newSource,
+		"yaml":          yaml,
 		"env_name":      "",
 		"workload_type": "",
 	}
 	change := bson.M{"$set": changeMap}
-	_, err := c.UpdateMany(context.TODO(), query, change)
+	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 
