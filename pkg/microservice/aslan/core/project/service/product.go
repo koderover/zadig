@@ -408,7 +408,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 				continue
 			}
 			if !exists {
-				log.Infof("deployment %s not exists", svc.ServiceName")
+				log.Infof("deployment %s not exists", svc.ServiceName)
 				continue
 			}
 			log.Infof("optimize yaml of deployment %s defined in services", svc.ServiceName)
