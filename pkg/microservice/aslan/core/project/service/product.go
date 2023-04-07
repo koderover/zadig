@@ -448,28 +448,28 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 		svc := svcMap[svcInExternal.ServiceName]
 		switch svc.WorkloadType {
 		case setting.Deployment:
-			bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
+			bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
 			if err != nil {
-				log.Errorf("failed to get deploy %s, err: %s", svc.ServiceName, err)
+				log.Errorf("failed to get deploy %s, err: %s", svcInExternal.ServiceName, err)
 				continue
 			}
 			if !exists {
 				continue
 			}
-			log.Infof("optimize yaml of deployment %s defined in service_in_external_env", svc.ServiceName)
-			svcSets.Delete(svc.ServiceName)
+			log.Infof("optimize yaml of deployment %s defined in service_in_external_env", svcInExternal.ServiceName)
+			svcSets.Delete(svcInExternal.ServiceName)
 			svc.Yaml = string(bs)
 		case setting.StatefulSet:
-			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
+			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
 			if err != nil {
-				log.Errorf("failed to get sts %s, err: %s", svc.ServiceName, err)
+				log.Errorf("failed to get sts %s, err: %s", svcInExternal.ServiceName, err)
 				continue
 			}
 			if !exists {
 				continue
 			}
-			log.Infof("optimize yaml of sts %s defined in service_in_external_env", svc.ServiceName)
-			svcSets.Delete(svc.ServiceName)
+			log.Infof("optimize yaml of sts %s defined in service_in_external_env", svcInExternal.ServiceName)
+			svcSets.Delete(svcInExternal.ServiceName)
 			svc.Yaml = string(bs)
 		}
 	}
