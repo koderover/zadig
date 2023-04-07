@@ -24,6 +24,11 @@ import (
 	"strconv"
 	"strings"
 
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -342,6 +347,11 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 		return nil, err
 	}
 
+	err = optimizeServiceYaml(projectInfo.ProductName, templateServices)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, svc := range templateServices {
 		log.Infof("transfer service %s/%s ", projectInfo.ProductName, svc.ServiceName)
 		svc.Source = setting.SourceFromZadig
@@ -350,6 +360,115 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 		svc.WorkloadType = ""
 	}
 	return templateServices, nil
+}
+
+// optimizeServiceYaml optimize the yaml content of service, it removes unnecessary runtime information from workload yamls
+// TODO this function should be deleted after we refactor the code about host-project
+func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service) error {
+	svcMap := make(map[string]*commonmodels.Service)
+	svcSets := sets.NewString()
+	for _, svc := range serviceInfo {
+		svcMap[svc.ServiceName] = svc
+		svcSets.Insert(svc.ServiceName)
+	}
+
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name: projectName,
+	})
+	if err != nil {
+		return err
+	}
+
+	k8sClientMap := make(map[string]client.Client)
+	k8sNsMap := make(map[string]string)
+	for _, product := range products {
+		k8sNsMap[product.EnvName] = product.Namespace
+		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+		if err != nil {
+			log.Errorf("failed to init kube client for product %s, err: %s", product.EnvName, err)
+			continue
+		}
+		k8sClientMap[product.EnvName] = kubeClient
+	}
+
+	for _, svc := range serviceInfo {
+		kClient, ok := k8sClientMap[svc.EnvName]
+		if !ok {
+			continue
+		}
+
+		switch svc.WorkloadType {
+		case setting.Deployment:
+			bs, exists, err := getter.GetDeploymentYamlFormat(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			if err != nil {
+				log.Errorf("failed to get deploy %s, err: %s", svc.ServiceName, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+			svcSets.Delete(svc.ServiceName)
+			svc.Yaml = string(bs)
+		case setting.StatefulSet:
+			bs, exists, err := getter.GetStatefulSetYaml(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			if err != nil {
+				log.Errorf("failed to get sts %s, err: %s", svc.ServiceName, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+			svcSets.Delete(svc.ServiceName)
+			svc.Yaml = string(bs)
+		}
+	}
+
+	if svcSets.Len() == 0 {
+		return nil
+	}
+
+	// service info may be stored in service_in_external_env
+	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName: projectName,
+	})
+	for _, svcInExternal := range servicesInExternalEnv {
+		if !svcSets.Has(svcInExternal.ServiceName) {
+			continue
+		}
+
+		kClient, ok := k8sClientMap[svcInExternal.EnvName]
+		if !ok {
+			continue
+		}
+
+		svc := svcMap[svcInExternal.ServiceName]
+		switch svc.WorkloadType {
+		case setting.Deployment:
+			bs, exists, err := getter.GetDeploymentYamlFormat(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			if err != nil {
+				log.Errorf("failed to get deploy %s, err: %s", svc.ServiceName, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+			svcSets.Delete(svc.ServiceName)
+			svc.Yaml = string(bs)
+		case setting.StatefulSet:
+			bs, exists, err := getter.GetStatefulSetYaml(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			if err != nil {
+				log.Errorf("failed to get sts %s, err: %s", svc.ServiceName, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+			svcSets.Delete(svc.ServiceName)
+			svc.Yaml = string(bs)
+		}
+	}
+
+	return nil
 }
 
 func saveServices(projectName, username string, services []*commonmodels.Service) error {
