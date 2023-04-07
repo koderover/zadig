@@ -378,6 +378,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 	if err != nil {
 		return err
 	}
+	log.Infof("##### the length of products of project: %s is %d", projectName, len(products))
 
 	k8sClientMap := make(map[string]client.Client)
 	k8sNsMap := make(map[string]string)
@@ -402,7 +403,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 
 		switch svc.WorkloadType {
 		case setting.Deployment:
-			bs, exists, err := getter.GetDeploymentYamlFormat(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
 			if err != nil {
 				log.Errorf("failed to get deploy %s, err: %s", svc.ServiceName, err)
 				continue
@@ -415,7 +416,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		case setting.StatefulSet:
-			bs, exists, err := getter.GetStatefulSetYaml(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
 			if err != nil {
 				log.Errorf("failed to get sts %s, err: %s", svc.ServiceName, err)
 				continue
@@ -450,7 +451,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 		svc := svcMap[svcInExternal.ServiceName]
 		switch svc.WorkloadType {
 		case setting.Deployment:
-			bs, exists, err := getter.GetDeploymentYamlFormat(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
 			if err != nil {
 				log.Errorf("failed to get deploy %s, err: %s", svc.ServiceName, err)
 				continue
@@ -462,7 +463,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		case setting.StatefulSet:
-			bs, exists, err := getter.GetStatefulSetYaml(svc.ServiceName, k8sNsMap[svc.EnvName], kClient)
+			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
 			if err != nil {
 				log.Errorf("failed to get sts %s, err: %s", svc.ServiceName, err)
 				continue
