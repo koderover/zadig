@@ -28,12 +28,13 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -90,6 +91,9 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 	if len(s.spec.S3Storage.Subfolder) > 0 {
 		s.spec.S3DestDir = strings.TrimLeft(path.Join(s.spec.S3Storage.Subfolder, s.spec.S3DestDir), "/")
 	}
+
+	envMap := makeEnvMap(s.envs, s.secretEnvs)
+	absFilePath = replaceEnvWithValue(absFilePath, envMap)
 
 	info, err := os.Stat(absFilePath)
 	if err != nil {
