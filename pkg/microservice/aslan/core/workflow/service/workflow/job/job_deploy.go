@@ -119,6 +119,7 @@ func (j *DeployJob) SetPreset() error {
 			log.Errorf("can't find product %s in env %s, error: %w", j.workflow.Project, j.spec.Env, err)
 			return nil
 		}
+		log.Debugf("product: %+v", product)
 
 		listOpt := &commonrepo.SvcRevisionListOption{
 			ProductName:      product.ProductName,
@@ -134,6 +135,7 @@ func (j *DeployJob) SetPreset() error {
 				continue
 			}
 
+			log.Debugf("listOpt service name %+v, revision: %+v", productSvc.ServiceName, productSvc.Revision)
 			listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
 				ServiceName: productSvc.ServiceName,
 				Revision:    productSvc.Revision,
@@ -158,7 +160,9 @@ func (j *DeployJob) SetPreset() error {
 				continue
 			}
 
+			log.Debugf("svc: %+v", svc)
 			for _, container := range templateSvc.Containers {
+				log.Debugf("container: %+v", container)
 				if container.Name == svc.ServiceModule {
 					svc.ImageName = container.ImageName
 					break
