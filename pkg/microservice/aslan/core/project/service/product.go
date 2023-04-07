@@ -391,7 +391,10 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 		k8sClientMap[product.EnvName] = kubeClient
 	}
 
+	log.Infof("####### clientMap: %v", k8sClientMap)
+
 	for _, svc := range serviceInfo {
+		log.Infof("####### svc: %s envName: %v workloadType: %v", svc.ServiceName, svc.EnvName, svc.WorkloadType)
 		kClient, ok := k8sClientMap[svc.EnvName]
 		if !ok {
 			continue
@@ -405,6 +408,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 				continue
 			}
 			if !exists {
+				log.Infof("deployment %s not exists", svc.ServiceName")
 				continue
 			}
 			log.Infof("optimize yaml of deployment %s defined in services", svc.ServiceName)
