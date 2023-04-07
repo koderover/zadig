@@ -30,8 +30,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -45,7 +43,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -158,7 +155,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		}
 
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
-		if err := setCurrentContainerImages(args); err != nil {
+		if err := util.SetCurrentContainerImages(args); err != nil {
 			return err
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
@@ -466,68 +463,6 @@ func syncSingleFileFromGithub(owner, repo, branch, path, token string) (string, 
 	}
 
 	return "", err
-}
-
-// 从 kube yaml 中获取所有当前 containers 镜像和名称
-// 支持 Deployment StatefulSet Job
-func setCurrentContainerImages(args *commonmodels.Service) error {
-	srvContainers := make([]*commonmodels.Container, 0)
-	for _, data := range args.KubeYamls {
-		manifests := releaseutil.SplitManifests(data)
-		for _, item := range manifests {
-			//在Unmarshal之前填充渲染变量{{.}}
-			item = config.RenderTemplateAlias.ReplaceAllLiteralString(item, "ssssssss")
-			// replace $Service$ with service name
-			item = config.ServiceNameAlias.ReplaceAllLiteralString(item, args.ServiceName)
-
-			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-			if err != nil {
-				return fmt.Errorf("unmarshal ResourceKind error: %v", err)
-			}
-
-			switch u.GetKind() {
-			case setting.Deployment, setting.StatefulSet, setting.Job:
-				cs, err := getContainers(u)
-				if err != nil {
-					return fmt.Errorf("GetContainers error: %v", err)
-				}
-				srvContainers = append(srvContainers, cs...)
-			}
-		}
-	}
-
-	args.Containers = srvContainers
-
-	return nil
-}
-
-// 从kube yaml中查找所有containers 镜像和名称
-func getContainers(u *unstructured.Unstructured) ([]*commonmodels.Container, error) {
-	var containers []*commonmodels.Container
-	cs, _, _ := unstructured.NestedSlice(u.Object, "spec", "template", "spec", "containers")
-	for _, c := range cs {
-		val, ok := c.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		nameStr, ok := val["name"].(string)
-		if !ok {
-			return containers, errors.New("error name value")
-		}
-
-		imageStr, ok := val["image"].(string)
-		if !ok {
-			return containers, errors.New("error image value")
-		}
-
-		containers = append(containers, &commonmodels.Container{
-			Name:  nameStr,
-			Image: imageStr,
-		})
-	}
-
-	return containers, nil
 }
 
 type MatchFolders []string
