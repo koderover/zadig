@@ -24,16 +24,12 @@ import (
 	"strconv"
 	"strings"
 
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -52,7 +48,9 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -392,7 +390,6 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 	}
 
 	for _, svc := range serviceInfo {
-		log.Infof("####### svc: %s envName: %v workloadType: %v", svc.ServiceName, svc.EnvName, svc.WorkloadType)
 		kClient, ok := k8sClientMap[svc.EnvName]
 		if !ok {
 			continue
