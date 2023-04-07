@@ -24,6 +24,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -86,9 +87,22 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		containerNameSet.Insert(singleContainerName)
 	}
 
+	updateServiceRevision := false
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
+		for _, service := range productInfo.GetServiceMap() {
+			if service.ServiceName != c.jobTaskSpec.ServiceName {
+				continue
+			}
+
+			updateServiceRevision = true
+		}
+	}
+
 	images := make([]string, 0)
-	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
-		images = append(images, svcAndContainer.Image)
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
+		for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
+			images = append(images, svcAndContainer.Image)
+		}
 	}
 
 	param := &kube.ResourceApplyParam{
@@ -97,7 +111,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		Images:                images,
 		VariableYaml:          "",    // TODO fill variable
 		Uninstall:             false, // TODO fill correct value
-		UpdateServiceRevision: false, // TODO fill correct value
+		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               c.timeout(),
 	}
 
@@ -163,4 +177,12 @@ func (c *HelmDeployJobCtl) SaveInfo(ctx context.Context) error {
 		ServiceModule: moduleList,
 		// helm deploy does not have production deploy now
 	})
+}
+
+func (c *HelmDeployJobCtl) getVarsYaml() (string, error) {
+	vars := []*commonmodels.VariableKV{}
+	for _, v := range c.jobTaskSpec.KeyVals {
+		vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
+	}
+	return kube.GenerateYamlFromKV(vars)
 }
