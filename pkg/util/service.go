@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
-	"gopkg.in/yaml.v2"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
 func SetCurrentContainerImages(args *commonmodels.Service) error {
@@ -17,7 +18,7 @@ func SetCurrentContainerImages(args *commonmodels.Service) error {
 		yamlDataArray := SplitYaml(data)
 		for index, yamlData := range yamlDataArray {
 			resKind := new(types.KubeResourceKind)
-			//在Unmarshal之前填充渲染变量{{.}}
+			// replace render variable {{.}} before Unmarshal
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
 			// replace $Service$ with service name
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
