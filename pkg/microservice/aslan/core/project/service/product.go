@@ -807,24 +807,25 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}()
 
-	// 删除workload
-	if isDelete {
-		go func() {
-			workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
-			for _, v := range workloads {
-				// update workloads
-				tmp := []commonmodels.Workload{}
-				for _, vv := range v.Workloads {
-					if vv.ProductName != productName {
-						tmp = append(tmp, vv)
-					}
+	// delete data in workload_stat
+	// TODO this function should be removed after workload_stat is deprecated
+	go func() {
+		workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
+		for _, v := range workloads {
+			// update workloads
+			tmp := []commonmodels.Workload{}
+			for _, vv := range v.Workloads {
+				if vv.ProductName != productName {
+					tmp = append(tmp, vv)
 				}
-				v.Workloads = tmp
-				commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
 			}
-		}()
-	}
+			v.Workloads = tmp
+			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
+		}
+	}()
+
 	// delete servicesInExternalEnv data
+	// TODO this function should be removed after services_in_external_env is deprecated
 	go func() {
 		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
 			ProductName: productName,
