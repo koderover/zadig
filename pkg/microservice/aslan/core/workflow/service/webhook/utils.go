@@ -522,8 +522,9 @@ func getContainers(u *unstructured.Unstructured) ([]*commonmodels.Container, err
 		}
 
 		containers = append(containers, &commonmodels.Container{
-			Name:  nameStr,
-			Image: imageStr,
+			Name:      nameStr,
+			Image:     imageStr,
+			ImageName: util.ExtractImageName(imageStr),
 		})
 	}
 
