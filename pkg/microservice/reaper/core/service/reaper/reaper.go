@@ -249,6 +249,11 @@ func (r *Reaper) BeforeExec() error {
 	}
 
 	if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
+		r.Ctx.GinkgoTest.ResultPath = r.replaceEnvWithValue(r.Ctx.GinkgoTest.ResultPath)
+		r.Ctx.GinkgoTest.TestReportPath = r.replaceEnvWithValue(r.Ctx.GinkgoTest.TestReportPath)
+		for i, artifactPath := range r.Ctx.GinkgoTest.ArtifactPaths {
+			r.Ctx.GinkgoTest.ArtifactPaths[i] = r.replaceEnvWithValue(artifactPath)
+		}
 		r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
 		if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
 			log.Warning(err.Error())
@@ -313,6 +318,10 @@ func (r *Reaper) runDockerBuild() error {
 	if r.Ctx.DockerBuildCtx == nil {
 		return nil
 	}
+
+	r.Ctx.DockerBuildCtx.DockerFile = r.replaceEnvWithValue(r.Ctx.DockerBuildCtx.DockerFile)
+	r.Ctx.DockerBuildCtx.BuildArgs = r.replaceEnvWithValue(r.Ctx.DockerBuildCtx.BuildArgs)
+	r.Ctx.DockerBuildCtx.WorkDir = r.replaceEnvWithValue(r.Ctx.DockerBuildCtx.WorkDir)
 
 	log.Info("Preparing Dockerfile.")
 	startTimePrepareDockerfile := time.Now()

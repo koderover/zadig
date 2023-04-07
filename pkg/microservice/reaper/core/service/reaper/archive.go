@@ -54,7 +54,6 @@ func (r *Reaper) archiveS3Files() (err error) {
 		}
 		objectKey := store.GetObjectPath(r.Ctx.FileArchiveCtx.FileName)
 
-		// Exec twice to render nested variables
 		r.Ctx.FileArchiveCtx.FileLocation = r.replaceEnvWithValue(r.Ctx.FileArchiveCtx.FileLocation)
 		r.Ctx.FileArchiveCtx.FileLocation = r.replaceEnvWithValue(r.Ctx.FileArchiveCtx.FileLocation)
 		src := filepath.Join(r.ActiveWorkspace, r.Ctx.FileArchiveCtx.FileLocation, r.Ctx.FileArchiveCtx.FileName)
