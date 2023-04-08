@@ -128,6 +128,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 	}
 
 	service.AutoSync = autoSync
+	service.TemplateID = templateID
 	return reloadServiceFromYamlTemplateImpl(username, projectName, template, service, req.VariableYaml)
 }
 

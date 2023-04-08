@@ -206,24 +206,13 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
-
-	previousTask, err := commonrepo.NewworkflowTaskv4Coll().FindPreviousTask(workflowName, username)
-
-	// if we found a task previously executed by this user and the workflow is not changed, clone it
-	// and use it as the preset, but we need to remember giving all the build job their default selection
-	if err == nil && previousTask.WorkflowHash == fmt.Sprintf("%x", workflow.CalculateHash()) {
-		// this is the clone logic
-		workflow.Stages = previousTask.OriginWorkflowArgs.Stages
-		return workflow, nil
-	}
-	// otherwise a normal preset will suffice
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if err := jobctl.SetPreset(job, workflow); err != nil {
 				log.Errorf("cannot get workflow %s preset, the error is: %v", workflowName, err)
-				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 			}
 		}
 	}

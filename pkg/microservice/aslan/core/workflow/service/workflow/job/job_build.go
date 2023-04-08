@@ -59,6 +59,7 @@ func (j *BuildJob) Instantiate() error {
 
 // SetPreset will now update all the possible build service option into serviceOption instead of ServiceAndBuilds
 // Updated @2023-03-30 before v1.17.0
+// Updated @2023-04-07 after v1.17.0 revert to old version
 func (j *BuildJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -106,8 +107,8 @@ func (j *BuildJob) SetPreset() error {
 
 		newBuilds = append(newBuilds, build)
 	}
+	j.spec.ServiceAndBuilds = newBuilds
 	j.spec.ServiceOptions = newBuilds
-	j.spec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
 	j.job.Spec = j.spec
 	return nil
 }
