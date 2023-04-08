@@ -108,10 +108,6 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	j.job.Spec = j.spec
 
-	if err := j.configRangeCheck(); err != nil {
-		return resp, err
-	}
-
 	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), j.spec.NacosID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get nacos info")
@@ -154,10 +150,11 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *NacosJob) LintJob() error {
-	return j.configRangeCheck()
-}
+	j.spec = &commonmodels.NacosJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
 
-func (j *NacosJob) configRangeCheck() error {
 	nacosConfigRange := map[string]bool{}
 	for _, configRange := range j.spec.NacosDataRange {
 		nacosConfigRange[getNacosKey(configRange.Group, configRange.DataID)] = true
