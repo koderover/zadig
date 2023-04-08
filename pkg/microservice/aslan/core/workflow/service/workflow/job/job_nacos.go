@@ -108,15 +108,8 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	j.job.Spec = j.spec
 
-	nacosConfigRange := map[string]bool{}
-	for _, configRange := range j.spec.NacosDataRange {
-		nacosConfigRange[getNacosKey(configRange.Group, configRange.DataID)] = true
-	}
-
-	for _, data := range j.spec.NacosDatas {
-		if !nacosConfigRange[getNacosKey(data.Group, data.DataID)] {
-			return nil, fmt.Errorf("can't select the nacos config outside the config range, group: %s, data_id: %s", data.Group, data.DataID)
-		}
+	if err := j.configRangeCheck(); err != nil {
+		return resp, err
 	}
 
 	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), j.spec.NacosID)
@@ -161,6 +154,20 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *NacosJob) LintJob() error {
+	return j.configRangeCheck()
+}
+
+func (j *NacosJob) configRangeCheck() error {
+	nacosConfigRange := map[string]bool{}
+	for _, configRange := range j.spec.NacosDataRange {
+		nacosConfigRange[getNacosKey(configRange.Group, configRange.DataID)] = true
+	}
+
+	for _, data := range j.spec.NacosDatas {
+		if !nacosConfigRange[getNacosKey(data.Group, data.DataID)] {
+			return fmt.Errorf("can't select the nacos config outside the config range, group: %s, data_id: %s", data.Group, data.DataID)
+		}
+	}
 	return nil
 }
 
