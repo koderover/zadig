@@ -859,7 +859,7 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 			curValuesYaml = targetChart.ValuesYaml
 		}
 		// merge environment values
-		mergedBs, err := overrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
+		mergedBs, err := overrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey, true)
 		if err != nil {
 			return "", "", errors.Wrapf(err, "failed to override values")
 		}
@@ -869,6 +869,17 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 			return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
 		}
 		return targetChart.ValuesYaml, renderSet.DefaultValues, nil
+	case usageScenarioGetValues:
+		curValuesYaml := ""
+		if targetChart != nil { // service has been applied into environment, use current values.yaml
+			curValuesYaml = targetChart.ValuesYaml
+		}
+		// merge latest values
+		mergedBs, err := overrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), nil, false)
+		if err != nil {
+			return "", "", errors.Wrapf(err, "failed to override values")
+		}
+		return string(mergedBs), renderSet.DefaultValues, nil
 	default:
 		return "", "", fmt.Errorf("unrecognized usageScenario:%s", usageScenario)
 	}
@@ -2672,7 +2683,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		// use the variables in current product when updating services
 		if okC {
 			// use the value of the key of the current values.yaml to replace the value of the same key of the values.yaml in the service
-			newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), imageRelatedKey)
+			newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), imageRelatedKey, true)
 			if err != nil {
 				log.Errorf("Failed to override values for service %s, err: %s", serviceName, err)
 			} else {
@@ -2726,8 +2737,7 @@ func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo 
 }
 
 // for keys exist in both yaml, current values will override the latest values
-// only for images
-func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey sets.String) ([]byte, error) {
+func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey sets.String, onlyImages bool) ([]byte, error) {
 	currentValuesMap := map[string]interface{}{}
 	if err := yaml.Unmarshal(currentValuesYaml, &currentValuesMap); err != nil {
 		return nil, err
@@ -2750,7 +2760,7 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey 
 
 	replaceMap := make(map[string]interface{})
 	for key := range latestValuesFlatMap {
-		if !imageRelatedKey.Has(key) {
+		if onlyImages && !imageRelatedKey.Has(key) {
 			continue
 		}
 		if currentValue, ok := currentValuesFlatMap[key]; ok {
