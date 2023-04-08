@@ -58,17 +58,8 @@ func (j *NacosJob) SetPreset() error {
 		return errors.Errorf("fail to init nacos client: %v, please check nacos configuration", err)
 	}
 
-	nacosConfigRange := map[string]bool{}
-	for _, data := range j.spec.NacosDataRange {
-		nacosConfigRange[getNacosKey(data.Group, data.DataID)] = true
-	}
-
 	newDatas := []*types.NacosConfig{}
 	for _, data := range j.spec.NacosDatas {
-		if !nacosConfigRange[getNacosKey(data.Group, data.DataID)] {
-			continue
-		}
-
 		newData, err := client.GetConfig(data.DataID, data.Group, originNamespaceID)
 		if err != nil {
 			log.Errorf("get nacos config %s/%s error: %v", data.DataID, data.Group, err)
