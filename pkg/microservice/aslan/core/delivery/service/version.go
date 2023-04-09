@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/blang/semver/v4"
 	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/hashicorp/go-multierror"
@@ -563,11 +565,11 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	basePath := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
-	if err := commonservice.PreloadServiceManifestsByRevision(basePath, serviceObj); err != nil {
+	if err := commonutil.PreloadServiceManifestsByRevision(basePath, serviceObj); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version
 		basePath = config.LocalServicePath(serviceObj.ProductName, serviceName)
-		if err = commonservice.PreLoadServiceManifests(basePath, serviceObj); err != nil {
+		if err = commonutil.PreLoadServiceManifests(basePath, serviceObj); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
 			return "", err
 		}
@@ -652,7 +654,7 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			return nil, nil, err
 		}
 
-		imageName := commonservice.ExtractImageName(imageUrl)
+		imageName := commonutil.ExtractImageName(imageUrl)
 		imageTag := commonservice.ExtractImageTag(imageUrl)
 
 		customTag := ""
@@ -690,13 +692,13 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		// assign image to values.yaml
 		targetImageUrl := util.ReplaceRepo(imageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
 		targetImageUrl = util.ReplaceTag(targetImageUrl, customTag)
-		replaceValuesMap, err := commonservice.AssignImageData(targetImageUrl, spec)
+		replaceValuesMap, err := commonutil.AssignImageData(targetImageUrl, spec)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to pase image uri %s, err %s", targetImageUrl, err)
 		}
 
 		// replace image into final merged values.yaml
-		retValuesYaml, err = commonservice.ReplaceImage(retValuesYaml, replaceValuesMap)
+		retValuesYaml, err = commonutil.ReplaceImage(retValuesYaml, replaceValuesMap)
 		if err != nil {
 			return nil, nil, err
 		}

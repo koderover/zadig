@@ -19,17 +19,14 @@ package service
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
-	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -66,11 +63,9 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
-	"github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -2546,90 +2541,90 @@ func FindProductRenderSet(productName, renderName, envName string, log *zap.Suga
 	return resp, nil
 }
 
-func buildInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.ServiceRender, serviceObj *commonmodels.Service) (*ReleaseInstallParam, error) {
+func buildInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.ServiceRender, serviceObj *commonmodels.Service) (*kube.ReleaseInstallParam, error) {
 	mergedValues, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
 	}
-	ret := &ReleaseInstallParam{
+	ret := &kube.ReleaseInstallParam{
 		ProductName:  serviceObj.ProductName,
 		Namespace:    namespace,
 		ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName),
 		MergedValues: mergedValues,
 		RenderChart:  renderChart,
-		serviceObj:   serviceObj,
+		ServiceObj:   serviceObj,
 	}
 	return ret, nil
 }
 
-func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
-	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.serviceObj
-	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
-	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
-		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-			serviceObj.Revision, serviceObj.ServiceName)
-		// use the latest version when it fails to download the specific version
-		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
-		if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
-			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
-		}
-	}
-
-	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
-	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
-	if err != nil {
-		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
-		return err
-	}
-
-	chartSpec := &helmclient.ChartSpec{
-		ReleaseName:   param.ReleaseName,
-		ChartName:     chartPath,
-		Namespace:     namespace,
-		Version:       renderChart.ChartVersion,
-		ValuesYaml:    valuesYaml,
-		UpgradeCRDs:   true,
-		CleanupOnFail: true,
-		MaxHistory:    10,
-		DryRun:        param.DryRun,
-	}
-	if isRetry {
-		chartSpec.Replace = true
-	}
-
-	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
-	ctx := context.TODO()
-	if !chartSpec.DryRun {
-		err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
-		if err != nil {
-			return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
-		}
-	}
-
-	helmClient, err = helmClient.Clone()
-	if err != nil {
-		return fmt.Errorf("failed to clone helm client: %s", err)
-	}
-
-	var release *release.Release
-	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to install or upgrade helm chart %s/%s",
-			namespace, serviceObj.ServiceName)
-	} else {
-		if !chartSpec.DryRun {
-			err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
-			if err != nil {
-				err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
-			}
-		}
-	}
-
-	return err
-}
+//func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
+//	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.serviceObj
+//	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
+//	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+//		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+//			serviceObj.Revision, serviceObj.ServiceName)
+//		// use the latest version when it fails to download the specific version
+//		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
+//		if err = commonutil.PreLoadServiceManifests(base, serviceObj); err != nil {
+//			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
+//			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
+//		}
+//	}
+//
+//	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
+//	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+//	if err != nil {
+//		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+//		return err
+//	}
+//
+//	chartSpec := &helmclient.ChartSpec{
+//		ReleaseName:   param.ReleaseName,
+//		ChartName:     chartPath,
+//		Namespace:     namespace,
+//		Version:       renderChart.ChartVersion,
+//		ValuesYaml:    valuesYaml,
+//		UpgradeCRDs:   true,
+//		CleanupOnFail: true,
+//		MaxHistory:    10,
+//		DryRun:        param.DryRun,
+//	}
+//	if isRetry {
+//		chartSpec.Replace = true
+//	}
+//
+//	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
+//	ctx := context.TODO()
+//	if !chartSpec.DryRun {
+//		err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
+//		if err != nil {
+//			return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
+//		}
+//	}
+//
+//	helmClient, err = helmClient.Clone()
+//	if err != nil {
+//		return fmt.Errorf("failed to clone helm client: %s", err)
+//	}
+//
+//	var release *release.Release
+//	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
+//	if err != nil {
+//		err = errors.WithMessagef(
+//			err,
+//			"failed to install or upgrade helm chart %s/%s",
+//			namespace, serviceObj.ServiceName)
+//	} else {
+//		if !chartSpec.DryRun {
+//			err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
+//			if err != nil {
+//				err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
+//			}
+//		}
+//	}
+//
+//	return err
+//}
 
 func installProductHelmCharts(user, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
 	kclient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
@@ -3031,7 +3026,7 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 			return errBuildParam
 		}
 		param.DryRun = true
-		err = installOrUpgradeHelmChartWithValues(param, false, helmClient)
+		err = kube.InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
 		return
 	}
 
@@ -3105,7 +3100,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 			err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, errBuildParam)
 			return
 		}
-		errInstall := installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
+		errInstall := kube.InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, errInstall)
 			err = fmt.Errorf("failed to upgrade service %s, err: %s", serviceObj.ServiceName, errInstall)

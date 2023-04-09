@@ -21,7 +21,12 @@ import (
 	"fmt"
 	"time"
 
+	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -48,6 +53,7 @@ type ResourceApplyParam struct {
 	ServiceName         string
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
+	Images              []string // all images need to be updated, used for helm services
 	Informer            informers.SharedInformerFactory
 	KubeClient          client.Client
 	IstioClient         versionedclient.Interface
@@ -457,7 +463,51 @@ func createOrPatchK8sResources(applyParam *ResourceApplyParam, log *zap.SugaredL
 }
 
 func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
-	return nil
+	productInfo := applyParam.ProductInfo
+	//namespace, productName, envName, productInfo := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName
+	//informer, kubeClient, istioClient := applyParam.Informer, applyParam.KubeClient, applyParam.IstioClient
+
+	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
+	if productService == nil {
+		return fmt.Errorf("service %s not found in env: %s", applyParam.ServiceName, applyParam.ProductInfo.EnvName)
+	}
+
+	restConfig, err := GetRESTConfig(productInfo.ClusterID)
+	if err != nil {
+		return e.ErrDeleteEnv.AddErr(err)
+	}
+
+	svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName: applyParam.ProductInfo.ProductName,
+		ServiceName: applyParam.ServiceName,
+		Revision:    productService.Revision,
+	}, productInfo.Production)
+	if err != nil {
+		return errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, productService.Revision, productInfo.ProductName)
+	}
+
+	hClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
+	if err != nil {
+		return errors.Wrapf(err, "failed to init helm client")
+	}
+
+	// uninstall release
+	if applyParam.Uninstall {
+		return UninstallService(hClient, productInfo, svcTemplate, true)
+	}
+
+	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: productInfo.ProductName,
+		Name:        productInfo.Render.Name,
+		EnvName:     productInfo.EnvName,
+		Revision:    productInfo.Render.Revision,
+	})
+	if err != nil {
+		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
+		return err
+	}
+
+	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images)
 }
 
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml

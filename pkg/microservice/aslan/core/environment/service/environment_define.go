@@ -175,15 +175,15 @@ type RawYamlResp struct {
 	YamlContent string `json:"yamlContent"`
 }
 
-type ReleaseInstallParam struct {
-	ProductName  string
-	Namespace    string
-	ReleaseName  string
-	MergedValues string
-	RenderChart  *templatemodels.ServiceRender
-	serviceObj   *commonmodels.Service
-	DryRun       bool
-}
+//type ReleaseInstallParam struct {
+//	ProductName  string
+//	Namespace    string
+//	ReleaseName  string
+//	MergedValues string
+//	RenderChart  *templatemodels.ServiceRender
+//	serviceObj   *commonmodels.Service
+//	DryRun       bool
+//}
 
 type CreateEnvRequest struct {
 	Scene       string `form:"scene"`

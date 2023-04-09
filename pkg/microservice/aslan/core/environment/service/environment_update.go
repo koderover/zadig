@@ -73,16 +73,16 @@ func UninstallService(helmClient helmclient.Client, env *commonmodels.Product, r
 	})
 }
 
-func InstallService(helmClient *helmtool.HelmClient, param *ReleaseInstallParam) error {
+func InstallService(helmClient *helmtool.HelmClient, param *kube.ReleaseInstallParam) error {
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
-		errInstall := installOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
+		errInstall := kube.InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, param.Namespace, isRetry, errInstall)
 			return errors.Wrapf(errInstall, "failed to install or upgrade service %s", serviceObj.ServiceName)
 		}
 		return nil
 	}
-	errList := batchExecutorWithRetry(3, time.Millisecond*2500, []*commonmodels.Service{param.serviceObj}, handler, log.SugaredLogger())
+	errList := batchExecutorWithRetry(3, time.Millisecond*2500, []*commonmodels.Service{param.ServiceObj}, handler, log.SugaredLogger())
 	if len(errList) > 0 {
 		return errList[0]
 	}

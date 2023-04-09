@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -32,10 +31,9 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
+	"go.uber.org/zap"
 )
 
 type UpdateContainerImageArgs struct {
@@ -63,27 +61,27 @@ func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
 }
 
 // prepare necessary data from db
-func prepareData(namespace, serviceName, containerName, image string, product *models.Product) (targetContainer *models.Container,
+func prepareData(namespace, serviceName, containerName string, images []string, product *models.Product) (targetContainers []*models.Container,
 	targetChart *templatemodels.ServiceRender, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
 
-	imageName := commonservice.ExtractImageName(image)
-
-	var targetProductService *models.ProductService
-	for _, productService := range product.GetServiceMap() {
-		if productService.ServiceName != serviceName {
-			continue
-		}
-		targetProductService = productService
-		for _, container := range productService.Containers {
+	targetProductService := product.GetServiceMap()[serviceName]
+	if targetProductService == nil {
+		err = fmt.Errorf("failed to find service in product: %s", serviceName)
+		return
+	}
+	for _, image := range images {
+		imageName := commonutil.ExtractImageName(image)
+		for _, container := range targetProductService.Containers {
 			if container.ImageName == imageName {
-				targetContainer = container
+				container.Image = image
+				targetContainers = append(targetContainers, container)
 				break
 			}
 		}
-		break
 	}
-	if targetContainer == nil {
-		err = fmt.Errorf("failed to find image config: %s for container %s", imageName, containerName)
+
+	if len(targetContainers) == 0 {
+		err = fmt.Errorf("failed to find config for images %s", images)
 		return
 	}
 
@@ -110,7 +108,6 @@ func prepareData(namespace, serviceName, containerName, image string, product *m
 		return
 	}
 
-	// 获取服务详情
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		Revision:    targetProductService.Revision,
@@ -126,74 +123,101 @@ func prepareData(namespace, serviceName, containerName, image string, product *m
 	return
 }
 
-func updateContainerForHelmChart(serviceName, resType, image, containerName string, product *models.Product, cl client.Client) error {
-	var (
-		replaceValuesMap         map[string]interface{}
-		replacedValuesYaml       string
-		mergedValuesYaml         string
-		replacedMergedValuesYaml string
-		helmClient               *helmtool.HelmClient
-		namespace                string = product.Namespace
-	)
+func updateContainerForHelmChart(serviceName, image, containerName string, product *models.Product) error {
+	namespace := product.Namespace
+	targetProductService := product.GetServiceMap()[serviceName]
+	if targetProductService == nil {
+		return fmt.Errorf("failed to find service in product: %s", serviceName)
+	}
 
-	targetContainer, targetChart, renderSet, serviceObj, err := prepareData(namespace, serviceName, containerName, image, product)
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    targetProductService.Revision,
+		ProductName: product.ProductName,
+	}
+
+	serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 	if err != nil {
+		log.Errorf("failed to find template service, opt %+v, err :%s", *opt, err.Error())
+		err = fmt.Errorf("failed to find template service, opt %+v", *opt)
 		return err
 	}
 
-	// update image info in product.services.container
-	targetContainer.Image = image
-
-	// prepare image replace info
-	replaceValuesMap, err = commonservice.AssignImageData(image, getValidMatchData(targetContainer.ImagePath))
+	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: product.ProductName,
+		Name:        product.Render.Name,
+		EnvName:     product.EnvName,
+		Revision:    product.Render.Revision,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to pase image uri %s/%s, err %s", namespace, serviceName, err.Error())
-	}
-
-	// replace image into service's values.yaml
-	replacedValuesYaml, err = commonservice.ReplaceImage(targetChart.ValuesYaml, replaceValuesMap)
-	if err != nil {
-		return fmt.Errorf("failed to replace image uri %s/%s, err %s", namespace, serviceName, err.Error())
-
-	}
-	if replacedValuesYaml == "" {
-		return fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", namespace, serviceName)
-	}
-
-	// update values.yaml content in chart
-	targetChart.ValuesYaml = replacedValuesYaml
-
-	// merge override values and kvs into service's yaml
-	mergedValuesYaml, err = helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
-	if err != nil {
+		err = fmt.Errorf("failed to find redset name %s revision %d", namespace, product.Render.Revision)
 		return err
 	}
 
-	// replace image into final merged values.yaml
-	replacedMergedValuesYaml, err = commonservice.ReplaceImage(mergedValuesYaml, replaceValuesMap)
+	err = kube.UpgradeHelmRelease(product, renderSet, targetProductService, serviceObj, []string{image})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to upgrade helm release, err: %s", err.Error())
 	}
 
-	helmClient, err = helmtool.NewClientFromNamespace(product.ClusterID, namespace)
-	if err != nil {
-		return err
-	}
-
-	param := &ReleaseInstallParam{
-		ProductName:  serviceObj.ProductName,
-		Namespace:    namespace,
-		ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
-		MergedValues: replacedMergedValuesYaml,
-		RenderChart:  targetChart,
-		serviceObj:   serviceObj,
-	}
+	//targetContainers, targetChart, renderSet, serviceObj, err := prepareData(namespace, serviceName, containerName, []string{image}, product)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//replaceValuesMaps := make([]map[string]interface{}, 0)
+	//for _, targetContainer := range targetContainers {
+	//	// prepare image replace info
+	//	replaceValuesMap, err := commonutil.AssignImageData(image, getValidMatchData(targetContainer.ImagePath))
+	//	if err != nil {
+	//		return fmt.Errorf("failed to pase image uri %s/%s, err %s", namespace, serviceName, err.Error())
+	//	}
+	//	replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
+	//}
+	//
+	//// replace image into service's values.yaml
+	//replacedValuesYaml, err = commonutil.ReplaceImage(targetChart.ValuesYaml, replaceValuesMaps...)
+	//if err != nil {
+	//	return fmt.Errorf("failed to replace image uri %s/%s, err %s", namespace, serviceName, err.Error())
+	//
+	//}
+	//if replacedValuesYaml == "" {
+	//	return fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", namespace, serviceName)
+	//}
+	//
+	//// update values.yaml content in chart
+	//targetChart.ValuesYaml = replacedValuesYaml
+	//
+	//// merge override values and kvs into service's yaml
+	//mergedValuesYaml, err = helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// replace image into final merged values.yaml
+	//replacedMergedValuesYaml, err = commonutil.ReplaceImage(mergedValuesYaml, replaceValuesMaps...)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//helmClient, err = helmtool.NewClientFromNamespace(product.ClusterID, namespace)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//param := &kube.ReleaseInstallParam{
+	//	ProductName:  serviceObj.ProductName,
+	//	Namespace:    namespace,
+	//	ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
+	//	MergedValues: replacedMergedValuesYaml,
+	//	RenderChart:  targetChart,
+	//	ServiceObj:   serviceObj,
+	//}
 
 	// when replace image, should not wait
-	err = installOrUpgradeHelmChartWithValues(param, false, helmClient)
-	if err != nil {
-		return err
-	}
+	//err = kube.InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
+	//if err != nil {
+	//	return err
+	//}
 
 	if err = commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
 		log.Errorf("[RenderSet.update] product %s error: %s", product.ProductName, err.Error())
@@ -247,7 +271,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
-		err = updateContainerForHelmChart(serviceName, args.Type, args.Image, args.ContainerName, product, kubeClient)
+		err = updateContainerForHelmChart(serviceName, args.Image, args.ContainerName, product)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}

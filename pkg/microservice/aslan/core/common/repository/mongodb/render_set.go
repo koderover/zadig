@@ -261,7 +261,6 @@ func (c *RenderSetColl) Update(args *models.RenderSet) error {
 		"service_variables": args.ServiceVariables,
 		"update_time":       time.Now().Unix(),
 		"update_by":         args.UpdateBy,
-		//"kvs":               args.KVs,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

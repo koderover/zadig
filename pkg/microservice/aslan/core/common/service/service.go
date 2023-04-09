@@ -757,19 +757,19 @@ func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (s
 	return ret, nil
 }
 
-// ExtractImageName extract image name from total image uri
-func ExtractImageName(imageURI string) string {
-	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
-	exNames := imageParseRegex.SubexpNames()
-	for i, matchedStr := range subMatchAll {
-		if i != 0 && matchedStr != "" && matchedStr != ":" {
-			if exNames[i] == "image" {
-				return matchedStr
-			}
-		}
-	}
-	return ""
-}
+//// ExtractImageName extract image name from total image uri
+//func ExtractImageName(imageURI string) string {
+//	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
+//	exNames := imageParseRegex.SubexpNames()
+//	for i, matchedStr := range subMatchAll {
+//		if i != 0 && matchedStr != "" && matchedStr != ":" {
+//			if exNames[i] == "image" {
+//				return matchedStr
+//			}
+//		}
+//	}
+//	return ""
+//}
 
 // ExtractImageRegistry extract registry url from total image uri
 func ExtractImageRegistry(imageURI string) (string, error) {
@@ -852,7 +852,7 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 		if err != nil {
 			return nil, err
 		}
-		name := ExtractImageName(imageUrl)
+		name := commonutil.ExtractImageName(imageUrl)
 		ret = append(ret, &commonmodels.Container{
 			Name:      name,
 			ImageName: name,

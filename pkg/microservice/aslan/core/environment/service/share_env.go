@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+
 	"github.com/gogo/protobuf/jsonpb"
 	types "github.com/golang/protobuf/ptypes/struct"
 	helmclient "github.com/mittwald/go-helm-client"
@@ -1416,7 +1418,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 	}
 
 	for _, svcName := range svcNames {
-		err := ensureDeleteK8sService(ctx, namespace, svcName, kclient, true)
+		err := kube.EnsureDeleteK8sService(ctx, namespace, svcName, kclient, true)
 		if err != nil {
 			return fmt.Errorf("failed to ensure delete existing K8s Service %q in namespace %q: %s", svcName, namespace, err)
 		}
