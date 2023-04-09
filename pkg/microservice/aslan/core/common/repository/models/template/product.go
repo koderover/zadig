@@ -20,9 +20,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Product struct {

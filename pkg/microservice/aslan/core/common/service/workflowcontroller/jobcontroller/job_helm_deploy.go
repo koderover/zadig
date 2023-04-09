@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -33,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 )
 

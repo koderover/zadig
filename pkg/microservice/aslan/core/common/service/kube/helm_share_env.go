@@ -46,122 +46,6 @@ type MatchedEnv struct {
 	Namespace string
 }
 
-//func ensureBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
-//	if baseEnv.ShareEnv.Enable && baseEnv.ShareEnv.IsBase {
-//		return nil
-//	}
-//
-//	baseEnv.ShareEnv = commonmodels.ProductShareEnv{
-//		Enable: true,
-//		IsBase: true,
-//	}
-//
-//	return commonrepo.NewProductColl().Update(baseEnv)
-//}
-//
-//func ensureDisableBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
-//	if !baseEnv.ShareEnv.Enable && !baseEnv.ShareEnv.IsBase {
-//		return nil
-//	}
-//
-//	baseEnv.ShareEnv = commonmodels.ProductShareEnv{
-//		Enable: false,
-//		IsBase: false,
-//	}
-//
-//	return commonrepo.NewProductColl().Update(baseEnv)
-//}
-
-//func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.Product) error {
-//	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-//		Name:            baseProduct.ProductName,
-//		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
-//		ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
-//		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseProduct.EnvName),
-//	})
-//	if err != nil {
-//		log.Error(err)
-//		return err
-//	}
-//
-//	logger := log.SugaredLogger()
-//	for _, env := range envs {
-//		err := DeleteProduct("system", env.EnvName, env.ProductName, "", true, logger)
-//		if err != nil {
-//			log.Error(err)
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
-//
-//func ensureDeleteEnvoyFilter(ctx context.Context, baseEnv *commonmodels.Product, istioClient versionedclient.Interface) error {
-//	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-//		ShareEnvEnable: zadigutil.GetBoolPointer(true),
-//	})
-//	if err != nil {
-//		return fmt.Errorf("failed to list products which enable env sharing: %s", err)
-//	}
-//
-//	needDeleteEnvoyFilter := true
-//	for _, env := range envs {
-//		if env.ProductName == baseEnv.ProductName && env.EnvName == baseEnv.EnvName {
-//			continue
-//		}
-//
-//		needDeleteEnvoyFilter = false
-//	}
-//
-//	if !needDeleteEnvoyFilter {
-//		return nil
-//	}
-//
-//	return deleteEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
-//}
-//
-//func ensureCleanRoutesInBase(ctx context.Context, grayEnv *commonmodels.Product, istioClient versionedclient.Interface) error {
-//	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-//		Name:    grayEnv.ProductName,
-//		EnvName: grayEnv.ShareEnv.BaseEnv,
-//	})
-//	if err != nil {
-//		log.Error(err)
-//		return err
-//	}
-//
-//	grayNS := grayEnv.Namespace
-//	vsList, err := istioClient.NetworkingV1alpha3().VirtualServices(grayNS).List(ctx, metav1.ListOptions{})
-//	if err != nil {
-//		return fmt.Errorf("failed to list VirtualServices for env %s of product %s: %s", grayEnv.EnvName, grayEnv.ProductName, err)
-//	}
-//
-//	for _, vsInGray := range vsList.Items {
-//		err = ensureCleanRouteInBase(ctx, grayEnv.EnvName, baseEnv.Namespace, vsInGray.Name, istioClient)
-//		if err != nil {
-//			return fmt.Errorf("failed to clean route in base env: %s", err)
-//		}
-//	}
-//
-//	return nil
-//}
-
-//func deleteEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, istioNamespace, name string) error {
-//	_, err := istioClient.NetworkingV1alpha3().EnvoyFilters(istioNamespace).Get(ctx, name, metav1.GetOptions{})
-//	if apierrors.IsNotFound(err) {
-//		log.Infof("EnvoyFilter %s is not found in ns `%s`. Skip.", name, istioNamespace)
-//		return nil
-//	}
-//	if err != nil {
-//		return fmt.Errorf("failed to query EnvoyFilter %s in ns `%s`: %s", name, istioNamespace, err)
-//	}
-//
-//	deleteOption := metav1.DeletePropagationBackground
-//	return istioClient.NetworkingV1alpha3().EnvoyFilters(istioNamespace).Delete(ctx, name, metav1.DeleteOptions{
-//		PropagationPolicy: &deleteOption,
-//	})
-//}
-
 func ensureCleanRouteInBase(ctx context.Context, envName, baseNS, vsName string, istioClient versionedclient.Interface) error {
 	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
 	if err != nil {
@@ -224,30 +108,6 @@ func ensureCleanRouteInBase(ctx context.Context, envName, baseNS, vsName string,
 	return err
 }
 
-//func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
-//	envs, err := fetchSubEnvs(ctx, env.ProductName, env.ClusterID, env.EnvName)
-//	if err != nil {
-//		return err
-//	}
-//
-//	vsName := genVirtualServiceName(svc)
-//	for _, env := range envs {
-//		log.Infof("Begin to ensure Services in subenv %s of prouduct %s.", env.EnvName, env.ProductName)
-//
-//		err = ensureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
-//		if err != nil {
-//			return err
-//		}
-//
-//		err = ensureDefaultK8sServiceInGray(ctx, svc, env.Namespace, kclient)
-//		if err != nil {
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
-
 func ensureDeleteVirtualService(ctx context.Context, env *commonmodels.Product, vsName string, istioClient versionedclient.Interface) error {
 	_, err := istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Get(ctx, vsName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -296,29 +156,6 @@ func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.
 	return nil
 }
 
-//func ensureDeleteK8sService(ctx context.Context, ns, svcName string, kclient client.Client, systemCreatedOnly bool) error {
-//	svc := &corev1.Service{}
-//	err := kclient.Get(ctx, client.ObjectKey{
-//		Name:      svcName,
-//		Namespace: ns,
-//	}, svc)
-//	if apierrors.IsNotFound(err) {
-//		return nil
-//	}
-//	if err != nil {
-//		return err
-//	}
-//
-//	if systemCreatedOnly && !(svc.Labels != nil && svc.Labels[zadiglabels.ZadigLabelKeyGlobalOwner] == zadiglabels.Zadig) {
-//		return nil
-//	}
-//
-//	deleteOption := metav1.DeletePropagationBackground
-//	return kclient.Delete(ctx, svc, &client.DeleteOptions{
-//		PropagationPolicy: &deleteOption,
-//	})
-//}
-
 func doesSvcHasWorkload(ctx context.Context, ns string, svcSelector labels.Selector, kclient client.Client) (bool, error) {
 	podList := &corev1.PodList{}
 	err := kclient.List(ctx, podList, &client.ListOptions{
@@ -345,17 +182,6 @@ func fetchSubEnvs(ctx context.Context, productName, clusterID, baseEnvName strin
 		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseEnvName),
 	})
 }
-
-//func getSvcInEnv(env *commonmodels.Product) []string {
-//	svcs := []string{}
-//	for _, svcGroup := range env.Services {
-//		for _, svc := range svcGroup {
-//			svcs = append(svcs, svc.ServiceName)
-//		}
-//	}
-//
-//	return svcs
-//}
 
 func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcName, grayNS, baseNS string, istioClient versionedclient.Interface) error {
 	vsObjInBase, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
@@ -422,38 +248,6 @@ func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcN
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, vsObjInBase, metav1.UpdateOptions{})
 	return err
 }
-
-//func ensureUpdateZadigSerivce(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
-//	vsName := genVirtualServiceName(svc)
-//
-//	if env.ShareEnv.IsBase {
-//		// 1. Create VirtualService in the base environment.
-//		err := ensureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
-//		if err != nil {
-//			return err
-//		}
-//
-//		// 2. Create VirtualService in all of the sub environments.
-//		return ensureServicesInAllSubEnvs(ctx, env, svc, kclient, istioClient)
-//	}
-//
-//	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-//		Name:    env.ProductName,
-//		EnvName: env.ShareEnv.BaseEnv,
-//	})
-//	if err != nil {
-//		return err
-//	}
-//
-//	// 1. Create VirtualService in the sub environment.
-//	err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svc.Name, env.Namespace, baseEnv.Namespace, istioClient)
-//	if err != nil {
-//		return err
-//	}
-//
-//	// 2. Updated the VirtualService configuration in the base environment.
-//	return ensureUpdateVirtualServiceInBase(ctx, env.EnvName, vsName, svc.Name, env.Namespace, baseEnv.Namespace, istioClient)
-//}
 
 func ensureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
 	vsName := genVirtualServiceName(svc)

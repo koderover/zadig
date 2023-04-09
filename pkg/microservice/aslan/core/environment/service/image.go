@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -30,7 +32,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"go.uber.org/zap"
 )
 
 type UpdateContainerImageArgs struct {
@@ -42,83 +43,6 @@ type UpdateContainerImageArgs struct {
 	ContainerName string `json:"container_name"`
 	Image         string `json:"image"`
 }
-
-//func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
-//	ret := make(map[string]string)
-//	if spec.Repo != "" {
-//		ret[setting.PathSearchComponentRepo] = spec.Repo
-//	}
-//	if spec.Image != "" {
-//		ret[setting.PathSearchComponentImage] = spec.Image
-//	}
-//	if spec.Tag != "" {
-//		ret[setting.PathSearchComponentTag] = spec.Tag
-//	}
-//	return ret
-//}
-
-// prepare necessary data from db
-//func prepareData(namespace, serviceName, containerName string, images []string, product *models.Product) (targetContainers []*models.Container,
-//	targetChart *templatemodels.ServiceRender, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
-//
-//	targetProductService := product.GetServiceMap()[serviceName]
-//	if targetProductService == nil {
-//		err = fmt.Errorf("failed to find service in product: %s", serviceName)
-//		return
-//	}
-//	for _, image := range images {
-//		imageName := commonutil.ExtractImageName(image)
-//		for _, container := range targetProductService.Containers {
-//			if container.ImageName == imageName {
-//				container.Image = image
-//				targetContainers = append(targetContainers, container)
-//				break
-//			}
-//		}
-//	}
-//
-//	if len(targetContainers) == 0 {
-//		err = fmt.Errorf("failed to find config for images %s", images)
-//		return
-//	}
-//
-//	renderSet, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-//		ProductTmpl: product.ProductName,
-//		Name:        namespace,
-//		EnvName:     product.EnvName,
-//		Revision:    product.Render.Revision,
-//	})
-//	if err != nil {
-//		log.Errorf("[RenderSet.find] update product %s error: %s", product.ProductName, err.Error())
-//		err = fmt.Errorf("failed to find redset name %s revision %d", namespace, product.Render.Revision)
-//		return
-//	}
-//
-//	for _, chartInfo := range renderSet.ChartInfos {
-//		if chartInfo.ServiceName == serviceName {
-//			targetChart = chartInfo
-//			break
-//		}
-//	}
-//	if targetChart == nil {
-//		err = fmt.Errorf("failed to find chart info %s", serviceName)
-//		return
-//	}
-//
-//	opt := &commonrepo.ServiceFindOption{
-//		ServiceName: serviceName,
-//		Revision:    targetProductService.Revision,
-//		ProductName: product.ProductName,
-//	}
-//
-//	serviceObj, err = commonrepo.NewServiceColl().Find(opt)
-//	if err != nil {
-//		log.Errorf("failed to find template service, opt %+v, err :%s", *opt, err.Error())
-//		err = fmt.Errorf("failed to find template service, opt %+v", *opt)
-//		return
-//	}
-//	return
-//}
 
 func updateContainerForHelmChart(serviceName, image, containerName string, product *models.Product) error {
 	namespace := product.Namespace

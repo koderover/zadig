@@ -22,11 +22,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"helm.sh/helm/v3/pkg/releaseutil"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

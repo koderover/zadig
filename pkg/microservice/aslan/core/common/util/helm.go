@@ -24,11 +24,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/util/converter"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
-	"gopkg.in/yaml.v2"
-
 	"github.com/27149chen/afero"
+	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -37,15 +34,13 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 var (
 	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
-	presetPatterns  = []map[string]string{
-		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
-		{setting.PathSearchComponentImage: "image"},
-	}
 )
 
 func DownloadServiceManifests(base, projectName, serviceName string) error {

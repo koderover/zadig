@@ -757,20 +757,6 @@ func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (s
 	return ret, nil
 }
 
-//// ExtractImageName extract image name from total image uri
-//func ExtractImageName(imageURI string) string {
-//	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
-//	exNames := imageParseRegex.SubexpNames()
-//	for i, matchedStr := range subMatchAll {
-//		if i != 0 && matchedStr != "" && matchedStr != ":" {
-//			if exNames[i] == "image" {
-//				return matchedStr
-//			}
-//		}
-//	}
-//	return ""
-//}
-
 // ExtractImageRegistry extract registry url from total image uri
 func ExtractImageRegistry(imageURI string) (string, error) {
 	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
