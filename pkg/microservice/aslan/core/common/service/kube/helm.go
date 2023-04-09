@@ -22,12 +22,11 @@ import (
 	"path/filepath"
 	"time"
 
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-
-	"github.com/pkg/errors"
-	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/releaseutil"
 
 	helmclient "github.com/mittwald/go-helm-client"
+	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/release"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +37,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -45,6 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -62,6 +63,7 @@ type ReleaseInstallParam struct {
 	MergedValues string
 	RenderChart  *templatemodels.ServiceRender
 	ServiceObj   *commonmodels.Service
+	Timeout      int
 	DryRun       bool
 }
 
@@ -114,6 +116,9 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	if isRetry {
 		chartSpec.Replace = true
 	}
+	if param.Timeout > 0 {
+		chartSpec.Timeout = time.Second * time.Duration(param.Timeout)
+	}
 
 	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
 	ctx := context.TODO()
@@ -148,8 +153,9 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	return err
 }
 
+// UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string) error {
+	svcTemp *commonmodels.Service, images []string, variableYaml string, timeout int) error {
 	serviceName, namespace := productSvc.ServiceName, product.Namespace
 	var targetContainers []*commonmodels.Container
 	for _, image := range images {
@@ -201,6 +207,19 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	// update values.yaml content in chart
 	targetChart.ValuesYaml = replacedValuesYaml
 
+	// handle variables
+	// turn variables into key-value format to have higher priority
+	if len(variableYaml) > 0 {
+		flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
+		if err != nil {
+			return fmt.Errorf("failed to convert variable yaml, err: %s", err)
+		}
+		err = targetChart.AbsorbKVS(flatMaps)
+		if err != nil {
+			return fmt.Errorf("failed to absorb kvs, err: %s", err)
+		}
+	}
+
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
 	if err != nil {
@@ -225,12 +244,47 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		MergedValues: replacedMergedValuesYaml,
 		RenderChart:  targetChart,
 		ServiceObj:   svcTemp,
+		Timeout:      timeout,
+	}
+
+	ensureUpgrade := func() error {
+		hrs, errHistory := helmClient.ListReleaseHistory(param.ReleaseName, 10)
+		if errHistory != nil {
+			// list history should not block deploy operation, error will be logged instead of returned
+			return nil
+		}
+		if len(hrs) == 0 {
+			return nil
+		}
+		releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+		rel := hrs[0]
+
+		if rel.Info.Status.IsPending() {
+			return fmt.Errorf("failed to upgrade release: %s with exceptional status: %s", param.ReleaseName, rel.Info.Status)
+		}
+		return nil
+	}
+
+	err = ensureUpgrade()
+	if err != nil {
+		return err
 	}
 
 	// when replace image, should not wait
 	err = InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
 	if err != nil {
 		return err
+	}
+
+	// for helm services, wo should update deploy info directly
+	if err = commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
+		log.Errorf("[RenderSet.update] product %s error: %s", product.ProductName, err.Error())
+		return fmt.Errorf("failed to update render set, productName %s", product.ProductName)
+	}
+
+	if err = commonrepo.NewProductColl().Update(product); err != nil {
+		log.Errorf("[%s] update product %s error: %s", namespace, product.ProductName, err.Error())
+		return fmt.Errorf("failed to update product info, name %s", product.ProductName)
 	}
 
 	return nil

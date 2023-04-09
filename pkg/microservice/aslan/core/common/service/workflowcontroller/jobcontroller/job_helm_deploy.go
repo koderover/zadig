@@ -24,17 +24,15 @@ import (
 	"strings"
 	"time"
 
-	helmclient "github.com/mittwald/go-helm-client"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
-	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
@@ -43,7 +41,6 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
@@ -89,7 +86,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,
 		EnvName: c.jobTaskSpec.Env,
 	})
@@ -98,22 +95,22 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
-	c.namespace = env.Namespace
-	c.jobTaskSpec.ClusterID = env.ClusterID
+	c.namespace = productInfo.Namespace
+	c.jobTaskSpec.ClusterID = productInfo.ClusterID
 
-	c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
-	if err != nil {
-		msg := fmt.Sprintf("can't get k8s rest config: %v", err)
-		logError(c.job, msg, c.logger)
-		return
-	}
+	//c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	//if err != nil {
+	//	msg := fmt.Sprintf("can't get k8s rest config: %v", err)
+	//	logError(c.job, msg, c.logger)
+	//	return
+	//}
 
-	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
-	if err != nil {
-		msg := fmt.Sprintf("can't init k8s client: %v", err)
-		logError(c.job, msg, c.logger)
-		return
-	}
+	//c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	//if err != nil {
+	//	msg := fmt.Sprintf("can't init k8s client: %v", err)
+	//	logError(c.job, msg, c.logger)
+	//	return
+	//}
 
 	// all involved containers
 	containerNameSet := sets.NewString()
@@ -122,259 +119,287 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		containerNameSet.Insert(singleContainerName)
 	}
 
+	images := make([]string, 0)
+	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
+		images = append(images, svcAndContainer.Image)
+	}
+
+	param := &kube.ResourceApplyParam{
+		ProductInfo:  productInfo,
+		ServiceName:  c.jobTaskSpec.ServiceName,
+		Images:       images,
+		VariableYaml: "",    // TODO fill variable
+		Uninstall:    false, // TODO fill correct value
+		Timeout:      c.timeout(),
+	}
+	//_, err = kube.CreateOrPatchResource(param, c.logger)
+	//if err != nil {
+	//	msg := fmt.Sprintf("can't init k8s client: %v", err)
+	//	logError(c.job, msg, c.logger)
+	//	return
+	//}
+
 	var (
-		productInfo              *commonmodels.Product
-		renderChart              *templatemodels.ServiceRender
-		replacedValuesYaml       string
-		mergedValuesYaml         string
-		replacedMergedValuesYaml string
-		servicePath              string
-		chartPath                string
-		replaceValuesMap         map[string]interface{}
-		renderInfo               *commonmodels.RenderSet
-		helmClient               helmclient.Client
+	//renderChart              *templatemodels.ServiceRender
+	//replacedValuesYaml string
+	//mergedValuesYaml         string
+	//replacedMergedValuesYaml string
+	//servicePath              string
+	//chartPath                string
+	//replaceValuesMap         map[string]interface{}
+	//renderInfo *commonmodels.RenderSet
+	//helmClient helmclient.Client
 	)
 
 	c.logger.Infof("start helm deploy, productName %s serviceName %s containerName %v namespace %s", c.workflowCtx.ProjectName,
 		c.jobTaskSpec.ServiceName, containerNameSet.List(), c.namespace)
 
-	productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: c.workflowCtx.ProjectName, EnvName: c.jobTaskSpec.Env})
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to get product %s/%s",
-			c.namespace, c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
+	//productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: c.workflowCtx.ProjectName, EnvName: c.jobTaskSpec.Env})
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to get product %s/%s",
+	//		c.namespace, c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
 
-	renderInfo, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision})
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to get getRenderSet %s/%d",
-			productInfo.Render.Name, productInfo.Render.Revision)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	serviceRevisionInProduct := int64(0)
-	involvedImagePaths := make(map[string]*commonmodels.ImagePathSpec)
-	for _, service := range productInfo.GetServiceMap() {
-		if service.ServiceName != c.jobTaskSpec.ServiceName {
-			continue
-		}
-		serviceRevisionInProduct = service.Revision
-		for _, container := range service.Containers {
-			if !containerNameSet.Has(container.Name) {
-				continue
-			}
-			if container.ImagePath == nil {
-				err = errors.WithMessagef(err, "image path of %s/%s is nil", service.ServiceName, container.Name)
-				logError(c.job, err.Error(), c.logger)
-				return
-			}
-			involvedImagePaths[container.Name] = container.ImagePath
-		}
-		break
-	}
-
-	if len(involvedImagePaths) == 0 {
-		err = errors.Errorf("failed to find containers from service %s", c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	for _, chartInfo := range renderInfo.ChartInfos {
-		if chartInfo.ServiceName == c.jobTaskSpec.ServiceName {
-			renderChart = chartInfo
-			break
-		}
-	}
-
-	if renderChart == nil {
-		err = errors.Errorf("failed to update container image in %s/%s,chart not found",
-			c.namespace, c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	defaultS3, err := s3.FindDefaultS3()
-	if err != nil {
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	defaultURL, err := defaultS3.GetEncryptedURL()
-	if err != nil {
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	// use revision of service currently applied in environment instead of the latest revision
-	path, errDownload := c.downloadService(c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, defaultURL, serviceRevisionInProduct)
-	if errDownload != nil {
-		c.logger.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-			serviceRevisionInProduct, c.jobTaskSpec.ServiceName)
-		path, errDownload = c.downloadService(c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName,
-			defaultURL, 0)
-		if errDownload != nil {
-			err = errors.WithMessagef(
-				errDownload,
-				"failed to download service %s/%s",
-				c.namespace, c.jobTaskSpec.ServiceName)
-			logError(c.job, err.Error(), c.logger)
-			return
-		}
-	}
-
-	chartPath, err = fsutil.RelativeToCurrentPath(path)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to get relative path %s",
-			servicePath,
-		)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	serviceValuesYaml := renderChart.ValuesYaml
-	replaceValuesMap = make(map[string]interface{})
-
-	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
-		containerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+c.jobTaskSpec.ServiceName)
-		if imagePath, ok := involvedImagePaths[containerName]; ok {
-			validMatchData := getValidMatchData(imagePath)
-			singleReplaceValuesMap, errAssign := assignImageData(svcAndContainer.Image, validMatchData)
-			if errAssign != nil {
-				err = errors.WithMessagef(
-					errAssign,
-					"failed to pase image uri %s/%s",
-					c.namespace, c.jobTaskSpec.ServiceName)
-				logError(c.job, err.Error(), c.logger)
-				return
-			}
-			for k, v := range singleReplaceValuesMap {
-				replaceValuesMap[k] = v
-			}
-		}
-	}
-
-	// replace image into service's values.yaml
-	replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to replace image uri %s/%s",
-			c.namespace, c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-	if replacedValuesYaml == "" {
-		err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
-			c.namespace, c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	// merge override values and kvs into service's yaml
-	mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to merge override values %s",
-			renderChart.OverrideValues,
-		)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	// replace image into final merged values.yaml
-	replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to replace image uri into helm values %s/%s",
-			c.namespace, c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-	if replacedMergedValuesYaml == "" {
-		err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
-			c.namespace, c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	c.logger.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
-
-	helmClient, err = helmtool.NewClientFromNamespace(c.jobTaskSpec.ClusterID, c.namespace)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to create helm client %s/%s",
-			c.namespace, c.jobTaskSpec.ServiceName)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
-
-	releaseName := c.jobTaskSpec.ReleaseName
-
-	ensureUpgrade := func() error {
-		hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
-		if errHistory != nil {
-			// list history should not block deploy operation, error will be logged instead of returned
-			c.logger.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
-			return nil
-		}
-		if len(hrs) == 0 {
-			return nil
-		}
-		releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-		rel := hrs[0]
-
-		if rel.Info.Status.IsPending() {
-			return fmt.Errorf("failed to upgrade release: %s with exceptional status: %s", releaseName, rel.Info.Status)
-		}
-		return nil
-	}
-
-	err = ensureUpgrade()
-	if err != nil {
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
+	//renderInfo, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision})
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to get getRenderSet %s/%d",
+	//		productInfo.Render.Name, productInfo.Render.Revision)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//serviceRevisionInProduct := int64(0)
+	//involvedImagePaths := make(map[string]*commonmodels.ImagePathSpec)
+	//for _, service := range productInfo.GetServiceMap() {
+	//	if service.ServiceName != c.jobTaskSpec.ServiceName {
+	//		continue
+	//	}
+	//	serviceRevisionInProduct = service.Revision
+	//	for _, container := range service.Containers {
+	//		if !containerNameSet.Has(container.Name) {
+	//			continue
+	//		}
+	//		if container.ImagePath == nil {
+	//			err = errors.WithMessagef(err, "image path of %s/%s is nil", service.ServiceName, container.Name)
+	//			logError(c.job, err.Error(), c.logger)
+	//			return
+	//		}
+	//		involvedImagePaths[container.Name] = container.ImagePath
+	//	}
+	//	break
+	//}
+	//
+	//if len(involvedImagePaths) == 0 {
+	//	err = errors.Errorf("failed to find containers from service %s", c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//for _, chartInfo := range renderInfo.ChartInfos {
+	//	if chartInfo.ServiceName == c.jobTaskSpec.ServiceName {
+	//		renderChart = chartInfo
+	//		break
+	//	}
+	//}
+	//
+	//if renderChart == nil {
+	//	err = errors.Errorf("failed to update container image in %s/%s,chart not found",
+	//		c.namespace, c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//defaultS3, err := s3.FindDefaultS3()
+	//if err != nil {
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//defaultURL, err := defaultS3.GetEncryptedURL()
+	//if err != nil {
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//// use revision of service currently applied in environment instead of the latest revision
+	//path, errDownload := c.downloadService(c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, defaultURL, serviceRevisionInProduct)
+	//if errDownload != nil {
+	//	c.logger.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+	//		serviceRevisionInProduct, c.jobTaskSpec.ServiceName)
+	//	path, errDownload = c.downloadService(c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName,
+	//		defaultURL, 0)
+	//	if errDownload != nil {
+	//		err = errors.WithMessagef(
+	//			errDownload,
+	//			"failed to download service %s/%s",
+	//			c.namespace, c.jobTaskSpec.ServiceName)
+	//		logError(c.job, err.Error(), c.logger)
+	//		return
+	//	}
+	//}
+	//
+	//chartPath, err = fsutil.RelativeToCurrentPath(path)
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to get relative path %s",
+	//		servicePath,
+	//	)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//serviceValuesYaml := renderChart.ValuesYaml
+	//replaceValuesMap = make(map[string]interface{})
+	//
+	//for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
+	//	containerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+c.jobTaskSpec.ServiceName)
+	//	if imagePath, ok := involvedImagePaths[containerName]; ok {
+	//		validMatchData := getValidMatchData(imagePath)
+	//		singleReplaceValuesMap, errAssign := assignImageData(svcAndContainer.Image, validMatchData)
+	//		if errAssign != nil {
+	//			err = errors.WithMessagef(
+	//				errAssign,
+	//				"failed to pase image uri %s/%s",
+	//				c.namespace, c.jobTaskSpec.ServiceName)
+	//			logError(c.job, err.Error(), c.logger)
+	//			return
+	//		}
+	//		for k, v := range singleReplaceValuesMap {
+	//			replaceValuesMap[k] = v
+	//		}
+	//	}
+	//}
+	//
+	//// replace image into service's values.yaml
+	//replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to replace image uri %s/%s",
+	//		c.namespace, c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//if replacedValuesYaml == "" {
+	//	err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
+	//		c.namespace, c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//// merge override values and kvs into service's yaml
+	//mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to merge override values %s",
+	//		renderChart.OverrideValues,
+	//	)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//// replace image into final merged values.yaml
+	//replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to replace image uri into helm values %s/%s",
+	//		c.namespace, c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//if replacedMergedValuesYaml == "" {
+	//	err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
+	//		c.namespace, c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//c.logger.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
+	//
+	//helmClient, err = helmtool.NewClientFromNamespace(c.jobTaskSpec.ClusterID, c.namespace)
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to create helm client %s/%s",
+	//		c.namespace, c.jobTaskSpec.ServiceName)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
+	//
+	//releaseName := c.jobTaskSpec.ReleaseName
+	//
+	//ensureUpgrade := func() error {
+	//	hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
+	//	if errHistory != nil {
+	//		// list history should not block deploy operation, error will be logged instead of returned
+	//		c.logger.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
+	//		return nil
+	//	}
+	//	if len(hrs) == 0 {
+	//		return nil
+	//	}
+	//	releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+	//	rel := hrs[0]
+	//
+	//	if rel.Info.Status.IsPending() {
+	//		return fmt.Errorf("failed to upgrade release: %s with exceptional status: %s", releaseName, rel.Info.Status)
+	//	}
+	//	return nil
+	//}
+	//
+	//err = ensureUpgrade()
+	//if err != nil {
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
 
 	timeOut := c.timeout()
-	chartSpec := helmclient.ChartSpec{
-		ReleaseName: releaseName,
-		ChartName:   chartPath,
-		Namespace:   c.namespace,
-		ReuseValues: true,
-		Version:     renderChart.ChartVersion,
-		ValuesYaml:  replacedMergedValuesYaml,
-		SkipCRDs:    false,
-		UpgradeCRDs: true,
-		Timeout:     time.Second * time.Duration(timeOut),
-		Wait:        !c.jobTaskSpec.SkipCheckRunStatus,
-		Replace:     true,
-		MaxHistory:  10,
-	}
-	c.logger.Infof("start to upgrade helm chart, release name: %s, chart name: %s, version: %s", chartSpec.ReleaseName, chartSpec.ChartName, chartSpec.Version)
-	deploytargets := map[string]string{}
-	for _, target := range c.jobTaskSpec.ImageAndModules {
-		deploytargets[target.ServiceModule] = target.Image
-	}
-	// update product images even if delpoy failed.
-	defer func() {
-		if err := updateProductImageByNs(env.Namespace, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, deploytargets, c.logger); err != nil {
-			c.logger.Error(err)
-		}
-	}()
+	//chartSpec := helmclient.ChartSpec{
+	//	ReleaseName: releaseName,
+	//	ChartName:   chartPath,
+	//	Namespace:   c.namespace,
+	//	ReuseValues: true,
+	//	Version:     renderChart.ChartVersion,
+	//	ValuesYaml:  replacedMergedValuesYaml,
+	//	SkipCRDs:    false,
+	//	UpgradeCRDs: true,
+	//	Timeout:     time.Second * time.Duration(timeOut),
+	//	Wait:        !c.jobTaskSpec.SkipCheckRunStatus,
+	//	Replace:     true,
+	//	MaxHistory:  10,
+	//}
+	//c.logger.Infof("start to upgrade helm chart, release name: %s, chart name: %s, version: %s", chartSpec.ReleaseName, chartSpec.ChartName, chartSpec.Version)
+	//deploytargets := map[string]string{}
+	//for _, target := range c.jobTaskSpec.ImageAndModules {
+	//	deploytargets[target.ServiceModule] = target.Image
+	//}
+	//// update product images even if delpoy failed.
+	//defer func() {
+	//	if err := updateProductImageByNs(productInfo.Namespace, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, deploytargets, c.logger); err != nil {
+	//		c.logger.Error(err)
+	//	}
+	//}()
 	done := make(chan bool)
 	go func(chan bool) {
-		if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec, nil); err != nil {
+		//if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec, nil); err != nil {
+		//	err = errors.WithMessagef(
+		//		err,
+		//		"failed to upgrade helm chart %s/%s",
+		//		c.namespace, c.jobTaskSpec.ServiceName)
+		//	done <- false
+		//} else {
+		//	done <- true
+		//}
+		if _, err = kube.CreateOrPatchResource(param, c.logger); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
@@ -388,36 +413,36 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	select {
 	case <-done:
 		break
-	case <-time.After(chartSpec.Timeout + time.Minute):
-		err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
+	case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
+		err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", c.jobTaskSpec.ServiceName)
 	}
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
-	//替换环境变量中的chartInfos
-	for _, chartInfo := range renderInfo.ChartInfos {
-		if chartInfo.ServiceName == c.jobTaskSpec.ServiceName {
-			chartInfo.ValuesYaml = replacedValuesYaml
-			break
-		}
-	}
+	////替换环境变量中的chartInfos
+	//for _, chartInfo := range renderInfo.ChartInfos {
+	//	if chartInfo.ServiceName == c.jobTaskSpec.ServiceName {
+	//		chartInfo.ValuesYaml = replacedValuesYaml
+	//		break
+	//	}
+	//}
 
 	// TODO too dangerous to override entire renderset!
-	if err := commonrepo.NewRenderSetColl().Update(&commonmodels.RenderSet{
-		Name:          renderInfo.Name,
-		Revision:      renderInfo.Revision,
-		DefaultValues: renderInfo.DefaultValues,
-		ChartInfos:    renderInfo.ChartInfos,
-	}); err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to update renderset info %s/%s, renderset %s",
-			c.namespace, c.jobTaskSpec.ServiceName, renderInfo.Name)
-		logError(c.job, err.Error(), c.logger)
-		return
-	}
+	//if err := commonrepo.NewRenderSetColl().Update(&commonmodels.RenderSet{
+	//	Name:          renderInfo.Name,
+	//	Revision:      renderInfo.Revision,
+	//	DefaultValues: renderInfo.DefaultValues,
+	//	ChartInfos:    renderInfo.ChartInfos,
+	//}); err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to update renderset info %s/%s, renderset %s",
+	//		c.namespace, c.jobTaskSpec.ServiceName, renderInfo.Name)
+	//	logError(c.job, err.Error(), c.logger)
+	//	return
+	//}
 	c.job.Status = config.StatusPassed
 }
 

@@ -154,81 +154,10 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 		return err
 	}
 
-	err = kube.UpgradeHelmRelease(product, renderSet, targetProductService, serviceObj, []string{image})
+	err = kube.UpgradeHelmRelease(product, renderSet, targetProductService, serviceObj, []string{image}, "", 0)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade helm release, err: %s", err.Error())
 	}
-
-	//targetContainers, targetChart, renderSet, serviceObj, err := prepareData(namespace, serviceName, containerName, []string{image}, product)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//replaceValuesMaps := make([]map[string]interface{}, 0)
-	//for _, targetContainer := range targetContainers {
-	//	// prepare image replace info
-	//	replaceValuesMap, err := commonutil.AssignImageData(image, getValidMatchData(targetContainer.ImagePath))
-	//	if err != nil {
-	//		return fmt.Errorf("failed to pase image uri %s/%s, err %s", namespace, serviceName, err.Error())
-	//	}
-	//	replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
-	//}
-	//
-	//// replace image into service's values.yaml
-	//replacedValuesYaml, err = commonutil.ReplaceImage(targetChart.ValuesYaml, replaceValuesMaps...)
-	//if err != nil {
-	//	return fmt.Errorf("failed to replace image uri %s/%s, err %s", namespace, serviceName, err.Error())
-	//
-	//}
-	//if replacedValuesYaml == "" {
-	//	return fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", namespace, serviceName)
-	//}
-	//
-	//// update values.yaml content in chart
-	//targetChart.ValuesYaml = replacedValuesYaml
-	//
-	//// merge override values and kvs into service's yaml
-	//mergedValuesYaml, err = helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// replace image into final merged values.yaml
-	//replacedMergedValuesYaml, err = commonutil.ReplaceImage(mergedValuesYaml, replaceValuesMaps...)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//helmClient, err = helmtool.NewClientFromNamespace(product.ClusterID, namespace)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//param := &kube.ReleaseInstallParam{
-	//	ProductName:  serviceObj.ProductName,
-	//	Namespace:    namespace,
-	//	ReleaseName:  util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, product.EnvName, serviceObj.ServiceName),
-	//	MergedValues: replacedMergedValuesYaml,
-	//	RenderChart:  targetChart,
-	//	ServiceObj:   serviceObj,
-	//}
-
-	// when replace image, should not wait
-	//err = kube.InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
-	//if err != nil {
-	//	return err
-	//}
-
-	if err = commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
-		log.Errorf("[RenderSet.update] product %s error: %s", product.ProductName, err.Error())
-		return fmt.Errorf("failed to update render set, productName %s", product.ProductName)
-	}
-
-	if err = commonrepo.NewProductColl().Update(product); err != nil {
-		log.Errorf("[%s] update product %s error: %s", namespace, product.ProductName, err.Error())
-		return fmt.Errorf("failed to update product info, name %s", product.ProductName)
-	}
-
 	return nil
 }
 

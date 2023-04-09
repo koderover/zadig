@@ -53,14 +53,18 @@ type ResourceApplyParam struct {
 	ServiceName         string
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
-	Images              []string // all images need to be updated, used for helm services
-	Informer            informers.SharedInformerFactory
-	KubeClient          client.Client
-	IstioClient         versionedclient.Interface
-	AddZadigLabel       bool
-	InjectSecrets       bool
-	SharedEnvHandler    SharedEnvHandler
-	Uninstall           bool
+
+	Images       []string // all images need to be updated, used for helm services
+	VariableYaml string   // variables
+	Timeout      int      // timeout for helm services
+
+	Informer         informers.SharedInformerFactory
+	KubeClient       client.Client
+	IstioClient      versionedclient.Interface
+	AddZadigLabel    bool
+	InjectSecrets    bool
+	SharedEnvHandler SharedEnvHandler
+	Uninstall        bool
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
@@ -464,17 +468,10 @@ func createOrPatchK8sResources(applyParam *ResourceApplyParam, log *zap.SugaredL
 
 func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
 	productInfo := applyParam.ProductInfo
-	//namespace, productName, envName, productInfo := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName
-	//informer, kubeClient, istioClient := applyParam.Informer, applyParam.KubeClient, applyParam.IstioClient
 
 	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
 	if productService == nil {
 		return fmt.Errorf("service %s not found in env: %s", applyParam.ServiceName, applyParam.ProductInfo.EnvName)
-	}
-
-	restConfig, err := GetRESTConfig(productInfo.ClusterID)
-	if err != nil {
-		return e.ErrDeleteEnv.AddErr(err)
 	}
 
 	svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -486,13 +483,16 @@ func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.Sugared
 		return errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, productService.Revision, productInfo.ProductName)
 	}
 
-	hClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
-	if err != nil {
-		return errors.Wrapf(err, "failed to init helm client")
-	}
-
 	// uninstall release
 	if applyParam.Uninstall {
+		restConfig, err := GetRESTConfig(productInfo.ClusterID)
+		if err != nil {
+			return e.ErrDeleteEnv.AddErr(err)
+		}
+		hClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
+		if err != nil {
+			return errors.Wrapf(err, "failed to init helm client")
+		}
 		return UninstallService(hClient, productInfo, svcTemplate, true)
 	}
 
@@ -507,7 +507,7 @@ func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.Sugared
 		return err
 	}
 
-	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images)
+	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, applyParam.VariableYaml, applyParam.Timeout)
 }
 
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml

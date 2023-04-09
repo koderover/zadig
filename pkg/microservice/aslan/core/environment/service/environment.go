@@ -2557,75 +2557,6 @@ func buildInstallParam(namespace, envName, defaultValues string, renderChart *te
 	return ret, nil
 }
 
-//func installOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
-//	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.serviceObj
-//	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
-//	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
-//		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-//			serviceObj.Revision, serviceObj.ServiceName)
-//		// use the latest version when it fails to download the specific version
-//		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
-//		if err = commonutil.PreLoadServiceManifests(base, serviceObj); err != nil {
-//			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
-//			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
-//		}
-//	}
-//
-//	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
-//	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
-//	if err != nil {
-//		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
-//		return err
-//	}
-//
-//	chartSpec := &helmclient.ChartSpec{
-//		ReleaseName:   param.ReleaseName,
-//		ChartName:     chartPath,
-//		Namespace:     namespace,
-//		Version:       renderChart.ChartVersion,
-//		ValuesYaml:    valuesYaml,
-//		UpgradeCRDs:   true,
-//		CleanupOnFail: true,
-//		MaxHistory:    10,
-//		DryRun:        param.DryRun,
-//	}
-//	if isRetry {
-//		chartSpec.Replace = true
-//	}
-//
-//	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
-//	ctx := context.TODO()
-//	if !chartSpec.DryRun {
-//		err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
-//		if err != nil {
-//			return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
-//		}
-//	}
-//
-//	helmClient, err = helmClient.Clone()
-//	if err != nil {
-//		return fmt.Errorf("failed to clone helm client: %s", err)
-//	}
-//
-//	var release *release.Release
-//	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
-//	if err != nil {
-//		err = errors.WithMessagef(
-//			err,
-//			"failed to install or upgrade helm chart %s/%s",
-//			namespace, serviceObj.ServiceName)
-//	} else {
-//		if !chartSpec.DryRun {
-//			err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
-//			if err != nil {
-//				err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
-//			}
-//		}
-//	}
-//
-//	return err
-//}
-
 func installProductHelmCharts(user, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
 	kclient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var (
@@ -2677,45 +2608,6 @@ func getServiceRevisionMap(serviceRevisionList []*SvcRevision) map[string]*SvcRe
 		serviceRevisionMap[revision.ServiceName+revision.Type] = revision
 	}
 	return serviceRevisionMap
-}
-
-func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevisionMap map[string]*SvcRevision, currentProduct *commonmodels.Product) [][]*commonmodels.ProductService {
-	currentServices := make(map[string]*commonmodels.ProductService)
-	for _, group := range currentProduct.Services {
-		for _, service := range group {
-			currentServices[service.ServiceName+service.Type] = service
-		}
-	}
-
-	updatedAllServices := make([][]*commonmodels.ProductService, 0)
-	for _, group := range updateProduct.Services {
-		updatedGroups := make([]*commonmodels.ProductService, 0)
-		for _, service := range group {
-			serviceRevision, ok := serviceRevisionMap[service.ServiceName+service.Type]
-			if !ok {
-				//找不到 service revision
-				continue
-			}
-			if serviceRevision.New {
-				// 新的服务，创建新的service with revision, 并append到updatedGroups中
-				// 新的服务的revision，默认Revision为0
-				newService := &commonmodels.ProductService{
-					ServiceName: service.ServiceName,
-					ProductName: service.ProductName,
-					Type:        service.Type,
-					Revision:    0,
-				}
-				updatedGroups = append(updatedGroups, newService)
-				continue
-			}
-			// 不管服务需不需要更新，都拿现在的revision
-			if currentService, ok := currentServices[service.ServiceName+service.Type]; ok {
-				updatedGroups = append(updatedGroups, currentService)
-			}
-		}
-		updatedAllServices = append(updatedAllServices, updatedGroups)
-	}
-	return updatedAllServices
 }
 
 func batchExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
