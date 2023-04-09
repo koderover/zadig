@@ -1689,7 +1689,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
 							continue
 						}
-						if err = UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
+						if err = kube.UninstallServiceByName(hc, service.ServiceName, productInfo, service.Revision, true); err != nil {
 							log.Warnf("UninstallRelease for service %s err:%s", service.ServiceName, err)
 							errList = multierror.Append(errList, err)
 						}
@@ -1946,7 +1946,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 				if !commonutil.ServiceDeployed(serviceName, productInfo.ServiceDeployStrategy) {
 					return
 				}
-				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
+				if errUninstall := kube.UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
 					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)
 					log.Error(errStr)
@@ -2008,18 +2008,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		log.Errorf("get renderSet error: %v", err)
 		return err
 	}
-	//var updatedKVs []*templatemodels.RenderKV
-	//for _, v := range rs.KVs {
-	//	var updatedServices []string
-	//	for _, service := range v.Services {
-	//		if !util.InStringArray(service, serviceNames) {
-	//			updatedServices = append(updatedServices, service)
-	//		}
-	//	}
-	//	v.Services = updatedServices
-	//	updatedKVs = append(updatedKVs, v)
-	//}
-	//rs.KVs = updatedKVs
+
 	validServiceVars := make([]*templatemodels.ServiceRender, 0)
 	for _, sr := range rs.ServiceVariables {
 		if !util.InStringArray(sr.ServiceName, serviceNames) {
@@ -2662,7 +2651,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 		if productResp.ServiceDeployStrategy != nil {
 			delete(productResp.ServiceDeployStrategy, serviceName)
 		}
-		if err = UninstallServiceByName(helmClient, serviceName, productResp, serviceRevision, true); err != nil {
+		if err = kube.UninstallServiceByName(helmClient, serviceName, productResp, serviceRevision, true); err != nil {
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
 		}

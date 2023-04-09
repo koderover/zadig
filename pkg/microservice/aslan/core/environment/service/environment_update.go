@@ -17,13 +17,11 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -44,34 +42,34 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
-	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		Revision:    revision,
-		ProductName: env.ProductName,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, revision, err)
-	}
-	return UninstallService(helmClient, env, revisionSvc, force)
-}
-
-func UninstallService(helmClient helmclient.Client, env *commonmodels.Product, revisionSvc *commonmodels.Service, force bool) error {
-	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, revisionSvc.ServiceName)
-
-	err := EnsureDeleteZadigServiceByHelmRelease(context.TODO(), env, releaseName, helmClient)
-	if err != nil {
-		return fmt.Errorf("failed to ensure delete Zadig Service by helm release: %s", err)
-	}
-
-	return helmClient.UninstallRelease(&helmclient.ChartSpec{
-		ReleaseName: releaseName,
-		Namespace:   env.Namespace,
-		Wait:        true,
-		Force:       force,
-		Timeout:     time.Second * 10,
-	})
-}
+//func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
+//	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+//		ServiceName: serviceName,
+//		Revision:    revision,
+//		ProductName: env.ProductName,
+//	})
+//	if err != nil {
+//		return fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, revision, err)
+//	}
+//	return UninstallService(helmClient, env, revisionSvc, force)
+//}
+//
+//func UninstallService(helmClient helmclient.Client, env *commonmodels.Product, revisionSvc *commonmodels.Service, force bool) error {
+//	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, revisionSvc.ServiceName)
+//
+//	err := EnsureDeleteZadigServiceByHelmRelease(context.TODO(), env, releaseName, helmClient)
+//	if err != nil {
+//		return fmt.Errorf("failed to ensure delete Zadig Service by helm release: %s", err)
+//	}
+//
+//	return helmClient.UninstallRelease(&helmclient.ChartSpec{
+//		ReleaseName: releaseName,
+//		Namespace:   env.Namespace,
+//		Wait:        true,
+//		Force:       force,
+//		Timeout:     time.Second * 10,
+//	})
+//}
 
 func InstallService(helmClient *helmtool.HelmClient, param *kube.ReleaseInstallParam) error {
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
@@ -187,7 +185,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return nil
 	}
 
-	if err = UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
+	if err = kube.UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
 		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
 		return
 	}
