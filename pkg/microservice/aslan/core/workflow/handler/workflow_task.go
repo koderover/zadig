@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/jinzhu/copier"
@@ -89,7 +91,7 @@ func CreateWorkflowTask(c *gin.Context) {
 
 	// 发送通知
 	if ctx.Err != nil {
-		commonservice.SendFailedTaskMessage(ctx.UserName, args.ProductTmplName, args.WorkflowName, ctx.RequestID, config.WorkflowType, ctx.Err, ctx.Logger)
+		notify.SendFailedTaskMessage(ctx.UserName, args.ProductTmplName, args.WorkflowName, ctx.RequestID, config.WorkflowType, ctx.Err, ctx.Logger)
 	}
 }
 

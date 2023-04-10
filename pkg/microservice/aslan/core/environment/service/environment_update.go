@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -420,7 +422,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
-			commonservice.SendErrorMessage(user, title, requestID, err, log)
+			notify.SendErrorMessage(user, title, requestID, err, log)
 			updateProd.Status = setting.ProductStatusFailed
 			productErrMsg = err.Error()
 		} else {
@@ -493,7 +495,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户›
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
-			commonservice.SendErrorMessage(user, title, requestID, err, log)
+			notify.SendErrorMessage(user, title, requestID, err, log)
 			updateProd.Status = setting.ProductStatusFailed
 			productErrMsg = err.Error()
 		} else {
@@ -519,7 +521,7 @@ func AutoDeployHelmServiceToEnvs(userName, requestID, projectName string, servic
 	go func() {
 		err = updateHelmSvcInAllEnvs(userName, projectName, serviceTemplates)
 		if err != nil {
-			commonservice.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
+			notify.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
 		}
 	}()
 	return nil
@@ -536,7 +538,7 @@ func AutoDeployYamlServiceToEnvs(userName, requestID string, serviceTemplate *co
 	go func() {
 		err = updateK8sSvcInAllEnvs(serviceTemplate.ProductName, serviceTemplate)
 		if err != nil {
-			commonservice.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
+			notify.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
 		}
 	}()
 	return nil

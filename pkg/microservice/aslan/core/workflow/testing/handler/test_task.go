@@ -23,6 +23,8 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 
@@ -63,7 +65,7 @@ func CreateTestTask(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.CreateTestTask(args, ctx.Logger)
 	if ctx.Err != nil {
-		commonservice.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.Err, ctx.Logger)
+		notify.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.Err, ctx.Logger)
 	}
 }
 

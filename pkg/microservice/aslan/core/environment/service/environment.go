@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -43,7 +45,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -744,7 +745,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
-			commonservice.SendErrorMessage(username, title, requestID, err, log)
+			notify.SendErrorMessage(username, title, requestID, err, log)
 
 			log.Infof("[%s][P:%s] update error to => %s", envName, productName, err)
 			productResp.Status = setting.ProductStatusFailed
@@ -1393,7 +1394,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, renderset *com
 			log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 			// 发送更新产品失败消息给用户
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
-			commonservice.SendErrorMessage(userName, title, requestID, err, log)
+			notify.SendErrorMessage(userName, title, requestID, err, log)
 		}
 		productResp.Status = setting.ProductStatusSuccess
 		if err = commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, productResp.Status, ""); err != nil {
@@ -1671,12 +1672,12 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 			defer func() {
 				if errList.ErrorOrNil() != nil {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
-					commonservice.SendErrorMessage(username, title, requestID, errList.ErrorOrNil(), log)
+					notify.SendErrorMessage(username, title, requestID, errList.ErrorOrNil(), log)
 					_ = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
 				} else {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 成功!", productName, envName)
 					content := fmt.Sprintf("namespace:%s", productInfo.Namespace)
-					commonservice.SendMessage(username, title, content, requestID, log)
+					notify.SendMessage(username, title, content, requestID, log)
 				}
 			}()
 
@@ -1786,12 +1787,12 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 			defer func() {
 				if err != nil {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
-					commonservice.SendErrorMessage(username, title, requestID, err, log)
+					notify.SendErrorMessage(username, title, requestID, err, log)
 					_ = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
 				} else {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 成功!", productName, envName)
 					content := fmt.Sprintf("namespace:%s", productInfo.Namespace)
-					commonservice.SendMessage(username, title, content, requestID, log)
+					notify.SendMessage(username, title, content, requestID, log)
 				}
 			}()
 			if productInfo.Production {
@@ -1853,127 +1854,7 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 }
 
 func deleteHelmProductServices(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	ctx := context.TODO()
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	deleteServiceSet := sets.NewString(serviceNames...)
-	deletedSvcRevision := make(map[string]int64)
-
-	for serviceGroupIndex, serviceGroup := range productInfo.Services {
-		var group []*commonmodels.ProductService
-		for _, service := range serviceGroup {
-			if !deleteServiceSet.Has(service.ServiceName) {
-				group = append(group, service)
-			} else {
-				deletedSvcRevision[service.ServiceName] = service.Revision
-			}
-		}
-		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
-		if err != nil {
-			log.Errorf("update product error: %v", err)
-			return err
-		}
-	}
-
-	for _, singleName := range serviceNames {
-		delete(productInfo.ServiceDeployStrategy, singleName)
-	}
-	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
-	if err != nil {
-		log.Errorf("failed to update product deploy strategy, err: %s", err)
-	}
-
-	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        productInfo.Namespace,
-		EnvName:     productInfo.EnvName,
-		ProductTmpl: productInfo.ProductName,
-	})
-	if err != nil {
-		log.Errorf("get renderSet error: %v", err)
-		return err
-	}
-	rcs := make([]*template.ServiceRender, 0)
-	for _, v := range renderset.ChartInfos {
-		if !deleteServiceSet.Has(v.ServiceName) {
-			rcs = append(rcs, v)
-		}
-	}
-	renderset.ChartInfos = rcs
-
-	// create new renderset
-	if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
-		log.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	productInfo.Render.Revision = renderset.Revision
-	err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
-	if err != nil {
-		log.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	go func() {
-		failedServices := sync.Map{}
-		wg := sync.WaitGroup{}
-		for service, revision := range deletedSvcRevision {
-			wg.Add(1)
-			go func(product *models.Product, serviceName string, revision int64) {
-				defer wg.Done()
-				templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: revision, ProductName: product.ProductName})
-				if err != nil {
-					failedServices.Store(serviceName, err.Error())
-					return
-				}
-				log.Infof("uninstall release for service: %s", serviceName)
-				if !commonutil.ServiceDeployed(serviceName, productInfo.ServiceDeployStrategy) {
-					return
-				}
-				if errUninstall := kube.UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
-					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
-					failedServices.Store(serviceName, errStr)
-					log.Error(errStr)
-				}
-			}(productInfo, service, revision)
-		}
-		wg.Wait()
-		errList := make([]string, 0)
-		failedServices.Range(func(key, value interface{}) bool {
-			errList = append(errList, value.(string))
-			return true
-		})
-		// send err message to user
-		if len(errList) > 0 {
-			title := fmt.Sprintf("[%s] 的 [%s] 环境服务删除失败", productInfo.ProductName, productInfo.EnvName)
-			commonservice.SendErrorMessage(userName, title, requestID, errors.New(strings.Join(errList, "\n")), log)
-		}
-
-		if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
-			err = EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
-			if err != nil {
-				log.Errorf("Failed to ensure gray env config: %s", err)
-			}
-		}
-	}()
-
-	return nil
+	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, log)
 }
 
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
@@ -2144,7 +2025,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 
 			// 发送创建产品失败消息给用户
 			title := fmt.Sprintf("创建 [%s] 的 [%s] 环境失败:%s", args.ProductName, args.EnvName, errorMsg)
-			commonservice.SendErrorMessage(user, title, requestID, err, log)
+			notify.SendErrorMessage(user, title, requestID, err, log)
 		}
 
 		commonservice.LogProductStats(envName, setting.CreateProductEvent, args.ProductName, requestID, eventStart, log)
@@ -2557,7 +2438,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 	defer func() {
 		if err != nil {
 			title := fmt.Sprintf("创建 [%s] 的 [%s] 环境失败", args.ProductName, args.EnvName)
-			commonservice.SendErrorMessage(user, title, requestID, err, log)
+			notify.SendErrorMessage(user, title, requestID, err, log)
 		}
 
 		commonservice.LogProductStats(envName, setting.CreateProductEvent, args.ProductName, requestID, eventStart, log)

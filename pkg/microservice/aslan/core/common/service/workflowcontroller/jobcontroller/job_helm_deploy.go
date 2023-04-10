@@ -107,7 +107,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if _, err = kube.CreateOrPatchResource(param, c.logger); err != nil {
+		if err = kube.CreateOrUpdateHelmResource(param, c.logger); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",

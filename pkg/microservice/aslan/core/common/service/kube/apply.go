@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -35,11 +37,8 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -52,9 +51,10 @@ type ResourceApplyParam struct {
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
 
-	Images       []string // all images need to be updated, used for helm services
-	VariableYaml string   // variables
-	Timeout      int      // timeout for helm services
+	Images                []string // all images need to be updated, used for helm services
+	VariableYaml          string   // variables
+	Timeout               int      // timeout for helm services
+	UpdateServiceRevision bool
 
 	Informer         informers.SharedInformerFactory
 	KubeClient       client.Client
@@ -197,7 +197,9 @@ func manifestToUnstructured(manifest string) ([]*unstructured.Unstructured, erro
 	return resources, errList.ErrorOrNil()
 }
 
-func createOrPatchK8sResources(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
+// CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
+// `CurrentResourceYaml` will be used to determine if some resources will be deleted
+func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	productInfo := applyParam.ProductInfo
 
 	namespace, productName, envName := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName
@@ -461,15 +463,30 @@ func createOrPatchK8sResources(applyParam *ResourceApplyParam, log *zap.SugaredL
 		res = append(res, u)
 	}
 
+	if errList.ErrorOrNil() != nil {
+		return nil, errList.ErrorOrNil()
+	}
+
 	return res, errList.ErrorOrNil()
 }
 
-func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
+// CreateOrUpdateHelmResource create or patch helm services
+// if service is not deployed ever, it will be added into target environment
+// database will also be updated
+func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
 	productInfo := applyParam.ProductInfo
 
 	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
 	if productService == nil {
-		return fmt.Errorf("service %s not found in env: %s", applyParam.ServiceName, applyParam.ProductInfo.EnvName)
+		productService = &commonmodels.ProductService{
+			ProductName: applyParam.ProductInfo.ProductName,
+			ServiceName: applyParam.ServiceName,
+			Type:        setting.HelmDeployType,
+		}
+		if len(productInfo.Services) == 0 {
+			productInfo.Services = [][]*commonmodels.ProductService{[]*commonmodels.ProductService{}}
+		}
+		productInfo.Services[0] = append(productInfo.Services[0], productService)
 	}
 
 	svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -481,17 +498,9 @@ func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.Sugared
 		return errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, productService.Revision, productInfo.ProductName)
 	}
 
-	// uninstall release
-	if applyParam.Uninstall {
-		restConfig, err := GetRESTConfig(productInfo.ClusterID)
-		if err != nil {
-			return e.ErrDeleteEnv.AddErr(err)
-		}
-		hClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
-		if err != nil {
-			return errors.Wrapf(err, "failed to init helm client")
-		}
-		return UninstallService(hClient, productInfo, svcTemplate, true)
+	if productService.Revision == 0 {
+		productService.Revision = svcTemplate.Revision
+		productService.Containers = svcTemplate.Containers
 	}
 
 	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
@@ -504,21 +513,21 @@ func createOrPatchHelmResources(applyParam *ResourceApplyParam, log *zap.Sugared
 		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
 		return err
 	}
+	targetChart := renderSet.GetChartRenderMap()[applyParam.ServiceName]
+	if targetChart == nil {
+		targetChart = &template.ServiceRender{
+			ServiceName:  applyParam.ServiceName,
+			ValuesYaml:   svcTemplate.HelmChart.ValuesYaml,
+			ChartVersion: svcTemplate.HelmChart.Version,
+			OverrideYaml: &template.CustomYaml{},
+		}
+		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
+	}
+
+	// uninstall release
+	if applyParam.Uninstall {
+		return DeleteHelmServiceFromEnv("workflow", "", productInfo, []string{applyParam.ServiceName}, log)
+	}
 
 	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, applyParam.VariableYaml, applyParam.Timeout)
-}
-
-// CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
-// `CurrentResourceYaml` will be used to determine if some resources will be deleted
-func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
-	productInfo := applyParam.ProductInfo
-	projectInfo, err := templaterepo.NewProductColl().Find(productInfo.ProductName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find project %s", productInfo.ProductName)
-	}
-	if projectInfo.IsK8sYamlProduct() {
-		return createOrPatchK8sResources(applyParam, log)
-	} else {
-		return nil, createOrPatchHelmResources(applyParam, log)
-	}
 }
