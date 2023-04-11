@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -531,8 +529,6 @@ func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *comm
 		}
 		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
 	}
-
-	log.Info("########## applyParam.UpdateServiceRevision %v productService.Revision %v svcTemplate.Revision %v", applyParam.UpdateServiceRevision, productService.Revision, svcTemplate.Revision)
 
 	if applyParam.UpdateServiceRevision && productService.Revision != svcTemplate.Revision {
 		// reuse the images in the product service if it is not empty
