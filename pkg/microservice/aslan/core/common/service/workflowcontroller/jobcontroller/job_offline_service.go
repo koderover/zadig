@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 )
 
 type OfflineServiceJobCtl struct {
@@ -57,7 +58,13 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 
 	//client := aslan.New(systemconfig.AslanServiceAddress())
 	for _, event := range c.jobTaskSpec.ServiceEvents {
-
+		UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
+			ProductName: "",
+			EnvName:     "",
+			ServiceName: "",
+			Uninstall:   false,
+		})
+		kube.CreateOrPatchResource()
 	}
 
 	c.job.Status = config.StatusPassed
