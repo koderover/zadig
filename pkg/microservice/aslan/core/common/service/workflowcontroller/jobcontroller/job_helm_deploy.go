@@ -33,6 +33,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type HelmDeployJobCtl struct {
@@ -109,6 +110,15 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               c.timeout(),
 	}
+
+	yamlContent, err := kube.GeneMergedValues(param, c.logger)
+	if err != nil {
+		log.Errorf("failed to generate merged values.yaml, err: %w", err)
+		return
+	}
+
+	c.jobTaskSpec.YamlContent = yamlContent
+	c.ack()
 
 	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s updateServiceRevision %v",
 		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, images, variableYaml, updateServiceRevision)
