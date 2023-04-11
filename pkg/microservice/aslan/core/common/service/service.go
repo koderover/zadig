@@ -46,6 +46,7 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -115,6 +116,8 @@ type EnvService struct {
 	ServiceModules []*commonmodels.Container  `json:"service_modules"`
 	VariableYaml   string                     `json:"variable_yaml"`
 	VariableKVs    []*commonmodels.VariableKV `json:"variable_kvs"`
+	ValuesYaml     string                     `json:"values_yaml"`
+	ValuesKVs      []*commonmodels.VariableKV `json:"values_kvs"`
 	Updatable      bool                       `json:"updatable"`
 	Deployed       bool                       `json:"deployed"`
 }
@@ -1157,15 +1160,6 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		templateSvcMap[svc.ServiceName] = svc
 	}
 
-	productTemplateSvcs, err := GetProductUsedTemplateSvcs(productInfo)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find product template services for env %s:%s", productName, envName))
-	}
-	productTemplateSvcMap := make(map[string]*commonmodels.Service)
-	for _, svc := range productTemplateSvcs {
-		productTemplateSvcMap[svc.ServiceName] = svc
-	}
-
 	svcUpdatable := func(svcName string, revision int64) bool {
 		if !commonutil.ServiceDeployed(svcName, productInfo.ServiceDeployStrategy) {
 			return true
@@ -1184,19 +1178,21 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				OverrideYaml: &template.CustomYaml{},
 			}
 		}
+
 		serviceVars := setting.ServiceVarWildCard
-		productTmpSvc := productTemplateSvcMap[svcName]
-		if productTmpSvc != nil {
-			mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(productTmpSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
+		tmplSvc := templateSvcMap[svcName]
+		if tmplSvc != nil {
+			mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
 			} else {
 				svcRender.OverrideYaml.YamlContent = string(mergedValues)
 			}
 			if !productInfo.Production {
-				serviceVars = productTmpSvc.ServiceVars
+				serviceVars = tmplSvc.ServiceVars
 			}
 		}
+
 		svcRender.OverrideYaml.YamlContent, err = kube.ClipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVars)
 		if err != nil {
 			return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
@@ -1206,24 +1202,71 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return vy, kvs, errors.Wrapf(err, "failed to get override yaml and kv for service %s", svcName)
 	}
 
-	prodSvcList := sets.NewString()
+	values := func(svcName string) (string, []*commonmodels.VariableKV, error) {
+		currentValues := ""
+		latestValues := ""
+
+		svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
+		if svcRender != nil {
+			currentValues = svcRender.ValuesYaml
+			latestValues = rendersetInfo.DefaultValues
+		}
+
+		tmplSvc := templateSvcMap[svcName]
+		if tmplSvc != nil {
+			latestValues = tmplSvc.HelmChart.ValuesYaml
+		}
+
+		// merge latest values
+		mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues), nil, false)
+		if err != nil {
+			return "", nil, errors.Wrapf(err, "failed to override values")
+		}
+
+		mergeValues, err := helmtool.MergeOverrideValues(string(mergedBs), rendersetInfo.DefaultValues, "", "")
+		if err != nil {
+			return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
+		}
+
+		kvs, err := kube.GeneKVFromYaml(mergeValues)
+		if err != nil {
+			return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
+		}
+
+		return mergeValues, kvs, nil
+	}
+
+	// get all service values info
+
+	svcList := sets.NewString()
+	deployType := project.ProductFeature.DeployType
 	for serviceName, productSvc := range productInfo.GetServiceMap() {
-		prodSvcList.Insert(serviceName)
+		svcList.Insert(serviceName)
 		svc := &EnvService{
 			ServiceName:    serviceName,
 			ServiceModules: productSvc.Containers,
 			Updatable:      svcUpdatable(serviceName, productSvc.Revision),
 			Deployed:       true,
 		}
-		svc.VariableYaml, svc.VariableKVs, err = variables(serviceName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
+
+		if deployType == setting.K8SDeployType {
+			svc.VariableYaml, svc.VariableKVs, err = variables(serviceName)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
+			}
+		} else if deployType == setting.HelmDeployType {
+			svc.ValuesYaml, svc.ValuesKVs, err = values(serviceName)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get values for service %s", serviceName)
+			}
 		}
+
 		ret.Services = append(ret.Services, svc)
 	}
 
+	// exist in template but not in product
 	for _, templateSvc := range templateSvcs {
-		if prodSvcList.Has(templateSvc.ServiceName) {
+		if svcList.Has(templateSvc.ServiceName) {
 			continue
 		}
 		svc := &EnvService{
@@ -1232,8 +1275,15 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			Updatable:      true,
 			Deployed:       false,
 		}
-		svc.VariableYaml = templateSvc.VariableYaml
-		svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.VariableYaml)
+
+		if deployType == setting.K8SDeployType {
+			svc.VariableYaml = templateSvc.VariableYaml
+			svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.VariableYaml)
+		} else if deployType == setting.HelmDeployType {
+			svc.ValuesYaml = templateSvc.HelmChart.ValuesYaml
+			svc.ValuesKVs, _ = kube.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
+		}
+
 		ret.Services = append(ret.Services, svc)
 	}
 
