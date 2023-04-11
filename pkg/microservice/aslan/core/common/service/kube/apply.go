@@ -21,10 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -38,8 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"

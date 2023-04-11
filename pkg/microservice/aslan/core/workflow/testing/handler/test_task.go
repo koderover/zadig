@@ -23,14 +23,13 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
-
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/pkg/setting"
