@@ -896,10 +896,24 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid service type: %v", currentService.Type))
 	}
 
-	currentService.ServiceVars = args.ServiceVars
+	kvs, err := kube.GeneKVFromYaml(args.VariableYaml)
+	if err != nil {
+		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid variable yaml, err: %s", err))
+	}
+
+	keySet := sets.NewString()
+	for _, kv := range kvs {
+		keySet.Insert(kv.Key)
+	}
+	validatedServiceVars := make([]string, 0)
+	for _, v := range args.ServiceVars {
+		if keySet.Has(v) {
+			validatedServiceVars = append(validatedServiceVars, v)
+		}
+	}
+	currentService.ServiceVars = validatedServiceVars
 	currentService.VariableYaml = args.VariableYaml
 
-	// TODO validate service vars
 	err = commonrepo.NewServiceColl().UpdateServiceVariables(currentService)
 	if err != nil {
 		return e.ErrUpdateService.AddErr(err)
