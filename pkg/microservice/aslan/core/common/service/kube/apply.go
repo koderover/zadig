@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -530,6 +532,8 @@ func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *comm
 		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
 	}
 
+	log.Info("########## applyParam.UpdateServiceRevision %v productService.Revision %v svcTemplate.Revision %v", applyParam.UpdateServiceRevision, productService.Revision, svcTemplate.Revision)
+
 	if applyParam.UpdateServiceRevision && productService.Revision != svcTemplate.Revision {
 		// reuse the images in the product service if it is not empty
 		imageMap := make(map[string]string)
@@ -554,7 +558,7 @@ func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *comm
 		}
 
 		// replace image into service's values.yaml
-		replacedValuesYaml, err := commonutil.ReplaceImage(targetChart.ValuesYaml, replaceValuesMaps...)
+		replacedValuesYaml, err := commonutil.ReplaceImage(svcTemplate.HelmChart.ValuesYaml, replaceValuesMaps...)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to replace image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
 
