@@ -24,12 +24,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/fs"
-	"gopkg.in/yaml.v2"
 )
 
 type TarArchiveStep struct {
@@ -55,7 +56,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	if len(s.spec.ResultDirs) == 0 {
 		return nil
 	}
-	log.Infof("Start archive %s.", s.spec.FileName)
+	log.Infof("Start tar archive %s.", s.spec.FileName)
 	forcedPathStyle := true
 	if s.spec.S3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
@@ -68,10 +69,12 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, tarName)
+	envMap := makeEnvMap(s.envs, s.secretEnvs)
 	for _, artifactPath := range s.spec.ResultDirs {
 		if len(artifactPath) == 0 {
 			continue
 		}
+		artifactPath = replaceEnvWithValue(artifactPath, envMap)
 		artifactPath = strings.TrimPrefix(artifactPath, "/")
 
 		artifactPath := filepath.Join(s.workspace, artifactPath)
