@@ -508,11 +508,6 @@ func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *comm
 		return nil, nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
 	}
 
-	productService.Revision = svcTemplate.Revision
-	if len(productService.Containers) == 0 {
-		productService.Containers = svcTemplate.Containers
-	}
-
 	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		ProductTmpl: productInfo.ProductName,
 		Name:        productInfo.Render.Name,
@@ -535,6 +530,43 @@ func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *comm
 		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
 	}
 
+	if applyParam.UpdateServiceRevision && productService.Revision != svcTemplate.Revision {
+		// reuse the images in the product service if it is not empty
+		imageMap := make(map[string]string)
+		for _, container := range productService.Containers {
+			imageMap[container.ImageName] = container.Image
+		}
+		productService.Containers = svcTemplate.Containers
+		for _, container := range productService.Containers {
+			if image, ok := imageMap[container.ImageName]; ok {
+				container.Image = image
+			}
+		}
+
+		replaceValuesMaps := make([]map[string]interface{}, 0)
+		for _, targetContainer := range productService.Containers {
+			// prepare image replace info
+			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, getValidMatchData(targetContainer.ImagePath))
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
+			}
+			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
+		}
+
+		// replace image into service's values.yaml
+		replacedValuesYaml, err := commonutil.ReplaceImage(targetChart.ValuesYaml, replaceValuesMaps...)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to replace image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
+
+		}
+		if replacedValuesYaml == "" {
+			return nil, nil, nil, fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", productInfo.ProductName, applyParam.ServiceName)
+		}
+		targetChart.ValuesYaml = replacedValuesYaml
+	}
+
+	productService.Revision = svcTemplate.Revision
+
 	return renderSet, productService, svcTemplate, nil
 }
 
@@ -552,8 +584,6 @@ func GeneMergedValues(applyParam *ResourceApplyParam, log *zap.SugaredLogger) (s
 // database will also be updated
 func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
 	productInfo := applyParam.ProductInfo
-
-	log.Infof("applyParam data: +%v", *applyParam)
 
 	// uninstall release
 	if applyParam.Uninstall {
