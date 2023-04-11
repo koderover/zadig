@@ -144,6 +144,7 @@ type JobTaskHelmDeploySpec struct {
 	ServiceType        string                   `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
 	DeployContents     []config.DeployContent   `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
 	KeyVals            []*ServiceKeyVal         `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
+	YamlContent        string                   `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	UpdateConfig       bool                     `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
 	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ImageAndModules    []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`

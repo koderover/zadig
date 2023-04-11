@@ -81,13 +81,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	updateServiceRevision := false
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
-		for _, service := range productInfo.GetServiceMap() {
-			if service.ServiceName != c.jobTaskSpec.ServiceName {
-				continue
-			}
-
-			updateServiceRevision = true
-		}
+		updateServiceRevision = true
 	}
 
 	images := make([]string, 0)
@@ -116,8 +110,8 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		Timeout:               c.timeout(),
 	}
 
-	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s", c.workflowCtx.ProjectName,
-		c.jobTaskSpec.ServiceName, c.namespace)
+	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s updateServiceRevision %v",
+		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, images, variableYaml, updateServiceRevision)
 
 	timeOut := c.timeout()
 
