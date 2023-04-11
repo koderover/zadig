@@ -25,7 +25,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -80,13 +79,6 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.namespace = productInfo.Namespace
 	c.jobTaskSpec.ClusterID = productInfo.ClusterID
 
-	// all involved containers
-	containerNameSet := sets.NewString()
-	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
-		singleContainerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+c.jobTaskSpec.ServiceName)
-		containerNameSet.Insert(singleContainerName)
-	}
-
 	updateServiceRevision := false
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
 		for _, service := range productInfo.GetServiceMap() {
@@ -105,18 +97,27 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 	}
 
+	variableYaml := ""
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
+		vars := []*commonmodels.VariableKV{}
+		for _, v := range c.jobTaskSpec.KeyVals {
+			vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
+		}
+		variableYaml, err = kube.GenerateYamlFromKV(vars)
+	}
+
 	param := &kube.ResourceApplyParam{
 		ProductInfo:           productInfo,
 		ServiceName:           c.jobTaskSpec.ServiceName,
 		Images:                images,
-		VariableYaml:          "",    // TODO fill variable
-		Uninstall:             false, // TODO fill correct value
+		VariableYaml:          variableYaml,
+		Uninstall:             false,
 		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               c.timeout(),
 	}
 
-	c.logger.Infof("start helm deploy, productName %s serviceName %s containerName %v namespace %s", c.workflowCtx.ProjectName,
-		c.jobTaskSpec.ServiceName, containerNameSet.List(), c.namespace)
+	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s", c.workflowCtx.ProjectName,
+		c.jobTaskSpec.ServiceName, c.namespace)
 
 	timeOut := c.timeout()
 
