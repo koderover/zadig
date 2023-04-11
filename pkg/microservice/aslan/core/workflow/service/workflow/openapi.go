@@ -12,6 +12,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -72,6 +73,16 @@ func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*commonm
 	// the list we got in openAPI is slightly different from the normal version, adding the missing field for workflowList
 	for _, workflowInfo := range workflowList {
 		workflowInfo.Enabled = true
+	}
+
+	// change the type of the workflow
+	for _, workflowInfo := range workflowList {
+		switch workflowInfo.WorkflowType {
+		case "custom":
+			workflowInfo.WorkflowType = setting.CustomWorkflowType
+		case "product":
+			workflowInfo.WorkflowType = setting.ProductWorkflowType
+		}
 	}
 
 	return CreateWorkflowView(name, projectName, workflowList, username, logger)

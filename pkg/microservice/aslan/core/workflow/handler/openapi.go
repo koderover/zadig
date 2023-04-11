@@ -7,8 +7,8 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -50,6 +50,12 @@ func (req *openAPICreateWorkflowViewReq) Validate() (bool, error) {
 	}
 	if req.Name == "" {
 		return false, fmt.Errorf("view name cannot be empty")
+	}
+
+	for _, workflow := range req.WorkflowList {
+		if workflow.WorkflowType != "product" && workflow.WorkflowType != "custom" {
+			return false, fmt.Errorf("workflow type must be custom or product")
+		}
 	}
 	return true, nil
 }
