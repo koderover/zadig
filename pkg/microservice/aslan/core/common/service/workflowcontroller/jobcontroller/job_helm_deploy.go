@@ -92,12 +92,13 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	param := &kube.ResourceApplyParam{
-		ProductInfo:  productInfo,
-		ServiceName:  c.jobTaskSpec.ServiceName,
-		Images:       images,
-		VariableYaml: "",    // TODO fill variable
-		Uninstall:    false, // TODO fill correct value
-		Timeout:      c.timeout(),
+		ProductInfo:           productInfo,
+		ServiceName:           c.jobTaskSpec.ServiceName,
+		Images:                images,
+		VariableYaml:          "",    // TODO fill variable
+		Uninstall:             false, // TODO fill correct value
+		UpdateServiceRevision: false, // TODO fill correct value
+		Timeout:               c.timeout(),
 	}
 
 	c.logger.Infof("start helm deploy, productName %s serviceName %s containerName %v namespace %s", c.workflowCtx.ProjectName,

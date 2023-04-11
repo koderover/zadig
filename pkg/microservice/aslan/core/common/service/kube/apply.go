@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 
 	"github.com/hashicorp/go-multierror"
@@ -219,13 +221,20 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		return nil, err
 	}
 
+	if applyParam.Uninstall {
+		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
+			return nil, nil
+		}
+		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to remove old resources")
+		}
+		return nil, nil
+	}
+
 	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
-	}
-
-	if applyParam.Uninstall {
-		return nil, nil
 	}
 
 	labels := GetPredefinedLabels(productName, applyParam.ServiceName)
@@ -489,17 +498,23 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 		productInfo.Services[0] = append(productInfo.Services[0], productService)
 	}
 
-	svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+	svcFindOption := &commonrepo.ServiceFindOption{
 		ProductName: applyParam.ProductInfo.ProductName,
 		ServiceName: applyParam.ServiceName,
 		Revision:    productService.Revision,
-	}, productInfo.Production)
-	if err != nil {
-		return errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, productService.Revision, productInfo.ProductName)
+	}
+	// use latest svc template if option 'UpdateServiceRevision' is true
+	if applyParam.UpdateServiceRevision {
+		svcFindOption.Revision = 0
 	}
 
-	if productService.Revision == 0 {
-		productService.Revision = svcTemplate.Revision
+	svcTemplate, err := repository.QueryTemplateService(svcFindOption, productInfo.Production)
+	if err != nil {
+		return errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
+	}
+
+	productService.Revision = svcTemplate.Revision
+	if len(productService.Containers) == 0 {
 		productService.Containers = svcTemplate.Containers
 	}
 
