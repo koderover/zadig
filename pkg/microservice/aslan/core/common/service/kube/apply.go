@@ -51,6 +51,7 @@ type ResourceApplyParam struct {
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
 
+	// used for helm services
 	Images                []string // all images need to be updated, used for helm services
 	VariableYaml          string   // variables
 	Timeout               int      // timeout for helm services
@@ -477,12 +478,8 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	return res, errList.ErrorOrNil()
 }
 
-// CreateOrUpdateHelmResource create or patch helm services
-// if service is not deployed ever, it will be added into target environment
-// database will also be updated
-func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
+func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *commonmodels.ProductService, *commonmodels.Service, error) {
 	productInfo := applyParam.ProductInfo
-
 	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
 	if productService == nil {
 		productService = &commonmodels.ProductService{
@@ -491,7 +488,7 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 			Type:        setting.HelmDeployType,
 		}
 		if len(productInfo.Services) == 0 {
-			productInfo.Services = [][]*commonmodels.ProductService{[]*commonmodels.ProductService{}}
+			productInfo.Services = [][]*commonmodels.ProductService{{}}
 		}
 		productInfo.Services[0] = append(productInfo.Services[0], productService)
 	}
@@ -508,12 +505,7 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 
 	svcTemplate, err := repository.QueryTemplateService(svcFindOption, productInfo.Production)
 	if err != nil {
-		return errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
-	}
-
-	productService.Revision = svcTemplate.Revision
-	if len(productService.Containers) == 0 {
-		productService.Containers = svcTemplate.Containers
+		return nil, nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
 	}
 
 	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
@@ -524,8 +516,9 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 	})
 	if err != nil {
 		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
-		return err
+		return nil, nil, nil, err
 	}
+
 	targetChart := renderSet.GetChartRenderMap()[applyParam.ServiceName]
 	if targetChart == nil {
 		targetChart = &template.ServiceRender{
@@ -537,10 +530,69 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
 	}
 
-	// uninstall release
-	if applyParam.Uninstall {
-		return DeleteHelmServiceFromEnv("workflow", "", productInfo, []string{applyParam.ServiceName}, log)
+	if applyParam.UpdateServiceRevision && productService.Revision != svcTemplate.Revision {
+		// reuse the images in the product service if it is not empty
+		imageMap := make(map[string]string)
+		for _, container := range productService.Containers {
+			imageMap[container.ImageName] = container.Image
+		}
+		productService.Containers = svcTemplate.Containers
+		for _, container := range productService.Containers {
+			if image, ok := imageMap[container.ImageName]; ok {
+				container.Image = image
+			}
+		}
+
+		replaceValuesMaps := make([]map[string]interface{}, 0)
+		for _, targetContainer := range productService.Containers {
+			// prepare image replace info
+			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, getValidMatchData(targetContainer.ImagePath))
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
+			}
+			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
+		}
+
+		// replace image into service's values.yaml
+		replacedValuesYaml, err := commonutil.ReplaceImage(svcTemplate.HelmChart.ValuesYaml, replaceValuesMaps...)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to replace image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
+
+		}
+		if replacedValuesYaml == "" {
+			return nil, nil, nil, fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", productInfo.ProductName, applyParam.ServiceName)
+		}
+		targetChart.ValuesYaml = replacedValuesYaml
 	}
 
+	productService.Revision = svcTemplate.Revision
+
+	return renderSet, productService, svcTemplate, nil
+}
+
+// GeneMergedValues returns content of values.yaml merged with values by zadig
+func GeneMergedValues(applyParam *ResourceApplyParam, log *zap.SugaredLogger) (string, error) {
+	renderSet, productService, _, err := prepareData(applyParam)
+	if err != nil {
+		return "", err
+	}
+	return geneMergedValues(productService, renderSet, applyParam.Images, applyParam.VariableYaml)
+}
+
+// CreateOrUpdateHelmResource create or patch helm services
+// if service is not deployed ever, it will be added into target environment
+// database will also be updated
+func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
+	productInfo := applyParam.ProductInfo
+
+	// uninstall release
+	if applyParam.Uninstall {
+		return DeleteHelmServiceFromEnv("workflow", "", applyParam.ProductInfo, []string{applyParam.ServiceName}, log)
+	}
+
+	renderSet, productService, svcTemplate, err := prepareData(applyParam)
+	if err != nil {
+		return err
+	}
 	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, applyParam.VariableYaml, applyParam.Timeout)
 }

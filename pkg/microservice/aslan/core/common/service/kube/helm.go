@@ -155,10 +155,8 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	return err
 }
 
-// UpgradeHelmRelease upgrades helm release with some specific images
-func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, variableYaml string, timeout int) error {
-	serviceName, namespace := productSvc.ServiceName, product.Namespace
+func geneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, variableYaml string) (string, error) {
+	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
 	for _, image := range images {
 		imageName := commonutil.ExtractImageName(image)
@@ -171,19 +169,9 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		}
 	}
 
-	if len(targetContainers) == 0 {
-		return fmt.Errorf("failed to find config for images %s", images)
-	}
-
-	var targetChart *templatemodels.ServiceRender
-	for _, chartInfo := range renderSet.ChartInfos {
-		if chartInfo.ServiceName == serviceName {
-			targetChart = chartInfo
-			break
-		}
-	}
+	targetChart := renderSet.GetChartRenderMap()[serviceName]
 	if targetChart == nil {
-		return fmt.Errorf("failed to find chart info %s", serviceName)
+		return "", fmt.Errorf("failed to find chart info %s", serviceName)
 	}
 
 	replaceValuesMaps := make([]map[string]interface{}, 0)
@@ -191,7 +179,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		// prepare image replace info
 		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, getValidMatchData(targetContainer.ImagePath))
 		if err != nil {
-			return fmt.Errorf("failed to pase image uri %s/%s, err %s", namespace, serviceName, err.Error())
+			return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 		}
 		replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 	}
@@ -199,11 +187,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	// replace image into service's values.yaml
 	replacedValuesYaml, err := commonutil.ReplaceImage(targetChart.ValuesYaml, replaceValuesMaps...)
 	if err != nil {
-		return fmt.Errorf("failed to replace image uri %s/%s, err %s", namespace, serviceName, err.Error())
+		return "", fmt.Errorf("failed to replace image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 
 	}
 	if replacedValuesYaml == "" {
-		return fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", namespace, serviceName)
+		return "", fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", productSvc.ProductName, serviceName)
 	}
 
 	// update values.yaml content in chart
@@ -214,37 +202,44 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	if len(variableYaml) > 0 {
 		flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
 		if err != nil {
-			return fmt.Errorf("failed to convert variable yaml, err: %s", err)
+			return "", fmt.Errorf("failed to convert variable yaml, err: %s", err)
 		}
 		err = targetChart.AbsorbKVS(flatMaps)
 		if err != nil {
-			return fmt.Errorf("failed to absorb kvs, err: %s", err)
+			return "", fmt.Errorf("failed to absorb kvs, err: %s", err)
 		}
 	}
 
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to merge override values, err: %s", err)
 	}
 
 	// replace image into final merged values.yaml
-	replacedMergedValuesYaml, err := commonutil.ReplaceImage(mergedValuesYaml, replaceValuesMaps...)
+	return commonutil.ReplaceImage(mergedValuesYaml, replaceValuesMaps...)
+}
+
+// UpgradeHelmRelease upgrades helm release with some specific images
+func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
+	svcTemp *commonmodels.Service, images []string, variableYaml string, timeout int) error {
+
+	replacedMergedValuesYaml, err := geneMergedValues(productSvc, renderSet, images, variableYaml)
 	if err != nil {
 		return err
 	}
 
-	helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, product.Namespace)
 	if err != nil {
 		return err
 	}
 
 	param := &ReleaseInstallParam{
 		ProductName:  svcTemp.ProductName,
-		Namespace:    namespace,
-		ReleaseName:  util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, namespace, product.EnvName, svcTemp.ServiceName),
+		Namespace:    product.Namespace,
+		ReleaseName:  util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName),
 		MergedValues: replacedMergedValuesYaml,
-		RenderChart:  targetChart,
+		RenderChart:  renderSet.GetChartRenderMap()[svcTemp.ServiceName],
 		ServiceObj:   svcTemp,
 		Timeout:      timeout,
 	}
@@ -285,7 +280,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	}
 
 	if err = commonrepo.NewProductColl().Update(product); err != nil {
-		log.Errorf("[%s] update product %s error: %s", namespace, product.ProductName, err.Error())
+		log.Errorf("update product %s error: %s", product.ProductName, err.Error())
 		return fmt.Errorf("failed to update product info, name %s", product.ProductName)
 	}
 
