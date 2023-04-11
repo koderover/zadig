@@ -20,13 +20,16 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
-	"golang.org/x/exp/slices"
 )
 
 type DeployJob struct {
@@ -110,7 +113,60 @@ func (j *DeployJob) SetPreset() error {
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+	} else if j.spec.Source == config.SourceRuntime {
+		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
+		if err != nil {
+			log.Errorf("can't find product %s in env %s, error: %w", j.workflow.Project, j.spec.Env, err)
+			return nil
+		}
+
+		listOpt := &commonrepo.SvcRevisionListOption{
+			ProductName:      product.ProductName,
+			ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
+		}
+
+		for _, svc := range j.spec.ServiceAndImages {
+			svc.ImageName = svc.ServiceModule
+
+			productSvc := product.GetServiceMap()[svc.ServiceName]
+			if productSvc == nil {
+				log.Errorf("service %s not found in product", svc.ServiceName)
+				continue
+			}
+
+			listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
+				ServiceName: productSvc.ServiceName,
+				Revision:    productSvc.Revision,
+			})
+		}
+
+		templateServices, err := repository.ListServicesWithSRevision(listOpt, product.Production)
+		if err != nil {
+			log.Errorf("failed to list template services for pruduct: %s:%s, err: %s", product.ProductName, product.EnvName, err)
+			return nil
+		}
+
+		templateSvcMap := make(map[string]*commonmodels.Service)
+		for _, svc := range templateServices {
+			templateSvcMap[svc.ServiceName] = svc
+		}
+
+		for _, svc := range j.spec.ServiceAndImages {
+			templateSvc, ok := templateSvcMap[svc.ServiceName]
+			if !ok {
+				log.Errorf("service %s not found in template", svc.ServiceName)
+				continue
+			}
+
+			for _, container := range templateSvc.Containers {
+				if container.Name == svc.ServiceModule {
+					svc.ImageName = container.ImageName
+					break
+				}
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -247,8 +303,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				}
 			}
 			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
-				Key:     strings.Join([]string{j.job.Name, serviceName}, "."),
+				Name: jobNameFormat(serviceName + "-" + j.job.Name),
+				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
+				JobInfo: map[string]string{
+					JobNameKey:     j.job.Name,
+					"service_name": serviceName,
+				},
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
 			}
@@ -295,8 +355,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				})
 			}
 			jobTask := &commonmodels.JobTask{
-				Name:    jobNameFormat(serviceName + "-" + j.job.Name),
-				Key:     strings.Join([]string{j.job.Name, serviceName}, "."),
+				Name: jobNameFormat(serviceName + "-" + j.job.Name),
+				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
+				JobInfo: map[string]string{
+					JobNameKey:     j.job.Name,
+					"service_name": serviceName,
+				},
 				JobType: string(config.JobZadigHelmDeploy),
 				Spec:    jobTaskSpec,
 			}

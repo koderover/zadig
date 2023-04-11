@@ -92,13 +92,6 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		return errors.Wrapf(err, "failed to find product %s:%s", deployInfo.ProductName, deployInfo.EnvName)
 	}
 
-	productSvc := productInfo.GetServiceMap()[deployInfo.ServiceName]
-
-	// nothing to do when trying to uninstall a service not found in product
-	if productSvc == nil && deployInfo.Uninstall {
-		return errors.Errorf("service %s not found in product %s", deployInfo.ServiceName, deployInfo.ProductName)
-	}
-
 	svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ProductName: deployInfo.ProductName,
 		ServiceName: deployInfo.ServiceName,
@@ -133,6 +126,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 
 	if !deployInfo.Uninstall {
 		sevOnline := false
+		productSvc := productInfo.GetServiceMap()[deployInfo.ServiceName]
 		if productSvc == nil {
 			productSvc = &models.ProductService{
 				ProductName: deployInfo.ProductName,

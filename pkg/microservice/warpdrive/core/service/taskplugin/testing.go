@@ -98,11 +98,8 @@ func (p *TestPlugin) SetStatus(status config.Status) {
 func (p *TestPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = TestingV2TaskTimeout
-	} else {
-		if !p.Task.IsRestart {
-			p.Task.Timeout = p.Task.Timeout * 60
-		}
 	}
+
 	return p.Task.Timeout
 }
 

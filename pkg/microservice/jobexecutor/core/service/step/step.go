@@ -199,3 +199,17 @@ func setCmdsWorkDir(dir string, cmds []*cmd.Command) {
 		c.Cmd.Dir = dir
 	}
 }
+
+func makeEnvMap(envs ...[]string) map[string]string {
+	envMap := map[string]string{}
+	for _, env := range envs {
+		for _, env := range env {
+			sl := strings.Split(env, "=")
+			if len(sl) != 2 {
+				continue
+			}
+			envMap[sl[0]] = sl[1]
+		}
+	}
+	return envMap
+}

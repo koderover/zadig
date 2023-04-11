@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -56,6 +57,9 @@ func (j *BuildJob) Instantiate() error {
 	return nil
 }
 
+// SetPreset will now update all the possible build service option into serviceOption instead of ServiceAndBuilds
+// Updated @2023-03-30 before v1.17.0
+// Updated @2023-04-07 after v1.17.0 revert to old version
 func (j *BuildJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -63,7 +67,12 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	newBuilds := []*commonmodels.ServiceAndBuild{}
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return fmt.Errorf("get services map error: %v", err)
+	}
+
+	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
@@ -81,9 +90,25 @@ func (j *BuildJob) SetPreset() error {
 				break
 			}
 		}
+
+		build.ImageName = build.ServiceModule
+		service, ok := servicesMap[build.ServiceName]
+		if !ok {
+			log.Errorf("service %s not found", build.ServiceName)
+			continue
+		}
+
+		for _, container := range service.Containers {
+			if container.Name == build.ServiceModule {
+				build.ImageName = container.ImageName
+				break
+			}
+		}
+
 		newBuilds = append(newBuilds, build)
 	}
 	j.spec.ServiceAndBuilds = newBuilds
+	j.spec.ServiceOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil
 }
@@ -176,7 +201,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
-		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "image")
+		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
 		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 		if len(registry.Namespace) > 0 {
@@ -186,7 +211,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		image = strings.TrimPrefix(image, "http://")
 		image = strings.TrimPrefix(image, "https://")
 
-		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "tar"))
+		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
@@ -206,7 +231,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			Name: jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			JobInfo: map[string]string{
+				"service_name":   build.ServiceName,
+				"service_module": build.ServiceModule,
+				JobNameKey:       j.job.Name,
+			},
 			Key:     strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
 			JobType: string(config.JobZadigBuild),
 			Spec:    jobTaskSpec,

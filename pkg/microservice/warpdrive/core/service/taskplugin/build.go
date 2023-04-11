@@ -99,25 +99,19 @@ func (p *BuildTaskPlugin) SetStatus(status config.Status) {
 	p.Task.TaskStatus = status
 }
 
-// Note: Unit of input `p.Task.Timeout` is `minutes` and convert it to `seconds` internally.
 // TODO: Using time implicitly is easy to generate bugs. We need use `time.Duration` instead.
 func (p *BuildTaskPlugin) TaskTimeout() int {
-	p.Log.Infof("IsRestart: %t. TaskTimeout: %d", p.Task.IsRestart, p.Task.Timeout)
-
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = BuildTaskV2Timeout
-	} else {
-		if !p.Task.IsRestart {
-			p.Task.Timeout = p.Task.Timeout * 60
-		}
 	}
+
 	return p.Task.Timeout
 }
 
 // Note: This is a temporary function to be compatible with the `TaskTimeout()` method's process of time.
 // TODO: Remove this function after `TaskTimeout` uses `time.Duration`.
 func (p *BuildTaskPlugin) tmpSetTaskTimeout(durationInSeconds int) {
-	p.Task.Timeout = int(math.Ceil(float64(durationInSeconds) / 60.0))
+	p.Task.Timeout = int(math.Ceil(float64(durationInSeconds)))
 	p.Task.IsRestart = false
 }
 

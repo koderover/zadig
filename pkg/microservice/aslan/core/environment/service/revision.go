@@ -81,6 +81,9 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 	for _, v := range temProducts {
 		projectNames = append(projectNames, v.ProductName)
 	}
+	if len(projectNames) == 0 {
+		return prodRevs, nil
+	}
 
 	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown},

@@ -93,8 +93,14 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 		}
 		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(j.job.Name + "-" + workloadType + "-" + workloadName + "-" + containerName),
-			Key:     strings.Join([]string{j.job.Name, workloadType, workloadName, containerName}, "."),
+			Name: jobNameFormat(j.job.Name + "-" + workloadType + "-" + workloadName + "-" + containerName),
+			Key:  strings.Join([]string{j.job.Name, workloadType, workloadName, containerName}, "."),
+			JobInfo: map[string]string{
+				JobNameKey:       j.job.Name,
+				"workload_type":  workloadType,
+				"workload_name":  workloadName,
+				"container_name": containerName,
+			},
 			JobType: string(config.JobCustomDeploy),
 			Spec:    jobTaskSpec,
 		}

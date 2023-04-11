@@ -29,7 +29,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -56,12 +56,18 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 		logger.Errorf("Failed to find template of name: %s, the error is: %s", req.TemplateName, err)
 		return err
 	}
+
+	variableYaml, err := req.VariableYaml.FormYamlString()
+	if err != nil {
+		logger.Errorf("Failed to form yaml string, the error is: %s", err)
+		return err
+	}
 	loadArgs := &LoadServiceFromYamlTemplateReq{
 		ProjectName:  req.ProjectKey,
 		ServiceName:  req.ServiceName,
 		TemplateID:   template.ID.Hex(),
 		AutoSync:     req.AutoSync,
-		VariableYaml: req.VariableYaml,
+		VariableYaml: variableYaml,
 	}
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
 }
@@ -122,6 +128,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 	}
 
 	service.AutoSync = autoSync
+	service.TemplateID = templateID
 	return reloadServiceFromYamlTemplateImpl(username, projectName, template, service, req.VariableYaml)
 }
 
@@ -220,7 +227,7 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 				if err != nil {
 					logger.Error(err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
-					commonservice.SendErrorMessage(userName, title, "", err, logger)
+					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
 		}(services)
@@ -253,7 +260,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 				if err != nil {
 					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
-					commonservice.SendErrorMessage(userName, title, "", err, logger)
+					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
 		}(services)

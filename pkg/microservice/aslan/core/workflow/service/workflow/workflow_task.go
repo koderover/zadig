@@ -659,7 +659,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if deployEnv.Type == setting.PMDeployType {
 					continue
 				}
-				deployTask, err := deployEnvToSubTasks(deployEnv, env, project.Timeout)
+				deployTask, err := deployEnvToSubTasks(deployEnv, env, project.Timeout*60)
 				if err != nil {
 					log.Errorf("deploy env to subtask error: %v", err)
 					return nil, e.ErrCreateTask.AddErr(err)
@@ -1638,7 +1638,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			TaskType: config.TaskTestingV2,
 			Enabled:  true,
 			TestName: "test",
-			Timeout:  testModule.Timeout,
+			Timeout:  testModule.Timeout * 60,
 		}
 		testTask.TestModuleName = testModule.Name
 		testTask.JobCtx.TestType = testModule.TestType
@@ -2121,7 +2121,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		ImageFrom:           module.PreBuild.ImageFrom,
 		ResReq:              module.PreBuild.ResReq,
 		ResReqSpec:          module.PreBuild.ResReqSpec,
-		Timeout:             module.Timeout,
+		Timeout:             module.Timeout * 60,
 		Registries:          registries,
 		ProductName:         args.ProductName,
 		Namespace:           module.PreBuild.Namespace,

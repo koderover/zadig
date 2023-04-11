@@ -48,7 +48,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -631,7 +633,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	}
 	// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
 	args.KubeYamls = []string{args.Yaml}
-	if err := setCurrentContainerImages(args); err != nil {
+	if err := util.SetCurrentContainerImages(args); err != nil {
 		log.Errorf("Failed tosetCurrentContainerImages %s, err: %s", args.ProductName, err)
 		return err
 	}
@@ -711,15 +713,6 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
-	project, err := templaterepo.NewProductColl().Find(args.ProductName)
-	if err != nil {
-		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
-		return nil, e.ErrInvalidParam.AddErr(err)
-	}
-	if _, ok := project.SharedServiceInfoMap()[args.ServiceName]; ok {
-		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("A service with same name %s is already existing", args.ServiceName))
-	}
-
 	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
 	if notFoundErr == nil && !force {
@@ -770,7 +763,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	}
 	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
-	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	err := service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(err)
 	}
@@ -921,7 +914,7 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	currentService.RenderedYaml = util.ReplaceWrapLine(currentService.RenderedYaml)
 	currentService.KubeYamls = util.SplitYaml(currentService.RenderedYaml)
 	oldContainers := currentService.Containers
-	if err := setCurrentContainerImages(currentService); err != nil {
+	if err := util.SetCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)
 		//return err
 	} else if containersChanged(oldContainers, currentService.Containers) {
@@ -1175,7 +1168,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	}
 
 	basePath := config.LocalServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
-	if err = commonservice.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
+	if err = commonutil.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
 		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 
@@ -1197,7 +1190,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		err = service.ReInstallHelmSvcInAllEnvs(projectName, serviceTemplate)
 		if err != nil {
 			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
-			commonservice.SendErrorMessage(userName, title, requestID, err, log)
+			notify.SendErrorMessage(userName, title, requestID, err, log)
 		}
 	}()
 
@@ -1502,7 +1495,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 
 		// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
 		// errors will only be logged here
-		if err := setCurrentContainerImages(args); err != nil {
+		if err := util.SetCurrentContainerImages(args); err != nil {
 			log.Errorf("failed to ser set container images, err: %s", err)
 			//return err
 		}
@@ -1540,131 +1533,6 @@ func distinctEnvServices(productName string) (map[string][]*commonmodels.Product
 		}
 	}
 	return serviceMap, nil
-}
-
-func setCurrentContainerImages(args *commonmodels.Service) error {
-	var srvContainers []*commonmodels.Container
-	for _, data := range args.KubeYamls {
-		yamlDataArray := util.SplitYaml(data)
-		for index, yamlData := range yamlDataArray {
-			resKind := new(types.KubeResourceKind)
-			//在Unmarshal之前填充渲染变量{{.}}
-			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
-			// replace $Service$ with service name
-			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
-			// replace $Product$ with product name
-			yamlData = config.ProductNameAlias.ReplaceAllLiteralString(yamlData, args.ProductName)
-
-			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				return fmt.Errorf("unmarshal ResourceKind error: %v", err)
-			}
-
-			if resKind == nil {
-				if index == 0 {
-					continue
-				}
-				return errors.New("nil Resource Kind")
-			}
-
-			if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
-				containers, err := getContainers(yamlData)
-				if err != nil {
-					return fmt.Errorf("GetContainers error: %v", err)
-				}
-
-				srvContainers = append(srvContainers, containers...)
-			} else if resKind.Kind == setting.CronJob {
-				containers, err := getCronJobContainers(yamlData)
-				if err != nil {
-					return fmt.Errorf("GetCronjobContainers error: %v", err)
-				}
-				srvContainers = append(srvContainers, containers...)
-			}
-		}
-	}
-
-	args.Containers = uniqueSlice(srvContainers)
-	return nil
-}
-
-func getContainers(data string) ([]*commonmodels.Container, error) {
-	containers := make([]*commonmodels.Container, 0)
-
-	res := new(types.KubeResource)
-	if err := yaml.Unmarshal([]byte(data), &res); err != nil {
-		return containers, fmt.Errorf("unmarshal yaml data error: %v", err)
-	}
-
-	for _, val := range res.Spec.Template.Spec.Containers {
-
-		if _, ok := val["name"]; !ok {
-			return containers, errors.New("yaml file missing name key")
-		}
-
-		nameStr, ok := val["name"].(string)
-		if !ok {
-			return containers, errors.New("error name value")
-		}
-
-		if _, ok := val["image"]; !ok {
-			return containers, errors.New("yaml file missing image key")
-		}
-
-		imageStr, ok := val["image"].(string)
-		if !ok {
-			return containers, errors.New("error image value")
-		}
-
-		container := &commonmodels.Container{
-			Name:      nameStr,
-			Image:     imageStr,
-			ImageName: util.ExtractImageName(imageStr),
-		}
-
-		containers = append(containers, container)
-	}
-
-	return containers, nil
-}
-
-func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
-	containers := make([]*commonmodels.Container, 0)
-
-	res := new(types.CronjobResource)
-	if err := yaml.Unmarshal([]byte(data), &res); err != nil {
-		return containers, fmt.Errorf("unmarshal yaml data error: %v", err)
-	}
-
-	for _, val := range res.Spec.Template.Spec.Template.Spec.Containers {
-
-		if _, ok := val["name"]; !ok {
-			return containers, errors.New("yaml file missing name key")
-		}
-
-		nameStr, ok := val["name"].(string)
-		if !ok {
-			return containers, errors.New("error name value")
-		}
-
-		if _, ok := val["image"]; !ok {
-			return containers, errors.New("yaml file missing image key")
-		}
-
-		imageStr, ok := val["image"].(string)
-		if !ok {
-			return containers, errors.New("error image value")
-		}
-
-		container := &commonmodels.Container{
-			Name:      nameStr,
-			Image:     imageStr,
-			ImageName: util.ExtractImageName(imageStr),
-		}
-
-		containers = append(containers, container)
-	}
-
-	return containers, nil
 }
 
 func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {
@@ -1759,18 +1627,4 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHo
 		Message: commit.Message,
 	}
 	return ch, nil
-}
-
-func uniqueSlice(elements []*commonmodels.Container) []*commonmodels.Container {
-	existing := make(map[string]bool)
-	ret := make([]*commonmodels.Container, 0)
-	for _, elem := range elements {
-		key := elem.Name
-		if _, ok := existing[key]; !ok {
-			ret = append(ret, elem)
-			existing[key] = true
-		}
-	}
-
-	return ret
 }

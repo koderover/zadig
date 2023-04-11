@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -178,12 +180,12 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 	if err != nil {
 		log.Errorf("Production product delete error: %v", err)
 		title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
-		commonservice.SendErrorMessage(username, title, requestID, err, log)
+		notify.SendErrorMessage(username, title, requestID, err, log)
 		_ = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
 	} else {
 		title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 成功!", productName, envName)
 		content := fmt.Sprintf("namespace:%s", productInfo.Namespace)
-		commonservice.SendMessage(username, title, content, requestID, log)
+		notify.SendMessage(username, title, content, requestID, log)
 	}
 	return nil
 }

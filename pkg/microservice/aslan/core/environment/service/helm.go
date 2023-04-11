@@ -39,6 +39,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -374,11 +375,11 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) e
 	productName := prod.ProductName
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	base := config.LocalServicePathWithRevision(productName, serviceName, revision)
-	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version
 		base = config.LocalServicePath(productName, serviceName)
-		if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+		if err = commonutil.PreLoadServiceManifests(base, serviceObj); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
 			return err
 		}

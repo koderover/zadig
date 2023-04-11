@@ -54,6 +54,8 @@ func (r *Reaper) archiveS3Files() (err error) {
 		}
 		objectKey := store.GetObjectPath(r.Ctx.FileArchiveCtx.FileName)
 
+		r.Ctx.FileArchiveCtx.FileLocation = r.replaceEnvWithValue(r.Ctx.FileArchiveCtx.FileLocation)
+		r.Ctx.FileArchiveCtx.FileLocation = r.replaceEnvWithValue(r.Ctx.FileArchiveCtx.FileLocation)
 		src := filepath.Join(r.ActiveWorkspace, r.Ctx.FileArchiveCtx.FileLocation, r.Ctx.FileArchiveCtx.FileName)
 		err = s3client.Upload(
 			store.Bucket,

@@ -29,6 +29,8 @@ import (
 	"text/template"
 	"time"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -255,14 +257,14 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	base := config.LocalServicePath(productName, serviceName)
 	if revision > 0 {
 		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
-		if err = commonservice.PreloadServiceManifestsByRevision(base, svc); err != nil {
+		if err = commonutil.PreloadServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
 		}
 	}
 	if err != nil || revision == 0 {
 		base = config.LocalServicePath(productName, serviceName)
-		err = commonservice.PreLoadServiceManifests(base, svc)
+		err = commonutil.PreLoadServiceManifests(base, svc)
 		if err != nil {
 			return "", e.ErrFileContent.AddDesc(err.Error())
 		}
@@ -304,7 +306,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 
 	// preload current chart
 	base := config.LocalServicePath(productName, serviceName)
-	err = commonservice.PreLoadServiceManifests(base, svc)
+	err = commonutil.PreLoadServiceManifests(base, svc)
 	if err != nil {
 		return e.ErrEditHelmCharts.AddErr(err)
 	}
@@ -1578,20 +1580,20 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	base := config.LocalServicePath(productName, serviceName)
 	if revision > 0 {
 		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
-		if err = commonservice.PreloadServiceManifestsByRevision(base, svc); err != nil {
+		if err = commonutil.PreloadServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
 		}
 	}
 	if err != nil || revision == 0 {
 		base = config.LocalServicePath(productName, serviceName)
-		err = commonservice.PreLoadServiceManifests(base, svc)
+		err = commonutil.PreLoadServiceManifests(base, svc)
 		if err != nil {
 			return nil, e.ErrFilePath.AddDesc(err.Error())
 		}
 	}
 
-	err = commonservice.PreLoadServiceManifests(base, svc)
+	err = commonutil.PreLoadServiceManifests(base, svc)
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}

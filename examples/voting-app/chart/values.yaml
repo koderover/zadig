@@ -8,16 +8,16 @@ imagePullSecretsName: default-registry-secret
 services:
   vote:
     port: 5000
-    image: dockersamples/examplevotingapp_vote:before
+    image: koderover.tencentcloudcr.com/koderover-demo/examplevotingapp-vote:base
     replicas: 1
 
   result:
     port: 5001
-    image: dockersamples/examplevotingapp_result:before
+    image: koderover.tencentcloudcr.com/koderover-demo/examplevotingapp-result:base
     replicas: 1
 
   worker:
-    image: dockersamples/examplevotingapp_worker
+    image: koderover.tencentcloudcr.com/koderover-demo/examplevotingapp-worker:base
     replicas: 1
 
   redis:

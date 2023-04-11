@@ -106,6 +106,8 @@ type JobTaskPreview struct {
 	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
 	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`
 	Spec             interface{}   `bson:"spec"           json:"spec"`
+	// JobInfo contains the fields that make up the job task name, for frontend display
+	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
 
 type ZadigBuildJobSpec struct {
@@ -200,18 +202,17 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
-func GetWorkflowv4Preset(encryptedKey, workflowName, uid string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
-
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if err := jobctl.SetPreset(job, workflow); err != nil {
 				log.Errorf("cannot get workflow %s preset, the error is: %v", workflowName, err)
-				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 			}
 		}
 	}
@@ -281,6 +282,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	dbWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+	if err != nil {
+		log.Errorf("cannot find workflow %s, the error is: %v", workflow.Name, err)
+		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+
 	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
 		log.Errorf("instantiate workflow error: %s", err)
 		return resp, e.ErrCreateTask.AddErr(err)
@@ -329,6 +336,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.MultiRun = workflow.MultiRun
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
+	workflowTask.WorkflowHash = fmt.Sprintf("%x", dbWorkflow.CalculateHash())
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
@@ -784,6 +792,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			BreakpointBefore: job.BreakpointBefore,
 			BreakpointAfter:  job.BreakpointAfter,
 			CostSeconds:      costSeconds,
+			JobInfo:          job.JobInfo,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):

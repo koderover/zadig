@@ -212,6 +212,20 @@ func (c *WorkflowTaskv4Coll) Find(workflowName string, taskID int64) (*models.Wo
 	return resp, nil
 }
 
+func (c *WorkflowTaskv4Coll) FindPreviousTask(workflowName, username string) (*models.WorkflowTask, error) {
+	resp := new(models.WorkflowTask)
+	query := bson.M{"workflow_name": workflowName, "task_creator": username}
+
+	opt := options.FindOne()
+	opt.SetSort(bson.D{{"create_time", -1}})
+
+	err := c.FindOne(context.TODO(), query, opt).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *WorkflowTaskv4Coll) GetByID(idstring string) (*models.WorkflowTask, error) {
 	resp := new(models.WorkflowTask)
 	id, err := primitive.ObjectIDFromHex(idstring)

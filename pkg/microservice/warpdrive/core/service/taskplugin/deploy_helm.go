@@ -99,11 +99,8 @@ func (p *HelmDeployTaskPlugin) SetStatus(status config.Status) {
 func (p *HelmDeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = setting.DeployTimeout
-	} else {
-		if !p.Task.IsRestart {
-			p.Task.Timeout = p.Task.Timeout * 60
-		}
 	}
+
 	return p.Task.Timeout
 }
 

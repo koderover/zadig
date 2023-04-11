@@ -151,6 +151,7 @@ func (c *WorkflowV4Coll) BulkCreate(args []*models.WorkflowV4) error {
 	for _, arg := range args {
 		arg.CreateTime = time.Now().Unix()
 		arg.UpdateTime = time.Now().Unix()
+		arg.UpdateHash()
 		ois = append(ois, arg)
 	}
 
@@ -162,6 +163,8 @@ func (c *WorkflowV4Coll) Create(obj *models.WorkflowV4) (string, error) {
 	if obj == nil {
 		return "", fmt.Errorf("nil object")
 	}
+
+	obj.UpdateHash()
 
 	res, err := c.InsertOne(context.TODO(), obj)
 	if err != nil {
@@ -259,6 +262,7 @@ func (c *WorkflowV4Coll) Update(idString string, obj *models.WorkflowV4) error {
 	if err != nil {
 		return fmt.Errorf("invalid id")
 	}
+	obj.UpdateHash()
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": obj}
 

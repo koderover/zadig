@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type OpenAPICreateProductReq struct {
@@ -62,8 +63,12 @@ type OpenAPIInitializeProjectReq struct {
 }
 
 type ServiceDefinition struct {
-	ServiceName string `json:"service_name"`
-	Yaml        string `json:"yaml"`
+	Source       string       `json:"source"`
+	ServiceName  string       `json:"service_name"`
+	TemplateName string       `json:"template_name"`
+	VariableYaml util.KVInput `json:"variable_yaml"`
+	AutoSync     bool         `json:"auto_sync"`
+	Yaml         string       `json:"yaml"`
 }
 
 type EnvDefinition struct {
@@ -84,6 +89,24 @@ func (req OpenAPIInitializeProjectReq) Validate() error {
 
 	if len(req.ServiceList) == 0 {
 		return errors.New("initializing a project with no services is not allowed")
+	}
+
+	for _, serviceDef := range req.ServiceList {
+		if serviceDef.ServiceName == "" {
+			return errors.New("service_name cannot be empty")
+		}
+		switch serviceDef.Source {
+		case config.SourceFromTemplate:
+			if serviceDef.TemplateName == "" {
+				return errors.New("template_name cannot be empty when the service source is template")
+			}
+		case config.SourceFromYaml:
+			if serviceDef.Yaml == "" {
+				return errors.New("yaml cannot be empty when the service source is yaml")
+			}
+		default:
+			return errors.New("source of a service can only be of template or yaml")
+		}
 	}
 
 	return nil

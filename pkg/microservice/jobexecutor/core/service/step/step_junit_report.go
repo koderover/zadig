@@ -28,12 +28,13 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -65,6 +66,10 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 	if err := os.MkdirAll(s.spec.DestDir, os.ModePerm); err != nil {
 		return fmt.Errorf("create dest dir: %s error: %s", s.spec.DestDir, err)
 	}
+
+	envMap := makeEnvMap(s.envs, s.secretEnvs)
+	s.spec.ReportDir = replaceEnvWithValue(s.spec.ReportDir, envMap)
+
 	reportDir := filepath.Join(s.workspace, s.spec.ReportDir)
 	failedCaseCount, err := mergeGinkgoTestResults(s.spec.FileName, reportDir, s.spec.DestDir, time.Now())
 	if err != nil {
