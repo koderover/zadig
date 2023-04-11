@@ -280,14 +280,14 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		msg := fmt.Sprintf("update service render set info error: %v", err)
 		return errors.New(msg)
 	}
-	for _, unstructrued := range unstructuredList {
-		switch unstructrued.GetKind() {
+	for _, us := range unstructuredList {
+		switch us.GetKind() {
 		case setting.Deployment, setting.StatefulSet:
-			podLabels, _, err := unstructured.NestedStringMap(unstructrued.Object, "spec", "template", "metadata", "labels")
+			podLabels, _, err := unstructured.NestedStringMap(us.Object, "spec", "template", "metadata", "labels")
 			if err == nil {
 				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, podLabels)
 			}
-			c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{Name: unstructrued.GetName(), Kind: unstructrued.GetKind()})
+			c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
 		}
 	}
 	return nil

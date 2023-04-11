@@ -29,7 +29,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -227,7 +227,7 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 				if err != nil {
 					logger.Error(err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
-					commonservice.SendErrorMessage(userName, title, "", err, logger)
+					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
 		}(services)
@@ -260,7 +260,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 				if err != nil {
 					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
-					commonservice.SendErrorMessage(userName, title, "", err, logger)
+					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
 		}(services)

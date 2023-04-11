@@ -34,6 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
@@ -46,12 +50,19 @@ type ResourceApplyParam struct {
 	ServiceName         string
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
-	Informer            informers.SharedInformerFactory
-	KubeClient          client.Client
-	IstioClient         versionedclient.Interface
-	AddZadigLabel       bool
-	InjectSecrets       bool
-	SharedEnvHandler    SharedEnvHandler
+
+	Images                []string // all images need to be updated, used for helm services
+	VariableYaml          string   // variables
+	Timeout               int      // timeout for helm services
+	UpdateServiceRevision bool
+
+	Informer         informers.SharedInformerFactory
+	KubeClient       client.Client
+	IstioClient      versionedclient.Interface
+	AddZadigLabel    bool
+	InjectSecrets    bool
+	SharedEnvHandler SharedEnvHandler
+	Uninstall        bool
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
@@ -139,10 +150,11 @@ func SetFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fiel
 	return obj
 }
 
-func removeOldResources(currentItems, items []*unstructured.Unstructured, namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
+// removeResources removes resources currently deployed in k8s that are not in the new resource list
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
 	itemsMap := make(map[string]*unstructured.Unstructured)
 	errList := &multierror.Error{}
-	for _, u := range items {
+	for _, u := range newItems {
 		itemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
 	}
 
@@ -167,6 +179,24 @@ func removeOldResources(currentItems, items []*unstructured.Unstructured, namesp
 	return errList.ErrorOrNil()
 }
 
+func manifestToUnstructured(manifest string) ([]*unstructured.Unstructured, error) {
+	if len(manifest) == 0 {
+		return nil, nil
+	}
+	manifests := releaseutil.SplitManifests(manifest)
+	errList := &multierror.Error{}
+	resources := make([]*unstructured.Unstructured, 0, len(manifests))
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			errList = multierror.Append(errList, err)
+			continue
+		}
+		resources = append(resources, u)
+	}
+	return resources, errList.ErrorOrNil()
+}
+
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
 // `CurrentResourceYaml` will be used to determine if some resources will be deleted
 func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
@@ -177,39 +207,30 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	kubeClient := applyParam.KubeClient
 	istioClient := applyParam.IstioClient
 
-	errList := &multierror.Error{}
-	manifests := releaseutil.SplitManifests(applyParam.UpdateResourceYaml)
-	resources := make([]*unstructured.Unstructured, 0, len(manifests))
-	for _, item := range manifests {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		if err != nil {
-			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
-			continue
+	curResources, err := manifestToUnstructured(applyParam.CurrentResourceYaml)
+	if err != nil {
+		log.Errorf("Failed to convert currently deplyed resource yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.CurrentResourceYaml, err)
+		return nil, err
+	}
+
+	resources, err := manifestToUnstructured(applyParam.UpdateResourceYaml)
+	if err != nil {
+		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
+		return nil, err
+	}
+
+	if applyParam.Uninstall {
+		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
+			return nil, nil
 		}
-		resources = append(resources, u)
-	}
-
-	if errList.ErrorOrNil() != nil {
-		return nil, errList.ErrorOrNil()
-	}
-
-	oldManifest := releaseutil.SplitManifests(applyParam.CurrentResourceYaml)
-	curResources := make([]*unstructured.Unstructured, 0, len(oldManifest))
-	for _, item := range oldManifest {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
 		if err != nil {
-			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
-			continue
+			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
-		curResources = append(curResources, u)
-	}
-	if errList.ErrorOrNil() != nil {
-		return nil, errList.ErrorOrNil()
+		return nil, nil
 	}
 
-	err := removeOldResources(curResources, resources, namespace, applyParam.KubeClient, log)
+	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
@@ -222,6 +243,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	}
 
 	var res []*unstructured.Unstructured
+	errList := &multierror.Error{}
 
 	for _, u := range resources {
 		switch u.GetKind() {
@@ -448,5 +470,77 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		res = append(res, u)
 	}
 
+	if errList.ErrorOrNil() != nil {
+		return nil, errList.ErrorOrNil()
+	}
+
 	return res, errList.ErrorOrNil()
+}
+
+// CreateOrUpdateHelmResource create or patch helm services
+// if service is not deployed ever, it will be added into target environment
+// database will also be updated
+func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
+	productInfo := applyParam.ProductInfo
+
+	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
+	if productService == nil {
+		productService = &commonmodels.ProductService{
+			ProductName: applyParam.ProductInfo.ProductName,
+			ServiceName: applyParam.ServiceName,
+			Type:        setting.HelmDeployType,
+		}
+		if len(productInfo.Services) == 0 {
+			productInfo.Services = [][]*commonmodels.ProductService{[]*commonmodels.ProductService{}}
+		}
+		productInfo.Services[0] = append(productInfo.Services[0], productService)
+	}
+
+	svcFindOption := &commonrepo.ServiceFindOption{
+		ProductName: applyParam.ProductInfo.ProductName,
+		ServiceName: applyParam.ServiceName,
+		Revision:    productService.Revision,
+	}
+	// use latest svc template if option 'UpdateServiceRevision' is true
+	if applyParam.UpdateServiceRevision {
+		svcFindOption.Revision = 0
+	}
+
+	svcTemplate, err := repository.QueryTemplateService(svcFindOption, productInfo.Production)
+	if err != nil {
+		return errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
+	}
+
+	productService.Revision = svcTemplate.Revision
+	if len(productService.Containers) == 0 {
+		productService.Containers = svcTemplate.Containers
+	}
+
+	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: productInfo.ProductName,
+		Name:        productInfo.Render.Name,
+		EnvName:     productInfo.EnvName,
+		Revision:    productInfo.Render.Revision,
+	})
+	if err != nil {
+		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
+		return err
+	}
+	targetChart := renderSet.GetChartRenderMap()[applyParam.ServiceName]
+	if targetChart == nil {
+		targetChart = &template.ServiceRender{
+			ServiceName:  applyParam.ServiceName,
+			ValuesYaml:   svcTemplate.HelmChart.ValuesYaml,
+			ChartVersion: svcTemplate.HelmChart.Version,
+			OverrideYaml: &template.CustomYaml{},
+		}
+		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
+	}
+
+	// uninstall release
+	if applyParam.Uninstall {
+		return DeleteHelmServiceFromEnv("workflow", "", productInfo, []string{applyParam.ServiceName}, log)
+	}
+
+	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, applyParam.VariableYaml, applyParam.Timeout)
 }

@@ -48,7 +48,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -1166,7 +1168,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	}
 
 	basePath := config.LocalServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
-	if err = commonservice.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
+	if err = commonutil.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
 		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 
@@ -1188,7 +1190,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		err = service.ReInstallHelmSvcInAllEnvs(projectName, serviceTemplate)
 		if err != nil {
 			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
-			commonservice.SendErrorMessage(userName, title, requestID, err, log)
+			notify.SendErrorMessage(userName, title, requestID, err, log)
 		}
 	}()
 

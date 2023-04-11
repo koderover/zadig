@@ -20,59 +20,10 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
-	"go.uber.org/zap"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/setting"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
-
-func SendMessage(sender, title, content, requestID string, log *zap.SugaredLogger) {
-	nf := &models.Notify{
-		Type:     config.Message,
-		Receiver: sender,
-		Content: &models.MessageCtx{
-			ReqID:   requestID,
-			Title:   title,
-			Content: content,
-		},
-		CreateTime: time.Now().Unix(),
-		IsRead:     false,
-	}
-
-	notifyClient := notify.NewNotifyClient()
-	if err := notifyClient.CreateNotify(sender, nf); err != nil {
-		log.Errorf("create message notify error: %v", err)
-	}
-}
-
-func SendFailedTaskMessage(username, productName, name, requestID string, workflowType config.PipelineType, err error, log *zap.SugaredLogger) {
-	title := "创建工作流任务失败"
-
-	errStr := err.Error()
-	_, messageMap := e.ErrorMessage(err)
-	if description, isExist := messageMap["description"]; isExist {
-		if desc, ok := description.(string); ok {
-			errStr = desc
-		}
-	}
-
-	content := fmt.Sprintf("%s, 创建人：%s, 项目：%s, 名称：%s, 错误信息：%s", title, username, productName, name, errStr)
-
-	if username != setting.CronTaskCreator {
-		SendMessage(username, title, content, requestID, log)
-		return
-	}
-}
-
-func SendErrorMessage(sender, title, requestID string, err error, log *zap.SugaredLogger) {
-	content := fmt.Sprintf("错误信息: %s", err)
-	SendMessage(sender, title, content, requestID, log)
-}
 
 func GetGitlabAddress(URL string) (string, error) {
 	if !strings.Contains(URL, "https") && !strings.Contains(URL, "http") {
