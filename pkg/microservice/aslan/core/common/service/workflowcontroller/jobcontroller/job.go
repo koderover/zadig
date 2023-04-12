@@ -82,6 +82,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewMeegoTransitionJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobWorkflowTrigger):
 		jobCtl = NewWorkflowTriggerJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobOfflineService):
+		jobCtl = NewOfflineServiceJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
