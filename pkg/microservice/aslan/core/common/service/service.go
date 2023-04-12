@@ -1182,6 +1182,8 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		serviceVars := setting.ServiceVarWildCard
 		tmplSvc := templateSvcMap[svcName]
 		if tmplSvc != nil {
+			log.Debugf("tmplSvc.VariableYaml: %s", tmplSvc.VariableYaml)
+			log.Debugf("svcRender.OverrideYaml.YamlContent: %s", svcRender.OverrideYaml.YamlContent)
 			mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
@@ -1191,6 +1193,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			if !productInfo.Production {
 				serviceVars = tmplSvc.ServiceVars
 			}
+			log.Debugf("mergedValues: %s", mergedValues)
 		}
 
 		svcRender.OverrideYaml.YamlContent, err = kube.ClipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVars)
