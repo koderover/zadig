@@ -491,6 +491,7 @@ func variableYamlNil(variableYaml string) bool {
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
+	log.Debugf("GenerateRenderedYaml option: %+v", option)
 	_, err := templaterepo.NewProductColl().Find(option.ProductName)
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
@@ -524,6 +525,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
 	}
 
+	log.Debugf("before latest service : %+v", latestSvcTemplate)
 	var svcContainersInProduct []*models.Container
 	if curProductSvc != nil {
 		svcContainersInProduct = curProductSvc.Containers
@@ -585,10 +587,15 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
+	log.Debugf("after latest service : %+v", latestSvcTemplate)
+	log.Debugf("merged variable yaml: %s", string(mergedBs))
+	mergedVariable := commonutil.ClipVariableYamlNoErr(string(mergedBs), latestSvcTemplate.ServiceVars)
+	log.Debugf("mergedVariable: %s", mergedVariable)
+
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{
-			YamlContent: string(mergedBs),
+			YamlContent: mergedVariable,
 		},
 	}}
 

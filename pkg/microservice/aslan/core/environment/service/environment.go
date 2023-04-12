@@ -868,17 +868,6 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 			return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
 		}
 		return targetChart.ValuesYaml, renderSet.DefaultValues, nil
-	case usageScenarioGetValues:
-		curValuesYaml := ""
-		if targetChart != nil { // service has been applied into environment, use current values.yaml
-			curValuesYaml = targetChart.ValuesYaml
-		}
-		// merge latest values
-		mergedBs, err := util.OverrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), nil, false)
-		if err != nil {
-			return "", "", errors.Wrapf(err, "failed to override values")
-		}
-		return string(mergedBs), renderSet.DefaultValues, nil
 	default:
 		return "", "", fmt.Errorf("unrecognized usageScenario:%s", usageScenario)
 	}

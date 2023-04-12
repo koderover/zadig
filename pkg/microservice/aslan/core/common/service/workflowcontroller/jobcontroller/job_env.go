@@ -153,10 +153,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			}
 			mergedVariable = string(mergedVariableBs)
 		}
-		log.Debugf("mergedVariable: %s", mergedVariable)
-		log.Debugf("svcTemplate.ServiceVars: %s", svcTemplate.ServiceVars)
 		mergedVariable = commonutil.ClipVariableYamlNoErr(mergedVariable, svcTemplate.ServiceVars)
-		log.Debugf("mergedVariable: %s", mergedVariable)
 
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
