@@ -56,6 +56,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		quality.POST("/deployTopFiveHigherMeasure", GetDeployTopFiveHigherMeasure)
 		quality.POST("/deployTopFiveFailureMeasure", GetDeployTopFiveFailureMeasure)
 	}
+
+	// v2 api, mainly for enterprise statistics
+	v2 := router.Group("v2")
+	{
+		v2.GET("/config", ListStatDashboardConfigs)
+		v2.POST("/config", CreateStatDashboardConfig)
+		v2.PUT("/config/:id", UpdateStatDashboardConfig)
+		v2.DELETE("/config/:id", DeleteStatDashboardConfig)
+		v2.GET("/dashboard", GetStatsDashboard)
+	}
 }
 
 type OpenAPIRouter struct{}
