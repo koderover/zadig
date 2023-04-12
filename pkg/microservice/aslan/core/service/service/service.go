@@ -242,7 +242,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		}
 	}
 	var err error
-	serviceOption.ServiceVariableYaml, err = kube.ClipVariableYaml(serviceOption.VariableYaml, args.ServiceVars)
+	serviceOption.ServiceVariableYaml, err = commonutil.ClipVariableYaml(serviceOption.VariableYaml, args.ServiceVars)
 	if err != nil {
 		return serviceOption, err
 	}

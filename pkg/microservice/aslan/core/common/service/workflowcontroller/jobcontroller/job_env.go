@@ -28,6 +28,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/yaml"
@@ -152,6 +153,10 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			}
 			mergedVariable = string(mergedVariableBs)
 		}
+		log.Debugf("mergedVariable: %s", mergedVariable)
+		log.Debugf("svcTemplate.ServiceVars: %s", svcTemplate.ServiceVars)
+		mergedVariable = commonutil.ClipVariableYamlNoErr(mergedVariable, svcTemplate.ServiceVars)
+		log.Debugf("mergedVariable: %s", mergedVariable)
 
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
 		productSvc.Revision = int64(deployInfo.ServiceRevision)

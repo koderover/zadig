@@ -40,6 +40,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -131,21 +132,6 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func clipVariableYaml(variableYaml string, validKeys []string) string {
-	if len(variableYaml) == 0 {
-		return variableYaml
-	}
-	if len(validKeys) == 0 {
-		return ""
-	}
-	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
-	if err != nil {
-		log.Errorf("failed to clip variable yaml, err: %s", err)
-		return variableYaml
-	}
-	return clippedYaml
-}
-
 func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) string {
 	if serviceTemplate == nil {
 		return variableYaml
@@ -155,7 +141,7 @@ func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) st
 		log.Errorf("failed to merge variable yaml, err: %s", err)
 		return variableYaml
 	}
-	return clipVariableYaml(string(mergedYaml), serviceTemplate.ServiceVars)
+	return commonutil.ClipVariableYamlNoErr(string(mergedYaml), serviceTemplate.ServiceVars)
 }
 
 func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, error) {
@@ -304,7 +290,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			ServiceName: svcRender.ServiceName,
 		}
 		if svcRender.OverrideYaml != nil {
-			rArg.VariableYaml = clipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
+			rArg.VariableYaml = commonutil.ClipVariableYamlNoErr(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
 			rArg.LatestVariableYaml = latestVariableYaml(rArg.VariableYaml, templateSvcMap[svcRender.ServiceName])
 		}
 		ret = append(ret, rArg)
