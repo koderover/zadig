@@ -14,35 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package models
 
 import "github.com/koderover/zadig/pkg/util"
 
-type OpenAPIStatV2 struct {
-	Total        int64        `json:"total"`
-	SuccessCount int64        `json:"success_count"`
-	DailyStat    []*DailyStat `json:"daily_stat"`
-}
-
-type DailyStat struct {
-	Date         string `json:"date"`
-	Total        int64  `json:"total"`
-	SuccessCount int64  `json:"success_count"`
-	FailCount    int64  `json:"fail_count"`
-}
-
 type StatDashboardConfig struct {
-	Type      string     `json:"type"`
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	Source    string     `json:"source"`
-	APIConfig *APIConfig `json:"api_config"`
-	Function  string     `json:"function"`
-	Weight    int64      `json:"weight"`
+	ID        string     `bson:"_id"                json:"id"`
+	Type      string     `bson:"type"               json:"type"`
+	ItemKey   string     `bson:"item_key"           json:"item_key"`
+	Name      string     `bson:"name"               json:"name"`
+	Source    string     `bson:"source"              json:"source"`
+	APIConfig *APIConfig `bson:"api_config"         json:"api_config"`
+	Function  string     `bson:"function" json:"function"`
+	Weight    int64      `bson:"weight" json:"weight"`
 }
 
 type APIConfig struct {
 	ExternalSystemId string           `json:"external_system_id"`
 	ApiPath          string           `json:"api_path"`
 	Queries          []*util.KeyValue `json:"queries"`
+}
+
+func (StatDashboardConfig) TableName() string {
+	return "stat_dashboard_config"
 }
