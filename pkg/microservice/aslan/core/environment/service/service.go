@@ -52,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/yaml"
 )
 
 func GetServiceContainer(envName, productName, serviceName, container string, log *zap.SugaredLogger) error {
@@ -366,7 +367,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
-	newVariable, err := kube.GenerateYamlFromKV(args.VariableKVS)
+	newVariable, err := yaml.GenerateYamlFromKV(args.VariableKVS)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}

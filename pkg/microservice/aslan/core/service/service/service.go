@@ -63,6 +63,7 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type ServiceOption struct {
@@ -896,7 +897,7 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid service type: %v", currentService.Type))
 	}
 
-	kvs, err := kube.GeneKVFromYaml(args.VariableYaml)
+	kvs, err := yamlutil.GeneKVFromYaml(args.VariableYaml)
 	if err != nil {
 		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid variable yaml, err: %s", err))
 	}

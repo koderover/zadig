@@ -16,48 +16,58 @@ limitations under the License.
 
 package yaml
 
-import "sigs.k8s.io/yaml"
+import (
+	"sigs.k8s.io/yaml"
+)
 
 // MergeAndUnmarshal merges a couple of yaml files into one yaml file, and return a map[string]interface{},
 // a field in latter file will override the same field in former file.
 func MergeAndUnmarshal(yamls [][]byte) (map[string]interface{}, error) {
-	base := map[string]interface{}{}
+	ret := map[string]interface{}{}
+	yamlStrs := []string{}
 
 	for _, y := range yamls {
-		currentMap := map[string]interface{}{}
-
-		if err := yaml.Unmarshal(y, &currentMap); err != nil {
-			return nil, err
-		}
-		// Merge with the previous map
-		base = mergeMaps(base, currentMap)
+		yamlStrs = append(yamlStrs, string(y))
 	}
 
-	return base, nil
+	yamlStr, err := MergeYamls(yamlStrs)
+	if err != nil {
+		return ret, err
+	}
+
+	if err := yaml.Unmarshal([]byte(yamlStr), &ret); err != nil {
+		return ret, err
+	}
+
+	return ret, nil
 }
 
-// Merge merges a couple of yaml files into one yaml file,
-// a field in latter file will override the same field in former file.
 func Merge(yamls [][]byte) ([]byte, error) {
-	m, err := MergeAndUnmarshal(yamls)
-	if err != nil {
-		return nil, err
+	yamlStrs := []string{}
+
+	for _, y := range yamls {
+		yamlStrs = append(yamlStrs, string(y))
 	}
 
-	return yaml.Marshal(m)
+	ret, err := MergeYamls(yamlStrs)
+	return []byte(ret), err
 }
 
 func CleanMerge(yamls [][]byte) ([]byte, error) {
-	m, err := MergeAndUnmarshal(yamls)
-	if err != nil {
-		return nil, err
+	yamlStrs := []string{}
+
+	for _, y := range yamls {
+		yamlStrs = append(yamlStrs, string(y))
 	}
-	if len(m) == 0 {
+
+	ret, err := MergeYamls(yamlStrs)
+	if err != nil {
 		return []byte(""), err
 	}
-	return yaml.Marshal(m)
+	return []byte(ret), err
 }
 
+// In Deprecating
 func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{}, len(a))
 	for k, v := range a {

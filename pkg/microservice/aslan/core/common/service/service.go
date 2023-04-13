@@ -40,7 +40,6 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -1257,7 +1256,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 		}
 
-		kvs, err := kube.GeneKVFromYaml(mergeValues)
+		kvs, err := yamlutil.GeneKVFromYaml(mergeValues)
 		if err != nil {
 			return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
 		}
@@ -1307,10 +1306,10 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		if deployType == setting.K8SDeployType {
 			svc.VariableYaml = templateSvc.VariableYaml
-			svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.VariableYaml)
+			svc.VariableKVs, _ = yamlutil.GeneKVFromYaml(templateSvc.VariableYaml)
 		} else if deployType == setting.HelmDeployType {
 			svc.ValuesYaml = templateSvc.HelmChart.ValuesYaml
-			svc.ValuesKVs, _ = kube.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
+			svc.ValuesKVs, _ = yamlutil.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
 		}
 
 		ret.Services = append(ret.Services, svc)
@@ -1323,6 +1322,6 @@ func GetOverrideYamlAndKV(rc *template.ServiceRender) (string, []*models.Variabl
 	if rc.OverrideYaml == nil || rc.OverrideYaml.YamlContent == "" {
 		return "", nil, nil
 	}
-	kvs, err := kube.GeneKVFromYaml(rc.OverrideYaml.YamlContent)
+	kvs, err := yamlutil.GeneKVFromYaml(rc.OverrideYaml.YamlContent)
 	return rc.OverrideYaml.YamlContent, kvs, err
 }
