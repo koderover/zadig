@@ -100,6 +100,18 @@ func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
 	return names, nil
 }
 
+func (c *ProductColl) ListNonPMProject() ([]*ProjectInfo, error) {
+	res, err := c.listProjects([]string{}, bson.M{
+		"product_name": "$product_name",
+		"project_name": "$project_name",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
 	return c.listProjects(inNames, bson.M{
 		"product_name":      "$product_name",
