@@ -56,5 +56,34 @@ func UpdateStatDashboardConfig(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateStatDashboardConfig(args, ctx.Logger)
+	ctx.Err = service.UpdateStatDashboardConfig(c.Param("id"), args, ctx.Logger)
+}
+
+func DeleteStatDashboardConfig(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = service.DeleteStatDashboardConfig(c.Param("id"), ctx.Logger)
+}
+
+type getStatDashboardReq struct {
+	StartTime int64 `form:"start_time"`
+	EndTime   int64 `form:"end_time"`
+}
+
+type getStatDashboardResp struct {
+	Dashboard []*service.StatDashboardByProject `json:"dashboard"`
+}
+
+func GetStatsDashboard(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getStatDashboardReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetStatsDashboard(args.StartTime, args.EndTime, ctx.Logger)
 }

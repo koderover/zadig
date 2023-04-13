@@ -46,3 +46,18 @@ type APIConfig struct {
 	ApiPath          string           `json:"api_path"`
 	Queries          []*util.KeyValue `json:"queries"`
 }
+
+type StatDashboardByProject struct {
+	ProjectKey  string               `json:"project_key"`
+	ProjectName string               `json:"project_name"`
+	Score       float64              `json:"score"`
+	Facts       []*StatDashboardItem `json:"facts"`
+}
+
+type StatDashboardItem struct {
+	Type  string      `json:"type"`
+	ID    string      `json:"id"`
+	Data  interface{} `json:"data"`
+	Score float64     `json:"score"`
+	Error string      `json:"error"`
+}

@@ -99,5 +99,16 @@ func (c *StatDashboardConfigColl) List() ([]*models.StatDashboardConfig, error) 
 }
 
 func (c *StatDashboardConfigColl) Update(ctx context.Context, key string, args *models.StatDashboardConfig) error {
+	query := bson.M{"item_key": key}
+	change := bson.M{"$set": args}
 
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *StatDashboardConfigColl) Delete(ctx context.Context, key string) error {
+	query := bson.M{"item_key": key}
+
+	_, err := c.DeleteOne(context.TODO(), query)
+	return err
 }
