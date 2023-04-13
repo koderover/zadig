@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,7 +28,7 @@ import (
 )
 
 func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*types.NacosNamespace, error) {
-	client, err := getNacosClient(nacosID)
+	client, err := GetNacosClient(nacosID)
 	if err != nil {
 		err = errors.Wrap(err, "fail to get nacos client")
 		log.Error(err)
@@ -44,7 +44,7 @@ func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*types.NacosN
 }
 
 func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*types.NacosConfig, error) {
-	client, err := getNacosClient(nacosID)
+	client, err := GetNacosClient(nacosID)
 	if err != nil {
 		err = errors.Wrap(err, "fail to get nacos client")
 		log.Error(err)
@@ -59,7 +59,7 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 	return resp, nil
 }
 
-func getNacosClient(nacosID string) (*nacos.Client, error) {
+func GetNacosClient(nacosID string) (*nacos.Client, error) {
 	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), nacosID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get nacos info")

@@ -458,10 +458,12 @@ type IstioJobTarget struct {
 }
 
 type NacosJobSpec struct {
-	NacosID     string               `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
-	NamespaceID string               `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
-	NacosDatas  []*types.NacosConfig `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
-	DataFixed   bool                 `bson:"data_fixed"       json:"data_fixed"       yaml:"data_fixed"`
+	NacosID           string               `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
+	NamespaceID       string               `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
+	NacosDatas        []*types.NacosConfig `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`
+	NacosFilteredData []*types.NacosConfig `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
+	NacosDataRange    []string             `bson:"nacos_data_range"    json:"nacos_data_range"    yaml:"nacos_data_range"`
+	DataFixed         bool                 `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }
 
 type WorkflowTriggerJobSpec struct {
