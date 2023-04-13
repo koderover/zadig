@@ -1679,7 +1679,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 	} else {
-		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, nil, log)
+		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}

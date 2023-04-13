@@ -42,7 +42,6 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
-	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -112,14 +111,14 @@ type ServiceProductMap struct {
 }
 
 type EnvService struct {
-	ServiceName    string                     `json:"service_name"`
-	ServiceModules []*commonmodels.Container  `json:"service_modules"`
-	VariableYaml   string                     `json:"variable_yaml"`
-	VariableKVs    []*commonmodels.VariableKV `json:"variable_kvs"`
-	ValuesYaml     string                     `json:"values_yaml"`
-	ValuesKVs      []*commonmodels.VariableKV `json:"values_kvs"`
-	Updatable      bool                       `json:"updatable"`
-	Deployed       bool                       `json:"deployed"`
+	ServiceName        string                     `json:"service_name"`
+	ServiceModules     []*commonmodels.Container  `json:"service_modules"`
+	VariableYaml       string                     `json:"variable_yaml"`
+	VariableKVs        []*commonmodels.VariableKV `json:"variable_kvs"`
+	LatestVariableYaml string                     `json:"latest_variable_yaml"`
+	LatestVariableKVs  []*commonmodels.VariableKV `json:"latest_variable_kvs"`
+	Updatable          bool                       `json:"updatable"`
+	Deployed           bool                       `json:"deployed"`
 }
 
 type EnvServices struct {
@@ -1086,7 +1085,7 @@ func ReplaceRuleVariable(rule string, replaceValue *Variable) string {
 	return payload.String()
 }
 
-func ListServicesInEnv(envName, productName string, args *commontypes.ListServicesArgs, log *zap.SugaredLogger) (*EnvServices, error) {
+func ListServicesInEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1098,14 +1097,7 @@ func ListServicesInEnv(envName, productName string, args *commontypes.ListServic
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
 	}
 
-	uselatestSvcMap := make(map[string]bool, 0)
-	if args != nil {
-		for _, arg := range args.ServiceUpdateRevisions {
-			uselatestSvcMap[arg.ServiceName] = arg.UpdateServiceRevision
-		}
-	}
-
-	return buildServiceInfoInEnv(env, latestSvcs, uselatestSvcMap, log)
+	return buildServiceInfoInEnv(env, latestSvcs, log)
 }
 
 func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
@@ -1120,10 +1112,10 @@ func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLo
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for product %s:%s", productName, envName))
 	}
 
-	return buildServiceInfoInEnv(env, latestSvcs, nil, log)
+	return buildServiceInfoInEnv(env, latestSvcs, log)
 }
 
-func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, useLatestSvcMap map[string]bool, log *zap.SugaredLogger) (*EnvServices, error) {
+func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, log *zap.SugaredLogger) (*EnvServices, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	ret := &EnvServices{
 		ProductName: productName,
@@ -1215,7 +1207,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return false
 	}
 
-	variables := func(svcName string) (string, []*commonmodels.VariableKV, error) {
+	variables := func(svcName string) (string, []*commonmodels.VariableKV, string, []*commonmodels.VariableKV, error) {
 		svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
 		if svcRender == nil {
 			svcRender = &template.ServiceRender{
@@ -1226,34 +1218,52 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		serviceVars := setting.ServiceVarWildCard
 
-		var tmplSvc *commonmodels.Service
-		if useLatestSvcMap[svcName] {
-			tmplSvc = templateSvcMap[svcName]
-		} else {
-			tmplSvc = productTemplateSvcMap[svcName]
-		}
-		if tmplSvc != nil {
-			mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
-			if err != nil {
-				return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
+		getVarsAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commonmodels.VariableKV, error) {
+			yamlContent := ""
+			var tmplSvc *commonmodels.Service
+			if updateSvcRevision {
+				tmplSvc = templateSvcMap[svcName]
 			} else {
-				svcRender.OverrideYaml.YamlContent = string(mergedValues)
+				tmplSvc = productTemplateSvcMap[svcName]
 			}
-			if !productInfo.Production {
-				serviceVars = tmplSvc.ServiceVars
+			if tmplSvc != nil {
+				mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
+				if err != nil {
+					return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
+				} else {
+					yamlContent = string(mergedValues)
+				}
+				if !productInfo.Production {
+					serviceVars = tmplSvc.ServiceVars
+				}
 			}
+
+			yamlContent, err = commonutil.ClipVariableYaml(yamlContent, serviceVars)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
+			}
+
+			kvs, err := yamlutil.GeneKVFromYaml(yamlContent)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to generate variable kv for service %s", svcName)
+			}
+
+			return yamlContent, kvs, nil
 		}
 
-		svcRender.OverrideYaml.YamlContent, err = commonutil.ClipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVars)
+		svcRenderYaml, kvs, err := getVarsAndKVs(svcName, false)
 		if err != nil {
-			return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
+			return "", nil, "", nil, fmt.Errorf("failed to get variable and kvs for service %s, updateSvcRevision %v: %w", svcName, false, err)
+		}
+		latestSvcRenderYaml, latestKvs, err := getVarsAndKVs(svcName, true)
+		if err != nil {
+			return "", nil, "", nil, fmt.Errorf("failed to get variable and kvs for service %s, updateSvcRevision %v: %w", svcName, true, err)
 		}
 
-		vy, kvs, err := GetOverrideYamlAndKV(svcRender)
-		return vy, kvs, errors.Wrapf(err, "failed to get override yaml and kv for service %s", svcName)
+		return svcRenderYaml, kvs, latestSvcRenderYaml, latestKvs, nil
 	}
 
-	values := func(svcName string) (string, []*commonmodels.VariableKV, error) {
+	values := func(svcName string) (string, []*commonmodels.VariableKV, string, []*commonmodels.VariableKV, error) {
 		currentValues := ""
 		latestValues := ""
 
@@ -1263,33 +1273,45 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			latestValues = rendersetInfo.DefaultValues
 		}
 
-		var tmplSvc *commonmodels.Service
-		if useLatestSvcMap[svcName] {
-			tmplSvc = templateSvcMap[svcName]
-		} else {
-			tmplSvc = productTemplateSvcMap[svcName]
-		}
-		if tmplSvc != nil {
-			latestValues = tmplSvc.HelmChart.ValuesYaml
+		getValuesAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commonmodels.VariableKV, error) {
+			var tmplSvc *commonmodels.Service
+			if updateSvcRevision {
+				tmplSvc = templateSvcMap[svcName]
+			} else {
+				tmplSvc = productTemplateSvcMap[svcName]
+			}
+			if tmplSvc != nil {
+				latestValues = tmplSvc.HelmChart.ValuesYaml
+			}
+
+			// merge latest values
+			mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues), nil, false)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to override values")
+			}
+
+			mergeValues, err := helmtool.MergeOverrideValues(string(mergedBs), rendersetInfo.DefaultValues, "", "")
+			if err != nil {
+				return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
+			}
+
+			kvs, err := yamlutil.GeneKVFromYaml(mergeValues)
+			if err != nil {
+				return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
+			}
+			return mergeValues, kvs, nil
 		}
 
-		// merge latest values
-		mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues), nil, false)
+		mergeValues, kvs, err := getValuesAndKVs(svcName, false)
 		if err != nil {
-			return "", nil, errors.Wrapf(err, "failed to override values")
+			return "", nil, "", nil, fmt.Errorf("failed to get values and kvs for service %s, updateSvcRevision %v: %w", svcName, false, err)
 		}
-
-		mergeValues, err := helmtool.MergeOverrideValues(string(mergedBs), rendersetInfo.DefaultValues, "", "")
+		latestMergeValues, latestKvs, err := getValuesAndKVs(svcName, true)
 		if err != nil {
-			return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
+			return "", nil, "", nil, fmt.Errorf("failed to get values and kvs for service %s, updateSvcRevision %v: %w", svcName, true, err)
 		}
 
-		kvs, err := yamlutil.GeneKVFromYaml(mergeValues)
-		if err != nil {
-			return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
-		}
-
-		return mergeValues, kvs, nil
+		return mergeValues, kvs, latestMergeValues, latestKvs, nil
 	}
 
 	// get all service values info
@@ -1306,12 +1328,12 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		}
 
 		if deployType == setting.K8SDeployType {
-			svc.VariableYaml, svc.VariableKVs, err = variables(serviceName)
+			svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = variables(serviceName)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}
 		} else if deployType == setting.HelmDeployType {
-			svc.ValuesYaml, svc.ValuesKVs, err = values(serviceName)
+			svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = values(serviceName)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get values for service %s", serviceName)
 			}
@@ -1335,21 +1357,17 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		if deployType == setting.K8SDeployType {
 			svc.VariableYaml = templateSvc.VariableYaml
 			svc.VariableKVs, _ = yamlutil.GeneKVFromYaml(templateSvc.VariableYaml)
+			svc.LatestVariableYaml = svc.VariableYaml
+			svc.LatestVariableKVs = svc.VariableKVs
 		} else if deployType == setting.HelmDeployType {
-			svc.ValuesYaml = templateSvc.HelmChart.ValuesYaml
-			svc.ValuesKVs, _ = yamlutil.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
+			svc.VariableYaml = templateSvc.HelmChart.ValuesYaml
+			svc.VariableKVs, _ = yamlutil.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
+			svc.LatestVariableYaml = svc.VariableYaml
+			svc.LatestVariableKVs = svc.VariableKVs
 		}
 
 		ret.Services = append(ret.Services, svc)
 	}
 
 	return ret, nil
-}
-
-func GetOverrideYamlAndKV(rc *template.ServiceRender) (string, []*models.VariableKV, error) {
-	if rc.OverrideYaml == nil || rc.OverrideYaml.YamlContent == "" {
-		return "", nil, nil
-	}
-	kvs, err := yamlutil.GeneKVFromYaml(rc.OverrideYaml.YamlContent)
-	return rc.OverrideYaml.YamlContent, kvs, err
 }

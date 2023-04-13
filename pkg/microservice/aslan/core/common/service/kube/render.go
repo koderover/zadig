@@ -480,6 +480,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
 	}
+	log.Debugf("latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
 
 	var svcContainersInProduct []*models.Container
 	if curProductSvc != nil {
@@ -496,12 +497,16 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		prodSvcTemplate = latestSvcTemplate
 	}
 
+	log.Debugf("0 latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
+
 	// use latest service revision
 	if latestSvcTemplate == nil {
 		latestSvcTemplate = prodSvcTemplate
+		log.Debugf("1 latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
 	}
 	if !option.UpdateServiceRevision {
 		latestSvcTemplate = prodSvcTemplate
+		log.Debugf("2 latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
 	}
 
 	if productInfo.Production {

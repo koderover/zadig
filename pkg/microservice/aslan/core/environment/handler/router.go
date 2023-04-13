@@ -187,7 +187,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/helm/charts", GetChartInfos)
 		environments.GET("/:name/helm/images", GetImageInfos)
 
-		environments.POST("/:name/services", ListSvcsInEnv)
+		environments.GET("/:name/services", ListSvcsInEnv)
 		environments.PUT("/:name/services", DeleteProductServices)
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
