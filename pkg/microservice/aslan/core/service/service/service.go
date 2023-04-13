@@ -921,7 +921,7 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	}
 
 	// reparse service, check if container changes
-	currentService.RenderedYaml, err = renderK8sSvcYaml(currentService.Yaml, args.ProductName, args.ServiceName, currentService.VariableYaml)
+	currentService.RenderedYaml, err = renderK8sSvcYamlStrict(currentService.Yaml, args.ProductName, args.ServiceName, currentService.VariableYaml)
 	if err != nil {
 		return fmt.Errorf("failed to render yaml, err: %s", err)
 	}
