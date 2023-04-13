@@ -32,7 +32,6 @@ const (
 	usageScenarioCreateEnv       = "createEnv"
 	usageScenarioUpdateEnv       = "updateEnv"
 	usageScenarioUpdateRenderSet = "updateRenderSet"
-	usageScenarioGetValues       = "getValues"
 )
 
 type EnvStatus struct {

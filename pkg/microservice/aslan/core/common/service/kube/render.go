@@ -538,16 +538,17 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if serviceRender != nil && serviceRender.OverrideYaml != nil {
 		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
 	}
+
+	serviceVariableYaml = commonutil.ClipVariableYamlNoErr(serviceVariableYaml, latestSvcTemplate.ServiceVars)
 	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
-	mergedVariable := commonutil.ClipVariableYamlNoErr(string(mergedBs), latestSvcTemplate.ServiceVars)
 
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{
-			YamlContent: mergedVariable,
+			YamlContent: string(mergedBs),
 		},
 	}}
 

@@ -147,13 +147,13 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 
 		mergedVariable := deployInfo.VariableYaml
 		if svcRender.OverrideYaml != nil {
+			svcRender.OverrideYaml.YamlContent = commonutil.ClipVariableYamlNoErr(svcRender.OverrideYaml.YamlContent, svcTemplate.ServiceVars)
 			mergedVariableBs, err := yaml.Merge([][]byte{[]byte(svcRender.OverrideYaml.YamlContent), []byte(deployInfo.VariableYaml)})
 			if err != nil {
 				return errors.Wrapf(err, "failed to merge variable yaml for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
 			}
 			mergedVariable = string(mergedVariableBs)
 		}
-		mergedVariable = commonutil.ClipVariableYamlNoErr(mergedVariable, svcTemplate.ServiceVars)
 
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
