@@ -621,6 +621,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
 	}
+	tmpl.Option("missingkey=error")
 
 	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars, serviceDefaultValues)
 	if err != nil {

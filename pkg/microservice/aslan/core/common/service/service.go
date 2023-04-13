@@ -1155,9 +1155,38 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		rendersetInfo = &models.RenderSet{}
 	}
 
+	svcModulesMap := make(map[string]map[string]*commonmodels.Container)
 	templateSvcMap := make(map[string]*commonmodels.Service)
 	for _, svc := range templateSvcs {
 		templateSvcMap[svc.ServiceName] = svc
+
+		svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
+		for _, container := range svc.Containers {
+			if _, ok := svcModulesMap[svc.ServiceName]; !ok {
+				svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
+			}
+			svcModulesMap[svc.ServiceName][container.Name] = container
+		}
+	}
+
+	for _, svc := range productInfo.GetServiceMap() {
+		if _, ok := svcModulesMap[svc.ServiceName]; !ok {
+			svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
+		}
+
+		for _, container := range svc.Containers {
+			svcModulesMap[svc.ServiceName][container.Name] = container
+		}
+	}
+
+	getSvcModules := func(svcName string) []*commonmodels.Container {
+		ret := make([]*commonmodels.Container, 0)
+		if modulesMap, ok := svcModulesMap[svcName]; ok {
+			for _, module := range modulesMap {
+				ret = append(ret, module)
+			}
+		}
+		return ret
 	}
 
 	svcUpdatable := func(svcName string, revision int64) bool {
@@ -1244,7 +1273,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		svcList.Insert(serviceName)
 		svc := &EnvService{
 			ServiceName:    serviceName,
-			ServiceModules: productSvc.Containers,
+			ServiceModules: getSvcModules(serviceName),
 			Updatable:      svcUpdatable(serviceName, productSvc.Revision),
 			Deployed:       true,
 		}
@@ -1271,7 +1300,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		}
 		svc := &EnvService{
 			ServiceName:    templateSvc.ServiceName,
-			ServiceModules: templateSvc.Containers,
+			ServiceModules: getSvcModules(templateSvc.ServiceName),
 			Updatable:      true,
 			Deployed:       false,
 		}
