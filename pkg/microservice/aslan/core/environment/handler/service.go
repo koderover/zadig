@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -35,7 +36,13 @@ func ListSvcsInEnv(c *gin.Context) {
 	envName := c.Param("name")
 	productName := c.Query("projectName")
 
-	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, ctx.Logger)
+	args := new(types.ListServicesArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, args, ctx.Logger)
 }
 
 func ListSvcsInProductionEnv(c *gin.Context) {

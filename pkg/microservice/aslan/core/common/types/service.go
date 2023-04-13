@@ -20,3 +20,12 @@ type ServiceWithVariable struct {
 	ServiceName  string `json:"service_name"`
 	VariableYaml string `json:"variable_yaml"`
 }
+
+type ListServicesArgs struct {
+	ServiceUpdateRevisions []ServiceUpdateRevision `json:"service_update_revisions"`
+}
+
+type ServiceUpdateRevision struct {
+	ServiceName           string `json:"service_name"`
+	UpdateServiceRevision bool   `json:"update_service_revision"`
+}

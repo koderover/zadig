@@ -42,6 +42,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -1085,7 +1086,7 @@ func ReplaceRuleVariable(rule string, replaceValue *Variable) string {
 	return payload.String()
 }
 
-func ListServicesInEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
+func ListServicesInEnv(envName, productName string, args *commontypes.ListServicesArgs, log *zap.SugaredLogger) (*EnvServices, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1097,7 +1098,14 @@ func ListServicesInEnv(envName, productName string, log *zap.SugaredLogger) (*En
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
 	}
 
-	return buildServiceInfoInEnv(env, latestSvcs, log)
+	uselatestSvcMap := make(map[string]bool, 0)
+	if args != nil {
+		for _, arg := range args.ServiceUpdateRevisions {
+			uselatestSvcMap[arg.ServiceName] = arg.UpdateServiceRevision
+		}
+	}
+
+	return buildServiceInfoInEnv(env, latestSvcs, uselatestSvcMap, log)
 }
 
 func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
@@ -1112,10 +1120,10 @@ func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLo
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for product %s:%s", productName, envName))
 	}
 
-	return buildServiceInfoInEnv(env, latestSvcs, log)
+	return buildServiceInfoInEnv(env, latestSvcs, nil, log)
 }
 
-func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, log *zap.SugaredLogger) (*EnvServices, error) {
+func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, useLatestSvcMap map[string]bool, log *zap.SugaredLogger) (*EnvServices, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	ret := &EnvServices{
 		ProductName: productName,
@@ -1137,6 +1145,15 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			})
 		}
 		return ret, nil
+	}
+
+	productTemplateSvcs, err := GetProductUsedTemplateSvcs(productInfo)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find product template services for env %s:%s", productName, envName))
+	}
+	productTemplateSvcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range productTemplateSvcs {
+		productTemplateSvcMap[svc.ServiceName] = svc
 	}
 
 	productInfo.EnsureRenderInfo()
@@ -1208,7 +1225,13 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		}
 
 		serviceVars := setting.ServiceVarWildCard
-		tmplSvc := templateSvcMap[svcName]
+
+		var tmplSvc *commonmodels.Service
+		if useLatestSvcMap[svcName] {
+			tmplSvc = templateSvcMap[svcName]
+		} else {
+			tmplSvc = productTemplateSvcMap[svcName]
+		}
 		if tmplSvc != nil {
 			mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
 			if err != nil {
@@ -1240,7 +1263,12 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			latestValues = rendersetInfo.DefaultValues
 		}
 
-		tmplSvc := templateSvcMap[svcName]
+		var tmplSvc *commonmodels.Service
+		if useLatestSvcMap[svcName] {
+			tmplSvc = templateSvcMap[svcName]
+		} else {
+			tmplSvc = productTemplateSvcMap[svcName]
+		}
 		if tmplSvc != nil {
 			latestValues = tmplSvc.HelmChart.ValuesYaml
 		}
