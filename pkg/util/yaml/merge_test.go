@@ -50,6 +50,39 @@ imagePullSecrets:
   - name: default-secret1
 `
 
+// 云器遇到的场景
+// vars in tmplSvc
+var testOverrideYaml1 = `
+ip_hostnames:
+- ip: 2.2.2.2
+  hostnames: tes1.zadig.com
+- ip: 3.3.3.3
+  hostnames: tes2.zadig.com
+`
+
+// vars in render
+var testOverrideYaml2 = `
+ip_hostnames:
+ - ip: 1.1.1.1
+host_names:
+- host_names1.zadig.com
+hostnames:
+- hostnames1.zadig.com
+`
+
+// merged vars
+var testOverrideYaml3 = `
+ip_hostnames:
+- ip: 1.1.1.1
+  hostnames: tes1.zadig.com
+- ip: 3.3.3.3
+  hostnames: tes2.zadig.com
+host_names:
+- host_names1.zadig.com
+hostnames:
+- hostnames1.zadig.com
+`
+
 var _ = Describe("Testing merge", func() {
 
 	Context("merge to yamls into one", func() {
@@ -59,6 +92,22 @@ var _ = Describe("Testing merge", func() {
 
 			currentMap := map[string]interface{}{}
 			err = yaml.Unmarshal([]byte(testYaml3), &currentMap)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expected, err := yaml.Marshal(currentMap)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(string(actual)).To(Equal(string(expected)))
+		})
+
+	})
+
+	Context("merge to override yamls into one", func() {
+		It("should work as expected", func() {
+			actual, err := yamlutil.Merge([][]byte{[]byte(testOverrideYaml1), []byte(testOverrideYaml2)})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			currentMap := map[string]interface{}{}
+			err = yaml.Unmarshal([]byte(testOverrideYaml3), &currentMap)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			expected, err := yaml.Marshal(currentMap)
