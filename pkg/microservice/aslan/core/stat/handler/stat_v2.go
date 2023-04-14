@@ -38,11 +38,18 @@ func CreateStatDashboardConfig(c *gin.Context) {
 	ctx.Err = service.CreateStatDashboardConfig(args, ctx.Logger)
 }
 
+type listStatDashboardConfigResp struct {
+	Config []*service.StatDashboardConfig `json:"config"`
+}
+
 func ListStatDashboardConfigs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListDashboardConfigs(ctx.Logger)
+	resp, err := service.ListDashboardConfigs(ctx.Logger)
+
+	ctx.Resp = listStatDashboardConfigResp{resp}
+	ctx.Err = err
 }
 
 func UpdateStatDashboardConfig(c *gin.Context) {
