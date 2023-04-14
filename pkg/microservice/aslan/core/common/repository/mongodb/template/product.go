@@ -101,14 +101,31 @@ func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
 }
 
 func (c *ProductColl) ListNonPMProject() ([]*ProjectInfo, error) {
-	res, err := c.listProjects([]string{}, bson.M{
-		"product_name": "$product_name",
-		"project_name": "$project_name",
-	})
+	filter := bson.M{}
+	filter["product_feature.basic_facility"] = bson.M{"$ne": "cloud_host"}
+
+	pipeline := []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$project": bson.M{
+				"product_name": "$product_name",
+				"project_name": "$project_name",
+			},
+		},
+	}
+
+	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err
 	}
 
+	var res []*ProjectInfo
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 

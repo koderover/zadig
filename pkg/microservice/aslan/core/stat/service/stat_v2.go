@@ -35,11 +35,14 @@ func CreateStatDashboardConfig(args *StatDashboardConfig, logger *zap.SugaredLog
 		Source:   args.Source,
 		Function: args.Function,
 		Weight:   args.Weight,
-		APIConfig: &commonmodels.APIConfig{
+	}
+
+	if args.APIConfig != nil {
+		config.APIConfig = &commonmodels.APIConfig{
 			ExternalSystemId: args.APIConfig.ExternalSystemId,
 			ApiPath:          args.APIConfig.ApiPath,
 			Queries:          args.APIConfig.Queries,
-		},
+		}
 	}
 
 	err := commonrepo.NewStatDashboardConfigColl().Create(context.TODO(), config)
