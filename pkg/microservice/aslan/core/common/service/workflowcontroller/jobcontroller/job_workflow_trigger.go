@@ -86,11 +86,19 @@ func (c *WorkflowTriggerJobCtl) Run(ctx context.Context) {
 	defer cancelAllRunningTasks()
 
 	for _, e := range c.jobTaskSpec.WorkflowTriggerEvents {
-		w, err := mongodb.NewWorkflowV4Coll().Find(e.WorkflowName)
+		list, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{
+			ProjectName: e.ProjectName,
+			Names:       []string{e.WorkflowName},
+		}, 0, 0)
 		if err != nil {
 			logError(c.job, fmt.Sprintf("find workflow %s err: %v", e.WorkflowName, err), c.logger)
 			return
 		}
+		if len(list) == 0 {
+			logError(c.job, fmt.Sprintf("project %s workflow %s not found", e.ProjectName, e.WorkflowName), c.logger)
+			return
+		}
+		w := list[0]
 		w.Params = e.Params
 		e.WorkflowDisplayName = w.DisplayName
 
