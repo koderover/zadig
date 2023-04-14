@@ -71,19 +71,22 @@ func ListDashboardConfigs(logger *zap.SugaredLogger) ([]*StatDashboardConfig, er
 
 	var result []*StatDashboardConfig
 	for _, config := range configs {
-		result = append(result, &StatDashboardConfig{
+		currentResult := &StatDashboardConfig{
 			ID:       config.ItemKey,
 			Type:     config.Type,
 			Name:     config.Name,
 			Source:   config.Source,
 			Function: config.Function,
 			Weight:   config.Weight,
-			APIConfig: &APIConfig{
+		}
+		if config.APIConfig != nil {
+			currentResult.APIConfig = &APIConfig{
 				ExternalSystemId: config.APIConfig.ExternalSystemId,
 				ApiPath:          config.APIConfig.ApiPath,
 				Queries:          config.APIConfig.Queries,
-			},
-		})
+			}
+		}
+		result = append(result, currentResult)
 	}
 	return result, nil
 }
@@ -96,11 +99,14 @@ func UpdateStatDashboardConfig(id string, args *StatDashboardConfig, logger *zap
 		Source:   args.Source,
 		Function: args.Function,
 		Weight:   args.Weight,
-		APIConfig: &commonmodels.APIConfig{
+	}
+
+	if args.APIConfig != nil {
+		config.APIConfig = &commonmodels.APIConfig{
 			ExternalSystemId: args.APIConfig.ExternalSystemId,
 			ApiPath:          args.APIConfig.ApiPath,
 			Queries:          args.APIConfig.Queries,
-		},
+		}
 	}
 
 	err := commonrepo.NewStatDashboardConfigColl().Update(context.TODO(), id, config)
