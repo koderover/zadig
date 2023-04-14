@@ -17,8 +17,9 @@ limitations under the License.
 package models
 
 import (
-	"github.com/koderover/zadig/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type ExternalSystem struct {
