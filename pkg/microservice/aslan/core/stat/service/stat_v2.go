@@ -181,16 +181,17 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 				})
 				continue
 			}
-			fact, err := calculator.GetFact(startTime, endTime, project.Name)
+			fact, exists, err := calculator.GetFact(startTime, endTime, project.Name)
 			if err != nil {
 				logger.Errorf("failed to get fact for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
 				// if for some reason we failed to get the fact, we append a fact with value 0, and error along with it
 				facts = append(facts, &StatDashboardItem{
-					Type:  config.Type,
-					ID:    config.ItemKey,
-					Data:  0,
-					Score: 0,
-					Error: err.Error(),
+					Type:     config.Type,
+					ID:       config.ItemKey,
+					Data:     0,
+					Score:    0,
+					Error:    err.Error(),
+					HasValue: exists,
 				})
 				continue
 			}
@@ -201,12 +202,16 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 				logger.Errorf("failed to calculate score for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
 				score = 0
 			}
+			if !exists {
+				score = 0
+			}
 			logger.Infof("the score we get for id: %s is: %f", config.ItemKey, score)
 			item := &StatDashboardItem{
-				Type:  config.Type,
-				ID:    config.ItemKey,
-				Data:  fact,
-				Score: score,
+				Type:     config.Type,
+				ID:       config.ItemKey,
+				Data:     fact,
+				Score:    score,
+				HasValue: exists,
 			}
 			if err != nil {
 				item.Error = err.Error()

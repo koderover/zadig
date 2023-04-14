@@ -30,7 +30,7 @@ type ExternalSystemDetail struct {
 	ID      string           `json:"id"`
 	Name    string           `json:"name"`
 	Server  string           `json:"server"`
-	Headers []*util.KeyValue `json:"headers"`
+	Headers []*util.KeyValue `json:"headers,omitempty"`
 	// @2023-04-14 APIToken is deprecated after 1.4.0-ee
 	APIToken string `json:"api_token,omitempty"`
 }

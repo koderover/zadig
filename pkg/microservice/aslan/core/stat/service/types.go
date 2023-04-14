@@ -55,9 +55,10 @@ type StatDashboardByProject struct {
 }
 
 type StatDashboardItem struct {
-	Type  string      `json:"type"`
-	ID    string      `json:"id"`
-	Data  interface{} `json:"data"`
-	Score float64     `json:"score"`
-	Error string      `json:"error"`
+	Type     string      `json:"type"`
+	ID       string      `json:"id"`
+	Data     interface{} `json:"data"`
+	Score    float64     `json:"score"`
+	Error    string      `json:"error,omitempty"`
+	HasValue bool        `json:"has_value"`
 }
