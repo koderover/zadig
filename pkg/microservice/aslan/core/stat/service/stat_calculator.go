@@ -61,14 +61,50 @@ func CreateCalculatorFromConfig(cfg *StatDashboardConfig) (StatCalculator, error
 			Function: cfg.Function,
 		}, nil
 	case config.DashboardDataTypeBuildSuccessRate:
+		return &BuildSuccessRateCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeBuildAverageDuration:
+		return &BuildAverageDurationCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeBuildFrequency:
+		return &BuildFrequencyCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeDeploySuccessRate:
+		return &DeploySuccessRateCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeDeployAverageDuration:
+		return &DeployAverageDurationCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeDeployFrequency:
+		return &DeployFrequencyCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeReleaseSuccessRate:
+		return &ReleaseFrequencyCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeReleaseAverageDuration:
+		return &ReleaseFrequencyCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	case config.DashboardDataTypeReleaseFrequency:
+		return &ReleaseFrequencyCalculator{
+			Weight:   cfg.Weight,
+			Function: cfg.Function,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported config id: %s", cfg.ID)
 	}
@@ -172,4 +208,205 @@ func calculateWeightedScore(fact float64, function string, weight int64) (float6
 		return 0, fmt.Errorf("failed to convert result to float64")
 	}
 	return scoreWithoutWeight * float64(weight) / 100, nil
+}
+
+type BuildSuccessRateCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *BuildSuccessRateCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	buildJobList, err := commonrepo.NewJobInfoColl().GetBuildJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+	totalCounter := len(buildJobList)
+	passCounter := 0
+	for _, job := range buildJobList {
+		if job.Status == string(config.StatusPassed) {
+			passCounter++
+		}
+	}
+	return float64(passCounter) * 100 / float64(totalCounter), nil
+}
+
+func (c *BuildSuccessRateCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type BuildAverageDurationCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *BuildAverageDurationCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	buildJobList, err := commonrepo.NewJobInfoColl().GetBuildJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+	totalCounter := len(buildJobList)
+	var totalTimesTaken int64 = 0
+	for _, job := range buildJobList {
+		totalTimesTaken += job.Duration
+	}
+	return float64(totalTimesTaken) / float64(totalCounter), nil
+}
+
+func (c *BuildAverageDurationCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type BuildFrequencyCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *BuildFrequencyCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	buildJobList, err := commonrepo.NewJobInfoColl().GetBuildJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+
+	daysBetween := int(endTime-startTime) / 86400
+	totalCounter := len(buildJobList)
+
+	return float64(totalCounter) * 7 / float64(daysBetween), nil
+}
+
+func (c *BuildFrequencyCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type DeploySuccessRateCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *DeploySuccessRateCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+	totalCounter := len(deployJobList)
+	passCounter := 0
+	for _, job := range deployJobList {
+		if job.Status == string(config.StatusPassed) {
+			passCounter++
+		}
+	}
+	return float64(passCounter) * 100 / float64(totalCounter), nil
+}
+
+func (c *DeploySuccessRateCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type DeployAverageDurationCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *DeployAverageDurationCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+	totalCounter := len(deployJobList)
+	var totalTimesTaken int64 = 0
+	for _, job := range deployJobList {
+		totalTimesTaken += job.Duration
+	}
+	return float64(totalTimesTaken) / float64(totalCounter), nil
+}
+
+func (c *DeployAverageDurationCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type DeployFrequencyCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *DeployFrequencyCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+
+	daysBetween := int(endTime-startTime) / 86400
+	totalCounter := len(deployJobList)
+
+	return float64(totalCounter) * 7 / float64(daysBetween), nil
+}
+
+func (c *DeployFrequencyCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type ReleaseSuccessRateCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *ReleaseSuccessRateCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	releaseJobList, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+	totalCounter := len(releaseJobList)
+	passCounter := 0
+	for _, job := range releaseJobList {
+		if job.Status == string(config.StatusPassed) {
+			passCounter++
+		}
+	}
+	return float64(passCounter) * 100 / float64(totalCounter), nil
+}
+
+func (c *ReleaseSuccessRateCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type ReleaseAverageDurationCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *ReleaseAverageDurationCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	releaseJobList, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+	totalCounter := len(releaseJobList)
+	var totalTimesTaken int64 = 0
+	for _, job := range releaseJobList {
+		totalTimesTaken += job.Duration
+	}
+	return float64(totalTimesTaken) / float64(totalCounter), nil
+}
+
+func (c *ReleaseAverageDurationCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
+}
+
+type ReleaseFrequencyCalculator struct {
+	Weight   int64
+	Function string
+}
+
+func (c *ReleaseFrequencyCalculator) GetFact(startTime, endTime int64, project string) (float64, error) {
+	releaseJobList, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(startTime, endTime, project)
+	if err != nil {
+		return 0, err
+	}
+
+	daysBetween := int(endTime-startTime) / 86400
+	totalCounter := len(releaseJobList)
+
+	return float64(totalCounter) * 7 / float64(daysBetween), nil
+}
+
+func (c *ReleaseFrequencyCalculator) GetWeightedScore(fact float64) (float64, error) {
+	return calculateWeightedScore(fact, c.Function, c.Weight)
 }

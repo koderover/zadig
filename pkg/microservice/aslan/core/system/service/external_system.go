@@ -28,9 +28,9 @@ import (
 
 func CreateExternalSystem(args *ExternalSystemDetail, log *zap.SugaredLogger) error {
 	err := commonrepo.NewExternalSystemColl().Create(&commonmodels.ExternalSystem{
-		Name:     args.Name,
-		Server:   args.Server,
-		APIToken: args.APIToken,
+		Name:    args.Name,
+		Server:  args.Server,
+		Headers: args.Headers,
 	})
 	if err != nil {
 		log.Errorf("Create external system error: %s", err)
@@ -56,9 +56,11 @@ func ListExternalSystem(encryptedKey string, pageNum, pageSize int64, log *zap.S
 			return nil, 0, err
 		}
 		systemList = append(systemList, &ExternalSystemDetail{
-			ID:       item.ID.Hex(),
-			Name:     item.Name,
-			Server:   item.Server,
+			ID:      item.ID.Hex(),
+			Name:    item.Name,
+			Server:  item.Server,
+			Headers: item.Headers,
+			// TODO: this field is deprecated, for compatibility this field will be removed 2 versions later
 			APIToken: apiToken,
 		})
 	}
@@ -76,6 +78,7 @@ func GetExternalSystemDetail(id string, log *zap.SugaredLogger) (*ExternalSystem
 	resp.Name = externalSystem.Name
 	resp.Server = externalSystem.Server
 	resp.APIToken = externalSystem.APIToken
+	resp.Headers = externalSystem.Headers
 	return resp, nil
 }
 
@@ -83,9 +86,9 @@ func UpdateExternalSystem(id string, system *ExternalSystemDetail, log *zap.Suga
 	err := commonrepo.NewExternalSystemColl().Update(
 		id,
 		&commonmodels.ExternalSystem{
-			Name:     system.Name,
-			Server:   system.Server,
-			APIToken: system.APIToken,
+			Name:    system.Name,
+			Server:  system.Server,
+			Headers: system.Headers,
 		},
 	)
 	if err != nil {

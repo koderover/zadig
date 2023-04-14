@@ -246,7 +246,7 @@ func (c *BlueGreenDeployJobCtl) timeout() int64 {
 }
 
 func (c *BlueGreenDeployJobCtl) SaveInfo(ctx context.Context) error {
-	return mongodb.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
 		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
