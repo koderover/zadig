@@ -48,8 +48,9 @@ func CreateStatDashboardConfig(args *StatDashboardConfig, logger *zap.SugaredLog
 	err := commonrepo.NewStatDashboardConfigColl().Create(context.TODO(), config)
 	if err != nil {
 		logger.Errorf("failed to create config for type: %s, error: %s", args.Type, err)
+		return e.ErrCreateStatisticsDashboardConfig.AddDesc(err.Error())
 	}
-	return e.ErrCreateStatisticsDashboardConfig.AddDesc(err.Error())
+	return nil
 }
 
 func ListDashboardConfigs(logger *zap.SugaredLogger) ([]*StatDashboardConfig, error) {
