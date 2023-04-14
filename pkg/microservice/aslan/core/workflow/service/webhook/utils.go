@@ -36,6 +36,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -155,7 +156,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		}
 
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
-		if err := util.SetCurrentContainerImages(args); err != nil {
+		if err := commonutil.SetCurrentContainerImages(args); err != nil {
 			return err
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
