@@ -51,7 +51,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type DeployJobCtl struct {
@@ -103,7 +102,7 @@ func (c *DeployJobCtl) getVarsYaml() (string, error) {
 	for _, v := range c.jobTaskSpec.KeyVals {
 		vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
 	}
-	return yaml.GenerateYamlFromKV(vars)
+	return kube.GenerateYamlFromKV(vars)
 }
 
 func (c *DeployJobCtl) run(ctx context.Context) error {

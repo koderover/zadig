@@ -69,6 +69,49 @@ type WorkloadResource struct {
 	Name string
 }
 
+func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
+	if len(yamlContent) == 0 {
+		return nil, nil
+	}
+	flatMap, err := converter.YamlToFlatMap([]byte(yamlContent))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert yaml to flat map")
+	} else {
+		kvs := make([]*commonmodels.VariableKV, 0)
+		for k, v := range flatMap {
+			if len(k) == 0 {
+				continue
+			}
+			kvs = append(kvs, &models.VariableKV{
+				Key:   k,
+				Value: v,
+			})
+		}
+		return kvs, nil
+	}
+}
+
+func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
+	if len(kvs) == 0 {
+		return "", nil
+	}
+	flatMap := make(map[string]interface{})
+	for _, kv := range kvs {
+		flatMap[kv.Key] = kv.Value
+	}
+
+	validKvMap, err := converter.Expand(flatMap)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to expand flat map")
+	}
+
+	bs, err := yaml.Marshal(validKvMap)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to marshal map to yaml")
+	}
+	return string(bs), nil
+}
+
 // extract valid svc variable from service variable
 // keys defined in service vars are valid
 // keys not defined in service vars or default values are valid as well
@@ -318,7 +361,7 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 		return nil, errors.Wrapf(err, "failed to clip variable yaml for %s/%s", option.ProductName, option.ServiceName)
 	}
 
-	return zadigyamlutil.GeneKVFromYaml(variableYaml)
+	return GeneKVFromYaml(variableYaml)
 }
 
 // FetchCurrentAppliedYaml generates full yaml of some service currently applied in Zadig
@@ -448,6 +491,7 @@ func variableYamlNil(variableYaml string) bool {
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
+	log.Debugf("GenerateRenderedYaml option: %+v", option)
 	_, err := templaterepo.NewProductColl().Find(option.ProductName)
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
@@ -482,6 +526,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 	log.Debugf("latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
 
+	log.Debugf("before latest service : %+v", latestSvcTemplate)
 	var svcContainersInProduct []*models.Container
 	if curProductSvc != nil {
 		svcContainersInProduct = curProductSvc.Containers

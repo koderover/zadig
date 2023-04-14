@@ -40,6 +40,7 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -1243,7 +1244,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
 			}
 
-			kvs, err := yamlutil.GeneKVFromYaml(yamlContent)
+			kvs, err := kube.GeneKVFromYaml(yamlContent)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "failed to generate variable kv for service %s", svcName)
 			}
@@ -1295,7 +1296,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 			}
 
-			kvs, err := yamlutil.GeneKVFromYaml(mergeValues)
+			kvs, err := kube.GeneKVFromYaml(mergeValues)
 			if err != nil {
 				return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
 			}
@@ -1356,12 +1357,12 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		if deployType == setting.K8SDeployType {
 			svc.VariableYaml = templateSvc.VariableYaml
-			svc.VariableKVs, _ = yamlutil.GeneKVFromYaml(templateSvc.VariableYaml)
+			svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.VariableYaml)
 			svc.LatestVariableYaml = svc.VariableYaml
 			svc.LatestVariableKVs = svc.VariableKVs
 		} else if deployType == setting.HelmDeployType {
 			svc.VariableYaml = templateSvc.HelmChart.ValuesYaml
-			svc.VariableKVs, _ = yamlutil.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
+			svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
 			svc.LatestVariableYaml = svc.VariableYaml
 			svc.LatestVariableKVs = svc.VariableKVs
 		}

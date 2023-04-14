@@ -34,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type HelmDeployJobCtl struct {
@@ -99,7 +98,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		for _, v := range c.jobTaskSpec.KeyVals {
 			vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
 		}
-		variableYaml, err = yaml.GenerateYamlFromKV(vars)
+		variableYaml, err = kube.GenerateYamlFromKV(vars)
 	}
 
 	param := &kube.ResourceApplyParam{
@@ -190,5 +189,5 @@ func (c *HelmDeployJobCtl) getVarsYaml() (string, error) {
 	for _, v := range c.jobTaskSpec.KeyVals {
 		vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
 	}
-	return yaml.GenerateYamlFromKV(vars)
+	return kube.GenerateYamlFromKV(vars)
 }
