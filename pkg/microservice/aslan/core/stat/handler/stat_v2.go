@@ -92,5 +92,8 @@ func GetStatsDashboard(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetStatsDashboard(args.StartTime, args.EndTime, ctx.Logger)
+	resp, err := service.GetStatsDashboard(args.StartTime, args.EndTime, ctx.Logger)
+
+	ctx.Resp = getStatDashboardResp{resp}
+	ctx.Err = err
 }
