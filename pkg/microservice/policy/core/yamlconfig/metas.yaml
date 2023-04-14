@@ -315,24 +315,6 @@ metas:
     alias: 数据视图
     description: ''
     rules:
-      - action: edit_dashboard_config
-        alias: 配置效能分析看板
-        description: ''
-        rules:
-          - method: GET
-            endpoint: /api/aslan/stat/v2/config
-          - method: POST
-            endpoint: /api/aslan/stat/v2/config
-          - method: PUT
-            endpoint: /api/aslan/stat/v2/config/?*
-          - method: DELETE
-            endpoint: /api/aslan/stat/v2/config/?*
-      - action: get_dashboard
-        alias: 查看效能分析看板
-        description: ''
-        rules:
-          - method: GET
-            endpoint: /api/aslan/stat/v2/dashboard
       - action: data_over
         alias: 查看数据概览
         description: ''
@@ -346,9 +328,11 @@ metas:
           - method: GET
             endpoint: /api/v1/picket/stat/dashboard/build
       - action: efficiency_over
-        alias: 查看数据洞察
+        alias: 查看效能洞察
         description: ''
         rules:
+          - method: GET
+            endpoint: /api/aslan/stat/v2/dashboard
           - method: GET
             endpoint: /api/aslan/stat/dashboard/build
           - method: GET
@@ -385,6 +369,18 @@ metas:
             endpoint: api/aslan/stat/quality/testHealthMeasure
           - method: POST
             endpoint: api/aslan/stat/quality/testTrend
+      - action: edit_dashboard_config
+        alias: 配置效能分析看板
+        description: ''
+        rules:
+          - method: GET
+            endpoint: /api/aslan/stat/v2/config
+          - method: POST
+            endpoint: /api/aslan/stat/v2/config
+          - method: PUT
+            endpoint: /api/aslan/stat/v2/config/?*
+          - method: DELETE
+            endpoint: /api/aslan/stat/v2/config/?*
   - resource: Template
     alias: 模板库
     description: ''
