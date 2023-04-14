@@ -200,13 +200,16 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 				logger.Errorf("failed to calculate score for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
 				score = 0
 			}
-			facts = append(facts, &StatDashboardItem{
+			item := &StatDashboardItem{
 				Type:  config.Type,
 				ID:    config.ItemKey,
 				Data:  fact,
 				Score: score,
-				Error: err.Error(),
-			})
+			}
+			if err != nil {
+				item.Error = err.Error()
+			}
+			facts = append(facts, item)
 		}
 
 		// once all configured facts are calculated, we calculate the total score
