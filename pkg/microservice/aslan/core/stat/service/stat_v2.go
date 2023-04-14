@@ -153,19 +153,22 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 		facts := make([]*StatDashboardItem, 0)
 
 		for _, config := range configs {
-			calculator, err := CreateCalculatorFromConfig(&StatDashboardConfig{
+			cfg := &StatDashboardConfig{
 				ID:       config.ItemKey,
 				Type:     config.Type,
 				Name:     config.Name,
 				Source:   config.Source,
 				Function: config.Function,
 				Weight:   config.Weight,
-				APIConfig: &APIConfig{
+			}
+			if config.APIConfig != nil {
+				cfg.APIConfig = &APIConfig{
 					ExternalSystemId: config.APIConfig.ExternalSystemId,
 					ApiPath:          config.APIConfig.ApiPath,
 					Queries:          config.APIConfig.Queries,
-				},
-			})
+				}
+			}
+			calculator, err := CreateCalculatorFromConfig(cfg)
 			if err != nil {
 				logger.Errorf("failed to create calculator for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
 				// if for some reason we failed to create the calculator, we append a fact with value 0, and error along with it
