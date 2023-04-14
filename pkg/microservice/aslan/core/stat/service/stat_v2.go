@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"math"
 
 	"go.uber.org/zap"
 
@@ -196,7 +197,8 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 				})
 				continue
 			}
-			logger.Infof("the fact we get for id: %s is: %f", config.ItemKey, fact)
+			// we round the fact to 2 decimal places
+			fact = math.Round(fact*100) / 100
 			// otherwise we calculate the score and append the fact
 			score, err := calculator.GetWeightedScore(fact)
 			if err != nil {
@@ -206,12 +208,12 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 			if !exists {
 				score = 0
 			}
-			logger.Infof("the score we get for id: %s is: %f", config.ItemKey, score)
+
 			item := &StatDashboardItem{
 				Type:     config.Type,
 				ID:       config.ItemKey,
 				Data:     fact,
-				Score:    score,
+				Score:    math.Round(score*100) / 100,
 				HasValue: exists,
 			}
 			if err != nil {
