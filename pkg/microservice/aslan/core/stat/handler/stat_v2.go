@@ -39,7 +39,7 @@ func CreateStatDashboardConfig(c *gin.Context) {
 }
 
 type listStatDashboardConfigResp struct {
-	Config []*service.StatDashboardConfig `json:"config"`
+	Configs []*service.StatDashboardConfig `json:"configs"`
 }
 
 func ListStatDashboardConfigs(c *gin.Context) {
