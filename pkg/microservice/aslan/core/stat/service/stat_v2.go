@@ -194,12 +194,14 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 				})
 				continue
 			}
+			logger.Infof("the fact we get for id: %s is: %f", config.ItemKey, fact)
 			// otherwise we calculate the score and append the fact
 			score, err := calculator.GetWeightedScore(fact)
 			if err != nil {
 				logger.Errorf("failed to calculate score for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
 				score = 0
 			}
+			logger.Infof("the score we get for id: %s is: %f", config.ItemKey, score)
 			item := &StatDashboardItem{
 				Type:  config.Type,
 				ID:    config.ItemKey,
