@@ -286,6 +286,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				}
 				jobTaskSpec.ServiceAndImages = append(jobTaskSpec.ServiceAndImages, &commonmodels.DeployServiceModule{
 					Image:         deploy.Image,
+					ImageName:     deploy.ImageName,
 					ServiceModule: deploy.ServiceModule,
 				})
 			}

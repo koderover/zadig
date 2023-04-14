@@ -127,6 +127,7 @@ type JobTaskDeploySpec struct {
 type DeployServiceModule struct {
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"image"`
+	ImageName     string `bson:"image_name"                       json:"image_name"                          yaml:"image_name"`
 }
 
 type Resource struct {
