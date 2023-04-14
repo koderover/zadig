@@ -36,7 +36,7 @@ type StatDashboardConfig struct {
 	ID        string     `json:"id"`
 	Name      string     `json:"name"`
 	Source    string     `json:"source"`
-	APIConfig *APIConfig `json:"api_config"`
+	APIConfig *APIConfig `json:"api_config,omitempty"`
 	Function  string     `json:"function"`
 	Weight    int64      `json:"weight"`
 }

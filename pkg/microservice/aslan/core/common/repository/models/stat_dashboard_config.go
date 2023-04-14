@@ -19,14 +19,14 @@ package models
 import "github.com/koderover/zadig/pkg/util"
 
 type StatDashboardConfig struct {
-	ID        string     `bson:"_id"                json:"id"`
-	Type      string     `bson:"type"               json:"type"`
-	ItemKey   string     `bson:"item_key"           json:"item_key"`
-	Name      string     `bson:"name"               json:"name"`
-	Source    string     `bson:"source"              json:"source"`
-	APIConfig *APIConfig `bson:"api_config"         json:"api_config"`
-	Function  string     `bson:"function" json:"function"`
-	Weight    int64      `bson:"weight" json:"weight"`
+	ID        string     `bson:"_id,omitempty"`
+	Type      string     `bson:"type"`
+	ItemKey   string     `bson:"item_key"`
+	Name      string     `bson:"name"`
+	Source    string     `bson:"source"`
+	APIConfig *APIConfig `bson:"api_config,omitempty"`
+	Function  string     `bson:"function"`
+	Weight    int64      `bson:"weight"`
 }
 
 type APIConfig struct {
