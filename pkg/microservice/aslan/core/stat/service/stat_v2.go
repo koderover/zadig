@@ -120,8 +120,9 @@ func DeleteStatDashboardConfig(id string, logger *zap.SugaredLogger) error {
 	err := commonrepo.NewStatDashboardConfigColl().Delete(context.TODO(), id)
 	if err != nil {
 		logger.Errorf("failed to delete config for id: %s, error: %s", id, err)
+		e.ErrDeleteStatisticsDashboardConfig.AddDesc(err.Error())
 	}
-	return e.ErrDeleteStatisticsDashboardConfig.AddDesc(err.Error())
+	return nil
 }
 
 func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*StatDashboardByProject, error) {
