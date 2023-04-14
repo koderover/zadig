@@ -112,8 +112,9 @@ func UpdateStatDashboardConfig(id string, args *StatDashboardConfig, logger *zap
 	err := commonrepo.NewStatDashboardConfigColl().Update(context.TODO(), id, config)
 	if err != nil {
 		logger.Errorf("failed to update config for type: %s, error: %s", args.Type, err)
+		return e.ErrUpdateStatisticsDashboardConfig.AddDesc(err.Error())
 	}
-	return e.ErrUpdateStatisticsDashboardConfig.AddDesc(err.Error())
+	return nil
 }
 
 func DeleteStatDashboardConfig(id string, logger *zap.SugaredLogger) error {
