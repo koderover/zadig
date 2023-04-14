@@ -146,7 +146,7 @@ func (c *HelmDeployJobCtl) SaveInfo(ctx context.Context) error {
 		modules = append(modules, module.ServiceModule)
 	}
 	moduleList := strings.Join(modules, ",")
-	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+	return commonrepo.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
 		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
