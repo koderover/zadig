@@ -82,6 +82,10 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 
 func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
 	for _, stage := range stages {
+		// should skip passed stage when workflow task be restarted
+		if stage.Status == config.StatusPassed {
+			continue
+		}
 		runStage(ctx, stage, workflowCtx, concurrency, logger, ack)
 		if statusFailed(stage.Status) {
 			return
@@ -105,13 +109,25 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 	if !stage.Approval.Enabled {
 		return nil
 	}
+	// should skip passed approval when workflow task be restarted
+	if stage.Approval.Status == config.StatusPassed {
+		return nil
+	}
 	stage.Approval.StartTime = time.Now().Unix()
 	defer func() {
 		stage.Approval.EndTime = time.Now().Unix()
+
+		switch stage.Status {
+		case config.StatusRunning:
+			stage.Approval.Status = config.StatusPassed
+		default:
+			stage.Approval.Status = stage.Status
+		}
 	}()
 	// workflowCtx.SetStatus contain ack() function, so we don't need to call ack() here
 	stage.Status = config.StatusWaitingApprove
 	workflowCtx.SetStatus(config.StatusWaitingApprove)
+	// if approval result is not passed, workflow status will be set correctly in outer function
 	defer workflowCtx.SetStatus(config.StatusRunning)
 
 	switch stage.Approval.Type {
@@ -129,6 +145,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	if approval == nil {
 		return errors.New("waitForApprove: native approval data not found")
 	}
+
 	if approval.Timeout == 0 {
 		approval.Timeout = 60
 	}
@@ -153,7 +170,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 			return fmt.Errorf("workflow was canceled")
 
 		case <-timeout:
-			stage.Status = config.StatusCancelled
+			stage.Status = config.StatusTimeout
 			return fmt.Errorf("workflow timeout")
 		default:
 			approved, approveCount, err := approveWithL.isApproval()
