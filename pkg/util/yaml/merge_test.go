@@ -73,7 +73,7 @@ hostnames:
 // merged vars
 var testOverrideYaml3 = `
 ip_hostnames:
-- ip: 1.1.1.1
+- ip: 2.2.2.2
   hostnames: tes1.zadig.com
 - ip: 3.3.3.3
   hostnames: tes2.zadig.com
@@ -81,6 +81,49 @@ host_names:
 - host_names1.zadig.com
 hostnames:
 - hostnames1.zadig.com
+`
+
+var testFlatYaml1 = `
+base:
+  property: test1
+container_port: 22
+cpu_limit: 11
+hello: 0
+memory_limit: 22
+newcmd: dd
+ports_config: <nil>
+protocol: http
+skywalking: ""
+`
+
+var testFlatYaml2 = `
+base:
+  property:  test1
+cpu_limit: 11
+hello: 0
+memory_limit: 22
+newcmd: dd
+ports_config:
+  - container_port: 22
+    protocol: http
+skywalking: ""
+a: b
+`
+
+var testFlatYaml3 = `
+base:
+  property:  test1
+cpu_limit: 11
+hello: 0
+memory_limit: 22
+newcmd: dd
+ports_config:
+  - container_port: 22
+    protocol: http
+skywalking: ""
+container_port: 22
+protocol: http
+a: b
 `
 
 var _ = Describe("Testing merge", func() {
@@ -103,11 +146,27 @@ var _ = Describe("Testing merge", func() {
 
 	Context("merge to override yamls into one", func() {
 		It("should work as expected", func() {
-			actual, err := yamlutil.Merge([][]byte{[]byte(testOverrideYaml1), []byte(testOverrideYaml2)})
+			actual, err := yamlutil.Merge([][]byte{[]byte(testOverrideYaml2), []byte(testOverrideYaml1)})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			currentMap := map[string]interface{}{}
 			err = yaml.Unmarshal([]byte(testOverrideYaml3), &currentMap)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expected, err := yaml.Marshal(currentMap)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(string(actual)).To(Equal(string(expected)))
+		})
+
+	})
+
+	Context("merge to flat yamls into one", func() {
+		It("should work as expected", func() {
+			actual, err := yamlutil.Merge([][]byte{[]byte(testFlatYaml1), []byte(testFlatYaml2)})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			currentMap := map[string]interface{}{}
+			err = yaml.Unmarshal([]byte(testFlatYaml3), &currentMap)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			expected, err := yaml.Marshal(currentMap)

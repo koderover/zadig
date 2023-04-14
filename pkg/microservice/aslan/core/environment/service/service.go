@@ -366,6 +366,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
+	log.Debugf("service/PreviewService")
 	newVariable, err := kube.GenerateYamlFromKV(args.VariableKVS)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
@@ -399,6 +400,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		return ret, nil
 	}
 
+	log.Debugf("before GenerateRenderedYaml")
 	latestYaml, _, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
 		ProductName:           args.ProductName,
 		EnvName:               args.EnvName,

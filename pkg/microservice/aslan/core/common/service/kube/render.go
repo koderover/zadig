@@ -589,12 +589,15 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
 	}
 
+	log.Debugf("serviceVariableYaml: %s", serviceVariableYaml)
+	log.Debugf("option.VariableYaml: %s", option.VariableYaml)
 	serviceVariableYaml = commonutil.ClipVariableYamlNoErr(serviceVariableYaml, latestSvcTemplate.ServiceVars)
 	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
 
+	log.Debugf("mergedBs: %s", string(mergedBs))
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{
@@ -630,6 +633,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	if err != nil {
 		return "", fmt.Errorf("failed to extract variable for service: %s, err: %s", serviceName, err)
 	}
+	log.Debugf("serviceVariable: %s", serviceVariable)
 	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(rs.DefaultValues, serviceVariable)
 	if err != nil {
 		return originYaml, err
@@ -637,6 +641,8 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
+
+	log.Debugf("variableYaml: %s", variableYaml)
 
 	variableMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
