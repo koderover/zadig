@@ -63,6 +63,9 @@ func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
+	if len(j.spec.Issues) == 0 {
+		return nil, errors.New("需要指定至少一个 Jira Issue")
+	}
 	j.job.Spec = j.spec
 	jobTask := &commonmodels.JobTask{
 		Name: j.job.Name,
