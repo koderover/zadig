@@ -17,7 +17,7 @@ limitations under the License.
 package workflow
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

@@ -17,7 +17,7 @@ limitations under the License.
 package yaml
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
 	"github.com/koderover/zadig/pkg/util/converter"
@@ -35,7 +35,7 @@ imagePullSecrets:
 
 var testYaml2 = `
 env: dev
-svc1: 
+svc1:
   image:
     repo: repo.com
     name: go-sample-site
@@ -51,7 +51,7 @@ imagePullSecrets:
 
 var testYaml3 = `
 env: dev
-svc1: 
+svc1:
   image:
     repo: repo.com
     name: go-sample-site
@@ -73,7 +73,7 @@ env: dev
 
 repoData1:
   global:
-    hub: koderover.tencentcloudcr.com/koderover-public 
+    hub: koderover.tencentcloudcr.com/koderover-public
 
 testSpec:
   image:
@@ -114,7 +114,7 @@ var testYaml9 = `
   deploy:
     image:
       name: go-sample-site
-      tag: 0.1.0 
+      tag: 0.1.0
 `
 
 var err error
