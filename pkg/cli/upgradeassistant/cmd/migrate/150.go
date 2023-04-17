@@ -19,14 +19,13 @@ package migrate
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/util"
-
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 )
 
