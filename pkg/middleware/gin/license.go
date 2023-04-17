@@ -17,10 +17,10 @@ limitations under the License.
 package gin
 
 import (
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 )
 
@@ -48,7 +48,7 @@ const (
 func ProcessLicense() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// if not enterprise we skip
-		if os.Getenv("ENTERPRISE") == "false" {
+		if !config.Enterprise() {
 			c.Next()
 			return
 		}
