@@ -51,7 +51,7 @@ func (c *ProjectManagementColl) GetCollectionName() string {
 }
 func (c *ProjectManagementColl) EnsureIndex(ctx context.Context) error {
 	indexModel := mongo.IndexModel{
-		Keys:    bson.D{{"type", 1}},
+		Keys:    bson.M{"type": 1},
 		Options: options.Index().SetUnique(true),
 	}
 	_, err := c.Indexes().CreateOne(context.TODO(), indexModel)
