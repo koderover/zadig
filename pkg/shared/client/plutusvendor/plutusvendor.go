@@ -33,6 +33,24 @@ func (c *Client) CheckSignature(userNum int64) (*CheckSignatrueResp, error) {
 	return res, err
 }
 
+type ZadigXLicenseStatus struct {
+	Status           string `json:"status"`
+	SystemID         string `json:"system_id"`
+	UserLimit        int64  `json:"user_limit"`
+	UserCount        int64  `json:"user_count"`
+	License          string `json:"license"`
+	ExpireAt         int64  `json:"expire_at"`
+	AvailableVersion string `json:"available_version"`
+	CurrentVersion   string `json:"current_version"`
+}
+
+func (c *Client) CheckZadigXLicenseStatus() (*ZadigXLicenseStatus, error) {
+	url := fmt.Sprintf("/signature/license")
+	res := &ZadigXLicenseStatus{}
+	_, err := c.Get(url, httpclient.SetResult(res))
+	return res, err
+}
+
 func (c *Client) Health() error {
 	url := "/health"
 	_, err := c.Get(url)
