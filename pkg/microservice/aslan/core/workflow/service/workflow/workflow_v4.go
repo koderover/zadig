@@ -1648,6 +1648,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 	jobSpec := &commonmodels.ZadigDeployJobSpec{}
 	found := false
+	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name != jobName {
@@ -1663,6 +1664,11 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 				log.Error(msg)
 				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 			}
+
+			for _, svc := range jobSpec.Services {
+				svcKVsMap[svc.ServiceName] = svc.KeyVals
+			}
+
 			found = true
 			break
 		}
@@ -1674,12 +1680,12 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 	var services *commonservice.EnvServices
 	if jobSpec.Production {
-		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, log)
+		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, svcKVsMap, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 	} else {
-		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, log)
+		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, svcKVsMap, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
@@ -1712,6 +1718,21 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	if slices.Contains(deployContents, config.DeployConfig) && serviceEnv.Updatable {
 		defaultUpdateConfig = true
 	}
+
+	keySet := sets.NewString()
+	for _, kv := range service.KeyVals {
+		splitStrs := strings.Split(kv.Key, ".")
+		keySet.Insert(splitStrs[0])
+	}
+
+	filter := func(varKV *commonmodels.VariableKV) bool {
+		prefixKey := strings.Split(varKV.Key, ".")[0]
+		if !keySet.Has(prefixKey) {
+			return true
+		}
+		return false
+	}
+
 	if service == nil {
 		service = &commonmodels.DeployService{
 			ServiceName:  serviceName,
@@ -1720,18 +1741,22 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 		}
 	}
 	for _, svcVar := range serviceEnv.VariableKVs {
-		service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
-			Key:   svcVar.Key,
-			Value: svcVar.Value,
-			Type:  commonmodels.StringType,
-		})
+		if filter(svcVar) {
+			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+				Key:   svcVar.Key,
+				Value: svcVar.Value,
+				Type:  commonmodels.StringType,
+			})
+		}
 	}
 	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		service.LatestKeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
-			Key:   svcVar.Key,
-			Value: svcVar.Value,
-			Type:  commonmodels.StringType,
-		})
+		if filter(svcVar) {
+			service.LatestKeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+				Key:   svcVar.Key,
+				Value: svcVar.Value,
+				Type:  commonmodels.StringType,
+			})
+		}
 	}
 	if !slices.Contains(deployContents, config.DeployVars) {
 		service.KeyVals = []*commonmodels.ServiceKeyVal{}

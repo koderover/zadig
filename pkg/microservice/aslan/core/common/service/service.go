@@ -46,7 +46,6 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -1086,7 +1085,7 @@ func ReplaceRuleVariable(rule string, replaceValue *Variable) string {
 	return payload.String()
 }
 
-func ListServicesInEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
+func ListServicesInEnv(envName, productName string, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1098,10 +1097,10 @@ func ListServicesInEnv(envName, productName string, log *zap.SugaredLogger) (*En
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
 	}
 
-	return buildServiceInfoInEnv(env, latestSvcs, log)
+	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
 }
 
-func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLogger) (*EnvServices, error) {
+func ListServicesInProductionEnv(envName, productName string, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1113,10 +1112,10 @@ func ListServicesInProductionEnv(envName, productName string, log *zap.SugaredLo
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for product %s:%s", productName, envName))
 	}
 
-	return buildServiceInfoInEnv(env, latestSvcs, log)
+	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
 }
 
-func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, log *zap.SugaredLogger) (*EnvServices, error) {
+func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	ret := &EnvServices{
 		ProductName: productName,
@@ -1227,16 +1226,24 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			} else {
 				tmplSvc = productTemplateSvcMap[svcName]
 			}
-			if tmplSvc != nil {
+
+			if newSvcKVsMap[svcName] == nil {
+				// config phase
 				mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
 				if err != nil {
 					return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
 				} else {
 					yamlContent = string(mergedValues)
 				}
-				if !productInfo.Production {
-					serviceVars = tmplSvc.ServiceVars
+			} else {
+				// "exec" phase
+				yamlContent, err = partialOverride(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent, newSvcKVsMap[svcName])
+				if err != nil {
+					return "", nil, errors.Wrapf(err, "failed to partial override variable yaml for service %s", svcName)
 				}
+			}
+			if !productInfo.Production {
+				serviceVars = tmplSvc.ServiceVars
 			}
 
 			yamlContent, err = commonutil.ClipVariableYaml(yamlContent, serviceVars)
@@ -1271,7 +1278,6 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
 		if svcRender != nil {
 			currentValues = svcRender.ValuesYaml
-			latestValues = rendersetInfo.DefaultValues
 		}
 
 		getValuesAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commonmodels.VariableKV, error) {
@@ -1285,22 +1291,27 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				latestValues = tmplSvc.HelmChart.ValuesYaml
 			}
 
-			// merge latest values
-			mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues), nil, false)
-			if err != nil {
-				return "", nil, errors.Wrapf(err, "failed to override values")
+			mergedValues := ""
+			if newSvcKVsMap[svcName] == nil {
+				// config phase
+				mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues), nil, false)
+				if err != nil {
+					return "", nil, errors.Wrapf(err, "failed to override values")
+				}
+				mergedValues = string(mergedBs)
+			} else {
+				// "exec" phase
+				mergedValues, err = partialOverride(latestValues, currentValues, newSvcKVsMap[svcName])
+				if err != nil {
+					return "", nil, errors.Wrapf(err, "failed to partial override values yaml for service %s", svcName)
+				}
 			}
 
-			mergeValues, err := helmtool.MergeOverrideValues(string(mergedBs), rendersetInfo.DefaultValues, "", "")
-			if err != nil {
-				return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
-			}
-
-			kvs, err := kube.GeneKVFromYaml(mergeValues)
+			kvs, err := kube.GeneKVFromYaml(mergedValues)
 			if err != nil {
 				return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
 			}
-			return mergeValues, kvs, nil
+			return mergedValues, kvs, nil
 		}
 
 		mergeValues, kvs, err := getValuesAndKVs(svcName, false)
@@ -1371,4 +1382,54 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	}
 
 	return ret, nil
+}
+
+func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyVal) (string, error) {
+	keySet := sets.NewString()
+	for _, kv := range kvsRange {
+		splitStrs := strings.Split(kv.Key, ".")
+		keySet.Insert(splitStrs[0])
+	}
+
+	baseKVs, err := kube.GeneKVFromYaml(base)
+	if err != nil {
+		return "", fmt.Errorf("failed to gene base kvs, err %s", err)
+	}
+	baseKVMap := map[string]*commonmodels.VariableKV{}
+	for _, kv := range baseKVs {
+		baseKVMap[kv.Key] = kv
+	}
+
+	overrideKVs, err := kube.GeneKVFromYaml(override)
+	if err != nil {
+		return "", fmt.Errorf("failed to gene override kvs, err %s", err)
+	}
+	overrideKVMap := map[string]*commonmodels.VariableKV{}
+	for _, kv := range overrideKVs {
+		overrideKVMap[kv.Key] = kv
+	}
+
+	for k, kv := range overrideKVMap {
+		splitStrs := strings.Split(k, ".")
+		prefixKey := splitStrs[0]
+		if keySet.Has(prefixKey) {
+			// only override if the key prefix in the kvsRange
+			if _, ok := baseKVMap[k]; ok {
+				// only override if key exist in base
+				baseKVMap[k] = kv
+			}
+		}
+	}
+
+	retKVs := []*commonmodels.VariableKV{}
+	for _, kv := range baseKVMap {
+		retKVs = append(retKVs, kv)
+	}
+
+	merged, err := kube.GenerateYamlFromKV(retKVs)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate yaml from ret kvs, err %s", err)
+	}
+
+	return merged, nil
 }

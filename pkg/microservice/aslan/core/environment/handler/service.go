@@ -36,7 +36,7 @@ func ListSvcsInEnv(c *gin.Context) {
 	envName := c.Param("name")
 	productName := c.Query("projectName")
 
-	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, nil, ctx.Logger)
 }
 
 func ListSvcsInProductionEnv(c *gin.Context) {
@@ -45,7 +45,7 @@ func ListSvcsInProductionEnv(c *gin.Context) {
 	envName := c.Param("name")
 	productName := c.Query("projectName")
 
-	ctx.Resp, ctx.Err = commonservice.ListServicesInProductionEnv(envName, productName, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListServicesInProductionEnv(envName, productName, nil, ctx.Logger)
 }
 
 func GetService(c *gin.Context) {
