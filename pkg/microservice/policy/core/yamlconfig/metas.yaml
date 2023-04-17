@@ -662,6 +662,8 @@ metas:
             endpoint: /api/aslan/workflow/v4/workflowtask/workflow/?*/task/?*
           - method: POST
             endpoint: /api/aslan/workflow/v4/workflowtask/approve
+          - method: POST
+            endpoint: /api/aslan/workflow/v4/workflowtask/retry/workflow/?*/task/?*
       - action: debug_workflow
         alias: 调试
         rules:
