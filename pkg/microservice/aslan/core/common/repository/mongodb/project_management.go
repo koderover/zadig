@@ -57,7 +57,7 @@ func (c *ProjectManagementColl) EnsureIndex(ctx context.Context) error {
 		Options: options.Index().SetUnique(true),
 	}
 	// todo clear log
-	log.Info("ProjectManagementColl create index")
+	fmt.Println("ProjectManagementColl create index")
 	_, err := c.Indexes().CreateOne(context.TODO(), indexModel)
 	return err
 }
