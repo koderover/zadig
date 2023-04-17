@@ -52,7 +52,7 @@ func ProcessLicense() gin.HandlerFunc {
 			return
 		}
 		// otherwise we check the path of the request
-		if c.Request.URL.Path == "/api/v1/login" {
+		if c.Request.URL.Path == "/api/v1/login" || c.Request.URL.Path == "/api/health" || c.Request.URL.Path == "/api/metrics" {
 			c.Next()
 			return
 		}
