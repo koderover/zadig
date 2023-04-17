@@ -19,6 +19,8 @@ package migrate
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/util"
+
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -139,7 +141,7 @@ func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[
 			log.Error("GeneImageURI fail, err %s", err.Error())
 			continue
 		}
-		if container.Name != commonservice.ExtractImageName(imageURI) {
+		if container.Name != util.ExtractImageName(imageURI) {
 			continue
 		}
 		container.ImagePath = &commonmodels.ImagePathSpec{
