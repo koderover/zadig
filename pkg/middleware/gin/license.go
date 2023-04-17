@@ -18,6 +18,7 @@ package gin
 
 import (
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
@@ -52,7 +53,14 @@ func ProcessLicense() gin.HandlerFunc {
 			return
 		}
 		// otherwise we check the path of the request
-		if c.Request.URL.Path == "/api/v1/login" || c.Request.URL.Path == "/api/health" || c.Request.URL.Path == "/api/metrics" {
+		if c.Request.URL.Path == "/api/v1/login" ||
+			c.Request.URL.Path == "/api/health" ||
+			c.Request.URL.Path == "/api/metrics" ||
+			c.Request.URL.Path == "/api/v1/users/search" ||
+			c.Request.URL.Path == "/api/v1/users" ||
+			c.Request.URL.Path == "/api/system/concurrency/workflow" ||
+			strings.HasPrefix(c.Request.URL.Path, "/api/v1/system-rolebindings") ||
+			strings.HasPrefix(c.Request.URL.Path, "/api/cluster/clusters") {
 			c.Next()
 			return
 		}
