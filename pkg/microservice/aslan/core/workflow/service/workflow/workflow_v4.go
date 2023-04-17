@@ -44,6 +44,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
@@ -1720,28 +1721,22 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	}
 
 	keySet := sets.NewString()
-	for _, kv := range service.KeyVals {
-		splitStrs := strings.Split(kv.Key, ".")
-		keySet.Insert(splitStrs[0])
-	}
-
-	filter := func(varKV *commonmodels.VariableKV) bool {
-		prefixKey := strings.Split(varKV.Key, ".")[0]
-		if !keySet.Has(prefixKey) {
-			return true
-		}
-		return false
-	}
-
 	if service == nil {
-		service = &commonmodels.DeployService{
-			ServiceName:  serviceName,
-			Updatable:    serviceEnv.Updatable,
-			UpdateConfig: defaultUpdateConfig,
-		}
+		service = &commonmodels.DeployService{}
+	} else {
+		keySet = commonutil.KVs2Set(service.KeyVals)
 	}
+	log.Debugf("keySet: %v", keySet)
+
+	service.ServiceName = serviceName
+	service.Updatable = serviceEnv.Updatable
+	service.UpdateConfig = defaultUpdateConfig
+
+	service.KeyVals = []*commonmodels.ServiceKeyVal{}
+	service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
+
 	for _, svcVar := range serviceEnv.VariableKVs {
-		if filter(svcVar) {
+		if commonutil.FilterKV(svcVar, keySet) {
 			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
 				Key:   svcVar.Key,
 				Value: svcVar.Value,
@@ -1750,8 +1745,9 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 		}
 	}
 	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		if filter(svcVar) {
-			service.LatestKeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+		log.Debugf("before filter svcVar: %+v", svcVar)
+		if commonutil.FilterKV(svcVar, keySet) {
+			service.LatestKeyVals = append(service.LatestKeyVals, &commonmodels.ServiceKeyVal{
 				Key:   svcVar.Key,
 				Value: svcVar.Value,
 				Type:  commonmodels.StringType,
@@ -1760,6 +1756,7 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	}
 	if !slices.Contains(deployContents, config.DeployVars) {
 		service.KeyVals = []*commonmodels.ServiceKeyVal{}
+		service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
 	}
 
 	return service, nil

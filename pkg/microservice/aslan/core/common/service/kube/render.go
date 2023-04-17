@@ -126,6 +126,9 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		}
 		break
 	}
+	log.Debugf("serviceVariable: %s", serviceVariable)
+	log.Debugf("serviceDefaultValues: %s", serviceDefaultValues)
+	log.Debugf("serviceVars: %v", serviceVars)
 
 	valuesMap, err := converter.YamlToFlatMap([]byte(serviceVariable))
 	if err != nil {
@@ -173,6 +176,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	}
 
 	bs, err := yaml.Marshal(validKvMap)
+	log.Debugf("validKv: %s", string(bs))
 	return string(bs), err
 }
 
@@ -491,7 +495,6 @@ func variableYamlNil(variableYaml string) bool {
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
-	log.Debugf("GenerateRenderedYaml option: %+v", option)
 	_, err := templaterepo.NewProductColl().Find(option.ProductName)
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
@@ -524,9 +527,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
 	}
-	log.Debugf("latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
 
-	log.Debugf("before latest service : %+v", latestSvcTemplate)
 	var svcContainersInProduct []*models.Container
 	if curProductSvc != nil {
 		svcContainersInProduct = curProductSvc.Containers
@@ -542,16 +543,12 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		prodSvcTemplate = latestSvcTemplate
 	}
 
-	log.Debugf("0 latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
-
 	// use latest service revision
 	if latestSvcTemplate == nil {
 		latestSvcTemplate = prodSvcTemplate
-		log.Debugf("1 latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
 	}
 	if !option.UpdateServiceRevision {
 		latestSvcTemplate = prodSvcTemplate
-		log.Debugf("2 latestSvcTemplate.Revision: %d", latestSvcTemplate.Revision)
 	}
 
 	if productInfo.Production {
@@ -589,15 +586,12 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
 	}
 
-	log.Debugf("serviceVariableYaml: %s", serviceVariableYaml)
-	log.Debugf("option.VariableYaml: %s", option.VariableYaml)
 	serviceVariableYaml = commonutil.ClipVariableYamlNoErr(serviceVariableYaml, latestSvcTemplate.ServiceVars)
 	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
 
-	log.Debugf("mergedBs: %s", string(mergedBs))
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{
@@ -633,7 +627,6 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	if err != nil {
 		return "", fmt.Errorf("failed to extract variable for service: %s, err: %s", serviceName, err)
 	}
-	log.Debugf("serviceVariable: %s", serviceVariable)
 	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(rs.DefaultValues, serviceVariable)
 	if err != nil {
 		return originYaml, err
@@ -641,8 +634,6 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
-
-	log.Debugf("variableYaml: %s", variableYaml)
 
 	variableMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)

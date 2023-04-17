@@ -1229,7 +1229,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 			if newSvcKVsMap[svcName] == nil {
 				// config phase
-				mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent)
+				mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(svcRender.OverrideYaml.YamlContent, tmplSvc.VariableYaml)
 				if err != nil {
 					return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
 				} else {
@@ -1241,15 +1241,18 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				if err != nil {
 					return "", nil, errors.Wrapf(err, "failed to partial override variable yaml for service %s", svcName)
 				}
+				log.Debugf("partial override yaml for service %s: %s", svcName, yamlContent)
 			}
 			if !productInfo.Production {
 				serviceVars = tmplSvc.ServiceVars
 			}
 
+			log.Debugf("before clip: %s, serviceVars: %v", yamlContent, serviceVars)
 			yamlContent, err = commonutil.ClipVariableYaml(yamlContent, serviceVars)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
 			}
+			log.Debugf("after clip: %s", yamlContent)
 
 			kvs, err := kube.GeneKVFromYaml(yamlContent)
 			if err != nil {
@@ -1341,6 +1344,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		if deployType == setting.K8SDeployType {
 			svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = variables(serviceName)
+			log.Debugf("svcName: %s, svc.VariableYaml: %s", serviceName, svc.VariableYaml)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}
@@ -1385,12 +1389,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 }
 
 func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyVal) (string, error) {
-	keySet := sets.NewString()
-	for _, kv := range kvsRange {
-		splitStrs := strings.Split(kv.Key, ".")
-		keySet.Insert(splitStrs[0])
-	}
-
+	keySet := commonutil.KVs2Set(kvsRange)
 	baseKVs, err := kube.GeneKVFromYaml(base)
 	if err != nil {
 		return "", fmt.Errorf("failed to gene base kvs, err %s", err)
@@ -1409,17 +1408,22 @@ func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyV
 		overrideKVMap[kv.Key] = kv
 	}
 
+	log.Debugf("before merge baseKVMap %+v", baseKVMap)
+	log.Debugf("before merge overrideKVMap %+v", overrideKVMap)
+	log.Debugf("key set: %+v", keySet)
 	for k, kv := range overrideKVMap {
 		splitStrs := strings.Split(k, ".")
 		prefixKey := splitStrs[0]
 		if keySet.Has(prefixKey) {
-			// only override if the key prefix in the kvsRange
+			// only override if the key prefix in the key set
 			if _, ok := baseKVMap[k]; ok {
 				// only override if key exist in base
 				baseKVMap[k] = kv
 			}
 		}
 	}
+
+	log.Debugf("after merge baseKVMap %+v", baseKVMap)
 
 	retKVs := []*commonmodels.VariableKV{}
 	for _, kv := range baseKVMap {

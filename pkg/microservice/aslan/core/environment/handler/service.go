@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func ListSvcsInEnv(c *gin.Context) {
@@ -86,7 +85,6 @@ func RestartService(c *gin.Context) {
 }
 
 func PreviewService(c *gin.Context) {
-	log.Debugf("PreviewService")
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 

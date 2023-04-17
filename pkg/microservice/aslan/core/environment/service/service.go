@@ -366,7 +366,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
-	log.Debugf("service/PreviewService")
 	newVariable, err := kube.GenerateYamlFromKV(args.VariableKVS)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
@@ -385,10 +384,10 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		VariableYaml:          newVariable,
 	})
 	if err != nil {
-		return nil, e.ErrPreviewYaml.AddErr(err)
+		curYaml = ""
+		log.Errorf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
+			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariable, err)
 	}
-
-	ret.Current.Yaml = curYaml
 
 	// for situations only update images, replace images directly
 	if !args.UpdateServiceRevision && len(args.VariableKVS) == 0 {
@@ -396,11 +395,11 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		if err != nil {
 			return nil, e.ErrPreviewYaml.AddErr(err)
 		}
+		ret.Current.Yaml = curYaml
 		ret.Latest.Yaml = latestYaml
 		return ret, nil
 	}
 
-	log.Debugf("before GenerateRenderedYaml")
 	latestYaml, _, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
 		ProductName:           args.ProductName,
 		EnvName:               args.EnvName,

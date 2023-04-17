@@ -19,8 +19,10 @@ package util
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -185,4 +187,28 @@ func uniqueSlice(elements []*commonmodels.Container) []*commonmodels.Container {
 	}
 
 	return ret
+}
+
+func KVs2Set(kvs []*commonmodels.ServiceKeyVal) sets.String {
+	keySet := sets.NewString()
+	for _, kv := range kvs {
+		splitStrs := strings.Split(kv.Key, ".")
+		key := strings.Split(splitStrs[0], "[")[0]
+		keySet.Insert(key)
+	}
+
+	return keySet
+}
+
+func FilterKV(varKV *commonmodels.VariableKV, keySet sets.String) bool {
+	if varKV == nil {
+		return false
+	}
+
+	prefixKey := strings.Split(varKV.Key, ".")[0]
+	prefixKey = strings.Split(prefixKey, "[")[0]
+	if keySet.Has(prefixKey) {
+		return true
+	}
+	return false
 }
