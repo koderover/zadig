@@ -479,6 +479,9 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			continue
 		}
 		stage.Status = ""
+		stage.StartTime = 0
+		stage.EndTime = 0
+		stage.Error = ""
 
 		if stage.Approval != nil && stage.Approval.Enabled &&
 			stage.Approval.Status != config.StatusPassed && stage.Approval.Status != "" {
@@ -494,6 +497,9 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				continue
 			}
 			jobTask.Status = ""
+			jobTask.StartTime = 0
+			jobTask.EndTime = 0
+			jobTask.Error = ""
 			if t, ok := m[jobTask.Name]; ok {
 				jobTask.Spec = t.Spec
 			} else {
