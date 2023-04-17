@@ -148,6 +148,19 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.CloneWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
 }
 
+func RetryWorkflowTaskV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重试", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+	ctx.Err = workflow.RetryWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
+}
+
 func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

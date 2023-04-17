@@ -23,10 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -436,6 +438,76 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		return nil, e.ErrGetTask.AddErr(err)
 	}
 	return task.OriginWorkflowArgs, nil
+}
+
+func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("find workflowTaskV4 error: %s", err)
+		return e.ErrGetTask.AddErr(err)
+	}
+	switch task.Status {
+	case config.StatusFailed, config.StatusTimeout, config.StatusCancelled, config.StatusReject:
+	default:
+		return errors.New("工作流任务状态无法重试")
+	}
+
+	if task.OriginWorkflowArgs == nil || task.OriginWorkflowArgs.Stages == nil {
+		return errors.New("工作流任务数据异常, 无法重试")
+	}
+
+	getStageAllJobTask := func(workflow *commonmodels.WorkflowV4, stageIndex int, taskID int64) (map[string]*commonmodels.JobTask, error) {
+		resp := make(map[string]*commonmodels.JobTask)
+		for _, job := range workflow.Stages[stageIndex].Jobs {
+			jobCtl, err := jobctl.InitJobCtl(job, workflow)
+			if err != nil {
+				return nil, errors.Errorf("init jobCtl %s error: %s", job.Name, err)
+			}
+			jobTasks, err := jobCtl.ToJobs(taskID)
+			if err != nil {
+				return nil, errors.Errorf("job %s toJobs error: %s", job.Name, err)
+			}
+			for _, jobTask := range jobTasks {
+				resp[jobTask.Name] = jobTask
+			}
+		}
+		return resp, nil
+	}
+
+	for i, stage := range task.Stages {
+		if stage.Status == config.StatusPassed {
+			continue
+		}
+		stage.Status = ""
+
+		if stage.Approval != nil && stage.Approval.Enabled &&
+			stage.Approval.Status != config.StatusPassed && stage.Approval.Status != "" {
+			stage.Approval = task.OriginWorkflowArgs.Stages[i].Approval
+		}
+
+		m, err := getStageAllJobTask(task.WorkflowArgs, i, task.TaskID)
+		if err != nil {
+			return errors.Errorf("get stage %d all job task error: %s", i, err)
+		}
+		for _, jobTask := range stage.Jobs {
+			if jobTask.Status == config.StatusPassed {
+				continue
+			}
+			jobTask.Status = ""
+			if t, ok := m[jobTask.Name]; ok {
+				jobTask.Spec = t.Spec
+			} else {
+				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
+			}
+		}
+	}
+
+	if err := workflowcontroller.UpdateTask(task); err != nil {
+		log.Errorf("retry workflow task error: %v", err)
+		return e.ErrCreateTask.AddDesc(fmt.Sprintf("重试工作流任务失败: %s", err.Error()))
+	}
+
+	return nil
 }
 
 func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set bool, position string, logger *zap.SugaredLogger) error {

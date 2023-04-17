@@ -92,6 +92,7 @@ type WorkflowStage struct {
 
 type Approval struct {
 	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
+	Status         config.Status       `bson:"status"                      yaml:"status"                        json:"status"`
 	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
 	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
 	StartTime      int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`

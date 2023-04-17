@@ -89,6 +89,10 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	// should skip passed job when workflow task be restarted
+	if job.Status == config.StatusPassed {
+		return
+	}
 	// render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
