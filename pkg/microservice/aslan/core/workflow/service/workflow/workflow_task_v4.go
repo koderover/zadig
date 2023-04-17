@@ -494,6 +494,9 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				continue
 			}
 			jobTask.Status = ""
+			jobTask.StartTime = 0
+			jobTask.EndTime = 0
+			jobTask.Error = ""
 			if t, ok := m[jobTask.Name]; ok {
 				jobTask.Spec = t.Spec
 			} else {
