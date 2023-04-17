@@ -129,7 +129,8 @@ func ErrorMessage(err error) (code int, message map[string]interface{}) {
 	v, ok := err.(*HTTPError)
 	if ok {
 		code = v.Code()
-		if v.Code()/1000 == 6 {
+		// FIXME: change this logic
+		if v.Code()/1000 == 6 || v.Code()/1000 == 7 {
 			code = ErrInvalidParam.Code()
 		}
 		return code, map[string]interface{}{

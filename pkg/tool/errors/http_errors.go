@@ -834,4 +834,13 @@ var (
 	// apollo releated Error Range: 6990 - 6999
 	//-----------------------------------------------------------------------------------------------
 	ErrGetApolloInfo = NewHTTPError(6990, "获取 apollo 信息失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// statistics dashboard Error Range: 7000 - 7009
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateStatisticsDashboardConfig = NewHTTPError(7000, "创建统计看板配置失败")
+	ErrListStatisticsDashboardConfig   = NewHTTPError(7001, "列出统计看板配置失败")
+	ErrUpdateStatisticsDashboardConfig = NewHTTPError(7002, "更新统计看板配置失败")
+	ErrDeleteStatisticsDashboardConfig = NewHTTPError(7003, "删除统计看板配置失败")
+	ErrGetStatisticsDashboard          = NewHTTPError(7004, "获取统计看板失败")
 )

@@ -16,6 +16,8 @@ limitations under the License.
 
 package service
 
+import "github.com/koderover/zadig/pkg/util"
+
 type OpenAPIStatV2 struct {
 	Total        int64        `json:"total"`
 	SuccessCount int64        `json:"success_count"`
@@ -27,4 +29,36 @@ type DailyStat struct {
 	Total        int64  `json:"total"`
 	SuccessCount int64  `json:"success_count"`
 	FailCount    int64  `json:"fail_count"`
+}
+
+type StatDashboardConfig struct {
+	Type      string     `json:"type"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Source    string     `json:"source"`
+	APIConfig *APIConfig `json:"api_config,omitempty"`
+	Function  string     `json:"function"`
+	Weight    int64      `json:"weight"`
+}
+
+type APIConfig struct {
+	ExternalSystemId string           `json:"external_system_id"`
+	ApiPath          string           `json:"api_path"`
+	Queries          []*util.KeyValue `json:"queries"`
+}
+
+type StatDashboardByProject struct {
+	ProjectKey  string               `json:"project_key"`
+	ProjectName string               `json:"project_name"`
+	Score       float64              `json:"score"`
+	Facts       []*StatDashboardItem `json:"facts"`
+}
+
+type StatDashboardItem struct {
+	Type     string      `json:"type"`
+	ID       string      `json:"id"`
+	Data     interface{} `json:"data"`
+	Score    float64     `json:"score"`
+	Error    string      `json:"error,omitempty"`
+	HasValue bool        `json:"has_value"`
 }

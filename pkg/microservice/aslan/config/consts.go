@@ -429,3 +429,18 @@ const (
 	SourceFromTemplate = "template"
 	SourceFromYaml     = "yaml"
 )
+
+// statistics dashboard id enum
+const (
+	DashboardDataTypeTestPassRate           = "test_pass_rate"
+	DashboardDataTypeTestAverageDuration    = "test_average_duration"
+	DashboardDataTypeBuildSuccessRate       = "build_success_rate"
+	DashboardDataTypeBuildAverageDuration   = "build_average_duration"
+	DashboardDataTypeBuildFrequency         = "build_frequency"
+	DashboardDataTypeDeploySuccessRate      = "deploy_success_rate"
+	DashboardDataTypeDeployAverageDuration  = "deploy_average_duration"
+	DashboardDataTypeDeployFrequency        = "deploy_frequency"
+	DashboardDataTypeReleaseSuccessRate     = "release_success_rate"
+	DashboardDataTypeReleaseAverageDuration = "release_average_duration"
+	DashboardDataTypeReleaseFrequency       = "release_frequency"
+)

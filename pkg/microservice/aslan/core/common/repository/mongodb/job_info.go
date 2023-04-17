@@ -87,3 +87,63 @@ func (c *JobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectN
 
 	return resp, err
 }
+
+func (c *JobInfoColl) GetTestJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+	query := bson.M{}
+	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
+	query["type"] = config.JobZadigTesting
+
+	if len(projectName) != 0 {
+		query["product_name"] = projectName
+	}
+
+	resp := make([]*models.JobInfo, 0)
+
+	cursor, err := c.Find(context.Background(), query, options.Find())
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+
+	return resp, err
+}
+
+func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+	query := bson.M{}
+	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
+	query["type"] = config.JobZadigBuild
+
+	if len(projectName) != 0 {
+		query["product_name"] = projectName
+	}
+
+	resp := make([]*models.JobInfo, 0)
+
+	cursor, err := c.Find(context.Background(), query, options.Find())
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+
+	return resp, err
+}
+
+func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+	query := bson.M{}
+	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
+	query["type"] = bson.M{"$in": []string{string(config.JobZadigDeploy), string(config.JobZadigHelmDeploy), string(config.JobDeploy)}}
+
+	if len(projectName) != 0 {
+		query["product_name"] = projectName
+	}
+
+	resp := make([]*models.JobInfo, 0)
+
+	cursor, err := c.Find(context.Background(), query, options.Find())
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+
+	return resp, err
+}
