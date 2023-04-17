@@ -16,19 +16,27 @@
 
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+)
 
 type ProjectManagement struct {
-	ID                primitive.ObjectID `bson:"_id,omitempty"       json:"id" `
-	Type              string             `bson:"type"                json:"type"`
-	JiraHost          string             `bson:"jira_host"           json:"jira_host"`
-	JiraUser          string             `bson:"jira_user"           json:"jira_user"`
-	JiraToken         string             `bson:"jira_token"          json:"jira_token"`
-	MeegoHost         string             `bson:"meego_host"          json:"meego_host"`
-	MeegoPluginID     string             `bson:"meego_plugin_id"     json:"meego_plugin_id"`
-	MeegoPluginSecret string             `bson:"meego_plugin_secret" json:"meego_plugin_secret"`
-	MeegoUserKey      string             `bson:"meego_user_key"      json:"meego_user_key"`
-	UpdatedAt         int64              `bson:"updated_at"          json:"updated_at"`
+	ID           primitive.ObjectID  `bson:"_id,omitempty"       json:"id" `
+	Type         string              `bson:"type"                json:"type"`
+	JiraAuthType config.JiraAuthType `bson:"jira_auth_type" json:"jira_auth_type"`
+	JiraHost     string              `bson:"jira_host"           json:"jira_host"`
+	JiraUser     string              `bson:"jira_user"           json:"jira_user"`
+	// JiraToken is used in place of password for basic auth with username
+	JiraToken string `bson:"jira_token"          json:"jira_token"`
+	// JiraPersonalAccessToken is used for bearer token
+	JiraPersonalAccessToken string `bson:"jira_personal_access_token" json:"jira_personal_access_token"`
+	MeegoHost               string `bson:"meego_host"          json:"meego_host"`
+	MeegoPluginID           string `bson:"meego_plugin_id"     json:"meego_plugin_id"`
+	MeegoPluginSecret       string `bson:"meego_plugin_secret" json:"meego_plugin_secret"`
+	MeegoUserKey            string `bson:"meego_user_key"      json:"meego_user_key"`
+	UpdatedAt               int64  `bson:"updated_at"          json:"updated_at"`
 }
 
 func (ProjectManagement) TableName() string {

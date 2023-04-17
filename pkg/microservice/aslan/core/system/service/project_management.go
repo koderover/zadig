@@ -22,11 +22,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/meego"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/tool/meego"
 
 	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -80,7 +81,7 @@ func DeleteProjectManagement(idHex string, log *zap.SugaredLogger) error {
 }
 
 func ValidateJira(info *models.ProjectManagement) error {
-	_, err := jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Project.ListProjects()
+	_, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjects()
 	if err != nil {
 		log.Errorf("Validate jira error: %v", err)
 		return e.ErrValidateProjectManagement.AddDesc("failed to validate jira")
@@ -116,7 +117,7 @@ func ListJiraProjects() ([]string, error) {
 		}
 		return nil, err
 	}
-	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Project.ListProjects()
+	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjects()
 }
 
 func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
@@ -127,7 +128,7 @@ func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
 		}
 		return nil, err
 	}
-	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Issue.GetTypes(project)
+	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.GetTypes(project)
 }
 
 func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.Issue, error) {
@@ -156,7 +157,7 @@ func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.
 		}
 	}
 	// Search all results only if the summary query exist
-	return jira.NewJiraClient(info.JiraUser, info.JiraToken, info.JiraHost).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
+	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
 }
 
 func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logger *zap.SugaredLogger) error {
@@ -328,9 +329,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 
 func checkType(_type string) error {
 	switch _type {
-	case setting.PMJira:
-	case setting.PMLark:
-	case setting.PMMeego:
+	case setting.PMJira, setting.PMMeego, setting.PMLark:
 	default:
 		return errors.New("invalid pm type")
 	}

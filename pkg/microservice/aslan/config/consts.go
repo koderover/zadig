@@ -429,3 +429,10 @@ const (
 	SourceFromTemplate = "template"
 	SourceFromYaml     = "yaml"
 )
+
+type JiraAuthType string
+
+const (
+	JiraBasicAuth           JiraAuthType = ""
+	JiraPersonalAccessToken JiraAuthType = "personal_access_token"
+)
