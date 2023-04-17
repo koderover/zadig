@@ -328,6 +328,8 @@ func initDatabase() {
 		}(r)
 	}
 
+	time.Sleep(time.Second * 600)
+
 	wg.Wait()
 
 	// 初始化数据
