@@ -25,6 +25,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 )
 
@@ -139,7 +140,7 @@ func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[
 			log.Error("GeneImageURI fail, err %s", err.Error())
 			continue
 		}
-		if container.Name != commonservice.ExtractImageName(imageURI) {
+		if container.Name != util.ExtractImageName(imageURI) {
 			continue
 		}
 		container.ImagePath = &commonmodels.ImagePathSpec{
