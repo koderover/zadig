@@ -1718,35 +1718,25 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 			Updatable:    serviceEnv.Updatable,
 			UpdateConfig: defaultUpdateConfig,
 		}
-		for _, svcVar := range serviceEnv.VariableKVs {
-			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
-				Key:   svcVar.Key,
-				Value: svcVar.Value,
-				Type:  commonmodels.StringType,
-			})
-		}
-		if !slices.Contains(deployContents, config.DeployVars) {
-			service.KeyVals = []*commonmodels.ServiceKeyVal{}
-		}
-		return service, nil
 	}
-	service.ServiceName = serviceName
-	service.Updatable = serviceEnv.Updatable
-	service.UpdateConfig = defaultUpdateConfig
-	newVars := []*commonmodels.ServiceKeyVal{}
-	for _, svcVar := range service.KeyVals {
-		for _, varItem := range serviceEnv.VariableKVs {
-			if svcVar.Key == varItem.Key {
-				svcVar.Value = varItem.Value
-				newVars = append(newVars, svcVar)
-				break
-			}
-		}
+	for _, svcVar := range serviceEnv.VariableKVs {
+		service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+			Key:   svcVar.Key,
+			Value: svcVar.Value,
+			Type:  commonmodels.StringType,
+		})
 	}
-	service.KeyVals = newVars
+	for _, svcVar := range serviceEnv.LatestVariableKVs {
+		service.LatestKeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
+			Key:   svcVar.Key,
+			Value: svcVar.Value,
+			Type:  commonmodels.StringType,
+		})
+	}
 	if !slices.Contains(deployContents, config.DeployVars) {
 		service.KeyVals = []*commonmodels.ServiceKeyVal{}
 	}
+
 	return service, nil
 }
 
