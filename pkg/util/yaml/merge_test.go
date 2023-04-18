@@ -50,7 +50,6 @@ imagePullSecrets:
   - name: default-secret1
 `
 
-// 云器遇到的场景
 // vars in tmplSvc
 var testOverrideYaml1 = `
 ip_hostnames:
@@ -126,53 +125,70 @@ protocol: http
 a: b
 `
 
+// vars in tmplSvc
+var testSimpleYaml1 = `
+A:
+  - G: 2
+  - G: 5
+C:
+D: 100
+`
+
+// vars in render
+var testSimpleYaml2 = `
+A:
+  B: 1
+C: 2
+E: 123
+`
+
+// merged
+var testSimpleYaml3 = `
+A:
+  - G: 2
+  - G: 5
+C:
+D: 100
+E: 123
+`
+
 var _ = Describe("Testing merge", func() {
+	// [0]: yaml in tmplSvc
+	// [1]: yaml in render
+	// [2]: merged yaml
+	var testCases [][3]string
+
+	BeforeEach(func() {
+		testCases = [][3]string{
+			{
+				testYaml1, testYaml2, testYaml3,
+			},
+			{
+				testOverrideYaml2, testOverrideYaml1, testOverrideYaml3,
+			},
+			{
+				testFlatYaml1, testFlatYaml2, testFlatYaml3,
+			},
+			{
+				testSimpleYaml2, testSimpleYaml1, testSimpleYaml3,
+			},
+		}
+	})
 
 	Context("merge to yamls into one", func() {
 		It("should work as expected", func() {
-			actual, err := yamlutil.Merge([][]byte{[]byte(testYaml1), []byte(testYaml2)})
-			Expect(err).ShouldNot(HaveOccurred())
+			for _, testCase := range testCases {
+				actual, err := yamlutil.Merge([][]byte{[]byte(testCase[0]), []byte(testCase[1])})
+				Expect(err).ShouldNot(HaveOccurred())
 
-			currentMap := map[string]interface{}{}
-			err = yaml.Unmarshal([]byte(testYaml3), &currentMap)
-			Expect(err).ShouldNot(HaveOccurred())
+				currentMap := map[string]interface{}{}
+				err = yaml.Unmarshal([]byte(testCase[2]), &currentMap)
+				Expect(err).ShouldNot(HaveOccurred())
 
-			expected, err := yaml.Marshal(currentMap)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(string(actual)).To(Equal(string(expected)))
+				expected, err := yaml.Marshal(currentMap)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(string(actual)).To(Equal(string(expected)))
+			}
 		})
-
-	})
-
-	Context("merge to override yamls into one", func() {
-		It("should work as expected", func() {
-			actual, err := yamlutil.Merge([][]byte{[]byte(testOverrideYaml2), []byte(testOverrideYaml1)})
-			Expect(err).ShouldNot(HaveOccurred())
-
-			currentMap := map[string]interface{}{}
-			err = yaml.Unmarshal([]byte(testOverrideYaml3), &currentMap)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			expected, err := yaml.Marshal(currentMap)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(string(actual)).To(Equal(string(expected)))
-		})
-
-	})
-
-	Context("merge to flat yamls into one", func() {
-		It("should work as expected", func() {
-			actual, err := yamlutil.Merge([][]byte{[]byte(testFlatYaml1), []byte(testFlatYaml2)})
-			Expect(err).ShouldNot(HaveOccurred())
-
-			currentMap := map[string]interface{}{}
-			err = yaml.Unmarshal([]byte(testFlatYaml3), &currentMap)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			expected, err := yaml.Marshal(currentMap)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(string(actual)).To(Equal(string(expected)))
-		})
-
 	})
 })
