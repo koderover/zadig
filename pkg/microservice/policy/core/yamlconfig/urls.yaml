@@ -2,7 +2,7 @@ description: "public urls: url not need to authentication ; system_admin urls: u
 exemption_urls:
   public:
     - endpoint: /api/plutus/license
-      method:
+      methods:
         - GET
         - POST
     - endpoint: api/plutus/health
