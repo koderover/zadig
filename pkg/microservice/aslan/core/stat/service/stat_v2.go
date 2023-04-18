@@ -185,6 +185,9 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 				continue
 			}
 			fact, exists, err := calculator.GetFact(startTime, endTime, project.Name)
+			if exists {
+				logger.Infof("calculator get fact for project: %s, fact key: %s, fact %f", project.Name, config.ItemKey, fact)
+			}
 			if err != nil {
 				logger.Errorf("failed to get fact for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
 				// if for some reason we failed to get the fact, we append a fact with value 0, and error along with it
