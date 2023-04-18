@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Knetic/govaluate"
@@ -127,13 +128,18 @@ func (c *GeneralCalculator) GetWeightedScore(fact float64) (float64, error) {
 }
 
 func (c *GeneralCalculator) GetFact(startTime, endTime int64, project string) (float64, bool, error) {
-	var fact float64
+	var fact struct {
+		Data float64 `json:"data"`
+	}
 	host := strings.TrimSuffix(c.Host, "/")
 	url := fmt.Sprintf("%s/%s", host, c.Path)
 	queryMap := make(map[string]string)
 	for _, query := range c.Queries {
 		queryMap[query.Key] = query.Value.(string)
 	}
+	queryMap["start_time"] = strconv.FormatInt(startTime, 10)
+	queryMap["end_time"] = strconv.FormatInt(endTime, 10)
+	queryMap["project_name"] = project
 	headerMap := make(map[string]string)
 	for _, header := range c.Headers {
 		headerMap[header.Key] = header.Value.(string)
@@ -142,7 +148,7 @@ func (c *GeneralCalculator) GetFact(startTime, endTime int64, project string) (f
 	if err != nil {
 		return 0, false, err
 	}
-	return fact, true, nil
+	return fact.Data, true, nil
 }
 
 // TestPassRateCalculator is used when the data ID is "test_pass_rate" and the data source is "zadig"
