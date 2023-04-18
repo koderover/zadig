@@ -114,9 +114,10 @@ func (j *DeployJob) SetPreset() error {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	} else if j.spec.Source == config.SourceRuntime {
-		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
+		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
+		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: envName})
 		if err != nil {
-			log.Errorf("can't find product %s in env %s, error: %w", j.workflow.Project, j.spec.Env, err)
+			log.Errorf("can't find product %s in env %s, error: %w", j.workflow.Project, envName, err)
 			return nil
 		}
 
@@ -201,9 +202,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	j.setDefaultDeployContent()
 	j.job.Spec = j.spec
 
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
+	envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: envName})
 	if err != nil {
-		return resp, fmt.Errorf("env %s not exists", j.spec.Env)
+		return resp, fmt.Errorf("env %s not exists", envName)
 	}
 
 	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
@@ -214,7 +216,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	productServiceMap := product.GetServiceMap()
 
 	if project.ProductFeature != nil && project.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(j.workflow.Project, j.spec.Env)
+		productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(j.workflow.Project, envName)
 		if err != nil {
 			return resp, fmt.Errorf("failed to list external workload, err: %v", err)
 		}
@@ -226,7 +228,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
 			ProductName: j.workflow.Project,
-			EnvName:     j.spec.Env,
+			EnvName:     envName,
 		})
 		for _, service := range servicesInExternalEnv {
 			productServiceMap[service.ServiceName] = &commonmodels.ProductService{
@@ -267,7 +269,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		for serviceName, deploys := range deployServiceMap {
 			jobTaskSpec := &commonmodels.JobTaskDeploySpec{
-				Env:                j.spec.Env,
+				Env:                envName,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 				ServiceName:        serviceName,
 				ServiceType:        setting.K8SDeployType,
@@ -280,7 +282,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			for _, deploy := range deploys {
 				// if external env, check service exists
 				if project.ProductFeature.CreateEnvType == "external" {
-					if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
+					if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
 						return resp, err
 					}
 				}
@@ -338,7 +340,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), product.ProductName, product.Namespace, product.EnvName, serviceName)
 
 			jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{
-				Env:                j.spec.Env,
+				Env:                envName,
 				ServiceName:        serviceName,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 				ServiceType:        setting.HelmDeployType,
@@ -347,7 +349,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Timeout:            timeout,
 			}
 			for _, deploy := range deploys {
-				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, j.spec.Env); err != nil {
+				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
 					return resp, err
 				}
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
