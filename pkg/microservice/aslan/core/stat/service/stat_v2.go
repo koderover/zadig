@@ -20,6 +20,7 @@ import (
 	"context"
 	"math"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -238,7 +239,64 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 	return resp, nil
 }
 
-var defaultStatDashboardConfigMap map[string]*commonmodels.StatDashboardConfig
+var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig{
+	config.DashboardDataTypeBuildAverageDuration: {
+		Type:     config.DashboardDataCategoryEfficiency,
+		Name:     "构建平均耗时",
+		ItemKey:  config.DashboardDataTypeBuildAverageDuration,
+		Source:   config.DashboardDataSourceZadig,
+		Function: "x",
+		Weight:   100,
+	},
+	config.DashboardDataTypeBuildSuccessRate: {
+		Type:     config.DashboardDataCategoryEfficiency,
+		Name:     "构建成功率",
+		ItemKey:  config.DashboardDataTypeBuildSuccessRate,
+		Source:   config.DashboardDataSourceZadig,
+		Function: "x",
+		Weight:   0,
+	},
+	config.DashboardDataTypeDeploySuccessRate: {
+		Type:     config.DashboardDataCategoryEfficiency,
+		Name:     "部署成功率",
+		ItemKey:  config.DashboardDataTypeDeploySuccessRate,
+		Source:   config.DashboardDataSourceZadig,
+		Function: "x",
+		Weight:   0,
+	},
+	config.DashboardDataTypeDeployFrequency: {
+		Type:     config.DashboardDataCategoryEfficiency,
+		Name:     "部署频次(周）",
+		ItemKey:  config.DashboardDataTypeDeployFrequency,
+		Source:   config.DashboardDataSourceZadig,
+		Function: "x",
+		Weight:   0,
+	},
+	config.DashboardDataTypeTestPassRate: {
+		Type:     config.DashboardDataCategoryQuality,
+		Name:     "测试通过率",
+		ItemKey:  config.DashboardDataTypeTestPassRate,
+		Source:   config.DashboardDataSourceZadig,
+		Function: "x",
+		Weight:   0,
+	},
+	config.DashboardDataTypeTestAverageDuration: {
+		Type:     config.DashboardDataCategoryEfficiency,
+		Name:     "测试平均耗时",
+		ItemKey:  config.DashboardDataTypeTestAverageDuration,
+		Source:   config.DashboardDataSourceZadig,
+		Function: "x",
+		Weight:   0,
+	},
+	config.DashboardDataTypeReleaseFrequency: {
+		Type:     config.DashboardDataCategoryEfficiency,
+		Name:     "发布频次(周）",
+		ItemKey:  config.DashboardDataTypeReleaseFrequency,
+		Source:   config.DashboardDataSourceZadig,
+		Function: "x",
+		Weight:   0,
+	},
+}
 
 func createDefaultStatDashboardConfig() []*commonmodels.StatDashboardConfig {
 	ret := make([]*commonmodels.StatDashboardConfig, 0)

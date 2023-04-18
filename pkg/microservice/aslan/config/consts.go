@@ -443,4 +443,11 @@ const (
 	DashboardDataTypeReleaseSuccessRate     = "release_success_rate"
 	DashboardDataTypeReleaseAverageDuration = "release_average_duration"
 	DashboardDataTypeReleaseFrequency       = "release_frequency"
+
+	DashboardDataSourceZadig = "zadig"
+	DashboardDataSourceApi   = "api"
+
+	DashboardDataCategoryQuality    = "quality"
+	DashboardDataCategoryEfficiency = "efficiency"
+	DashboardDataCategorySchedule   = "schedule"
 )
