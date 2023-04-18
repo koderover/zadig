@@ -1408,25 +1408,40 @@ func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyV
 		overrideKVMap[kv.Key] = kv
 	}
 
-	log.Debugf("before merge baseKVMap %+v", baseKVMap)
-	log.Debugf("before merge overrideKVMap %+v", overrideKVMap)
+	log.Debugf("before merge base%+v", base)
+	log.Debugf("before merge override%+v", override)
 	log.Debugf("key set: %+v", keySet)
+
+	newKVMap := map[string]*commonmodels.VariableKV{}
+
+	// set keys
+	// if key in set, get from base
+	for k, kv := range baseKVMap {
+		if commonutil.FilterKV(kv, keySet) {
+			newKVMap[k] = kv
+		}
+	}
+	// if key not in set, get from override
 	for k, kv := range overrideKVMap {
-		splitStrs := strings.Split(k, ".")
-		prefixKey := splitStrs[0]
-		if keySet.Has(prefixKey) {
-			// only override if the key prefix in the key set
-			if _, ok := baseKVMap[k]; ok {
-				// only override if key exist in base
-				baseKVMap[k] = kv
-			}
+		if !commonutil.FilterKV(kv, keySet) {
+			newKVMap[k] = kv
 		}
 	}
 
-	log.Debugf("after merge baseKVMap %+v", baseKVMap)
+	// set values
+	for k, _ := range newKVMap {
+		if overrideKV, ok := overrideKVMap[k]; ok {
+			// find values in override
+			newKVMap[k] = overrideKV
+		} else if baseKV, ok := baseKVMap[k]; ok {
+			// don't find values in override
+			// but find values in base
+			newKVMap[k] = baseKV
+		}
+	}
 
 	retKVs := []*commonmodels.VariableKV{}
-	for _, kv := range baseKVMap {
+	for _, kv := range newKVMap {
 		retKVs = append(retKVs, kv)
 	}
 
@@ -1434,6 +1449,8 @@ func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyV
 	if err != nil {
 		return "", fmt.Errorf("failed to generate yaml from ret kvs, err %s", err)
 	}
+
+	log.Debugf("after merge %+v", merged)
 
 	return merged, nil
 }
