@@ -1227,7 +1227,10 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				tmplSvc = productTemplateSvcMap[svcName]
 			}
 			if tmplSvc == nil {
-				return "", nil, errors.Errorf("failed to find service %s in template service", svcName)
+				log.Errorf("failed to find service %s in template service, updateRevision: %v", svcName, updateSvcRevision)
+				tmplSvc = &commonmodels.Service{
+					ServiceName: svcName,
+				}
 			}
 
 			if newSvcKVsMap[svcName] == nil {
@@ -1293,7 +1296,10 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			if tmplSvc != nil {
 				latestValues = tmplSvc.HelmChart.ValuesYaml
 			} else {
-				return "", nil, errors.Errorf("failed to find service %s in template service", svcName)
+				log.Errorf("failed to find service %s in template service, updateRevision: %v", svcName, updateSvcRevision)
+				tmplSvc = &commonmodels.Service{
+					ServiceName: svcName,
+				}
 			}
 
 			mergedValues := ""
