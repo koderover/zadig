@@ -102,7 +102,7 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return approveWithL.doApproval(userName, userID, comment, approve)
 }
 
-func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) (err error) {
 	if stage.Approval == nil {
 		return nil
 	}
@@ -117,10 +117,10 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 	defer func() {
 		stage.Approval.EndTime = time.Now().Unix()
 
-		switch stage.Status {
-		case config.StatusRunning:
+		if err == nil {
+			stage.Status = config.StatusRunning
 			stage.Approval.Status = config.StatusPassed
-		default:
+		} else {
 			stage.Approval.Status = stage.Status
 		}
 	}()
@@ -132,12 +132,13 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 
 	switch stage.Approval.Type {
 	case config.NativeApproval:
-		return waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
+		err = waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
 	case config.LarkApproval:
-		return waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
+		err = waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
 	default:
-		return errors.New("invalid approval type")
+		err = errors.New("invalid approval type")
 	}
+	return err
 }
 
 func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
