@@ -775,7 +775,7 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 					Status:    stage.Approval.Status,
 				}
 				if stage.Approval.Status != config.StatusPassed {
-					stage.Status = ""
+					stage.Status = StatusNotRun
 				}
 				stageList = append(stageList, approvalStage)
 			}
