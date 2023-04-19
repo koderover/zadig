@@ -1726,7 +1726,6 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	} else {
 		keySet = commonutil.KVs2Set(service.KeyVals)
 	}
-	log.Debugf("keySet: %v", keySet)
 
 	service.ServiceName = serviceName
 	service.Updatable = serviceEnv.Updatable
@@ -1745,7 +1744,6 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 		}
 	}
 	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		log.Debugf("before filter svcVar: %+v", svcVar)
 		if commonutil.FilterKV(svcVar, keySet) {
 			service.LatestKeyVals = append(service.LatestKeyVals, &commonmodels.ServiceKeyVal{
 				Key:   svcVar.Key,

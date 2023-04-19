@@ -126,9 +126,6 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		}
 		break
 	}
-	log.Debugf("serviceVariable: %s", serviceVariable)
-	log.Debugf("serviceDefaultValues: %s", serviceDefaultValues)
-	log.Debugf("serviceVars: %v", serviceVars)
 
 	valuesMap, err := converter.YamlToFlatMap([]byte(serviceVariable))
 	if err != nil {
@@ -176,7 +173,6 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 	}
 
 	bs, err := yaml.Marshal(validKvMap)
-	log.Debugf("validKv: %s", string(bs))
 	return string(bs), err
 }
 
@@ -621,7 +617,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
 	}
-	tmpl.Option("missingkey=error")
+	// tmpl.Option("missingkey=error")
 
 	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars, serviceDefaultValues)
 	if err != nil {

@@ -1226,6 +1226,9 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			} else {
 				tmplSvc = productTemplateSvcMap[svcName]
 			}
+			if tmplSvc == nil {
+				return "", nil, errors.Errorf("failed to find service %s in template service", svcName)
+			}
 
 			if newSvcKVsMap[svcName] == nil {
 				// config phase
@@ -1237,22 +1240,19 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				}
 			} else {
 				// "exec" phase
-				yamlContent, err = partialOverride(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent, newSvcKVsMap[svcName])
+				yamlContent, err = prefixOverride(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent, newSvcKVsMap[svcName])
 				if err != nil {
 					return "", nil, errors.Wrapf(err, "failed to partial override variable yaml for service %s", svcName)
 				}
-				log.Debugf("partial override yaml for service %s: %s", svcName, yamlContent)
 			}
 			if !productInfo.Production {
 				serviceVars = tmplSvc.ServiceVars
 			}
 
-			log.Debugf("before clip: %s, serviceVars: %v", yamlContent, serviceVars)
 			yamlContent, err = commonutil.ClipVariableYaml(yamlContent, serviceVars)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
 			}
-			log.Debugf("after clip: %s", yamlContent)
 
 			kvs, err := kube.GeneKVFromYaml(yamlContent)
 			if err != nil {
@@ -1292,6 +1292,8 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			}
 			if tmplSvc != nil {
 				latestValues = tmplSvc.HelmChart.ValuesYaml
+			} else {
+				return "", nil, errors.Errorf("failed to find service %s in template service", svcName)
 			}
 
 			mergedValues := ""
@@ -1304,7 +1306,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				mergedValues = string(mergedBs)
 			} else {
 				// "exec" phase
-				mergedValues, err = partialOverride(latestValues, currentValues, newSvcKVsMap[svcName])
+				mergedValues, err = prefixOverride(latestValues, currentValues, newSvcKVsMap[svcName])
 				if err != nil {
 					return "", nil, errors.Wrapf(err, "failed to partial override values yaml for service %s", svcName)
 				}
@@ -1344,7 +1346,6 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		if deployType == setting.K8SDeployType {
 			svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = variables(serviceName)
-			log.Debugf("svcName: %s, svc.VariableYaml: %s", serviceName, svc.VariableYaml)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}
@@ -1388,7 +1389,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	return ret, nil
 }
 
-func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyVal) (string, error) {
+func prefixOverride(base, override string, kvsRange []*commonmodels.ServiceKeyVal) (string, error) {
 	keySet := commonutil.KVs2Set(kvsRange)
 	baseKVs, err := kube.GeneKVFromYaml(base)
 	if err != nil {
@@ -1407,10 +1408,6 @@ func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyV
 	for _, kv := range overrideKVs {
 		overrideKVMap[kv.Key] = kv
 	}
-
-	log.Debugf("before merge base%+v", base)
-	log.Debugf("before merge override%+v", override)
-	log.Debugf("key set: %+v", keySet)
 
 	newKVMap := map[string]*commonmodels.VariableKV{}
 
@@ -1449,8 +1446,6 @@ func partialOverride(base, override string, kvsRange []*commonmodels.ServiceKeyV
 	if err != nil {
 		return "", fmt.Errorf("failed to generate yaml from ret kvs, err %s", err)
 	}
-
-	log.Debugf("after merge %+v", merged)
 
 	return merged, nil
 }
