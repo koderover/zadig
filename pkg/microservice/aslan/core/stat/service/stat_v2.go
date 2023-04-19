@@ -232,7 +232,7 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 		resp = append(resp, &StatDashboardByProject{
 			ProjectKey:  project.Name,
 			ProjectName: project.Alias,
-			Score:       totalScore,
+			Score:       math.Round(totalScore*100) / 100,
 			Facts:       facts,
 		})
 	}
@@ -245,7 +245,7 @@ var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig
 		Name:     "构建平均耗时",
 		ItemKey:  config.DashboardDataTypeBuildAverageDuration,
 		Source:   config.DashboardDataSourceZadig,
-		Function: "x",
+		Function: config.DashboardFunctionBuildAverageDuration,
 		Weight:   100,
 	},
 	config.DashboardDataTypeBuildSuccessRate: {
@@ -253,7 +253,7 @@ var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig
 		Name:     "构建成功率",
 		ItemKey:  config.DashboardDataTypeBuildSuccessRate,
 		Source:   config.DashboardDataSourceZadig,
-		Function: "x",
+		Function: config.DashboardFunctionBuildSuccessRate,
 		Weight:   0,
 	},
 	config.DashboardDataTypeDeploySuccessRate: {
@@ -261,7 +261,7 @@ var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig
 		Name:     "部署成功率",
 		ItemKey:  config.DashboardDataTypeDeploySuccessRate,
 		Source:   config.DashboardDataSourceZadig,
-		Function: "x",
+		Function: config.DashboardFunctionDeploySuccessRate,
 		Weight:   0,
 	},
 	config.DashboardDataTypeDeployFrequency: {
@@ -269,7 +269,7 @@ var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig
 		Name:     "部署频次(周）",
 		ItemKey:  config.DashboardDataTypeDeployFrequency,
 		Source:   config.DashboardDataSourceZadig,
-		Function: "x",
+		Function: config.DashboardFunctionDeployFrequency,
 		Weight:   0,
 	},
 	config.DashboardDataTypeTestPassRate: {
@@ -277,7 +277,7 @@ var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig
 		Name:     "测试通过率",
 		ItemKey:  config.DashboardDataTypeTestPassRate,
 		Source:   config.DashboardDataSourceZadig,
-		Function: "x",
+		Function: config.DashboardFunctionTestPassRate,
 		Weight:   0,
 	},
 	config.DashboardDataTypeTestAverageDuration: {
@@ -285,7 +285,7 @@ var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig
 		Name:     "测试平均耗时",
 		ItemKey:  config.DashboardDataTypeTestAverageDuration,
 		Source:   config.DashboardDataSourceZadig,
-		Function: "x",
+		Function: config.DashboardFunctionTestAverageDuration,
 		Weight:   0,
 	},
 	config.DashboardDataTypeReleaseFrequency: {
@@ -293,7 +293,7 @@ var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig
 		Name:     "发布频次(周）",
 		ItemKey:  config.DashboardDataTypeReleaseFrequency,
 		Source:   config.DashboardDataSourceZadig,
-		Function: "x",
+		Function: config.DashboardFunctionReleaseFrequency,
 		Weight:   0,
 	},
 }

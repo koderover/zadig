@@ -450,4 +450,12 @@ const (
 	DashboardDataCategoryQuality    = "quality"
 	DashboardDataCategoryEfficiency = "efficiency"
 	DashboardDataCategorySchedule   = "schedule"
+
+	DashboardFunctionBuildAverageDuration = "5400/(x+540)"
+	DashboardFunctionBuildSuccessRate     = "-2400/(x-120)-20"
+	DashboardFunctionDeploySuccessRate    = "-2400/(x-120)-20"
+	DashboardFunctionDeployFrequency      = "100-40000/(3*x+400)"
+	DashboardFunctionTestPassRate         = "(x**2)/80-x/4+1.25"
+	DashboardFunctionTestAverageDuration  = "90000/(x+900)"
+	DashboardFunctionReleaseFrequency     = "100-200/(x+2)"
 )
