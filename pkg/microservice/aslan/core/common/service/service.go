@@ -1227,7 +1227,9 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				tmplSvc = productTemplateSvcMap[svcName]
 			}
 			if tmplSvc == nil {
-				return "", nil, errors.Errorf("failed to find service %s in template service", svcName)
+				tmplSvc = &commonmodels.Service{
+					ServiceName: svcName,
+				}
 			}
 
 			if newSvcKVsMap[svcName] == nil {
