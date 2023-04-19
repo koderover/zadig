@@ -306,6 +306,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
 			if err != nil {
+				log.Errorf("get pod labels failed err: %v", err)
 				podLabels = nil
 			}
 			err = unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
@@ -316,6 +317,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
 			if err != nil {
+				log.Errorf("get pod annotations failed err: %v", err)
 				podAnnotations = nil
 			}
 			err = unstructured.SetNestedStringMap(u.Object, ApplyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
