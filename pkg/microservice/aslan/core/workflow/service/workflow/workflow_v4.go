@@ -44,6 +44,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
@@ -1648,6 +1649,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 	jobSpec := &commonmodels.ZadigDeployJobSpec{}
 	found := false
+	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name != jobName {
@@ -1663,6 +1665,11 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 				log.Error(msg)
 				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 			}
+
+			for _, svc := range jobSpec.Services {
+				svcKVsMap[svc.ServiceName] = svc.KeyVals
+			}
+
 			found = true
 			break
 		}
@@ -1674,12 +1681,12 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 	var services *commonservice.EnvServices
 	if jobSpec.Production {
-		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, log)
+		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, svcKVsMap, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 	} else {
-		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, log)
+		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, svcKVsMap, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
@@ -1712,41 +1719,44 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	if slices.Contains(deployContents, config.DeployConfig) && serviceEnv.Updatable {
 		defaultUpdateConfig = true
 	}
+
+	keySet := sets.NewString()
 	if service == nil {
-		service = &commonmodels.DeployService{
-			ServiceName:  serviceName,
-			Updatable:    serviceEnv.Updatable,
-			UpdateConfig: defaultUpdateConfig,
-		}
-		for _, svcVar := range serviceEnv.VariableKVs {
+		service = &commonmodels.DeployService{}
+	} else {
+		keySet = commonutil.KVs2Set(service.KeyVals)
+	}
+
+	service.ServiceName = serviceName
+	service.Updatable = serviceEnv.Updatable
+	service.UpdateConfig = defaultUpdateConfig
+
+	service.KeyVals = []*commonmodels.ServiceKeyVal{}
+	service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
+
+	for _, svcVar := range serviceEnv.VariableKVs {
+		if commonutil.FilterKV(svcVar, keySet) {
 			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
 				Key:   svcVar.Key,
 				Value: svcVar.Value,
 				Type:  commonmodels.StringType,
 			})
 		}
-		if !slices.Contains(deployContents, config.DeployVars) {
-			service.KeyVals = []*commonmodels.ServiceKeyVal{}
-		}
-		return service, nil
 	}
-	service.ServiceName = serviceName
-	service.Updatable = serviceEnv.Updatable
-	service.UpdateConfig = defaultUpdateConfig
-	newVars := []*commonmodels.ServiceKeyVal{}
-	for _, svcVar := range service.KeyVals {
-		for _, varItem := range serviceEnv.VariableKVs {
-			if svcVar.Key == varItem.Key {
-				svcVar.Value = varItem.Value
-				newVars = append(newVars, svcVar)
-				break
-			}
+	for _, svcVar := range serviceEnv.LatestVariableKVs {
+		if commonutil.FilterKV(svcVar, keySet) {
+			service.LatestKeyVals = append(service.LatestKeyVals, &commonmodels.ServiceKeyVal{
+				Key:   svcVar.Key,
+				Value: svcVar.Value,
+				Type:  commonmodels.StringType,
+			})
 		}
 	}
-	service.KeyVals = newVars
 	if !slices.Contains(deployContents, config.DeployVars) {
 		service.KeyVals = []*commonmodels.ServiceKeyVal{}
+		service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
 	}
+
 	return service, nil
 }
 

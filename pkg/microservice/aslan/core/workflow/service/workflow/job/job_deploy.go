@@ -342,6 +342,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{
 				Env:                envName,
 				ServiceName:        serviceName,
+				DeployContents:     j.spec.DeployContents,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 				ServiceType:        setting.HelmDeployType,
 				ClusterID:          product.ClusterID,
@@ -349,6 +350,12 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Timeout:            timeout,
 			}
 			for _, deploy := range deploys {
+				service := serviceMap[serviceName]
+				if service != nil {
+					jobTaskSpec.UpdateConfig = service.UpdateConfig
+					jobTaskSpec.KeyVals = service.KeyVals
+				}
+
 				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
 					return resp, err
 				}

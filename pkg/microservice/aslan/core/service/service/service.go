@@ -242,7 +242,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		}
 	}
 	var err error
-	serviceOption.ServiceVariableYaml, err = kube.ClipVariableYaml(serviceOption.VariableYaml, args.ServiceVars)
+	serviceOption.ServiceVariableYaml, err = commonutil.ClipVariableYaml(serviceOption.VariableYaml, args.ServiceVars)
 	if err != nil {
 		return serviceOption, err
 	}
@@ -896,17 +896,31 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid service type: %v", currentService.Type))
 	}
 
-	currentService.ServiceVars = args.ServiceVars
+	kvs, err := kube.GeneKVFromYaml(args.VariableYaml)
+	if err != nil {
+		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid variable yaml, err: %s", err))
+	}
+
+	keySet := sets.NewString()
+	for _, kv := range kvs {
+		keySet.Insert(kv.Key)
+	}
+	validatedServiceVars := make([]string, 0)
+	for _, v := range args.ServiceVars {
+		if keySet.Has(v) {
+			validatedServiceVars = append(validatedServiceVars, v)
+		}
+	}
+	currentService.ServiceVars = validatedServiceVars
 	currentService.VariableYaml = args.VariableYaml
 
-	// TODO validate service vars
 	err = commonrepo.NewServiceColl().UpdateServiceVariables(currentService)
 	if err != nil {
 		return e.ErrUpdateService.AddErr(err)
 	}
 
 	// reparse service, check if container changes
-	currentService.RenderedYaml, err = renderK8sSvcYaml(currentService.Yaml, args.ProductName, args.ServiceName, currentService.VariableYaml)
+	currentService.RenderedYaml, err = renderK8sSvcYamlStrict(currentService.Yaml, args.ProductName, args.ServiceName, currentService.VariableYaml)
 	if err != nil {
 		return fmt.Errorf("failed to render yaml, err: %s", err)
 	}

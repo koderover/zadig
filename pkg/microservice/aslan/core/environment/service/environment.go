@@ -28,7 +28,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
-	"helm.sh/helm/v3/pkg/strvals"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -859,7 +858,7 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 			curValuesYaml = targetChart.ValuesYaml
 		}
 		// merge environment values
-		mergedBs, err := overrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
+		mergedBs, err := util.OverrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey, true)
 		if err != nil {
 			return "", "", errors.Wrapf(err, "failed to override values")
 		}
@@ -2672,7 +2671,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		// use the variables in current product when updating services
 		if okC {
 			// use the value of the key of the current values.yaml to replace the value of the same key of the values.yaml in the service
-			newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), imageRelatedKey)
+			newValuesYaml, err := util.OverrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), imageRelatedKey, true)
 			if err != nil {
 				log.Errorf("Failed to override values for service %s, err: %s", serviceName, err)
 			} else {
@@ -2723,55 +2722,6 @@ func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo 
 		}
 	}
 	return true
-}
-
-// for keys exist in both yaml, current values will override the latest values
-// only for images
-func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey sets.String) ([]byte, error) {
-	currentValuesMap := map[string]interface{}{}
-	if err := yaml.Unmarshal(currentValuesYaml, &currentValuesMap); err != nil {
-		return nil, err
-	}
-
-	currentValuesFlatMap, err := converter.Flatten(currentValuesMap)
-	if err != nil {
-		return nil, err
-	}
-
-	latestValuesMap := map[string]interface{}{}
-	if err := yaml.Unmarshal(latestValuesYaml, &latestValuesMap); err != nil {
-		return nil, err
-	}
-
-	latestValuesFlatMap, err := converter.Flatten(latestValuesMap)
-	if err != nil {
-		return nil, err
-	}
-
-	replaceMap := make(map[string]interface{})
-	for key := range latestValuesFlatMap {
-		if !imageRelatedKey.Has(key) {
-			continue
-		}
-		if currentValue, ok := currentValuesFlatMap[key]; ok {
-			replaceMap[key] = currentValue
-		}
-	}
-
-	if len(replaceMap) == 0 {
-		return latestValuesYaml, nil
-	}
-
-	var replaceKV []string
-	for k, v := range replaceMap {
-		replaceKV = append(replaceKV, fmt.Sprintf("%s=%v", k, v))
-	}
-
-	if err := strvals.ParseInto(strings.Join(replaceKV, ","), latestValuesMap); err != nil {
-		return nil, err
-	}
-
-	return yaml.Marshal(latestValuesMap)
 }
 
 func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, log *zap.SugaredLogger) error {
