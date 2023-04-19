@@ -772,16 +772,10 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 					Name:      "人工审批",
 					StartTime: stage.Approval.StartTime,
 					EndTime:   stage.Approval.EndTime,
+					Status:    stage.Approval.Status,
 				}
-				switch {
-				//case stage.Status == config.StatusWaitingApprove:
-				//	approvalStage.Status = config.StatusWaitingApprove
-				//	stage.Status = StatusNotRun
-				case stage.Status == config.StatusPassed || stage.Status == config.StatusRunning:
-					approvalStage.Status = config.StatusPassed
-				default:
-					approvalStage.Status = stage.Status
-					stage.Status = StatusNotRun
+				if stage.Approval.Status != config.StatusPassed {
+					stage.Status = config.StatusNotRun
 				}
 				stageList = append(stageList, approvalStage)
 			}
