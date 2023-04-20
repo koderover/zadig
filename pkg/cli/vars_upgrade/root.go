@@ -61,7 +61,7 @@ func init() {
 
 	_ = viper.BindPFlag(setting.ENVMongoDBConnectionString, rootCmd.PersistentFlags().Lookup("connection-string"))
 	_ = viper.BindPFlag(setting.ENVAslanDBName, rootCmd.PersistentFlags().Lookup("database"))
-	_ = viper.BindPFlag("DryRun", rootCmd.PersistentFlags().Lookup("dry-run"))
+	_ = viper.BindPFlag("Write", rootCmd.PersistentFlags().Lookup("write"))
 	_ = viper.BindPFlag("Message", rootCmd.PersistentFlags().Lookup("message"))
 	_ = viper.BindPFlag("Templates", rootCmd.PersistentFlags().Lookup("templates"))
 	_ = viper.BindPFlag("Projects", rootCmd.PersistentFlags().Lookup("projects"))
@@ -77,11 +77,11 @@ func initConfig() {
 }
 
 func run() error {
-	dryRun = viper.GetBool("DryRun")
+	write = viper.GetBool("Write")
 	outPutMessages = viper.GetBool("Message")
 	appointedTemplates = viper.GetString("Templates")
 	appointedProjects = viper.GetString("Projects")
-	//dryRun = true
+	//write = false
 
 	err := handlerServices()
 	if err != nil {

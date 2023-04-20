@@ -47,7 +47,7 @@ var GlobalKeys = sets.NewString([]string{"LOGBACK_CONFIGMAP", "NODE_AFFINITY", "
 // 复杂服务变量定义
 var ComplexServiceKeys = sets.NewString([]string{"GENERAL_CONFIGMAP", "HOSTALIASES"}...)
 
-var dryRun bool = false
+var write bool = false
 var outPutMessages = false
 var appointedTemplates string = ""
 var appointedProjects string = ""
@@ -217,7 +217,7 @@ func handleUsedService(projectName, serviceName string, revision int64) error {
 
 	log.Infof("unused service %s/%s:%d generatedKvMap yaml:\n%s", templateService.ProductName, templateService.ServiceName, templateService.Revision, string(bs))
 
-	if dryRun {
+	if !write {
 		return nil
 	}
 	err = mongodb.NewServiceColl().UpdateServiceVariables(templateService)
@@ -303,7 +303,7 @@ func handleSingleService(yamlTemplate *models.YamlTemplate, serviceReference *te
 			templateService.VariableYaml = newVariableYaml
 			templateService.ServiceVars = yamlTemplate.ServiceVars
 
-			if dryRun {
+			if !write {
 				return nil
 			}
 		}
@@ -407,7 +407,7 @@ func handleSingleService(yamlTemplate *models.YamlTemplate, serviceReference *te
 		templateService.ServiceVars = yamlTemplate.ServiceVars
 		templateService.VariableYaml = string(bs)
 
-		if dryRun {
+		if !write {
 			return nil
 		}
 	}

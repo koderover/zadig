@@ -160,7 +160,7 @@ func handleSingleProduct(product *models.Product) error {
 		bsStr = ""
 	}
 	log.Infof("product: %s/%s, defaultValues: %v", product.ProductName, product.EnvName, bsStr)
-	if dryRun {
+	if !write {
 		return nil
 	}
 	usedRenderSet.DefaultValues = bsStr
