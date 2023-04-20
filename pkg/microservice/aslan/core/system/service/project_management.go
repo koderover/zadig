@@ -54,6 +54,16 @@ func CreateProjectManagement(pm *models.ProjectManagement, log *zap.SugaredLogge
 	if err := checkType(pm.Type); err != nil {
 		return err
 	}
+	switch pm.Type {
+	case setting.PMJira:
+		if _, err := mongodb.NewProjectManagementColl().GetJira(); err == nil {
+			return e.ErrCreateProjectManagement.AddDesc("only one of each pm type can exist")
+		}
+	case setting.PMMeego:
+		if _, err := mongodb.NewProjectManagementColl().GetMeego(); err == nil {
+			return e.ErrCreateProjectManagement.AddDesc("only one of each pm type can exist")
+		}
+	}
 	if err := mongodb.NewProjectManagementColl().Create(pm); err != nil {
 		log.Errorf("Create project management error: %v", err)
 		return e.ErrCreateProjectManagement.AddErr(err)

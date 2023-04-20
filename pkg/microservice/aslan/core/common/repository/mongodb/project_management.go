@@ -24,7 +24,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -50,16 +49,7 @@ func (c *ProjectManagementColl) GetCollectionName() string {
 	return c.coll
 }
 func (c *ProjectManagementColl) EnsureIndex(ctx context.Context) error {
-	indexModel := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "type", Value: 1},
-		},
-		Options: options.Index().SetUnique(true),
-	}
-	// todo clear log
-	fmt.Println("ProjectManagementColl create index")
-	_, err := c.Indexes().CreateOne(context.TODO(), indexModel)
-	return err
+	return nil
 }
 
 func (c *ProjectManagementColl) Create(pm *models.ProjectManagement) error {
