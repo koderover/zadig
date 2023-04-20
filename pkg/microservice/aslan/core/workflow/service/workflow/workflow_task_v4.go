@@ -44,8 +44,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	larktool "github.com/koderover/zadig/pkg/tool/lark"
@@ -557,16 +557,34 @@ FOR:
 		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
 		return nil
 	}
+
+	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
+		logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: convert job task spec")
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client")
+	}
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client set error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client set")
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("set workflowTaskV4 breakpoint failed: get kube rest config error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube rest config")
+	}
+
 	// job task is running, check whether shell step has run, and touch breakpoint file
 	// if job task status is debug_after, only breakpoint operation can do is unset breakpoint_after, which should be done by StopDebugWorkflowTaskJobV4
 	// if job task status is prepare, setting breakpoints has a low probability of not taking effect, and the current design allows for this flaw
 	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore || task.Status == config.StatusPrepare {
-		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-		if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
-			logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
-			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败")
-		}
-		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
 		if err != nil {
 			logger.Errorf("set workflowTaskV4 breakpoint failed: list pods %v", err)
 			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods")
@@ -589,7 +607,7 @@ FOR:
 				ContainerName: pod.Spec.Containers[0].Name,
 				Command:       []string{"sh", "-c", cmd},
 			}
-			_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+			_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
 			logger.Errorf("set workflowTaskV4 breakpoint exec %s error: %s", cmd, stderr)
 			return success
 		}
@@ -687,7 +705,24 @@ FOR:
 		logger.Errorf("stop workflowTaskV4 debug shell failed: IToi %v", err)
 		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
 	}
-	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client")
+	}
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client set error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client set")
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("stop workflowTaskV4 debug shell failed: get kube rest config error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube rest config")
+	}
+
+	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
 	if err != nil {
 		logger.Errorf("stop workflowTaskV4 debug shell failed: list pods %v", err)
 		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods")
@@ -710,7 +745,7 @@ FOR:
 			ContainerName: pod.Spec.Containers[0].Name,
 			Command:       []string{"sh", "-c", cmd},
 		}
-		_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+		_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
 		logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
 		return success
 	}
