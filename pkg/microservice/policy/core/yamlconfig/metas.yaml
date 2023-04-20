@@ -370,7 +370,7 @@ metas:
           - method: POST
             endpoint: api/aslan/stat/quality/testTrend
       - action: edit_dashboard_config
-        alias: 配置效能分析看板
+        alias: 配置效能洞察
         description: ''
         rules:
           - method: GET
