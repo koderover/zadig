@@ -32,7 +32,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -164,6 +163,16 @@ FOR:
 		log.Errorf("debug workflow failed: get kube client error: %s", err)
 		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client")
 	}
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("debug workflow failed: get kube client set error: %s", err)
+		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client set")
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("debug workflow failed: get kube rest config error: %s", err)
+		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube rest config")
+	}
 
 	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
 	if err != nil {
@@ -192,7 +201,7 @@ FOR:
 	}
 	script += "bash\n"
 
-	err = ExecPod(krkubeclient.Clientset(), krkubeclient.RESTConfig(), []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
+	err = ExecPod(clientSet, restConfig, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
 	if err != nil {
 		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
 		log.Errorf(msg)
