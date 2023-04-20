@@ -57,12 +57,14 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("dry-run", "r", false, "dry run data")
 	rootCmd.PersistentFlags().BoolP("message", "m", false, "detailed message")
 	rootCmd.PersistentFlags().StringP("templates", "t", "", "appointed templates")
+	rootCmd.PersistentFlags().StringP("projects", "p", "", "appointed project")
 
 	_ = viper.BindPFlag(setting.ENVMongoDBConnectionString, rootCmd.PersistentFlags().Lookup("connection-string"))
 	_ = viper.BindPFlag(setting.ENVAslanDBName, rootCmd.PersistentFlags().Lookup("database"))
 	_ = viper.BindPFlag("DryRun", rootCmd.PersistentFlags().Lookup("dry-run"))
 	_ = viper.BindPFlag("Message", rootCmd.PersistentFlags().Lookup("message"))
 	_ = viper.BindPFlag("Templates", rootCmd.PersistentFlags().Lookup("templates"))
+	_ = viper.BindPFlag("Projects", rootCmd.PersistentFlags().Lookup("projects"))
 }
 
 func initConfig() {
@@ -78,12 +80,15 @@ func run() error {
 	dryRun = viper.GetBool("DryRun")
 	outPutMessages = viper.GetBool("Message")
 	appointedTemplates = viper.GetString("Templates")
+	appointedProjects = viper.GetString("Projects")
+	//dryRun = true
 
-	err := getYamlTemplates()
+	err := handlerServices()
 	if err != nil {
 		return err
 	}
-	err = handleServiceByTemplate()
+
+	err = handlerEnvVars()
 	if err != nil {
 		return err
 	}

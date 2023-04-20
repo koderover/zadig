@@ -261,6 +261,7 @@ func (c *RenderSetColl) Update(args *models.RenderSet) error {
 		"service_variables": args.ServiceVariables,
 		"update_time":       time.Now().Unix(),
 		"update_by":         args.UpdateBy,
+		"default_values":    args.DefaultValues,
 		//"kvs":               args.KVs,
 	}}
 
