@@ -433,6 +433,6 @@ const (
 type JiraAuthType string
 
 const (
-	JiraBasicAuth           JiraAuthType = ""
+	JiraBasicAuth           JiraAuthType = "password_or_token"
 	JiraPersonalAccessToken JiraAuthType = "personal_access_token"
 )
