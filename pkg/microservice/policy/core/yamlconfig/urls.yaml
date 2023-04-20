@@ -1,6 +1,10 @@
 description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
 exemption_urls:
   public:
+    - endpoint: /api/plutus/license
+      methods:
+        - GET
+        - POST
     - endpoint: api/plutus/health
       methods:
         - GET

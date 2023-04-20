@@ -242,7 +242,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		}
 	}
 	var err error
-	serviceOption.ServiceVariableYaml, err = kube.ClipVariableYaml(serviceOption.VariableYaml, args.ServiceVars)
+	serviceOption.ServiceVariableYaml, err = commonutil.ClipVariableYaml(serviceOption.VariableYaml, args.ServiceVars)
 	if err != nil {
 		return serviceOption, err
 	}
@@ -633,7 +633,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	}
 	// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
 	args.KubeYamls = []string{args.Yaml}
-	if err := util.SetCurrentContainerImages(args); err != nil {
+	if err := commonutil.SetCurrentContainerImages(args); err != nil {
 		log.Errorf("Failed tosetCurrentContainerImages %s, err: %s", args.ProductName, err)
 		return err
 	}
@@ -896,17 +896,31 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid service type: %v", currentService.Type))
 	}
 
-	currentService.ServiceVars = args.ServiceVars
+	kvs, err := kube.GeneKVFromYaml(args.VariableYaml)
+	if err != nil {
+		return e.ErrUpdateService.AddErr(fmt.Errorf("invalid variable yaml, err: %s", err))
+	}
+
+	keySet := sets.NewString()
+	for _, kv := range kvs {
+		keySet.Insert(kv.Key)
+	}
+	validatedServiceVars := make([]string, 0)
+	for _, v := range args.ServiceVars {
+		if keySet.Has(v) {
+			validatedServiceVars = append(validatedServiceVars, v)
+		}
+	}
+	currentService.ServiceVars = validatedServiceVars
 	currentService.VariableYaml = args.VariableYaml
 
-	// TODO validate service vars
 	err = commonrepo.NewServiceColl().UpdateServiceVariables(currentService)
 	if err != nil {
 		return e.ErrUpdateService.AddErr(err)
 	}
 
 	// reparse service, check if container changes
-	currentService.RenderedYaml, err = renderK8sSvcYaml(currentService.Yaml, args.ProductName, args.ServiceName, currentService.VariableYaml)
+	currentService.RenderedYaml, err = renderK8sSvcYamlStrict(currentService.Yaml, args.ProductName, args.ServiceName, currentService.VariableYaml)
 	if err != nil {
 		return fmt.Errorf("failed to render yaml, err: %s", err)
 	}
@@ -914,7 +928,7 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	currentService.RenderedYaml = util.ReplaceWrapLine(currentService.RenderedYaml)
 	currentService.KubeYamls = util.SplitYaml(currentService.RenderedYaml)
 	oldContainers := currentService.Containers
-	if err := util.SetCurrentContainerImages(currentService); err != nil {
+	if err := commonutil.SetCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)
 		//return err
 	} else if containersChanged(oldContainers, currentService.Containers) {
@@ -1495,7 +1509,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 
 		// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
 		// errors will only be logged here
-		if err := util.SetCurrentContainerImages(args); err != nil {
+		if err := commonutil.SetCurrentContainerImages(args); err != nil {
 			log.Errorf("failed to ser set container images, err: %s", err)
 			//return err
 		}

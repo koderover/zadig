@@ -112,44 +112,6 @@ func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
 	return string(bs), nil
 }
 
-func IsServiceVarsWildcard(serviceVars []string) bool {
-	return len(serviceVars) == 1 && serviceVars[0] == "*"
-}
-
-func ClipVariableYaml(variableYaml string, validKeys []string) (string, error) {
-	if len(variableYaml) == 0 {
-		return "", nil
-	}
-	valuesMap, err := converter.YamlToFlatMap([]byte(variableYaml))
-	if err != nil {
-		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
-	}
-
-	wildcard := IsServiceVarsWildcard(validKeys)
-	if wildcard {
-		return variableYaml, nil
-	}
-	keysSet := sets.NewString(validKeys...)
-	validKvMap := make(map[string]interface{})
-	for k, v := range valuesMap {
-		if keysSet.Has(k) {
-			validKvMap[k] = v
-		}
-	}
-
-	if len(validKvMap) == 0 {
-		return "", nil
-	}
-
-	validKvMap, err = converter.Expand(validKvMap)
-	if err != nil {
-		return "", err
-	}
-
-	bs, err := yaml.Marshal(validKvMap)
-	return string(bs), err
-}
-
 // extract valid svc variable from service variable
 // keys defined in service vars are valid
 // keys not defined in service vars or default values are valid as well
@@ -175,7 +137,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		return "", fmt.Errorf("failed to get flat map for service default variable, err: %s", err)
 	}
 
-	wildcard := IsServiceVarsWildcard(serviceVars)
+	wildcard := commonutil.IsServiceVarsWildcard(serviceVars)
 
 	// keys defined in service vars
 	keysSet := sets.NewString(serviceVars...)
@@ -394,7 +356,7 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to merge variable yaml for %s/%s", option.ProductName, option.ServiceName)
 	}
-	variableYaml, err = ClipVariableYaml(variableYaml, serviceVars)
+	variableYaml, err = commonutil.ClipVariableYaml(variableYaml, serviceVars)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to clip variable yaml for %s/%s", option.ProductName, option.ServiceName)
 	}
@@ -619,10 +581,13 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if serviceRender != nil && serviceRender.OverrideYaml != nil {
 		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
 	}
+
+	serviceVariableYaml = commonutil.ClipVariableYamlNoErr(serviceVariableYaml, latestSvcTemplate.ServiceVars)
 	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
+
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{
@@ -652,6 +617,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
 	}
+	// tmpl.Option("missingkey=error")
 
 	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars, serviceDefaultValues)
 	if err != nil {

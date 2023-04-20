@@ -28,6 +28,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/yaml"
@@ -146,6 +147,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 
 		mergedVariable := deployInfo.VariableYaml
 		if svcRender.OverrideYaml != nil {
+			svcRender.OverrideYaml.YamlContent = commonutil.ClipVariableYamlNoErr(svcRender.OverrideYaml.YamlContent, svcTemplate.ServiceVars)
 			mergedVariableBs, err := yaml.Merge([][]byte{[]byte(svcRender.OverrideYaml.YamlContent), []byte(deployInfo.VariableYaml)})
 			if err != nil {
 				return errors.Wrapf(err, "failed to merge variable yaml for %s/%s", deployInfo.ProductName, deployInfo.EnvName)

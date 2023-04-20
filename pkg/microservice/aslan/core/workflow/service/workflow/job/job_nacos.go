@@ -18,16 +18,18 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/tool/nacos"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -45,27 +47,56 @@ func (j *NacosJob) Instantiate() error {
 	j.job.Spec = j.spec
 	return nil
 }
+
 func (j *NacosJob) SetPreset() error {
 	j.spec = &commonmodels.NacosJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
 	j.job.Spec = j.spec
 	originNamespaceID := strings.ReplaceAll(j.spec.NamespaceID, setting.FixedValueMark, "")
-	client, err := getNacosClient(j.spec.NacosID)
+
+	nacosConfigs, err := commonservice.ListNacosConfig(j.spec.NacosID, originNamespaceID, log.SugaredLogger())
 	if err != nil {
-		return errors.Errorf("fail to init nacos client: %v, please check nacos configuration", err)
+		return fmt.Errorf("fail to list nacos config: %w", err)
 	}
+
+	nacosConfigsMap := map[string]*types.NacosConfig{}
+	for _, config := range nacosConfigs {
+		nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
+	}
+
+	var configSet sets.String
+	if strings.HasPrefix(j.spec.NamespaceID, setting.FixedValueMark) {
+		configSet = sets.NewString(j.spec.NacosDataRange...)
+	}
+
 	newDatas := []*types.NacosConfig{}
 	for _, data := range j.spec.NacosDatas {
-		newData, err := client.GetConfig(data.DataID, data.Group, originNamespaceID)
-		if err != nil {
-			log.Errorf("get nacos config %s/%s error: %v", data.DataID, data.Group, err)
+		if !isNacosDataFiltered(data, configSet) {
+			continue
+		}
+
+		newData, ok := nacosConfigsMap[getNacosConfigKey(data.Group, data.DataID)]
+		if !ok {
+			log.Errorf("can't find nacos config %s/%s", data.DataID, data.Group)
 			continue
 		}
 		newDatas = append(newDatas, newData)
 	}
+
+	newFilterDatas := []*types.NacosConfig{}
+	for _, data := range nacosConfigsMap {
+		if !isNacosDataFiltered(data, configSet) {
+			continue
+		}
+
+		newFilterDatas = append(newFilterDatas, data)
+	}
+
 	j.spec.NacosDatas = newDatas
+	j.spec.NacosFilteredData = newFilterDatas
 	return nil
 }
 
@@ -101,7 +132,7 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get nacos info")
 	}
-	client, err := getNacosClient(j.spec.NacosID)
+	client, err := commonservice.GetNacosClient(j.spec.NacosID)
 	if err != nil {
 		return nil, errors.Errorf("get nacos client error: %v", err)
 	}
@@ -139,6 +170,22 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *NacosJob) LintJob() error {
+	j.spec = &commonmodels.NacosJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(j.spec.NamespaceID, setting.FixedValueMark) {
+		return nil
+	}
+
+	configSet := sets.NewString(j.spec.NacosDataRange...)
+	for _, data := range j.spec.NacosDatas {
+		if !isNacosDataFiltered(data, configSet) {
+			return fmt.Errorf("can't select the nacos config outside the config range, key: %s", getNacosConfigKey(data.Group, data.DataID))
+		}
+	}
+
 	return nil
 }
 
@@ -152,10 +199,33 @@ func transNacosDatas(confs []*types.NacosConfig) []*commonmodels.NacosData {
 	return resp
 }
 
-func getNacosClient(nacosID string) (*nacos.Client, error) {
-	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), nacosID)
-	if err != nil {
-		return nil, errors.Wrap(err, "get nacos info")
+func getNacosConfigKey(group, id string) string {
+	return group + "/" + id
+}
+
+func filterNacosDatas(inputDatas []*types.NacosConfig, filters []string) []*types.NacosConfig {
+	resp := []*types.NacosConfig{}
+	set := sets.NewString(filters...)
+	for _, data := range inputDatas {
+		if isNacosDataFiltered(data, set) {
+			resp = append(resp, data)
+		}
 	}
-	return nacos.NewNacosClient(info.ServerAddress, info.UserName, info.Password)
+	return resp
+}
+
+func isNacosDataFiltered(data *types.NacosConfig, filters sets.String) bool {
+	if filters.Len() == 0 {
+		return true
+	}
+
+	if filters.Has("*") {
+		return true
+	}
+
+	if filters.Has(getNacosConfigKey(data.Group, data.DataID)) {
+		return true
+	}
+
+	return false
 }

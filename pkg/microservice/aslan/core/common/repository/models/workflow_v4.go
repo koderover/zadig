@@ -92,6 +92,7 @@ type WorkflowStage struct {
 
 type Approval struct {
 	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
+	Status         config.Status       `bson:"status"                      yaml:"status"                        json:"status"`
 	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
 	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
 	StartTime      int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`
@@ -201,10 +202,11 @@ type ZadigDeployJobSpec struct {
 }
 
 type DeployService struct {
-	ServiceName  string           `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	KeyVals      []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	UpdateConfig bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
-	Updatable    bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
+	ServiceName   string           `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	KeyVals       []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
+	UpdateConfig  bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
+	Updatable     bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
 }
 
 type ServiceKeyVal struct {
@@ -458,10 +460,12 @@ type IstioJobTarget struct {
 }
 
 type NacosJobSpec struct {
-	NacosID     string               `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
-	NamespaceID string               `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
-	NacosDatas  []*types.NacosConfig `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
-	DataFixed   bool                 `bson:"data_fixed"       json:"data_fixed"       yaml:"data_fixed"`
+	NacosID           string               `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
+	NamespaceID       string               `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
+	NacosDatas        []*types.NacosConfig `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`
+	NacosFilteredData []*types.NacosConfig `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
+	NacosDataRange    []string             `bson:"nacos_data_range"    json:"nacos_data_range"    yaml:"nacos_data_range"`
+	DataFixed         bool                 `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }
 
 type WorkflowTriggerJobSpec struct {
@@ -486,6 +490,7 @@ type ServiceTriggerWorkflowInfo struct {
 	ServiceName   string   `bson:"service_name" json:"service_name" yaml:"service_name"`
 	ServiceModule string   `bson:"service_module" json:"service_module" yaml:"service_module"`
 	WorkflowName  string   `bson:"workflow_name" json:"workflow_name" yaml:"workflow_name"`
+	ProjectName   string   `bson:"project_name" json:"project_name" yaml:"project_name"`
 	Params        []*Param `bson:"params" json:"params" yaml:"params"`
 }
 

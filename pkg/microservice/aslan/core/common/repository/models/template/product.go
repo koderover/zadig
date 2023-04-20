@@ -305,7 +305,7 @@ func (rc *ServiceRender) AbsorbKVS(kvs map[string]interface{}) error {
 			Value: v,
 		})
 	}
-	bs, err := json.Marshal(rc.OverrideValues)
+	bs, err := json.Marshal(newKvList)
 	if err != nil {
 		log.Errorf("override values json marshal error")
 		return err

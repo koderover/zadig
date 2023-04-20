@@ -24,7 +24,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"golang.org/x/exp/slices"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -33,6 +33,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type HelmDeployJobCtl struct {
@@ -79,30 +80,48 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.namespace = productInfo.Namespace
 	c.jobTaskSpec.ClusterID = productInfo.ClusterID
 
-	// all involved containers
-	containerNameSet := sets.NewString()
-	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
-		singleContainerName := strings.TrimSuffix(svcAndContainer.ServiceModule, "_"+c.jobTaskSpec.ServiceName)
-		containerNameSet.Insert(singleContainerName)
+	updateServiceRevision := false
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
+		updateServiceRevision = true
 	}
 
 	images := make([]string, 0)
-	for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
-		images = append(images, svcAndContainer.Image)
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
+		for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
+			images = append(images, svcAndContainer.Image)
+		}
+	}
+
+	variableYaml := ""
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
+		vars := []*commonmodels.VariableKV{}
+		for _, v := range c.jobTaskSpec.KeyVals {
+			vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
+		}
+		variableYaml, err = kube.GenerateYamlFromKV(vars)
 	}
 
 	param := &kube.ResourceApplyParam{
 		ProductInfo:           productInfo,
 		ServiceName:           c.jobTaskSpec.ServiceName,
 		Images:                images,
-		VariableYaml:          "",    // TODO fill variable
-		Uninstall:             false, // TODO fill correct value
-		UpdateServiceRevision: false, // TODO fill correct value
+		VariableYaml:          variableYaml,
+		Uninstall:             false,
+		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               c.timeout(),
 	}
 
-	c.logger.Infof("start helm deploy, productName %s serviceName %s containerName %v namespace %s", c.workflowCtx.ProjectName,
-		c.jobTaskSpec.ServiceName, containerNameSet.List(), c.namespace)
+	yamlContent, err := kube.GeneMergedValues(param, c.logger)
+	if err != nil {
+		log.Errorf("failed to generate merged values.yaml, err: %w", err)
+		return
+	}
+
+	c.jobTaskSpec.YamlContent = yamlContent
+	c.ack()
+
+	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s updateServiceRevision %v",
+		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, images, variableYaml, updateServiceRevision)
 
 	timeOut := c.timeout()
 
@@ -146,7 +165,7 @@ func (c *HelmDeployJobCtl) SaveInfo(ctx context.Context) error {
 		modules = append(modules, module.ServiceModule)
 	}
 	moduleList := strings.Join(modules, ",")
-	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+	return commonrepo.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
 		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
@@ -163,4 +182,12 @@ func (c *HelmDeployJobCtl) SaveInfo(ctx context.Context) error {
 		ServiceModule: moduleList,
 		// helm deploy does not have production deploy now
 	})
+}
+
+func (c *HelmDeployJobCtl) getVarsYaml() (string, error) {
+	vars := []*commonmodels.VariableKV{}
+	for _, v := range c.jobTaskSpec.KeyVals {
+		vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
+	}
+	return kube.GenerateYamlFromKV(vars)
 }

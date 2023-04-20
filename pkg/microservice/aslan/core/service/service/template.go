@@ -152,10 +152,23 @@ func renderSystemVars(originYaml, productName, serviceName string) string {
 	return originYaml
 }
 
+// won't return error if template key is missing values
 func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
+	return renderK8sSvcYamlImpl(originYaml, productName, serviceName, "", variableYamls...)
+}
+
+// will return error if template key is missing values
+func renderK8sSvcYamlStrict(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
+	return renderK8sSvcYamlImpl(originYaml, productName, serviceName, "missingkey=error", variableYamls...)
+}
+
+func renderK8sSvcYamlImpl(originYaml, productName, serviceName, templateOption string, variableYamls ...string) (string, error) {
 	tmpl, err := gotemplate.New(serviceName).Parse(originYaml)
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
+	}
+	if templateOption != "" {
+		tmpl.Option(templateOption)
 	}
 
 	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(variableYamls...)
@@ -190,10 +203,6 @@ func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls
 
 	return originYaml, nil
 }
-
-//func buildVariable(key string) string {
-//	return fmt.Sprintf("{{.%s}}", key)
-//}
 
 // SyncServiceFromTemplate syncs services from (yaml|chart)template
 func SyncServiceFromTemplate(userName, source, templateId, templateName string, logger *zap.SugaredLogger) error {

@@ -189,7 +189,7 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 
 	filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
 	if listType == setting.ListNamespaceTypeCreate {
-		nsList, err := commonrepo.NewProductColl().ListExistedNamespace()
+		nsList, err := commonrepo.NewProductColl().ListExistedNamespace(clusterID)
 		if err != nil {
 			log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
 			return nil, err

@@ -19,12 +19,14 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -42,8 +44,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -285,13 +289,24 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 type NameWithParams struct {
 	Name        string                `json:"name"`
 	DisplayName string                `json:"display_name"`
+	ProjectName string                `json:"project_name"`
 	Params      []*commonmodels.Param `json:"params"`
 }
 
-func ListWorkflowV4CanTrigger(projectName string) ([]*NameWithParams, error) {
-	workflowList, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
-		ProjectName: projectName,
-	}, 0, 0)
+func ListWorkflowV4CanTrigger(headers http.Header, projectName string) ([]*NameWithParams, error) {
+	projects, err := getAllowedProjects(headers)
+	if err != nil {
+		return nil, errors.New("failed to get allowed projects")
+	}
+
+	if projectName != "" {
+		if lo.Contains(projects, projectName) || (len(projects) > 0 && projects[0] == "*") {
+			projects = []string{projectName}
+		} else {
+			return nil, errors.New("project not found")
+		}
+	}
+	workflowList, err := commonrepo.NewWorkflowV4Coll().ListByProjectNames(projects)
 	if err != nil {
 		return nil, errors.Errorf("failed to list workflow v4, the error is: %s", err)
 	}
@@ -316,6 +331,7 @@ LOOP:
 		result = append(result, &NameWithParams{
 			Name:        workflowV4.Name,
 			DisplayName: workflowV4.DisplayName,
+			ProjectName: workflowV4.Project,
 			Params:      paramList,
 		})
 	}
@@ -1633,6 +1649,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 	jobSpec := &commonmodels.ZadigDeployJobSpec{}
 	found := false
+	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name != jobName {
@@ -1648,6 +1665,11 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 				log.Error(msg)
 				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 			}
+
+			for _, svc := range jobSpec.Services {
+				svcKVsMap[svc.ServiceName] = svc.KeyVals
+			}
+
 			found = true
 			break
 		}
@@ -1659,12 +1681,12 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 	var services *commonservice.EnvServices
 	if jobSpec.Production {
-		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, log)
+		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, svcKVsMap, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
 	} else {
-		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, log)
+		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, svcKVsMap, log)
 		if err != nil {
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
 		}
@@ -1697,40 +1719,76 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	if slices.Contains(deployContents, config.DeployConfig) && serviceEnv.Updatable {
 		defaultUpdateConfig = true
 	}
+
+	keySet := sets.NewString()
 	if service == nil {
-		service = &commonmodels.DeployService{
-			ServiceName:  serviceName,
-			Updatable:    serviceEnv.Updatable,
-			UpdateConfig: defaultUpdateConfig,
-		}
-		for _, svcVar := range serviceEnv.VariableKVs {
+		service = &commonmodels.DeployService{}
+	} else {
+		keySet = commonutil.KVs2Set(service.KeyVals)
+	}
+
+	service.ServiceName = serviceName
+	service.Updatable = serviceEnv.Updatable
+	service.UpdateConfig = defaultUpdateConfig
+
+	service.KeyVals = []*commonmodels.ServiceKeyVal{}
+	service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
+
+	for _, svcVar := range serviceEnv.VariableKVs {
+		if commonutil.FilterKV(svcVar, keySet) {
 			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
 				Key:   svcVar.Key,
 				Value: svcVar.Value,
 				Type:  commonmodels.StringType,
 			})
 		}
-		if !slices.Contains(deployContents, config.DeployVars) {
-			service.KeyVals = []*commonmodels.ServiceKeyVal{}
-		}
-		return service, nil
 	}
-	service.ServiceName = serviceName
-	service.Updatable = serviceEnv.Updatable
-	service.UpdateConfig = defaultUpdateConfig
-	newVars := []*commonmodels.ServiceKeyVal{}
-	for _, svcVar := range service.KeyVals {
-		for _, varItem := range serviceEnv.VariableKVs {
-			if svcVar.Key == varItem.Key {
-				svcVar.Value = varItem.Value
-				newVars = append(newVars, svcVar)
-				break
-			}
+	for _, svcVar := range serviceEnv.LatestVariableKVs {
+		if commonutil.FilterKV(svcVar, keySet) {
+			service.LatestKeyVals = append(service.LatestKeyVals, &commonmodels.ServiceKeyVal{
+				Key:   svcVar.Key,
+				Value: svcVar.Value,
+				Type:  commonmodels.StringType,
+			})
 		}
 	}
-	service.KeyVals = newVars
 	if !slices.Contains(deployContents, config.DeployVars) {
 		service.KeyVals = []*commonmodels.ServiceKeyVal{}
+		service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
 	}
+
 	return service, nil
+}
+
+func getAllowedProjects(headers http.Header) ([]string, error) {
+	type allowedProjectsData struct {
+		Projects []string `json:"result"`
+	}
+	allowedProjects := &allowedProjectsData{}
+	opaClient := opa.NewDefault()
+	err := opaClient.Evaluate("rbac.user_allowed_projects", allowedProjects, func() (*opa.Input, error) {
+		return generateOPAInput(headers, "GET", "/api/aslan/workflow/workflow"), nil
+	})
+	if err != nil {
+		log.Errorf("get allowed projects error: %v", err)
+		return nil, err
+	}
+	return allowedProjects.Projects, nil
+}
+
+func generateOPAInput(header http.Header, method string, endpoint string) *opa.Input {
+	authorization := header.Get(strings.ToLower(setting.AuthorizationHeader))
+	headers := map[string]string{}
+	parsedPath := strings.Split(strings.Trim(endpoint, "/"), "/")
+	headers[strings.ToLower(setting.AuthorizationHeader)] = authorization
+
+	return &opa.Input{
+		Attributes: &opa.Attributes{
+			Request: &opa.Request{HTTP: &opa.HTTPSpec{
+				Headers: headers,
+				Method:  method,
+			}},
+		},
+		ParsedPath: parsedPath,
+	}
 }

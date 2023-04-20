@@ -515,13 +515,16 @@ type nsObject struct {
 	Namespace string             `bson:"namespace"`
 }
 
-func (c *ProductColl) ListExistedNamespace() ([]string, error) {
+func (c *ProductColl) ListExistedNamespace(clusterID string) ([]string, error) {
 	nsList := make([]*nsObject, 0)
 	resp := sets.NewString()
 	selector := bson.D{
 		{"namespace", 1},
 	}
 	query := bson.M{"is_existed": true}
+	if clusterID != "" {
+		query["cluster_id"] = clusterID
+	}
 	opt := options.Find()
 	opt.SetProjection(selector)
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)

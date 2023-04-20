@@ -130,7 +130,7 @@ func ensureProductionNamespace(createArgs []*service.CreateSingleProductArg) err
 
 	for _, arg := range createArgs {
 		if !namespaceList[arg.ClusterID].Has(arg.Namespace) {
-			return fmt.Errorf("namespace %s is not valid for production environments", arg.Namespace)
+			return fmt.Errorf("namespace %s is invalid or has been used for other environment", arg.Namespace)
 		}
 	}
 	return nil

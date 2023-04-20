@@ -195,7 +195,7 @@ func (c *PluginJobCtl) complete(ctx context.Context) {
 }
 
 func (c *PluginJobCtl) SaveInfo(ctx context.Context) error {
-	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+	return commonrepo.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
 		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,

@@ -436,3 +436,33 @@ const (
 	JiraBasicAuth           JiraAuthType = "password_or_token"
 	JiraPersonalAccessToken JiraAuthType = "personal_access_token"
 )
+
+// statistics dashboard id enum
+const (
+	DashboardDataTypeTestPassRate           = "test_pass_rate"
+	DashboardDataTypeTestAverageDuration    = "test_average_duration"
+	DashboardDataTypeBuildSuccessRate       = "build_success_rate"
+	DashboardDataTypeBuildAverageDuration   = "build_average_duration"
+	DashboardDataTypeBuildFrequency         = "build_frequency"
+	DashboardDataTypeDeploySuccessRate      = "deploy_success_rate"
+	DashboardDataTypeDeployAverageDuration  = "deploy_average_duration"
+	DashboardDataTypeDeployFrequency        = "deploy_frequency"
+	DashboardDataTypeReleaseSuccessRate     = "release_success_rate"
+	DashboardDataTypeReleaseAverageDuration = "release_average_duration"
+	DashboardDataTypeReleaseFrequency       = "release_frequency"
+
+	DashboardDataSourceZadig = "zadig"
+	DashboardDataSourceApi   = "api"
+
+	DashboardDataCategoryQuality    = "quality"
+	DashboardDataCategoryEfficiency = "efficiency"
+	DashboardDataCategorySchedule   = "schedule"
+
+	DashboardFunctionBuildAverageDuration = "5400/(x+540)"
+	DashboardFunctionBuildSuccessRate     = "-2400/(x-120)-20"
+	DashboardFunctionDeploySuccessRate    = "-2400/(x-120)-20"
+	DashboardFunctionDeployFrequency      = "100-40000/(3*x+400)"
+	DashboardFunctionTestPassRate         = "(x**2)/80-x/4+1.25"
+	DashboardFunctionTestAverageDuration  = "90000/(x+900)"
+	DashboardFunctionReleaseFrequency     = "100-200/(x+2)"
+)

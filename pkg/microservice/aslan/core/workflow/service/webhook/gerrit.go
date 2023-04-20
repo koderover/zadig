@@ -40,6 +40,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -300,7 +301,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		}
 
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
-		if err := util.SetCurrentContainerImages(args); err != nil {
+		if err := commonutil.SetCurrentContainerImages(args); err != nil {
 			return err
 		}
 

@@ -23,10 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -42,8 +44,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	larktool "github.com/koderover/zadig/pkg/tool/lark"
@@ -438,6 +440,82 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	return task.OriginWorkflowArgs, nil
 }
 
+func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("find workflowTaskV4 error: %s", err)
+		return e.ErrGetTask.AddErr(err)
+	}
+	switch task.Status {
+	case config.StatusFailed, config.StatusTimeout, config.StatusCancelled, config.StatusReject:
+	default:
+		return errors.New("工作流任务状态无法重试")
+	}
+
+	if task.OriginWorkflowArgs == nil || task.OriginWorkflowArgs.Stages == nil {
+		return errors.New("工作流任务数据异常, 无法重试")
+	}
+
+	getStageAllJobTask := func(workflow *commonmodels.WorkflowV4, stageIndex int, taskID int64) (map[string]*commonmodels.JobTask, error) {
+		resp := make(map[string]*commonmodels.JobTask)
+		for _, job := range workflow.Stages[stageIndex].Jobs {
+			jobCtl, err := jobctl.InitJobCtl(job, workflow)
+			if err != nil {
+				return nil, errors.Errorf("init jobCtl %s error: %s", job.Name, err)
+			}
+			jobTasks, err := jobCtl.ToJobs(taskID)
+			if err != nil {
+				return nil, errors.Errorf("job %s toJobs error: %s", job.Name, err)
+			}
+			for _, jobTask := range jobTasks {
+				resp[jobTask.Name] = jobTask
+			}
+		}
+		return resp, nil
+	}
+
+	for i, stage := range task.Stages {
+		if stage.Status == config.StatusPassed {
+			continue
+		}
+		stage.Status = ""
+		stage.StartTime = 0
+		stage.EndTime = 0
+		stage.Error = ""
+
+		if stage.Approval != nil && stage.Approval.Enabled &&
+			stage.Approval.Status != config.StatusPassed && stage.Approval.Status != "" {
+			stage.Approval = task.OriginWorkflowArgs.Stages[i].Approval
+		}
+
+		m, err := getStageAllJobTask(task.WorkflowArgs, i, task.TaskID)
+		if err != nil {
+			return errors.Errorf("get stage %d all job task error: %s", i, err)
+		}
+		for _, jobTask := range stage.Jobs {
+			if jobTask.Status == config.StatusPassed {
+				continue
+			}
+			jobTask.Status = ""
+			jobTask.StartTime = 0
+			jobTask.EndTime = 0
+			jobTask.Error = ""
+			if t, ok := m[jobTask.Name]; ok {
+				jobTask.Spec = t.Spec
+			} else {
+				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
+			}
+		}
+	}
+
+	if err := workflowcontroller.UpdateTask(task); err != nil {
+		log.Errorf("retry workflow task error: %v", err)
+		return e.ErrCreateTask.AddDesc(fmt.Sprintf("重试工作流任务失败: %s", err.Error()))
+	}
+
+	return nil
+}
+
 func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set bool, position string, logger *zap.SugaredLogger) error {
 	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
 	if w == nil {
@@ -479,16 +557,34 @@ FOR:
 		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
 		return nil
 	}
+
+	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
+		logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: convert job task spec")
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client")
+	}
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client set error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client set")
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("set workflowTaskV4 breakpoint failed: get kube rest config error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube rest config")
+	}
+
 	// job task is running, check whether shell step has run, and touch breakpoint file
 	// if job task status is debug_after, only breakpoint operation can do is unset breakpoint_after, which should be done by StopDebugWorkflowTaskJobV4
 	// if job task status is prepare, setting breakpoints has a low probability of not taking effect, and the current design allows for this flaw
 	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore || task.Status == config.StatusPrepare {
-		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-		if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
-			logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
-			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败")
-		}
-		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
 		if err != nil {
 			logger.Errorf("set workflowTaskV4 breakpoint failed: list pods %v", err)
 			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods")
@@ -511,7 +607,7 @@ FOR:
 				ContainerName: pod.Spec.Containers[0].Name,
 				Command:       []string{"sh", "-c", cmd},
 			}
-			_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+			_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
 			logger.Errorf("set workflowTaskV4 breakpoint exec %s error: %s", cmd, stderr)
 			return success
 		}
@@ -609,7 +705,24 @@ FOR:
 		logger.Errorf("stop workflowTaskV4 debug shell failed: IToi %v", err)
 		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
 	}
-	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client")
+	}
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client set error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client set")
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("stop workflowTaskV4 debug shell failed: get kube rest config error: %s", err)
+		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube rest config")
+	}
+
+	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
 	if err != nil {
 		logger.Errorf("stop workflowTaskV4 debug shell failed: list pods %v", err)
 		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods")
@@ -632,7 +745,7 @@ FOR:
 			ContainerName: pod.Spec.Containers[0].Name,
 			Command:       []string{"sh", "-c", cmd},
 		}
-		_, stderr, success, _ := podexec.KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), opt)
+		_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
 		logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
 		return success
 	}
@@ -694,15 +807,9 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 					Name:      "人工审批",
 					StartTime: stage.Approval.StartTime,
 					EndTime:   stage.Approval.EndTime,
+					Status:    stage.Approval.Status,
 				}
-				switch {
-				//case stage.Status == config.StatusWaitingApprove:
-				//	approvalStage.Status = config.StatusWaitingApprove
-				//	stage.Status = StatusNotRun
-				case stage.Status == config.StatusPassed || stage.Status == config.StatusRunning:
-					approvalStage.Status = config.StatusPassed
-				default:
-					approvalStage.Status = stage.Status
+				if stage.Approval.Status != config.StatusPassed {
 					stage.Status = StatusNotRun
 				}
 				stageList = append(stageList, approvalStage)
@@ -958,6 +1065,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
+			spec.KeyVals = taskJobSpec.KeyVals
+			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			for _, imageAndmodule := range taskJobSpec.ImageAndModules {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{

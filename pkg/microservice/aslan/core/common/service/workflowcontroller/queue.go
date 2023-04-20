@@ -81,7 +81,7 @@ func CreateTask(t *commonmodels.WorkflowTask) error {
 func UpdateTask(t *commonmodels.WorkflowTask) error {
 	t.Status = config.StatusWaiting
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(t.ID.Hex(), t); err != nil {
-		log.Errorf("create workflow task v4 error: %v", err)
+		log.Errorf("update workflow task v4 %s error: %v", t.WorkflowName, err)
 		return err
 	}
 	return Push(t)

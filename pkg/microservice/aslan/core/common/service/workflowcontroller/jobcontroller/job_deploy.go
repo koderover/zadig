@@ -172,7 +172,11 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		containers := []*commonmodels.Container{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 			for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
-				containers = append(containers, &commonmodels.Container{Name: serviceImage.ServiceModule, Image: serviceImage.Image})
+				containers = append(containers, &commonmodels.Container{
+					Name:      serviceImage.ServiceModule,
+					Image:     serviceImage.Image,
+					ImageName: serviceImage.ImageName,
+				})
 			}
 		}
 		option := &kube.GeneSvcYamlOption{ProductName: env.ProductName, EnvName: c.jobTaskSpec.Env, ServiceName: c.jobTaskSpec.ServiceName, UpdateServiceRevision: updateRevision, VariableYaml: varsYaml, Containers: containers}
@@ -568,7 +572,7 @@ func (c *DeployJobCtl) SaveInfo(ctx context.Context) error {
 		modules = append(modules, module.ServiceModule)
 	}
 	moduleList := strings.Join(modules, ",")
-	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+	return commonrepo.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
 		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
