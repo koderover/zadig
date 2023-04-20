@@ -324,8 +324,6 @@ func initDatabase() {
 		wg.Add(1)
 		go func(r indexer) {
 			defer wg.Done()
-			// todo clear
-			fmt.Printf("ensure %s index\n", r.GetCollectionName())
 			if err := r.EnsureIndex(idxCtx); err != nil {
 				panic(fmt.Errorf("failed to create index for %s, error: %s", r.GetCollectionName(), err))
 			}
