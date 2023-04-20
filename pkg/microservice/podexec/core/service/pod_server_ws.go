@@ -26,11 +26,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -157,7 +158,23 @@ FOR:
 		_ = pty.Close()
 	}()
 
-	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), krkubeclient.Client())
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("debug workflow failed: get kube client error: %s", err)
+		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client")
+	}
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("debug workflow failed: get kube client set error: %s", err)
+		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client set")
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		log.Errorf("debug workflow failed: get kube rest config error: %s", err)
+		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube rest config")
+	}
+
+	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
 	if err != nil {
 		logger.Errorf("debug workflow failed: list pods %v", err)
 		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: ListPods")
@@ -184,7 +201,7 @@ FOR:
 	}
 	script += "bash\n"
 
-	err = ExecPod(krkubeclient.Clientset(), krkubeclient.RESTConfig(), []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
+	err = ExecPod(clientSet, restConfig, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
 	if err != nil {
 		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
 		log.Errorf(msg)
