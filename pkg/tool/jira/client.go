@@ -18,6 +18,9 @@ package jira
 
 import (
 	"github.com/imroc/req/v3"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // Client is jira RPC client
@@ -30,11 +33,39 @@ type Client struct {
 	Sprint  *SprintService
 }
 
-// NewJiraClient is to get jira client func
-func NewJiraClient(username, password, host string) *Client {
+func NewJiraClientWithAuthType(host, username, password, token string, _type config.JiraAuthType) *Client {
+	switch _type {
+	case config.JiraPersonalAccessToken:
+		return NewJiraClientWithBearerToken(host, token)
+	case config.JiraBasicAuth:
+		return NewJiraClientWithBasicAuth(host, username, password)
+	default:
+		log.Error("NewJiraClientWithAuthType: invalid type %s", _type)
+		return NewJiraClientWithBasicAuth(host, username, password)
+	}
+}
+
+func NewJiraClientWithBasicAuth(host, username, password string) *Client {
 	c := &Client{
 		Host: host,
 		Client: req.C().SetCommonBasicAuth(username, password).SetCommonHeaders(map[string]string{
+			"X-Force-Accept-Language": "true",
+			"Accept-Language":         "en-US,en",
+		}),
+	}
+
+	c.Issue = &IssueService{client: c}
+	c.Project = &ProjectService{client: c}
+	c.Board = &BoardService{client: c}
+	c.Sprint = &SprintService{client: c}
+
+	return c
+}
+
+func NewJiraClientWithBearerToken(host, token string) *Client {
+	c := &Client{
+		Host: host,
+		Client: req.C().SetCommonBearerAuthToken(token).SetCommonHeaders(map[string]string{
 			"X-Force-Accept-Language": "true",
 			"Accept-Language":         "en-US,en",
 		}),
