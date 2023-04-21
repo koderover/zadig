@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/config"
+	aslanconfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/jira"
@@ -30,12 +31,16 @@ import (
 )
 
 type JiraInfo struct {
-	ID             int64  `json:"id"`
-	Host           string `json:"host"`
-	User           string `json:"user"`
-	AccessToken    string `json:"access_token"`
-	OrganizationID int    `json:"organizationId"`
-	UpdatedAt      int64  `json:"updated_at"`
+	ID       int64                    `json:"id"`
+	Host     string                   `json:"host"`
+	User     string                   `json:"user"`
+	AuthType aslanconfig.JiraAuthType `json:"auth_type"`
+	// AccessToken is same as password
+	AccessToken string `json:"access_token"`
+	// PersonalAccessToken is bearer token
+	PersonalAccessToken string `json:"personal_access_token"`
+	OrganizationID      int    `json:"organizationId"`
+	UpdatedAt           int64  `json:"updated_at"`
 }
 
 func GetJiraInfo() (*JiraInfo, error) {
@@ -57,10 +62,12 @@ func GetJiraInfo() (*JiraInfo, error) {
 	for _, v := range list {
 		if v.Type == setting.PMJira {
 			return &JiraInfo{
-				Host:        v.JiraHost,
-				User:        v.JiraUser,
-				AccessToken: v.JiraToken,
-				UpdatedAt:   v.UpdatedAt,
+				Host:                v.JiraHost,
+				User:                v.JiraUser,
+				AuthType:            v.JiraAuthType,
+				AccessToken:         v.JiraToken,
+				PersonalAccessToken: v.JiraPersonalAccessToken,
+				UpdatedAt:           v.UpdatedAt,
 			}, nil
 		}
 	}
@@ -73,6 +80,6 @@ func SendComment(key, message string) error {
 	if err != nil {
 		return errors.Wrap(err, "get jira info")
 	}
-	client := jira.NewJiraClient(info.User, info.AccessToken, info.Host)
+	client := jira.NewJiraClientWithAuthType(info.Host, info.User, info.AccessToken, info.PersonalAccessToken, info.AuthType)
 	return client.Issue.AddCommentV2(key, message)
 }
