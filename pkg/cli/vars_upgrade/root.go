@@ -54,7 +54,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringP("connection-string", "c", "", "mongodb connection string")
 	rootCmd.PersistentFlags().StringP("database", "d", "", "name of the database")
-	rootCmd.PersistentFlags().BoolP("dry-run", "r", false, "dry run data")
+	rootCmd.PersistentFlags().BoolP("write", "r", false, "write data")
 	rootCmd.PersistentFlags().BoolP("message", "m", false, "detailed message")
 	rootCmd.PersistentFlags().StringP("templates", "t", "", "appointed templates")
 	rootCmd.PersistentFlags().StringP("projects", "p", "", "appointed project")
