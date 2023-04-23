@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -32,7 +31,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -96,8 +94,6 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			event.Status = config.StatusFailed
 			logger.Errorf(errMsg)
 			fail = true
-			internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
-
 			_, _ = service.InsertOperation(&models.OperationLog{
 				Username:    c.workflowCtx.WorkflowTaskCreatorUsername,
 				ProductName: c.workflowCtx.ProjectName,
