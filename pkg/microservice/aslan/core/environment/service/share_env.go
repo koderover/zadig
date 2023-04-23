@@ -462,6 +462,7 @@ func ensureVirtualService(ctx context.Context, kclient client.Client, istioClien
 			ShareEnvEnable:  zadigutil.GetBoolPointer(true),
 			ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
 			ShareEnvBaseEnv: zadigutil.GetStrPointer(env.EnvName),
+			Production:      zadigutil.GetBoolPointer(false),
 		})
 		if err != nil {
 			return err

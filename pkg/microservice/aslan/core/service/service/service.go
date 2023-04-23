@@ -1159,6 +1159,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name: projectName,
+			Production: util.GetBoolPointer(false),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)

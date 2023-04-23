@@ -41,6 +41,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type ListConfigMapArgs struct {
@@ -397,10 +398,12 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 			Name:          productName,
 			EnvName:       envName,
 			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
+			Production:    util.GetBoolPointer(false),
 		})
 	} else {
 		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
+			Production:    util.GetBoolPointer(false),
 		})
 	}
 	if err != nil && err != mongo.ErrNoDocuments {

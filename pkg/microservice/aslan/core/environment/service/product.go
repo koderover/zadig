@@ -46,7 +46,9 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 	log.Info("[CleanProductCronJob] started ...")
 	defer log.Info("[CleanProductCronJob] end")
 
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Production: util.GetBoolPointer(false),
+	})
 	if err != nil {
 		log.Errorf("[Product.List] error: %v", err)
 		return
@@ -340,7 +342,9 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 func CleanProducts() {
 	logger := log.SugaredLogger()
 
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Production: util.GetBoolPointer(false),
+	})
 	if err != nil {
 		logger.Errorf("ListProducts error: %v\n", err)
 		return
