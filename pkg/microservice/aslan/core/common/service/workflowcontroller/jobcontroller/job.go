@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -82,6 +83,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewMeegoTransitionJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobWorkflowTrigger):
 		jobCtl = NewWorkflowTriggerJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobOfflineService):
+		jobCtl = NewOfflineServiceJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
@@ -113,7 +116,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	defer func(jobInfo *JobCtl) {
 		if err := recover(); err != nil {
 			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
-			logger.Error(errMsg)
+			logger.Errorf(errMsg)
+			debug.PrintStack()
 			job.Status = config.StatusFailed
 			job.Error = errMsg
 		}
