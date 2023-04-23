@@ -420,6 +420,8 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
 
+	log.Debugf("FetchCurrentAppliedYaml: map %v", productInfo.GetServiceMap())
+
 	// service not installed, nothing to return
 	if curProductSvc == nil {
 		//todo debug
