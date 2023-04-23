@@ -400,7 +400,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 
 	// for situations only updating workload images, only return involved manifests of deployments and statefulsets
-	if !option.UpdateServiceRevision && len(option.VariableYaml) == 0 {
+	if !option.UnInstall && !option.UpdateServiceRevision && len(option.VariableYaml) == 0 {
 		manifest, _, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
 		return manifest, int(curProductSvc.Revision), err
 	}
