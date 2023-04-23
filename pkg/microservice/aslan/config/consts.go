@@ -438,6 +438,13 @@ const (
 	SourceFromYaml     = "yaml"
 )
 
+type JiraAuthType string
+
+const (
+	JiraBasicAuth           JiraAuthType = "password_or_token"
+	JiraPersonalAccessToken JiraAuthType = "personal_access_token"
+)
+
 // statistics dashboard id enum
 const (
 	DashboardDataTypeTestPassRate           = "test_pass_rate"
