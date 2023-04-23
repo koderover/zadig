@@ -29,7 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	systemmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -94,7 +94,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			event.Status = config.StatusFailed
 			logger.Errorf(errMsg)
 			fail = true
-			_, _ = service.InsertOperation(&models.OperationLog{
+			_ = systemmongodb.NewOperationLogColl().Insert(&models.OperationLog{
 				Username:    c.workflowCtx.WorkflowTaskCreatorUsername,
 				ProductName: c.workflowCtx.ProjectName,
 				Method:      "下线",
@@ -105,7 +105,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 				RequestBody: "",
 				Status:      http.StatusInternalServerError,
 				CreatedAt:   time.Now().Unix(),
-			}, c.logger)
+			})
 		}
 
 		yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
@@ -143,7 +143,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		}
 
 		event.Status = config.StatusPassed
-		_, _ = service.InsertOperation(&models.OperationLog{
+		_ = systemmongodb.NewOperationLogColl().Insert(&models.OperationLog{
 			Username:    c.workflowCtx.WorkflowTaskCreatorUsername,
 			ProductName: c.workflowCtx.ProjectName,
 			Method:      "下线",
@@ -154,7 +154,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			RequestBody: "",
 			Status:      http.StatusOK,
 			CreatedAt:   time.Now().Unix(),
-		}, c.logger)
+		})
 	}
 
 	if fail {
