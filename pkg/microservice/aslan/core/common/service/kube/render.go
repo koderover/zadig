@@ -422,6 +422,8 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 
 	// service not installed, nothing to return
 	if curProductSvc == nil {
+		//todo debug
+		log.Debugf("FetchCurrentAppliedYaml: return 1")
 		return "", 0, nil
 	}
 
@@ -465,9 +467,14 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
+	log.Debugf("FetchCurrentAppliedYaml: fullRenderedYaml-1: %s", fullRenderedYaml)
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 	mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 	fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+	//todo debug
+	log.Debugf("FetchCurrentAppliedYaml: return 2")
+	log.Debugf("FetchCurrentAppliedYaml: err: %v", err)
+	log.Debugf("FetchCurrentAppliedYaml: fullRenderedYaml-2: %s", fullRenderedYaml)
 	return fullRenderedYaml, 0, nil
 }
 
