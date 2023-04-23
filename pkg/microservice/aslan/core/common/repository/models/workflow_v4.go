@@ -494,6 +494,13 @@ type ServiceTriggerWorkflowInfo struct {
 	Params        []*Param `bson:"params" json:"params" yaml:"params"`
 }
 
+type OfflineServiceJobSpec struct {
+	EnvType  config.EnvType `bson:"env_type" json:"env_type" yaml:"env_type"`
+	EnvName  string         `bson:"env_name" json:"env_name" yaml:"env_name"`
+	Source   string         `bson:"source" json:"source" yaml:"source"`
+	Services []string       `bson:"services" json:"services" yaml:"services"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`

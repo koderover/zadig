@@ -367,6 +367,19 @@ type WorkflowTriggerEvent struct {
 	ProjectName         string        `bson:"project_name" json:"project_name" yaml:"project_name"`
 }
 
+type JobTaskOfflineServiceSpec struct {
+	EnvType       config.EnvType                `bson:"env_type" json:"env_type" yaml:"env_type"`
+	EnvName       string                        `bson:"env_name" json:"env_name" yaml:"env_name"`
+	Namespace     string                        `bson:"namespace" json:"namespace" yaml:"namespace"`
+	ServiceEvents []*JobTaskOfflineServiceEvent `bson:"service_events" json:"service_events" yaml:"service_events"`
+}
+
+type JobTaskOfflineServiceEvent struct {
+	ServiceName string        `bson:"service_name" json:"service_name" yaml:"service_name"`
+	Status      config.Status `bson:"status" json:"status" yaml:"status"`
+	Error       string        `bson:"error" json:"error" yaml:"error"`
+}
+
 type PatchTaskItem struct {
 	ResourceName    string   `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
 	ResourceKind    string   `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`
@@ -416,21 +429,22 @@ type StepTask struct {
 }
 
 type WorkflowTaskCtx struct {
-	WorkflowName              string
-	WorkflowDisplayName       string
-	ProjectName               string
-	TaskID                    int64
-	DockerHost                string
-	Workspace                 string
-	DistDir                   string
-	DockerMountDir            string
-	ConfigMapMountDir         string
-	WorkflowTaskCreatorEmail  string
-	WorkflowTaskCreatorMobile string
-	WorkflowKeyVals           []*KeyVal
-	GlobalContextGet          func(key string) (string, bool)
-	GlobalContextSet          func(key, value string)
-	GlobalContextEach         func(f func(k, v string) bool)
-	ClusterIDAdd              func(clusterID string)
-	SetStatus                 func(status config.Status)
+	WorkflowName                string
+	WorkflowDisplayName         string
+	ProjectName                 string
+	TaskID                      int64
+	DockerHost                  string
+	Workspace                   string
+	DistDir                     string
+	DockerMountDir              string
+	ConfigMapMountDir           string
+	WorkflowTaskCreatorUsername string
+	WorkflowTaskCreatorEmail    string
+	WorkflowTaskCreatorMobile   string
+	WorkflowKeyVals             []*KeyVal
+	GlobalContextGet            func(key string) (string, bool)
+	GlobalContextSet            func(key, value string)
+	GlobalContextEach           func(f func(k, v string) bool)
+	ClusterIDAdd                func(clusterID string)
+	SetStatus                   func(status config.Status)
 }
