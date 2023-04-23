@@ -18,6 +18,7 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -212,12 +213,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		log.Errorf("Failed to convert currently deplyed resource yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.CurrentResourceYaml, err)
 		return nil, err
 	}
+	//todo debug
+	str, _ := json.MarshalIndent(curResources, "", "  ")
+	log.Debugf("curResources: %s", string(str))
 
 	resources, err := manifestToUnstructured(applyParam.UpdateResourceYaml)
 	if err != nil {
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
 		return nil, err
 	}
+	//todo debug
+	str, _ = json.MarshalIndent(resources, "", "  ")
+	log.Debugf("Resources: %s", string(str))
 
 	if applyParam.Uninstall {
 		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {

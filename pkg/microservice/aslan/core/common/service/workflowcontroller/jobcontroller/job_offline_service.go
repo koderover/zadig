@@ -108,6 +108,8 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			fail = true
 			continue
 		}
+		//todo debug
+		logger.Debugf("OfflineServiceJobCtl: %s", yaml)
 
 		_, err = kube.CreateOrPatchResource(&kube.ResourceApplyParam{
 			ProductInfo:         env,
