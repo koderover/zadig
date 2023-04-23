@@ -69,6 +69,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		c.job.Status = config.StatusFailed
 		return
 	}
+	c.jobTaskSpec.Namespace = env.Namespace
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
@@ -88,6 +89,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		})
 		if err != nil {
 			event.Error = fmt.Sprintf("update product service deploy info error: %v", err)
+			event.Status = config.StatusFailed
 			logger.Errorf("OfflineServiceJobCtl: update product service deploy info error: %v", err)
 			fail = true
 			continue
@@ -101,6 +103,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		})
 		if err != nil {
 			event.Error = fmt.Sprintf("fetch current applied yaml error: %v", err)
+			event.Status = config.StatusFailed
 			logger.Errorf("OfflineServiceJobCtl: fetch current applied yaml error: %v", err)
 			fail = true
 			continue
@@ -115,10 +118,12 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		}, c.logger.With("caller", "OfflineServiceJobCtl.Run"))
 		if err != nil {
 			event.Error = fmt.Sprintf("remove resource error: %v", err)
+			event.Status = config.StatusFailed
 			logger.Errorf("OfflineServiceJobCtl: create or patch resource error: %v", err)
 			fail = true
 			continue
 		}
+		event.Status = config.StatusPassed
 	}
 	if fail {
 		c.job.Error = "offline some services failed"

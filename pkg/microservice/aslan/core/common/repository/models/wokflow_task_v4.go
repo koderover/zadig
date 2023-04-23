@@ -365,6 +365,7 @@ type WorkflowTriggerEvent struct {
 type JobTaskOfflineServiceSpec struct {
 	EnvType       config.EnvType                `bson:"env_type" json:"env_type" yaml:"env_type"`
 	EnvName       string                        `bson:"env_name" json:"env_name" yaml:"env_name"`
+	Namespace     string                        `bson:"namespace" json:"namespace" yaml:"namespace"`
 	ServiceEvents []*JobTaskOfflineServiceEvent `bson:"service_events" json:"service_events" yaml:"service_events"`
 }
 
