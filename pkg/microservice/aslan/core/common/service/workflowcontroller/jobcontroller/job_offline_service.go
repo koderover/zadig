@@ -81,19 +81,6 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 	var fail bool
 	for _, event := range c.jobTaskSpec.ServiceEvents {
 		logger := c.logger.With("service", event.ServiceName)
-		err := UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
-			ProductName: c.workflowCtx.ProjectName,
-			EnvName:     c.jobTaskSpec.EnvName,
-			ServiceName: event.ServiceName,
-			Uninstall:   true,
-		})
-		if err != nil {
-			event.Error = fmt.Sprintf("update product service deploy info error: %v", err)
-			event.Status = config.StatusFailed
-			logger.Errorf("OfflineServiceJobCtl: update product service deploy info error: %v", err)
-			fail = true
-			continue
-		}
 
 		yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 			ProductName: c.workflowCtx.ProjectName,
@@ -110,6 +97,20 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		}
 		//todo debug
 		logger.Debugf("OfflineServiceJobCtl: %s", yaml)
+
+		err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
+			ProductName: c.workflowCtx.ProjectName,
+			EnvName:     c.jobTaskSpec.EnvName,
+			ServiceName: event.ServiceName,
+			Uninstall:   true,
+		})
+		if err != nil {
+			event.Error = fmt.Sprintf("update product service deploy info error: %v", err)
+			event.Status = config.StatusFailed
+			logger.Errorf("OfflineServiceJobCtl: update product service deploy info error: %v", err)
+			fail = true
+			continue
+		}
 
 		_, err = kube.CreateOrPatchResource(&kube.ResourceApplyParam{
 			ProductInfo:         env,
