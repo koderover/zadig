@@ -227,7 +227,8 @@ func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Ser
 // updateHelmSvcInAllEnvs updates helm svc in all envs in which the svc is already installed
 func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*commonmodels.Service) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name: productName,
+		Name:       productName,
+		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
@@ -296,7 +297,8 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 // updateK8sSvcInAllEnvs updates k8s svc in all envs in which the svc is already installed
 func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name: productName,
+		Name:       productName,
+		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
