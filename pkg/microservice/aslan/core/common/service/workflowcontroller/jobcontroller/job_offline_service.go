@@ -118,6 +118,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			errHandler(fmt.Sprintf("fetch current applied yaml error: %v", err))
 			continue
 		}
+		log.Debugf("yaml: %s", yaml)
 
 		err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
 			ProductName: c.workflowCtx.ProjectName,
