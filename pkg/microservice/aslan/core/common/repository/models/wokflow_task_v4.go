@@ -424,21 +424,22 @@ type StepTask struct {
 }
 
 type WorkflowTaskCtx struct {
-	WorkflowName              string
-	WorkflowDisplayName       string
-	ProjectName               string
-	TaskID                    int64
-	DockerHost                string
-	Workspace                 string
-	DistDir                   string
-	DockerMountDir            string
-	ConfigMapMountDir         string
-	WorkflowTaskCreatorEmail  string
-	WorkflowTaskCreatorMobile string
-	WorkflowKeyVals           []*KeyVal
-	GlobalContextGet          func(key string) (string, bool)
-	GlobalContextSet          func(key, value string)
-	GlobalContextEach         func(f func(k, v string) bool)
-	ClusterIDAdd              func(clusterID string)
-	SetStatus                 func(status config.Status)
+	WorkflowName                string
+	WorkflowDisplayName         string
+	ProjectName                 string
+	TaskID                      int64
+	DockerHost                  string
+	Workspace                   string
+	DistDir                     string
+	DockerMountDir              string
+	ConfigMapMountDir           string
+	WorkflowTaskCreatorUsername string
+	WorkflowTaskCreatorEmail    string
+	WorkflowTaskCreatorMobile   string
+	WorkflowKeyVals             []*KeyVal
+	GlobalContextGet            func(key string) (string, bool)
+	GlobalContextSet            func(key, value string)
+	GlobalContextEach           func(f func(k, v string) bool)
+	ClusterIDAdd                func(clusterID string)
+	SetStatus                   func(status config.Status)
 }

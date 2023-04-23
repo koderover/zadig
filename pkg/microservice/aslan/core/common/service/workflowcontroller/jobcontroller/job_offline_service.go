@@ -19,6 +19,9 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -26,6 +29,10 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/setting"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -78,9 +85,32 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		return
 	}
 
+	c.logger = c.logger.With("func", "OfflineServiceJobCtl")
+
 	var fail bool
 	for _, event := range c.jobTaskSpec.ServiceEvents {
 		logger := c.logger.With("service", event.ServiceName)
+
+		errHandler := func(errMsg string) {
+			event.Error = errMsg
+			event.Status = config.StatusFailed
+			logger.Errorf(errMsg)
+			fail = true
+			internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
+
+			_, _ = service.InsertOperation(&models.OperationLog{
+				Username:    c.workflowCtx.WorkflowTaskCreatorUsername,
+				ProductName: c.workflowCtx.ProjectName,
+				Method:      "下线",
+				Function:    "环境的服务",
+				Scene:       setting.OperationSceneEnv,
+				Targets:     []string{c.jobTaskSpec.EnvName},
+				Name:        fmt.Sprintf("%s:[%s]", c.jobTaskSpec.EnvName, event.ServiceName),
+				RequestBody: "",
+				Status:      http.StatusInternalServerError,
+				CreatedAt:   time.Now().Unix(),
+			}, c.logger)
+		}
 
 		yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 			ProductName: c.workflowCtx.ProjectName,
@@ -89,14 +119,9 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			UnInstall:   true,
 		})
 		if err != nil {
-			event.Error = fmt.Sprintf("fetch current applied yaml error: %v", err)
-			event.Status = config.StatusFailed
-			logger.Errorf("OfflineServiceJobCtl: fetch current applied yaml error: %v", err)
-			fail = true
+			errHandler(fmt.Sprintf("fetch current applied yaml error: %v", err))
 			continue
 		}
-		//todo debug
-		logger.Debugf("OfflineServiceJobCtl: %s", yaml)
 
 		err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
 			ProductName: c.workflowCtx.ProjectName,
@@ -105,10 +130,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			Uninstall:   true,
 		})
 		if err != nil {
-			event.Error = fmt.Sprintf("update product service deploy info error: %v", err)
-			event.Status = config.StatusFailed
-			logger.Errorf("OfflineServiceJobCtl: update product service deploy info error: %v", err)
-			fail = true
+			errHandler(fmt.Sprintf("update product service deploy info error: %v", err))
 			continue
 		}
 
@@ -120,14 +142,25 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			Uninstall:           true,
 		}, c.logger.With("caller", "OfflineServiceJobCtl.Run"))
 		if err != nil {
-			event.Error = fmt.Sprintf("remove resource error: %v", err)
-			event.Status = config.StatusFailed
-			logger.Errorf("OfflineServiceJobCtl: create or patch resource error: %v", err)
-			fail = true
+			errHandler(fmt.Sprintf("create or patch resource error: %v", err))
 			continue
 		}
+
 		event.Status = config.StatusPassed
+		_, _ = service.InsertOperation(&models.OperationLog{
+			Username:    c.workflowCtx.WorkflowTaskCreatorUsername,
+			ProductName: c.workflowCtx.ProjectName,
+			Method:      "下线",
+			Function:    "环境的服务",
+			Scene:       setting.OperationSceneEnv,
+			Targets:     []string{c.jobTaskSpec.EnvName},
+			Name:        fmt.Sprintf("%s:[%s]", c.jobTaskSpec.EnvName, event.ServiceName),
+			RequestBody: "",
+			Status:      http.StatusOK,
+			CreatedAt:   time.Now().Unix(),
+		}, c.logger)
 	}
+
 	if fail {
 		c.job.Error = "offline some services failed"
 		c.job.Status = config.StatusFailed
