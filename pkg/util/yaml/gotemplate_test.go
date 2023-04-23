@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"text/template"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 )
@@ -30,7 +30,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: service-1
-  labels: 
+  labels:
     app.kubernetes.io/name: project-1
     app.kubernetes.io/instance: service-1
 spec:
@@ -39,7 +39,7 @@ spec:
       app.kubernetes.io/name: project-1
       app.kubernetes.io/instance: service-1
   template:
-    metadata: 
+    metadata:
       labels:
         app.kubernetes.io/name: {{.base.property}}
         app.kubernetes.io/instance: service-1
@@ -47,7 +47,7 @@ spec:
       containers:
         - name: service-1
           image: ccr.ccs.tencentyun.com/koderover-public/service-1:latest
-          imagePullPolicy: Always 
+          imagePullPolicy: Always
           env:
             - name: DOWNSTREAM_ADDR
               value: "hahaha"
