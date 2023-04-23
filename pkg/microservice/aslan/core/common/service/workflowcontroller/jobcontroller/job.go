@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -110,8 +111,9 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 	defer func(jobInfo *JobCtl) {
 		if err := recover(); err != nil {
+			_, file, line, _ := runtime.Caller(2)
+			logger.Errorf("Recover %s:%d job: %s panic: %v", file, line, job.Name, err)
 			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
-			logger.Error(errMsg)
 			job.Status = config.StatusFailed
 			job.Error = errMsg
 		}
